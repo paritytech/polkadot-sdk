@@ -108,7 +108,10 @@ where
 		// The unique ID of this operation.
 		let id = self.generate_unique_id();
 
-		// There is nothing we could do with an extrinsic of invalid format.
+		// The JSON-RPC server might check whether the transaction is valid before broadcasting it.
+		// If it does so and if the transaction is invalid, the server should silently do nothing
+		// and the JSON-RPC client is not informed of the problem. Invalid transactions should still
+		// count towards the limit to the number of simultaneously broadcasted transactions.
 		let Ok(decoded_extrinsic) = TransactionFor::<Pool>::decode(&mut &bytes[..]) else {
 			return Ok(Some(id));
 		};
