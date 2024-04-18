@@ -63,6 +63,7 @@ const MAX_PINNED_BLOCKS: usize = 32;
 const MAX_PINNED_SECS: u64 = 60;
 const MAX_OPERATIONS: usize = 16;
 const MAX_PAGINATION_LIMIT: usize = 5;
+const MAX_LAGGING_DISTANCE: usize = 128;
 const MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION: usize = 4;
 
 const INVALID_HASH: [u8; 32] = [1; 32];
@@ -88,6 +89,7 @@ pub async fn run_server() -> std::net::SocketAddr {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 			max_follow_subscriptions_per_connection: 1,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -148,6 +150,7 @@ async fn setup_api() -> (
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -184,6 +187,62 @@ async fn setup_api() -> (
 	(client, api, sub, sub_id, block)
 }
 
+async fn import_block(
+	mut client: Arc<Client<Backend>>,
+	parent_hash: <Block as BlockT>::Hash,
+	parent_number: u64,
+) -> Block {
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(parent_hash)
+		.with_parent_block_number(parent_number)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+	block
+}
+
+async fn import_best_block_with_tx(
+	mut client: Arc<Client<Backend>>,
+	parent_hash: <Block as BlockT>::Hash,
+	parent_number: u64,
+	tx: Transfer,
+) -> Block {
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(parent_hash)
+		.with_parent_block_number(parent_number)
+		.build()
+		.unwrap();
+	block_builder.push_transfer(tx).unwrap();
+	let block = block_builder.build().unwrap().block;
+	client.import_as_best(BlockOrigin::Own, block.clone()).await.unwrap();
+	block
+}
+
+/// Check the subscription produces a new block and a best block event.
+///
+/// The macro is used instead of a fn to preserve the lines of code in case of panics.
+macro_rules! check_new_and_best_block_events {
+	($sub:expr, $block_hash:expr, $parent_hash:expr) => {
+		let event: FollowEvent<String> = get_next_event($sub).await;
+		let expected = FollowEvent::NewBlock(NewBlock {
+			block_hash: format!("{:?}", $block_hash),
+			parent_block_hash: format!("{:?}", $parent_hash),
+			new_runtime: None,
+			with_runtime: false,
+		});
+		assert_eq!(event, expected);
+
+		let event: FollowEvent<String> = get_next_event($sub).await;
+		let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+			best_block_hash: format!("{:?}", $block_hash),
+		});
+		assert_eq!(event, expected);
+	};
+}
+
 #[tokio::test]
 async fn follow_subscription_produces_blocks() {
 	let builder = TestClientBuilder::new();
@@ -199,6 +258,8 @@ async fn follow_subscription_produces_blocks() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -268,6 +329,8 @@ async fn follow_with_runtime() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -581,6 +644,8 @@ async fn call_runtime_without_flag() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -1240,6 +1305,8 @@ async fn separate_operation_ids_for_subscriptions() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -1329,6 +1396,8 @@ async fn follow_generates_initial_blocks() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -1485,6 +1554,8 @@ async fn follow_exceeding_pinned_blocks() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -1562,6 +1633,8 @@ async fn follow_with_unpin() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -1674,6 +1747,8 @@ async fn unpin_duplicate_hashes() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -1777,6 +1852,8 @@ async fn follow_with_multiple_unpin_hashes() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -1931,6 +2008,8 @@ async fn follow_prune_best_block() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -2117,6 +2196,8 @@ async fn follow_forks_pruned_block() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -2277,6 +2358,8 @@ async fn follow_report_multiple_pruned_block() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -2523,6 +2606,8 @@ async fn pin_block_references() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -2661,6 +2746,8 @@ async fn follow_finalized_before_new_block() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -2776,6 +2863,8 @@ async fn ensure_operation_limits_works() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: 1,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -2881,6 +2970,8 @@ async fn check_continue_operation() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: 1,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -3064,6 +3155,8 @@ async fn stop_storage_operation() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: 1,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
@@ -3352,6 +3445,88 @@ async fn storage_closest_merkle_value() {
 }
 
 #[tokio::test]
+async fn chain_head_stop_all_subscriptions() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let mut client = Arc::new(builder.build());
+
+	// Configure the chainHead to stop all subscriptions on lagging distance of 5 blocks.
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+			max_lagging_distance: 5,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+		},
+	)
+	.into_rpc();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::Initialized(_)
+	);
+
+	// Import 6 blocks in total to trigger the suspension distance.
+	let mut parent_hash = client.chain_info().genesis_hash;
+	for i in 0..6 {
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(parent_hash)
+			.with_parent_block_number(i)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		let hash = block.hash();
+		parent_hash = hash;
+		client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+		assert_matches!(
+			get_next_event::<FollowEvent<String>>(&mut sub).await,
+			FollowEvent::NewBlock(_)
+		);
+		assert_matches!(
+			get_next_event::<FollowEvent<String>>(&mut sub).await,
+			FollowEvent::BestBlockChanged(_)
+		);
+	}
+
+	let mut second_sub =
+		api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	// Lagging detected, the stop event is delivered immediately.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut second_sub).await,
+		FollowEvent::Stop
+	);
+
+	// Ensure that all subscriptions are stopped.
+	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
+
+	// Other subscriptions cannot be started until the suspension period is over.
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	// Should receive the stop event immediately.
+	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
+
+	// For the next subscription, lagging distance must be smaller.
+	client.finalize_block(parent_hash, None).unwrap();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::Initialized(_)
+	);
+}
+
+#[tokio::test]
 async fn chain_head_single_connection_context() {
 	let server_addr = run_server().await;
 	let server_url = format!("ws://{}", server_addr);
@@ -3500,12 +3675,14 @@ async fn chain_head_limit_reached() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: 1,
 		},
 	)
 	.into_rpc();
 
 	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+
 	// Initialized must always be reported first.
 	let _event: FollowEvent<String> = get_next_event(&mut sub).await;
 
@@ -3522,4 +3699,161 @@ async fn chain_head_limit_reached() {
 	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	// Initialized must always be reported first.
 	let _event: FollowEvent<String> = get_next_event(&mut sub).await;
+}
+
+#[tokio::test]
+async fn follow_unique_pruned_blocks() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
+		},
+	)
+	.into_rpc();
+
+	let finalized_hash = client.info().finalized_hash;
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+
+	// Initialized must always be reported first.
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::Initialized(Initialized {
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
+		finalized_block_runtime: None,
+		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+
+	// Block tree:
+	//
+	// finalized -> block 1 -> block 2 -> block 3
+	//
+	//                      -> block 2 -> block 4 -> block 5
+	//
+	//           -> block 1 -> block 2_f -> block 6
+	//                                    ^^^ finalized
+	//                                                 -> block 7
+	//                                                    ^^^ finalized
+	//                                                            -> block 8
+	//                                                               ^^^ finalized
+	// The chainHead will see block 5 as the best block. However, the
+	// client will finalize the block 6, which is on another fork.
+	//
+	// When the block 6 is finalized, block 2 block 3 block 4 and block 5 are placed on an invalid
+	// fork. However, pruning of blocks happens on level N - 1.
+	// Therefore, no pruned blocks are reported yet.
+	//
+	// When the block 7 is finalized, block 3 is detected as stale. At this step, block 2 and 3
+	// are reported as pruned.
+	//
+	// When the block 8 is finalized, block 5 block 4 and block 2 are detected as stale. However,
+	// only blocks 5 and 4 are reported as pruned. This is because the block 2 was previously
+	// reported.
+
+	// Initial setup steps:
+	let block_1_hash =
+		import_block(client.clone(), client.chain_info().genesis_hash, 0).await.hash();
+	let block_2_f_hash = import_block(client.clone(), block_1_hash, 1).await.hash();
+	let block_6_hash = import_block(client.clone(), block_2_f_hash, 2).await.hash();
+	// Import block 2 as best on the fork.
+	let mut tx_alice_ferdie = Transfer {
+		from: AccountKeyring::Alice.into(),
+		to: AccountKeyring::Ferdie.into(),
+		amount: 41,
+		nonce: 0,
+	};
+	let block_2_hash =
+		import_best_block_with_tx(client.clone(), block_1_hash, 1, tx_alice_ferdie.clone())
+			.await
+			.hash();
+
+	let block_3_hash = import_block(client.clone(), block_2_hash, 2).await.hash();
+	// Fork block 4.
+	tx_alice_ferdie.nonce = 1;
+	let block_4_hash = import_best_block_with_tx(client.clone(), block_2_hash, 2, tx_alice_ferdie)
+		.await
+		.hash();
+	let block_5_hash = import_block(client.clone(), block_4_hash, 3).await.hash();
+
+	// Check expected events generated by the setup.
+	{
+		// Check block 1 -> block 2f -> block 6.
+		check_new_and_best_block_events!(&mut sub, block_1_hash, finalized_hash);
+		check_new_and_best_block_events!(&mut sub, block_2_f_hash, block_1_hash);
+		check_new_and_best_block_events!(&mut sub, block_6_hash, block_2_f_hash);
+
+		// Check (block 1 ->) block 2 -> block 3.
+		check_new_and_best_block_events!(&mut sub, block_2_hash, block_1_hash);
+		check_new_and_best_block_events!(&mut sub, block_3_hash, block_2_hash);
+
+		// Check (block 1 -> block 2 ->) block 4 -> block 5.
+		check_new_and_best_block_events!(&mut sub, block_4_hash, block_2_hash);
+		check_new_and_best_block_events!(&mut sub, block_5_hash, block_4_hash);
+	}
+
+	// Finalize the block 6 from the fork.
+	client.finalize_block(block_6_hash, None).unwrap();
+
+	// Expect to report the best block changed before the finalized event.
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", block_6_hash),
+	});
+	assert_eq!(event, expected);
+
+	// Block 2 must be reported as pruned, even if it was the previous best.
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::Finalized(Finalized {
+		finalized_block_hashes: vec![
+			format!("{:?}", block_1_hash),
+			format!("{:?}", block_2_f_hash),
+			format!("{:?}", block_6_hash),
+		],
+		pruned_block_hashes: vec![],
+	});
+	assert_eq!(event, expected);
+
+	// Pruned hash can be unpinned.
+	let sub_id = sub.subscription_id();
+	let sub_id = serde_json::to_string(&sub_id).unwrap();
+	let hash = format!("{:?}", block_2_hash);
+	let _res: () = api.call("chainHead_unstable_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
+
+	// Import block 7 and check it.
+	let block_7_hash = import_block(client.clone(), block_6_hash, 3).await.hash();
+	check_new_and_best_block_events!(&mut sub, block_7_hash, block_6_hash);
+
+	// Finalize the block 7.
+	client.finalize_block(block_7_hash, None).unwrap();
+
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::Finalized(Finalized {
+		finalized_block_hashes: vec![format!("{:?}", block_7_hash)],
+		pruned_block_hashes: vec![format!("{:?}", block_2_hash), format!("{:?}", block_3_hash)],
+	});
+	assert_eq!(event, expected);
+
+	// Check block 8.
+	let block_8_hash = import_block(client.clone(), block_7_hash, 4).await.hash();
+	check_new_and_best_block_events!(&mut sub, block_8_hash, block_7_hash);
+
+	// Finalize the block 8.
+	client.finalize_block(block_8_hash, None).unwrap();
+
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::Finalized(Finalized {
+		finalized_block_hashes: vec![format!("{:?}", block_8_hash)],
+		pruned_block_hashes: vec![format!("{:?}", block_4_hash), format!("{:?}", block_5_hash)],
+	});
+	assert_eq!(event, expected);
 }
