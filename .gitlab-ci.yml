@@ -270,6 +270,7 @@ test-linux-stable-codecov:
     - .common-refs
     - .pipeline-stopper-artifacts
   variables:
+    CI_IMAGE: europe-docker.pkg.dev/parity-build/ci-images/ci-unified:bullseye-1.77.0
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
