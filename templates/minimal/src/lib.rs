@@ -61,5 +61,5 @@
 //! available commands, run the following command:
 //!
 //! ```bash
-//! ./target/release/minimal_template_node --help
+//! ./target/release/minimal-template-node --help
 //! ```
