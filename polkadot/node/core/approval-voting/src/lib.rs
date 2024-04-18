@@ -2853,22 +2853,31 @@ where
 				.iter()
 				.filter(|(hash, _)| **hash != block_hash)
 			{
+				let assigned_on_fork_block = validator_index
+					.as_ref()
+					.map(|validator_index| fork_approval_entry.is_assigned(*validator_index))
+					.unwrap_or_default();
 				if wakeups.wakeup_for(*fork_block_hash, candidate_hash).is_none() &&
 					!fork_approval_entry.is_approved() &&
-					validator_index
-						.as_ref()
-						.map(|validator_index| fork_approval_entry.is_assigned(*validator_index))
-						.unwrap_or_default()
+					assigned_on_fork_block
 				{
-					if let Ok(Some(other_block_entry)) = db.load_block_entry(fork_block_hash) {
+					let fork_block_entry = db.load_block_entry(fork_block_hash);
+					if let Ok(Some(fork_block_entry)) = fork_block_entry {
 						actions.push(Action::ScheduleWakeup {
 							block_hash: *fork_block_hash,
-							block_number: other_block_entry.block_number(),
+							block_number: fork_block_entry.block_number(),
 							candidate_hash,
 							// Schedule the wakeup next tick, since the assignment must be a
 							// no-show, because there is no-wakeup scheduled.
 							tick: tick_now + 1,
 						})
+					} else {
+						gum::debug!(
+							target: LOG_TARGET,
+							?fork_block_entry,
+							?fork_block_hash,
+							"Failed to load block entry"
+						)
 					}
 				}
 			}
