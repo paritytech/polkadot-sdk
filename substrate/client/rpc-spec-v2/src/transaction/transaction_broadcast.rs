@@ -220,7 +220,7 @@ where
 			// Connection space is cleaned when this object is dropped.
 			drop(reserved_identifier);
 
-			// Remove the entry from the broadcast IDs map.substrate/client/rpc-spec-v2/src/transaction/tests/transaction_broadcast_tests.rs
+			// Remove the entry from the broadcast IDs map.
 			let Some(broadcast_state) = broadcast_ids.write().remove(&drop_id) else { return };
 
 			// The broadcast was not stopped.
