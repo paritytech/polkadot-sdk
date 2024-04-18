@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713378278331,
+  "lastUpdate": 1713427305329,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4073,6 +4073,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.21943879793333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Tin Chung",
+            "username": "chungquantin",
+            "email": "56880684+chungquantin@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d591b16f6b1dec88003323cdae0c3abe3b5c9cbe",
+          "message": "Remove NotConcrete error (#3867)\n\n# Description\n- Link to issue: https://github.com/paritytech/polkadot-sdk/issues/3651\n\npolkadot address: 19nSqFQorfF2HxD3oBzWM3oCh4SaCRKWt1yvmgaPYGCo71J",
+          "timestamp": "2024-04-18T06:44:49Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d591b16f6b1dec88003323cdae0c3abe3b5c9cbe"
+        },
+        "date": 1713427277823,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.862787047866666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.209936026,
             "unit": "seconds"
           }
         ]
