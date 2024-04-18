@@ -385,7 +385,7 @@ pub fn read_trie_value_with_location<
 	let location = node.node_plan().additional_ref_location(node.locations());
 	let Some(root) = iter.item_from_raw(&item) else { return Ok(None) };
 	let (root_key2, root) = root?;
-	// TODO should be a debug_assert
+	// TODO should be a debug_assert?
 	if root_key2.as_slice() != root_key {
 		return Ok(None);
 	}
