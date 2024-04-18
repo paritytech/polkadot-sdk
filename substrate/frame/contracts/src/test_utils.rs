@@ -15,15 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarks for the nomination pools coupled with the staking and bags list pallets.
+//! Shared utilities for testing contracts.
+//! This is not part of the tests module because it is made public for other crates to use.
+#![cfg(feature = "std")]
+use frame_support::weights::Weight;
+pub use sp_runtime::AccountId32;
 
-#![cfg_attr(not(feature = "std"), no_std)]
+pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
+pub const BOB: AccountId32 = AccountId32::new([2u8; 32]);
+pub const CHARLIE: AccountId32 = AccountId32::new([3u8; 32]);
+pub const DJANGO: AccountId32 = AccountId32::new([4u8; 32]);
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod inner;
-
-#[cfg(feature = "runtime-benchmarks")]
-pub use inner::*;
-
-#[cfg(all(feature = "runtime-benchmarks", test))]
-pub(crate) mod mock;
+pub const GAS_LIMIT: Weight = Weight::from_parts(100_000_000_000, 3 * 1024 * 1024);
+pub mod builder;
