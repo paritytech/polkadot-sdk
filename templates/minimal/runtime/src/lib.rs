@@ -131,8 +131,7 @@ parameter_types! {
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type Version = Version;
-	type BlockHashCount = ConstU32<1024>;
-	/// Use the account data from the balances pallet
+	// Use the account data from the balances pallet
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
 }
 
