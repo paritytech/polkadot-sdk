@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod builder;
 mod pallet_dummy;
 mod test_debug;
 
@@ -34,7 +33,7 @@ use crate::{
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
+	wasm::{Determinism, LoadingMode, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	Array, BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo,
 	ContractInfoOf, DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
@@ -98,7 +97,6 @@ macro_rules! assert_refcount {
 }
 
 pub mod test_utils {
-
 	use super::{Contracts, DepositPerByte, DepositPerItem, Hash, SysConfig, Test};
 	use crate::{
 		exec::AccountIdOf, BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo,
@@ -163,6 +161,38 @@ pub mod test_utils {
 		assert!(CodeInfoOf::<Test>::contains_key(&code_hash));
 		// Assert that contract code is stored, and get its size.
 		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
+	}
+}
+
+mod builder {
+	use super::Test;
+	use crate::{
+		test_utils::{builder::*, AccountId32, ALICE},
+		tests::RuntimeOrigin,
+		AccountIdLookupOf, Code, CodeHash,
+	};
+
+	pub fn bare_instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder<Test> {
+		BareInstantiateBuilder::<Test>::bare_instantiate(ALICE, code)
+	}
+
+	pub fn bare_call(dest: AccountId32) -> BareCallBuilder<Test> {
+		BareCallBuilder::<Test>::bare_call(ALICE, dest)
+	}
+
+	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<Test> {
+		InstantiateWithCodeBuilder::<Test>::instantiate_with_code(
+			RuntimeOrigin::signed(ALICE),
+			code,
+		)
+	}
+
+	pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder<Test> {
+		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
+	}
+
+	pub fn call(dest: AccountIdLookupOf<Test>) -> CallBuilder<Test> {
+		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
 	}
 }
 
@@ -334,34 +364,24 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type Block = Block;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
+
 impl pallet_insecure_randomness_collective_flip::Config for Test {}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
+	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = ConstU64<1>;
-	type WeightInfo = ();
-}
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {}
+
 impl pallet_utility::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -467,16 +487,13 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type Time = Timestamp;
 	type Randomness = Randomness;
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
 	type CallFilter = TestFilter;
 	type CallStack = [Frame<Self>; 5];
-	type WeightPrice = Self;
-	type WeightInfo = ();
 	type ChainExtension =
 		(TestExtension, DisabledExtension, RevertingExtension, TempStorageExtension);
 	type Schedule = MySchedule;
@@ -484,20 +501,13 @@ impl Config for Test {
 	type DepositPerItem = DepositPerItem;
 	type DefaultDepositLimit = DefaultDepositLimit;
 	type AddressGenerator = DefaultAddressGenerator;
-	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
-	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = UnstableInterface;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
-	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
-	type Environment = ();
-	type ApiVersion = ();
-	type Xcm = ();
 }
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
@@ -1100,6 +1110,20 @@ fn delegate_call() {
 			.data(callee_code_hash.as_ref().to_vec())
 			.build());
 	});
+}
+
+#[test]
+fn track_check_uncheck_module_call() {
+	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		Contracts::bare_upload_code(ALICE, wasm, None, Determinism::Enforced).unwrap();
+		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_result();
+	});
+
+	// It should have recorded 1 `Checked` for the upload and 1 `Unchecked` for the instantiate.
+	let record = crate::wasm::tracker::LOADED_MODULE.with(|stack| stack.borrow().clone());
+	assert_eq!(record, vec![LoadingMode::Checked, LoadingMode::Unchecked]);
 }
 
 #[test]
@@ -2445,14 +2469,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 				transfer_proxy_call,
 			);
 
-			<Pallet<Test>>::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				data.encode(),
-			)
+			builder::call(addr_caller).data(data.encode()).build()
 		})
 	};
 
@@ -3803,7 +3820,7 @@ fn locking_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			dependency_deposit + contract.storage_base_deposit() - ED
+			dependency_deposit + contract.storage_base_deposit()
 		);
 
 		// Removing the code should fail, since we have added a dependency.
@@ -3842,7 +3859,7 @@ fn locking_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			contract.storage_base_deposit() - ED
+			contract.storage_base_deposit()
 		);
 
 		// Removing a nonexistent dependency should fail.
@@ -3874,7 +3891,7 @@ fn locking_delegate_dependency_works() {
 		assert_ok!(call(&addr_caller, &terminate_input).result);
 		assert_eq!(
 			test_utils::get_balance(&ALICE),
-			balance_before + contract.storage_base_deposit() + dependency_deposit
+			ED + balance_before + contract.storage_base_deposit() + dependency_deposit
 		);
 
 		// Terminate should also remove the dependency, so we can remove the code.
@@ -3890,13 +3907,9 @@ fn native_dependency_deposit_works() {
 	// Set hash lock up deposit to 30%, to test deposit calculation.
 	CODE_HASH_LOCKUP_DEPOSIT_PERCENT.with(|c| *c.borrow_mut() = Perbill::from_percent(30));
 
-	// Set a low existential deposit so that the base storage deposit is based on the contract
-	// storage deposit rather than the existential deposit.
-	const ED: u64 = 10;
-
 	// Test with both existing and uploaded code
 	for code in [Code::Upload(wasm.clone()), Code::Existing(code_hash)] {
-		ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let _ = Balances::set_balance(&ALICE, 1_000_000);
 			let lockup_deposit_percent = CodeHashLockupDepositPercent::get();
 
@@ -3928,16 +3941,16 @@ fn native_dependency_deposit_works() {
 			let res = builder::bare_instantiate(code).build();
 
 			let addr = res.result.unwrap().account_id;
-			let base_deposit = ED + test_utils::contract_info_storage_deposit(&addr);
+			let base_deposit = test_utils::contract_info_storage_deposit(&addr);
 			let upload_deposit = test_utils::get_code_deposit(&code_hash);
 			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
 
 			// Check initial storage_deposit
-			// The base deposit should be: ED + contract_info_storage_deposit + 30% * deposit
+			// The base deposit should be: contract_info_storage_deposit + 30% * deposit
 			let deposit =
 				extra_deposit + base_deposit + lockup_deposit_percent.mul_ceil(upload_deposit);
 
-			assert_eq!(res.storage_deposit.charge_or_zero(), deposit);
+			assert_eq!(res.storage_deposit.charge_or_zero(), deposit + Contracts::min_balance());
 
 			// call set_code_hash
 			builder::bare_call(addr.clone())
@@ -3948,9 +3961,10 @@ fn native_dependency_deposit_works() {
 			let code_deposit = test_utils::get_code_deposit(&dummy_code_hash);
 			let deposit = base_deposit + lockup_deposit_percent.mul_ceil(code_deposit);
 			assert_eq!(test_utils::get_contract(&addr).storage_base_deposit(), deposit);
+
 			assert_eq!(
 				test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &addr),
-				deposit - ED
+				deposit
 			);
 		});
 	}

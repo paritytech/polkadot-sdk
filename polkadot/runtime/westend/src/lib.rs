@@ -31,9 +31,9 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
-		ProcessMessageError, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
+		EitherOfDiverse, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, ProcessMessage, ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -57,7 +57,8 @@ use runtime_common::{
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
 	impls::{
-		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedLocationConverter,
+		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
+		VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::{Leaser, OnSwap},
@@ -80,7 +81,7 @@ use runtime_parachains::{
 	shared as parachains_shared,
 };
 use scale_info::TypeInfo;
-use sp_core::{OpaqueMetadata, RuntimeDebug, H256};
+use sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -333,6 +334,7 @@ impl pallet_mmr::Config for Runtime {
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
 	type WeightInfo = ();
 	type LeafData = pallet_beefy_mmr::Pallet<Runtime>;
+	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
 }
 
 /// MMR helper types.
@@ -711,7 +713,15 @@ impl pallet_treasury::Config for Runtime {
 		LocatableAssetConverter,
 		VersionedLocationConverter,
 	>;
-	type BalanceConverter = AssetRate;
+	type BalanceConverter = UnityOrOuterConversion<
+		ContainsParts<
+			FromContains<
+				xcm_builder::IsChildSystemParachain<ParaId>,
+				xcm_builder::IsParentsOnly<ConstU8<1>>,
+			>,
+		>,
+		AssetRate,
+	>;
 	type PayoutPeriod = PayoutSpendPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = runtime_common::impls::benchmarks::TreasuryArguments;
@@ -1153,11 +1163,16 @@ impl pallet_message_queue::Config for Runtime {
 
 impl parachains_dmp::Config for Runtime {}
 
+parameter_types! {
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4096, 4);
+}
+
 impl parachains_hrmp::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type WeightInfo = weights::runtime_parachains_hrmp::WeightInfo<Self>;
 }
 
@@ -1848,6 +1863,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn candidate_pending_availability(para_id: ParaId) -> Option<CommittedCandidateReceipt<Hash>> {
+			#[allow(deprecated)]
 			parachains_runtime_api_impl::candidate_pending_availability::<Runtime>(para_id)
 		}
 
@@ -1960,6 +1976,10 @@ sp_api::impl_runtime_apis! {
 
 		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 			vstaging_parachains_runtime_api_impl::claim_queue::<Runtime>()
+		}
+
+		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
+			vstaging_parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
 	}
 
