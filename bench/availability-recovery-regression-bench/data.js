@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713440826951,
+  "lastUpdate": 1713456032854,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4241,6 +4241,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.813954746333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "ordian",
+            "username": "ordian",
+            "email": "write@reusable.software"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "91d4a207af43f8f81f56e4f24af74f7c6f590148",
+          "message": "chain-selection: allow reverting current block (#4103)\n\nBlock reversion of the current block is technically possible as can be\nseen from\n\nhttps://github.com/paritytech/polkadot-sdk/blob/39b1f50f1c251def87c1625d68567ed252dc6272/polkadot/runtime/parachains/src/disputes.rs#L1215-L1223\n\n- [x] Fix the test",
+          "timestamp": "2024-04-18T14:32:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/91d4a207af43f8f81f56e4f24af74f7c6f590148"
+        },
+        "date": 1713456007995,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.838443908999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21839375486666665,
             "unit": "seconds"
           }
         ]
