@@ -554,9 +554,9 @@ async fn tx_broadcast_limit_reached() {
 	);
 	assert_eq!(1, exec_middleware.num_tasks());
 
-	let limit_reached: Option<String> =
+	let operation_id_limit_reached: Option<String> =
 		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
-	assert!(limit_reached.is_none());
+	assert!(operation_id_limit_reached.is_none(), "No operation ID => tx was rejected");
 
 	// We still have in flight one operation.
 	assert_eq!(1, exec_middleware.num_tasks());
