@@ -674,6 +674,7 @@ async fn validate_candidate_exhaustive(
 					params,
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
+					polkadot_node_core_pvf::Priority::Critical,
 				)
 				.await,
 	};
@@ -760,8 +761,11 @@ trait ValidationBackend {
 		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError>;
 
-	/// Tries executing a PVF for the approval subsystem. Will retry once if an error is encountered
-	/// that may have been transient.
+	/// Tries executing a PVF. Will retry once if an error is encountered that may have
+	/// been transient.
+	///
+	/// The `prepare_priority` is relevant in the context of the caller. Currently we expect
+	/// that `approval` context has priority over `backing` context.
 	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
 	/// preparation.
@@ -772,6 +776,8 @@ trait ValidationBackend {
 		params: ValidationParams,
 		executor_params: ExecutorParams,
 		retry_delay: Duration,
+		// The priority for the preparation job.
+		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -787,12 +793,7 @@ trait ValidationBackend {
 
 		// Use `Priority::Critical` as finality trumps parachain liveliness.
 		let mut validation_result = self
-			.validate_candidate(
-				pvf.clone(),
-				exec_timeout,
-				params.encode(),
-				polkadot_node_core_pvf::Priority::Critical,
-			)
+			.validate_candidate(pvf.clone(), exec_timeout, params.encode(), prepare_priority)
 			.await;
 		if validation_result.is_ok() {
 			return validation_result
@@ -868,12 +869,7 @@ trait ValidationBackend {
 				// Encode the params again when re-trying. We expect the retry case to be relatively
 				// rare, and we want to avoid unconditionally cloning data.
 				validation_result = self
-					.validate_candidate(
-						pvf.clone(),
-						new_timeout,
-						params.encode(),
-						polkadot_node_core_pvf::Priority::Critical,
-					)
+					.validate_candidate(pvf.clone(), new_timeout, params.encode(), prepare_priority)
 					.await;
 			}
 		}
