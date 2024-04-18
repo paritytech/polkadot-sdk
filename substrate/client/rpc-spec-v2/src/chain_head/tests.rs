@@ -3690,7 +3690,7 @@ async fn follow_unique_pruned_blocks() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -3794,7 +3794,7 @@ async fn follow_unique_pruned_blocks() {
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 	let hash = format!("{:?}", block_2_hash);
-	let _res: () = api.call("chainHead_unstable_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
+	let _res: () = api.call("chainHead_v1_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
 
 	// Import block 7 and check it.
 	let block_7_hash = import_block(client.clone(), block_6_hash, 3).await.hash();
