@@ -4104,10 +4104,7 @@ fn full_unbond_works() {
 		let res = Staking::full_unbond(RuntimeOrigin::signed(11));
 		assert!(res.is_ok());
 
-		assert_eq!(
-			*staking_events().last().unwrap(),
-			Event::Unbonded { stash: 11, amount: 1000 }
-		);
+		assert_eq!(*staking_events().last().unwrap(), Event::Unbonded { stash: 11, amount: 1000 });
 		assert_eq!(
 			*staking_events().get(staking_events().len() - 2).unwrap(),
 			Event::Chilled { stash: 11 }
@@ -4150,10 +4147,7 @@ fn unbond_with_chill_works() {
 		let res = Staking::unbond(RuntimeOrigin::signed(11), 1000);
 		assert!(res.is_ok());
 
-		assert_eq!(
-			*staking_events().last().unwrap(),
-			Event::Unbonded { stash: 11, amount: 1000 }
-		);
+		assert_eq!(*staking_events().last().unwrap(), Event::Unbonded { stash: 11, amount: 1000 });
 		assert_eq!(
 			*staking_events().get(staking_events().len() - 2).unwrap(),
 			Event::Chilled { stash: 11 }
