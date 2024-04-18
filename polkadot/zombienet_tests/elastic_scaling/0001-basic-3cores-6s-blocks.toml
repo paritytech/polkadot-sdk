@@ -20,8 +20,8 @@ chain = "rococo-local"
 default_command = "polkadot"
 
   [relaychain.default_resources]
-  limits = { memory = "4G", cpu = "2" }
-  requests = { memory = "2G", cpu = "1" }
+  limits = { memory = "4G", cpu = "3" }
+  requests = { memory = "4G", cpu = "3" }
 
   [[relaychain.node_groups]]
   name = "elastic-validator"
@@ -32,11 +32,20 @@ default_command = "polkadot"
 [[parachains]]
 id = {{id}}
 addToGenesis = true
+    [parachains.default_resources]
+    limits = { memory = "4G", cpu = "3" }
+    requests = { memory = "4G", cpu = "3" }
 
     [parachains.collator]
     name = "some-parachain"
     image = "{{COL_IMAGE}}"
     command = "adder-collator"
     args = ["-lparachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug"]
+
 {% endfor %}
 
+# This represents the layout of the adder collator block header.
+[types.Header]
+number = "u64"
+parent_hash = "Hash"
+post_state = "Hash"
