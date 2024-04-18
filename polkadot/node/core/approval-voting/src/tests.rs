@@ -1932,7 +1932,7 @@ fn subsystem_always_has_a_wakeup_when_pending() {
 	// Approvals sent before fork no-shows, the approval
 	// should be counted on the fork relay chain when it no-shows.
 	test_approvals_on_fork_are_always_considered_after_no_show(
-		8, //
+		8, // a tick smaller than the no-show tick which is 30.
 		vec![(7, false), (8, false), (29, false), (30, true), (31, true)],
 	);
 }
