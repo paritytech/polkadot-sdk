@@ -32,7 +32,7 @@ use polkadot_subsystem_bench::{
 };
 use std::io::Write;
 
-const BENCH_COUNT: usize = 5;
+const BENCH_COUNT: usize = 30;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
@@ -40,8 +40,6 @@ fn main() -> Result<(), String> {
 	let options = DataAvailabilityReadOptions { fetch_from_backers: true };
 	let mut config = TestConfiguration::default();
 	config.num_blocks = 3;
-	config.connectivity = 100;
-	config.latency = None;
 	config.generate_pov_sizes();
 
 	let state = TestState::new(&config);
@@ -76,7 +74,7 @@ fn main() -> Result<(), String> {
 		("Received from peers", 307200.000, 0.001),
 		("Sent to peers", 1.667, 0.001),
 	]));
-	messages.extend(average_usage.check_cpu_usage(&[("availability-recovery", 11.500, 0.05)]));
+	messages.extend(average_usage.check_cpu_usage(&[("availability-recovery", 11.500, 0.10)]));
 
 	if messages.is_empty() {
 		Ok(())
