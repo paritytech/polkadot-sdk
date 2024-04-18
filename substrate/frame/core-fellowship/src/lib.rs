@@ -580,8 +580,8 @@ pub mod pallet {
 			new_slice: [Option<S>; RANK_COUNT],
 		) {
 			for (base_element, new_element) in base_slice.iter_mut().zip(new_slice) {
-				if new_element.is_some() {
-					*base_element = new_element.unwrap();
+				if let Some(element) = new_element {
+					*base_element = element;
 				}
 			}
 		}
