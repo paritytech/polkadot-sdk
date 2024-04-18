@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713430602309,
+  "lastUpdate": 1713437217250,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4157,6 +4157,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.973515769666662,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "76719da221d33117aadf6b7b9cc74e4fbeb25b34",
+          "message": "[ci] Update ci image with rust 1.77 and 2024-04-10 (#4077)\n\ncc https://github.com/paritytech/ci_cd/issues/974\n\n---------\n\nCo-authored-by: command-bot <>\nCo-authored-by: Bastian Köcher <info@kchr.de>",
+          "timestamp": "2024-04-18T09:24:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/76719da221d33117aadf6b7b9cc74e4fbeb25b34"
+        },
+        "date": 1713437193539,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17212971646666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.612123962400002,
             "unit": "seconds"
           }
         ]
