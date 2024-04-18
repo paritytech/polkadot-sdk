@@ -84,6 +84,31 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn set_partial_params() -> Result<(), BenchmarkError> {
+		let params_payload = ParamsType {
+			active_salary: [Some(100u32.into()); 9],
+			passive_salary: [Some(10u32.into()); 9],
+			demotion_period: [Some(100u32.into()); 9],
+			min_promotion_period: [Some(100u32.into()); 9],
+			offboard_timeout: Some(1u32.into()),
+		};
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, Box::new(params_payload.clone()));
+
+		let updated_params = ParamsType {
+			active_salary: [100u32.into(); 9],
+			passive_salary: [10u32.into(); 9],
+			demotion_period: [100u32.into(); 9],
+			min_promotion_period: [100u32.into(); 9],
+			offboard_timeout: 1u32.into(),
+		};
+
+		assert_eq!(Params::<T, I>::get(), updated_params);
+		Ok(())
+	}
+
+	#[benchmark]
 	fn bump_offboard() -> Result<(), BenchmarkError> {
 		set_benchmark_params::<T, I>()?;
 

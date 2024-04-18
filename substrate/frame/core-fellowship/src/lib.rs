@@ -540,7 +540,7 @@ pub mod pallet {
 		///
 		/// This update config with multiple arguments without duplicating
 		/// the fields that does not need to update (set to None).
-		#[pallet::weight(T::WeightInfo::set_params())]
+		#[pallet::weight(T::WeightInfo::set_partial_params())]
 		#[pallet::call_index(9)]
 		pub fn set_partial_params(
 			origin: OriginFor<T>,
