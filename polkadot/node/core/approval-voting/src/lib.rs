@@ -2851,7 +2851,7 @@ where
 			for (other_block_hash, other_approval_entry) in candidate_entry
 				.block_assignments
 				.iter()
-				.filter(|(hash, _)| **hash != block_hash && is_approved)
+				.filter(|(hash, _)| **hash != block_hash)
 			{
 				if wakeups.wakeup_for(*other_block_hash, candidate_hash).is_none() &&
 					!other_approval_entry.is_approved() &&
