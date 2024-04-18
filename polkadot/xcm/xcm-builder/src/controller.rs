@@ -48,6 +48,7 @@ pub trait ExecuteControllerWeightInfo {
 
 parameter_types! {
 	pub const MaxXcmEncodedSize: u32 = xcm::MAX_XCM_ENCODED_SIZE;
+	pub const MaxXcmEncodedSizeUsize: usize = xcm::MAX_XCM_ENCODED_SIZE as usize;
 }
 
 /// Execute an XCM locally, for a given origin.

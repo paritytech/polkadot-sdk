@@ -76,6 +76,7 @@ pub mod storage;
 mod tests;
 pub mod traits;
 pub mod weights;
+pub mod utils;
 #[doc(hidden)]
 pub mod unsigned {
 	#[doc(hidden)]
@@ -103,6 +104,7 @@ pub use self::{
 		IterableStorageDoubleMap, IterableStorageMap, IterableStorageNMap, StorageDoubleMap,
 		StorageMap, StorageNMap, StoragePrefixedMap, StorageValue,
 	},
+	utils::WithMaxSize,
 };
 pub use sp_runtime::{
 	self, print, traits::Printable, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE,

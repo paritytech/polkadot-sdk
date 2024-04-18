@@ -50,7 +50,7 @@ use sp_runtime::{
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
-	ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, QueryController,
+	ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, MaxXcmEncodedSizeUsize, QueryController,
 	QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
 };
 use xcm_executor::{
@@ -188,7 +188,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		dispatch::{GetDispatchInfo, PostDispatchInfo},
-		parameter_types,
+		parameter_types, WithMaxSize,
 	};
 	use frame_system::Config as SysConfig;
 	use sp_core::H256;
@@ -942,17 +942,18 @@ pub mod pallet {
 
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
-		/// WARNING: DEPRECATED. `send` will be removed after June 2024. Use `send_blob` instead.
-		#[allow(deprecated)]
-		#[deprecated(note = "`send` will be removed after June 2024. Use `send_blob` instead.")]
+		/// Send an XCM from a local, signed, origin.
+		///
+		/// The destination, `dest`, will receive this message with a `DescendOrigin` instruction
+		/// that makes the origin of the message be the origin on this system.
 		#[pallet::call_index(0)]
 		pub fn send(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
-			message: Box<VersionedXcm<()>>,
+			message: Box<WithMaxSize<VersionedXcm<()>, MaxXcmEncodedSizeUsize>>,
 		) -> DispatchResult {
 			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
-			Self::send_base(origin_location, dest, message)?;
+			Self::send_base(origin_location, dest, Box::new(message.value()))?;
 			Ok(())
 		}
 
@@ -1049,22 +1050,15 @@ pub mod pallet {
 		/// No more than `max_weight` will be used in its attempted execution. If this is less than
 		/// the maximum amount of weight that the message could take to be executed, then no
 		/// execution attempt will be made.
-		///
-		/// WARNING: DEPRECATED. `execute` will be removed after June 2024. Use `execute_blob`
-		/// instead.
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`execute` will be removed after June 2024. Use `execute_blob` instead."
-		)]
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
 			origin: OriginFor<T>,
-			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
+			message: Box<WithMaxSize<VersionedXcm<<T as Config>::RuntimeCall>, MaxXcmEncodedSizeUsize>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let weight_used = Self::execute_base(origin_location, message, max_weight)?;
+			let weight_used = Self::execute_base(origin_location, Box::new(message.value()), max_weight)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
