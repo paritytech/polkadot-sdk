@@ -97,7 +97,7 @@ impl PeerId {
 	/// Convert `PeerId` into ed25519 public key bytes.
 	pub fn into_ed25519(&self) -> Option<[u8; 32]> {
 		let hash = &self.multihash;
-		// https://www.ietf.org/id/draft-multiformats-multihash-07.html#name-the-multihash-identifier-re
+		// https://www.ietf.org/archive/id/draft-multiformats-multihash-07.html#name-the-multihash-identifier-re
 		if hash.code() != 0 {
 			// Hash is not identity
 			return None

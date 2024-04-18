@@ -809,6 +809,7 @@ dependencies = [
  "parachains-common",
  "rococo-emulated-chain",
  "sp-core",
+ "staging-xcm",
  "testnet-parachains-constants",
 ]
 
@@ -819,17 +820,22 @@ dependencies = [
  "assert_matches",
  "asset-hub-rococo-runtime",
  "asset-test-utils",
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-treasury",
+ "pallet-utility",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
  "penpal-runtime",
+ "polkadot-runtime-common",
  "rococo-runtime",
+ "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
@@ -865,6 +871,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-assets",
  "pallet-aura",
@@ -927,6 +934,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "staging-xcm",
  "testnet-parachains-constants",
  "westend-emulated-chain",
 ]
@@ -988,6 +996,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-assets",
  "pallet-aura",
@@ -2826,6 +2835,36 @@ dependencies = [
  "parachains-common",
  "sp-core",
  "testnet-parachains-constants",
+]
+
+[[package]]
+name = "collectives-westend-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "assert_matches",
+ "asset-hub-westend-runtime",
+ "collectives-westend-runtime",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-asset-rate",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-treasury",
+ "pallet-utility",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-runtime-common",
+ "sp-runtime",
+ "staging-xcm",
+ "staging-xcm-executor",
+ "testnet-parachains-constants",
+ "westend-runtime",
+ "westend-runtime-constants",
+ "westend-system-emulated-network",
 ]
 
 [[package]]
@@ -7346,6 +7385,7 @@ dependencies = [
  "node-primitives",
  "pallet-alliance",
  "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-rate",
  "pallet-asset-tx-payment",
@@ -9497,12 +9537,34 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "primitive-types",
  "scale-info",
  "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-asset-conversion-ops"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-asset-conversion",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "primitive-types",
+ "scale-info",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -9569,7 +9631,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "29.0.0"
+version = "29.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9934,7 +9996,9 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "parity-scale-codec",
+ "pretty_assertions",
  "scale-info",
  "sp-api",
  "sp-arithmetic",
@@ -12756,7 +12820,6 @@ dependencies = [
  "sp-runtime",
  "substrate-build-script-utils",
  "thiserror",
- "try-runtime-cli",
 ]
 
 [[package]]
@@ -15771,6 +15834,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-nis",
  "pallet-offences",
+ "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-ranked-collective",
@@ -17401,6 +17465,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "sc-utils",
+ "schnellru",
  "serde",
  "serde_json",
  "sp-api",
@@ -18980,7 +19045,6 @@ dependencies = [
  "sp-timestamp",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
- "try-runtime-cli",
 ]
 
 [[package]]
@@ -20247,7 +20311,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util",
- "try-runtime-cli",
  "wait-timeout",
  "wat",
 ]
@@ -21932,47 +21995,6 @@ name = "try-lock"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
-
-[[package]]
-name = "try-runtime-cli"
-version = "0.38.0"
-dependencies = [
- "assert_cmd",
- "async-trait",
- "clap 4.5.3",
- "frame-remote-externalities",
- "frame-try-runtime",
- "hex",
- "log",
- "node-primitives",
- "parity-scale-codec",
- "regex",
- "sc-cli",
- "sc-executor",
- "serde",
- "serde_json",
- "sp-api",
- "sp-consensus-aura",
- "sp-consensus-babe",
- "sp-core",
- "sp-debug-derive 14.0.0",
- "sp-externalities 0.25.0",
- "sp-inherents",
- "sp-io",
- "sp-keystore",
- "sp-rpc",
- "sp-runtime",
- "sp-state-machine",
- "sp-timestamp",
- "sp-transaction-storage-proof",
- "sp-version",
- "sp-weights",
- "substrate-cli-test-utils",
- "substrate-rpc-client",
- "tempfile",
- "tokio",
- "zstd 0.12.4",
-]
 
 [[package]]
 name = "trybuild"
