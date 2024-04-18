@@ -278,7 +278,6 @@ test-linux-stable-codecov:
     LLVM_PROFILE_FILE: "cargo-test-%p-%m.profraw"
   parallel: 3
   script:
-    - rustup component add llvm-tools-preview
     # Build all but only execute 'runtime' tests.
     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
     # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
