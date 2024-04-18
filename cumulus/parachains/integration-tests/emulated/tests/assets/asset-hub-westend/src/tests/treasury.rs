@@ -137,7 +137,7 @@ fn create_and_claim_treasury_spend() {
 fn spend_and_swap() {
 	use frame_support::traits::OnInitialize;
 	use sp_runtime::traits::Dispatchable;
-	use westend_runtime::{AssetRate, OriginCaller};
+	use westend_runtime::OriginCaller;
 	use xcm::v3::{
 		Junction::{GeneralIndex, PalletInstance, Parachain, Plurality},
 		Junctions::X1,
@@ -331,15 +331,6 @@ fn spend_and_swap() {
 		let treasury_origin = OriginCaller::Origins(
 			westend_runtime::governance::pallet_custom_origins::Origin::Treasurer,
 		);
-
-		assert_ok!(AssetRate::create(
-			treasury_origin.clone().into(),
-			bx!(VersionedLocatableAsset::V3 {
-				location: asset_hub_location,
-				asset_id: native_asset.into(),
-			}),
-			1.into()
-		));
 
 		let swap_call = AssetHubRuntimeCall::AssetConversion(pallet_asset_conversion::Call::<
 			AssetHubRuntime,
