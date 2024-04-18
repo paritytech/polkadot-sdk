@@ -343,7 +343,7 @@ test-linux-stable:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -C symbol-mangling-version=v0"
     CARGO_INCREMENTAL: 0
   parallel: 3
   script:
