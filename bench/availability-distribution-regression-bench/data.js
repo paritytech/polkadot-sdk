@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713430302670,
+  "lastUpdate": 1713436916861,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5147,6 +5147,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.007628435933333319,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "76719da221d33117aadf6b7b9cc74e4fbeb25b34",
+          "message": "[ci] Update ci image with rust 1.77 and 2024-04-10 (#4077)\n\ncc https://github.com/paritytech/ci_cd/issues/974\n\n---------\n\nCo-authored-by: command-bot <>\nCo-authored-by: Bastian Köcher <info@kchr.de>",
+          "timestamp": "2024-04-18T09:24:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/76719da221d33117aadf6b7b9cc74e4fbeb25b34"
+        },
+        "date": 1713436893267,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014474975200000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16338391513333353,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0245329554,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0072775470000000075,
             "unit": "seconds"
           }
         ]
