@@ -191,7 +191,7 @@ impl ProcessMessage for RecordingMessageProcessor {
 			MessagesProcessed::set(m);
 			Ok(true)
 		} else {
-			Err(ProcessMessageError::Overweight(required))
+			Err(ProcessMessageError::Overweight(Some(required)))
 		}
 	}
 }
@@ -254,7 +254,7 @@ impl ProcessMessage for CountingMessageProcessor {
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
 		} else {
-			Err(ProcessMessageError::Overweight(required))
+			Err(ProcessMessageError::Overweight(Some(required)))
 		}
 	}
 }

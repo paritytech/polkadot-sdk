@@ -77,7 +77,7 @@ impl<
 				meter.remaining(),
 			);
 
-			return Err(ProcessMessageError::Overweight(required))
+			return Err(ProcessMessageError::Overweight(Some(required)))
 		}
 
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
@@ -102,7 +102,12 @@ impl<
 					target: LOG_TARGET,
 					"XCM message execution error: {error:?}",
 				);
-				(required, Err(ProcessMessageError::Unsupported))
+				let error = match error {
+					xcm::latest::Error::ExceedsStackLimit => ProcessMessageError::Overweight(None),
+					_ => ProcessMessageError::Unsupported,
+				};
+
+				(required, Err(error))
 			},
 		};
 		meter.consume(consumed);
@@ -159,7 +164,7 @@ mod tests {
 				let mut id = [0; 32];
 				assert_err!(
 					Processor::process_message(msg, ORIGIN, meter, &mut id),
-					Overweight(1000.into())
+					Overweight(Some(1000.into()))
 				);
 				assert_eq!(meter.consumed(), 0.into());
 			}
@@ -170,6 +175,44 @@ mod tests {
 			assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
 			assert_eq!(meter.consumed(), 1000.into());
 		}
+	}
+
+	#[test]
+	fn process_message_recursion_limit_exceeded_fails() {
+		use frame_support::__private::sp_tracing;
+		sp_tracing::try_init_simple();
+		let mut xcm = VersionedXcm::V4(xcm::v4::Xcm::<RuntimeCall>(vec![
+			BuyExecution { fees: (Here, 1).into(), weight_limit: Unlimited },
+			xcm::v4::Instruction::<RuntimeCall>::Transact {
+				origin_kind: xcm::v4::OriginKind::Xcm,
+				require_weight_at_most: Weight::zero(),
+				call: RuntimeCall::System(frame_system::Call::<Runtime>::remark_with_event {
+					remark: b"Hello, World!".to_vec(),
+				})
+				.encode()
+				.into(),
+			},
+		]));
+
+		for _ in 0..300 {
+			let call = RuntimeCall::Xcm(pallet_xcm::Call::<Runtime>::execute {
+				message: xcm.into(),
+				max_weight: Weight::MAX,
+			});
+			xcm = VersionedXcm::V4(xcm::v4::Xcm::<RuntimeCall>(vec![xcm::v4::Instruction::<
+				RuntimeCall,
+			>::Transact {
+				origin_kind: xcm::v4::OriginKind::Xcm,
+				require_weight_at_most: Weight::zero(),
+				call: call.encode().into(),
+			}]));
+		}
+
+		let msg = &xcm.encode()[..];
+		let meter = &mut WeightMeter::new();
+		let mut id = [0; 32];
+		// FAIL-CI why does this work?
+		assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
 	}
 
 	fn v2_xcm(success: bool) -> VersionedXcm<RuntimeCall> {

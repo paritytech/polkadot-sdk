@@ -37,8 +37,8 @@ pub enum ProcessMessageError {
 	Unsupported,
 	/// Message processing was not attempted because it was not certain that the weight limit
 	/// would be respected. The parameter gives the maximum weight which the message could take
-	/// to process.
-	Overweight(Weight),
+	/// to process. If none is given, then the worst case is assumed.
+	Overweight(Option<Weight>),
 	/// The queue wants to give up its current processing slot.
 	///
 	/// Hints the message processor to cease servicing this queue and proceed to the next

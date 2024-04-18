@@ -71,7 +71,7 @@ where
 		if meter.try_consume(required).is_ok() {
 			Ok(true)
 		} else {
-			Err(ProcessMessageError::Overweight(required))
+			Err(ProcessMessageError::Overweight(Some(required)))
 		}
 	}
 }

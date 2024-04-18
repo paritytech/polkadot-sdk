@@ -47,7 +47,7 @@ impl ShouldExecute for TakeWeightCredit {
 		properties.weight_credit = properties
 			.weight_credit
 			.checked_sub(&max_weight)
-			.ok_or(ProcessMessageError::Overweight(max_weight))?;
+			.ok_or(ProcessMessageError::Overweight(Some(max_weight)))?;
 		Ok(())
 	}
 }
@@ -104,7 +104,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 					*weight_limit = Limited(max_weight);
 					Ok(())
 				},
-				_ => Err(ProcessMessageError::Overweight(max_weight)),
+				_ => Err(ProcessMessageError::Overweight(Some(max_weight))),
 			})?;
 		Ok(())
 	}
@@ -304,7 +304,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T
 		instructions.matcher().match_next_inst(|inst| match inst {
 			UnpaidExecution { weight_limit: Limited(m), .. } if m.all_gte(max_weight) => Ok(()),
 			UnpaidExecution { weight_limit: Unlimited, .. } => Ok(()),
-			_ => Err(ProcessMessageError::Overweight(max_weight)),
+			_ => Err(ProcessMessageError::Overweight(Some(max_weight))),
 		})?;
 		Ok(())
 	}

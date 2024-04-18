@@ -1437,20 +1437,22 @@ impl<T: Config> Pallet<T> {
 		let prev_consumed = meter.consumed();
 
 		match T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id) {
-			Err(Overweight(w)) if w.any_gt(overweight_limit) => {
-				// Permanently overweight.
-				Self::deposit_event(Event::<T>::OverweightEnqueued {
-					id,
-					origin,
-					page_index,
-					message_index,
-				});
-				MessageExecutionStatus::Overweight
-			},
-			Err(Overweight(_)) => {
-				// Temporarily overweight - save progress and stop processing this
-				// queue.
-				MessageExecutionStatus::InsufficientWeight
+			Err(Overweight(required)) => {
+				if required.map_or(true, |r| r.any_gt(overweight_limit)) {
+					// Permanently overweight.
+					Self::deposit_event(Event::<T>::OverweightEnqueued {
+						id,
+						origin,
+						page_index,
+						message_index,
+					});
+
+					MessageExecutionStatus::Overweight
+				} else {
+					// Temporarily overweight - save progress and stop processing this
+					// queue.
+					MessageExecutionStatus::InsufficientWeight
+				}
 			},
 			Err(Yield) => {
 				// Processing should be reattempted later.
