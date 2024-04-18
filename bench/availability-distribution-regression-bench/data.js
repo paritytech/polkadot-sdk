@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713427007387,
+  "lastUpdate": 1713430302670,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5095,6 +5095,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024105921066666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b6fab8046e42283d14e9fa6beda32c878b3e801e",
+          "message": "[ci] Run `test-linux-stable-int` on self-hosted GitHub Runners (#4178)\n\nPR adds `test-linux-stable-int` and `quick-benchmarks` as github action\njobs. It's a copy of `test-linux-stable-int` and `quick-benchmarks` from\ngitlab ci and now it's needed to make a stress test for self-hosted\ngithub runners. `test-linux-stable-int` and `quick-benchmarks` in gitlab\nare still `Required` whereas this workflow is allowed to fail.\n\ncc https://github.com/paritytech/infrastructure/issues/46",
+          "timestamp": "2024-04-18T07:40:45Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6fab8046e42283d14e9fa6beda32c878b3e801e"
+        },
+        "date": 1713430275895,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024741817933333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015304360733333324,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16824249440000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007628435933333319,
             "unit": "seconds"
           }
         ]
