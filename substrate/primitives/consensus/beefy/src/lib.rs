@@ -355,7 +355,7 @@ impl<Number, Id, Signature> BeefyEquivocationProof<Id, Number>
 
 /// Proof of authority misbehavior on a given set id.
 /// This proof shows commitment signed on a different fork.
-/// See [check_fork_equivocation_proof] for proof validity conditions.
+/// See [`CheckForkEquivocationProof`] for proof validity conditions.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct ForkEquivocationProof<Id: RuntimeAppPublic, Header: HeaderT, Hash> {
 	/// Commitment for a block on a different fork than one at the same height in
@@ -624,7 +624,7 @@ pub trait CheckForkEquivocationProof<Err, Header: HeaderT> {
 	/// assuming 2/3rds of validators honestly participate in BEEFY
 	/// finalization and at least one honest relayer can update the
 	/// beefy light client at least once every 4096 blocks. See
-	/// https://github.com/paritytech/polkadot-sdk/issues/1441 for
+	/// <https://github.com/paritytech/polkadot-sdk/issues/1441> for
 	/// replacement solution.
 	fn check_fork_equivocation_proof<Id, MsgHash>(
 		proof: &ForkEquivocationProof<Id, Header, <Self::Hash as HashT>::Output>,
