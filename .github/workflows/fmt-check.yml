@@ -15,7 +15,7 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240109
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
