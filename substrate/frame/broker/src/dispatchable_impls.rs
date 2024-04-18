@@ -120,7 +120,8 @@ impl<T: Config> Pallet<T> {
 			sale.sellout_price = Some(price);
 		}
 		SaleInfo::<T>::put(&sale);
-		let id = Self::issue(core, sale.region_begin, sale.region_end, who.clone(), Some(price));
+		let id =
+			Self::issue(core, sale.region_begin, sale.region_end, Some(who.clone()), Some(price));
 		let duration = sale.region_end.saturating_sub(sale.region_begin);
 		Self::deposit_event(Event::Purchased { who, region_id: id, price, duration });
 		Ok(id)
@@ -178,11 +179,11 @@ impl<T: Config> Pallet<T> {
 		let mut region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
-			ensure!(check_owner == region.owner, Error::<T>::NotOwner);
+			ensure!(Some(check_owner) == region.owner, Error::<T>::NotOwner);
 		}
 
 		let old_owner = region.owner;
-		region.owner = new_owner;
+		region.owner = Some(new_owner);
 		Regions::<T>::insert(&region_id, &region);
 		let duration = region.end.saturating_sub(region_id.begin);
 		Self::deposit_event(Event::Transferred {
@@ -203,7 +204,7 @@ impl<T: Config> Pallet<T> {
 		let mut region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
-			ensure!(check_owner == region.owner, Error::<T>::NotOwner);
+			ensure!(Some(check_owner) == region.owner, Error::<T>::NotOwner);
 		}
 		let pivot = region_id.begin.saturating_add(pivot_offset);
 		ensure!(pivot < region.end, Error::<T>::PivotTooLate);
@@ -227,7 +228,7 @@ impl<T: Config> Pallet<T> {
 		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
-			ensure!(check_owner == region.owner, Error::<T>::NotOwner);
+			ensure!(Some(check_owner) == region.owner, Error::<T>::NotOwner);
 		}
 
 		ensure!((pivot & !region_id.mask).is_void(), Error::<T>::ExteriorPivot);
@@ -419,7 +420,10 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_drop_history(when: Timeslice) -> DispatchResult {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		ensure!(status.last_timeslice > when + config.contribution_timeout, Error::<T>::StillValid);
+		ensure!(
+			status.last_timeslice > when.saturating_add(config.contribution_timeout),
+			Error::<T>::StillValid
+		);
 		let record = InstaPoolHistory::<T>::take(when).ok_or(Error::<T>::NoHistory)?;
 		if let Some(payout) = record.maybe_payout {
 			let _ = Self::charge(&Self::account_id(), payout);
