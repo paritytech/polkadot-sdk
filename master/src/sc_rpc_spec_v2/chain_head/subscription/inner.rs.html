@@ -1792,7 +1792,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Stops the operation if `waitingForContinue` event was emitted for the associated
 	/// operation ID.
 	///
-	/// Returns nothing in accordance with `chainHead_unstable_stopOperation`.
+	/// Returns nothing in accordance with `chainHead_v1_stopOperation`.
 	</span><span class="kw">pub fn </span>stop_operation(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="comment">// `waitingForContinue` not generated.
 		</span><span class="kw">if </span>!<span class="self">self</span>.shared_state.requested_continue.load(std::sync::atomic::Ordering::Acquire) {
