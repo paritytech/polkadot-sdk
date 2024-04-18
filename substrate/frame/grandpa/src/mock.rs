@@ -28,11 +28,11 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnFinalize, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
-use sp_core::{crypto::KeyTypeId, H256};
+use sp_core::{H256};
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{
 	curve::PiecewiseLinear,

@@ -25,13 +25,13 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
 use pallet_staking::FixedNominationsQuota;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
-	crypto::{KeyTypeId, Pair, VrfSecret},
+	crypto::{Pair, VrfSecret},
 	U256,
 };
 use sp_io;
