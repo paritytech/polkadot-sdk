@@ -56,6 +56,7 @@ pub trait WeightInfo {
 	fn batch_all(c: u32, ) -> Weight;
 	fn dispatch_as() -> Weight;
 	fn force_batch(c: u32, ) -> Weight;
+	fn dispatch_as_account() -> Weight;
 }
 
 /// Weights for `pallet_utility` using the Substrate node and recommended hardware.
@@ -125,6 +126,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(4_955_816, 0).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
+	// TODO: regenerate weights, copied from `dispatch_as`
+	fn dispatch_as_account() -> Weight {
+		Weight::from_parts(7_452_000, 0)
+	}
 }
 
 // For backwards compatibility and tests.
@@ -192,5 +197,9 @@ impl WeightInfo for () {
 			// Standard Error: 4_988
 			.saturating_add(Weight::from_parts(4_955_816, 0).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
+	}
+	// TODO: regenerate weights, copied from `dispatch_as`
+	fn dispatch_as_account() -> Weight {
+		Weight::from_parts(7_452_000, 0)
 	}
 }

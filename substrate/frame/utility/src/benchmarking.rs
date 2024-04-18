@@ -20,7 +20,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
+use frame_benchmarking::{
+	v1::{account, benchmarks, whitelisted_caller},
+	BenchmarkError,
+};
 use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
@@ -70,7 +73,7 @@ benchmarks! {
 		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
 		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller).into();
 		let pallets_origin: <T::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin = origin.caller().clone();
-		let pallets_origin = Into::<T::PalletsOrigin>::into(pallets_origin);
+		// let pallets_origin = Into::<T::PalletsOrigin>::into(pallets_origin);
 	}: _(RawOrigin::Root, Box::new(pallets_origin), call)
 
 	force_batch {
@@ -84,6 +87,20 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), calls)
 	verify {
 		assert_last_event::<T>(Event::BatchCompleted.into())
+	}
+
+	dispatch_as_account {
+		let root = T::RuntimeOrigin::from(RawOrigin::Root);
+		let account = T::OriginToAccount::try_convert(root.into_caller())
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
+	}: _(RawOrigin::Root, call)
+	verify {
+		assert_last_event::<T>(Event::DispatchedAsAccount {
+			account: account,
+			result: Ok(()),
+		}.into());
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::tests::new_test_ext(), crate::tests::Test);

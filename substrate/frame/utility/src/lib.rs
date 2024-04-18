@@ -63,17 +63,21 @@ use frame_support::{
 };
 use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
+use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput, TryConvert};
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
 
+/// Pallets Origins of the RuntimeOrigin.
+type PalletsOriginFor<T> =
+	<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use frame_system::{pallet_prelude::*, RawOrigin};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -82,7 +86,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
 		type RuntimeCall: Parameter
@@ -93,10 +97,15 @@ pub mod pallet {
 			+ IsSubType<Call<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
-		/// The caller origin, overarching type of all pallets origins.
-		type PalletsOrigin: Parameter +
-			Into<<Self as frame_system::Config>::RuntimeOrigin> +
-			IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
+		/// The type to convert a pallet's origin to it's sovereign account ID used to dispatch a
+		/// target call with `dispatch_as_account`.
+		///
+		/// This should return an account ID for `Root` origin in benchmarks environment in order to
+		/// calculated the weight of `dispatch_as_account`. If the `Root` is not convertible the
+		/// call is weightless.
+		/// If `Root` is not supposed to have an account for you runtime, use a separate type under
+		/// `runtime-benchmarks` feature.
+		type OriginToAccount: TryConvert<PalletsOriginFor<Self>, Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -104,7 +113,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
+	pub enum Event<T: Config> {
 		/// Batch of dispatches did not complete fully. Index of first failing dispatch given, as
 		/// well as the error.
 		BatchInterrupted { index: u32, error: DispatchError },
@@ -118,6 +127,8 @@ pub mod pallet {
 		ItemFailed { error: DispatchError },
 		/// A call was dispatched.
 		DispatchedAs { result: DispatchResult },
+		/// A call was dispatched from an account origin.
+		DispatchedAsAccount { account: T::AccountId, result: DispatchResult },
 	}
 
 	// Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -384,7 +395,7 @@ pub mod pallet {
 		})]
 		pub fn dispatch_as(
 			origin: OriginFor<T>,
-			as_origin: Box<T::PalletsOrigin>,
+			as_origin: Box<PalletsOriginFor<T>>,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
@@ -490,6 +501,41 @@ pub mod pallet {
 
 			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
 			res.map(|_| ()).map_err(|e| e.error)
+		}
+
+		/// Dispatches a function call with a sovereign account of the origin.
+		///
+		/// This is useful when a batch of calls commanded by a pallet's origin and an inner call
+		/// needs to be executed with it's sovereign account.
+		///
+		/// The dispatch origin for this call must be convertible with [`Config::OriginToAccount`]
+		/// type.
+		#[pallet::call_index(6)]
+		#[pallet::weight({
+			let dispatch_info = call.get_dispatch_info();
+			(
+				T::WeightInfo::dispatch_as_account()
+					.saturating_add(dispatch_info.weight),
+				dispatch_info.class,
+			)
+		})]
+		pub fn dispatch_as_account(
+			origin: OriginFor<T>,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			let account = match T::OriginToAccount::try_convert(origin.into_caller()) {
+				Ok(account) => account,
+				Err(_) => return Err(BadOrigin.into()),
+			};
+
+			let res = call.dispatch(RawOrigin::Signed(account.clone()).into());
+
+			Self::deposit_event(Event::DispatchedAsAccount {
+				account,
+				result: res.map(|_| ()).map_err(|e| e.error),
+			});
+
+			Ok(())
 		}
 	}
 }

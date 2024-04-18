@@ -25,14 +25,13 @@ use crate as utility;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, Pays},
-	error::BadOrigin,
 	parameter_types, storage,
 	traits::{ConstU64, Contains},
 	weights::Weight,
 };
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
 use sp_runtime::{
-	traits::{BlakeTwo256, Dispatchable, Hash},
+	traits::{BlakeTwo256, Hash},
 	BuildStorage, DispatchError, TokenError,
 };
 
@@ -226,10 +225,24 @@ impl mock_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
+
+type CouncilOrigin = pallet_collective::Origin<Test, CouncilCollective>;
+
+pub struct PalletOriginToAccount;
+impl TryConvert<OriginCaller, u64> for PalletOriginToAccount {
+	fn try_convert(a: OriginCaller) -> Result<u64, OriginCaller> {
+		match a {
+			OriginCaller::Council(CouncilOrigin::Member(who)) => Ok(who),
+			OriginCaller::Council(CouncilOrigin::Members(3, 3)) => Ok(2),
+			_ => Err(a),
+		}
+	}
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type PalletsOrigin = OriginCaller;
+	type OriginToAccount = PalletOriginToAccount;
 	type WeightInfo = ();
 }
 
@@ -918,5 +931,38 @@ fn with_weight_works() {
 			with_weight_call.get_dispatch_info().class,
 			frame_support::dispatch::DispatchClass::Operational
 		);
+	})
+}
+
+#[test]
+fn dispatch_as_account_works() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Utility::dispatch_as_account(RuntimeOrigin::none(), Box::new(call_transfer(2, 5))),
+			BadOrigin
+		);
+		assert_noop!(
+			Utility::dispatch_as_account(RuntimeOrigin::root(), Box::new(call_transfer(2, 5))),
+			BadOrigin
+		);
+
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+
+		assert_ok!(Utility::dispatch_as_account(
+			RuntimeOrigin::from(pallet_collective::RawOrigin::Member(1)),
+			Box::new(call_transfer(2, 5))
+		));
+
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::free_balance(2), 15);
+
+		assert_ok!(Utility::dispatch_as_account(
+			RuntimeOrigin::from(pallet_collective::RawOrigin::Members(3, 3)),
+			Box::new(call_transfer(1, 5))
+		));
+
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
 	})
 }
