@@ -21,7 +21,8 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  # CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408"
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
@@ -119,19 +120,26 @@ default:
 #
 .forklift-cache:
   before_script:
-    - 'curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"'
-    - chmod +x forklift
     - mkdir ~/.forklift
     - cp $FL_FORKLIFT_CONFIG ~/.forklift/config.toml
-    - shopt -s expand_aliases
-    - export PATH=$PATH:$(pwd)
     - >
       if [ "$FORKLIFT_BYPASS" != "true" ]; then
-      echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"; 
-      alias cargo="forklift cargo";
+        echo "FORKLIFT_BYPASS not set"; 
+        if command -v forklift >/dev/null 2>&1; then
+          echo "forklift already exists"; 
+          forklift version
+        else
+          echo "forklift does not exist, downloading";
+          curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"; 
+          chmod +x forklift;
+          export PATH=$PATH:$(pwd);
+          echo ${FL_FORKLIFT_VERSION};
+        fi
+        echo "Creating alias cargo='forklift cargo'"; 
+        shopt -s expand_aliases;
+        alias cargo="forklift cargo";
       fi
     #
-    - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
 
 .common-refs:
   rules:
