@@ -16,6 +16,7 @@ workspace = true
 minimal-template-node = { path = "./node" }
 minimal-template-runtime = { path = "./runtime" }
 pallet-minimal-template = { path = "./pallets/template" }
+polkadot-sdk-docs = { path = "../../docs/sdk" }
 
 frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame" }
 

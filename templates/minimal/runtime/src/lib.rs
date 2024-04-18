@@ -154,7 +154,9 @@ impl pallet_timestamp::Config for Runtime {}
 #[derive_impl(pallet_transaction_payment::config_preludes::SolochainDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
+	// Setting fee as independent of the weight of the extrinsic for demo purposes
 	type WeightToFee = NoFee<<Self as pallet_balances::Config>::Balance>;
+	// Setting fee as fixed for any length of the call data for demo purposes
 	type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 }
 

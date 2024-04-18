@@ -8516,6 +8516,7 @@ dependencies = [
  "minimal-template-node",
  "minimal-template-runtime",
  "pallet-minimal-template",
+ "polkadot-sdk-docs",
  "polkadot-sdk-frame",
  "simple-mermaid",
 ]
