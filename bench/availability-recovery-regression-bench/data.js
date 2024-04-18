@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713460526314,
+  "lastUpdate": 1713465407789,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4325,6 +4325,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1811935364666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "88a2f360238787bf5256cfdd14b40c08f519b38e",
+          "message": "chainHead: Stabilize chainHead to version 1 (#4168)\n\nThis PR stabilizes the chainHead API to version 1.\n\nNeeds:\n- https://github.com/paritytech/polkadot-sdk/pull/3667\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-18T17:19:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/88a2f360238787bf5256cfdd14b40c08f519b38e"
+        },
+        "date": 1713465383424,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.792774056533336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.22745959133333332,
             "unit": "seconds"
           }
         ]
