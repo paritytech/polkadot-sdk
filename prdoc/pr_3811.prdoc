@@ -1,10 +1,13 @@
-title: "[pallet_staking] Staking `full_unbond`"
+title: "Chill and Full Unbond in [pallet_staking]"
 
 doc:
   - audience: Runtime Dev
     description: |
-      Full unbond when staking such that to fully unbond as a validator or nominator, chilled occurs first
-      before unbonding
+      Introduces a new `full_unbond` extrinsic to forcefully chill and unbond the full value
+      bonded
+
+      It also modifies the `unbond` extrinsic by forcefully chilling and unbonding the full value
+      if the value to be unbonded is the total of what is bonded
 
 crates:
   - name: pallet-staking
