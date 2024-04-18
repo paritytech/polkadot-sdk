@@ -205,6 +205,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 			) | RuntimeCall::FellowshipCore(
 				pallet_core_fellowship::Call::bump { .. } |
 					pallet_core_fellowship::Call::set_params { .. } |
+					pallet_core_fellowship::Call::set_partial_params { .. } |
 					pallet_core_fellowship::Call::set_active { .. } |
 					pallet_core_fellowship::Call::approve { .. } |
 					pallet_core_fellowship::Call::induct { .. } |
