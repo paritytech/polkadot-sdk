@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713378014535,
+  "lastUpdate": 1713427007387,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5043,6 +5043,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.008169633333333351,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Tin Chung",
+            "username": "chungquantin",
+            "email": "56880684+chungquantin@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d591b16f6b1dec88003323cdae0c3abe3b5c9cbe",
+          "message": "Remove NotConcrete error (#3867)\n\n# Description\n- Link to issue: https://github.com/paritytech/polkadot-sdk/issues/3651\n\npolkadot address: 19nSqFQorfF2HxD3oBzWM3oCh4SaCRKWt1yvmgaPYGCo71J",
+          "timestamp": "2024-04-18T06:44:49Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d591b16f6b1dec88003323cdae0c3abe3b5c9cbe"
+        },
+        "date": 1713426980112,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013438111599999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15547001646666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006464405399999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024105921066666668,
             "unit": "seconds"
           }
         ]
