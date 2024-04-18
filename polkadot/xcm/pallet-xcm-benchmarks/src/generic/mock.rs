@@ -30,7 +30,8 @@ use xcm_builder::{
 		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
 		TestSubscriptionService, TestUniversalAliases,
 	},
-	AliasForeignAccountId32, AllowUnpaidExecutionFrom, FrameTransactionalProcessor,
+	AliasForeignAccountId32, AllowUnpaidExecutionFrom, EnsureDecodableXcm,
+	FrameTransactionalProcessor,
 };
 use xcm_executor::traits::ConvertOrigin;
 
@@ -110,7 +111,7 @@ type Aliasers = AliasForeignAccountId32<OnlyParachains>;
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = DevNull;
+	type XcmSender = EnsureDecodableXcm<DevNull>;
 	type AssetTransactor = NoAssetTransactor;
 	type OriginConverter = AlwaysSignedByDefault<RuntimeOrigin>;
 	type IsReserve = AllAssetLocationsPass;

@@ -168,7 +168,7 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-pub type XcmRouter = super::RelayChainXcmRouter;
+pub type XcmRouter = EnsureDecodableXcm<super::RelayChainXcmRouter>;
 pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
 
 pub struct XcmConfig;

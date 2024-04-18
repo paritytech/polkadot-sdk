@@ -24,8 +24,8 @@ use polkadot_runtime_parachains::FeeTracker;
 use runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
-	SignedAccountId32AsNative, SignedToAccountId32, WithUniqueTopic,
+	AllowUnpaidExecutionFrom, EnsureDecodableXcm, EnsureXcmOrigin, FixedWeightBounds,
+	FrameTransactionalProcessor, SignedAccountId32AsNative, SignedToAccountId32, WithUniqueTopic,
 };
 use xcm_executor::{
 	traits::{TransactAsset, WeightTrader},
@@ -82,8 +82,10 @@ pub type PriceForChildParachainDelivery = TestDeliveryPrice<FeeAssetId, super::D
 /// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
 /// individual routers.
 pub type XcmRouter = WithUniqueTopic<
-	// Only one router so far - use DMP to communicate with child parachains.
-	ChildParachainRouter<super::Runtime, super::Xcm, PriceForChildParachainDelivery>,
+	EnsureDecodableXcm<
+		// Only one router so far - use DMP to communicate with child parachains.
+		ChildParachainRouter<super::Runtime, super::Xcm, PriceForChildParachainDelivery>,
+	>,
 >;
 
 pub type Barrier = AllowUnpaidExecutionFrom<Everything>;

@@ -26,7 +26,9 @@ use frame_support::{
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 use xcm::latest::prelude::*;
-use xcm_builder::{AllowUnpaidExecutionFrom, FrameTransactionalProcessor, MintLocation};
+use xcm_builder::{
+	AllowUnpaidExecutionFrom, EnsureDecodableXcm, FrameTransactionalProcessor, MintLocation,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -121,7 +123,7 @@ parameter_types! {
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = DevNull;
+	type XcmSender = EnsureDecodableXcm<DevNull>;
 	type AssetTransactor = AssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = TrustedReserves;
