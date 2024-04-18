@@ -2852,23 +2852,25 @@ where
 		if is_approved && transition.is_remote_approval() {
 			// Make sure we wake other blocks in case they have
 			// a no-show that might be covered by this approval.
-			for (other_block, other_approval_entry) in candidate_entry
+			for (other_block_hash, other_approval_entry) in candidate_entry
 				.block_assignments
 				.iter()
 				.filter(|(hash, _)| **hash != block_hash && is_approved)
 			{
-				if wakeups.wakeup_for(*other_block, candidate_hash).is_none() &&
+				if wakeups.wakeup_for(*other_block_hash, candidate_hash).is_none() &&
 					!other_approval_entry.is_approved() &&
 					validator_index
 						.as_ref()
 						.map(|validator_index| other_approval_entry.is_assigned(*validator_index))
 						.unwrap_or_default()
 				{
-					if let Ok(Some(other_block_entry)) = db.load_block_entry(other_block) {
+					if let Ok(Some(other_block_entry)) = db.load_block_entry(other_block_hash) {
 						actions.push(Action::ScheduleWakeup {
-							block_hash: *other_block,
+							block_hash: *other_block_hash,
 							block_number: other_block_entry.block_number(),
 							candidate_hash,
+							// Schedule the wakeup next tick, since the assignment must be a
+							// no-show, because there is no-wakeup scheduled.
 							tick: tick_now + 1,
 						})
 					}
