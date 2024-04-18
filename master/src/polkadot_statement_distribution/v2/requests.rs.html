@@ -1735,7 +1735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns an instant at which the next request to be retried will be ready.
 	</span><span class="kw">pub fn </span>next_retry_time(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Instant&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>next = <span class="prelude-val">None</span>;
-		<span class="kw">for </span>(_id, request) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.requests {
+		<span class="kw">for </span>(_id, request) <span class="kw">in </span><span class="self">self</span>.requests.iter().filter(|(_id, request)| !request.in_flight) {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(next_retry_time) = request.next_retry_time {
 				<span class="kw">if </span>next.map_or(<span class="bool-val">true</span>, |next| next_retry_time &lt; next) {
 					next = <span class="prelude-val">Some</span>(next_retry_time);
