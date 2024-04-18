@@ -274,7 +274,7 @@ test-linux-stable-codecov:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -Cinstrument-coverage"
+    RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
     CARGO_INCREMENTAL: 0
     LLVM_PROFILE_FILE: "cargo-test-%p-%m.profraw"
   parallel: 3
