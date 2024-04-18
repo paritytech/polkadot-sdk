@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713427305329,
+  "lastUpdate": 1713430602309,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4115,6 +4115,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.209936026,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b6fab8046e42283d14e9fa6beda32c878b3e801e",
+          "message": "[ci] Run `test-linux-stable-int` on self-hosted GitHub Runners (#4178)\n\nPR adds `test-linux-stable-int` and `quick-benchmarks` as github action\njobs. It's a copy of `test-linux-stable-int` and `quick-benchmarks` from\ngitlab ci and now it's needed to make a stress test for self-hosted\ngithub runners. `test-linux-stable-int` and `quick-benchmarks` in gitlab\nare still `Required` whereas this workflow is allowed to fail.\n\ncc https://github.com/paritytech/infrastructure/issues/46",
+          "timestamp": "2024-04-18T07:40:45Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6fab8046e42283d14e9fa6beda32c878b3e801e"
+        },
+        "date": 1713430575242,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2393249596666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.973515769666662,
             "unit": "seconds"
           }
         ]
