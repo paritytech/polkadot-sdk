@@ -162,9 +162,8 @@ impl crate::Config for Test {
 		Ok(valid_destination)
 	}
 	fn worst_case_holding(depositable_count: u32) -> Assets {
-		crate::mock_worst_case_holding(
-			depositable_count,
-			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get(),
+		generate_holding_assets(
+			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get() - depositable_count,
 		)
 	}
 }
