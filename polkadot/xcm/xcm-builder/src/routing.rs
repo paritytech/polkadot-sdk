@@ -147,7 +147,7 @@ impl EnsureDelivery for Tuple {
 /// routers can manipulate the `message`, we cannot access the final XCM due to the generic
 /// `Inner::Ticket`. Therefore, this router aims to validate at least the passed `message`.
 ///
-/// NOTE: For testing purposes.
+/// NOTE: For use in mock runtimes which don't have the DMP/UMP/HRMP XCM validations.
 pub struct EnsureDecodableXcm<Inner>(sp_std::marker::PhantomData<Inner>);
 impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 	type Ticket = Inner::Ticket;
