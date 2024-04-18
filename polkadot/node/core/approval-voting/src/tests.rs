@@ -821,8 +821,6 @@ impl ChainBuilder {
 	}
 
 	pub async fn build(&self, overseer: &mut VirtualOverseer) {
-		println!("===== {:?} ====", self.blocks_at_height);
-
 		for (number, blocks) in self.blocks_at_height.iter() {
 			for (i, hash) in blocks.iter().enumerate() {
 				let mut cur_hash = *hash;

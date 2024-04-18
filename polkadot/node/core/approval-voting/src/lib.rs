@@ -119,7 +119,6 @@ const APPROVAL_CACHE_SIZE: u32 = 1024;
 
 const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
-
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 
 // The max number of ticks we delay sending the approval after we are ready to issue the approval
