@@ -328,7 +328,7 @@ impl pallet_example_mbm::Config for Runtime {}
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type PalletsOrigin = OriginCaller;
+	type OriginToAccount = ();
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 

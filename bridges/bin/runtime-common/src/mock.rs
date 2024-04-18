@@ -154,7 +154,7 @@ impl frame_system::Config for TestRuntime {
 impl pallet_utility::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type PalletsOrigin = OriginCaller;
+	type OriginToAccount = ();
 	type WeightInfo = ();
 }
 
