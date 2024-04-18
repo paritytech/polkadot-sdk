@@ -114,7 +114,7 @@ pub mod pallet {
 		/// Maximum weight for any XCM transact call that should be executed on the coretime chain.
 		///
 		/// Basically should be `max_weight(set_leases, reserve, notify_core_count)`.
-		type MaxXCMTransactWeight: Get<Weight>;
+		type MaxXcmTransactWeight: Get<Weight>;
 	}
 
 	#[pallet::event]
@@ -269,7 +269,7 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		require_weight_at_most: T::MaxXCMTransactWeight::get(),
+		require_weight_at_most: T::MaxXcmTransactWeight::get(),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }
