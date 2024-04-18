@@ -36,6 +36,7 @@ pallet-nfts = { path = "../../../../../substrate/frame/nfts", default-features =
 pallet-nfts-runtime-api = { path = "../../../../../substrate/frame/nfts/runtime-api", default-features = false }
 pallet-proxy = { path = "../../../../../substrate/frame/proxy", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
+pallet-state-trie-migration = { path = "../../../../../substrate/frame/state-trie-migration", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
