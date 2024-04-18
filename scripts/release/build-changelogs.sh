@@ -34,12 +34,12 @@ SCHEMA_URL=https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdo
 SCHEMA=$(curl -s $SCHEMA_URL | sed 's|^//.*||')
 aud_desc_array=()
 while IFS= read -r line; do
-    audience=$(echo "$line" | jq -r '.const')
-    description=$(echo "$line" | jq -r '.description')
+    audience=$(jq -r '.const' <<< "$line" )
+    description=$(jq -r '.description' <<< "$line")
     if [ -n "$audience" ] && [ -n "$description" ]; then
         aud_desc_array+=("($audience; $description)")
     fi
-done < <(echo -E $SCHEMA | jq -c '."$defs".audience_id.oneOf[]')
+done < <(jq -c '."$defs".audience_id.oneOf[]' <<< "$SCHEMA")
 
 # Generate a release notes doc per audience
 for tuple in "${aud_desc_array[@]}"; do
