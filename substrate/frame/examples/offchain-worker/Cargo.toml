@@ -24,7 +24,7 @@ frame-support = { path = "../../support", default-features = false }
 frame-system = { path = "../../system", default-features = false }
 sp-core = { path = "../../../primitives/core", default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }
-sp-keystore = { path = "../../../primitives/keystore", optional = true }
+sp-keystore = { path = "../../../primitives/keystore", optional = true, default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-std = { path = "../../../primitives/std", default-features = false }
 
