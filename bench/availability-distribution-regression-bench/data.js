@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713436916861,
+  "lastUpdate": 1713440613351,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5199,6 +5199,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0072775470000000075,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ff906127ab513bb42a4288968e0f421f630809e0",
+          "message": "Improve changelog in the release notes (#4179)\n\nThis PR adds description to each of the sections of the Changelog part.\nChanges are based on feedback that it wasn't that clear what exactly\n`Node Dev`, `Runtime Dev` etc. means. Now, the description for each of\nthose parts is taken directly from the `prdoc` schema.\nCloses https://github.com/paritytech/release-engineering/issues/197",
+          "timestamp": "2024-04-18T10:30:31Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff906127ab513bb42a4288968e0f421f630809e0"
+        },
+        "date": 1713440589755,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014763447199999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007468142266666674,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024539509333333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16534525813333317,
             "unit": "seconds"
           }
         ]
