@@ -313,8 +313,8 @@ mod benches {
 		assert_last_event::<T>(
 			Event::Transferred {
 				region_id: region,
-				old_owner: caller,
-				owner: recipient,
+				old_owner: Some(caller),
+				owner: Some(recipient),
 				duration: 3u32.into(),
 			}
 			.into(),
