@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713437217250,
+  "lastUpdate": 1713440826951,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4199,6 +4199,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.612123962400002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ff906127ab513bb42a4288968e0f421f630809e0",
+          "message": "Improve changelog in the release notes (#4179)\n\nThis PR adds description to each of the sections of the Changelog part.\nChanges are based on feedback that it wasn't that clear what exactly\n`Node Dev`, `Runtime Dev` etc. means. Now, the description for each of\nthose parts is taken directly from the `prdoc` schema.\nCloses https://github.com/paritytech/release-engineering/issues/197",
+          "timestamp": "2024-04-18T10:30:31Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff906127ab513bb42a4288968e0f421f630809e0"
+        },
+        "date": 1713440803450,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2251924087333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.813954746333334,
             "unit": "seconds"
           }
         ]
