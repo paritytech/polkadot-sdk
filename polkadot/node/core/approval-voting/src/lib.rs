@@ -2848,21 +2848,21 @@ where
 		if is_approved && transition.is_remote_approval() {
 			// Make sure we wake other blocks in case they have
 			// a no-show that might be covered by this approval.
-			for (other_block_hash, other_approval_entry) in candidate_entry
+			for (fork_block_hash, fork_approval_entry) in candidate_entry
 				.block_assignments
 				.iter()
 				.filter(|(hash, _)| **hash != block_hash)
 			{
-				if wakeups.wakeup_for(*other_block_hash, candidate_hash).is_none() &&
-					!other_approval_entry.is_approved() &&
+				if wakeups.wakeup_for(*fork_block_hash, candidate_hash).is_none() &&
+					!fork_approval_entry.is_approved() &&
 					validator_index
 						.as_ref()
-						.map(|validator_index| other_approval_entry.is_assigned(*validator_index))
+						.map(|validator_index| fork_approval_entry.is_assigned(*validator_index))
 						.unwrap_or_default()
 				{
-					if let Ok(Some(other_block_entry)) = db.load_block_entry(other_block_hash) {
+					if let Ok(Some(other_block_entry)) = db.load_block_entry(fork_block_hash) {
 						actions.push(Action::ScheduleWakeup {
-							block_hash: *other_block_hash,
+							block_hash: *fork_block_hash,
 							block_number: other_block_entry.block_number(),
 							candidate_hash,
 							// Schedule the wakeup next tick, since the assignment must be a
