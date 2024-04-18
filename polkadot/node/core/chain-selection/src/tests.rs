@@ -406,7 +406,7 @@ async fn import_chains_into_empty(
 // some pre-blocks may need to be supplied to answer ancestry requests
 // that gather batches beyond the beginning of the new chain.
 // pre-blocks are those already known by the subsystem, however,
-// the subsystem has no way of knowin that until requesting ancestry.
+// the subsystem has no way of knowing that until requesting ancestry.
 async fn import_all_blocks_into(
 	virtual_overseer: &mut VirtualOverseer,
 	backend: &TestBackend,
@@ -1300,7 +1300,7 @@ fn finalize_erases_unviable_from_one_but_not_all_reverts() {
 		// F <- A1 <- A2 <- A3
 		//
 		// A3 reverts A2 and A1.
-		// Finalize A1. A2 is stil unviable.
+		// Finalize A1. A2 is still unviable.
 
 		let (a3_hash, chain_a) =
 			construct_chain_on_base(vec![1, 2, 3], finalized_number, finalized_hash, |h| {

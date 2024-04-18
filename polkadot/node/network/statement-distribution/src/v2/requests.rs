@@ -320,7 +320,7 @@ impl RequestManager {
 		// need for the current node to limit itself to the same amount the
 		// requests, because the requests are going to different nodes anyways.
 		// While looking at https://github.com/paritytech/polkadot-sdk/issues/3314,
-		// found out that this requests take around 100ms to fullfill, so it
+		// found out that this requests take around 100ms to fulfill, so it
 		// would make sense to try to request things as early as we can, given
 		// we would need to request it for each candidate, around 25 right now
 		// on kusama.

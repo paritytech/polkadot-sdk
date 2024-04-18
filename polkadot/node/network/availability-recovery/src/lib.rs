@@ -408,7 +408,7 @@ async fn handle_recover<Context>(
 ) -> error::Result<()> {
 	let candidate_hash = receipt.hash();
 
-	let span = jaeger::Span::new(candidate_hash, "availbility-recovery")
+	let span = jaeger::Span::new(candidate_hash, "availability-recovery")
 		.with_stage(jaeger::Stage::AvailabilityRecovery);
 
 	if let Some(result) =

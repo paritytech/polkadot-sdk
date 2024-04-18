@@ -18,6 +18,8 @@
 //! `InteriorLocation` types.
 
 use frame_support::traits::{Contains, Get};
+use sp_runtime::traits::MaybeEquivalence;
+use sp_std::marker::PhantomData;
 use xcm::latest::{InteriorLocation, Location, NetworkId};
 
 /// An implementation of `Contains` that checks for `Location` or
@@ -49,5 +51,20 @@ impl<T: Get<NetworkId>> Contains<Location> for StartsWithExplicitGlobalConsensus
 impl<T: Get<NetworkId>> Contains<InteriorLocation> for StartsWithExplicitGlobalConsensus<T> {
 	fn contains(location: &InteriorLocation) -> bool {
 		matches!(location.global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
+	}
+}
+
+/// An adapter implementation of `MaybeEquivalence` which can convert between the latest `Location`
+/// and other versions that implement `TryInto<Location>` and `TryFrom<Location>`.
+pub struct WithLatestLocationConverter<Target>(PhantomData<Target>);
+impl<Target: TryInto<Location> + TryFrom<Location> + Clone> MaybeEquivalence<Location, Target>
+	for WithLatestLocationConverter<Target>
+{
+	fn convert(old: &Location) -> Option<Target> {
+		(*old).clone().try_into().ok()
+	}
+
+	fn convert_back(new: &Target) -> Option<Location> {
+		new.clone().try_into().ok()
 	}
 }

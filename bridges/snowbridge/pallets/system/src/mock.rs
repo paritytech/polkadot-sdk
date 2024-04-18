@@ -148,6 +148,7 @@ impl pallet_message_queue::Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ();
 	type QueuePausedQuery = ();
 }
 

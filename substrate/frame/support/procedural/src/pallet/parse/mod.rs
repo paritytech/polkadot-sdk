@@ -321,7 +321,7 @@ impl Def {
 		Ok(())
 	}
 
-	/// Tries to locate a manual tasks impl (an impl impling a trait whose last path segment is
+	/// Tries to locate a manual tasks impl (an impl implementing a trait whose last path segment is
 	/// `Task`) in the event that one has not been found already via the attribute macro
 	pub fn resolve_manual_tasks_impl(
 		tasks: &mut Option<tasks::TasksDef>,

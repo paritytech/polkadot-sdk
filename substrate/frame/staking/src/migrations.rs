@@ -30,7 +30,7 @@ use frame_support::ensure;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
-/// Used for release versioning upto v12.
+/// Used for release versioning up to v12.
 ///
 /// Obsolete from v13. Keeping around to make encoding/decoding of old migration code easier.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
