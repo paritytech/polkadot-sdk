@@ -94,7 +94,8 @@ fn session_change_updates_authorities() {
 			assert!(2 == beefy::ValidatorSetId::<Test>::get());
 
 			let want = beefy_log(ConsensusLog::AuthoritiesChange(
-				ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(4)], 2).unwrap(),
+				ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)], 2)
+					.unwrap(),
 			));
 
 			let log = System::digest().logs[1].clone();
@@ -678,7 +679,7 @@ fn report_vote_equivocation_validate_unsigned_prevents_duplicates() {
 		);
 
 		// the transaction is valid when passed as local
-		let tx_tag = (equivocation_key, set_id, 3u64);
+		let tx_tag = (vec![equivocation_key], set_id, 3u64);
 
 		assert_eq!(
 			<Beefy as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
@@ -1317,21 +1318,6 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 
-		// vote targets different round than finalized payload, there is no equivocation.
-		let equivocation_proof = generate_fork_equivocation_proof_vote(
-			(block_num + 1, payload.clone(), set_id, &equivocation_keyring),
-			None,
-			Some(ancestry_proof.clone()),
-		);
-		assert_err!(
-			Beefy::report_fork_equivocation_unsigned(
-				RuntimeOrigin::none(),
-				Box::new(equivocation_proof),
-				vec![key_owner_proof.clone()],
-			),
-			Error::<Test>::InvalidForkEquivocationProof,
-		);
-
 		// vote signed with a key that isn't part of the authority set
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload.clone(), set_id, &BeefyKeyring::Dave),
@@ -1351,7 +1337,7 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload.clone(), set_id + 1, &equivocation_keyring),
 			None,
-			Some(ancestry_proof),
+			Some(ancestry_proof.clone()),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1360,6 +1346,22 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 				vec![key_owner_proof.clone()],
 			),
 			Error::<Test>::InvalidEquivocationProofSession,
+		);
+
+		// Simulate InvalidForkEquivocationProof error.
+		IsValidForkEquivocationProof::set(&false);
+		let equivocation_proof = generate_fork_equivocation_proof_vote(
+			(block_num + 1, payload.clone(), set_id, &equivocation_keyring),
+			None,
+			Some(ancestry_proof),
+		);
+		assert_err!(
+			Beefy::report_fork_equivocation_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(equivocation_proof),
+				vec![key_owner_proof.clone()],
+			),
+			Error::<Test>::InvalidForkEquivocationProof,
 		);
 	});
 }
@@ -2149,26 +2151,6 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 
-		// commitment targets different round than finalized payload, there is no equivocation.
-		let equivocation_proof = generate_fork_equivocation_proof_sc(
-			Commitment {
-				validator_set_id: set_id,
-				block_number: block_num + 1,
-				payload: payload.clone(),
-			},
-			equivocation_keyrings.clone(),
-			None,
-			Some(ancestry_proof.clone()),
-		);
-		assert_err!(
-			Beefy::report_fork_equivocation_unsigned(
-				RuntimeOrigin::none(),
-				Box::new(equivocation_proof),
-				key_owner_proofs.clone(),
-			),
-			Error::<Test>::InvalidForkEquivocationProof,
-		);
-
 		// commitment signed with a key that isn't part of the authority set
 		let equivocation_proof = generate_fork_equivocation_proof_sc(
 			Commitment {
@@ -2196,6 +2178,27 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 				block_number: block_num,
 				payload: payload.clone(),
 			},
+			equivocation_keyrings.clone(),
+			None,
+			Some(ancestry_proof.clone()),
+		);
+		assert_err!(
+			Beefy::report_fork_equivocation_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(equivocation_proof),
+				key_owner_proofs.clone(),
+			),
+			Error::<Test>::InvalidEquivocationProofSession,
+		);
+
+		// Simulate InvalidForkEquivocationProof error.
+		IsValidForkEquivocationProof::set(&false);
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			Commitment {
+				validator_set_id: set_id,
+				block_number: block_num + 1,
+				payload: payload.clone(),
+			},
 			equivocation_keyrings,
 			None,
 			Some(ancestry_proof),
@@ -2206,7 +2209,7 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 				Box::new(equivocation_proof),
 				key_owner_proofs,
 			),
-			Error::<Test>::InvalidEquivocationProofSession,
+			Error::<Test>::InvalidForkEquivocationProof,
 		);
 	});
 }

@@ -87,22 +87,27 @@ parameter_types! {
 	pub const ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * Period::get();
 	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+
+	pub storage IsValidForkEquivocationProof: bool = true;
 }
 
-pub struct AlwaysValidForkEquivocationProof;
+pub struct MockForkEquivocationProofChecker;
 
-impl<Err, Header: HeaderT> CheckForkEquivocationProof<Err, Header>
-	for AlwaysValidForkEquivocationProof
+impl<Header: HeaderT> CheckForkEquivocationProof<crate::pallet::Error<Test>, Header>
+	for MockForkEquivocationProofChecker
 {
 	type Hash = Keccak256;
 	fn check_fork_equivocation_proof<Id, MsgHash>(
 		_proof: &ForkEquivocationProof<Id, Header, <Self::Hash as HashT>::Output>,
-	) -> Result<(), Err>
+	) -> Result<(), crate::pallet::Error<Test>>
 	where
 		Id: BeefyAuthorityId<MsgHash> + PartialEq,
 		MsgHash: HashT,
 	{
-		Ok(())
+		match IsValidForkEquivocationProof::get() {
+			true => Ok(()),
+			false => Err(crate::pallet::Error::InvalidForkEquivocationProof),
+		}
 	}
 }
 
@@ -112,7 +117,7 @@ impl pallet_beefy::Config for Test {
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type OnNewValidatorSet = ();
-	type CheckForkEquivocationProof = AlwaysValidForkEquivocationProof;
+	type CheckForkEquivocationProof = MockForkEquivocationProofChecker;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =
