@@ -3441,6 +3441,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3292" id="3292">3292</a>
 <a href="#3293" id="3293">3293</a>
 <a href="#3294" id="3294">3294</a>
+<a href="#3295" id="3295">3295</a>
+<a href="#3296" id="3296">3296</a>
+<a href="#3297" id="3297">3297</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3978,20 +3981,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>LockNotFound,
 		<span class="doccomment">/// The unlock operation cannot succeed because there are still consumers of the lock.
 		</span>InUse,
-		<span class="doccomment">/// Invalid non-concrete asset.
-		</span>InvalidAssetNotConcrete,
 		<span class="doccomment">/// Invalid asset, reserve chain could not be determined for it.
+		</span><span class="attr">#[codec(index = <span class="number">21</span>)]
 		</span>InvalidAssetUnknownReserve,
 		<span class="doccomment">/// Invalid asset, do not support remote asset reserves with different fees reserves.
+		</span><span class="attr">#[codec(index = <span class="number">22</span>)]
 		</span>InvalidAssetUnsupportedReserve,
 		<span class="doccomment">/// Too many assets with different reserve locations have been attempted for transfer.
+		</span><span class="attr">#[codec(index = <span class="number">23</span>)]
 		</span>TooManyReserves,
 		<span class="doccomment">/// Local XCM execution incomplete.
+		</span><span class="attr">#[codec(index = <span class="number">24</span>)]
 		</span>LocalExecutionIncomplete,
 		<span class="doccomment">/// Could not decode XCM.
+		</span><span class="attr">#[codec(index = <span class="number">25</span>)]
 		</span>UnableToDecode,
 		<span class="doccomment">/// XCM encoded length is too large.
 		/// Returned when an XCM encoded length is larger than `MaxXcmEncodedSize`.
+		</span><span class="attr">#[codec(index = <span class="number">26</span>)]
 		</span>XcmTooLarge,
 	}
 
@@ -4008,7 +4015,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl</span>&lt;T: Config&gt; From&lt;AssetTransferError&gt; <span class="kw">for </span>Error&lt;T&gt; {
 		<span class="kw">fn </span>from(e: AssetTransferError) -&gt; <span class="self">Self </span>{
 			<span class="kw">match </span>e {
-				AssetTransferError::NotConcrete =&gt; Error::&lt;T&gt;::InvalidAssetNotConcrete,
 				AssetTransferError::UnknownReserve =&gt; Error::&lt;T&gt;::InvalidAssetUnknownReserve,
 			}
 		}

@@ -241,8 +241,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -268,8 +266,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Errors related to determining asset transfer support.
 </span><span class="attr">#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 </span><span class="kw">pub enum </span>Error {
-	<span class="doccomment">/// Invalid non-concrete asset.
-	</span>NotConcrete,
 	<span class="doccomment">/// Reserve chain could not be determined for assets.
 	</span>UnknownReserve,
 }
