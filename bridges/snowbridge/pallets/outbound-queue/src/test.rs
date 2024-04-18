@@ -139,7 +139,9 @@ fn process_message_fails_on_overweight_message() {
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(1, 1));
 		assert_noop!(
 			OutboundQueue::process_message(encoded.as_slice(), origin, &mut meter, &mut [0u8; 32]),
-			ProcessMessageError::Overweight(<Test as Config>::WeightInfo::do_process_message())
+			ProcessMessageError::Overweight(Some(
+				<Test as Config>::WeightInfo::do_process_message()
+			))
 		);
 	})
 }

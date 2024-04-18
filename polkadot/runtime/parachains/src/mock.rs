@@ -603,7 +603,7 @@ impl ProcessMessage for TestProcessMessage {
 			Err(_) => return Err(ProcessMessageError::Corrupt), // same as the real `ProcessMessage`
 		};
 		if meter.try_consume(required).is_err() {
-			return Err(ProcessMessageError::Overweight(required))
+			return Err(ProcessMessageError::Overweight(Some(required)))
 		}
 
 		let mut processed = Processed::get();
