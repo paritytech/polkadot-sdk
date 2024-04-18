@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713456032854,
+  "lastUpdate": 1713460526314,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4283,6 +4283,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.21839375486666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c891fdabf4d519b25829490723fb70b1a2ffc0e5",
+          "message": "tx: Remove tx_broadcast transaction from the pool (#4050)\n\nThis PR ensures that broadcast future cleans-up the submitted extrinsic\nfrom the pool, iff the `broadcast_stop` operation has been called.\n\nThis effectively cleans-up transactions from the pool when the\n`broadcast_stop` is called.\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-18T15:57:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c891fdabf4d519b25829490723fb70b1a2ffc0e5"
+        },
+        "date": 1713460502426,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.658906021399998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1811935364666667,
             "unit": "seconds"
           }
         ]
