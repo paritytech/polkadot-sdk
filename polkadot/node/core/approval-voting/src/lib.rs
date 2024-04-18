@@ -120,9 +120,6 @@ const APPROVAL_CACHE_SIZE: u32 = 1024;
 const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
 
-/// Interval to check if no show was covered by approval
-/// of the same candidate on a different fork.
-const CHECK_NO_SHOW_COVERED: Tick = 36;
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 
 // The max number of ticks we delay sending the approval after we are ready to issue the approval
@@ -982,6 +979,7 @@ where
 					woken_block,
 					woken_candidate,
 					&subsystem.metrics,
+					&wakeups,
 				).await?
 			}
 			next_msg = ctx.recv().fuse() => {
@@ -1156,6 +1154,7 @@ async fn handle_actions<Context>(
 					candidate_hash,
 					delayed_approvals_timers,
 					approval_request,
+					&wakeups,
 				)
 				.await?
 				.into_iter()
@@ -1667,6 +1666,7 @@ async fn handle_from_overseer<Context>(
 					|r| {
 						let _ = res.send(r);
 					},
+					&wakeups,
 				)
 				.await?
 				.0,
@@ -2180,24 +2180,9 @@ fn schedule_wakeup_action(
 					.map(|t| t as Tick + block_tick + clock_drift)
 			};
 
-			min_prefer_some(next_non_empty_tranche, next_no_show)
-				.map(|tick| Action::ScheduleWakeup {
-					block_hash,
-					block_number,
-					candidate_hash,
-					tick,
-				})
-				// Make sure we always wake-up if we have pending tranches.
-				// We might end up in this situation if our assignment was already triggered,
-				// and all assignments that we know of have already been no-showed, so we need
-				// to wake up from time to time to check if the no-show was maybe covered by an
-				// approval for the same candidate, but on a different relay chain fork.
-				.or(Some(Action::ScheduleWakeup {
-					block_hash,
-					block_number,
-					candidate_hash,
-					tick: tick_now + CHECK_NO_SHOW_COVERED,
-				}))
+			min_prefer_some(next_non_empty_tranche, next_no_show).map(|tick| {
+				Action::ScheduleWakeup { block_hash, block_number, candidate_hash, tick }
+			})
 		},
 	};
 
@@ -2496,6 +2481,7 @@ async fn check_and_import_approval<T, Sender>(
 	metrics: &Metrics,
 	approval: IndirectSignedApprovalVoteV2,
 	with_response: impl FnOnce(ApprovalCheckResult) -> T,
+	wakeups: &Wakeups,
 ) -> SubsystemResult<(Vec<Action>, T)>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -2674,6 +2660,7 @@ where
 			approved_candidate_hash,
 			candidate_entry,
 			ApprovalStateTransition::RemoteApproval(approval.validator),
+			wakeups,
 		)
 		.await;
 		actions.extend(new_actions);
@@ -2708,6 +2695,14 @@ impl ApprovalStateTransition {
 			ApprovalStateTransition::WakeupProcessed => false,
 		}
 	}
+
+	fn is_remote_approval(&self) -> bool {
+		match *self {
+			ApprovalStateTransition::RemoteApproval(_) => true,
+			ApprovalStateTransition::LocalApproval(_) => false,
+			ApprovalStateTransition::WakeupProcessed => false,
+		}
+	}
 }
 
 // Advance the approval state, either by importing an approval vote which is already checked to be
@@ -2724,6 +2719,7 @@ async fn advance_approval_state<Sender>(
 	candidate_hash: CandidateHash,
 	mut candidate_entry: CandidateEntry,
 	transition: ApprovalStateTransition,
+	wakeups: &Wakeups,
 ) -> Vec<Action>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -2854,6 +2850,32 @@ where
 			status.required_tranches,
 		));
 
+		if is_approved && transition.is_remote_approval() {
+			// Make sure we wake other blocks in case they have
+			// a no-show that might be covered by this approval.
+			for (other_block, other_approval_entry) in candidate_entry
+				.block_assignments
+				.iter()
+				.filter(|(hash, _)| **hash != block_hash && is_approved)
+			{
+				if wakeups.wakeup_for(*other_block, candidate_hash).is_none() &&
+					!other_approval_entry.is_approved() &&
+					validator_index
+						.as_ref()
+						.map(|validator_index| other_approval_entry.is_assigned(*validator_index))
+						.unwrap_or_default()
+				{
+					if let Ok(Some(other_block_entry)) = db.load_block_entry(other_block) {
+						actions.push(Action::ScheduleWakeup {
+							block_hash: *other_block,
+							block_number: other_block_entry.block_number(),
+							candidate_hash,
+							tick: tick_now + 1,
+						})
+					}
+				}
+			}
+		}
 		// We have no need to write the candidate entry if all of the following
 		// is true:
 		//
@@ -2915,6 +2937,7 @@ async fn process_wakeup<Context>(
 	relay_block: Hash,
 	candidate_hash: CandidateHash,
 	metrics: &Metrics,
+	wakeups: &Wakeups,
 ) -> SubsystemResult<Vec<Action>> {
 	let mut span = state
 		.spans
@@ -3083,6 +3106,7 @@ async fn process_wakeup<Context>(
 			candidate_hash,
 			candidate_entry,
 			ApprovalStateTransition::WakeupProcessed,
+			wakeups,
 		)
 		.await,
 	);
@@ -3313,6 +3337,7 @@ async fn issue_approval<Context>(
 	candidate_hash: CandidateHash,
 	delayed_approvals_timers: &mut DelayedApprovalTimer,
 	ApprovalVoteRequest { validator_index, block_hash }: ApprovalVoteRequest,
+	wakeups: &Wakeups,
 ) -> SubsystemResult<Vec<Action>> {
 	let mut issue_approval_span = state
 		.spans
@@ -3434,6 +3459,7 @@ async fn issue_approval<Context>(
 		candidate_hash,
 		candidate_entry,
 		ApprovalStateTransition::LocalApproval(validator_index as _),
+		wakeups,
 	)
 	.await;
 
