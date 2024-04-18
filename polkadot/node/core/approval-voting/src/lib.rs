@@ -2696,11 +2696,7 @@ impl ApprovalStateTransition {
 	}
 
 	fn is_remote_approval(&self) -> bool {
-		match *self {
-			ApprovalStateTransition::RemoteApproval(_) => true,
-			ApprovalStateTransition::LocalApproval(_) => false,
-			ApprovalStateTransition::WakeupProcessed => false,
-		}
+		matches!(*self, ApprovalStateTransition::RemoteApproval(_))
 	}
 }
 
