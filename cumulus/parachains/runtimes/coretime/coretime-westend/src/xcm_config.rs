@@ -48,7 +48,7 @@ use xcm_builder::{
 	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
-use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const TokenRelayLocation: Location = Location::parent();

@@ -19,22 +19,12 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
-use crate::{
-	bridge_common_config::{
-		BridgeGrandpaRococoBulletinInstance, BridgeGrandpaWestendInstance,
-		BridgeParachainWestendInstance, DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
-	},
-	bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
-	bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
-	EthereumGatewayAddress,
-};
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::ChainId;
 use frame_support::{
 	parameter_types,
 	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
-	StoragePrefixedMap,
 };
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
@@ -64,7 +54,7 @@ use xcm_builder::{
 	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeToAccount,
 };
 use xcm_executor::{
-	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset, WithOriginFilter},
+	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset},
 	XcmExecutor,
 };
 
