@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713460851538,
+  "lastUpdate": 1713465717349,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5355,6 +5355,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.0241669304,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "88a2f360238787bf5256cfdd14b40c08f519b38e",
+          "message": "chainHead: Stabilize chainHead to version 1 (#4168)\n\nThis PR stabilizes the chainHead API to version 1.\n\nNeeds:\n- https://github.com/paritytech/polkadot-sdk/pull/3667\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-18T17:19:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/88a2f360238787bf5256cfdd14b40c08f519b38e"
+        },
+        "date": 1713465692802,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013666366733333324,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024604184266666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16237995466666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007063621733333335,
             "unit": "seconds"
           }
         ]
