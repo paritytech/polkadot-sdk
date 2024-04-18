@@ -154,6 +154,45 @@ mod tests {
 	}
 
 	#[test]
+	fn process_message_exceeds_limits_fails() {
+		struct MockedExecutor;
+		impl ExecuteXcm<()> for MockedExecutor {
+			type Prepared = xcm_executor::WeighedMessage<()>;
+			fn prepare(
+				message: xcm::latest::Xcm<()>,
+			) -> core::result::Result<Self::Prepared, xcm::latest::Xcm<()>> {
+				Ok(xcm_executor::WeighedMessage::new(Weight::zero(), message))
+			}
+			fn execute(
+				_: impl Into<Location>,
+				_: Self::Prepared,
+				_: &mut XcmHash,
+				_: Weight,
+			) -> Outcome {
+				Outcome::Error { error: xcm::latest::Error::ExceedsStackLimit }
+			}
+			fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> xcm::latest::Result {
+				unreachable!()
+			}
+		}
+
+		type Processor = ProcessXcmMessage<Junction, MockedExecutor, ()>;
+
+		let xcm = VersionedXcm::V4(xcm::latest::Xcm::<()>(vec![
+			xcm::latest::Instruction::<()>::ClearOrigin,
+		]));
+		assert_err!(
+			Processor::process_message(
+				&xcm.encode(),
+				ORIGIN,
+				&mut WeightMeter::new(),
+				&mut [0; 32]
+			),
+			ProcessMessageError::Overweight(None)
+		);
+	}
+
+	#[test]
 	fn process_message_overweight_fails() {
 		for msg in [v3_xcm(true), v3_xcm(false), v3_xcm(false), v2_xcm(false)] {
 			let msg = &msg.encode()[..];
@@ -175,44 +214,6 @@ mod tests {
 			assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
 			assert_eq!(meter.consumed(), 1000.into());
 		}
-	}
-
-	#[test]
-	fn process_message_recursion_limit_exceeded_fails() {
-		use frame_support::__private::sp_tracing;
-		sp_tracing::try_init_simple();
-		let mut xcm = VersionedXcm::V4(xcm::v4::Xcm::<RuntimeCall>(vec![
-			BuyExecution { fees: (Here, 1).into(), weight_limit: Unlimited },
-			xcm::v4::Instruction::<RuntimeCall>::Transact {
-				origin_kind: xcm::v4::OriginKind::Xcm,
-				require_weight_at_most: Weight::zero(),
-				call: RuntimeCall::System(frame_system::Call::<Runtime>::remark_with_event {
-					remark: b"Hello, World!".to_vec(),
-				})
-				.encode()
-				.into(),
-			},
-		]));
-
-		for _ in 0..300 {
-			let call = RuntimeCall::Xcm(pallet_xcm::Call::<Runtime>::execute {
-				message: xcm.into(),
-				max_weight: Weight::MAX,
-			});
-			xcm = VersionedXcm::V4(xcm::v4::Xcm::<RuntimeCall>(vec![xcm::v4::Instruction::<
-				RuntimeCall,
-			>::Transact {
-				origin_kind: xcm::v4::OriginKind::Xcm,
-				require_weight_at_most: Weight::zero(),
-				call: call.encode().into(),
-			}]));
-		}
-
-		let msg = &xcm.encode()[..];
-		let meter = &mut WeightMeter::new();
-		let mut id = [0; 32];
-		// FAIL-CI why does this work?
-		assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
 	}
 
 	fn v2_xcm(success: bool) -> VersionedXcm<RuntimeCall> {
