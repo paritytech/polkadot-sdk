@@ -209,7 +209,7 @@ impl Config for Test {
 	type MaxAuthorities = ConstU32<100>;
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		super::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
