@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713440613351,
+  "lastUpdate": 1713455727543,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5251,6 +5251,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16534525813333317,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "ordian",
+            "username": "ordian",
+            "email": "write@reusable.software"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "91d4a207af43f8f81f56e4f24af74f7c6f590148",
+          "message": "chain-selection: allow reverting current block (#4103)\n\nBlock reversion of the current block is technically possible as can be\nseen from\n\nhttps://github.com/paritytech/polkadot-sdk/blob/39b1f50f1c251def87c1625d68567ed252dc6272/polkadot/runtime/parachains/src/disputes.rs#L1215-L1223\n\n- [x] Fix the test",
+          "timestamp": "2024-04-18T14:32:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/91d4a207af43f8f81f56e4f24af74f7c6f590148"
+        },
+        "date": 1713455703527,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013838641733333329,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16080508766666676,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0070274793333333346,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02434859886666666,
             "unit": "seconds"
           }
         ]
