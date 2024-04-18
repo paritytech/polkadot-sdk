@@ -269,6 +269,8 @@ impl WasmBuilder {
 			self.features_to_enable,
 			self.file_name,
 			!self.disable_runtime_version_section_check,
+			#[cfg(feature = "metadata-hash")]
+			self.enable_metadata_hash,
 		);
 
 		// As last step we need to generate our `rerun-if-changed` stuff. If a build fails, we don't
@@ -343,6 +345,8 @@ fn build_project(
 	features_to_enable: Vec<String>,
 	wasm_binary_name: Option<String>,
 	check_for_runtime_version_section: bool,
+	#[cfg(feature = "metadata-hash")]
+	enable_metadata_hash: Option<MetadataExtraInfo>,
 ) {
 	let cargo_cmd = match crate::prerequisites::check(target) {
 		Ok(cmd) => cmd,
@@ -360,6 +364,8 @@ fn build_project(
 		features_to_enable,
 		wasm_binary_name,
 		check_for_runtime_version_section,
+		#[cfg(feature = "metadata-hash")]
+		enable_metadata_hash,
 	);
 
 	let (wasm_binary, wasm_binary_bloaty) = if let Some(wasm_binary) = wasm_binary {

@@ -119,6 +119,7 @@ pub(crate) fn create_and_compile(
 	features_to_enable: Vec<String>,
 	blob_out_name_override: Option<String>,
 	check_for_runtime_version_section: bool,
+	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty) {
 	let runtime_workspace_root = get_wasm_workspace_root();
 	let runtime_workspace = runtime_workspace_root.join(target.build_subdirectory());
@@ -136,28 +137,38 @@ pub(crate) fn create_and_compile(
 
 	let build_config = BuildConfiguration::detect(target, &project);
 
-	// When the `metadata-hash` feature is enabled we need to build the runtime twice.
 	#[cfg(feature = "metadata-hash")]
-	let raw_blob_path = {
-		let raw_blob_path = build_bloaty_blob(
-			target,
-			&build_config.blob_build_profile,
-			&project,
-			default_rustflags,
-			cargo_cmd.clone(),
-			None,
-		);
+	let raw_blob_path = match enable_metadata_hash {
+		Some(extra_info) => {
+			// When the metadata hash is enabled we need to build the runtime twice.
+			let raw_blob_path = build_bloaty_blob(
+				target,
+				&build_config.blob_build_profile,
+				&project,
+				default_rustflags,
+				cargo_cmd.clone(),
+				None,
+			);
 
-		let hash = crate::metadata_hash::generate_metadata_hash(&raw_blob_path);
+			let hash = crate::metadata_hash::generate_metadata_hash(&raw_blob_path, extra_info);
 
-		build_bloaty_blob(
+			build_bloaty_blob(
+				target,
+				&build_config.blob_build_profile,
+				&project,
+				default_rustflags,
+				cargo_cmd,
+				Some(hash),
+			)
+		},
+		None => build_bloaty_blob(
 			target,
 			&build_config.blob_build_profile,
 			&project,
 			default_rustflags,
 			cargo_cmd,
-			Some(hash),
-		)
+			None,
+		),
 	};
 
 	// If the feature is not enabled, we only need to do it once.
@@ -169,7 +180,6 @@ pub(crate) fn create_and_compile(
 			&project,
 			default_rustflags,
 			cargo_cmd,
-			None,
 		)
 	};
 
@@ -810,6 +820,7 @@ fn build_bloaty_blob(
 	project: &Path,
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
+	#[cfg(feature = "metadata-hash")]
 	metadata_hash: Option<[u8; 32]>,
 ) -> PathBuf {
 	let manifest_path = project.join("Cargo.toml");
@@ -850,6 +861,7 @@ fn build_bloaty_blob(
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
 
+	#[cfg(feature = "metadata-hash")]
 	if let Some(hash) = metadata_hash {
 		build_cmd.env("RUNTIME_METADATA_HASH", array_bytes::bytes2hex("0x", &hash));
 	}

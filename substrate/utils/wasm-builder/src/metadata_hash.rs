@@ -42,7 +42,7 @@ type HostFunctions = (
 /// [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html).
 ///
 /// Returns the metadata hash.
-pub fn generate_metadata_hash(wasm: &Path) -> [u8; 32] {
+pub fn generate_metadata_hash(wasm: &Path, extra_info: MetadataExtraInfo) -> [u8; 32] {
 	sp_tracing::try_init_simple();
 
 	let wasm = std::fs::read(wasm).expect("Wasm file was just created and should be readable.");
@@ -94,9 +94,9 @@ pub fn generate_metadata_hash(wasm: &Path) -> [u8; 32] {
 	let extra_info = ExtraInfo {
 		spec_version: runtime_version.spec_version,
 		spec_name: runtime_version.spec_name.into(),
-		base58_prefix: 10,
-		decimals: 10,
-		token_symbol: "lol".into(),
+		base58_prefix: extra_info.base58_prefix,
+		decimals: extra_info.decimals,
+		token_symbol: extra_info.token_symbol,
 	};
 
 	generate_metadata_digest(&metadata, extra_info).unwrap().hash()
