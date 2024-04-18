@@ -36,8 +36,9 @@ use futures::{channel::oneshot, prelude::*};
 use polkadot_node_subsystem::{
 	messages::{
 		Ancestors, ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
-		HypotheticalFrontierRequest, IntroduceCandidateRequest, ProspectiveParachainsMessage,
-		ProspectiveValidationDataRequest, RuntimeApiMessage, RuntimeApiRequest,
+		HypotheticalFrontierRequest, IntroduceCandidateRequest, ParentHeadData,
+		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
+		RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -764,8 +765,14 @@ fn answer_prospective_validation_data_request(
 		Some(s) => s,
 	};
 
-	let mut head_data =
-		storage.head_data_by_hash(&request.parent_head_data_hash).map(|x| x.clone());
+	let (mut head_data, parent_head_data_hash) = match request.parent_head_data {
+		ParentHeadData::OnlyHash(parent_head_data_hash) => (
+			storage.head_data_by_hash(&parent_head_data_hash).map(|x| x.clone()),
+			parent_head_data_hash,
+		),
+		ParentHeadData::WithData { head_data, hash } => (Some(head_data), hash),
+	};
+
 	let mut relay_parent_info = None;
 	let mut max_pov_size = None;
 
@@ -783,7 +790,7 @@ fn answer_prospective_validation_data_request(
 		}
 		if head_data.is_none() {
 			let required_parent = &fragment_tree.scope().base_constraints().required_parent;
-			if required_parent.hash() == request.parent_head_data_hash {
+			if required_parent.hash() == parent_head_data_hash {
 				head_data = Some(required_parent.clone());
 			}
 		}

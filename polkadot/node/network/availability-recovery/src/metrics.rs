@@ -31,7 +31,7 @@ struct MetricsInner {
 	chunk_requests_issued: Counter<U64>,
 	/// Total number of bytes recovered
 	///
-	/// Gets incremented on each succesful recovery
+	/// Gets incremented on each successful recovery
 	recovered_bytes_total: Counter<U64>,
 	/// A counter for finished chunk requests.
 	///
@@ -232,7 +232,7 @@ impl metrics::Metrics for Metrics {
 			)?,
 			full_recoveries_started: prometheus::register(
 				Counter::new(
-					"polkadot_parachain_availability_recovery_recovieries_started",
+					"polkadot_parachain_availability_recovery_recoveries_started",
 					"Total number of started recoveries.",
 				)?,
 				registry,

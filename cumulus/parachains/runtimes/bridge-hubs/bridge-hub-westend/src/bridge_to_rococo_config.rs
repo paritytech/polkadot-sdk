@@ -25,6 +25,10 @@ use bp_messages::LaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
+	extensions::refund_relayer_extension::{
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane, RefundableParachain,
+	},
 	messages,
 	messages::{
 		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
@@ -34,10 +38,6 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
-	},
-	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundTransactionExtensionAdapter,
-		RefundableMessagesLane, RefundableParachain,
 	},
 };
 use codec::Encode;
@@ -190,7 +190,7 @@ impl ThisChainWithMessages for BridgeHubWestend {
 }
 
 /// Signed extension that refunds relayers that are delivering messages from the Rococo parachain.
-pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundTransactionExtensionAdapter<
+pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtensionAdapter<
 	RefundBridgedParachainMessages<
 		Runtime,
 		RefundableParachain<BridgeParachainRococoInstance, bp_bridge_hub_rococo::BridgeHubRococo>,
@@ -352,7 +352,7 @@ mod tests {
 			},
 		});
 
-		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+		bridge_runtime_common::extensions::priority_calculator::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithBridgeHubRococoMessagesInstance,
 			PriorityBoostPerMessage,

@@ -189,7 +189,7 @@ fn westend_sign_call(
 	use sp_core::Pair;
 	use westend_runtime as runtime;
 
-	let tx_ext: runtime::TxExtension = (
+	let extra: runtime::SignedExtra = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -201,12 +201,11 @@ fn westend_sign_call(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
-	)
-		.into();
+	);
 
 	let payload = runtime::SignedPayload::from_raw(
 		call.clone(),
-		tx_ext.clone(),
+		extra.clone(),
 		(
 			(),
 			runtime::VERSION.spec_version,
@@ -223,8 +222,8 @@ fn westend_sign_call(
 	runtime::UncheckedExtrinsic::new_signed(
 		call,
 		sp_runtime::AccountId32::from(acc.public()).into(),
-		polkadot_core_primitives::Signature::Sr25519(signature.clone()),
-		tx_ext,
+		polkadot_core_primitives::Signature::Sr25519(signature),
+		extra,
 	)
 	.into()
 }
@@ -242,7 +241,7 @@ fn rococo_sign_call(
 	use rococo_runtime as runtime;
 	use sp_core::Pair;
 
-	let tx_ext: runtime::TxExtension = (
+	let extra: runtime::SignedExtra = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -254,12 +253,11 @@ fn rococo_sign_call(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
-	)
-		.into();
+	);
 
 	let payload = runtime::SignedPayload::from_raw(
 		call.clone(),
-		tx_ext.clone(),
+		extra.clone(),
 		(
 			(),
 			runtime::VERSION.spec_version,
@@ -276,8 +274,8 @@ fn rococo_sign_call(
 	runtime::UncheckedExtrinsic::new_signed(
 		call,
 		sp_runtime::AccountId32::from(acc.public()).into(),
-		polkadot_core_primitives::Signature::Sr25519(signature.clone()),
-		tx_ext,
+		polkadot_core_primitives::Signature::Sr25519(signature),
+		extra,
 	)
 	.into()
 }

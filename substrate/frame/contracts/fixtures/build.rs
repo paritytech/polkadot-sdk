@@ -121,9 +121,11 @@ fn collect_entries(contracts_dir: &Path, out_dir: &Path) -> Vec<Entry> {
 /// Create a `Cargo.toml` to compile the given contract entries.
 fn create_cargo_toml<'a>(
 	fixtures_dir: &Path,
+	root_cargo_toml: &Path,
 	entries: impl Iterator<Item = &'a Entry>,
 	output_dir: &Path,
 ) -> Result<()> {
+	let root_toml: toml::Value = toml::from_str(&fs::read_to_string(root_cargo_toml)?)?;
 	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/Cargo.toml"))?;
 	let mut set_dep = |name, path| -> Result<()> {
 		cargo_toml["dependencies"][name]["path"] = toml::Value::String(
@@ -133,6 +135,8 @@ fn create_cargo_toml<'a>(
 	};
 	set_dep("uapi", "../uapi")?;
 	set_dep("common", "./contracts/common")?;
+	cargo_toml["dependencies"]["polkavm-derive"]["version"] =
+		root_toml["workspace"]["dependencies"]["polkavm-derive"].clone();
 
 	cargo_toml["bin"] = toml::Value::Array(
 		entries
@@ -324,6 +328,7 @@ fn main() -> Result<()> {
 	let contracts_dir = fixtures_dir.join("contracts");
 	let out_dir: PathBuf = env::var("OUT_DIR")?.into();
 	let workspace_root = find_workspace_root(&fixtures_dir).expect("workspace root exists; qed");
+	let root_cargo_toml = workspace_root.join("Cargo.toml");
 
 	let entries = collect_entries(&contracts_dir, &out_dir);
 	if entries.is_empty() {
@@ -333,7 +338,7 @@ fn main() -> Result<()> {
 	let tmp_dir = tempfile::tempdir()?;
 	let tmp_dir_path = tmp_dir.path();
 
-	create_cargo_toml(&fixtures_dir, entries.iter(), tmp_dir.path())?;
+	create_cargo_toml(&fixtures_dir, &root_cargo_toml, entries.iter(), tmp_dir.path())?;
 	invoke_cargo_fmt(
 		&workspace_root.join(".rustfmt.toml"),
 		entries.iter().map(|entry| &entry.path as _),

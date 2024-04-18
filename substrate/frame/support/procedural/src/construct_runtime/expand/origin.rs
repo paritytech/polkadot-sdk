@@ -153,10 +153,6 @@ pub fn expand_outer_origin(
 				self.filter = #scrate::__private::sp_std::rc::Rc::new(Box::new(filter));
 			}
 
-			fn set_caller(&mut self, caller: OriginCaller) {
-				self.caller = caller;
-			}
-
 			fn set_caller_from(&mut self, other: impl Into<Self>) {
 				self.caller = other.into().caller;
 			}
@@ -302,16 +298,6 @@ pub fn expand_outer_origin(
 			#[doc = #doc_string_runtime_origin_with_caller]
 			fn from(x: Option<<#runtime as #system_path::Config>::AccountId>) -> Self {
 				<#system_path::Origin<#runtime>>::from(x).into()
-			}
-		}
-
-		impl #scrate::__private::AsSystemOriginSigner<<#runtime as #system_path::Config>::AccountId> for RuntimeOrigin {
-			fn as_system_origin_signer(&self) -> Option<&<#runtime as #system_path::Config>::AccountId> {
-				if let OriginCaller::system(#system_path::Origin::<#runtime>::Signed(ref signed)) = &self.caller {
-					Some(signed)
-				} else {
-					None
-				}
 			}
 		}
 

@@ -874,8 +874,8 @@ pub mod pallet {
 								),
 							);
 							Self::deposit_event(Event::PalletAttributeSet {
-								collection,
-								item: Some(item),
+								collection: collection_id,
+								item: Some(owned_item),
 								attribute: pallet_attribute,
 								value: attribute_value,
 							});

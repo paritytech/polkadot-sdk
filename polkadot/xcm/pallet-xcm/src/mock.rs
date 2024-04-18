@@ -241,7 +241,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -361,11 +361,22 @@ parameter_types! {
 		0,
 		[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID)]
 	);
+	pub PaidParaForeignReserveLocation: Location = Location::new(
+		0,
+		[Parachain(Para3000::get())]
+	);
 	pub ForeignAsset: Asset = Asset {
 		fun: Fungible(10),
 		id: AssetId(Location::new(
 			0,
 			[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID), FOREIGN_ASSET_INNER_JUNCTION],
+		)),
+	};
+	pub PaidParaForeignAsset: Asset = Asset {
+		fun: Fungible(10),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(Para3000::get())],
 		)),
 	};
 	pub UsdcReserveLocation: Location = Location::new(
@@ -450,6 +461,8 @@ parameter_types! {
 	pub TrustedFilteredTeleport: (AssetFilter, Location) = (FilteredTeleportAsset::get().into(), FilteredTeleportLocation::get());
 	pub TeleportUsdtToForeign: (AssetFilter, Location) = (Usdt::get().into(), ForeignReserveLocation::get());
 	pub TrustedForeign: (AssetFilter, Location) = (ForeignAsset::get().into(), ForeignReserveLocation::get());
+	pub TrustedPaidParaForeign: (AssetFilter, Location) = (PaidParaForeignAsset::get().into(), PaidParaForeignReserveLocation::get());
+
 	pub TrustedUsdc: (AssetFilter, Location) = (Usdc::get().into(), UsdcReserveLocation::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -483,7 +496,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
-	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>);
+	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>, Case<TrustedPaidParaForeign>);
 	type IsTeleporter = (
 		Case<TrustedLocal>,
 		Case<TrustedSystemPara>,
@@ -513,6 +526,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;

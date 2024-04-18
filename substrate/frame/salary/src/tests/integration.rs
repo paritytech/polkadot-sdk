@@ -50,7 +50,7 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, 0));
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -250,7 +250,7 @@ fn swap_exhaustive_works() {
 		});
 
 		assert_eq!(root_add, root_swap);
-		// Ensure that we dont compare trivial stuff like `()` from a type error above.
+		// Ensure that we don't compare trivial stuff like `()` from a type error above.
 		assert_eq!(root_add.len(), 32);
 	});
 }

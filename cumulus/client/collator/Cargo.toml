@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 parking_lot = "0.12.1"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
-futures = "0.3.21"
+futures = "0.3.30"
 tracing = "0.1.25"
 
 # Substrate
@@ -34,7 +34,7 @@ cumulus-client-network = { path = "../network" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 
 [dev-dependencies]
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 
 # Substrate
 sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }

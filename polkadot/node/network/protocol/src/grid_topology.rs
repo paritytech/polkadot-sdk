@@ -89,7 +89,7 @@ impl SessionGridTopology {
 		SessionGridTopology { shuffled_indices, canonical_shuffling, peer_ids }
 	}
 
-	/// Updates the known peer ids for the passed authorithies ids.
+	/// Updates the known peer ids for the passed authorities ids.
 	pub fn update_authority_ids(
 		&mut self,
 		peer_id: PeerId,
@@ -313,7 +313,7 @@ impl SessionGridTopologyEntry {
 		self.topology.is_validator(peer)
 	}
 
-	/// Updates the known peer ids for the passed authorithies ids.
+	/// Updates the known peer ids for the passed authorities ids.
 	pub fn update_authority_ids(
 		&mut self,
 		peer_id: PeerId,
@@ -345,7 +345,7 @@ impl SessionGridTopologies {
 		self.inner.get(&session).and_then(|val| val.0.as_ref())
 	}
 
-	/// Updates the known peer ids for the passed authorithies ids.
+	/// Updates the known peer ids for the passed authorities ids.
 	pub fn update_authority_ids(
 		&mut self,
 		peer_id: PeerId,

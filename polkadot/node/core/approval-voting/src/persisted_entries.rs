@@ -454,7 +454,7 @@ pub struct BlockEntry {
 	slot: Slot,
 	relay_vrf_story: RelayVRFStory,
 	// The candidates included as-of this block and the index of the core they are
-	// leaving. Sorted ascending by core index.
+	// leaving.
 	candidates: Vec<(CoreIndex, CandidateHash)>,
 	// A bitfield where the i'th bit corresponds to the i'th candidate in `candidates`.
 	// The i'th bit is `true` iff the candidate has been approved in the context of this

@@ -338,7 +338,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	db_config.memory_budget = memory_budget;
 
 	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
-	// write database version only after the database is succesfully opened
+	// write database version only after the database is successfully opened
 	crate::upgrade::update_version(path)?;
 	Ok(sp_database::as_database(db))
 }
@@ -582,19 +582,14 @@ impl<'a, 'b> codec::Input for JoinInput<'a, 'b> {
 mod tests {
 	use super::*;
 	use codec::Input;
-	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{Block as RawBlock, MockCallU64},
-	};
-
-	pub type UncheckedXt = UncheckedExtrinsic<u64, MockCallU64, (), ()>;
-	type Block = RawBlock<UncheckedXt>;
+	use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper};
+	type Block = RawBlock<ExtrinsicWrapper<u32>>;
 
 	#[cfg(feature = "rocksdb")]
 	#[test]
 	fn database_type_subdir_migration() {
 		use std::path::PathBuf;
-		type Block = RawBlock<UncheckedXt>;
+		type Block = RawBlock<ExtrinsicWrapper<u64>>;
 
 		fn check_dir_for_db_type(
 			db_type: DatabaseType,

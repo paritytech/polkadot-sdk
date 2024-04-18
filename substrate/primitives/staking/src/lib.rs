@@ -20,14 +20,17 @@
 //! A crate which contains primitives that are useful for implementation that uses staking
 //! approaches in general. Definitions related to sessions, slashing, etc go here.
 
+extern crate alloc;
+
 use crate::currency_to_vote::CurrencyToVote;
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
+use core::ops::Sub;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
 	DispatchError, DispatchResult, RuntimeDebug, Saturating,
 };
-use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec, vec::Vec};
 
 pub mod offence;
 
@@ -172,7 +175,7 @@ pub trait StakingInterface {
 		+ Saturating;
 
 	/// AccountId type used by the staking system.
-	type AccountId: Clone + sp_std::fmt::Debug;
+	type AccountId: Clone + core::fmt::Debug;
 
 	/// Means of converting Currency to VoteWeight.
 	type CurrencyToVote: CurrencyToVote<Self::Balance>;

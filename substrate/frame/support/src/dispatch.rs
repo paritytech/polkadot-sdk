@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
-	traits::Dispatchable,
+	traits::SignedExtension,
 	DispatchError, RuntimeDebug,
 };
 use sp_std::fmt;
@@ -268,8 +268,7 @@ pub fn extract_actual_weight(result: &DispatchResultWithPostInfo, info: &Dispatc
 	.calc_actual_weight(info)
 }
 
-/// Extract the actual pays_fee from a dispatch result if any or fall back to the default
-/// weight.
+/// Extract the actual pays_fee from a dispatch result if any or fall back to the default weight.
 pub fn extract_actual_pays_fee(result: &DispatchResultWithPostInfo, info: &DispatchInfo) -> Pays {
 	match result {
 		Ok(post_info) => post_info,
@@ -369,10 +368,11 @@ where
 }
 
 /// Implementation for unchecked extrinsic.
-impl<Address, Call, Signature, Extension> GetDispatchInfo
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<Address, Call, Signature, Extra> GetDispatchInfo
+	for UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
-	Call: GetDispatchInfo + Dispatchable,
+	Call: GetDispatchInfo,
+	Extra: SignedExtension,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.function.get_dispatch_info()
@@ -380,12 +380,27 @@ where
 }
 
 /// Implementation for checked extrinsic.
-impl<AccountId, Call, Extension> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extension>
+impl<AccountId, Call, Extra> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extra>
 where
 	Call: GetDispatchInfo,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.function.get_dispatch_info()
+	}
+}
+
+/// Implementation for test extrinsic.
+#[cfg(feature = "std")]
+impl<Call: Encode + GetDispatchInfo, Extra: Encode> GetDispatchInfo
+	for sp_runtime::testing::TestXt<Call, Extra>
+{
+	fn get_dispatch_info(&self) -> DispatchInfo {
+		// for testing: weight == size.
+		DispatchInfo {
+			weight: Weight::from_parts(self.encode().len() as _, 0),
+			pays_fee: Pays::Yes,
+			class: self.call.get_dispatch_info().class,
+		}
 	}
 }
 

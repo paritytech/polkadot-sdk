@@ -16,7 +16,8 @@
 
 use std::{collections::HashSet, convert::TryFrom};
 
-pub use sc_network::{PeerId, ReputationChange};
+pub use sc_network::ReputationChange;
+pub use sc_network_types::PeerId;
 
 use polkadot_node_network_protocol::{
 	grid_topology::SessionGridTopology, peer_set::ProtocolVersion, ObservedRole, OurView, View,

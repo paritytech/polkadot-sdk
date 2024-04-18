@@ -36,6 +36,7 @@ mod locking;
 mod origins;
 mod pay;
 mod querying;
+mod routing;
 mod transacting;
 mod version_subscriptions;
 mod weight;

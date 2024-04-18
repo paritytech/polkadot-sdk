@@ -112,7 +112,7 @@ pub mod pallet {
 		/// The origin permissioned to remove an existing conversion rate for an asset.
 		type RemoveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The origin permissioned to update an existiing conversion rate for an asset.
+		/// The origin permissioned to update an existing conversion rate for an asset.
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The currency mechanism for this pallet.

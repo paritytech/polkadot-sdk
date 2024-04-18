@@ -28,6 +28,10 @@ use crate::{
 use bp_messages::LaneId;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
+	extensions::refund_relayer_extension::{
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane, RefundableParachain,
+	},
 	messages,
 	messages::{
 		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
@@ -37,10 +41,6 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
-	},
-	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundTransactionExtensionAdapter,
-		RefundableMessagesLane, RefundableParachain,
 	},
 };
 
@@ -173,7 +173,7 @@ impl UnderlyingChainProvider for BridgeHubWestend {
 impl messages::BridgedChainWithMessages for BridgeHubWestend {}
 
 /// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
-pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundTransactionExtensionAdapter<
+pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter<
 	RefundBridgedParachainMessages<
 		Runtime,
 		RefundableParachain<
@@ -318,7 +318,7 @@ mod tests {
 			},
 		});
 
-		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+		bridge_runtime_common::extensions::priority_calculator::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithBridgeHubWestendMessagesInstance,
 			PriorityBoostPerMessage,

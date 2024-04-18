@@ -608,9 +608,9 @@ fn verification_should_be_stateless() {
 	let mut ext = new_test_ext();
 	let (root_6, root_7) = ext.execute_with(|| {
 		add_blocks(6);
-		let root_6 = crate::Pallet::<Test>::mmr_root_hash();
+		let root_6 = crate::Pallet::<Test>::mmr_root();
 		add_blocks(1);
-		let root_7 = crate::Pallet::<Test>::mmr_root_hash();
+		let root_7 = crate::Pallet::<Test>::mmr_root();
 		(root_6, root_7)
 	});
 	ext.persist_offchain_overlay();
@@ -656,9 +656,9 @@ fn should_verify_batch_proof_statelessly() {
 	let mut ext = new_test_ext();
 	let (root_6, root_7) = ext.execute_with(|| {
 		add_blocks(6);
-		let root_6 = crate::Pallet::<Test>::mmr_root_hash();
+		let root_6 = crate::Pallet::<Test>::mmr_root();
 		add_blocks(1);
-		let root_7 = crate::Pallet::<Test>::mmr_root_hash();
+		let root_7 = crate::Pallet::<Test>::mmr_root();
 		(root_6, root_7)
 	});
 	ext.persist_offchain_overlay();
