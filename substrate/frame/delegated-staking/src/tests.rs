@@ -652,7 +652,7 @@ mod pool_integration {
 			let delegate_amount = 200;
 
 			// nothing held initially
-			assert_eq!(held_balance(&creator), 0);
+			assert_eq!(DelegatedStaking::held_balance_of(&creator), 0);
 
 			// create pool
 			assert_ok!(Pools::create(
@@ -664,7 +664,7 @@ mod pool_integration {
 			));
 
 			// correct amount is locked in depositor's account.
-			assert_eq!(held_balance(&creator), delegate_amount);
+			assert_eq!(DelegatedStaking::held_balance_of(&creator), delegate_amount);
 
 			let pool_account = Pools::create_bonded_account(1);
 			let agent = get_agent(&pool_account);
@@ -688,14 +688,14 @@ mod pool_integration {
 			let delegator: AccountId = 300;
 			fund(&delegator, 500);
 			// nothing held initially
-			assert_eq!(held_balance(&delegator), 0);
+			assert_eq!(DelegatedStaking::held_balance_of(&delegator), 0);
 
 			// delegator joins pool
 			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 100, pool_id));
 			staked_amount += 100;
 
 			// correct amount is locked in depositor's account.
-			assert_eq!(held_balance(&delegator), 100);
+			assert_eq!(DelegatedStaking::held_balance_of(&delegator), 100);
 
 			// delegator is not actively exposed to core staking.
 			assert_eq!(Staking::status(&delegator), Err(StakingError::<T>::NotStash.into()));
@@ -712,7 +712,7 @@ mod pool_integration {
 				fund(&i, 500);
 				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), 100 + i, pool_id));
 				staked_amount += 100 + i;
-				assert_eq!(held_balance(&i), 100 + i);
+				assert_eq!(DelegatedStaking::held_balance_of(&i), 100 + i);
 			}
 
 			let pool_agent = pool_agent.refresh().unwrap();
@@ -761,7 +761,7 @@ mod pool_integration {
 			// claim rewards
 			for i in 300..320 {
 				let pre_balance = Balances::free_balance(i);
-				let delegator_staked_balance = held_balance(&i);
+				let delegator_staked_balance = DelegatedStaking::held_balance_of(&i);
 				// payout reward
 				assert_ok!(Pools::claim_payout(RawOrigin::Signed(i).into()));
 
@@ -829,7 +829,7 @@ mod pool_integration {
 			// at era 5, 301 can withdraw.
 
 			System::reset_events();
-			let held_301 = held_balance(&301);
+			let held_301 = DelegatedStaking::held_balance_of(&301);
 			let free_301 = Balances::free_balance(301);
 
 			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 0));
@@ -841,7 +841,7 @@ mod pool_integration {
 				pool_events_since_last_call(),
 				vec![PoolsEvent::Withdrawn { member: 301, pool_id, balance: 50, points: 50 }]
 			);
-			assert_eq!(held_balance(&301), held_301 - 50);
+			assert_eq!(DelegatedStaking::held_balance_of(&301), held_301 - 50);
 			assert_eq!(Balances::free_balance(301), free_301 + 50);
 
 			start_era(7);
@@ -1039,9 +1039,9 @@ mod pool_integration {
 			);
 
 			// slash is lazy and balance is still locked in user's accounts.
-			assert_eq!(held_balance(&creator), creator_stake);
+			assert_eq!(DelegatedStaking::held_balance_of(&creator), creator_stake);
 			for i in 300..306 {
-				assert_eq!(held_balance(&i), delegator_stake);
+				assert_eq!(DelegatedStaking::held_balance_of(&i), delegator_stake);
 			}
 			assert_eq!(
 				get_pool_agent(pool_id).ledger.effective_balance(),
@@ -1076,7 +1076,7 @@ mod pool_integration {
 					]
 				);
 				assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, pre_pending_slash - 50);
-				assert_eq!(held_balance(&i), 0);
+				assert_eq!(DelegatedStaking::held_balance_of(&i), 0);
 				assert_eq!(Balances::free_balance(i) - pre_balance, 50);
 			}
 
@@ -1092,7 +1092,7 @@ mod pool_integration {
 				// each member is slashed 50% of 100 = 50.
 				assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, pre_pending_slash - 50);
 				// left with 50.
-				assert_eq!(held_balance(&i), 50);
+				assert_eq!(DelegatedStaking::held_balance_of(&i), 50);
 			}
 			// reporter is paid SlashRewardFraction of the slash, i.e. 10% of 50 = 5
 			assert_eq!(Balances::free_balance(slash_reporter), 100 + 5 * 3);
