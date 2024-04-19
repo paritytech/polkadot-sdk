@@ -263,12 +263,15 @@ impl<T: Config> StakingLedger<T> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			T::Currency::remove_lock(STAKING_ID, &ledger.stash);
 			Ledger::<T>::remove(controller);
-
 			<Bonded<T>>::remove(&stash);
 			<Payee<T>>::remove(&stash);
-			<VirtualStakers<T>>::remove(&stash);
+
+			// kill virtual staker if it exists.
+			if <VirtualStakers<T>>::take(&stash).is_none() {
+				// if not virtual staker, clear locks.
+				T::Currency::remove_lock(STAKING_ID, &ledger.stash);
+			}
 
 			Ok(())
 		})?

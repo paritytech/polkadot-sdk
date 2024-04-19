@@ -27,7 +27,7 @@ use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
 };
 
 use mock::*;
@@ -1891,7 +1891,7 @@ fn reap_stash_works() {
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// given
-			assert_eq!(Balances::free_balance(11), 10 * 1000);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 10 * 1000);
 			assert_eq!(Staking::bonded(&11), Some(11));
 
 			assert!(<Ledger<Test>>::contains_key(&11));
@@ -1917,6 +1917,8 @@ fn reap_stash_works() {
 			assert!(!<Bonded<Test>>::contains_key(&11));
 			assert!(!<Validators<Test>>::contains_key(&11));
 			assert!(!<Payee<Test>>::contains_key(&11));
+			// lock is removed.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
 		});
 }
 
@@ -6848,7 +6850,6 @@ mod staking_interface {
 }
 
 mod staking_unchecked {
-	use frame_support::traits::InspectLockableCurrency;
 	use sp_staking::{Stake, StakingInterface, StakingUnchecked};
 
 	use super::*;
@@ -7546,7 +7547,6 @@ mod ledger {
 
 mod ledger_recovery {
 	use super::*;
-	use frame_support::traits::InspectLockableCurrency;
 
 	#[test]
 	fn inspect_recovery_ledger_simple_works() {
