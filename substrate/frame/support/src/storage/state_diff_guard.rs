@@ -118,11 +118,17 @@
 //! prefixes is changed.
 
 use core::fmt::{Debug, Formatter};
-
-use sp_state_machine::{StorageKey, StorageValue};
-use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use sp_std::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 
 use super::storage_prefix;
+
+/// Raw storage key.
+type StorageKey = Vec<u8>;
+/// Raw storage value.
+type StorageValue = Vec<u8>;
 
 /// Storage prefix: pallet name and storage name.
 #[derive(Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
@@ -169,10 +175,10 @@ impl StateDiffGuard {
 	fn read_state(&self) -> BTreeMap<StorageKey, StorageValue> {
 		let mut state = BTreeMap::new();
 
-		let mut previous_key = vec![];
+		let mut previous_key = Vec::new();
 		while let Some(next) = sp_io::storage::next_key(&previous_key) {
 			// Ensure we are iterating through the correct prefix
-			if !next.starts_with(&vec![]) {
+			if !next.starts_with(&Vec::new()) {
 				break;
 			}
 			if let Some(value) = sp_io::storage::get(&next) {
@@ -194,12 +200,12 @@ impl StateDiffGuard {
 		let mut diff = BTreeMap::new();
 
 		// start with an empty key
-		let mut previous_key = vec![];
+		let mut previous_key = Vec::new();
 		let mut initial_state = self.initial_state.clone();
 
 		while let Some(next) = sp_io::storage::next_key(&previous_key) {
 			// Ensure we are iterating through the correct prefix
-			if !next.starts_with(&vec![]) {
+			if !next.starts_with(&Vec::new()) {
 				break;
 			}
 
@@ -272,12 +278,12 @@ impl Drop for StateDiffGuard {
 			if !prefix_whitelisted {
 				check_passed = false;
 				if let Some(old_value) = self.initial_state.get(key) {
-					println!("+ {:?}:{:?}", key, value);
-					println!("- {:?}:{:?}", key, old_value);
+					log::info!("+ {:?}:{:?}", key, value);
+					log::info!("- {:?}:{:?}", key, old_value);
 				} else if sp_io::storage::exists(&key) {
-					println!("++ {:?}:{:?}", key, value);
+					log::info!("++ {:?}:{:?}", key, value);
 				} else {
-					println!("-- {:?}:{:?}", key, value);
+					log::info!("-- {:?}:{:?}", key, value);
 				}
 			}
 		}
