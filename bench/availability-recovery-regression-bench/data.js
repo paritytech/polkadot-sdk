@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713520312179,
+  "lastUpdate": 1713525756508,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4451,6 +4451,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.935558009466666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "eba3deca3e61855c237a33013e8a5e82c479e958",
+          "message": "txWatch: Stabilize txWatch to version 1 (#4171)\n\nThis PR stabilizes the txBroadcast API to version 1.\n\nNeeds from spec:\n- https://github.com/paritytech/json-rpc-interface-spec/pull/153 \n- https://github.com/paritytech/json-rpc-interface-spec/pull/154\n\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-19T09:48:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/eba3deca3e61855c237a33013e8a5e82c479e958"
+        },
+        "date": 1713525732011,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19378807793333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.874484071700001,
             "unit": "seconds"
           }
         ]
