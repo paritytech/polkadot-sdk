@@ -96,3 +96,8 @@ sp-version = { path = "../../substrate/primitives/version" }
 
 # XCM
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
+cumulus-primitives-proof-size-hostfunction = { version = "0.2.0", path = "../../cumulus/primitives/proof-size-hostfunction" }
+sc-executor = { path = "../../substrate/client/executor" }
+cumulus-client-service = { path = "../../cumulus/client/service" }
+sc-service = { path = "../../substrate/client/service" }
+cumulus-primitives-storage-weight-reclaim = { version = "1.0.0", path = "../../cumulus/primitives/storage-weight-reclaim" }

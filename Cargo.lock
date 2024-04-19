@@ -13895,8 +13895,11 @@ dependencies = [
 name = "polkadot-sdk-docs"
 version = "0.0.1"
 dependencies = [
+ "cumulus-client-service",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
+ "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-primitives-storage-weight-reclaim",
  "docify",
  "frame-executive",
  "frame-support",
@@ -13934,9 +13937,11 @@ dependencies = [
  "sc-consensus-grandpa",
  "sc-consensus-manual-seal",
  "sc-consensus-pow",
+ "sc-executor",
  "sc-network",
  "sc-rpc",
  "sc-rpc-api",
+ "sc-service",
  "scale-info",
  "simple-mermaid",
  "sp-api",
