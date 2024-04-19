@@ -209,6 +209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -244,8 +245,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This method is unstable and subject to change in the future.
 	</span><span class="attr">#[subscription(
-		name = <span class="string">"transactionWatch_unstable_submitAndWatch" </span>=&gt; <span class="string">"transactionWatch_unstable_watchEvent"</span>,
-		unsubscribe = <span class="string">"transactionWatch_unstable_unwatch"</span>,
+		name = <span class="string">"transactionWatch_v1_submitAndWatch" </span>=&gt; <span class="string">"transactionWatch_v1_watchEvent"</span>,
+		unsubscribe = <span class="string">"transactionWatch_v1_unwatch"</span>,
 		item = TransactionEvent&lt;Hash&gt;,
 	)]
 	</span><span class="kw">fn </span>submit_and_watch(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: Bytes);
@@ -258,7 +259,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">"transaction_unstable_broadcast"</span>, raw_method)]
+
+	</span><span class="attr">#[method(name = <span class="string">"transaction_v1_broadcast"</span>, raw_method)]
 	</span><span class="kw">async fn </span>broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: Bytes) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;;
 
 	<span class="doccomment">/// Broadcast an extrinsic to the chain.
@@ -266,7 +268,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">"transaction_unstable_stop"</span>, raw_method)]
+	</span><span class="attr">#[method(name = <span class="string">"transaction_v1_stop"</span>, raw_method)]
 	</span><span class="kw">async fn </span>stop_broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>, operation_id: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), ErrorBroadcast&gt;;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
