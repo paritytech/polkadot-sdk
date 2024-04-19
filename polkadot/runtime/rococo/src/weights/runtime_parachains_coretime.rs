@@ -70,5 +70,8 @@ impl<T: frame_system::Config + configuration::Config> runtime_parachains::coreti
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	fn request_revenue_info_at() -> frame_support::weights::Weight { todo!() }
+	fn request_revenue_info_at() -> frame_support::weights::Weight {
+		<T as configuration::Config>::WeightInfo::set_config_with_u32()
+	}
+
 }

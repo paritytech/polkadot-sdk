@@ -165,7 +165,7 @@ pub mod pallet {
 
 	/// Received revenue info from the relay chain.
 	#[pallet::storage]
-	pub type RevenueInbox<T: Config> = StorageValue<_, OnDemandRevenueRecord<T>, OptionQuery>;
+	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -793,9 +793,12 @@ pub mod pallet {
 
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::notify_revenue())]
-		pub fn notify_revenue(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+		pub fn notify_revenue(
+			origin: OriginFor<T>,
+			revenue: OnDemandRevenueRecordOf<T>,
+		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_notify_revenue(amount)?;
+			Self::do_notify_revenue(revenue)?;
 			Ok(())
 		}
 

@@ -22,7 +22,7 @@ use frame_support::{
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
-use sp_runtime::traits::{Convert, ConvertBack};
+use sp_runtime::traits::Convert;
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
@@ -439,8 +439,8 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_notify_revenue(amount: BalanceOf<T>) -> DispatchResult {
-		RevenueInbox::<T>::put(amount);
+	pub(crate) fn do_notify_revenue(revenue: OnDemandRevenueRecordOf<T>) -> DispatchResult {
+		RevenueInbox::<T>::put(revenue);
 		Ok(())
 	}
 

@@ -96,7 +96,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn process_revenue() -> bool {
-		let Some((until, amount)) = T::Coretime::check_notify_revenue_info() else { return false };
+		let Some(OnDemandRevenueRecord { until, amount }) = RevenueInbox::<T>::take() else {
+			return false
+		};
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
 		let mut revenue = T::ConvertBalance::convert_back(amount);
