@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::AccountId;
+use crate::relay_chain::AccountId;
 use xcm_builder::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, FungibleAdapter, IsConcrete, NoChecking,
 	NonFungiblesAdapter,
 };
 use xcm_executor::traits::JustTry;
 
-use super::{
+use crate::relay_chain::{
 	locations::{LocationToAccountId, TokenLocation},
 	Balances, Uniques,
 };

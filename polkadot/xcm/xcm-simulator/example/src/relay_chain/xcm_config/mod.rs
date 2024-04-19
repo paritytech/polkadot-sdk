@@ -27,10 +27,7 @@ use frame_support::traits::{Everything, Nothing};
 use xcm_builder::{FixedRateOfFungible, FrameTransactionalProcessor};
 use xcm_executor::Config;
 
-// Types from our runtime.
-use super::{AccountId, Balances, RuntimeCall, RuntimeOrigin};
-// Pallets from our runtime.
-use super::{Uniques, XcmPallet};
+use crate::relay_chain::{RuntimeCall, XcmPallet};
 
 // Generated from `decl_test_network!`
 pub type XcmRouter = crate::RelayChainXcmRouter;

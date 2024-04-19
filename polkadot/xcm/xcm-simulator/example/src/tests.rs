@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::*;
+use crate::*;
 
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};

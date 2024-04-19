@@ -19,7 +19,7 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use xcm::latest::prelude::*;
 use xcm_builder::{Account32Hash, AccountId32Aliases, ParentIsPreset, SiblingParachainConvertsVia};
 
-use super::{AccountId, MsgQueue};
+use crate::parachain::{AccountId, MsgQueue};
 
 parameter_types! {
 	pub const KsmLocation: Location = Location::parent();

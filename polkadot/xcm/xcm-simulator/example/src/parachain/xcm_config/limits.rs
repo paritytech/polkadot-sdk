@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::RuntimeCall;
+use crate::parachain::RuntimeCall;
 use frame_support::parameter_types;
 use xcm::latest::prelude::*;
 use xcm_builder::FixedWeightBounds;

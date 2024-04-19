@@ -21,9 +21,9 @@ use xcm_builder::{
 	SovereignSignedViaLocation,
 };
 
-use super::{
+use crate::relay_chain::{
 	locations::{LocationToAccountId, RelayNetwork},
-	AccountId, RuntimeOrigin,
+	RuntimeOrigin,
 };
 
 pub type LocalOriginConverter = (

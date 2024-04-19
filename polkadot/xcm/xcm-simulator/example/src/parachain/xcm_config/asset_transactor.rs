@@ -22,7 +22,9 @@ use xcm_builder::{
 };
 use xcm_executor::traits::JustTry;
 
-use super::{AccountId, Balances, ForeignUniques, KsmLocation, LocationToAccountId, RelayNetwork};
+use crate::parachain::{
+	AccountId, Balances, ForeignUniques, KsmLocation, LocationToAccountId, RelayNetwork,
+};
 
 pub type SovereignAccountOf = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
