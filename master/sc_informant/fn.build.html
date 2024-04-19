@@ -154,7 +154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     syncing: S,
     format: <a class="struct" href="struct.OutputFormat.html" title="struct sc_informant::OutputFormat">OutputFormat</a>
 )<div class="where">where
-    N: <a class="trait" href="../sc_network/service/traits/trait.NetworkStatusProvider.html" title="trait sc_network::service::traits::NetworkStatusProvider">NetworkStatusProvider</a>,
+    N: NetworkStatusProvider,
     S: SyncStatusProvider&lt;B&gt;,
     C: <a class="trait" href="../sc_client_api/trait.UsageProvider.html" title="trait sc_client_api::UsageProvider">UsageProvider</a>&lt;B&gt; + <a class="trait" href="../sp_blockchain/header_metadata/trait.HeaderMetadata.html" title="trait sp_blockchain::header_metadata::HeaderMetadata">HeaderMetadata</a>&lt;B&gt; + <a class="trait" href="../sc_client_api/client/trait.BlockchainEvents.html" title="trait sc_client_api::client::BlockchainEvents">BlockchainEvents</a>&lt;B&gt;,
     &lt;C as <a class="trait" href="../sp_blockchain/header_metadata/trait.HeaderMetadata.html" title="trait sp_blockchain::header_metadata::HeaderMetadata">HeaderMetadata</a>&lt;B&gt;&gt;::<a class="associatedtype" href="../sp_blockchain/header_metadata/trait.HeaderMetadata.html#associatedtype.Error" title="type sp_blockchain::header_metadata::HeaderMetadata::Error">Error</a>: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/fmt/trait.Display.html" title="trait core::fmt::Display">Display</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Builds the informant and returns a <code>Future</code> that drives the informant.</p>
