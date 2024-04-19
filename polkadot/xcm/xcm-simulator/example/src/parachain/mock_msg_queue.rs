@@ -14,14 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+pub use pallet::*;
 use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
 use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, XcmpMessageFormat, XcmpMessageHandler,
 };
 use sp_runtime::traits::{Get, Hash};
 use xcm::{latest::prelude::*, VersionedXcm};
-
-pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {

@@ -15,8 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::parachain::{
-	locations::{LocationToAccountId, RelayNetwork},
-	RuntimeOrigin,
+	constants::RelayNetwork, location_converter::LocationToAccountId, RuntimeOrigin,
 };
 use pallet_xcm::XcmPassthrough;
 use xcm_builder::{SignedAccountId32AsNative, SovereignSignedViaLocation};

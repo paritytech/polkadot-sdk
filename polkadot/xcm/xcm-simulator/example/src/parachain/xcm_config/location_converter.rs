@@ -14,16 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::parachain::RuntimeCall;
-use frame_support::parameter_types;
-use xcm::latest::prelude::*;
-use xcm_builder::FixedWeightBounds;
+use crate::parachain::{constants::RelayNetwork, AccountId};
+use polkadot_parachain_primitives::primitives::Sibling;
+use xcm_builder::{Account32Hash, AccountId32Aliases, ParentIsPreset, SiblingParachainConvertsVia};
 
-parameter_types! {
-	pub const UnitWeightCost: Weight = Weight::from_parts(1, 1);
-	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(Parent.into()), 1, 1);
-	pub const MaxInstructions: u32 = 100;
-	pub const MaxAssetsIntoHolding: u32 = 64;
-}
-
-pub type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
+pub type LocationToAccountId = (
+	ParentIsPreset<AccountId>,
+	SiblingParachainConvertsVia<Sibling, AccountId>,
+	AccountId32Aliases<RelayNetwork, AccountId>,
+	Account32Hash<(), AccountId>,
+);

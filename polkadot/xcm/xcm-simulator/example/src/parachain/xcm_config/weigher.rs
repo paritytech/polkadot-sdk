@@ -14,21 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::relay_chain::AccountId;
+use crate::parachain::RuntimeCall;
 use frame_support::parameter_types;
-use polkadot_parachain_primitives::primitives::Id as ParaId;
 use xcm::latest::prelude::*;
-use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia};
+use xcm_builder::FixedWeightBounds;
 
 parameter_types! {
-	pub const TokenLocation: Location = Here.into_location();
-	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub UniversalLocation: InteriorLocation = Here;
-	pub UnitWeightCost: u64 = 1_000;
+	pub const UnitWeightCost: Weight = Weight::from_parts(1, 1);
+	pub const MaxInstructions: u32 = 100;
 }
 
-pub type LocationToAccountId = (
-	ChildParachainConvertsVia<ParaId, AccountId>,
-	AccountId32Aliases<RelayNetwork, AccountId>,
-	Account32Hash<(), AccountId>,
-);
+pub type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;

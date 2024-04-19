@@ -14,16 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::relay_chain::{
+	constants::RelayNetwork, location_converter::LocationToAccountId, RuntimeOrigin,
+};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use xcm_builder::{
 	ChildParachainAsNative, ChildSystemParachainAsSuperuser, SignedAccountId32AsNative,
 	SovereignSignedViaLocation,
-};
-
-use crate::relay_chain::{
-	locations::{LocationToAccountId, RelayNetwork},
-	RuntimeOrigin,
 };
 
 pub type LocalOriginConverter = (

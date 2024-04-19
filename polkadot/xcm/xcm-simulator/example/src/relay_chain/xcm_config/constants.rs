@@ -14,23 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::relay_chain::{
-	constants::TokenLocation, location_converter::LocationToAccountId, AccountId, Balances, Uniques,
-};
-use xcm_builder::{
-	AsPrefixedGeneralIndex, ConvertedConcreteId, FungibleAdapter, IsConcrete, NoChecking,
-	NonFungiblesAdapter,
-};
-use xcm_executor::traits::JustTry;
+use frame_support::parameter_types;
+use xcm::latest::prelude::*;
 
-pub type LocalAssetTransactor = (
-	FungibleAdapter<Balances, IsConcrete<TokenLocation>, LocationToAccountId, AccountId, ()>,
-	NonFungiblesAdapter<
-		Uniques,
-		ConvertedConcreteId<u32, u32, AsPrefixedGeneralIndex<(), u32, JustTry>, JustTry>,
-		LocationToAccountId,
-		AccountId,
-		NoChecking,
-		(),
-	>,
-);
+parameter_types! {
+	pub TokensPerSecondPerByte: (AssetId, u128, u128) =
+		(AssetId(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
+	pub const MaxAssetsIntoHolding: u32 = 64;
+}
+
+parameter_types! {
+	pub const TokenLocation: Location = Here.into_location();
+	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
+	pub UniversalLocation: InteriorLocation = Here;
+	pub UnitWeightCost: u64 = 1_000;
+}

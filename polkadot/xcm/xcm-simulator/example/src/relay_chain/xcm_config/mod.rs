@@ -16,18 +16,17 @@
 
 pub mod asset_transactor;
 pub mod barrier;
-pub mod limits;
-pub mod locations;
+pub mod constants;
+pub mod location_converter;
 pub mod origin_converter;
+pub mod weigher;
 
-pub use locations::*;
-
-use frame_support::traits::{Everything, Nothing};
-
-use xcm_builder::{FixedRateOfFungible, FrameTransactionalProcessor};
-use xcm_executor::Config;
+pub use location_converter::*;
 
 use crate::relay_chain::{RuntimeCall, XcmPallet};
+use frame_support::traits::{Everything, Nothing};
+use xcm_builder::{FixedRateOfFungible, FrameTransactionalProcessor};
+use xcm_executor::Config;
 
 // Generated from `decl_test_network!`
 pub type XcmRouter = crate::RelayChainXcmRouter;
@@ -42,8 +41,8 @@ impl Config for XcmConfig {
 	type IsTeleporter = ();
 	type UniversalLocation = UniversalLocation;
 	type Barrier = barrier::Barrier;
-	type Weigher = limits::Weigher;
-	type Trader = FixedRateOfFungible<limits::TokensPerSecondPerByte, ()>;
+	type Weigher = weigher::Weigher;
+	type Trader = FixedRateOfFungible<constants::TokensPerSecondPerByte, ()>;
 	type ResponseHandler = ();
 	type AssetTrap = ();
 	type AssetLocker = XcmPallet;
@@ -52,7 +51,7 @@ impl Config for XcmConfig {
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();
-	type MaxAssetsIntoHolding = limits::MaxAssetsIntoHolding;
+	type MaxAssetsIntoHolding = constants::MaxAssetsIntoHolding;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
