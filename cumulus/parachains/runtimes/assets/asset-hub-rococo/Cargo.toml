@@ -38,7 +38,7 @@ pallet-nfts = { path = "../../../../../substrate/frame/nfts", default-features =
 pallet-nfts-runtime-api = { path = "../../../../../substrate/frame/nfts/runtime-api", default-features = false }
 pallet-proxy = { path = "../../../../../substrate/frame/proxy", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
-pallet-state-trie-migration = { path = "../../../../../substrate/frame/state-trie-migration", default-features = false, optional = true }
+pallet-state-trie-migration = { path = "../../../../../substrate/frame/state-trie-migration", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
@@ -103,14 +103,6 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 
 [features]
 default = ["std"]
-# When enabled the `state_version` is set to `1`.
-# This means that the chain will start using the new state format. The migration is lazy, so
-# it requires to write a storage value to use the new state format. To migrate all the other
-# storage values that aren't touched the state migration pallet is added as well.
-# This pallet will migrate the entire state, controlled through some account.
-#
-# This feature should be removed when the main-net will be migrated.
-state-trie-version-1 = ["pallet-state-trie-migration"]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
