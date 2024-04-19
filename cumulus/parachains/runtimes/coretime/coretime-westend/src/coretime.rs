@@ -68,11 +68,6 @@ parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 }
 
-parameter_types! {
-	pub storage CoreCount: Option<CoreIndex> = None;
-	pub storage CoretimeRevenue: Option<(BlockNumber, Balance)> = None;
-}
-
 /// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
 /// from the parachain context. That is, the parachain provides a market (broker) for the sale of
 /// coretime, but assumes a `CoretimeProvider` (i.e. a Relay Chain) to actually provide cores.
@@ -215,17 +210,6 @@ impl CoretimeInterface for CoretimeAllocator {
 				e
 			),
 		}
-	}
-
-	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
-		let revenue = CoretimeRevenue::get();
-		CoretimeRevenue::set(&None);
-		revenue
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance) {
-		CoretimeRevenue::set(&Some((when, revenue)));
 	}
 }
 

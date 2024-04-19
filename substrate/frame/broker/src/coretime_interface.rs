@@ -17,13 +17,13 @@
 
 #![deny(missing_docs)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
-use sp_std::vec::Vec;
+use sp_std::{fmt::Debug, vec::Vec};
 
 /// Index of a Polkadot Core.
 pub type CoreIndex = u16;
@@ -62,7 +62,7 @@ pub trait CoretimeInterface {
 	type AccountId: Parameter;
 
 	/// A (Relay-chain-side) balance.
-	type Balance: AtLeast32BitUnsigned;
+	type Balance: AtLeast32BitUnsigned + Codec + MaxEncodedLen + TypeInfo + Debug;
 
 	/// A provider for the relay chain block number.
 	type RelayChainBlockNumberProvider: BlockNumberProvider;
@@ -106,23 +106,6 @@ pub trait CoretimeInterface {
 		assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<RCBlockNumberOf<Self>>,
 	);
-
-	/// Provide the amount of revenue accumulated from Instantaneous Coretime Sales from Relay-chain
-	/// block number `last_until` to `until`, not including `until` itself. `last_until` is defined
-	/// as being the `until` argument of the last `notify_revenue` message sent, or zero for the
-	/// first call. If `revenue` is `None`, this indicates that the information is no longer
-	/// available.
-	///
-	/// This explicitly disregards the possibility of multiple parachains requesting and being
-	/// notified of revenue information. The Relay-chain must be configured to ensure that only a
-	/// single revenue information destination exists.
-	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)>;
-
-	/// Ensure that revenue information is updated to the provided value.
-	///
-	/// This is only used for benchmarking.
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance);
 }
 
 impl CoretimeInterface for () {
@@ -140,9 +123,4 @@ impl CoretimeInterface for () {
 		_end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 	}
-	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
-		None
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(_when: RCBlockNumberOf<Self>, _revenue: Self::Balance) {}
 }
