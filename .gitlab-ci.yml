@@ -289,7 +289,7 @@ test-linux-stable-codecov:
         --release \
         --no-fail-fast \
         --features try-runtime,experimental,riscv,ci-only-tests \
-        --partition  count:1/10000
+        --partition  count:1/100
     #--partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # run runtime-api tests with `enable-staging-api` feature on the 1st node
     #- if [ ${CI_NODE_INDEX} == 1 ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
