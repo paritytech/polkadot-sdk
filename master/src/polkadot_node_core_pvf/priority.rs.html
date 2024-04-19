@@ -185,6 +185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -201,17 +202,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">/// A priority assigned to execution of a PVF.
+</span><span class="doccomment">/// A priority assigned to preparation of a PVF.
 </span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 </span><span class="kw">pub enum </span>Priority {
 	<span class="doccomment">/// Normal priority for things that do not require immediate response, but still need to be
 	/// done pretty quick.
 	///
-	/// Approvals and disputes fall into this category.
+	/// Backing falls into this category.
 	</span>Normal,
 	<span class="doccomment">/// This priority is used for requests that are required to be processed as soon as possible.
 	///
-	/// For example, backing is on a critical path and requires execution as soon as possible.
+	/// Disputes and approvals are on a critical path and require execution as soon as
+	/// possible to not delay finality.
 	</span>Critical,
 }
 
