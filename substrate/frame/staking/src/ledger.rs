@@ -188,8 +188,16 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		// update lock on stash based on ledger.
-		Pallet::<T>::update_lock(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
+		// We skip locking virtual stakers.
+		if !Pallet::<T>::is_virtual_staker(&self.stash) {
+			// for direct stakers, update lock on stash based on ledger.
+			T::Currency::set_lock(
+				STAKING_ID,
+				&self.stash,
+				self.total,
+				frame_support::traits::WithdrawReasons::all(),
+			);
+		}
 
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
