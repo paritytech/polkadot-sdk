@@ -313,7 +313,6 @@ test-linux-stable-codecov:
 
 test-linux-stable-llvm-cov:
   stage: test
-  CARGO_INCREMENTAL: 0
   extends:
     - .docker-env
     - .common-refs
