@@ -291,7 +291,7 @@ pub mod benchmarking;
 pub mod testing_utils;
 
 #[cfg(test)]
-pub(crate) mod mock;
+pub mod mock;
 #[cfg(test)]
 mod tests;
 

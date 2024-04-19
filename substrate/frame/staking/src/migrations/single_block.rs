@@ -14,16 +14,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 
-//! Storage migrations for the Staking pallet. The changelog for this is maintained at
+//! Single-block storage migrations for the Staking pallet. The changelog for this is maintained at
 //! [CHANGELOG.md](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/staking/CHANGELOG.md).
 
-use super::*;
+use crate::{log, slashing, Config, EraIndex, Nominators, Pallet, UnappliedSlashes, Validators};
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
-	pallet_prelude::ValueQuery,
+	pallet_prelude::{Get, ValueQuery},
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade},
+	weights::Weight,
 };
+use sp_runtime::{traits::Zero, RuntimeDebug};
+
+use codec::{Decode, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;

@@ -23,14 +23,16 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen, SortedListProvider, VoteWeight,
 };
 use frame_support::{
-	assert_ok, derive_impl, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl,
+	migrations::MultiStepMigrator,
+	ord_parameter_types, parameter_types,
 	traits::{
 		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
 		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
 };
-use frame_system::{EnsureRoot, EnsureSignedBy};
+use frame_system::{limits::BlockWeights, EnsureRoot, EnsureSignedBy};
 use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
@@ -97,6 +99,7 @@ frame_support::construct_runtime!(
 		StakeTracker: pallet_stake_tracker,
 		VoterBagsList: pallet_bags_list::<Instance1>,
 		TargetBagsList: pallet_bags_list::<Instance2>,
+		Migrator: pallet_migrations,
 	}
 );
 
@@ -125,6 +128,7 @@ impl frame_system::Config for Test {
 	type DbWeight = RocksDbWeight;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type MultiBlockMigrator = Migrator;
 }
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
@@ -394,6 +398,23 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = (StakeTracker, SlashListenerMock, EventTracker);
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	static BnWeights: BlockWeights = <Test as frame_system::Config>::BlockWeights::get();
+	pub storage MigratorServiceWeight: Weight = BnWeights::get().max_block;
+}
+
+#[derive_impl(pallet_migrations::config_preludes::TestDefaultConfig)]
+impl pallet_migrations::Config for Test {
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations = crate::migrations::v13_stake_tracker::MigrationV13<
+		Test,
+		crate::migrations::v13_stake_tracker::weights::SubstrateWeight<Test>,
+	>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type MaxServiceWeight = MigratorServiceWeight;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -736,9 +757,8 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 		Session::on_initialize(b);
 		<Staking as Hooks<u64>>::on_initialize(b);
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
-		if b != n {
-			Staking::on_finalize(System::block_number());
-		}
+		Staking::on_finalize(System::block_number());
+		<Test as frame_system::Config>::MultiBlockMigrator::step();
 	}
 }
 
@@ -1070,6 +1090,11 @@ pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(Accoun
 			.map(|t| (t, TargetBagsList::get_score(&t).unwrap()))
 			.collect::<Vec<_>>(),
 	)
+}
+
+pub(crate) fn clear_target_list() {
+	TargetBagsList::unsafe_clear();
+	assert!(TargetBagsList::iter().count() == 0);
 }
 
 #[allow(dead_code)]

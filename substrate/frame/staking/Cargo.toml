@@ -48,6 +48,7 @@ pallet-timestamp = { path = "../timestamp" }
 pallet-stake-tracker = { path = "./stake-tracker" }
 pallet-staking-reward-curve = { path = "reward-curve" }
 pallet-bags-list = { path = "../bags-list" }
+pallet-migrations = { path = "../migrations" }
 substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }
@@ -66,6 +67,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-migrations/std",
 	"pallet-session/std",
 	"pallet-stake-tracker/std",
 	"pallet-timestamp/std",
@@ -87,6 +89,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-stake-tracker/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"rand_chacha",
@@ -100,6 +103,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-stake-tracker/try-runtime",
 	"pallet-timestamp/try-runtime",

@@ -92,6 +92,12 @@ pub struct Stake<Balance> {
 	pub active: Balance,
 }
 
+impl<Balance: Copy> From<Balance> for Stake<Balance> {
+	fn from(balance: Balance) -> Self {
+		Self { total: balance, active: balance }
+	}
+}
+
 /// A generic staking event listener.
 ///
 /// Note that the interface is designed in a way that the events are fired post-action, so any

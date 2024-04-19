@@ -656,8 +656,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		match T::TargetList::on_insert(who.clone(), self_stake) {
 			Ok(_) => (),
 			Err(_) => {
-				// if the target already exists in the list, it means that the target has been idle
-				// and/or dangling.
+				// if the target already exists in the list, it means that the target is idle
+				// and/or is dangling.
 				debug_assert!(
 					T::Staking::status(who) == Ok(StakerStatus::Idle) ||
 						T::Staking::status(who).is_err()
