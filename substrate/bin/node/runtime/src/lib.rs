@@ -63,7 +63,7 @@ use frame_system::{
 };
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
-use pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
+use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
@@ -710,7 +710,7 @@ impl pallet_stake_tracker::Config for Runtime {
 	type Staking = Staking;
 	type VoterList = VoterList;
 	type TargetList = TargetList;
-	type WeightInfo = ();
+	type WeightInfo = (); // TODO
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1728,8 +1728,17 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = Chain<
-		WithFirstAsset<Native, AccountId, NativeOrWithId<u32>>,
-		Ascending<AccountId, NativeOrWithId<u32>>,
+		WithFirstAsset<
+			Native,
+			AccountId,
+			NativeOrWithId<u32>,
+			AccountIdConverter<AssetConversionPalletId, Self::PoolId>,
+		>,
+		Ascending<
+			AccountId,
+			NativeOrWithId<u32>,
+			AccountIdConverter<AssetConversionPalletId, Self::PoolId>,
+		>,
 	>;
 	type PoolAssetId = <Self as pallet_assets::Config<Instance2>>::AssetId;
 	type PoolAssets = PoolAssets;
@@ -1744,6 +1753,19 @@ impl pallet_asset_conversion::Config for Runtime {
 	type MintMinLiquidity = MintMinLiquidity;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+impl pallet_asset_conversion_ops::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PriorAccountIdConverter = pallet_asset_conversion::AccountIdConverterNoSeed<(
+		NativeOrWithId<u32>,
+		NativeOrWithId<u32>,
+	)>;
+	type AssetsRefund = <Runtime as pallet_asset_conversion::Config>::Assets;
+	type PoolAssetsRefund = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type PoolAssetsTeam = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type DepositAsset = Balances;
+	type WeightInfo = pallet_asset_conversion_ops::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -2494,7 +2516,13 @@ mod runtime {
 	pub type PalletExampleMbms = pallet_example_mbm;
 
 	#[runtime::pallet_index(79)]
-	pub type VoterList = pallet_bags_list<Instance2>;
+	pub type AssetConversionMigration = pallet_asset_conversion_ops;
+
+	#[runtime::pallet_index(80)]
+	pub type TargetList = pallet_bags_list<Instance2>;
+
+	#[runtime::pallet_index(81)]
+	pub type StakeTracker = pallet_stake_tracker;
 }
 
 /// The address format for describing accounts.
@@ -2656,6 +2684,7 @@ mod benches {
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
 		[pallet_example_mbm, PalletExampleMbms]
+		[pallet_asset_conversion_ops, AssetConversionMigration]
 	);
 }
 
