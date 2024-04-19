@@ -38,9 +38,11 @@ pub use crate::{
 pub use libp2p::{
 	build_multiaddr,
 	identity::{self, ed25519, Keypair},
-	multiaddr, Multiaddr,
 };
-use sc_network_types::PeerId;
+use sc_network_types::{
+	multiaddr::{self, Multiaddr},
+	PeerId,
+};
 
 use crate::service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend};
 use codec::Encode;
@@ -187,7 +189,7 @@ impl TryFrom<String> for MultiaddrWithPeerId {
 #[derive(Debug)]
 pub enum ParseErr {
 	/// Error while parsing the multiaddress.
-	MultiaddrParse(multiaddr::Error),
+	MultiaddrParse(multiaddr::ParseError),
 	/// Multihash of the peer ID is invalid.
 	InvalidPeerId,
 	/// The peer ID is missing from the address.
@@ -214,8 +216,8 @@ impl std::error::Error for ParseErr {
 	}
 }
 
-impl From<multiaddr::Error> for ParseErr {
-	fn from(err: multiaddr::Error) -> ParseErr {
+impl From<multiaddr::ParseError> for ParseErr {
+	fn from(err: multiaddr::ParseError) -> ParseErr {
 		Self::MultiaddrParse(err)
 	}
 }
@@ -846,11 +848,11 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 	/// Verify addresses are consistent with enabled transports.
 	pub fn sanity_check_addresses(&self) -> Result<(), crate::error::Error> {
 		ensure_addresses_consistent_with_transport(
-			self.network_config.listen_addresses.iter(),
+			self.network_config.listen_addresses.iter().map(|addr| &addr.to_owned().into()),
 			&self.network_config.transport,
 		)?;
 		ensure_addresses_consistent_with_transport(
-			self.network_config.boot_nodes.iter().map(|x| &x.multiaddr),
+			self.network_config.boot_nodes.iter().map(|x| &x.multiaddr.into()),
 			&self.network_config.transport,
 		)?;
 		ensure_addresses_consistent_with_transport(
@@ -858,18 +860,22 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 				.default_peers_set
 				.reserved_nodes
 				.iter()
-				.map(|x| &x.multiaddr),
+				.map(|x| &x.multiaddr.into()),
 			&self.network_config.transport,
 		)?;
 
 		for notification_protocol in &self.notification_protocols {
 			ensure_addresses_consistent_with_transport(
-				notification_protocol.set_config().reserved_nodes.iter().map(|x| &x.multiaddr),
+				notification_protocol
+					.set_config()
+					.reserved_nodes
+					.iter()
+					.map(|x| &x.multiaddr.into()),
 				&self.network_config.transport,
 			)?;
 		}
 		ensure_addresses_consistent_with_transport(
-			self.network_config.public_addresses.iter(),
+			self.network_config.public_addresses.iter().map(|addr| &addr.to_owned().into()),
 			&self.network_config.transport,
 		)?;
 
@@ -887,7 +893,7 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 				.find(|o| o.peer_id != bootnode.peer_id)
 			{
 				Err(crate::error::Error::DuplicateBootnode {
-					address: bootnode.multiaddr.clone(),
+					address: bootnode.multiaddr.clone().into(),
 					first_id: bootnode.peer_id.into(),
 					second_id: other.peer_id.into(),
 				})
