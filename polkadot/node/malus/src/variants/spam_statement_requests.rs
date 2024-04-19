@@ -26,15 +26,14 @@
 
 use polkadot_cli::{
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
-		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
-		ParachainHost, ProvideRuntimeApi,
+		AuxStore, Error, ExtendedOverseerGenArgs,
+		Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
 use polkadot_node_network_protocol::request_response::{outgoing::Requests, OutgoingRequest};
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, SpawnGlue};
-use polkadot_node_subsystem_types::DefaultSubsystemClient;
+use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use sp_core::traits::SpawnNamed;
 
 // Filter wrapping related types.
@@ -65,36 +64,42 @@ where
 	) -> Option<FromOrchestra<Self::Message>> {
 		match msg {
 			FromOrchestra::Communication {
-				msg: NetworkBridgeTxMessage::SendRequests(mut requests, if_disconnected),
+				msg: NetworkBridgeTxMessage::SendRequests(requests, if_disconnected),
 			} => {
-				// AttestedCandidateV2 requests arrive 1 by 1
-				if requests.len() == 1 {
-					// Check if the request is of the type AttestedCandidateV2
-					if let Requests::AttestedCandidateV2(req) = &requests[0] {
-						// Temporarily store peer and payload for duplication
-						let peer_to_duplicate = req.peer.clone();
-						let payload_to_duplicate = req.payload.clone();
+				let mut new_requests = Vec::new();
 
-						// Duplicate the request spam_factor times and append to the list
-						for _ in 0..self.spam_factor - 1 {
-							let (new_outgoing_request, _) = OutgoingRequest::new(
-								peer_to_duplicate.clone(),
-								payload_to_duplicate.clone(),
+				for request in requests {
+					match request {
+						Requests::AttestedCandidateV2(ref req) => {
+							// Temporarily store peer and payload for duplication
+							let peer_to_duplicate = req.peer.clone();
+							let payload_to_duplicate = req.payload.clone();
+							// Push the original request
+							new_requests.push(request);
+
+							// Duplicate for spam purposes
+							gum::info!(
+								target: MALUS,
+								"😈 Duplicating AttestedCandidateV2 request extra {:?} times to peer: {:?}.", self.spam_factor, peer_to_duplicate,
 							);
-							let new_request = Requests::AttestedCandidateV2(new_outgoing_request);
-							requests.push(new_request);
-						}
+							new_requests.extend((0..self.spam_factor - 1).map(|_| {
+								let (new_outgoing_request, _) = OutgoingRequest::new(
+									peer_to_duplicate.clone(),
+									payload_to_duplicate.clone(),
+								);
+								Requests::AttestedCandidateV2(new_outgoing_request)
+							}));
 
-						gum::info!(
-							target: MALUS,
-							"😈 Duplicating AttestedCandidateV2 request extra {:?} times to peer: {:?}.", self.spam_factor, peer_to_duplicate,
-						);
+						}
+						_ => {
+							new_requests.push(request);
+						}
 					}
 				}
 
 				// Passthrough the message with a potentially modified number of requests
 				Some(FromOrchestra::Communication {
-					msg: NetworkBridgeTxMessage::SendRequests(requests, if_disconnected),
+					msg: NetworkBridgeTxMessage::SendRequests(new_requests, if_disconnected),
 				})
 			},
 			FromOrchestra::Communication { msg } => Some(FromOrchestra::Communication { msg }),
@@ -129,18 +134,14 @@ impl OverseerGen for SpamStatementRequests {
 		connector: OverseerConnector,
 		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
-		Error,
-	>
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		gum::info!(
 			target: MALUS,
-			"😈 Started Malus node that sends {:?} statement distribution requests instead of 1.",
+			"😈 Started Malus node that duplicates each statement distribution request spam_factor = {:?} times.",
 			&self.spam_factor,
 		);
 

@@ -3372,15 +3372,14 @@ pub(crate) async fn respond_task(
 
 				// If peer currently being served drop request
 				if active_peers.contains(&request.peer) {
-					gum::debug!(target: LOG_TARGET, "Dropping repeated request from peer");
+					gum::debug!(target: LOG_TARGET, "Peer already being served, dropping request");
 					continue
 				}
 
 				// If we are over parallel limit wait for one to finish
 				if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
 					gum::debug!(target: LOG_TARGET, "Over max parallel requests, waiting for one to finish");
-					let result = pending_out.select_next_some().await;
-					let (_, peer) = result;
+					let (_, peer) = pending_out.select_next_some().await;
 					active_peers.remove(&peer);
 				}
 
@@ -3388,7 +3387,7 @@ pub(crate) async fn respond_task(
 				let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
 				let peer = request.peer;
 				if let Err(err) = sender
-					.feed(ResponderMessage { request: request, sent_feedback: pending_sent_tx })
+					.feed(ResponderMessage { request, sent_feedback: pending_sent_tx })
 					.await
 				{
 					gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
