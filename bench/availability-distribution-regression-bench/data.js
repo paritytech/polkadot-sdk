@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713506066927,
+  "lastUpdate": 1713516525616,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5459,6 +5459,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16406809006666673,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "04a9071e2a5ba903648f8db19066e671659850fb",
+          "message": "Use higher priority for PVF preparation in dispute/approval context (#4172)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/4126\ndiscussion\n\nCurrently all preparations have same priority and this is not ideal in\nall cases. This change should improve the finality time in the context\nof on-demand parachains and when `ExecutorParams` are updated on-chain\nand a rebuild of all artifacts is required. The desired effect is to\nspeed up approval and dispute PVF executions which require preparation\nand delay backing executions which require preparation.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-04-19T08:15:59Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/04a9071e2a5ba903648f8db19066e671659850fb"
+        },
+        "date": 1713516502083,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.919999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013317338399999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02285664656,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16472517582666657,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011046016453333331,
             "unit": "seconds"
           }
         ]
