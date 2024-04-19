@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod builder;
 mod pallet_dummy;
 mod test_debug;
 
@@ -98,7 +97,6 @@ macro_rules! assert_refcount {
 }
 
 pub mod test_utils {
-
 	use super::{Contracts, DepositPerByte, DepositPerItem, Hash, SysConfig, Test};
 	use crate::{
 		exec::AccountIdOf, BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo,
@@ -163,6 +161,38 @@ pub mod test_utils {
 		assert!(CodeInfoOf::<Test>::contains_key(&code_hash));
 		// Assert that contract code is stored, and get its size.
 		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
+	}
+}
+
+mod builder {
+	use super::Test;
+	use crate::{
+		test_utils::{builder::*, AccountId32, ALICE},
+		tests::RuntimeOrigin,
+		AccountIdLookupOf, Code, CodeHash,
+	};
+
+	pub fn bare_instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder<Test> {
+		BareInstantiateBuilder::<Test>::bare_instantiate(ALICE, code)
+	}
+
+	pub fn bare_call(dest: AccountId32) -> BareCallBuilder<Test> {
+		BareCallBuilder::<Test>::bare_call(ALICE, dest)
+	}
+
+	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<Test> {
+		InstantiateWithCodeBuilder::<Test>::instantiate_with_code(
+			RuntimeOrigin::signed(ALICE),
+			code,
+		)
+	}
+
+	pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder<Test> {
+		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
+	}
+
+	pub fn call(dest: AccountIdLookupOf<Test>) -> CallBuilder<Test> {
+		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
 	}
 }
 
@@ -334,34 +364,24 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type Block = Block;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
+
 impl pallet_insecure_randomness_collective_flip::Config for Test {}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
+	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = ConstU64<1>;
-	type WeightInfo = ();
-}
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {}
+
 impl pallet_utility::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -467,16 +487,13 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type Time = Timestamp;
 	type Randomness = Randomness;
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
 	type CallFilter = TestFilter;
 	type CallStack = [Frame<Self>; 5];
-	type WeightPrice = Self;
-	type WeightInfo = ();
 	type ChainExtension =
 		(TestExtension, DisabledExtension, RevertingExtension, TempStorageExtension);
 	type Schedule = MySchedule;
@@ -484,20 +501,13 @@ impl Config for Test {
 	type DepositPerItem = DepositPerItem;
 	type DefaultDepositLimit = DefaultDepositLimit;
 	type AddressGenerator = DefaultAddressGenerator;
-	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
-	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = UnstableInterface;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
-	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
-	type Environment = ();
-	type ApiVersion = ();
-	type Xcm = ();
 }
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
@@ -2459,14 +2469,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 				transfer_proxy_call,
 			);
 
-			<Pallet<Test>>::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				data.encode(),
-			)
+			builder::call(addr_caller).data(data.encode()).build()
 		})
 	};
 

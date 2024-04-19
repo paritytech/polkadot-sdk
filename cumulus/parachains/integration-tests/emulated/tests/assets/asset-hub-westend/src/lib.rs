@@ -30,6 +30,7 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v3,
 	};
+	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
@@ -85,6 +86,7 @@ mod imports {
 	pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalA>;
 	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubWestend>;
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
+	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
 }
 
 #[cfg(test)]
