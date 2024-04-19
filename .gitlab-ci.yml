@@ -283,6 +283,7 @@ test-linux-stable-codecov:
     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
     # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
     # "upgrade_version_checks_should_work" is currently failing
+    - rustup component add llvm-tools-preview
     - |
       time cargo nextest run \
         --workspace \
