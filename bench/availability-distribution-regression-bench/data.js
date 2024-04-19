@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713525457510,
+  "lastUpdate": 1713538176107,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5615,6 +5615,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011298552053333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "maksimryndin",
+            "username": "maksimryndin",
+            "email": "maksim.ryndin@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4eabe5e0dddc4cd31ad9dab5645350360d4d36a5",
+          "message": "Pvf refactor execute worker errors follow up (#4071)\n\nfollow up of https://github.com/paritytech/polkadot-sdk/pull/2604\ncloses https://github.com/paritytech/polkadot-sdk/pull/2604\n\n- [x] take relevant changes from Marcin's PR \n- [x] extract common duplicate code for workers (low-hanging fruits)\n\n~Some unpassed ci problems are more general and should be fixed in\nmaster (see https://github.com/paritytech/polkadot-sdk/pull/4074)~\n\nProposed labels: **T0-node**, **R0-silent**, **I4-refactor**\n\n-----\n\nkusama address: FZXVQLqLbFV2otNXs6BMnNch54CFJ1idpWwjMb3Z8fTLQC6\n\n---------\n\nCo-authored-by: s0me0ne-unkn0wn <48632512+s0me0ne-unkn0wn@users.noreply.github.com>",
+          "timestamp": "2024-04-19T13:36:36Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4eabe5e0dddc4cd31ad9dab5645350360d4d36a5"
+        },
+        "date": 1713538151907,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.913333333327,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022856599180000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16663163157333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011357125946666671,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013875884859999996,
             "unit": "seconds"
           }
         ]
