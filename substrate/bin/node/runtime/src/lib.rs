@@ -1795,7 +1795,7 @@ impl pallet_asset_rewards::Config for Runtime {
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
-};
+}
 
 impl pallet_asset_conversion_ops::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

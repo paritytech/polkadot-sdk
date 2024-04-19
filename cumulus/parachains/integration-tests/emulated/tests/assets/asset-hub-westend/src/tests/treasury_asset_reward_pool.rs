@@ -33,7 +33,7 @@ fn treasury_creates_asset_reward_pool() {
 		let reward_asset_id = bx!(WestendLocationV3::get());
 
 		let reward_rate_per_block = 1_000_000_000;
-		let expiry_block = 1_000_000_000;
+		let lifetime = 1_000_000_000;
 		let admin = None;
 
 		let create_pool_call =
@@ -51,7 +51,7 @@ fn treasury_creates_asset_reward_pool() {
 								staked_asset_id,
 								reward_asset_id,
 								reward_rate_per_block,
-								expiry_block,
+								lifetime,
 								admin
 							}
 						)

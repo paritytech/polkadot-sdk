@@ -343,7 +343,7 @@ pub mod pallet {
 		///
 		/// If an explicity admin is not specified, it defaults to the caller.
 		///
-		/// The initial pool expiry will be calculated by summing `pool_lifetime` with the block
+		/// The initial pool expiry will be calculated by summing `lifetime` with the block
 		/// number at the time of execution.
 		#[pallet::call_index(0)]
 		pub fn create_pool(
@@ -351,7 +351,7 @@ pub mod pallet {
 			staked_asset_id: Box<T::AssetId>,
 			reward_asset_id: Box<T::AssetId>,
 			reward_rate_per_block: T::Balance,
-			pool_lifetime: BlockNumberFor<T>,
+			lifetime: BlockNumberFor<T>,
 			admin: Option<T::AccountId>,
 		) -> DispatchResult {
 			// Check the origin.
@@ -368,8 +368,7 @@ pub mod pallet {
 			);
 
 			// Check the expiry block.
-			let expiry_block =
-				frame_system::Pallet::<T>::block_number().saturating_add(pool_lifetime);
+			let expiry_block = frame_system::Pallet::<T>::block_number().saturating_add(lifetime);
 			ensure!(
 				expiry_block > frame_system::Pallet::<T>::block_number(),
 				Error::<T>::ExpiryBlockMustBeInTheFuture
