@@ -2074,7 +2074,6 @@ pub mod env {
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
 	/// See [`pallet_contracts_uapi::HostFn::execute_xcm`].
-	#[unstable]
 	fn xcm_execute(
 		ctx: _,
 		memory: _,
@@ -2110,7 +2109,6 @@ pub mod env {
 
 	/// Send an XCM program from the contract to the specified destination.
 	/// See [`pallet_contracts_uapi::HostFn::send_xcm`].
-	#[unstable]
 	fn xcm_send(
 		ctx: _,
 		memory: _,
