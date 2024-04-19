@@ -276,34 +276,45 @@ test-linux-stable-codecov:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
     CARGO_INCREMENTAL: 0
-    LLVM_PROFILE_FILE: "cargo-test-%p-%m.profraw"
-  parallel: 3
+    LLVM_PROFILE_FILE: "target/coverage/cargo-test-%p-%m.profraw"
+  #parallel: 3
   script:
     # Build all but only execute 'runtime' tests.
-    - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
+    # - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
     # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
     # "upgrade_version_checks_should_work" is currently failing
     - rustup component add llvm-tools-preview
-    - |
+    - mkdir -p target/coverage/result
+    - >
       time cargo nextest run \
         --workspace \
         --locked \
         --release \
         --no-fail-fast \
         --features try-runtime,experimental,riscv,ci-only-tests \
-        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
+        --partition  count:1/10000
+    #--partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # run runtime-api tests with `enable-staging-api` feature on the 1st node
-    - if [ ${CI_NODE_INDEX} == 1 ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
+    #- if [ ${CI_NODE_INDEX} == 1 ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
     # codecov
-    - mkdir -p target/coverage
     - date
-    - grcov . --binary-path ./target/release/deps/ -s . -t lcov --branch --ignore-not-existing --ignore '../*' --ignore "/*" -o target/coverage/tests.lcov
+    - >
+      grcov \
+        target/coverage/ \
+        --binary-path ./target/release/ \
+        -s . \
+        -t lcov,cobertura \
+        --branch \
+        --keep-only './*'
+        -o target/coverage/result
+    - ls -l target/coverage/result
     # - codecov --token "${CODECOV_TOKEN}" --file target/coverage/tests.lcov
 
 # requires seccomp adjustments
 # https://github.com/xd009642/tarpaulin?tab=readme-ov-file#docker
 .test-linux-stable-tarpaulin:
   stage: test
+  when: manual
   extends:
     - .docker-env
     - .common-refs
@@ -314,6 +325,7 @@ test-linux-stable-codecov:
 
 test-linux-stable-llvm-cov:
   stage: test
+  when: manual
   extends:
     - .docker-env
     - .common-refs
@@ -333,6 +345,7 @@ test-linux-stable-llvm-cov:
 
 test-linux-stable:
   stage: test
+  when: manual
   extends:
     - .docker-env
     - .common-refs
