@@ -152,6 +152,31 @@ impl sp_std::fmt::LowerHex for ExecutorParamsHash {
 	}
 }
 
+/// Unit type wrapper around [`type@Hash`] that represents a hash of preparation-related
+/// executor parameters.
+///
+/// This type is produced by [`ExecutorParams::prep_hash`].
+#[derive(Clone, Copy, Encode, Decode, Hash, Eq, PartialEq, PartialOrd, Ord, TypeInfo)]
+pub struct ExecutorParamsPrepHash(Hash);
+
+impl sp_std::fmt::Display for ExecutorParamsPrepHash {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+		self.0.fmt(f)
+	}
+}
+
+impl sp_std::fmt::Debug for ExecutorParamsPrepHash {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+		write!(f, "{:?}", self.0)
+	}
+}
+
+impl sp_std::fmt::LowerHex for ExecutorParamsPrepHash {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+		sp_std::fmt::LowerHex::fmt(&self.0, f)
+	}
+}
+
 /// # Deterministically serialized execution environment semantics
 /// Represents an arbitrary semantics of an arbitrary execution environment, so should be kept as
 /// abstract as possible.
@@ -173,6 +198,19 @@ impl ExecutorParams {
 	/// Returns hash of the set of execution environment parameters
 	pub fn hash(&self) -> ExecutorParamsHash {
 		ExecutorParamsHash(BlakeTwo256::hash(&self.encode()))
+	}
+
+	/// Returns hash of preparation-related executor parameters
+	pub fn prep_hash(&self) -> ExecutorParamsPrepHash {
+		use ExecutorParam::*;
+
+		let mut enc = b"prep".to_vec();
+		for param in &self.0 {
+			if matches!(param, StackLogicalMax(_) | PvfPrepTimeout(..) | WasmExtBulkMemory) {
+				enc.extend(param.encode())
+			}
+		}
+		ExecutorParamsPrepHash(BlakeTwo256::hash(&enc))
 	}
 
 	/// Returns a PVF preparation timeout, if any
