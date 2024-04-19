@@ -34,7 +34,7 @@ pub struct ExtrinsicDryRunEffects<Event> {
 	/// The local XCM program that was attempted to be executed, if any.
 	pub local_program: VersionedXcm<()>,
 	/// The list of XCMs that were queued for sending.
-	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
+	pub forwarded_messages: Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>,
 }
 
 /// Effects of dry-running an XCM program.
@@ -45,7 +45,7 @@ pub struct XcmDryRunEffects<Event> {
 	/// List of events fired by the XCM program execution.
 	pub emitted_events: Vec<Event>,
 	/// List of queued messages for sending.
-	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
+	pub forwarded_messages: Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>,
 }
 
 sp_api::decl_runtime_apis! {

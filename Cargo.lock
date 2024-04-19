@@ -957,6 +957,7 @@ dependencies = [
  "penpal-runtime",
  "polkadot-runtime-common",
  "sp-core",
+ "sp-keyring",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
@@ -1041,6 +1042,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
