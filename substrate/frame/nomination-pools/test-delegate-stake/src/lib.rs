@@ -19,7 +19,10 @@
 
 mod mock;
 
-use frame_support::{assert_noop, assert_ok, traits::Currency};
+use frame_support::{
+	assert_noop, assert_ok,
+	traits::{fungible::InspectHold, Currency},
+};
 use mock::*;
 use pallet_nomination_pools::{
 	BondExtra, BondedPools, Error as PoolsError, Event as PoolsEvent, LastPoolId, PoolMember,
@@ -29,7 +32,7 @@ use pallet_staking::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
 };
 
-use pallet_delegated_staking::Error as DelegatedStakingError;
+use pallet_delegated_staking::{Error as DelegatedStakingError, Event as DelegatedStakingEvent};
 
 use sp_runtime::{bounded_btree_map, traits::Zero};
 
@@ -547,6 +550,14 @@ fn pool_slash_proportional() {
 			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 40 }]
 		);
 		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![DelegatedStakingEvent::Delegated {
+				agent: POOL1_BONDED,
+				delegator: 10,
+				amount: 40
+			}]
+		);
+		assert_eq!(
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Created { depositor: 10, pool_id: 1 },
@@ -566,6 +577,26 @@ fn pool_slash_proportional() {
 				StakingEvent::Bonded { stash: POOL1_BONDED, amount: bond },
 				StakingEvent::Bonded { stash: POOL1_BONDED, amount: bond },
 				StakingEvent::Bonded { stash: POOL1_BONDED, amount: bond },
+			]
+		);
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: 20,
+					amount: bond
+				},
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: 21,
+					amount: bond
+				},
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: 22,
+					amount: bond
+				}
 			]
 		);
 		assert_eq!(
@@ -657,6 +688,48 @@ fn pool_slash_proportional() {
 				PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 129, balance: 8 },
 				// Bonded pool got slashed for 25, remaining 15 in it.
 				PoolsEvent::PoolSlashed { pool_id: 1, balance: 15 }
+			]
+		);
+
+		// 21's balance in the pool is slashed.
+		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().total_balance(), 7);
+		// But their actual balance is still unslashed.
+		assert_eq!(Balances::total_balance_on_hold(&21), bond);
+		// apply slash permissionlessly.
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(10), 21));
+		// member balance is slashed.
+		assert_eq!(Balances::total_balance_on_hold(&21), 7);
+
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![DelegatedStakingEvent::Slashed {
+				agent: POOL1_BONDED,
+				delegator: 21,
+				amount: bond - 7
+			}]
+		);
+
+		// 22 balance isn't slashed yet as well.
+		assert_eq!(PoolMembers::<Runtime>::get(22).unwrap().total_balance(), 8);
+		assert_eq!(Balances::total_balance_on_hold(&22), bond);
+
+		// they try to withdraw. This should slash them.
+		CurrentEra::<T>::set(Some(129));
+		let pre_balance = Balances::free_balance(&22);
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(22), 22, 0));
+		// all balance should be released.
+		assert_eq!(Balances::total_balance_on_hold(&22), 0);
+		assert_eq!(Balances::free_balance(&22), pre_balance + 8);
+
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::Slashed {
+					agent: POOL1_BONDED,
+					delegator: 22,
+					amount: bond - 8
+				},
+				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: 22, amount: 8 },
 			]
 		);
 	});

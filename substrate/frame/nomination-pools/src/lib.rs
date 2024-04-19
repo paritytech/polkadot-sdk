@@ -2844,15 +2844,21 @@ pub mod pallet {
 		}
 
 		/// Apply a pending slash on a member.
+		///
+		/// This call can be dispatched permissionlessly (i.e. by any account). If the member has
+		/// slash to be applied, caller may be rewarded with the part of the slash.
 		#[pallet::call_index(23)]
 		#[pallet::weight(T::WeightInfo::apply_slash())]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let member_account = T::Lookup::lookup(member_account)?;
-			Self::do_apply_slash(&member_account, Some(who))
+			Self::do_apply_slash(&member_account, Some(who))?;
+
+			// If successful., refund the fees.
+			Ok(Pays::No.into())
 		}
 
 		/// Allows a pool member to claim their delegation in their own account.

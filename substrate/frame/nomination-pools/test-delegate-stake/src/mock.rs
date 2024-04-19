@@ -357,6 +357,7 @@ parameter_types! {
 	static ObservedEventsPools: usize = 0;
 	static ObservedEventsStaking: usize = 0;
 	static ObservedEventsBalances: usize = 0;
+	static ObservedEventsDelegatedStaking: usize = 0;
 }
 
 pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Event<Runtime>> {
@@ -378,5 +379,19 @@ pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<Runt
 		.collect::<Vec<_>>();
 	let already_seen = ObservedEventsStaking::get();
 	ObservedEventsStaking::set(events.len());
+	events.into_iter().skip(already_seen).collect()
+}
+
+pub(crate) fn delegated_staking_events_since_last_call(
+) -> Vec<pallet_delegated_staking::Event<Runtime>> {
+	let events = System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(
+			|e| if let RuntimeEvent::DelegatedStaking(inner) = e { Some(inner) } else { None },
+		)
+		.collect::<Vec<_>>();
+	let already_seen = ObservedEventsDelegatedStaking::get();
+	ObservedEventsDelegatedStaking::set(events.len());
 	events.into_iter().skip(already_seen).collect()
 }
