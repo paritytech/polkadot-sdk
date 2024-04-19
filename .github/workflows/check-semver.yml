@@ -18,6 +18,9 @@ jobs:
         with:
           cache-on-failure: true
 
+      - name: Rust compilation prerequisites
+        run: rustup toolchain install nightly
+
       - name: install parity-publish
         run: cargo install parity-publish@0.4.0
 
