@@ -339,7 +339,7 @@ where
 			None => {
 				#[cfg(feature = "std")]
 				println!("CALL TO REMOVE for {:?}", key.borrow());
-				trie.remove_with_tree_ref(key.borrow(), set)?,
+				trie.remove_with_tree_ref(key.borrow(), set)?
 		};
 	}
 	if let Some(ks) = keyspace {
