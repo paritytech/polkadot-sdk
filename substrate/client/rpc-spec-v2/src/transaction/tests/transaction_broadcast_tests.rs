@@ -524,12 +524,12 @@ async fn tx_broadcast_limit_reached() {
 	let xt = hex_string(&uxt.encode());
 
 	let operation_id: String =
-		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+		tx_api.call("transaction_v1_broadcast", rpc_params![&xt]).await.unwrap();
 
-	// Announce block 1 to `transaction_unstable_broadcast`.
+	// Announce block 1 to `transaction_v1_broadcast`.
 	client_mock.trigger_import_stream(block_1_header).await;
 
-	// Ensure the tx propagated from `transaction_unstable_broadcast` to the transaction pool.
+	// Ensure the tx propagated from `transaction_v1_broadcast` to the transaction pool.
 	let event = get_next_event!(&mut pool_middleware);
 	assert_eq!(
 		event,
@@ -541,17 +541,14 @@ async fn tx_broadcast_limit_reached() {
 	assert_eq!(1, exec_middleware.num_tasks());
 
 	let operation_id_limit_reached: Option<String> =
-		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+		tx_api.call("transaction_v1_broadcast", rpc_params![&xt]).await.unwrap();
 	assert!(operation_id_limit_reached.is_none(), "No operation ID => tx was rejected");
 
 	// We still have in flight one operation.
 	assert_eq!(1, exec_middleware.num_tasks());
 
 	// Force the future to exit by calling stop.
-	let _: () = tx_api
-		.call("transaction_unstable_stop", rpc_params![&operation_id])
-		.await
-		.unwrap();
+	let _: () = tx_api.call("transaction_v1_stop", rpc_params![&operation_id]).await.unwrap();
 
 	// Ensure the broadcast future finishes.
 	let _ = get_next_event!(&mut exec_middleware.recv);
@@ -559,5 +556,5 @@ async fn tx_broadcast_limit_reached() {
 
 	// Can resubmit again now.
 	let _operation_id: String =
-		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+		tx_api.call("transaction_v1_broadcast", rpc_params![&xt]).await.unwrap();
 }
