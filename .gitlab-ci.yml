@@ -318,6 +318,8 @@ test-linux-stable-llvm-cov:
     - .docker-env
     - .common-refs
     - .pipeline-stopper-artifacts
+  variables:
+    CARGO_INCREMENTAL: 0
   script:
     - rustup component add llvm-tools-preview
     - cargo install cargo-llvm-cov
