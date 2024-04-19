@@ -1676,7 +1676,6 @@ pub mod migrations {
 		>,
 		parachains_inclusion::migration::MigrateToV1<Runtime>,
 		pallet_nomination_pools::migration::versioned::V7ToV8<Runtime>,
-		parachains_assigner_on_demand::migration::MigrateV0ToV1<Runtime>,
 	);
 }
 
