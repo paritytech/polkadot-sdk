@@ -1647,7 +1647,7 @@ pub mod migrations {
 	}
 
 	/// Unreleased migrations. Add new ones here:
-	pub type Unreleased = (parachains_assigner_on_demand::migration::MigrateV0ToV1<Runtime>,);
+	pub type Unreleased = ();
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
