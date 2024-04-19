@@ -50,8 +50,8 @@ use sp_runtime::{
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
-	ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, MaxXcmEncodedSizeUsize, QueryController,
-	QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
+	ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, MaxXcmEncodedSizeUsize,
+	QueryController, QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
 };
 use xcm_executor::{
 	traits::{
@@ -1057,11 +1057,14 @@ pub mod pallet {
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
 			origin: OriginFor<T>,
-			message: Box<WithMaxSize<VersionedXcm<<T as Config>::RuntimeCall>, MaxXcmEncodedSizeUsize>>,
+			message: Box<
+				WithMaxSize<VersionedXcm<<T as Config>::RuntimeCall>, MaxXcmEncodedSizeUsize>,
+			>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let weight_used = Self::execute_base(origin_location, Box::new(message.value()), max_weight)?;
+			let weight_used =
+				Self::execute_base(origin_location, Box::new(message.value()), max_weight)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 

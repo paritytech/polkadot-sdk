@@ -43,8 +43,9 @@ pub use barriers::{
 
 mod controller;
 pub use controller::{
-	Controller, ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, MaxXcmEncodedSizeUsize, QueryController,
-	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
+	Controller, ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize,
+	MaxXcmEncodedSizeUsize, QueryController, QueryControllerWeightInfo, QueryHandler,
+	SendController, SendControllerWeightInfo,
 };
 
 mod currency_adapter;

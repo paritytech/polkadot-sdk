@@ -75,8 +75,8 @@ pub mod storage;
 #[cfg(test)]
 mod tests;
 pub mod traits;
-pub mod weights;
 pub mod utils;
+pub mod weights;
 #[doc(hidden)]
 pub mod unsigned {
 	#[doc(hidden)]
