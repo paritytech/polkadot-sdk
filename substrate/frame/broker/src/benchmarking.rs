@@ -54,6 +54,10 @@ fn new_config_record<T: Config>() -> ConfigRecordOf<T> {
 	}
 }
 
+fn new_revenue<T: Config>() -> OnDemandRevenueRecordOf<T> {
+	OnDemandRevenueRecord { until: 2u32.into(), amount: 10u32.into() }
+}
+
 fn new_schedule() -> Schedule {
 	// Max items for worst case
 	let mut items = Vec::new();
@@ -734,10 +738,8 @@ mod benches {
 
 		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
 		let multiplicator = 5;
-		<T::Coretime as CoretimeInterface>::ensure_notify_revenue_info(
-			(timeslice_period * multiplicator).into(),
-			10u32.into(),
-		);
+
+		RevenueInbox::<T>::put(new_revenue::<T>());
 
 		let timeslice = multiplicator - 1;
 		InstaPoolHistory::<T>::insert(

@@ -125,14 +125,8 @@ impl CoretimeInterface for TestCoretimeProvider {
 		);
 		CoretimeTrace::mutate(|v| v.push(item));
 	}
-	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
-		NotifyRevenueInfo::mutate(|s| s.pop()).map(|v| (v.0 as _, v.1))
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance) {
-		NotifyRevenueInfo::mutate(|s| s.push((when as u32, revenue)));
-	}
 }
+
 impl TestCoretimeProvider {
 	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), ()> {
 		let mut c = CoretimeCredit::get();
@@ -237,6 +231,10 @@ pub fn new_config() -> ConfigRecordOf<Test> {
 		renewal_bump: Perbill::from_percent(10),
 		contribution_timeout: 5,
 	}
+}
+
+pub fn new_revenue() -> OnDemandRevenueRecordOf<Test> {
+	OnDemandRevenueRecord { until: 2, amount: 10 }
 }
 
 pub struct TestExt(ConfigRecordOf<Test>);

@@ -17,7 +17,7 @@
 
 #![deny(missing_docs)]
 
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
@@ -62,7 +62,7 @@ pub trait CoretimeInterface {
 	type AccountId: Parameter;
 
 	/// A (Relay-chain-side) balance.
-	type Balance: AtLeast32BitUnsigned + Codec + MaxEncodedLen + TypeInfo + Debug;
+	type Balance: AtLeast32BitUnsigned + Encode + Decode + MaxEncodedLen + TypeInfo + Debug;
 
 	/// A provider for the relay chain block number.
 	type RelayChainBlockNumberProvider: BlockNumberProvider;
