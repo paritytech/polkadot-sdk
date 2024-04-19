@@ -33,11 +33,6 @@ use sp_std::{
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// Shorthand for the NegativeImbalance type the runtime is using.
-pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
-
 /// Meta data for full queue.
 ///
 /// This includes elements with affinity and free entries.
