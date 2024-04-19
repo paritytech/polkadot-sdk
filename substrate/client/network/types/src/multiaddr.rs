@@ -147,3 +147,21 @@ impl<'a> From<LiteP2pIter<'a>> for Iter<'a> {
 		Self(iter)
 	}
 }
+
+impl<'a> IntoIterator for &'a Multiaddr {
+	type Item = Protocol<'a>;
+	type IntoIter = Iter<'a>;
+
+	fn into_iter(self) -> Iter<'a> {
+		self.multiaddr.into_iter().into()
+	}
+}
+
+impl<'a> FromIterator<Protocol<'a>> for Multiaddr {
+	fn from_iter<T>(iter: T) -> Self
+	where
+		T: IntoIterator<Item = Protocol<'a>>,
+	{
+		LiteP2pMultiaddr::from_iter(iter.into_iter().map(Into::into)).into()
+	}
+}
