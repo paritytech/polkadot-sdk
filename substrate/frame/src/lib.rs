@@ -34,9 +34,9 @@
 //!
 //! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
 //!
-//! ## Warning: Experimental
+//! ## WARNING: Experimental
 //!
-//! This crate and all of its content is experimental, and should not yet be used in production.
+//! **This crate and all of its content is experimental, and should not yet be used in production.**
 //!
 //! ## Underlying dependencies
 //!
