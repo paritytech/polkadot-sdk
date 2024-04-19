@@ -2,8 +2,10 @@
 timeout = 1000
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config]
+  needed_approvals = 2
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
   max_validators_per_core = 5
-  needed_approvals = 1
 
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
@@ -16,7 +18,7 @@ requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.node_groups]]
   name = "honest"
-  count = 9
+  count = 4
   args = ["-lparachain=debug"]
 
   [[relaychain.nodes]]
@@ -25,7 +27,7 @@ requests = { memory = "2G", cpu = "1" }
   command = "malus spam-statement-requests"
   args = [ "--alice", "-lparachain=debug,MALUS=trace", "--spam-factor=1000" ]
 
-{% for id in range(2000,2002) %}
+{% for id in range(2000,2001) %}
 [[parachains]]
 id = {{id}}
   [parachains.collator]
