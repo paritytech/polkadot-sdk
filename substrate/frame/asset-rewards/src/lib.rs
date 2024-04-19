@@ -685,7 +685,7 @@ pub mod pallet {
 			staker_info: &PoolStakerInfo<T::Balance>,
 		) -> Result<(PoolInfoFor<T>, PoolStakerInfo<T::Balance>), DispatchError> {
 			let reward_per_token = Self::reward_per_token(&pool_info)?;
-			let pool_info = Self::update_pool_rewards(pool_info, reward_per_token.clone())?;
+			let pool_info = Self::update_pool_rewards(pool_info, reward_per_token)?;
 
 			let mut new_staker_info = staker_info.clone();
 			new_staker_info.rewards = Self::derive_rewards(&staker_info, &reward_per_token)?;
