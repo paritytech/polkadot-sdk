@@ -276,7 +276,7 @@ test-linux-stable-codecov:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
     CARGO_INCREMENTAL: 0
-    LLVM_PROFILE_FILE: "target/coverage/cargo-test-%p-%m.profraw"
+    LLVM_PROFILE_FILE: "target/coverage/"
   #parallel: 3
   script:
     # Build all but only execute 'runtime' tests.
