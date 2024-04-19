@@ -302,6 +302,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -440,6 +443,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Could not find or open compiled artifact file.
 	</span><span class="attr">#[error(<span class="string">"validation: could not find or open compiled artifact file: {0}"</span>)]
 	</span>CouldNotOpenFile(String),
+	<span class="doccomment">/// Could not create a pipe between the worker and a child process.
+	</span><span class="attr">#[error(<span class="string">"validation: could not create pipe: {0}"</span>)]
+	</span>CouldNotCreatePipe(String),
 	<span class="doccomment">/// Host could not clear the worker cache after a job.
 	</span><span class="attr">#[error(<span class="string">"validation: host could not clear the worker cache ({path:?}) after a job: {err}"</span>)]
 	</span>CouldNotClearWorkerDir {

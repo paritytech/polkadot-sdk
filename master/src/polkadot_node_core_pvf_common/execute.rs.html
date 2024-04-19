@@ -266,6 +266,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -298,35 +302,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The response from the execution worker.
 </span><span class="attr">#[derive(Debug, Encode, Decode)]
-</span><span class="kw">pub enum </span>WorkerResponse {
-	<span class="doccomment">/// The job completed successfully.
-	</span><span class="prelude-val">Ok </span>{
-		<span class="doccomment">/// The result of parachain validation.
-		</span>result_descriptor: ValidationResult,
-		<span class="doccomment">/// The amount of CPU time taken by the job.
-		</span>duration: Duration,
-	},
-	<span class="doccomment">/// The candidate is invalid.
-	</span>InvalidCandidate(String),
-	<span class="doccomment">/// Instantiation of the WASM module instance failed during an execution.
-	/// Possibly related to local issues or dirty node update. May be retried with re-preparation.
-	</span>RuntimeConstruction(String),
+</span><span class="kw">pub struct </span>WorkerResponse {
+	<span class="doccomment">/// The response from the execute job process.
+	</span><span class="kw">pub </span>job_response: JobResponse,
+	<span class="doccomment">/// The amount of CPU time taken by the job.
+	</span><span class="kw">pub </span>duration: Duration,
+}
+
+<span class="doccomment">/// An error occurred in the worker process.
+</span><span class="attr">#[derive(thiserror::Error, Debug, Clone, Encode, Decode)]
+</span><span class="kw">pub enum </span>WorkerError {
 	<span class="doccomment">/// The job timed out.
+	</span><span class="attr">#[error(<span class="string">"The job timed out"</span>)]
 	</span>JobTimedOut,
 	<span class="doccomment">/// The job process has died. We must kill the worker just in case.
 	///
 	/// We cannot treat this as an internal error because malicious code may have killed the job.
 	/// We still retry it, because in the non-malicious case it is likely spurious.
+	</span><span class="attr">#[error(<span class="string">"The job process (pid {job_pid}) has died: {err}"</span>)]
 	</span>JobDied { err: String, job_pid: i32 },
 	<span class="doccomment">/// An unexpected error occurred in the job process, e.g. failing to spawn a thread, panic,
 	/// etc.
 	///
 	/// Because malicious code can cause a job error, we must not treat it as an internal error. We
 	/// still retry it, because in the non-malicious case it is likely spurious.
-	</span>JobError(String),
+	</span><span class="attr">#[error(<span class="string">"An unexpected error occurred in the job process: {0}"</span>)]
+	</span>JobError(<span class="attr">#[from] </span>JobError),
 
 	<span class="doccomment">/// Some internal error occurred.
-	</span>InternalError(InternalValidationError),
+	</span><span class="attr">#[error(<span class="string">"An internal error occurred: {0}"</span>)]
+	</span>InternalError(<span class="attr">#[from] </span>InternalValidationError),
 }
 
 <span class="doccomment">/// The result of a job on the execution worker.
@@ -369,7 +374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// An unexpected error occurred in the execution job process. Because this comes from the job,
 /// which executes untrusted code, this error must likewise be treated as untrusted. That is, we
 /// cannot raise an internal error based on this.
-</span><span class="attr">#[derive(thiserror::Error, Debug, Encode, Decode)]
+</span><span class="attr">#[derive(thiserror::Error, Clone, Debug, Encode, Decode)]
 </span><span class="kw">pub enum </span>JobError {
 	<span class="attr">#[error(<span class="string">"The job timed out"</span>)]
 	</span>TimedOut,
@@ -382,6 +387,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>CouldNotSpawnThread(String),
 	<span class="attr">#[error(<span class="string">"An error occurred in the CPU time monitor thread: {0}"</span>)]
 	</span>CpuTimeMonitorThread(String),
+	<span class="doccomment">/// Since the job can return any exit status it wants, we have to treat this as untrusted.
+	</span><span class="attr">#[error(<span class="string">"Unexpected exit status: {0}"</span>)]
+	</span>UnexpectedExitStatus(i32),
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

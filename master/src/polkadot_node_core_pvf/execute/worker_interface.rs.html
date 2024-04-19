@@ -455,19 +455,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -499,10 +486,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, WorkerResponse},
+	execute::{Handshake, WorkerError, WorkerResponse},
 	worker_dir, SecurityStatus,
 };
-<span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
 <span class="kw">use </span>polkadot_primitives::ExecutorParams;
 <span class="kw">use </span>std::{path::Path, time::Duration};
 <span class="kw">use </span>tokio::{io, net::UnixStream};
@@ -539,7 +525,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				worker_pid = %idle_worker.pid,
-				%err
+				<span class="string">"failed to send a handshake to the spawned worker: {}"</span>,
+				error
 			);
 			err
 		})<span class="question-mark">?</span>;
@@ -548,39 +535,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Outcome of PVF execution.
 ///
-/// If the idle worker token is not returned, it means the worker must be terminated.
-</span><span class="kw">pub enum </span>Outcome {
-	<span class="doccomment">/// PVF execution completed successfully and the result is returned. The worker is ready for
-	/// another job.
-	</span><span class="prelude-val">Ok </span>{ result_descriptor: ValidationResult, duration: Duration, idle_worker: IdleWorker },
-	<span class="doccomment">/// The candidate validation failed. It may be for example because the wasm execution triggered
-	/// a trap. Errors related to the preparation process are not expected to be encountered by the
-	/// execution workers.
-	</span>InvalidCandidate { err: String, idle_worker: IdleWorker },
-	<span class="doccomment">/// The error is probably transient. It may be for example
-	/// because the artifact was prepared with a Wasmtime version different from the version
-	/// in the current execution environment.
-	</span>RuntimeConstruction { err: String, idle_worker: IdleWorker },
+/// PVF execution completed and the result is returned. The worker is ready for
+/// another job.
+</span><span class="kw">pub struct </span>Response {
+	<span class="doccomment">/// The response (valid/invalid) from the worker.
+	</span><span class="kw">pub </span>worker_response: WorkerResponse,
+	<span class="doccomment">/// Returning the idle worker token means the worker can be reused.
+	</span><span class="kw">pub </span>idle_worker: IdleWorker,
+}
+<span class="doccomment">/// The idle worker token is not returned for any of these cases, meaning the worker must be
+/// terminated.
+///
+/// NOTE: Errors related to the preparation process are not expected to be encountered by the
+/// execution workers.
+</span><span class="attr">#[derive(thiserror::Error, Debug)]
+</span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// The execution time exceeded the hard limit. The worker is terminated.
+	</span><span class="attr">#[error(<span class="string">"The communication with the worker exceeded the hard limit"</span>)]
 	</span>HardTimeout,
 	<span class="doccomment">/// An I/O error happened during communication with the worker. This may mean that the worker
 	/// process already died. The token is not returned in any case.
-	</span>WorkerIntfErr,
-	<span class="doccomment">/// The job process has died. We must kill the worker just in case.
-	///
-	/// We cannot treat this as an internal error because malicious code may have caused this.
-	</span>JobDied { err: String },
-	<span class="doccomment">/// An unexpected error occurred in the job process.
-	///
-	/// Because malicious code can cause a job error, we must not treat it as an internal error.
-	</span>JobError { err: String },
+	</span><span class="attr">#[error(<span class="string">"An I/O error happened during communication with the worker: {0}"</span>)]
+	</span>CommunicationErr(<span class="attr">#[from] </span>io::Error),
+	<span class="doccomment">/// The worker reported an error (can be from itself or from the job). The worker should not be
+	/// reused.
+	</span><span class="attr">#[error(<span class="string">"The worker reported an error: {0}"</span>)]
+	</span>WorkerError(<span class="attr">#[from] </span>WorkerError),
 
 	<span class="doccomment">/// An internal error happened during the validation. Such an error is most likely related to
 	/// some transient glitch.
 	///
 	/// Should only ever be used for errors independent of the candidate and PVF. Therefore it may
 	/// be a problem with the worker, so we terminate it.
-	</span>InternalError { err: InternalValidationError },
+	</span><span class="attr">#[error(<span class="string">"An internal error occurred: {0}"</span>)]
+	</span>InternalError(<span class="attr">#[from] </span>InternalValidationError),
 }
 
 <span class="doccomment">/// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -593,7 +581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	artifact: ArtifactPathId,
 	execution_timeout: Duration,
 	validation_params: Vec&lt;u8&gt;,
-) -&gt; Outcome {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Response, Error&gt; {
 	<span class="kw">let </span>IdleWorker { <span class="kw-2">mut </span>stream, pid, worker_dir } = worker;
 
 	<span class="macro">gum::debug!</span>(
@@ -606,16 +594,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	with_worker_dir_setup(worker_dir, pid, <span class="kw-2">&amp;</span>artifact.path, |worker_dir| <span class="kw">async move </span>{
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(error) = send_request(<span class="kw-2">&amp;mut </span>stream, <span class="kw-2">&amp;</span>validation_params, execution_timeout).<span class="kw">await </span>{
-			<span class="macro">gum::warn!</span>(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				validation_code_hash = <span class="question-mark">?</span>artifact.id.code_hash,
-				<span class="question-mark">?</span>error,
-				<span class="string">"failed to send an execute request"</span>,
-			);
-			<span class="kw">return </span>Outcome::WorkerIntfErr
-		}
+		send_request(<span class="kw-2">&amp;mut </span>stream, <span class="kw-2">&amp;</span>validation_params, execution_timeout).<span class="kw">await</span>.map_err(
+			|error| {
+				<span class="macro">gum::warn!</span>(
+					target: LOG_TARGET,
+					worker_pid = %pid,
+					validation_code_hash = <span class="question-mark">?</span>artifact.id.code_hash,
+					<span class="string">"failed to send an execute request: {}"</span>,
+					error,
+				);
+				Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
+			},
+		)<span class="question-mark">?</span>;
 
 		<span class="comment">// We use a generous timeout here. This is in addition to the one in the child process, in
 		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
@@ -623,12 +613,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// load, but the CPU resources of the child can only be measured from the parent after the
 		// child process terminates.
 		</span><span class="kw">let </span>timeout = execution_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
-		<span class="kw">let </span>response = <span class="macro">futures::select! </span>{
-			response = recv_response(<span class="kw-2">&amp;mut </span>stream).fuse() =&gt; {
-				<span class="kw">match </span>response {
-					<span class="prelude-val">Ok</span>(response) =&gt;
-						handle_response(
-							response,
+		<span class="kw">let </span>worker_result = <span class="macro">futures::select! </span>{
+			worker_result = recv_result(<span class="kw-2">&amp;mut </span>stream).fuse() =&gt; {
+				<span class="kw">match </span>worker_result {
+					<span class="prelude-val">Ok</span>(result) =&gt;
+						handle_result(
+							result,
 							pid,
 							execution_timeout,
 						)
@@ -638,11 +628,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							target: LOG_TARGET,
 							worker_pid = %pid,
 							validation_code_hash = <span class="question-mark">?</span>artifact.id.code_hash,
-							<span class="question-mark">?</span>error,
-							<span class="string">"failed to recv an execute response"</span>,
+							<span class="string">"failed to recv an execute result: {}"</span>,
+							error,
 						);
 
-						<span class="kw">return </span>Outcome::WorkerIntfErr
+						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::CommunicationErr(error))
 					},
 				}
 			},
@@ -653,29 +643,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					validation_code_hash = <span class="question-mark">?</span>artifact.id.code_hash,
 					<span class="string">"execution worker exceeded lenient timeout for execution, child worker likely stalled"</span>,
 				);
-				WorkerResponse::JobTimedOut
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::HardTimeout)
 			},
 		};
 
-		<span class="kw">match </span>response {
-			WorkerResponse::Ok { result_descriptor, duration } =&gt; Outcome::Ok {
-				result_descriptor,
-				duration,
+		<span class="kw">match </span>worker_result {
+			<span class="prelude-val">Ok</span>(worker_response) =&gt; <span class="prelude-val">Ok</span>(Response {
+				worker_response,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
-			},
-			WorkerResponse::InvalidCandidate(err) =&gt; Outcome::InvalidCandidate {
-				err,
-				idle_worker: IdleWorker { stream, pid, worker_dir },
-			},
-			WorkerResponse::RuntimeConstruction(err) =&gt; Outcome::RuntimeConstruction {
-				err,
-				idle_worker: IdleWorker { stream, pid, worker_dir },
-			},
-			WorkerResponse::JobTimedOut =&gt; Outcome::HardTimeout,
-			WorkerResponse::JobDied { err, job_pid: <span class="kw">_ </span>} =&gt; Outcome::JobDied { err },
-			WorkerResponse::JobError(err) =&gt; Outcome::JobError { err },
-
-			WorkerResponse::InternalError(err) =&gt; Outcome::InternalError { err },
+			}),
+			<span class="prelude-val">Err</span>(worker_error) =&gt; <span class="prelude-val">Err</span>(worker_error.into()),
 		}
 	})
 	.<span class="kw">await
@@ -685,12 +662,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Here we know the artifact exists, but is still located in a temporary file which will be cleared
 /// by [`with_worker_dir_setup`].
-</span><span class="kw">async fn </span>handle_response(
-	response: WorkerResponse,
+</span><span class="kw">async fn </span>handle_result(
+	worker_result: <span class="prelude-ty">Result</span>&lt;WorkerResponse, WorkerError&gt;,
 	worker_pid: u32,
 	execution_timeout: Duration,
-) -&gt; WorkerResponse {
-	<span class="kw">if let </span>WorkerResponse::Ok { duration, .. } = response {
+) -&gt; <span class="prelude-ty">Result</span>&lt;WorkerResponse, WorkerError&gt; {
+	<span class="kw">if let </span><span class="prelude-val">Ok</span>(WorkerResponse { duration, .. }) = worker_result {
 		<span class="kw">if </span>duration &gt; execution_timeout {
 			<span class="comment">// The job didn't complete within the timeout.
 			</span><span class="macro">gum::warn!</span>(
@@ -702,11 +679,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="comment">// Return a timeout error.
-			</span><span class="kw">return </span>WorkerResponse::JobTimedOut
+			</span><span class="kw">return </span><span class="prelude-val">Err</span>(WorkerError::JobTimedOut)
 		}
 	}
 
-	response
+	worker_result
 }
 
 <span class="doccomment">/// Create a temporary file for an artifact in the worker cache, execute the given future/closure
@@ -719,9 +696,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	pid: u32,
 	artifact_path: <span class="kw-2">&amp;</span>Path,
 	f: F,
-) -&gt; Outcome
+) -&gt; <span class="prelude-ty">Result</span>&lt;Response, Error&gt;
 <span class="kw">where
-	</span>Fut: futures::Future&lt;Output = Outcome&gt;,
+	</span>Fut: futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Response, Error&gt;&gt;,
 	F: FnOnce(WorkerDir) -&gt; Fut,
 {
 	<span class="comment">// Cheaply create a hard link to the artifact. The artifact is always at a known location in the
@@ -733,16 +710,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			worker_pid = %pid,
 			<span class="question-mark">?</span>worker_dir,
-			<span class="string">"failed to clear worker cache after the job: {:?}"</span>,
+			<span class="string">"failed to clear worker cache after the job: {}"</span>,
 			err,
 		);
-		<span class="kw">return </span>Outcome::InternalError {
-			err: InternalValidationError::CouldNotCreateLink(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, err)),
-		}
+		<span class="kw">return </span><span class="prelude-val">Err</span>(InternalValidationError::CouldNotCreateLink(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, err)).into());
 	}
 
 	<span class="kw">let </span>worker_dir_path = worker_dir.path().to_owned();
-	<span class="kw">let </span>outcome = f(worker_dir).<span class="kw">await</span>;
+	<span class="kw">let </span>result = f(worker_dir).<span class="kw">await</span>;
 
 	<span class="comment">// Try to clear the worker dir.
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = clear_worker_dir_path(<span class="kw-2">&amp;</span>worker_dir_path) {
@@ -753,15 +728,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"failed to clear worker cache after the job: {:?}"</span>,
 			err,
 		);
-		<span class="kw">return </span>Outcome::InternalError {
-			err: InternalValidationError::CouldNotClearWorkerDir {
-				err: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, err),
-				path: worker_dir_path.to_str().map(String::from),
-			},
+		<span class="kw">return </span><span class="prelude-val">Err</span>(InternalValidationError::CouldNotClearWorkerDir {
+			err: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, err),
+			path: worker_dir_path.to_str().map(String::from),
 		}
+		.into())
 	}
 
-	outcome
+	result
 }
 
 <span class="doccomment">/// Sends a handshake with information specific to the execute worker.
@@ -778,12 +752,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	framed_send(stream, <span class="kw-2">&amp;</span>execution_timeout.encode()).<span class="kw">await
 </span>}
 
-<span class="kw">async fn </span>recv_response(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;WorkerResponse&gt; {
-	<span class="kw">let </span>response_bytes = framed_recv(stream).<span class="kw">await</span><span class="question-mark">?</span>;
-	WorkerResponse::decode(<span class="kw-2">&amp;mut </span>response_bytes.as_slice()).map_err(|e| {
+<span class="kw">async fn </span>recv_result(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;<span class="prelude-ty">Result</span>&lt;WorkerResponse, WorkerError&gt;&gt; {
+	<span class="kw">let </span>result_bytes = framed_recv(stream).<span class="kw">await</span><span class="question-mark">?</span>;
+	<span class="prelude-ty">Result</span>::&lt;WorkerResponse, WorkerError&gt;::decode(<span class="kw-2">&amp;mut </span>result_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			<span class="macro">format!</span>(<span class="string">"execute pvf recv_response: decode error: {:?}"</span>, e),
+			<span class="macro">format!</span>(<span class="string">"execute pvf recv_result: decode error: {:?}"</span>, e),
 		)
 	})
 }

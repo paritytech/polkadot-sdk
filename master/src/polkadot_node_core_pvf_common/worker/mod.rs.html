@@ -911,6 +911,82 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -931,10 +1007,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">pub mod </span>security;
 
-<span class="kw">use crate</span>::{framed_recv_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET};
+<span class="kw">use crate</span>::{
+	framed_recv_blocking, framed_send_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET,
+};
 <span class="kw">use </span>cpu_time::ProcessTime;
 <span class="kw">use </span>futures::never::Never;
-<span class="kw">use </span>parity_scale_codec::Decode;
+<span class="kw">use </span>nix::{errno::Errno, sys::resource::Usage};
+<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>std::{
 	any::Any,
 	fmt::{<span class="self">self</span>},
@@ -970,8 +1049,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">use </span><span class="macro-nonterminal">$crate::worker::security</span>;
 
 			<span class="macro-nonterminal">$crate::sp_tracing::try_init_simple</span>();
-
-			<span class="kw">let </span>worker_pid = std::process::id();
 
 			<span class="kw">let </span>args = std::env::args().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 			<span class="kw">if </span>args.len() == <span class="number">1 </span>{
@@ -1459,6 +1536,81 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	})<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(worker_handshake)
+}
+
+<span class="doccomment">/// Calculate the total CPU time from the given `usage` structure, returned from
+/// [`nix::sys::resource::getrusage`], and calculates the total CPU time spent, including both user
+/// and system time.
+///
+/// # Arguments
+///
+/// - `rusage`: Contains resource usage information.
+///
+/// # Returns
+///
+/// Returns a `Duration` representing the total CPU time.
+</span><span class="kw">pub fn </span>get_total_cpu_usage(rusage: Usage) -&gt; Duration {
+	<span class="kw">let </span>micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * <span class="number">1_000_000</span>) +
+		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) <span class="kw">as </span>i64) <span class="kw">as </span>u64;
+
+	<span class="kw">return </span>Duration::from_micros(micros)
+}
+
+<span class="doccomment">/// Get a job response.
+</span><span class="kw">pub fn </span>recv_child_response&lt;T&gt;(
+	received_data: <span class="kw-2">&amp;mut </span>io::BufReader&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
+	context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+) -&gt; io::Result&lt;T&gt;
+<span class="kw">where
+	</span>T: Decode,
+{
+	<span class="kw">let </span>response_bytes = framed_recv_blocking(received_data)<span class="question-mark">?</span>;
+	T::decode(<span class="kw-2">&amp;mut </span>response_bytes.as_slice()).map_err(|e| {
+		io::Error::new(
+			io::ErrorKind::Other,
+			<span class="macro">format!</span>(<span class="string">"{} pvf recv_child_response: decode error: {}"</span>, context, e),
+		)
+	})
+}
+
+<span class="kw">pub fn </span>send_result&lt;T, E&gt;(
+	stream: <span class="kw-2">&amp;mut </span>UnixStream,
+	result: <span class="prelude-ty">Result</span>&lt;T, E&gt;,
+	worker_info: <span class="kw-2">&amp;</span>WorkerInfo,
+) -&gt; io::Result&lt;()&gt;
+<span class="kw">where
+	</span>T: std::fmt::Debug,
+	E: std::fmt::Debug + std::fmt::Display,
+	<span class="prelude-ty">Result</span>&lt;T, E&gt;: Encode,
+{
+	<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>err) = result {
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			<span class="question-mark">?</span>worker_info,
+			<span class="string">"worker: error occurred: {}"</span>,
+			err
+		);
+	}
+	<span class="macro">gum::trace!</span>(
+		target: LOG_TARGET,
+		<span class="question-mark">?</span>worker_info,
+		<span class="string">"worker: sending result to host: {:?}"</span>,
+		result
+	);
+
+	framed_send_blocking(stream, <span class="kw-2">&amp;</span>result.encode()).map_err(|err| {
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			<span class="question-mark">?</span>worker_info,
+			<span class="string">"worker: error occurred sending result to host: {}"</span>,
+			err
+		);
+		err
+	})
+}
+
+<span class="kw">pub fn </span>stringify_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, errno: Errno) -&gt; String {
+	<span class="macro">format!</span>(<span class="string">"{}: {}: {}"</span>, context, errno, io::Error::last_os_error())
 }
 
 <span class="doccomment">/// Functionality related to threads spawned by the workers.

@@ -733,6 +733,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -751,7 +774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! A queue that handles requests for PVF execution.
 
-</span><span class="kw">use </span><span class="kw">super</span>::worker_interface::Outcome;
+</span><span class="kw">use </span><span class="kw">super</span>::worker_interface::{Error <span class="kw">as </span>WorkerInterfaceError, Response <span class="kw">as </span>WorkerInterfaceResponse};
 <span class="kw">use crate</span>::{
 	artifacts::{ArtifactId, ArtifactPathId},
 	host::ResultSender,
@@ -765,7 +788,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	stream::{FuturesUnordered, StreamExt <span class="kw">as _</span>},
 	Future, FutureExt,
 };
-<span class="kw">use </span>polkadot_node_core_pvf_common::SecurityStatus;
+<span class="kw">use </span>polkadot_node_core_pvf_common::{
+	execute::{JobResponse, WorkerError, WorkerResponse},
+	SecurityStatus,
+};
 <span class="kw">use </span>polkadot_primitives::{ExecutorParams, ExecutorParamsHash};
 <span class="kw">use </span>slotmap::HopSlotMap;
 <span class="kw">use </span>std::{
@@ -868,7 +894,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">enum </span>QueueEvent {
 	Spawn(IdleWorker, WorkerHandle, ExecuteJob),
-	StartWork(Worker, Outcome, ArtifactId, ResultSender),
+	StartWork(
+		Worker,
+		<span class="prelude-ty">Result</span>&lt;WorkerInterfaceResponse, WorkerInterfaceError&gt;,
+		ArtifactId,
+		ResultSender,
+	),
 }
 
 <span class="kw">type </span>Mux = FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">'static</span>, QueueEvent&gt;&gt;;
@@ -1075,23 +1106,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">async fn </span>handle_job_finish(
 	queue: <span class="kw-2">&amp;mut </span>Queue,
 	worker: Worker,
-	outcome: Outcome,
+	worker_result: <span class="prelude-ty">Result</span>&lt;WorkerInterfaceResponse, WorkerInterfaceError&gt;,
 	artifact_id: ArtifactId,
 	result_tx: ResultSender,
 ) {
-	<span class="kw">let </span>(idle_worker, result, duration, sync_channel) = <span class="kw">match </span>outcome {
-		Outcome::Ok { result_descriptor, duration, idle_worker } =&gt; {
+	<span class="kw">let </span>(idle_worker, result, duration, sync_channel) = <span class="kw">match </span>worker_result {
+		<span class="prelude-val">Ok</span>(WorkerInterfaceResponse {
+			worker_response:
+				WorkerResponse { job_response: JobResponse::Ok { result_descriptor }, duration },
+			idle_worker,
+		}) =&gt; {
 			<span class="comment">// TODO: propagate the soft timeout
 
 			</span>(<span class="prelude-val">Some</span>(idle_worker), <span class="prelude-val">Ok</span>(result_descriptor), <span class="prelude-val">Some</span>(duration), <span class="prelude-val">None</span>)
 		},
-		Outcome::InvalidCandidate { err, idle_worker } =&gt; (
+		<span class="prelude-val">Ok</span>(WorkerInterfaceResponse {
+			worker_response: WorkerResponse { job_response: JobResponse::InvalidCandidate(err), .. },
+			idle_worker,
+		}) =&gt; (
 			<span class="prelude-val">Some</span>(idle_worker),
 			<span class="prelude-val">Err</span>(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">None</span>,
 		),
-		Outcome::RuntimeConstruction { err, idle_worker } =&gt; {
+		<span class="prelude-val">Ok</span>(WorkerInterfaceResponse {
+			worker_response:
+				WorkerResponse { job_response: JobResponse::RuntimeConstruction(err), .. },
+			idle_worker,
+		}) =&gt; {
 			<span class="comment">// The task for artifact removal is executed concurrently with
 			// the message to the host on the execution result.
 			</span><span class="kw">let </span>(result_tx, result_rx) = oneshot::channel();
@@ -1111,27 +1153,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(result_rx),
 			)
 		},
-		Outcome::InternalError { err } =&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::Internal(err)), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
+
+		<span class="prelude-val">Err</span>(WorkerInterfaceError::InternalError(err)) |
+		<span class="prelude-val">Err</span>(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) =&gt;
+			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::Internal(err)), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
 		<span class="comment">// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there's no time left for a retry.
-		</span>Outcome::HardTimeout =&gt;
+		</span><span class="prelude-val">Err</span>(WorkerInterfaceError::HardTimeout) |
+		<span class="prelude-val">Err</span>(WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut)) =&gt;
 			(<span class="prelude-val">None</span>, <span class="prelude-val">Err</span>(ValidationError::Invalid(InvalidCandidate::HardTimeout)), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
 		<span class="comment">// "Maybe invalid" errors (will retry).
-		</span>Outcome::WorkerIntfErr =&gt; (
+		</span><span class="prelude-val">Err</span>(WorkerInterfaceError::CommunicationErr(_err)) =&gt; (
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">None</span>,
 		),
-		Outcome::JobDied { err } =&gt; (
+		<span class="prelude-val">Err</span>(WorkerInterfaceError::WorkerError(WorkerError::JobDied { err, .. })) =&gt; (
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">None</span>,
 		),
-		Outcome::JobError { err } =&gt; (
+		<span class="prelude-val">Err</span>(WorkerInterfaceError::WorkerError(WorkerError::JobError(err))) =&gt; (
 			<span class="prelude-val">None</span>,
-			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))),
+			<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err.to_string()))),
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">None</span>,
 		),
@@ -1278,14 +1324,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	queue.mux.push(
 		<span class="kw">async move </span>{
 			<span class="kw">let </span>_timer = execution_timer;
-			<span class="kw">let </span>outcome = <span class="kw">super</span>::worker_interface::start_work(
+			<span class="kw">let </span>result = <span class="kw">super</span>::worker_interface::start_work(
 				idle,
 				job.artifact.clone(),
 				job.exec_timeout,
 				job.params,
 			)
 			.<span class="kw">await</span>;
-			QueueEvent::StartWork(worker, outcome, job.artifact.id, job.result_tx)
+			QueueEvent::StartWork(worker, result, job.artifact.id, job.result_tx)
 		}
 		.boxed(),
 	);

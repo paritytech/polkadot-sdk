@@ -791,16 +791,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#640" id="640">640</a>
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -818,6 +808,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="doccomment">//! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
+
+</span><span class="attr">#![deny(unused_crate_dependencies)]
+#![warn(missing_docs)]
 
 </span><span class="kw">pub use </span>polkadot_node_core_pvf_common::{
 	error::ExecuteError, executor_interface::execute_artifact,
@@ -839,11 +832,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
+	execute::{Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},
 	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		cpu_time_monitor_loop, pipe2_cloexec, run_worker, stringify_panic_payload,
+		cpu_time_monitor_loop, get_total_cpu_usage, pipe2_cloexec, recv_child_response, run_worker,
+		send_result, stringify_errno, stringify_panic_payload,
 		thread::{<span class="self">self</span>, WaitOutcome},
 		PipeFd, WorkerInfo, WorkerKind,
 	},
@@ -896,8 +890,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>((params, execution_timeout))
 }
 
-<span class="kw">fn </span>send_response(stream: <span class="kw-2">&amp;mut </span>UnixStream, response: WorkerResponse) -&gt; io::Result&lt;()&gt; {
-	framed_send_blocking(stream, <span class="kw-2">&amp;</span>response.encode())
+<span class="doccomment">/// Sends an error to the host and returns the original error wrapped in `io::Error`.
+</span><span class="macro">macro_rules! </span>map_and_send_err {
+	(<span class="macro-nonterminal">$error</span>:expr, <span class="macro-nonterminal">$err_constructor</span>:expr, <span class="macro-nonterminal">$stream</span>:expr, <span class="macro-nonterminal">$worker_info</span>:expr) =&gt; {{
+		<span class="kw">let </span>err: WorkerError = <span class="macro-nonterminal">$err_constructor</span>(<span class="macro-nonterminal">$error</span>.to_string()).into();
+		<span class="kw">let </span>io_err = io::Error::new(io::ErrorKind::Other, err.to_string());
+		<span class="kw">let _ </span>= send_result::&lt;WorkerResponse, WorkerError&gt;(<span class="macro-nonterminal">$stream</span>, <span class="prelude-val">Err</span>(err), <span class="macro-nonterminal">$worker_info</span>);
+		io_err
+	}};
 }
 
 <span class="doccomment">/// The entrypoint that the spawned execute worker should start with.
@@ -913,8 +913,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///   check is not necessary.
 ///
 /// - `worker_version`: see above
-///
-/// - `security_status`: contains the detected status of security features.
 </span><span class="kw">pub fn </span>worker_entrypoint(
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
@@ -930,13 +928,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		|<span class="kw-2">mut </span>stream, worker_info, security_status| {
 			<span class="kw">let </span>artifact_path = worker_dir::execute_artifact(<span class="kw-2">&amp;</span>worker_info.worker_dir_path);
 
-			<span class="kw">let </span>Handshake { executor_params } = recv_execute_handshake(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
+			<span class="kw">let </span>Handshake { executor_params } =
+				recv_execute_handshake(<span class="kw-2">&amp;mut </span>stream).map_err(|e| {
+					<span class="macro">map_and_send_err!</span>(
+						e,
+						InternalValidationError::HostCommunication,
+						<span class="kw-2">&amp;mut </span>stream,
+						worker_info
+					)
+				})<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>executor_params: Arc&lt;ExecutorParams&gt; = Arc::new(executor_params);
 			<span class="kw">let </span>execute_thread_stack_size = max_stack_size(<span class="kw-2">&amp;</span>executor_params);
 
 			<span class="kw">loop </span>{
-				<span class="kw">let </span>(params, execution_timeout) = recv_request(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
+				<span class="kw">let </span>(params, execution_timeout) = recv_request(<span class="kw-2">&amp;mut </span>stream).map_err(|e| {
+					<span class="macro">map_and_send_err!</span>(
+						e,
+						InternalValidationError::HostCommunication,
+						<span class="kw-2">&amp;mut </span>stream,
+						worker_info
+					)
+				})<span class="question-mark">?</span>;
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>worker_info,
@@ -946,27 +959,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 
 				<span class="comment">// Get the artifact bytes.
-				</span><span class="kw">let </span>compiled_artifact_blob = <span class="kw">match </span>std::fs::read(<span class="kw-2">&amp;</span>artifact_path) {
-					<span class="prelude-val">Ok</span>(bytes) =&gt; bytes,
-					<span class="prelude-val">Err</span>(err) =&gt; {
-						<span class="kw">let </span>response = WorkerResponse::InternalError(
-							InternalValidationError::CouldNotOpenFile(err.to_string()),
-						);
-						send_response(<span class="kw-2">&amp;mut </span>stream, response)<span class="question-mark">?</span>;
-						<span class="kw">continue
-					</span>},
-				};
+				</span><span class="kw">let </span>compiled_artifact_blob = std::fs::read(<span class="kw-2">&amp;</span>artifact_path).map_err(|e| {
+					<span class="macro">map_and_send_err!</span>(
+						e,
+						InternalValidationError::CouldNotOpenFile,
+						<span class="kw-2">&amp;mut </span>stream,
+						worker_info
+					)
+				})<span class="question-mark">?</span>;
 
-				<span class="kw">let </span>(pipe_read_fd, pipe_write_fd) = pipe2_cloexec()<span class="question-mark">?</span>;
+				<span class="kw">let </span>(pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
+					<span class="macro">map_and_send_err!</span>(
+						e,
+						InternalValidationError::CouldNotCreatePipe,
+						<span class="kw-2">&amp;mut </span>stream,
+						worker_info
+					)
+				})<span class="question-mark">?</span>;
 
-				<span class="kw">let </span>usage_before = <span class="kw">match </span>nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
-					<span class="prelude-val">Ok</span>(usage) =&gt; usage,
-					<span class="prelude-val">Err</span>(errno) =&gt; {
-						<span class="kw">let </span>response = internal_error_from_errno(<span class="string">"getrusage before"</span>, errno);
-						send_response(<span class="kw-2">&amp;mut </span>stream, response)<span class="question-mark">?</span>;
-						<span class="kw">continue
-					</span>},
-				};
+				<span class="kw">let </span>usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
+					.map_err(|errno| {
+						<span class="kw">let </span>e = stringify_errno(<span class="string">"getrusage before"</span>, errno);
+						<span class="macro">map_and_send_err!</span>(
+							e,
+							InternalValidationError::Kernel,
+							<span class="kw-2">&amp;mut </span>stream,
+							worker_info
+						)
+					})<span class="question-mark">?</span>;
 				<span class="kw">let </span>stream_fd = stream.as_raw_fd();
 
 				<span class="kw">let </span>compiled_artifact_blob = Arc::new(compiled_artifact_blob);
@@ -1025,7 +1045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">"worker: sending result to host: {:?}"</span>,
 					result
 				);
-				send_response(<span class="kw-2">&amp;mut </span>stream, result)<span class="question-mark">?</span>;
+				send_result(<span class="kw-2">&amp;mut </span>stream, result, worker_info)<span class="question-mark">?</span>;
 			}
 		},
 	);
@@ -1073,7 +1093,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	worker_info: <span class="kw-2">&amp;</span>WorkerInfo,
 	have_unshare_newuser: bool,
 	usage_before: Usage,
-) -&gt; io::Result&lt;WorkerResponse&gt; {
+) -&gt; io::Result&lt;<span class="prelude-ty">Result</span>&lt;WorkerResponse, WorkerError&gt;&gt; {
 	<span class="kw">use </span>polkadot_node_core_pvf_common::worker::security;
 
 	<span class="comment">// SAFETY: new process is spawned within a single threaded process. This invariant
@@ -1104,7 +1124,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			usage_before,
 			execution_timeout,
 		),
-		<span class="prelude-val">Err</span>(security::clone::Error::Clone(errno)) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"clone"</span>, errno)),
+		<span class="prelude-val">Err</span>(security::clone::Error::Clone(errno)) =&gt;
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(internal_error_from_errno(<span class="string">"clone"</span>, errno))),
 	}
 }
 
@@ -1119,7 +1140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	execute_worker_stack_size: usize,
 	worker_info: <span class="kw-2">&amp;</span>WorkerInfo,
 	usage_before: Usage,
-) -&gt; io::Result&lt;WorkerResponse&gt; {
+) -&gt; io::Result&lt;<span class="prelude-ty">Result</span>&lt;WorkerResponse, WorkerError&gt;&gt; {
 	<span class="comment">// SAFETY: new process is spawned within a single threaded process. This invariant
 	// is enforced by tests.
 	</span><span class="kw">match unsafe </span>{ nix::unistd::fork() } {
@@ -1141,7 +1162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			usage_before,
 			execution_timeout,
 		),
-		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"fork"</span>, errno)),
+		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(internal_error_from_errno(<span class="string">"fork"</span>, errno))),
 	}
 }
 
@@ -1286,11 +1307,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	job_pid: Pid,
 	usage_before: Usage,
 	timeout: Duration,
-) -&gt; io::Result&lt;WorkerResponse&gt; {
+) -&gt; io::Result&lt;<span class="prelude-ty">Result</span>&lt;WorkerResponse, WorkerError&gt;&gt; {
 	<span class="comment">// the read end will wait until all write ends have been closed,
 	// this drop is necessary to avoid deadlock
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(pipe_write_fd) {
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"closing pipe write fd"</span>, errno));
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(internal_error_from_errno(<span class="string">"closing pipe write fd"</span>, errno)));
 	};
 
 	<span class="comment">// SAFETY: pipe_read_fd is an open and owned file descriptor at this point.
@@ -1315,7 +1336,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>usage_after = <span class="kw">match </span>nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 		<span class="prelude-val">Ok</span>(usage) =&gt; usage,
-		<span class="prelude-val">Err</span>(errno) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"getrusage after"</span>, errno)),
+		<span class="prelude-val">Err</span>(errno) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(internal_error_from_errno(<span class="string">"getrusage after"</span>, errno))),
 	};
 
 	<span class="comment">// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
@@ -1333,32 +1354,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(WorkerResponse::JobTimedOut)
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(WorkerError::JobTimedOut))
 	}
 
 	<span class="kw">match </span>status {
 		<span class="prelude-val">Ok</span>(WaitStatus::Exited(<span class="kw">_</span>, exit_status)) =&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>reader = io::BufReader::new(received_data.as_slice());
-			<span class="kw">let </span>result = <span class="kw">match </span>recv_child_response(<span class="kw-2">&amp;mut </span>reader) {
-				<span class="prelude-val">Ok</span>(result) =&gt; result,
-				<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(WorkerResponse::JobError(err.to_string())),
-			};
+			<span class="kw">let </span>result = recv_child_response(<span class="kw-2">&amp;mut </span>reader, <span class="string">"execute"</span>)<span class="question-mark">?</span>;
 
 			<span class="kw">match </span>result {
-				<span class="prelude-val">Ok</span>(JobResponse::Ok { result_descriptor }) =&gt; {
+				<span class="prelude-val">Ok</span>(job_response) =&gt; {
 					<span class="comment">// The exit status should have been zero if no error occurred.
 					</span><span class="kw">if </span>exit_status != <span class="number">0 </span>{
-						<span class="kw">return </span><span class="prelude-val">Ok</span>(WorkerResponse::JobError(<span class="macro">format!</span>(
-							<span class="string">"unexpected exit status: {}"</span>,
-							exit_status
-						)))
+						<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(WorkerError::JobError(JobError::UnexpectedExitStatus(
+							exit_status,
+						))));
 					}
 
-					<span class="prelude-val">Ok</span>(WorkerResponse::Ok { result_descriptor, duration: cpu_tv })
+					<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(WorkerResponse { job_response, duration: cpu_tv }))
 				},
-				<span class="prelude-val">Ok</span>(JobResponse::InvalidCandidate(err)) =&gt; <span class="prelude-val">Ok</span>(WorkerResponse::InvalidCandidate(err)),
-				<span class="prelude-val">Ok</span>(JobResponse::RuntimeConstruction(err)) =&gt;
-					<span class="prelude-val">Ok</span>(WorkerResponse::RuntimeConstruction(err)),
 				<span class="prelude-val">Err</span>(job_error) =&gt; {
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
@@ -1368,9 +1382,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						job_error,
 					);
 					<span class="kw">if </span><span class="macro">matches!</span>(job_error, JobError::TimedOut) {
-						<span class="prelude-val">Ok</span>(WorkerResponse::JobTimedOut)
+						<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(WorkerError::JobTimedOut))
 					} <span class="kw">else </span>{
-						<span class="prelude-val">Ok</span>(WorkerResponse::JobError(job_error.to_string()))
+						<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(WorkerError::JobError(job_error.into())))
 					}
 				},
 			}
@@ -1379,48 +1393,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
-		</span><span class="prelude-val">Ok</span>(WaitStatus::Signaled(_pid, signal, _core_dump)) =&gt; <span class="prelude-val">Ok</span>(WorkerResponse::JobDied {
+		</span><span class="prelude-val">Ok</span>(WaitStatus::Signaled(_pid, signal, _core_dump)) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(WorkerError::JobDied {
 			err: <span class="macro">format!</span>(<span class="string">"received signal: {signal:?}"</span>),
 			job_pid: job_pid.as_raw(),
-		}),
-		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"waitpid"</span>, errno)),
+		})),
+		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(internal_error_from_errno(<span class="string">"waitpid"</span>, errno))),
 
 		<span class="comment">// It is within an attacker's power to send an unexpected exit status. So we cannot treat
 		// this as an internal error (which would make us abstain), but must vote against.
-		</span><span class="prelude-val">Ok</span>(unexpected_wait_status) =&gt; <span class="prelude-val">Ok</span>(WorkerResponse::JobDied {
+		</span><span class="prelude-val">Ok</span>(unexpected_wait_status) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(WorkerError::JobDied {
 			err: <span class="macro">format!</span>(<span class="string">"unexpected status from wait: {unexpected_wait_status:?}"</span>),
 			job_pid: job_pid.as_raw(),
-		}),
+		})),
 	}
-}
-
-<span class="doccomment">/// Calculate the total CPU time from the given `usage` structure, returned from
-/// [`nix::sys::resource::getrusage`], and calculates the total CPU time spent, including both user
-/// and system time.
-///
-/// # Arguments
-///
-/// - `rusage`: Contains resource usage information.
-///
-/// # Returns
-///
-/// Returns a `Duration` representing the total CPU time.
-</span><span class="kw">fn </span>get_total_cpu_usage(rusage: Usage) -&gt; Duration {
-	<span class="kw">let </span>micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * <span class="number">1_000_000</span>) +
-		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) <span class="kw">as </span>i64) <span class="kw">as </span>u64;
-
-	<span class="kw">return </span>Duration::from_micros(micros)
-}
-
-<span class="doccomment">/// Get a job response.
-</span><span class="kw">fn </span>recv_child_response(received_data: <span class="kw-2">&amp;mut </span>io::BufReader&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; io::Result&lt;JobResult&gt; {
-	<span class="kw">let </span>response_bytes = framed_recv_blocking(received_data)<span class="question-mark">?</span>;
-	JobResult::decode(<span class="kw-2">&amp;mut </span>response_bytes.as_slice()).map_err(|e| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			<span class="macro">format!</span>(<span class="string">"execute pvf recv_child_response: decode error: {}"</span>, e),
-		)
-	})
 }
 
 <span class="doccomment">/// Write a job response to the pipe and exit process after.
@@ -1441,17 +1426,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>internal_error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, errno: Errno) -&gt; WorkerResponse {
-	WorkerResponse::InternalError(InternalValidationError::Kernel(<span class="macro">format!</span>(
-		<span class="string">"{}: {}: {}"</span>,
-		context,
-		errno,
-		io::Error::last_os_error()
-	)))
+<span class="kw">fn </span>internal_error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, errno: Errno) -&gt; WorkerError {
+	WorkerError::InternalError(InternalValidationError::Kernel(stringify_errno(context, errno)))
 }
 
 <span class="kw">fn </span>job_error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, errno: Errno) -&gt; JobResult {
-	<span class="prelude-val">Err</span>(JobError::Kernel(<span class="macro">format!</span>(<span class="string">"{}: {}: {}"</span>, context, errno, io::Error::last_os_error())))
+	<span class="prelude-val">Err</span>(JobError::Kernel(stringify_errno(context, errno)))
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
