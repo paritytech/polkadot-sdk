@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713520051924,
+  "lastUpdate": 1713525457510,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5563,6 +5563,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16436746543999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "eba3deca3e61855c237a33013e8a5e82c479e958",
+          "message": "txWatch: Stabilize txWatch to version 1 (#4171)\n\nThis PR stabilizes the txBroadcast API to version 1.\n\nNeeds from spec:\n- https://github.com/paritytech/json-rpc-interface-spec/pull/153 \n- https://github.com/paritytech/json-rpc-interface-spec/pull/154\n\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-19T09:48:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/eba3deca3e61855c237a33013e8a5e82c479e958"
+        },
+        "date": 1713525433049,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.899999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16594548901333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013394704673333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02284134281999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011298552053333334,
             "unit": "seconds"
           }
         ]
