@@ -23,7 +23,6 @@ pub mod reserve;
 pub mod teleporter;
 pub mod weigher;
 
-pub use asset_transactor::*;
 pub use constants::*;
 pub use location_converter::*;
 pub use weigher::*;

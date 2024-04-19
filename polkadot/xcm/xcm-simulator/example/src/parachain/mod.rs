@@ -106,7 +106,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 		if !a.starts_with(&origin_location) {
 			return Err(o);
 		}
-		xcm_config::SovereignAccountOf::convert_location(&origin_location).ok_or(o)
+		xcm_config::LocationConverter::convert_location(&origin_location).ok_or(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -159,7 +159,7 @@ impl pallet_xcm::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyMatcher = ();
 	type TrustedLockers = TrustedLockers;
-	type SovereignAccountOf = xcm_config::LocationConverter;
+	type SovereignAccountOf = location_converter::LocationConverter;
 	type MaxLockers = ConstU32<8>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();

@@ -14,29 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::parachain::{
-	AccountId, Balances, ForeignUniques, KsmLocation, LocationConverter, RelayNetwork,
-};
-use polkadot_parachain_primitives::primitives::Sibling;
+use crate::parachain::{AccountId, Balances, ForeignUniques, constants::KsmLocation, location_converter::LocationConverter};
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, ConvertedConcreteId, FungibleAdapter, IsConcrete, NoChecking,
-	NonFungiblesAdapter, ParentIsPreset, SiblingParachainConvertsVia,
+	ConvertedConcreteId, FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter,
 };
 use xcm_executor::traits::JustTry;
-
-pub type SovereignAccountOf = (
-	SiblingParachainConvertsVia<Sibling, AccountId>,
-	AccountId32Aliases<RelayNetwork, AccountId>,
-	ParentIsPreset<AccountId>,
-);
 
 type LocalAssetTransactor = (
 	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationConverter, AccountId, ()>,
 	NonFungiblesAdapter<
 		ForeignUniques,
 		ConvertedConcreteId<Location, AssetInstance, JustTry, JustTry>,
-		SovereignAccountOf,
+		LocationConverter,
 		AccountId,
 		NoChecking,
 		(),
