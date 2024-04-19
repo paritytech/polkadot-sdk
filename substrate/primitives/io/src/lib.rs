@@ -142,6 +142,10 @@ mod global_alloc_riscv;
 #[cfg(feature = "std")]
 const LOG_TARGET: &str = "runtime::io";
 
+pub struct Foo {
+	awa: bool,
+}
+
 /// Error verifying ECDSA signature
 #[derive(Encode, Decode)]
 pub enum EcdsaVerifyError {
@@ -836,7 +840,7 @@ pub trait Crypto {
 			use ed25519_dalek::Verifier;
 
 			let Ok(public_key) = ed25519_dalek::VerifyingKey::from_bytes(&pub_key.0) else {
-				return false
+				return false;
 			};
 
 			let sig = ed25519_dalek::Signature::from_bytes(&sig.0);

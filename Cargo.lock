@@ -17297,7 +17297,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.10.0-dev"
+version = "0.10.0"
 dependencies = [
  "bs58 0.4.0",
  "libp2p-identity",

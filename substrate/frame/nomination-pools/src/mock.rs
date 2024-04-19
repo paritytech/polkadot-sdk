@@ -188,11 +188,13 @@ impl sp_staking::StakingInterface for StakingMock {
 			(Some(v), None) => Ok(Stake {
 				total: v.into_iter().fold(0u128, |acc, &x| acc.saturating_add(x.1)),
 				active: 0,
+				major: true,
 			}),
-			(None, Some(v)) => Ok(Stake { total: v, active: v }),
+			(None, Some(v)) => Ok(Stake { total: v, active: v, major: true }),
 			(Some(a), Some(b)) => Ok(Stake {
 				total: a.into_iter().fold(0u128, |acc, &x| acc.saturating_add(x.1)) + b,
 				active: b,
+				major: true,
 			}),
 		}
 	}

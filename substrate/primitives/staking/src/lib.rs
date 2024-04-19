@@ -90,6 +90,7 @@ pub struct Stake<Balance> {
 	/// The total amount of the stash's balance that will be at stake in any forthcoming
 	/// rounds.
 	pub active: Balance,
+	pub major: bool,
 }
 
 /// A generic staking event listener.
