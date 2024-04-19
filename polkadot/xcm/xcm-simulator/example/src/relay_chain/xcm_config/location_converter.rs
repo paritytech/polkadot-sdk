@@ -14,10 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::relay_chain::AccountId;
-use frame_support::parameter_types;
+use crate::relay_chain::{constants::RelayNetwork, AccountId};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use xcm::latest::prelude::*;
 use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia};
 
 pub type LocationToAccountId = (

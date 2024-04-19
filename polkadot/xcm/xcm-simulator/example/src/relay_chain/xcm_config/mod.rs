@@ -21,6 +21,7 @@ pub mod location_converter;
 pub mod origin_converter;
 pub mod weigher;
 
+pub use constants::*;
 pub use location_converter::*;
 
 use crate::relay_chain::{RuntimeCall, XcmPallet};
@@ -42,7 +43,7 @@ impl Config for XcmConfig {
 	type UniversalLocation = UniversalLocation;
 	type Barrier = barrier::Barrier;
 	type Weigher = weigher::Weigher;
-	type Trader = FixedRateOfFungible<constants::TokensPerSecondPerByte, ()>;
+	type Trader = FixedRateOfFungible<TokensPerSecondPerByte, ()>;
 	type ResponseHandler = ();
 	type AssetTrap = ();
 	type AssetLocker = XcmPallet;
@@ -51,7 +52,7 @@ impl Config for XcmConfig {
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();
-	type MaxAssetsIntoHolding = constants::MaxAssetsIntoHolding;
+	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
