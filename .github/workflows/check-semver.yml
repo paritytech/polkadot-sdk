@@ -22,12 +22,12 @@ jobs:
         run: rustup toolchain install nightly
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.4.0
+        run: cargo install parity-publish@0.4.1
 
       - name: check semver
         run: |
           if [ -f prdoc/pr_$PR.prdoc ]; then
-            parity-publish prdoc --since $BASE --validate prdoc/pr_$PR.prdoc
+            parity-publish prdoc --since $BASE --validate prdoc/pr_$PR.prdoc -v
           fi
         env:
           PR: ${{ github.event.pull_request.number }}
