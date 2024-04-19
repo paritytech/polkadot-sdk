@@ -15,49 +15,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Encode, Decode, Input, MaxEncodedLen};
-use frame_support_procedural::{EqNoBound, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use crate::Parameter;
+use codec::{Decode, Encode, Input, MaxEncodedLen};
+use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_core::Get;
-
-use crate::Parameter;
 
 /// TODO: docs
 pub struct InputWithMaxLength<'a, I: Input, S: Get<usize>> {
 	input: &'a mut I,
-	len: usize,
+	remaining_len: usize,
 	_phantom: core::marker::PhantomData<S>,
 }
 
 impl<'a, I: Input, S: Get<usize>> InputWithMaxLength<'a, I, S> {
 	pub fn new(input: &'a mut I) -> Self {
-		Self { input, len: S::get(), _phantom: Default::default() }
+		Self { input, remaining_len: S::get(), _phantom: Default::default() }
 	}
 }
 
 impl<'a, I: Input, S: Get<usize>> Input for InputWithMaxLength<'a, I, S> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
-		let len = self.input.remaining_len()?;
-		Ok(len.map(|l| l.min(self.len)))
+		self.input.remaining_len().map(|l| l.map(|l| l.min(self.remaining_len)))
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
-		let max_len = self.len.min(into.len());
-		self.len -= max_len;
-		self.input.read(&mut into[..max_len])?;
-		Ok(())
+		if into.len() > self.remaining_len {
+			return Err("Not enough data to fill buffer".into());
+		}
+		self.input.read(into)
 	}
 }
 
 /// TODO: docs
-#[derive(Encode, EqNoBound, PartialEqNoBound, CloneNoBound, TypeInfo, RuntimeDebugNoBound)]
-#[scale_info(skip_type_params(S))]
-pub struct WithMaxSize<T: Parameter, S: Get<usize>> {
+#[derive(Encode, EqNoBound, PartialEqNoBound, CloneNoBound, RuntimeDebugNoBound)]
+pub struct WithMaxSize<T: Parameter + 'static, S: Get<usize>> {
 	value: T,
 	_phantom: core::marker::PhantomData<S>,
 }
 
-impl<T: Parameter, S: Get<usize>> WithMaxSize<T, S> {
+impl<T: Parameter + 'static, S: Get<usize>> WithMaxSize<T, S> {
 	/// TODO: docs
 	pub fn unchecked_new(value: T) -> Self {
 		Self { value, _phantom: Default::default() }
@@ -77,15 +74,26 @@ impl<T: Parameter, S: Get<usize>> WithMaxSize<T, S> {
 	}
 }
 
-impl<T: Parameter, S: Get<usize>> MaxEncodedLen for WithMaxSize<T, S> {
+impl<T: Parameter + 'static, S: Get<usize>> MaxEncodedLen for WithMaxSize<T, S> {
 	fn max_encoded_len() -> usize {
+		// not using T::max_encoded_len().min(S::get()) because while it is possible
+		// that T::max_encoded_len() is smaller, but in that case there will be no reason
+		// to use WithMaxSize
 		S::get()
 	}
 }
 
-impl<T: Parameter, S: Get<usize>> Decode for WithMaxSize<T, S> {
+impl<T: Parameter + 'static, S: Get<usize>> Decode for WithMaxSize<T, S> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let mut input = InputWithMaxLength::<I, S>::new(input);
-        Ok(Self::unchecked_new(T::decode(&mut input)?))
+		Ok(Self::unchecked_new(T::decode(&mut input)?))
+	}
+}
+
+impl<T: Parameter + 'static, S: Get<usize>> TypeInfo for WithMaxSize<T, S> {
+	type Identity = T;
+
+	fn type_info() -> scale_info::Type {
+		T::type_info()
 	}
 }
