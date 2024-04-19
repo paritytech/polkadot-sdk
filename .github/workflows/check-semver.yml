@@ -21,5 +21,7 @@ jobs:
 
       - name: check semver
         run: |
-          test -f prdoc/pr_${GITHUB_PR}.prdoc && parity-publish prdoc \
-            --since ${{ github.event.pull_request.base.sha }} --validate prdoc/pr_${GITHUB_PR}.prdoc
+          if [ -f prdoc/pr_${GITHUB_PR}.prdoc ]; then
+            parity-publish prdoc --since ${{ github.event.pull_request.base.sha }} \
+              --validate prdoc/pr_${GITHUB_PR}.prdoc
+          fi
