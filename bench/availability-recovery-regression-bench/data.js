@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713465407789,
+  "lastUpdate": 1713505849750,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4367,6 +4367,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.22745959133333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "98a364fe6e7abf10819f5fddd3de0588f7c38700",
+          "message": "rpc-v2: Limit transactionBroadcast calls to 16 (#3772)\n\nThis PR limits the number of active calls to the transactionBroadcast\nAPIs to 16.\n\ncc @paritytech/subxt-team \n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/3081\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: James Wilson <james@jsdw.me>",
+          "timestamp": "2024-04-19T04:34:26Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/98a364fe6e7abf10819f5fddd3de0588f7c38700"
+        },
+        "date": 1713505826138,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21505232139999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.900978519466667,
             "unit": "seconds"
           }
         ]
