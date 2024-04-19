@@ -400,7 +400,14 @@ where
 
 			// Charge the sending account the spot price. The amount will be burnt once the
 			// broker chain requests revenue information.
-			T::Currency::transfer(&sender, &Self::account_id(), spot_price, existence_requirement)?;
+			let amt = T::Currency::withdraw(
+				&sender,
+				spot_price,
+				WithdrawReasons::FEE,
+				existence_requirement,
+			)?;
+			// Consume the negative imbalance and deposit it into the pallet account.
+			T::Currency::resolve_creating(&Self::account_id(), amt);
 
 			// Add the amount to the current block's (index 0) revenue information.
 			Revenue::<T>::mutate(|bounded_revenue| {
