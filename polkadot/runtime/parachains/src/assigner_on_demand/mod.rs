@@ -49,20 +49,20 @@ use frame_support::{
 	traits::{
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Imbalance, OnUnbalanced, WithdrawReasons,
+		WithdrawReasons,
 	},
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
 use primitives::{CoreIndex, Id as ParaId};
 use sp_runtime::{
-	traits::{One, SaturatedConversion, Zero},
+	traits::{AccountIdConversion, One, SaturatedConversion, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
 use sp_std::prelude::*;
 use types::{
-	BalanceOf, CoreAffinityCount, EnqueuedOrder, NegativeImbalanceOf, QueuePushDirection,
-	QueueStatusType, SpotTrafficCalculationErr,
+	BalanceOf, CoreAffinityCount, EnqueuedOrder, QueuePushDirection, QueueStatusType,
+	SpotTrafficCalculationErr,
 };
 
 const LOG_TARGET: &str = "runtime::parachains::assigner-on-demand";
@@ -200,9 +200,17 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// Update revenue information storage.
-			let zero_balance: BalanceOf<T> = 0u32.into();
 			Revenue::<T>::mutate(|revenue| {
-				let _ = revenue.force_insert_keep_left(0, zero_balance);
+				match revenue.force_insert_keep_left(0, 0u32.into()) {
+					Ok(_) => (),
+					Err(e) => {
+						// Defensive, should not fail.
+						log::debug!(
+							target: LOG_TARGET,
+							"Error updating historical revenue: {:?}", e
+						);
+					},
+				}
 			});
 
 			let config = <configuration::Pallet<T>>::config();
@@ -385,19 +393,22 @@ where
 			// Is the current price higher than `max_amount`
 			ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
 
-			// Charge the sending account the spot price. The imbalance is handled by this pallet's
-			// `OnUnbalanced` trait implementation and added to the revenue information.
-			let _ = T::Currency::withdraw(
-				&sender,
-				spot_price,
-				WithdrawReasons::FEE,
-				existence_requirement,
-			)?;
-
 			ensure!(
 				queue_status.size() < config.scheduler_params.on_demand_queue_max_size,
 				Error::<T>::QueueFull
 			);
+
+			// Charge the sending account the spot price. The amount will be burnt once the
+			// broker chain requests revenue information.
+			T::Currency::transfer(&sender, &Self::account_id(), spot_price, existence_requirement)?;
+
+			// Add the amount to the current block's (index 0) revenue information.
+			Revenue::<T>::mutate(|bounded_revenue| {
+				if let Some(current_block) = bounded_revenue.get_mut(0) {
+					*current_block = current_block.saturating_add(spot_price);
+				}
+			});
+
 			Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
 			Ok(())
 		})
@@ -601,18 +612,30 @@ where
 		})
 	}
 
-	pub fn get_revenue(now: BlockNumberFor<T>, when: BlockNumberFor<T>) -> BalanceOf<T> {
+	/// Collect the revenue from the `when` blockheight
+	pub fn revenue_until(now: BlockNumberFor<T>, when: BlockNumberFor<T>) -> BalanceOf<T> {
 		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
 		Revenue::<T>::mutate(|revenue| {
-			revenue.into_iter().enumerate().for_each(|(index, mut block_revenue)| {
-				//
+			revenue.into_iter().enumerate().for_each(|(index, block_revenue)| {
 				if when >= now.saturating_sub((index as u32).into()) {
-					amount.saturating_add(*block_revenue);
+					amount = amount.saturating_add(*block_revenue);
 					*block_revenue = BalanceOf::<T>::zero();
 				}
 			})
 		});
+
+		let imbalance = T::Currency::burn(amount);
+		let _ = T::Currency::settle(
+			&Self::account_id(),
+			imbalance,
+			WithdrawReasons::FEE,
+			ExistenceRequirement::AllowDeath,
+		);
 		amount
+	}
+
+	pub fn account_id() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
 	}
 
 	/// Getter for the affinity tracker.
@@ -656,24 +679,9 @@ where
 	fn get_traffic_default_value() -> FixedU128 {
 		<T as Config>::TrafficDefaultValue::get()
 	}
-}
 
-/// Add all negative imbalance dropped to the historical on demand revenue.
-impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Pallet<T> {
-	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
-		let numeric_amount = amount.peek();
-
-		// Add the amount to the current block's revenue information.
-		Revenue::<T>::mutate(|revenue| {
-			let current_revenue = revenue.get_mut(0);
-			current_revenue.map(|rev| {
-				let new_revenue = rev.saturating_add(numeric_amount);
-				*rev = new_revenue;
-			})
-		});
-
-		// NOTE: The tokens could be burned at this point, but are kept in total issuance
-		// and teleported (burnt on the relay chain) to the broker chain when it requests
-		// revenue information.
+	#[cfg(test)]
+	fn get_revenue() -> Vec<BalanceOf<T>> {
+		Revenue::<T>::get().to_vec()
 	}
 }

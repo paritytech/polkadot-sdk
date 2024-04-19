@@ -88,14 +88,24 @@ fn run_to_block(
 	}
 }
 
-fn place_order(para_id: ParaId) {
+fn place_order_run_to_blocknumber(para_id: ParaId, blocknumber: Option<BlockNumber>) {
 	let alice = 100u64;
 	let amt = 10_000_000u128;
 
 	Balances::make_free_balance_be(&alice, amt);
 
-	run_to_block(101, |n| if n == 101 { Some(Default::default()) } else { None });
+	if let Some(bn) = blocknumber {
+		run_to_block(bn, |n| if n == bn { Some(Default::default()) } else { None });
+	}
 	OnDemandAssigner::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id).unwrap()
+}
+
+fn place_order_run_to_101(para_id: ParaId) {
+	place_order_run_to_blocknumber(para_id, Some(101));
+}
+
+fn place_order(para_id: ParaId) {
+	place_order_run_to_blocknumber(para_id, None);
 }
 
 #[test]
@@ -349,8 +359,8 @@ fn pop_assignment_for_core_works() {
 
 		// Add enough assignments to the order queue.
 		for _ in 0..2 {
-			place_order(para_a);
-			place_order(para_b);
+			place_order_run_to_101(para_a);
+			place_order_run_to_101(para_b);
 		}
 
 		// Popped assignments should be for the correct paras and cores
@@ -384,8 +394,8 @@ fn push_back_assignment_works() {
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Add enough assignments to the order queue.
-		place_order(para_a);
-		place_order(para_b);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_b);
 
 		// Pop order a
 		assert_eq!(
@@ -431,9 +441,9 @@ fn affinity_prohibits_parallel_scheduling() {
 		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
 
 		// Add 2 assignments for para_a for every para_b.
-		place_order(para_a);
-		place_order(para_a);
-		place_order(para_b);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_b);
 
 		// Approximate having 1 core.
 		for _ in 0..3 {
@@ -455,9 +465,9 @@ fn affinity_prohibits_parallel_scheduling() {
 		OnDemandAssigner::report_processed(para_b, 0.into());
 
 		// Add 2 assignments for para_a for every para_b.
-		place_order(para_a);
-		place_order(para_a);
-		place_order(para_b);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_b);
 
 		// Approximate having 3 cores. CoreIndex 2 should be unable to obtain an assignment
 		for _ in 0..3 {
@@ -497,7 +507,7 @@ fn affinity_changes_work() {
 
 		// Add enough assignments to the order queue.
 		for _ in 0..10 {
-			place_order(para_a);
+			place_order_run_to_101(para_a);
 		}
 
 		// There should be no affinity before the scheduler pops.
@@ -561,7 +571,7 @@ fn new_affinity_for_a_core_must_come_from_free_entries() {
 
 		// Place orders for all chains.
 		parachains.iter().for_each(|chain| {
-			place_order(*chain);
+			place_order_run_to_101(*chain);
 		});
 
 		// There are 4 entries in free_entries.
@@ -686,8 +696,8 @@ fn queue_status_size_fn_works() {
 		// Place orders for all chains.
 		parachains.iter().for_each(|chain| {
 			// 2 per chain for a total of 6
-			place_order(*chain);
-			place_order(*chain);
+			place_order_run_to_101(*chain);
+			place_order_run_to_101(*chain);
 		});
 
 		// 6 orders in free entries
@@ -753,5 +763,45 @@ fn queue_status_size_fn_works() {
 
 #[test]
 fn get_revenue_info_works() {
-	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {});
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		schedule_blank_para(para_a, ParaKind::Parathread);
+		// Mock assigner sets max revenue history to 10.
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		let revenue = OnDemandAssigner::revenue_until(10, 10);
+
+		// No revenue should be recorded.
+		assert_eq!(revenue, 0);
+
+		// Place one order
+		place_order_run_to_blocknumber(para_a, Some(11));
+		let revenue = OnDemandAssigner::get_revenue();
+		let amt = OnDemandAssigner::revenue_until(11, 11);
+
+		// Revenue for a single order should be recorded.
+		assert_eq!(amt, revenue[0]);
+
+		run_to_block(12, |n| if n == 12 { Some(Default::default()) } else { None });
+		let revenue = OnDemandAssigner::revenue_until(12, 12);
+
+		// No revenue should be recorded.
+		assert_eq!(revenue, 0);
+
+		// Place many orders
+		place_order(para_a);
+		place_order(para_a);
+
+		run_to_block(13, |n| if n == 13 { Some(Default::default()) } else { None });
+
+		place_order(para_a);
+
+		run_to_block(14, |n| if n == 14 { Some(Default::default()) } else { None });
+
+		println!("{:?}", OnDemandAssigner::get_revenue());
+		let revenue = OnDemandAssigner::revenue_until(14, 14);
+		println!("{:?}", OnDemandAssigner::get_revenue());
+
+		// All 3 orders should be
+		assert_eq!(revenue, 30_000);
+	});
 }

@@ -18,14 +18,13 @@
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
-use sp_std::{prelude::*, result};
-
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
-use primitives::{Balance, CoreIndex, Id as ParaId};
+use primitives::{Balance, BlockNumber, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
+use sp_std::{prelude::*, result};
 use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
 
 use crate::{
@@ -91,13 +90,14 @@ enum CoretimeCalls {
 	#[codec(index = 19)]
 	NotifyCoreCount(u16),
 	#[codec(index = 20)]
-	NotifyRevenue(Balance),
+	NotifyRevenue((BlockNumber, Balance)),
 	#[codec(index = 99)]
 	SwapLeases(ParaId, ParaId),
 }
 
 #[frame_support::pallet]
 pub mod pallet {
+
 	use crate::configuration;
 
 	use super::*;
@@ -165,10 +165,7 @@ pub mod pallet {
 		/// may be `None``.
 		#[pallet::weight(<T as Config>::WeightInfo::request_revenue_info_at())]
 		#[pallet::call_index(2)]
-		pub fn request_revenue_info_at(
-			origin: OriginFor<T>,
-			when: BlockNumberFor<T>,
-		) -> DispatchResult {
+		pub fn request_revenue_info_at(origin: OriginFor<T>, when: BlockNumber) -> DispatchResult {
 			// Ignore requests not coming from the broker parachain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 			Self::notify_revenue(when)
@@ -266,27 +263,31 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The Relay-chain must be configured to ensure that only a single revenue information
 	/// destination exists.
-	pub fn notify_revenue(when: BlockNumberFor<T>) -> DispatchResult {
+	pub fn notify_revenue(when: BlockNumber) -> DispatchResult {
 		let now = <frame_system::Pallet<T>>::block_number();
-		// When cannot be in the future.
-		ensure!(when <= now, Error::<T>::RequestedFutureRevenue);
+		let when_bnf: BlockNumberFor<T> = when.into();
 
-		// TODO actual revenue
-		let revenue = <assigner_on_demand::Pallet<T>>::get_revenue(now, when);
+		// When cannot be in the future.
+		ensure!(when_bnf <= now, Error::<T>::RequestedFutureRevenue);
+
+		let revenue = <assigner_on_demand::Pallet<T>>::revenue_until(now, when_bnf);
+		log::info!(target: LOG_TARGET, "Revenue info requested: {:?}", revenue);
 		match TryInto::<Balance>::try_into(revenue) {
 			Ok(raw_revenue) => {
+				log::info!(target: LOG_TARGET, "Revenue into balance success: {:?}", raw_revenue);
 				let message = Xcm(vec![
 					Instruction::UnpaidExecution {
 						weight_limit: WeightLimit::Unlimited,
 						check_origin: None,
 					},
-					mk_coretime_call(CoretimeCalls::NotifyRevenue(raw_revenue)),
+					mk_coretime_call(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
 				]);
 				if let Err(err) = send_xcm::<T::SendXcm>(
 					Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
 					message,
 				) {
-					log::error!(target: LOG_TARGET, "Sending `NotifyRevenue` to coretime chain failed: {:?}", err);
+					log::error!(target: LOG_TARGET, "Sending `NotifyRevenue` to coretime chain failed: {:?}",
+		 err);
 				}
 			},
 			Err(_err) => {
