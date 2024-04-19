@@ -24,8 +24,9 @@ use log::{debug, warn};
 use parking_lot::Mutex;
 use sc_network::{
 	request_responses::{IfDisconnected, RequestFailure},
-	NetworkRequest, PeerId, ProtocolName,
+	NetworkRequest, ProtocolName,
 };
+use sc_network_types::PeerId;
 use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, ValidatorSet};
 use sp_runtime::traits::{Block, NumberFor};
 use std::{collections::VecDeque, result::Result, sync::Arc};

@@ -213,7 +213,7 @@ pub mod pallet {
 				}
 			});
 
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			// We need to update the spot traffic on block initialize in order to account for idle
 			// blocks.
 			QueueStatus::<T>::mutate(|queue_status| {
@@ -379,7 +379,7 @@ where
 		para_id: ParaId,
 		existence_requirement: ExistenceRequirement,
 	) -> DispatchResult {
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		QueueStatus::<T>::mutate(|queue_status| {
 			Self::update_spot_traffic(&config, queue_status);
