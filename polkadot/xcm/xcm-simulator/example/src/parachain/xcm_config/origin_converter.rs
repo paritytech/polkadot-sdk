@@ -15,13 +15,15 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::parachain::{
-	constants::RelayNetwork, location_converter::LocationToAccountId, RuntimeOrigin,
+	constants::RelayNetwork, location_converter::LocationConverter, RuntimeOrigin,
 };
 use pallet_xcm::XcmPassthrough;
 use xcm_builder::{SignedAccountId32AsNative, SovereignSignedViaLocation};
 
-pub type XcmOriginToCallOrigin = (
-	SovereignSignedViaLocation<LocationToAccountId, RuntimeOrigin>,
+type XcmOriginToCallOrigin = (
+	SovereignSignedViaLocation<LocationConverter, RuntimeOrigin>,
 	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
 	XcmPassthrough<RuntimeOrigin>,
 );
+
+pub type OriginConverter = XcmOriginToCallOrigin;

@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::relay_chain::{
-	constants::RelayNetwork, location_converter::LocationToAccountId, RuntimeOrigin,
+	constants::RelayNetwork, location_converter::LocationConverter, RuntimeOrigin,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
@@ -24,9 +24,11 @@ use xcm_builder::{
 	SovereignSignedViaLocation,
 };
 
-pub type LocalOriginConverter = (
-	SovereignSignedViaLocation<LocationToAccountId, RuntimeOrigin>,
+type LocalOriginConverter = (
+	SovereignSignedViaLocation<LocationConverter, RuntimeOrigin>,
 	ChildParachainAsNative<origin::Origin, RuntimeOrigin>,
 	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
 	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
 );
+
+pub type OriginConverter = LocalOriginConverter;

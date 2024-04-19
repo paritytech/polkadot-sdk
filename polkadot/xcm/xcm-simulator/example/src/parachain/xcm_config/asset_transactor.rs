@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::parachain::{
-	AccountId, Balances, ForeignUniques, KsmLocation, LocationToAccountId, RelayNetwork,
+	AccountId, Balances, ForeignUniques, KsmLocation, LocationConverter, RelayNetwork,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use xcm::latest::prelude::*;
@@ -31,8 +31,8 @@ pub type SovereignAccountOf = (
 	ParentIsPreset<AccountId>,
 );
 
-pub type LocalAssetTransactor = (
-	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>,
+type LocalAssetTransactor = (
+	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationConverter, AccountId, ()>,
 	NonFungiblesAdapter<
 		ForeignUniques,
 		ConvertedConcreteId<Location, AssetInstance, JustTry, JustTry>,
@@ -42,3 +42,5 @@ pub type LocalAssetTransactor = (
 		(),
 	>,
 );
+
+pub type AssetTransactor = LocalAssetTransactor;

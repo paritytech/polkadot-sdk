@@ -159,7 +159,7 @@ impl pallet_xcm::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyMatcher = ();
 	type TrustedLockers = TrustedLockers;
-	type SovereignAccountOf = xcm_config::LocationToAccountId;
+	type SovereignAccountOf = xcm_config::LocationConverter;
 	type MaxLockers = ConstU32<8>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();

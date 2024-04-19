@@ -36,8 +36,8 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
-	type AssetTransactor = asset_transactor::LocalAssetTransactor;
-	type OriginConverter = origin_converter::LocalOriginConverter;
+	type AssetTransactor = asset_transactor::AssetTransactor;
+	type OriginConverter = origin_converter::OriginConverter;
 	type IsReserve = ();
 	type IsTeleporter = ();
 	type UniversalLocation = UniversalLocation;

@@ -18,8 +18,10 @@ use crate::relay_chain::{constants::RelayNetwork, AccountId};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia};
 
-pub type LocationToAccountId = (
+type LocationToAccountId = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	Account32Hash<(), AccountId>,
 );
+
+pub type LocationConverter = LocationToAccountId;
