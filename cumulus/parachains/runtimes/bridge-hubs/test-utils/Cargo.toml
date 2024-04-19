@@ -37,7 +37,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 
 # Bridges
-bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false, version = "0.8.0" }
+bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false, version = "0.8.1" }
 bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false, version = "0.8.0" }
 bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false, version = "0.8.0" }
 bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false, version = "0.8.0" }

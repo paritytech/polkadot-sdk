@@ -15,7 +15,7 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 
 # Bridge Dependencies
 
-bp-header-chain = { path = "../header-chain", default-features = false, version = "0.8.0" }
+bp-header-chain = { path = "../header-chain", default-features = false, version = "0.8.1" }
 bp-messages = { path = "../messages", default-features = false, version = "0.8.0" }
 bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "0.8.0" }
 bp-runtime = { path = "../runtime", default-features = false, version = "0.8.0" }

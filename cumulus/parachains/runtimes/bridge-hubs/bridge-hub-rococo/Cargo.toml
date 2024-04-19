@@ -85,7 +85,7 @@ bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-h
 bp-bridge-hub-polkadot = { path = "../../../../../bridges/primitives/chain-bridge-hub-polkadot", default-features = false, version = "0.7.0" }
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false, version = "0.8.0" }
 bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false, version = "0.4.0" }
-bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false, version = "0.8.0" }
+bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false, version = "0.8.1" }
 bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false, version = "0.8.0" }
 bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false, version = "0.8.0" }
 bp-polkadot-bulletin = { path = "../../../../../bridges/primitives/chain-polkadot-bulletin", default-features = false, version = "0.5.0" }

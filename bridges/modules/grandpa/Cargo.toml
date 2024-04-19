@@ -20,7 +20,7 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 # Bridge Dependencies
 
 bp-runtime = { path = "../../primitives/runtime", default-features = false, version = "0.8.0" }
-bp-header-chain = { path = "../../primitives/header-chain", default-features = false, version = "0.8.0" }
+bp-header-chain = { path = "../../primitives/header-chain", default-features = false, version = "0.8.1" }
 
 # Substrate Dependencies
 
