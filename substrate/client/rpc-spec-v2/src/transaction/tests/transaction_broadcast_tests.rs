@@ -26,6 +26,8 @@ use std::sync::Arc;
 use substrate_test_runtime_client::AccountKeyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 
+const MAX_TX_PER_CONNECTION: usize = 4;
+
 // Test helpers.
 use crate::transaction::tests::{
 	middleware_pool::{MiddlewarePoolEvent, TxStatusTypeTest},
@@ -35,7 +37,7 @@ use crate::transaction::tests::{
 #[tokio::test]
 async fn tx_broadcast_enters_pool() {
 	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) =
-		setup_api(Default::default());
+		setup_api(Default::default(), MAX_TX_PER_CONNECTION);
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
@@ -94,7 +96,8 @@ async fn tx_broadcast_enters_pool() {
 
 #[tokio::test]
 async fn tx_broadcast_invalid_tx() {
-	let (_, pool, _, tx_api, mut exec_middleware, _) = setup_api(Default::default());
+	let (_, pool, _, tx_api, exec_middleware, _) =
+		setup_api(Default::default(), MAX_TX_PER_CONNECTION);
 
 	// Invalid parameters.
 	let err = tx_api
@@ -114,13 +117,10 @@ async fn tx_broadcast_invalid_tx() {
 
 	assert_eq!(0, pool.status().ready);
 
-	// Await the broadcast future to exit.
-	// Without this we'd be subject to races, where we try to call the stop before the tx is
-	// dropped.
-	let _ = get_next_event!(&mut exec_middleware.recv);
+	// The broadcast future should never be spawned when the tx decoding fails.
 	assert_eq!(0, exec_middleware.num_tasks());
 
-	// The broadcast future was dropped, and the operation is no longer active.
+	// The operation ID is no longer active.
 	// When the operation is not active, either from the tx being finalized or a
 	// terminal error; the stop method should return an error.
 	let err = tx_api
@@ -134,7 +134,7 @@ async fn tx_broadcast_invalid_tx() {
 
 #[tokio::test]
 async fn tx_stop_with_invalid_operation_id() {
-	let (_, _, _, tx_api, _, _) = setup_api(Default::default());
+	let (_, _, _, tx_api, _, _) = setup_api(Default::default(), MAX_TX_PER_CONNECTION);
 
 	// Make an invalid stop call.
 	let err = tx_api
@@ -149,7 +149,7 @@ async fn tx_stop_with_invalid_operation_id() {
 #[tokio::test]
 async fn tx_broadcast_resubmits_future_nonce_tx() {
 	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) =
-		setup_api(Default::default());
+		setup_api(Default::default(), MAX_TX_PER_CONNECTION);
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
@@ -240,7 +240,7 @@ async fn tx_broadcast_resubmits_future_nonce_tx() {
 #[tokio::test]
 async fn tx_broadcast_stop_after_broadcast_finishes() {
 	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) =
-		setup_api(Default::default());
+		setup_api(Default::default(), MAX_TX_PER_CONNECTION);
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
@@ -323,7 +323,7 @@ async fn tx_broadcast_resubmits_invalid_tx() {
 	};
 
 	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) =
-		setup_api(options);
+		setup_api(options, MAX_TX_PER_CONNECTION);
 
 	let uxt = uxt(Alice, ALICE_NONCE);
 	let xt = hex_string(&uxt.encode());
@@ -442,7 +442,8 @@ async fn tx_broadcast_resubmits_dropped_tx() {
 		ban_time: std::time::Duration::ZERO,
 	};
 
-	let (api, pool, client_mock, tx_api, _, mut pool_middleware) = setup_api(options);
+	let (api, pool, client_mock, tx_api, _, mut pool_middleware) =
+		setup_api(options, MAX_TX_PER_CONNECTION);
 
 	let current_uxt = uxt(Alice, ALICE_NONCE);
 	let current_xt = hex_string(&current_uxt.encode());
@@ -520,4 +521,54 @@ async fn tx_broadcast_resubmits_dropped_tx() {
 	);
 	// The dropped transaction was resubmitted.
 	assert_eq!(events.get(&future_xt).unwrap(), &vec![TxStatusTypeTest::Ready]);
+}
+
+#[tokio::test]
+async fn tx_broadcast_limit_reached() {
+	// One operation per connection.
+	let (api, _pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) =
+		setup_api(Default::default(), 1);
+
+	// Start at block 1.
+	let block_1_header = api.push_block(1, vec![], true);
+	let uxt = uxt(Alice, ALICE_NONCE);
+	let xt = hex_string(&uxt.encode());
+
+	let operation_id: String =
+		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+
+	// Announce block 1 to `transaction_unstable_broadcast`.
+	client_mock.trigger_import_stream(block_1_header).await;
+
+	// Ensure the tx propagated from `transaction_unstable_broadcast` to the transaction pool.
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::TransactionStatus {
+			transaction: xt.clone(),
+			status: TxStatusTypeTest::Ready
+		}
+	);
+	assert_eq!(1, exec_middleware.num_tasks());
+
+	let operation_id_limit_reached: Option<String> =
+		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+	assert!(operation_id_limit_reached.is_none(), "No operation ID => tx was rejected");
+
+	// We still have in flight one operation.
+	assert_eq!(1, exec_middleware.num_tasks());
+
+	// Force the future to exit by calling stop.
+	let _: () = tx_api
+		.call("transaction_unstable_stop", rpc_params![&operation_id])
+		.await
+		.unwrap();
+
+	// Ensure the broadcast future finishes.
+	let _ = get_next_event!(&mut exec_middleware.recv);
+	assert_eq!(0, exec_middleware.num_tasks());
+
+	// Can resubmit again now.
+	let _operation_id: String =
+		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
 }
