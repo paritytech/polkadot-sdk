@@ -21,12 +21,14 @@ pub use xcm_config::*;
 
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, Everything, Nothing, ProcessMessage, ProcessMessageError},
+	traits::{
+		AsEnsureOriginWithArg, ConstU128, Everything, Nothing, ProcessMessage, ProcessMessageError,
+	},
 	weights::{Weight, WeightMeter},
 };
 
 use frame_system::EnsureRoot;
-use sp_core::{ConstU32, H256};
+use sp_core::ConstU32;
 use sp_runtime::{traits::IdentityLookup, AccountId32};
 
 use polkadot_runtime_parachains::{
@@ -47,51 +49,17 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
-parameter_types! {
-	pub ExistentialDeposit: Balance = 1;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
-}
-
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = MaxLocks;
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
+	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 impl pallet_uniques::Config for Runtime {
