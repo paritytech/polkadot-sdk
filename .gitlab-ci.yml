@@ -274,9 +274,6 @@ test-linux-stable-codecov:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
-    CARGO_INCREMENTAL: 0
-    LLVM_PROFILE_FILE: "target/coverage/cargo-test-%p-%m.profraw"
   #parallel: 3
   script:
     # Build all but only execute 'runtime' tests.
@@ -286,7 +283,7 @@ test-linux-stable-codecov:
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage/result
     - >
-      time cargo nextest run \
+      CARGO_INCREMENTAL=0 RUSTFLAGS="-Cdebug-assertions=y -Cinstrument-coverage" LLVM_PROFILE_FILE="target/coverage/cargo-test-%p-%m.profraw"  time cargo nextest run \
         --workspace \
         --locked \
         --release \
