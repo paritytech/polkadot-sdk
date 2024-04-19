@@ -6,10 +6,9 @@ title: "`try-runtime`: Add `StateDiffGuard` to record state difference and guard
 doc:
   - audience: Runtime Dev
     description: |
-      This PR adds a `StateDiffGuard` to the `try-runtime` crate. The `StateDiffGuard` is a helper struct 
-      that records the state difference between its initialization and drop. It can be used to guard 
-      against unexpected storage changes and also for recording the state difference for testing, 
-      debugging, and other purposes.
+      This PR adds a `StateDiffGuard` helper struct that records the state difference between 
+      its initialization and drop. It can be used to guard against unexpected storage changes 
+      and also for recording the state difference for testing, debugging, and other purposes.
 
       Example:
       ```rust

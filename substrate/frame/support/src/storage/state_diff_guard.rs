@@ -112,9 +112,7 @@
 //! }
 //! ```
 //!
-//! When the guard is dropped, it will assert that there are no unexpected storage changes.
-//! Unexpected storage changes are the ones that are not whitelisted in the guard. In the example
-//! above, the guard will panic if any storage entry that doesn't match `SomeMap` or `SomeDoubleMap`
+//! In the example above, the guard will panic if any storage entry that doesn't match `SomeMap` or `SomeDoubleMap`
 //! prefixes is changed.
 
 use core::fmt::{Debug, Formatter};
@@ -162,7 +160,7 @@ impl Debug for StoragePrefix {
 pub struct StateDiffGuard {
 	// Storage prefixes that are expected to change.
 	whitelisted_prefixes: BTreeSet<StoragePrefix>,
-	// Snapshot of the storage state at the beginning of the guard.
+	// Snapshot of the storage state when the guard is created.
 	initial_state: BTreeMap<StorageKey, StorageValue>,
 }
 
@@ -177,10 +175,6 @@ impl StateDiffGuard {
 
 		let mut previous_key = Vec::new();
 		while let Some(next) = sp_io::storage::next_key(&previous_key) {
-			// Ensure we are iterating through the correct prefix
-			if !next.starts_with(&Vec::new()) {
-				break;
-			}
 			if let Some(value) = sp_io::storage::get(&next) {
 				state.insert(next.clone(), value.to_vec());
 			}
@@ -204,11 +198,6 @@ impl StateDiffGuard {
 		let mut initial_state = self.initial_state.clone();
 
 		while let Some(next) = sp_io::storage::next_key(&previous_key) {
-			// Ensure we are iterating through the correct prefix
-			if !next.starts_with(&Vec::new()) {
-				break;
-			}
-
 			if let Some(value) = sp_io::storage::get(&next) {
 				if let Some(old_value) = initial_state.remove(&next) {
 					if value != old_value {
@@ -237,10 +226,8 @@ pub struct StateDiffGuardBuilder {
 }
 
 impl StateDiffGuardBuilder {
-	/// Add a storage prefix that should change.
+	/// Add a storage prefix that is expected to change.
 	pub fn must_change(mut self, prefix: StoragePrefix) -> Self {
-		// only add if a pallet level prefix is not already added, prevents from double iterating
-		// storage
 		self.whitelisted_prefixes.insert(prefix);
 
 		self
