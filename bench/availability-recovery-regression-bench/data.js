@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713525756508,
+  "lastUpdate": 1713538536620,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4493,6 +4493,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.874484071700001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "maksimryndin",
+            "username": "maksimryndin",
+            "email": "maksim.ryndin@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4eabe5e0dddc4cd31ad9dab5645350360d4d36a5",
+          "message": "Pvf refactor execute worker errors follow up (#4071)\n\nfollow up of https://github.com/paritytech/polkadot-sdk/pull/2604\ncloses https://github.com/paritytech/polkadot-sdk/pull/2604\n\n- [x] take relevant changes from Marcin's PR \n- [x] extract common duplicate code for workers (low-hanging fruits)\n\n~Some unpassed ci problems are more general and should be fixed in\nmaster (see https://github.com/paritytech/polkadot-sdk/pull/4074)~\n\nProposed labels: **T0-node**, **R0-silent**, **I4-refactor**\n\n-----\n\nkusama address: FZXVQLqLbFV2otNXs6BMnNch54CFJ1idpWwjMb3Z8fTLQC6\n\n---------\n\nCo-authored-by: s0me0ne-unkn0wn <48632512+s0me0ne-unkn0wn@users.noreply.github.com>",
+          "timestamp": "2024-04-19T13:36:36Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4eabe5e0dddc4cd31ad9dab5645350360d4d36a5"
+        },
+        "date": 1713538512932,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.23433761183333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.93635579663334,
             "unit": "seconds"
           }
         ]
