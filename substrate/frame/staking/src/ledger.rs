@@ -188,8 +188,16 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		// update lock on stash based on ledger.
-		Pallet::<T>::update_lock(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
+		// We skip locking virtual stakers.
+		if !Pallet::<T>::is_virtual_staker(&self.stash) {
+			// for direct stakers, update lock on stash based on ledger.
+			T::Currency::set_lock(
+				STAKING_ID,
+				&self.stash,
+				self.total,
+				frame_support::traits::WithdrawReasons::all(),
+			);
+		}
 
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
@@ -255,12 +263,15 @@ impl<T: Config> StakingLedger<T> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			T::Currency::remove_lock(STAKING_ID, &ledger.stash);
 			Ledger::<T>::remove(controller);
-
 			<Bonded<T>>::remove(&stash);
 			<Payee<T>>::remove(&stash);
-			<VirtualStakers<T>>::remove(&stash);
+
+			// kill virtual staker if it exists.
+			if <VirtualStakers<T>>::take(&stash).is_none() {
+				// if not virtual staker, clear locks.
+				T::Currency::remove_lock(STAKING_ID, &ledger.stash);
+			}
 
 			Ok(())
 		})?
