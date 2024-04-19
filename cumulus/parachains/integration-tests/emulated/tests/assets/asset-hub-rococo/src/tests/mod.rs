@@ -19,5 +19,5 @@ mod send;
 mod set_xcm_versions;
 mod swap;
 mod teleport;
-mod treasury_asset_reward_pool;
 mod treasury;
+mod treasury_asset_reward_pool;
