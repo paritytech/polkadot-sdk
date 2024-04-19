@@ -50,11 +50,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
-	/// Try-runtime has migrated to a standalone CLI
-	/// (<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and
-	/// deprecation notice. It will be removed entirely some time after January 2024.
-	TryRuntime,
-
 	/// Key management CLI utilities
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
@@ -122,7 +117,7 @@ pub struct RunCmd {
 
 	/// Overseer message capacity override.
 	///
-	/// **Dangerous!** Do not touch unless explicitly adviced to.
+	/// **Dangerous!** Do not touch unless explicitly advised to.
 	#[arg(long)]
 	pub overseer_channel_capacity_override: Option<usize>,
 

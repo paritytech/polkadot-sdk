@@ -288,7 +288,7 @@ impl RequestManager {
 	/// Returns an instant at which the next request to be retried will be ready.
 	pub fn next_retry_time(&mut self) -> Option<Instant> {
 		let mut next = None;
-		for (_id, request) in &self.requests {
+		for (_id, request) in self.requests.iter().filter(|(_id, request)| !request.in_flight) {
 			if let Some(next_retry_time) = request.next_retry_time {
 				if next.map_or(true, |next| next_retry_time < next) {
 					next = Some(next_retry_time);
@@ -320,7 +320,7 @@ impl RequestManager {
 		// need for the current node to limit itself to the same amount the
 		// requests, because the requests are going to different nodes anyways.
 		// While looking at https://github.com/paritytech/polkadot-sdk/issues/3314,
-		// found out that this requests take around 100ms to fullfill, so it
+		// found out that this requests take around 100ms to fulfill, so it
 		// would make sense to try to request things as early as we can, given
 		// we would need to request it for each candidate, around 25 right now
 		// on kusama.

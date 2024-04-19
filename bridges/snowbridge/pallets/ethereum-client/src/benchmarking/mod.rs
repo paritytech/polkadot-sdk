@@ -65,24 +65,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn submit_execution_header() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let checkpoint_update = make_checkpoint();
-		let finalized_header_update = make_finalized_header_update();
-		let execution_header_update = make_execution_header_update();
-		let execution_header_hash = execution_header_update.execution_header.block_hash();
-		EthereumBeaconClient::<T>::process_checkpoint_update(&checkpoint_update)?;
-		EthereumBeaconClient::<T>::process_update(&finalized_header_update)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), Box::new(*execution_header_update));
-
-		assert!(<ExecutionHeaders<T>>::contains_key(execution_header_hash));
-
-		Ok(())
-	}
-
 	#[benchmark(extra)]
 	fn bls_fast_aggregate_verify_pre_aggregated() -> Result<(), BenchmarkError> {
 		EthereumBeaconClient::<T>::process_checkpoint_update(&make_checkpoint())?;

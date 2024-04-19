@@ -310,7 +310,7 @@ where
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	pub fn decode_len<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Option<usize>
 	where
@@ -775,13 +775,13 @@ mod test {
 			assert_eq!(A::try_get(1), Err(()));
 			assert_eq!(A::count(), 3);
 
-			// Take exsisting.
+			// Take existing.
 			assert_eq!(A::take(4), 10);
 
 			assert_eq!(A::try_get(4), Err(()));
 			assert_eq!(A::count(), 2);
 
-			// Take non-exsisting.
+			// Take non-existing.
 			assert_eq!(A::take(4), ADefault::get());
 
 			assert_eq!(A::try_get(4), Err(()));
@@ -1022,13 +1022,13 @@ mod test {
 			assert_eq!(B::try_get(1), Err(()));
 			assert_eq!(B::count(), 3);
 
-			// Take exsisting.
+			// Take existing.
 			assert_eq!(B::take(4), Some(10));
 
 			assert_eq!(B::try_get(4), Err(()));
 			assert_eq!(B::count(), 2);
 
-			// Take non-exsisting.
+			// Take non-existing.
 			assert_eq!(B::take(4), None);
 
 			assert_eq!(B::try_get(4), Err(()));

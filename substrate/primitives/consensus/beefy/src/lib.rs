@@ -200,7 +200,7 @@ pub mod ecdsa_bls_crypto {
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// We can not simply call
 			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
-			// because that invokes ECDSA default verification which perfoms Blake2b hash
+			// because that invokes ECDSA default verification which performs Blake2b hash
 			// which we don't want. This is because ECDSA signatures are meant to be verified
 			// on Ethereum network where Keccak hasher is significantly cheaper than Blake2b.
 			// See Figure 3 of [OnSc21](https://www.scitepress.org/Papers/2021/106066/106066.pdf)

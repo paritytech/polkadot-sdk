@@ -107,7 +107,8 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 					.collect();
 				let arg_types: Vec<_> = fields.unnamed.iter().map(|field| &field.ty).collect();
 				quote! {
-					pub fn #method_name(mut self, #(#arg_names: #arg_types),*) -> Self {
+					pub fn #method_name(mut self, #(#arg_names: impl Into<#arg_types>),*) -> Self {
+						#(let #arg_names = #arg_names.into();)*
 						self.instructions.push(#name::<Call>::#variant_name(#(#arg_names),*));
 						self
 					}
@@ -117,7 +118,8 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 				let arg_names: Vec<_> = fields.named.iter().map(|field| &field.ident).collect();
 				let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
 				quote! {
-					pub fn #method_name(mut self, #(#arg_names: #arg_types),*) -> Self {
+					pub fn #method_name(mut self, #(#arg_names: impl Into<#arg_types>),*) -> Self {
+						#(let #arg_names = #arg_names.into();)*
 						self.instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
 						self
 					}
@@ -188,8 +190,9 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 					let arg_types: Vec<_> = fields.unnamed.iter().map(|field| &field.ty).collect();
 					quote! {
 						#(#docs)*
-						pub fn #method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, LoadedHolding> {
+						pub fn #method_name(self, #(#arg_names: impl Into<#arg_types>),*) -> XcmBuilder<Call, LoadedHolding> {
 							let mut new_instructions = self.instructions;
+							#(let #arg_names = #arg_names.into();)*
 							new_instructions.push(#name::<Call>::#variant_name(#(#arg_names),*));
 							XcmBuilder {
 								instructions: new_instructions,
@@ -203,8 +206,9 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 					let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();
 					quote! {
 						#(#docs)*
-						pub fn #method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, LoadedHolding> {
+						pub fn #method_name(self, #(#arg_names: impl Into<#arg_types>),*) -> XcmBuilder<Call, LoadedHolding> {
 							let mut new_instructions = self.instructions;
+							#(let #arg_names = #arg_names.into();)*
 							new_instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
 							XcmBuilder {
 								instructions: new_instructions,
@@ -249,8 +253,9 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 							fields.named.iter().map(|field| &field.ty).collect();
 						quote! {
 							#(#docs)*
-							pub fn #method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, AnythingGoes> {
+							pub fn #method_name(self, #(#arg_names: impl Into<#arg_types>),*) -> XcmBuilder<Call, AnythingGoes> {
 								let mut new_instructions = self.instructions;
+								#(let #arg_names = #arg_names.into();)*
 								new_instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
 								XcmBuilder {
 									instructions: new_instructions,
@@ -308,8 +313,9 @@ fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<To
 	Ok(quote! {
 		impl<Call> XcmBuilder<Call, ExplicitUnpaidRequired> {
 			#(#docs)*
-			pub fn #unpaid_execution_method_name(self, #(#arg_names: #arg_types),*) -> XcmBuilder<Call, AnythingGoes> {
+			pub fn #unpaid_execution_method_name(self, #(#arg_names: impl Into<#arg_types>),*) -> XcmBuilder<Call, AnythingGoes> {
 				let mut new_instructions = self.instructions;
+				#(let #arg_names = #arg_names.into();)*
 				new_instructions.push(#name::<Call>::#unpaid_execution_ident { #(#arg_names),* });
 				XcmBuilder {
 					instructions: new_instructions,

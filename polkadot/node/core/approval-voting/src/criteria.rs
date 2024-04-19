@@ -148,7 +148,7 @@ fn relay_vrf_modulo_cores(
 	generate_samples(rand_chacha, num_samples as usize, max_cores as usize)
 }
 
-/// Generates `num_sumples` randomly from (0..max_cores) range
+/// Generates `num_samples` randomly from (0..max_cores) range
 ///
 /// Note! The algorithm can't change because validators on the other
 /// side won't be able to check the assignments until they update.

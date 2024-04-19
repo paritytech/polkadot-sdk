@@ -309,3 +309,62 @@ fn suspension_should_work() {
 	);
 	assert_eq!(r, Ok(()));
 }
+
+#[test]
+fn allow_subscriptions_from_should_work() {
+	// allow only parent
+	AllowSubsFrom::set(vec![Location::parent()]);
+
+	let valid_xcm_1 = Xcm::<TestCall>(vec![SubscribeVersion {
+		query_id: 42,
+		max_response_weight: Weight::from_parts(5000, 5000),
+	}]);
+	let valid_xcm_2 = Xcm::<TestCall>(vec![UnsubscribeVersion]);
+	let invalid_xcm_1 = Xcm::<TestCall>(vec![
+		SetAppendix(Xcm(vec![])),
+		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
+	]);
+	let invalid_xcm_2 = Xcm::<TestCall>(vec![
+		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
+		SetTopic([0; 32]),
+	]);
+
+	let test_data = vec![
+		(
+			valid_xcm_1.clone(),
+			Parachain(1).into_location(),
+			// not allowed origin
+			Err(ProcessMessageError::Unsupported),
+		),
+		(valid_xcm_1, Location::parent(), Ok(())),
+		(
+			valid_xcm_2.clone(),
+			Parachain(1).into_location(),
+			// not allowed origin
+			Err(ProcessMessageError::Unsupported),
+		),
+		(valid_xcm_2, Location::parent(), Ok(())),
+		(
+			invalid_xcm_1,
+			Location::parent(),
+			// invalid XCM
+			Err(ProcessMessageError::BadFormat),
+		),
+		(
+			invalid_xcm_2,
+			Location::parent(),
+			// invalid XCM
+			Err(ProcessMessageError::BadFormat),
+		),
+	];
+
+	for (mut message, origin, expected_result) in test_data {
+		let r = AllowSubscriptionsFrom::<IsInVec<AllowSubsFrom>>::should_execute(
+			&origin,
+			message.inner_mut(),
+			Weight::from_parts(10, 10),
+			&mut props(Weight::zero()),
+		);
+		assert_eq!(r, expected_result, "Failed for origin: {origin:?} and message: {message:?}");
+	}
+}

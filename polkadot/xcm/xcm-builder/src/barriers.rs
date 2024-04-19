@@ -142,7 +142,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 /// In the above example, `AllowUnpaidExecutionFrom` appears once underneath
 /// `WithComputedOrigin`. This is in order to distinguish between messages which are notionally
 /// from a derivative location of `ParentLocation` but that just happened to be sent via
-/// `ParentLocaction` rather than messages that were sent by the parent.
+/// `ParentLocation` rather than messages that were sent by the parent.
 ///
 /// Similarly `AllowTopLevelPaidExecutionFrom` appears twice: once inside of `WithComputedOrigin`
 /// where we provide the list of origins which are derivative origins, and then secondly outside
@@ -319,6 +319,29 @@ impl<ParaId: IsSystem + From<u32>> Contains<Location> for IsChildSystemParachain
 			[Junction::Parachain(id)]
 				if ParaId::from(*id).is_system() && l.parent_count() == 0,
 		)
+	}
+}
+
+/// Matches if the given location is a system-level sibling parachain.
+pub struct IsSiblingSystemParachain<ParaId, SelfParaId>(PhantomData<(ParaId, SelfParaId)>);
+impl<ParaId: IsSystem + From<u32> + Eq, SelfParaId: Get<ParaId>> Contains<Location>
+	for IsSiblingSystemParachain<ParaId, SelfParaId>
+{
+	fn contains(l: &Location) -> bool {
+		matches!(
+			l.unpack(),
+			(1, [Junction::Parachain(id)])
+				if SelfParaId::get() != ParaId::from(*id) && ParaId::from(*id).is_system(),
+		)
+	}
+}
+
+/// Matches if the given location contains only the specified amount of parents and no interior
+/// junctions.
+pub struct IsParentsOnly<Count>(PhantomData<Count>);
+impl<Count: Get<u8>> Contains<Location> for IsParentsOnly<Count> {
+	fn contains(t: &Location) -> bool {
+		t.contains_parents_only(Count::get())
 	}
 }
 

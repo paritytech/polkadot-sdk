@@ -259,11 +259,9 @@ pub type LocalPalletOriginToLocation = (
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// We only allow the root, fellows and the staking admin to send messages.
-	// This is basically safe to enable for everyone (safe the possibility of someone spamming the
-	// parachain if they're willing to pay the KSM to send from the Relay-chain), but it's useless
-	// until we bring in XCM v3 which will make `DescendOrigin` a bit more useful.
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalPalletOriginToLocation>;
+	// Note that this configuration of `SendXcmOrigin` is different from the one present in
+	// production.
+	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	// Anyone can execute XCM messages locally.
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;

@@ -30,6 +30,7 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v3,
 	};
+	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
@@ -67,17 +68,13 @@ mod imports {
 
 	// Runtimes
 	pub use asset_hub_westend_runtime::xcm_config::{
-		UniversalLocation as AssetHubWestendUniversalLocation, WestendLocation as RelayLocation,
-		XcmConfig as AssetHubWestendXcmConfig,
+		WestendLocation as RelayLocation, XcmConfig as AssetHubWestendXcmConfig,
 	};
 	pub use penpal_runtime::xcm_config::{
 		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
-		UniversalLocation as PenpalUniversalLocation, XcmConfig as PenpalWestendXcmConfig,
 	};
-	pub use westend_runtime::xcm_config::{
-		UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
-	};
+	pub use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
 	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
@@ -89,6 +86,7 @@ mod imports {
 	pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalA>;
 	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubWestend>;
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
+	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
 }
 
 #[cfg(test)]
