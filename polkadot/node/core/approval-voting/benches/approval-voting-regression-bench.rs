@@ -15,14 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 // TODO
-//! availability-read regression tests
+//! approval-voting throughput test
 //!
-//! Availability read benchmark based on Kusama parameters and scale.
+//! Approval Voting benchmark based on Kusama parameters and scale.
 //!
 //! Subsystems involved:
-//! - availability-distribution
-//! - bitfield-distribution
-//! - availability-store
+//! - approval-distribution
+//! - approval-voting
 
 use polkadot_subsystem_bench::{
 	self,
