@@ -37,8 +37,8 @@ mod barriers;
 pub use barriers::{
 	AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, IsChildSystemParachain, RespectSuspension, TakeWeightCredit, TrailingSetTopicAsId,
-	WithComputedOrigin,
+	DenyThenTry, IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain,
+	RespectSuspension, TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;

@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod builder;
 mod pallet_dummy;
 mod test_debug;
 
@@ -98,7 +97,6 @@ macro_rules! assert_refcount {
 }
 
 pub mod test_utils {
-
 	use super::{Contracts, DepositPerByte, DepositPerItem, Hash, SysConfig, Test};
 	use crate::{
 		exec::AccountIdOf, BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo,
@@ -163,6 +161,38 @@ pub mod test_utils {
 		assert!(CodeInfoOf::<Test>::contains_key(&code_hash));
 		// Assert that contract code is stored, and get its size.
 		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
+	}
+}
+
+mod builder {
+	use super::Test;
+	use crate::{
+		test_utils::{builder::*, AccountId32, ALICE},
+		tests::RuntimeOrigin,
+		AccountIdLookupOf, Code, CodeHash,
+	};
+
+	pub fn bare_instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder<Test> {
+		BareInstantiateBuilder::<Test>::bare_instantiate(ALICE, code)
+	}
+
+	pub fn bare_call(dest: AccountId32) -> BareCallBuilder<Test> {
+		BareCallBuilder::<Test>::bare_call(ALICE, dest)
+	}
+
+	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<Test> {
+		InstantiateWithCodeBuilder::<Test>::instantiate_with_code(
+			RuntimeOrigin::signed(ALICE),
+			code,
+		)
+	}
+
+	pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder<Test> {
+		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
+	}
+
+	pub fn call(dest: AccountIdLookupOf<Test>) -> CallBuilder<Test> {
+		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
 	}
 }
 
@@ -2439,14 +2469,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 				transfer_proxy_call,
 			);
 
-			<Pallet<Test>>::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				data.encode(),
-			)
+			builder::call(addr_caller).data(data.encode()).build()
 		})
 	};
 
