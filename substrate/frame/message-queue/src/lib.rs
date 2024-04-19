@@ -1437,8 +1437,8 @@ impl<T: Config> Pallet<T> {
 		let prev_consumed = meter.consumed();
 
 		match T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id) {
-			Err(Overweight(required)) => {
-				if required.map_or(true, |r| r.any_gt(overweight_limit)) {
+			Err(Overweight(maybe_required)) => {
+				if maybe_required.map_or(true, |r| r.any_gt(overweight_limit)) {
 					// Permanently overweight.
 					Self::deposit_event(Event::<T>::OverweightEnqueued {
 						id,
