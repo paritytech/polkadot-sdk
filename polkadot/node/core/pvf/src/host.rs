@@ -197,7 +197,7 @@ impl Config {
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(3),
 			prepare_workers_soft_max_num: 1,
-			prepare_workers_hard_max_num: 1,
+			prepare_workers_hard_max_num: 2,
 
 			execute_worker_program_path,
 			execute_worker_spawn_timeout: Duration::from_secs(3),
