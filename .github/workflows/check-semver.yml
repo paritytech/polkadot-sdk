@@ -28,9 +28,6 @@ jobs:
 
       - name: check semver
         run: |
-          pwd
-          ls -a
-          ls -a *
           git config --global --add safe.directory '*'
           if [ -f prdoc/pr_$PR.prdoc ]; then
             parity-publish prdoc --since $BASE --validate prdoc/pr_$PR.prdoc
