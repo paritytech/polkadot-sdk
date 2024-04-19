@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713516525616,
+  "lastUpdate": 1713520051924,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5511,6 +5511,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011046016453333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "21308d893ef0594538aee73cbdc3905189be0b7b",
+          "message": "Fixed GrandpaConsensusLogReader::find_scheduled_change (#4208)",
+          "timestamp": "2024-04-19T08:34:46Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/21308d893ef0594538aee73cbdc3905189be0b7b"
+        },
+        "date": 1713520027072,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.879999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013195318133333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022799215106666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011179852533333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16436746543999997,
             "unit": "seconds"
           }
         ]
