@@ -951,6 +951,7 @@ enum AdvertisementError {
 	/// parent.
 	ProtocolMisuse,
 	/// Advertisement is invalid.
+	#[allow(dead_code)]
 	Invalid(InsertAdvertisementError),
 }
 
