@@ -1408,3 +1408,23 @@ fn renewal_works_leases_ended_before_start_sales() {
 		);
 	});
 }
+
+#[test]
+fn start_sales_sets_correct_core_count() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		advance_to(1);
+
+		Broker::do_set_lease(1, 100).unwrap();
+		Broker::do_set_lease(2, 100).unwrap();
+		Broker::do_set_lease(3, 100).unwrap();
+		Broker::do_reserve(Schedule::truncate_from(vec![ScheduleItem {
+			assignment: Pool,
+			mask: CoreMask::complete(),
+		}]))
+		.unwrap();
+
+		Broker::do_start_sales(5, 5).unwrap();
+
+		System::assert_has_event(Event::<Test>::CoreCountRequested { core_count: 9 }.into());
+	})
+}
