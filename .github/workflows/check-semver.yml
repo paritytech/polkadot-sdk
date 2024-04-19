@@ -30,6 +30,7 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           if [ -f prdoc/pr_$PR.prdoc ]; then
+            echo parity-publish prdoc --since $BASE --validate prdoc/pr_$PR.prdoc
             parity-publish prdoc --since $BASE --validate prdoc/pr_$PR.prdoc
           fi
         env:
