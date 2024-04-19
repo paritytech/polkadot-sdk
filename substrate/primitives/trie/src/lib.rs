@@ -331,8 +331,15 @@ where
 
 	for (key, change, set) in delta {
 		match change.borrow() {
-			Some(val) => trie.insert_with_tree_ref(key.borrow(), val.borrow(), set)?,
-			None => trie.remove_with_tree_ref(key.borrow(), set)?,
+			Some(val) => {
+				#[cfg(feature = "std")]
+				println!("CALL TO INSERT for {:?} , {:?}", key.borrow(), val.borrow());
+				trie.insert_with_tree_ref(key.borrow(), val.borrow(), set)?
+			},
+			None => {
+				#[cfg(feature = "std")]
+				println!("CALL TO REMOVE for {:?}", key.borrow());
+				trie.remove_with_tree_ref(key.borrow(), set)?,
 		};
 	}
 	if let Some(ks) = keyspace {

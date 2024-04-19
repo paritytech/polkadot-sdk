@@ -308,7 +308,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 				self.child_storage_root(child_info, child_delta, state_version);
 			let prefixed_storage_key = child_info.prefixed_storage_key();
 			if empty {
-				child_roots.push((prefixed_storage_key.into_inner(), None, None));
+				child_roots.push((prefixed_storage_key.into_inner(), None, Some(child_commit.change)));
 			} else {
 				let root = child_commit.root_hash();
 				child_roots.push((

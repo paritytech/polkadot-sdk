@@ -762,6 +762,7 @@ where
 				}
 			});
 
+		crate::log_error!(target: "trie", "Child storage root: {:?}", commit.root_hash());
 		let is_default = commit.root_hash() == default_root;
 
 		(commit, is_default)
