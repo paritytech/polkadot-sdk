@@ -43,14 +43,27 @@ impl Code {
 
 /// Error generated when converting to [`Code`].
 #[derive(Debug, thiserror::Error)]
-pub enum CodeError {
+pub enum Error {
+	/// Invalid multihash size.
+	#[error("invalid multihash size '{0}'")]
+	InvalidSize(u64),
 	/// The multihash code is not supported.
-	#[error("unsupported multihash code '{0}'")]
-	UsupportedCode(u64),
-	/// Catch-all for other errors emitted when converting `u64` code to enum.
-	/// Never generated as of multihash-0.17.0.
-	#[error("multihash code conversion error: {0}")]
+	#[error("unsupported multihash code '{0:x}'")]
+	UnsupportedCode(u64),
+	/// Catch-all for other errors emitted when converting `u64` code to enum or parsing multihash
+	/// from bytes. Never generated as of multihash-0.17.0.
+	#[error("other error: {0}")]
 	Other(Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl From<LiteP2pError> for Error {
+	fn from(error: LiteP2pError) -> Self {
+		match error {
+			LiteP2pError::InvalidSize(s) => Self::InvalidSize(s),
+			LiteP2pError::UnsupportedCode(c) => Self::UnsupportedCode(c),
+			e @ _ => Self::Other(Box::new(e)),
+		}
+	}
 }
 
 impl From<Code> for LiteP2pCode {
@@ -63,25 +76,24 @@ impl From<Code> for LiteP2pCode {
 }
 
 impl TryFrom<LiteP2pCode> for Code {
-	type Error = CodeError;
+	type Error = Error;
 
 	fn try_from(code: LiteP2pCode) -> Result<Self, Self::Error> {
 		match code {
 			LiteP2pCode::Identity => Ok(Code::Identity),
 			LiteP2pCode::Sha2_256 => Ok(Code::Sha2_256),
-			_ => Err(CodeError::UsupportedCode(code.into())),
+			_ => Err(Error::UnsupportedCode(code.into())),
 		}
 	}
 }
 
 impl TryFrom<u64> for Code {
-	type Error = CodeError;
+	type Error = Error;
 
 	fn try_from(code: u64) -> Result<Self, Self::Error> {
 		match LiteP2pCode::try_from(code) {
 			Ok(code) => code.try_into(),
-			Err(LiteP2pError::UnsupportedCode(code)) => Err(CodeError::UsupportedCode(code)),
-			Err(e) => Err(CodeError::Other(Box::new(e))),
+			Err(e) => Err(e.into()),
 		}
 	}
 }
@@ -92,7 +104,7 @@ impl From<Code> for u64 {
 	}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Multihash {
 	multihash: LiteP2pMultihash,
 }
@@ -106,6 +118,23 @@ impl Multihash {
 	/// Multihash digest.
 	pub fn digest(&self) -> &[u8] {
 		self.multihash.digest()
+	}
+
+	/// Wraps the digest in a multihash.
+	pub fn wrap(code: u64, input_digest: &[u8]) -> Result<Self, Error> {
+		LiteP2pMultihash::wrap(code, input_digest).map(Into::into).map_err(Into::into)
+	}
+
+	/// Parses a multihash from bytes.
+	///
+	/// You need to make sure the passed in bytes have the length of 64.
+	pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+		LiteP2pMultihash::from_bytes(bytes).map(Into::into).map_err(Into::into)
+	}
+
+	/// Returns the bytes of a multihash.
+	pub fn to_bytes(&self) -> Vec<u8> {
+		self.multihash.to_bytes()
 	}
 }
 
@@ -153,7 +182,7 @@ mod tests {
 	fn code_from_u64() {
 		assert_eq!(Code::try_from(0x00).unwrap(), Code::Identity);
 		assert_eq!(Code::try_from(0x12).unwrap(), Code::Sha2_256);
-		assert!(matches!(Code::try_from(0x01).unwrap_err(), CodeError::UsupportedCode(0x01)));
+		assert!(matches!(Code::try_from(0x01).unwrap_err(), Error::UnsupportedCode(0x01)));
 	}
 
 	#[test]

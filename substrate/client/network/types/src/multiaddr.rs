@@ -36,6 +36,11 @@ pub struct Multiaddr {
 }
 
 impl Multiaddr {
+	/// Create a new, empty multiaddress.
+	pub fn empty() -> Self {
+		Self { multiaddr: LiteP2pMultiaddr::empty() }
+	}
+
 	/// Adds an address component to the end of this multiaddr.
 	pub fn push(&mut self, p: Protocol<'_>) {
 		self.multiaddr.push(p.into())
@@ -49,6 +54,11 @@ impl Multiaddr {
 	/// Like [`Multiaddr::push`] but consumes `self`.
 	pub fn with(self, p: Protocol<'_>) -> Self {
 		self.multiaddr.with(p.into()).into()
+	}
+
+	/// Returns the components of this multiaddress.
+	pub fn iter(&self) -> Iter<'_> {
+		self.multiaddr.iter().into()
 	}
 }
 
@@ -129,5 +139,11 @@ impl<'a> Iterator for Iter<'a> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.0.next().map(Into::into)
+	}
+}
+
+impl<'a> From<LiteP2pIter<'a>> for Iter<'a> {
+	fn from(iter: LiteP2pIter<'a>) -> Self {
+		Self(iter)
 	}
 }
