@@ -33,7 +33,7 @@ jobs:
           ls -a *
           git config --global --add safe.directory '*'
           if [ -f prdoc/pr_$PR.prdoc ]; then
-            parity-publish prdoc --since $BASE --validate prdoc/pr_$PR.prdoc -v
+            parity-publish prdoc --since $BASE --validate prdoc/pr_$PR.prdoc
           fi
         env:
           PR: ${{ github.event.pull_request.number }}
