@@ -1693,6 +1693,9 @@ pub mod migrations {
 			GetLegacyLeaseImpl,
 		>,
 		parachains_inclusion::migration::MigrateToV1<Runtime>,
+		// Migrate NominationPools to `DelegateStake` adapter. This is unversioned upgrade and
+		// should not be applied yet in Kusama/Polkadot.
+		pallet_nomination_pools::migration::unversioned::DelegationStakeMigration<Runtime>,
 	);
 }
 
