@@ -150,14 +150,17 @@ impl<Number: Codec> GrandpaConsensusLogReader<Number> {
 	pub fn find_scheduled_change(
 		digest: &Digest,
 	) -> Option<sp_consensus_grandpa::ScheduledChange<Number>> {
+		use sp_runtime::generic::OpaqueDigestItemId;
+		let id = OpaqueDigestItemId::Consensus(&GRANDPA_ENGINE_ID);
+
+		let filter_log = |log: ConsensusLog<Number>| match log {
+			ConsensusLog::ScheduledChange(change) => Some(change),
+			_ => None,
+		};
+	
 		// find the first consensus digest with the right ID which converts to
 		// the right kind of consensus log.
-		digest
-			.convert_first(|log| log.consensus_try_to(&GRANDPA_ENGINE_ID))
-			.and_then(|log| match log {
-				ConsensusLog::ScheduledChange(change) => Some(change),
-				_ => None,
-			})
+		digest.convert_first(|l| l.try_to(id).and_then(filter_log))
 	}
 
 	/// Find and return forced change digest item. Or light client can't do anything
