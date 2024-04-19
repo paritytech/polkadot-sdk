@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713505849750,
+  "lastUpdate": 1713520312179,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4409,6 +4409,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.900978519466667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "21308d893ef0594538aee73cbdc3905189be0b7b",
+          "message": "Fixed GrandpaConsensusLogReader::find_scheduled_change (#4208)",
+          "timestamp": "2024-04-19T08:34:46Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/21308d893ef0594538aee73cbdc3905189be0b7b"
+        },
+        "date": 1713520288180,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.24561350383333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.935558009466666,
             "unit": "seconds"
           }
         ]
