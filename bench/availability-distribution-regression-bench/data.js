@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713465717349,
+  "lastUpdate": 1713506066927,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5407,6 +5407,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.007063621733333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "98a364fe6e7abf10819f5fddd3de0588f7c38700",
+          "message": "rpc-v2: Limit transactionBroadcast calls to 16 (#3772)\n\nThis PR limits the number of active calls to the transactionBroadcast\nAPIs to 16.\n\ncc @paritytech/subxt-team \n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/3081\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: James Wilson <james@jsdw.me>",
+          "timestamp": "2024-04-19T04:34:26Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/98a364fe6e7abf10819f5fddd3de0588f7c38700"
+        },
+        "date": 1713506043108,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00723506486666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02429190226666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014937964199999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16406809006666673,
             "unit": "seconds"
           }
         ]
