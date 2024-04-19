@@ -7387,31 +7387,3 @@ mod chill {
 		})
 	}
 }
-
-mod delegation {
-	#[test]
-	fn withdraw_unbonded_correct_weight() {
-		// TODO(ank4n): there are integration tests in pallet-nomination-pools-delegate-stake but
-		// should do more unit testing here
-	}
-
-	#[test]
-	fn apply_slash() {
-		// TODO(ank4n)
-	}
-
-	#[test]
-	fn pool_migration() {
-		// TODO(ank4n)
-	}
-	#[test]
-	fn claim_delegation() {
-		// TODO(ank4n)
-	}
-
-	#[test]
-	fn adapter_integrity_checks() {
-		// TODO(ank4n): fail if adapter does not match the storage strategy. Only while withdrawing
-		// should be enough. For new runtimes, they need to set this storage via migration or force.
-	}
-}
