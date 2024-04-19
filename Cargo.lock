@@ -5502,7 +5502,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "29.0.0"
+version = "29.0.2"
 dependencies = [
  "aquamarine",
  "array-bytes 6.1.0",
@@ -9135,7 +9135,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -9311,7 +9311,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-broker"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -10605,7 +10605,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "29.0.0"
+version = "29.0.2"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
