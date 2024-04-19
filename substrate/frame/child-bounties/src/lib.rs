@@ -73,6 +73,7 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use pallet_bounties::BountyStatus;
 use scale_info::TypeInfo;
+use sp_runtime::traits::BlockNumberProvider;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -525,7 +526,7 @@ pub mod pallet {
 									let (parent_curator, update_due) =
 										Self::ensure_bounty_active(parent_bounty_id)?;
 									if sender == parent_curator ||
-										update_due < frame_system::Pallet::<T>::block_number()
+										update_due < <T as pallet_treasury::Config>::BlockNumberProvider::current_block_number()
 									{
 										// Slash the child-bounty curator if
 										// + the call is made by the parent bounty curator.
@@ -604,7 +605,7 @@ pub mod pallet {
 						child_bounty.status = ChildBountyStatus::PendingPayout {
 							curator: signer,
 							beneficiary: beneficiary.clone(),
-							unlock_at: frame_system::Pallet::<T>::block_number() +
+							unlock_at: <T as pallet_treasury::Config>::BlockNumberProvider::current_block_number() +
 								T::BountyDepositPayoutDelay::get(),
 						};
 						Ok(())
@@ -666,7 +667,7 @@ pub mod pallet {
 						// Ensure block number is elapsed for processing the
 						// claim.
 						ensure!(
-							frame_system::Pallet::<T>::block_number() >= *unlock_at,
+							<T as pallet_treasury::Config>::BlockNumberProvider::current_block_number() >= *unlock_at,
 							BountiesError::<T>::Premature,
 						);
 

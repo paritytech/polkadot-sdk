@@ -23,6 +23,7 @@ use super::*;
 
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use sp_runtime::traits::BlockNumberProvider;
 
 use crate::Pallet as ChildBounties;
 use pallet_bounties::Pallet as Bounties;
@@ -230,7 +231,7 @@ benchmarks! {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
-		frame_system::Pallet::<T>::set_block_number(T::BountyUpdatePeriod::get() + 1u32.into());
+		<T as pallet_treasury::Config>::BlockNumberProvider::set_block_number(T::BountyUpdatePeriod::get() + 1u32.into());
 		let caller = whitelisted_caller();
 	}: _(RawOrigin::Signed(caller), bounty_setup.bounty_id,
 			bounty_setup.child_bounty_id)
@@ -266,7 +267,7 @@ benchmarks! {
 		let beneficiary_account: T::AccountId = account("beneficiary", 0, SEED);
 		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
 
-		frame_system::Pallet::<T>::set_block_number(T::BountyDepositPayoutDelay::get());
+		<T as pallet_treasury::Config>::BlockNumberProvider::set_block_number(T::BountyDepositPayoutDelay::get());
 		ensure!(T::Currency::free_balance(&beneficiary_account).is_zero(),
 			"Beneficiary already has balance.");
 

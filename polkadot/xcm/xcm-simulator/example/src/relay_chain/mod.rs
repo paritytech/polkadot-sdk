@@ -16,6 +16,9 @@
 
 //! Relay chain runtime mock.
 
+mod xcm_config;
+pub use xcm_config::*;
+
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, Everything, Nothing, ProcessMessage, ProcessMessageError},
@@ -26,21 +29,14 @@ use frame_system::EnsureRoot;
 use sp_core::{ConstU32, H256};
 use sp_runtime::{traits::IdentityLookup, AccountId32};
 
-use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	configuration,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	origin, shared,
 };
 use xcm::latest::prelude::*;
-use xcm_builder::{
-	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex,
-	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
-};
-use xcm_executor::{traits::JustTry, Config, XcmExecutor};
+use xcm_builder::{IsConcrete, SignedToAccountId32};
+use xcm_executor::XcmExecutor;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -127,82 +123,6 @@ impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
 }
 
-parameter_types! {
-	pub const TokenLocation: Location = Here.into_location();
-	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorLocation = Here;
-	pub UnitWeightCost: u64 = 1_000;
-}
-
-pub type LocationToAccountId = (
-	ChildParachainConvertsVia<ParaId, AccountId>,
-	AccountId32Aliases<RelayNetwork, AccountId>,
-	Account32Hash<(), AccountId>,
-);
-
-pub type LocalAssetTransactor = (
-	FungibleAdapter<Balances, IsConcrete<TokenLocation>, LocationToAccountId, AccountId, ()>,
-	NonFungiblesAdapter<
-		Uniques,
-		ConvertedConcreteId<u32, u32, AsPrefixedGeneralIndex<(), u32, JustTry>, JustTry>,
-		LocationToAccountId,
-		AccountId,
-		NoChecking,
-		(),
-	>,
-);
-
-type LocalOriginConverter = (
-	SovereignSignedViaLocation<LocationToAccountId, RuntimeOrigin>,
-	ChildParachainAsNative<origin::Origin, RuntimeOrigin>,
-	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
-	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
-);
-
-parameter_types! {
-	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub TokensPerSecondPerByte: (AssetId, u128, u128) =
-		(AssetId(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
-	pub const MaxInstructions: u32 = 100;
-	pub const MaxAssetsIntoHolding: u32 = 64;
-}
-
-pub type XcmRouter = super::RelayChainXcmRouter;
-pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
-
-pub struct XcmConfig;
-impl Config for XcmConfig {
-	type RuntimeCall = RuntimeCall;
-	type XcmSender = XcmRouter;
-	type AssetTransactor = LocalAssetTransactor;
-	type OriginConverter = LocalOriginConverter;
-	type IsReserve = ();
-	type IsTeleporter = ();
-	type UniversalLocation = UniversalLocation;
-	type Barrier = Barrier;
-	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
-	type Trader = FixedRateOfFungible<TokensPerSecondPerByte, ()>;
-	type ResponseHandler = ();
-	type AssetTrap = ();
-	type AssetLocker = XcmPallet;
-	type AssetExchanger = ();
-	type AssetClaims = ();
-	type SubscriptionService = ();
-	type PalletInstancesInfo = ();
-	type FeeManager = ();
-	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type MessageExporter = ();
-	type UniversalAliases = Nothing;
-	type CallDispatcher = RuntimeCall;
-	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
-	type TransactionalProcessor = FrameTransactionalProcessor;
-	type HrmpNewChannelOpenRequestHandler = ();
-	type HrmpChannelAcceptedHandler = ();
-	type HrmpChannelClosingHandler = ();
-}
-
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
 impl pallet_xcm::Config for Runtime {
@@ -215,7 +135,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
-	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
+	type Weigher = limits::Weigher;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
