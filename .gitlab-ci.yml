@@ -313,6 +313,7 @@ test-linux-stable-codecov:
 
 test-linux-stable-llvm-cov:
   stage: test
+  CARGO_INCREMENTAL: 0
   extends:
     - .docker-env
     - .common-refs
@@ -324,7 +325,9 @@ test-linux-stable-llvm-cov:
       --locked \
       --release \
       --no-fail-fast \
-      --features try-runtime,experimental,riscv,ci-only-tests
+      --features try-runtime,experimental,riscv,ci-only-tests \
+      --partition count:1/10000
+    - ls target/llvm-cov-target/
 
 test-linux-stable:
   stage: test
