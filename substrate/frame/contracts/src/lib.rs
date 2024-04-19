@@ -222,14 +222,14 @@ pub struct Environment<T: Config> {
 pub struct ApiVersion(u16);
 impl Default for ApiVersion {
 	fn default() -> Self {
-		Self(2)
+		Self(3)
 	}
 }
 
 #[test]
 fn api_version_is_up_to_date() {
 	assert_eq!(
-		109,
+		111,
 		crate::wasm::STABLE_API_COUNT,
 		"Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test."
 	);
