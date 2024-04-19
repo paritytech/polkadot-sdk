@@ -182,7 +182,7 @@ impl<C> PreparedMessage for WeighedMessage<C> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 impl<C> WeighedMessage<C> {
 	pub fn new(weight: Weight, message: Xcm<C>) -> Self {
 		Self(weight, message)
