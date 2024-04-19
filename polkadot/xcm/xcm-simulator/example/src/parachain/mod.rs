@@ -106,7 +106,8 @@ impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 		if !a.starts_with(&origin_location) {
 			return Err(o);
 		}
-		xcm_config::LocationConverter::convert_location(&origin_location).ok_or(o)
+		xcm_config::location_converter::LocationConverter::convert_location(&origin_location)
+			.ok_or(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -125,7 +126,8 @@ impl mock_msg_queue::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
+pub type LocalOriginToLocation =
+	SignedToAccountId32<RuntimeOrigin, AccountId, constants::RelayNetwork>;
 
 pub struct TrustedLockerCase<T>(PhantomData<T>);
 impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset> for TrustedLockerCase<T> {
@@ -150,8 +152,8 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Nothing;
 	type XcmReserveTransferFilter = Everything;
-	type Weigher = xcm_config::Weigher;
-	type UniversalLocation = UniversalLocation;
+	type Weigher = weigher::Weigher;
+	type UniversalLocation = constants::UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;

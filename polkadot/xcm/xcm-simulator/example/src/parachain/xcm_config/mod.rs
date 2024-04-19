@@ -23,10 +23,6 @@ pub mod reserve;
 pub mod teleporter;
 pub mod weigher;
 
-pub use constants::*;
-pub use location_converter::*;
-pub use weigher::*;
-
 use crate::parachain::{MsgQueue, PolkadotXcm, RuntimeCall};
 use frame_support::traits::{Everything, Nothing};
 use xcm_builder::{FixedRateOfFungible, FrameTransactionalProcessor};
@@ -42,7 +38,7 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = origin_converter::OriginConverter;
 	type IsReserve = reserve::TrustedReserves;
 	type IsTeleporter = teleporter::TrustedTeleporters;
-	type UniversalLocation = UniversalLocation;
+	type UniversalLocation = constants::UniversalLocation;
 	type Barrier = barrier::Barrier;
 	type Weigher = weigher::Weigher;
 	type Trader = FixedRateOfFungible<constants::KsmPerSecondPerByte, ()>;

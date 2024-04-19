@@ -91,7 +91,8 @@ impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
 }
 
-pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
+pub type LocalOriginToLocation =
+	SignedToAccountId32<RuntimeOrigin, AccountId, constants::RelayNetwork>;
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -104,13 +105,13 @@ impl pallet_xcm::Config for Runtime {
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = weigher::Weigher;
-	type UniversalLocation = UniversalLocation;
+	type UniversalLocation = constants::UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = Balances;
-	type CurrencyMatcher = IsConcrete<TokenLocation>;
+	type CurrencyMatcher = IsConcrete<constants::TokenLocation>;
 	type TrustedLockers = ();
 	type SovereignAccountOf = location_converter::LocationConverter;
 	type MaxLockers = ConstU32<8>;
