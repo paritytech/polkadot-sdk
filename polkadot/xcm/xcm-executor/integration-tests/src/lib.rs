@@ -17,7 +17,7 @@
 #![cfg(test)]
 
 use codec::Encode;
-use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
+use frame_support::{dispatch::GetDispatchInfo, weights::Weight, WithMaxSize};
 use polkadot_service::chain_spec::get_account_id_from_seed;
 use polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
@@ -47,7 +47,7 @@ fn basic_buy_fees_message_executes() {
 	let execute = construct_extrinsic(
 		&client,
 		polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
-			message: Box::new(VersionedXcm::from(msg)),
+			message: Box::new(WithMaxSize::new(VersionedXcm::from(msg)).expect("XCM is valid")),
 			max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 		}),
 		sp_keyring::Sr25519Keyring::Alice,
@@ -122,7 +122,7 @@ fn transact_recursion_limit_works() {
 		}
 		let max_weight = <XcmConfig as xcm_executor::Config>::Weigher::weight(&mut msg).unwrap();
 		call = Some(polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
-			message: Box::new(VersionedXcm::from(msg.clone())),
+			message: Box::new(WithMaxSize::new(VersionedXcm::from(msg.clone())).expect("XCM is valid")),
 			max_weight,
 		}));
 	}
@@ -212,12 +212,11 @@ fn query_response_fires() {
 	let max_weight = Weight::from_parts(1_000_000, 1024 * 1024);
 	let querier = Some(Here.into());
 	let msg = Xcm(vec![QueryResponse { query_id, response, max_weight, querier }]);
-	let msg = Box::new(VersionedXcm::from(msg));
 
 	let execute = construct_extrinsic(
 		&client,
 		polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
-			message: msg,
+			message: Box::new(WithMaxSize::new(VersionedXcm::from(msg)).expect("XCM is valid")),
 			max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 		}),
 		sp_keyring::Sr25519Keyring::Alice,
@@ -298,7 +297,7 @@ fn query_response_elicits_handler() {
 	let execute = construct_extrinsic(
 		&client,
 		polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
-			message: Box::new(VersionedXcm::from(msg)),
+			message: Box::new(WithMaxSize::new(VersionedXcm::from(msg)).expect("XCM is valid")),
 			max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 		}),
 		sp_keyring::Sr25519Keyring::Alice,
@@ -381,7 +380,7 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 	let execute = construct_extrinsic(
 		&client,
 		polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
-			message: Box::new(VersionedXcm::from(msg)),
+			message: Box::new(WithMaxSize::new(VersionedXcm::from(msg)).expect("XCM is valid")),
 			max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 		}),
 		sp_keyring::Sr25519Keyring::Alice,
