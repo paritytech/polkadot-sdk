@@ -364,7 +364,7 @@ pub mod pallet {
 			beneficiary: &T::AccountId,
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
-			T::Assets::mint_into(asset_id, beneficiary, amount)?;
+			T::Assets::mint_into(&asset_id, beneficiary, amount)?;
 			Ok(())
 		}
 
@@ -374,7 +374,7 @@ pub mod pallet {
 			account: &T::AccountId,
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
-			T::Assets::burn_from(asset_id.clone(), account, amount, Exact, Polite)?;
+			T::Assets::burn_from(&asset_id, account, amount, Exact, Polite)?;
 			T::Assets::start_destroy(asset_id, None)
 		}
 

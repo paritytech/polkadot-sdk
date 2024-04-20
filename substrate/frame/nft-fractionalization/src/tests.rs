@@ -91,10 +91,10 @@ fn fractionalize_should_work() {
 			fractions,
 		));
 		assert_eq!(assets(), vec![asset_id]);
-		assert_eq!(Assets::balance(asset_id, account(2)), fractions);
+		assert_eq!(Assets::balance(&asset_id, account(2)), fractions);
 		assert_eq!(Balances::total_balance_on_hold(&account(1)), 2);
-		assert_eq!(String::from_utf8(Assets::name(0)).unwrap(), "Frac 0-0");
-		assert_eq!(String::from_utf8(Assets::symbol(0)).unwrap(), "FRAC");
+		assert_eq!(String::from_utf8(Assets::name(&0)).unwrap(), "Frac 0-0");
+		assert_eq!(String::from_utf8(Assets::symbol(&0)).unwrap(), "FRAC");
 		assert_eq!(Nfts::owner(nft_collection_id, nft_id), Some(account(1)));
 		assert_noop!(
 			Nfts::transfer(
@@ -256,7 +256,7 @@ fn unify_should_work() {
 			account(1),
 		));
 
-		assert_eq!(Assets::balance(asset_id, account(2)), 0);
+		assert_eq!(Assets::balance(&asset_id, account(2)), 0);
 		assert_eq!(Balances::reserved_balance(&account(1)), 1);
 		assert_eq!(Nfts::owner(nft_collection_id, nft_id), Some(account(1)));
 		assert!(!NftToAsset::<Test>::contains_key((&nft_collection_id, &nft_id)));
@@ -279,8 +279,8 @@ fn unify_should_work() {
 			fractions,
 		));
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(account(1)), asset_id, account(2), 1));
-		assert_eq!(Assets::balance(asset_id, account(1)), fractions - 1);
-		assert_eq!(Assets::balance(asset_id, account(2)), 1);
+		assert_eq!(Assets::balance(&asset_id, account(1)), fractions - 1);
+		assert_eq!(Assets::balance(&asset_id, account(2)), 1);
 		assert_noop!(
 			NftFractionalization::unify(
 				RuntimeOrigin::signed(account(1)),
