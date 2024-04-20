@@ -27,7 +27,7 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
 	BeefyApi, BeefyEquivocationProof, BeefySignatureHasher, ForkEquivocationProof, MmrHashing,
-	MmrRootHash, Payload, PayloadProvider, SignedCommitment, ValidatorSet, VoteMessage,
+	MmrRootHash, Payload, PayloadProvider, ValidatorSet, VoteMessage,
 };
 use sp_mmr_primitives::{AncestryProof, MmrApi};
 use sp_runtime::{
@@ -285,112 +285,67 @@ where
 		Ok(())
 	}
 
-	/// Check `signed_commitment` for contained block against canonical payload. If an equivocation
-	/// is detected, this also reports it.
-	fn check_signed_commitment(
-		&self,
-		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
-	) -> Result<(), Error> {
-		let SignedCommitment { commitment, signatures } = signed_commitment.clone();
-		let number = commitment.block_number;
-		// if the vote is for a block number exceeding our best block number, there shouldn't even
-		// be a payload to sign yet, hence we assume it is an equivocation and report it
-		if number > self.backend.blockchain().info().best_number {
-			// if block number is in the future, we use the latest validator set
-			// as the assumed signatories (note: this assumption is fragile and can possibly be
-			// improved upon)
-			let best_hash = self.backend.blockchain().info().best_hash;
-			let validator_set = self.active_validator_set_at(best_hash)?;
-			let signatories: Vec<_> = validator_set
-				.validators()
-				.iter()
-				.cloned()
-				.zip(signatures.into_iter())
-				.filter_map(|(id, signature)| match signature {
-					Some(sig) =>
-						if sp_consensus_beefy::check_commitment_signature::<
-							_,
-							_,
-							BeefySignatureHasher,
-						>(&commitment, &id, &sig)
-						{
-							Some((id, sig))
-						} else {
-							None
-						},
-					None => None,
-				})
-				.collect();
-			if signatories.len() > 0 {
-				let proof = ForkEquivocationProof {
-					commitment,
-					signatories,
-					canonical_header: None,
-					ancestry_proof: None,
-				};
-				self.report_fork_equivocation(proof)?;
-			}
-		} else {
-			let canonical_hhp = self.canonical_hash_header_payload(number)?;
-			if commitment.payload != canonical_hhp.payload {
-				let ancestry_proof = self.try_generate_ancestry_proof(
-					self.backend.blockchain().info().finalized_hash,
-					number,
-				);
-				let validator_set = self.active_validator_set_at(canonical_hhp.hash)?;
-				if crate::justification::verify_with_validator_set::<B>(
-					commitment.block_number,
-					&validator_set,
-					&BeefyVersionedFinalityProof::<B>::V1(signed_commitment),
-				)
-				.is_err()
-				{
-					// invalid proof
-					return Ok(())
-				}
-				// report every signer of the bad justification
-				let signatories: Vec<_> = validator_set
-					.validators()
-					.iter()
-					.cloned()
-					.zip(signatures.into_iter())
-					.filter_map(|(id, signature)| match signature {
-						Some(sig) => {
-							if sp_consensus_beefy::check_commitment_signature::<
-								_,
-								_,
-								BeefySignatureHasher,
-							>(&commitment, &id, &sig)
-							{
-								Some((id, sig.clone()))
-							} else {
-								None
-							}
-						},
-						None => None,
-					})
-					.collect();
-
-				if signatories.len() > 0 {
-					let proof = ForkEquivocationProof {
-						commitment,
-						signatories,
-						canonical_header: Some(canonical_hhp.header),
-						ancestry_proof,
-					};
-					self.report_fork_equivocation(proof)?;
-				}
-			}
-		}
-		Ok(())
-	}
-
 	/// Check `proof` for contained block against canonical payload. If an equivocation is detected,
 	/// this also reports it.
-	pub(crate) fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error> {
-		match proof {
-			BeefyVersionedFinalityProof::<B>::V1(signed_commitment) =>
-				self.check_signed_commitment(signed_commitment),
+	pub fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error> {
+		let signed_commitment = match proof {
+			BeefyVersionedFinalityProof::<B>::V1(signed_commitment) => signed_commitment,
+		};
+		let commitment = &signed_commitment.commitment;
+
+		// if the vote is for a block number exceeding our best block number, there shouldn't even
+		// be a payload to sign yet, hence we assume it is an equivocation and report it
+		let (validator_set, canonical_header, ancestry_proof) =
+			if commitment.block_number > self.backend.blockchain().info().best_number {
+				// if block number is in the future, we use the latest validator set
+				// as the assumed signatories (note: this assumption is fragile and can possibly be
+				// improved upon)
+				let best_hash = self.backend.blockchain().info().best_hash;
+				let validator_set = self.active_validator_set_at(best_hash)?;
+
+				(validator_set, None, None)
+			} else {
+				let canonical_hhp = self.canonical_hash_header_payload(commitment.block_number)?;
+				if commitment.payload == canonical_hhp.payload {
+					// The commitment is valid
+					return Ok(())
+				}
+
+				let ancestry_proof = self.try_generate_ancestry_proof(
+					self.backend.blockchain().info().finalized_hash,
+					commitment.block_number,
+				);
+				let validator_set = self.active_validator_set_at(canonical_hhp.hash)?;
+				(validator_set, Some(canonical_hhp.header), ancestry_proof)
+			};
+
+		// let finality_proof = BeefyVersionedFinalityProof::<B>::V1(signed_commitment);
+		let signatories: Vec<_> =
+			match crate::justification::verify_signed_commitment_with_validator_set::<B>(
+				commitment.block_number,
+				&validator_set,
+				&signed_commitment,
+			) {
+				Ok(signatories_refs) => signatories_refs
+					.into_iter()
+					.map(|(id, signature)| (id.clone(), signature.clone()))
+					.collect(),
+				Err(_) => {
+					// invalid proof
+					return Ok(())
+				},
+			};
+
+		if signatories.len() > 0 {
+			let proof = ForkEquivocationProof {
+				commitment: signed_commitment.commitment,
+				signatories,
+				canonical_header,
+				ancestry_proof,
+			};
+			self.report_fork_equivocation(proof)?;
 		}
+
+		Ok(())
 	}
 }
