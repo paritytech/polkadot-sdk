@@ -460,8 +460,8 @@ pub mod pallet {
 			let pool_account =
 				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
 
-			let reserve1 = Self::get_balance(&pool_account, *asset1.clone());
-			let reserve2 = Self::get_balance(&pool_account, *asset2.clone());
+			let reserve1 = Self::get_balance(&pool_account, &asset1);
+			let reserve2 = Self::get_balance(&pool_account, &asset2);
 
 			let amount1: T::Balance;
 			let amount2: T::Balance;
@@ -494,24 +494,24 @@ pub mod pallet {
 			}
 
 			ensure!(
-				amount1.saturating_add(reserve1) >= T::Assets::minimum_balance(*asset1.clone()),
+				amount1.saturating_add(reserve1) >= T::Assets::minimum_balance(&asset1),
 				Error::<T>::AmountOneLessThanMinimal
 			);
 			ensure!(
-				amount2.saturating_add(reserve2) >= T::Assets::minimum_balance(*asset2.clone()),
+				amount2.saturating_add(reserve2) >= T::Assets::minimum_balance(&asset2),
 				Error::<T>::AmountTwoLessThanMinimal
 			);
 
-			T::Assets::transfer(*asset1, &sender, &pool_account, amount1, Preserve)?;
-			T::Assets::transfer(*asset2, &sender, &pool_account, amount2, Preserve)?;
+			T::Assets::transfer(&asset1, &sender, &pool_account, amount1, Preserve)?;
+			T::Assets::transfer(&asset2, &sender, &pool_account, amount2, Preserve)?;
 
-			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
+			let total_supply = T::PoolAssets::total_issuance(&pool.lp_token);
 
 			let lp_token_amount: T::Balance;
 			if total_supply.is_zero() {
 				lp_token_amount = Self::calc_lp_amount_for_zero_supply(&amount1, &amount2)?;
 				T::PoolAssets::mint_into(
-					pool.lp_token.clone(),
+					&pool.lp_token,
 					&pool_account,
 					T::MintMinLiquidity::get(),
 				)?;
@@ -526,7 +526,7 @@ pub mod pallet {
 				Error::<T>::InsufficientLiquidityMinted
 			);
 
-			T::PoolAssets::mint_into(pool.lp_token.clone(), &mint_to, lp_token_amount)?;
+			T::PoolAssets::mint_into(&pool.lp_token, &mint_to, lp_token_amount)?;
 
 			Self::deposit_event(Event::LiquidityAdded {
 				who: sender,
@@ -566,10 +566,10 @@ pub mod pallet {
 
 			let pool_account =
 				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
-			let reserve1 = Self::get_balance(&pool_account, *asset1.clone());
-			let reserve2 = Self::get_balance(&pool_account, *asset2.clone());
+			let reserve1 = Self::get_balance(&pool_account, &asset1);
+			let reserve2 = Self::get_balance(&pool_account, &asset2);
 
-			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
+			let total_supply = T::PoolAssets::total_issuance(&pool.lp_token);
 			let withdrawal_fee_amount = T::LiquidityWithdrawalFee::get() * lp_token_burn;
 			let lp_redeem_amount = lp_token_burn.saturating_sub(withdrawal_fee_amount);
 
@@ -587,19 +587,19 @@ pub mod pallet {
 			let reserve1_left = reserve1.saturating_sub(amount1);
 			let reserve2_left = reserve2.saturating_sub(amount2);
 			ensure!(
-				reserve1_left >= T::Assets::minimum_balance(*asset1.clone()),
+				reserve1_left >= T::Assets::minimum_balance(&asset1),
 				Error::<T>::ReserveLeftLessThanMinimal
 			);
 			ensure!(
-				reserve2_left >= T::Assets::minimum_balance(*asset2.clone()),
+				reserve2_left >= T::Assets::minimum_balance(&asset2),
 				Error::<T>::ReserveLeftLessThanMinimal
 			);
 
 			// burn the provided lp token amount that includes the fee
-			T::PoolAssets::burn_from(pool.lp_token.clone(), &sender, lp_token_burn, Exact, Polite)?;
+			T::PoolAssets::burn_from(&pool.lp_token, &sender, lp_token_burn, Exact, Polite)?;
 
-			T::Assets::transfer(*asset1, &pool_account, &withdraw_to, amount1, Expendable)?;
-			T::Assets::transfer(*asset2, &pool_account, &withdraw_to, amount2, Expendable)?;
+			T::Assets::transfer(&asset1, &pool_account, &withdraw_to, amount1, Expendable)?;
+			T::Assets::transfer(&asset2, &pool_account, &withdraw_to, amount2, Expendable)?;
 
 			Self::deposit_event(Event::LiquidityRemoved {
 				who: sender,
@@ -957,7 +957,7 @@ pub mod pallet {
 								.map_err(|_| Error::<T>::InvalidAssetPair)?;
 
 							T::Assets::transfer(
-								asset2.clone(),
+								asset2,
 								&pool_from,
 								&pool_to,
 								*amount_out,
@@ -1007,7 +1007,7 @@ pub mod pallet {
 			if preservation == Preserve {
 				// TODO drop the ensure! when this issue addressed
 				// https://github.com/paritytech/polkadot-sdk/issues/1698
-				let free = T::Assets::reducible_balance(asset.clone(), who, preservation, Polite);
+				let free = T::Assets::reducible_balance(&asset, who, preservation, Polite);
 				ensure!(free >= value, TokenError::NotExpendable);
 			}
 			T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)
@@ -1015,17 +1015,17 @@ pub mod pallet {
 
 		/// Get the `owner`'s balance of `asset`, which could be the chain's native asset or another
 		/// fungible. Returns a value in the form of an `Balance`.
-		fn get_balance(owner: &T::AccountId, asset: T::AssetKind) -> T::Balance {
+		fn get_balance(owner: &T::AccountId, asset: &T::AssetKind) -> T::Balance {
 			T::Assets::reducible_balance(asset, owner, Expendable, Polite)
 		}
 
 		/// Returns the balance of each asset in the pool.
 		/// The tuple result is in the order requested (not necessarily the same as pool order).
 		pub fn get_reserves(
-			asset1: T::AssetKind,
-			asset2: T::AssetKind,
+			asset1: &T::AssetKind,
+			asset2: &T::AssetKind,
 		) -> Result<(T::Balance, T::Balance), Error<T>> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2)
+			let pool_account = T::PoolLocator::pool_address(asset1, asset2)
 				.map_err(|_| Error::<T>::InvalidAssetPair)?;
 
 			let balance1 = Self::get_balance(&pool_account, asset1);
@@ -1055,7 +1055,7 @@ pub mod pallet {
 						break
 					},
 				};
-				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
+				let (reserve_in, reserve_out) = Self::get_reserves(asset1, &asset2)?;
 				balance_path.push((asset2, amount_in));
 				amount_in = Self::get_amount_in(&amount_in, &reserve_in, &reserve_out)?;
 			}
@@ -1081,7 +1081,7 @@ pub mod pallet {
 						break
 					},
 				};
-				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
+				let (reserve_in, reserve_out) = Self::get_reserves(&asset1, asset2)?;
 				balance_path.push((asset1, amount_out));
 				amount_out = Self::get_amount_out(&amount_out, &reserve_in, &reserve_out)?;
 			}
@@ -1090,12 +1090,12 @@ pub mod pallet {
 
 		/// Used by the RPC service to provide current prices.
 		pub fn quote_price_exact_tokens_for_tokens(
-			asset1: T::AssetKind,
-			asset2: T::AssetKind,
+			asset1: &T::AssetKind,
+			asset2: &T::AssetKind,
 			amount: T::Balance,
 			include_fee: bool,
 		) -> Option<T::Balance> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
+			let pool_account = T::PoolLocator::pool_address(asset1, asset2).ok()?;
 
 			let balance1 = Self::get_balance(&pool_account, asset1);
 			let balance2 = Self::get_balance(&pool_account, asset2);
@@ -1112,12 +1112,12 @@ pub mod pallet {
 
 		/// Used by the RPC service to provide current prices.
 		pub fn quote_price_tokens_for_exact_tokens(
-			asset1: T::AssetKind,
-			asset2: T::AssetKind,
+			asset1: &T::AssetKind,
+			asset2: &T::AssetKind,
 			amount: T::Balance,
 			include_fee: bool,
 		) -> Option<T::Balance> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
+			let pool_account = T::PoolLocator::pool_address(asset1, asset2).ok()?;
 
 			let balance1 = Self::get_balance(&pool_account, asset1);
 			let balance2 = Self::get_balance(&pool_account, asset2);
@@ -1294,8 +1294,8 @@ sp_api::decl_runtime_apis! {
 		/// Note that the price may have changed by the time the transaction is executed.
 		/// (Use `amount_in_max` to control slippage.)
 		fn quote_price_tokens_for_exact_tokens(
-			asset1: AssetId,
-			asset2: AssetId,
+			asset1: &AssetId,
+			asset2: &AssetId,
 			amount: Balance,
 			include_fee: bool,
 		) -> Option<Balance>;
@@ -1305,14 +1305,14 @@ sp_api::decl_runtime_apis! {
 		/// Note that the price may have changed by the time the transaction is executed.
 		/// (Use `amount_out_min` to control slippage.)
 		fn quote_price_exact_tokens_for_tokens(
-			asset1: AssetId,
-			asset2: AssetId,
+			asset1: &AssetId,
+			asset2: &AssetId,
 			amount: Balance,
 			include_fee: bool,
 		) -> Option<Balance>;
 
 		/// Returns the size of the liquidity pool for the given asset pair.
-		fn get_reserves(asset1: AssetId, asset2: AssetId) -> Option<(Balance, Balance)>;
+		fn get_reserves(asset1: &AssetId, asset2: &AssetId) -> Option<(Balance, Balance)>;
 	}
 }
 

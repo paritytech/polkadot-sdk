@@ -81,15 +81,15 @@ fn create_tokens_with_ed(owner: u128, tokens: Vec<NativeOrWithId<u32>>, ed: u128
 }
 
 fn balance(owner: u128, token_id: NativeOrWithId<u32>) -> u128 {
-	<<Test as Config>::Assets>::balance(token_id, &owner)
+	<<Test as Config>::Assets>::balance(&token_id, &owner)
 }
 
 fn pool_balance(owner: u128, token_id: u32) -> u128 {
-	<<Test as Config>::PoolAssets>::balance(token_id, owner)
+	<<Test as Config>::PoolAssets>::balance(&token_id, owner)
 }
 
 fn get_native_ed() -> u128 {
-	<<Test as Config>::Assets>::minimum_balance(NativeOrWithId::Native)
+	<<Test as Config>::Assets>::minimum_balance(&NativeOrWithId::Native)
 }
 
 macro_rules! bvec {
@@ -535,7 +535,7 @@ fn can_remove_liquidity() {
 		));
 
 		let ed_token_1 = <Balances as fungible::Inspect<_>>::minimum_balance();
-		let ed_token_2 = <Assets as fungibles::Inspect<_>>::minimum_balance(2);
+		let ed_token_2 = <Assets as fungibles::Inspect<_>>::minimum_balance(&2);
 		assert_ok!(Balances::force_set_balance(
 			RuntimeOrigin::root(),
 			user,
@@ -673,8 +673,8 @@ fn can_quote_price() {
 
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				3000,
 				false,
 			),
@@ -683,8 +683,8 @@ fn can_quote_price() {
 		// including fee so should get less out...
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				3000,
 				true,
 			),
@@ -694,8 +694,8 @@ fn can_quote_price() {
 		// (if the above accidentally exchanged then it would not give same quote as before)
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				3000,
 				false,
 			),
@@ -704,8 +704,8 @@ fn can_quote_price() {
 		// including fee so should get less out...
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				3000,
 				true,
 			),
@@ -715,8 +715,8 @@ fn can_quote_price() {
 		// Check inverse:
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::WithId(2),
-				NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
 				60,
 				false,
 			),
@@ -725,8 +725,8 @@ fn can_quote_price() {
 		// including fee so should get less out...
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::WithId(2),
-				NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
 				60,
 				true,
 			),
@@ -738,8 +738,8 @@ fn can_quote_price() {
 		//
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				60,
 				false,
 			),
@@ -748,8 +748,8 @@ fn can_quote_price() {
 		// including fee so should need to put more in...
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				60,
 				true,
 			),
@@ -759,8 +759,8 @@ fn can_quote_price() {
 		// (if the above accidentally exchanged then it would not give same quote as before)
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				60,
 				false,
 			),
@@ -769,8 +769,8 @@ fn can_quote_price() {
 		// including fee so should need to put more in...
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				60,
 				true,
 			),
@@ -780,8 +780,8 @@ fn can_quote_price() {
 		// Check inverse:
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::WithId(2),
-				NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
 				3000,
 				false,
 			),
@@ -790,8 +790,8 @@ fn can_quote_price() {
 		// including fee so should need to put more in...
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::WithId(2),
-				NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
 				3000,
 				true,
 			),
@@ -805,14 +805,14 @@ fn can_quote_price() {
 
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::WithId(2),
-				NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
 				amount_in,
 				false,
 			)
 			.and_then(|amount| AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				amount,
 				false,
 			)),
@@ -820,14 +820,14 @@ fn can_quote_price() {
 		);
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				amount_in,
 				false,
 			)
 			.and_then(|amount| AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::WithId(2),
-				NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
 				amount,
 				false,
 			)),
@@ -836,14 +836,14 @@ fn can_quote_price() {
 
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::WithId(2),
-				NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
 				amount_in,
 				false,
 			)
 			.and_then(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				amount,
 				false,
 			)),
@@ -851,14 +851,14 @@ fn can_quote_price() {
 		);
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
 				amount_in,
 				false,
 			)
 			.and_then(|amount| AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrWithId::WithId(2),
-				NativeOrWithId::Native,
+				&NativeOrWithId::WithId(2),
+				&NativeOrWithId::Native,
 				amount,
 				false,
 			)),
@@ -900,8 +900,8 @@ fn quote_price_exact_tokens_for_tokens_matches_execution() {
 		let quoted_price = 49;
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
-				token_2.clone(),
-				token_1.clone(),
+				&token_2,
+				&token_1,
 				amount,
 				true,
 			),
@@ -957,8 +957,8 @@ fn quote_price_tokens_for_exact_tokens_matches_execution() {
 		let quoted_price = 1;
 		assert_eq!(
 			AssetConversion::quote_price_tokens_for_exact_tokens(
-				token_2.clone(),
-				token_1.clone(),
+				&token_2,
+				&token_1,
 				amount,
 				true,
 			),
@@ -2130,9 +2130,9 @@ fn swap_transactional() {
 			<Test as Config>::PoolLocator::address(&(token_1.clone(), token_3.clone())).unwrap();
 
 		assert_eq!(Balances::balance(&pool_1), liquidity1);
-		assert_eq!(Assets::balance(2, pool_1), liquidity2);
+		assert_eq!(Assets::balance(&2, pool_1), liquidity2);
 		assert_eq!(Balances::balance(&pool_2), liquidity1);
-		assert_eq!(Assets::balance(3, pool_2), liquidity2);
+		assert_eq!(Assets::balance(&3, pool_2), liquidity2);
 
 		// the amount that would cause a transfer from the last pool in the path to fail
 		let expected_out = liquidity2 - asset_ed + 1;
@@ -2146,8 +2146,8 @@ fn swap_transactional() {
 		.unwrap();
 
 		// swap credit with `swap_tokens_for_exact_tokens` transactional
-		let credit_in = NativeAndAssets::issue(token_2.clone(), amount_in);
-		let credit_in_err_expected = NativeAndAssets::issue(token_2.clone(), amount_in);
+		let credit_in = NativeAndAssets::issue(&token_2, amount_in);
+		let credit_in_err_expected = NativeAndAssets::issue(&token_2, amount_in);
 		// avoiding drop of any credit, to assert any storage mutation from an actual call.
 		let error;
 		assert_storage_noop!(
@@ -2161,8 +2161,8 @@ fn swap_transactional() {
 		assert_eq!(error, (credit_in_err_expected, TokenError::NotExpendable.into()));
 
 		// swap credit with `swap_exact_tokens_for_tokens` transactional
-		let credit_in = NativeAndAssets::issue(token_2.clone(), amount_in);
-		let credit_in_err_expected = NativeAndAssets::issue(token_2.clone(), amount_in);
+		let credit_in = NativeAndAssets::issue(&token_2, amount_in);
+		let credit_in_err_expected = NativeAndAssets::issue(&token_2, amount_in);
 		// avoiding drop of any credit, to assert any storage mutation from an actual call.
 		let error;
 		assert_storage_noop!(
@@ -2202,9 +2202,9 @@ fn swap_transactional() {
 		);
 
 		assert_eq!(Balances::balance(&pool_1), liquidity1);
-		assert_eq!(Assets::balance(2, pool_1), liquidity2);
+		assert_eq!(Assets::balance(&2, pool_1), liquidity2);
 		assert_eq!(Balances::balance(&pool_2), liquidity1);
-		assert_eq!(Assets::balance(3, pool_2), liquidity2);
+		assert_eq!(Assets::balance(&3, pool_2), liquidity2);
 	})
 }
 
@@ -2240,15 +2240,15 @@ fn swap_credit_returns_change() {
 			user,
 		));
 
-		let expected_change = NativeAndAssets::issue(token_1.clone(), 100);
-		let expected_credit_out = NativeAndAssets::issue(token_2.clone(), 20);
+		let expected_change = NativeAndAssets::issue(&token_1, 100);
+		let expected_credit_out = NativeAndAssets::issue(&token_2, 20);
 
 		let amount_in_max =
 			AssetConversion::get_amount_in(&expected_credit_out.peek(), &liquidity1, &liquidity2)
 				.unwrap();
 
 		let credit_in =
-			NativeAndAssets::issue(token_1.clone(), amount_in_max + expected_change.peek());
+			NativeAndAssets::issue(&token_1, amount_in_max + expected_change.peek());
 		assert_ok!(
 			<AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
 				vec![token_1.clone(), token_2.clone()],
@@ -2301,8 +2301,8 @@ fn swap_credit_insufficient_amount_bounds() {
 		let amount_in =
 			AssetConversion::get_amount_in(&(amount_out_min - 1), &liquidity2, &liquidity1)
 				.unwrap();
-		let credit_in = NativeAndAssets::issue(token_1.clone(), amount_in);
-		let expected_credit_in = NativeAndAssets::issue(token_1.clone(), amount_in);
+		let credit_in = NativeAndAssets::issue(&token_1, amount_in);
+		let expected_credit_in = NativeAndAssets::issue(&token_1, amount_in);
 		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
 			vec![token_1.clone(), token_2.clone()],
 			credit_in,
@@ -2318,8 +2318,8 @@ fn swap_credit_insufficient_amount_bounds() {
 		let amount_out = 20;
 		let amount_in_max =
 			AssetConversion::get_amount_in(&(amount_out - 1), &liquidity2, &liquidity1).unwrap();
-		let credit_in = NativeAndAssets::issue(token_1.clone(), amount_in_max);
-		let expected_credit_in = NativeAndAssets::issue(token_1.clone(), amount_in_max);
+		let credit_in = NativeAndAssets::issue(&token_1, amount_in_max);
+		let expected_credit_in = NativeAndAssets::issue(&token_1, amount_in_max);
 		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
 			vec![token_1.clone(), token_2.clone()],
 			credit_in,
@@ -2392,8 +2392,8 @@ fn swap_credit_zero_amount() {
 		assert_eq!(error, (expected_credit_in, Error::<Test>::ZeroAmount.into()));
 
 		// swap with zero amount_out_min fails for `swap_exact_tokens_for_tokens`
-		let credit_in = NativeAndAssets::issue(token_1.clone(), 10);
-		let expected_credit_in = NativeAndAssets::issue(token_1.clone(), 10);
+		let credit_in = NativeAndAssets::issue(&token_1, 10);
+		let expected_credit_in = NativeAndAssets::issue(&token_1, 10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
 			vec![token_1.clone(), token_2.clone()],
 			credit_in,
@@ -2403,8 +2403,8 @@ fn swap_credit_zero_amount() {
 		assert_eq!(error, (expected_credit_in, Error::<Test>::ZeroAmount.into()));
 
 		// swap with zero amount_out fails with `swap_tokens_for_exact_tokens` fails
-		let credit_in = NativeAndAssets::issue(token_1.clone(), 10);
-		let expected_credit_in = NativeAndAssets::issue(token_1.clone(), 10);
+		let credit_in = NativeAndAssets::issue(&token_1, 10);
+		let expected_credit_in = NativeAndAssets::issue(&token_1, 10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
 			vec![token_1.clone(), token_2.clone()],
 			credit_in,
@@ -2452,8 +2452,8 @@ fn swap_credit_invalid_path() {
 		));
 
 		// swap with credit_in.asset different from path[0] asset fails
-		let credit_in = NativeAndAssets::issue(token_1.clone(), 10);
-		let expected_credit_in = NativeAndAssets::issue(token_1.clone(), 10);
+		let credit_in = NativeAndAssets::issue(&token_1, 10);
+		let expected_credit_in = NativeAndAssets::issue(&token_1, 10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
 			vec![token_2.clone(), token_1.clone()],
 			credit_in,
@@ -2463,8 +2463,8 @@ fn swap_credit_invalid_path() {
 		assert_eq!(error, (expected_credit_in, Error::<Test>::InvalidPath.into()));
 
 		// swap with credit_in.asset different from path[0] asset fails
-		let credit_in = NativeAndAssets::issue(token_2.clone(), 10);
-		let expected_credit_in = NativeAndAssets::issue(token_2.clone(), 10);
+		let credit_in = NativeAndAssets::issue(&token_2, 10);
+		let expected_credit_in = NativeAndAssets::issue(&token_2, 10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
 			vec![token_1.clone(), token_2.clone()],
 			credit_in,
@@ -2474,8 +2474,8 @@ fn swap_credit_invalid_path() {
 		assert_eq!(error, (expected_credit_in, Error::<Test>::InvalidPath.into()));
 
 		// swap with path.len < 2 fails
-		let credit_in = NativeAndAssets::issue(token_1.clone(), 10);
-		let expected_credit_in = NativeAndAssets::issue(token_1.clone(), 10);
+		let credit_in = NativeAndAssets::issue(&token_1, 10);
+		let expected_credit_in = NativeAndAssets::issue(&token_1, 10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
 			vec![token_2.clone()],
 			credit_in,
@@ -2485,8 +2485,8 @@ fn swap_credit_invalid_path() {
 		assert_eq!(error, (expected_credit_in, Error::<Test>::InvalidPath.into()));
 
 		// swap with path.len < 2 fails
-		let credit_in = NativeAndAssets::issue(token_2.clone(), 10);
-		let expected_credit_in = NativeAndAssets::issue(token_2.clone(), 10);
+		let credit_in = NativeAndAssets::issue(&token_2, 10);
+		let expected_credit_in = NativeAndAssets::issue(&token_2, 10);
 		let error =
 			<AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(vec![], credit_in, 10)
 				.unwrap_err();
