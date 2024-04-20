@@ -535,20 +535,24 @@ pub mod pallet {
 		LockNotFound,
 		/// The unlock operation cannot succeed because there are still consumers of the lock.
 		InUse,
-		/// Invalid non-concrete asset.
-		InvalidAssetNotConcrete,
 		/// Invalid asset, reserve chain could not be determined for it.
+		#[codec(index = 21)]
 		InvalidAssetUnknownReserve,
 		/// Invalid asset, do not support remote asset reserves with different fees reserves.
+		#[codec(index = 22)]
 		InvalidAssetUnsupportedReserve,
 		/// Too many assets with different reserve locations have been attempted for transfer.
+		#[codec(index = 23)]
 		TooManyReserves,
 		/// Local XCM execution incomplete.
+		#[codec(index = 24)]
 		LocalExecutionIncomplete,
 		/// Could not decode XCM.
+		#[codec(index = 25)]
 		UnableToDecode,
 		/// XCM encoded length is too large.
 		/// Returned when an XCM encoded length is larger than `MaxXcmEncodedSize`.
+		#[codec(index = 26)]
 		XcmTooLarge,
 	}
 
@@ -565,7 +569,6 @@ pub mod pallet {
 	impl<T: Config> From<AssetTransferError> for Error<T> {
 		fn from(e: AssetTransferError) -> Self {
 			match e {
-				AssetTransferError::NotConcrete => Error::<T>::InvalidAssetNotConcrete,
 				AssetTransferError::UnknownReserve => Error::<T>::InvalidAssetUnknownReserve,
 			}
 		}
