@@ -54,7 +54,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Assets::transfer(asset_id, &source, &dest, amount, Preserve)
+		Assets::transfer(&asset_id, &source, &dest, amount, Preserve)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 		Ok(what.clone().into())
 	}
@@ -156,25 +156,25 @@ impl<
 	>
 	FungiblesMutateAdapter<Assets, Matcher, AccountIdConverter, AccountId, CheckAsset, CheckingAccount>
 {
-	fn can_accrue_checked(asset_id: Assets::AssetId, amount: Assets::Balance) -> XcmResult {
+	fn can_accrue_checked(asset_id: &Assets::AssetId, amount: Assets::Balance) -> XcmResult {
 		let checking_account = CheckingAccount::get();
 		Assets::can_deposit(asset_id, &checking_account, amount, Minted)
 			.into_result()
 			.map_err(|_| XcmError::NotDepositable)
 	}
-	fn can_reduce_checked(asset_id: Assets::AssetId, amount: Assets::Balance) -> XcmResult {
+	fn can_reduce_checked(asset_id: &Assets::AssetId, amount: Assets::Balance) -> XcmResult {
 		let checking_account = CheckingAccount::get();
 		Assets::can_withdraw(asset_id, &checking_account, amount)
 			.into_result(false)
 			.map_err(|_| XcmError::NotWithdrawable)
 			.map(|_| ())
 	}
-	fn accrue_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
+	fn accrue_checked(asset_id: &Assets::AssetId, amount: Assets::Balance) {
 		let checking_account = CheckingAccount::get();
 		let ok = Assets::mint_into(asset_id, &checking_account, amount).is_ok();
 		debug_assert!(ok, "`can_accrue_checked` must have returned `true` immediately prior; qed");
 	}
-	fn reduce_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
+	fn reduce_checked(asset_id: &Assets::AssetId, amount: Assets::Balance) {
 		let checking_account = CheckingAccount::get();
 		let ok = Assets::burn_from(asset_id, &checking_account, amount, Exact, Polite).is_ok();
 		debug_assert!(ok, "`can_reduce_checked` must have returned `true` immediately prior; qed");
@@ -208,9 +208,9 @@ impl<
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		match CheckAsset::asset_checking(&asset_id) {
 			// We track this asset's teleports to ensure no more come in than have gone out.
-			Some(MintLocation::Local) => Self::can_reduce_checked(asset_id, amount),
+			Some(MintLocation::Local) => Self::can_reduce_checked(&asset_id, amount),
 			// We track this asset's teleports to ensure no more go out than have come in.
-			Some(MintLocation::NonLocal) => Self::can_accrue_checked(asset_id, amount),
+			Some(MintLocation::NonLocal) => Self::can_accrue_checked(&asset_id, amount),
 			_ => Ok(()),
 		}
 	}
@@ -224,9 +224,9 @@ impl<
 		if let Ok((asset_id, amount)) = Matcher::matches_fungibles(what) {
 			match CheckAsset::asset_checking(&asset_id) {
 				// We track this asset's teleports to ensure no more come in than have gone out.
-				Some(MintLocation::Local) => Self::reduce_checked(asset_id, amount),
+				Some(MintLocation::Local) => Self::reduce_checked(&asset_id, amount),
 				// We track this asset's teleports to ensure no more go out than have come in.
-				Some(MintLocation::NonLocal) => Self::accrue_checked(asset_id, amount),
+				Some(MintLocation::NonLocal) => Self::accrue_checked(&asset_id, amount),
 				_ => (),
 			}
 		}
@@ -242,9 +242,9 @@ impl<
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		match CheckAsset::asset_checking(&asset_id) {
 			// We track this asset's teleports to ensure no more come in than have gone out.
-			Some(MintLocation::Local) => Self::can_accrue_checked(asset_id, amount),
+			Some(MintLocation::Local) => Self::can_accrue_checked(&asset_id, amount),
 			// We track this asset's teleports to ensure no more go out than have come in.
-			Some(MintLocation::NonLocal) => Self::can_reduce_checked(asset_id, amount),
+			Some(MintLocation::NonLocal) => Self::can_reduce_checked(&asset_id, amount),
 			_ => Ok(()),
 		}
 	}
@@ -258,9 +258,9 @@ impl<
 		if let Ok((asset_id, amount)) = Matcher::matches_fungibles(what) {
 			match CheckAsset::asset_checking(&asset_id) {
 				// We track this asset's teleports to ensure no more come in than have gone out.
-				Some(MintLocation::Local) => Self::accrue_checked(asset_id, amount),
+				Some(MintLocation::Local) => Self::accrue_checked(&asset_id, amount),
 				// We track this asset's teleports to ensure no more go out than have come in.
-				Some(MintLocation::NonLocal) => Self::reduce_checked(asset_id, amount),
+				Some(MintLocation::NonLocal) => Self::reduce_checked(&asset_id, amount),
 				_ => (),
 			}
 		}
@@ -276,7 +276,7 @@ impl<
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Assets::mint_into(asset_id, &who, amount)
+		Assets::mint_into(&asset_id, &who, amount)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 		Ok(())
 	}
@@ -295,7 +295,7 @@ impl<
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Assets::burn_from(asset_id, &who, amount, Exact, Polite)
+		Assets::burn_from(&asset_id, &who, amount, Exact, Polite)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 		Ok(what.clone().into())
 	}

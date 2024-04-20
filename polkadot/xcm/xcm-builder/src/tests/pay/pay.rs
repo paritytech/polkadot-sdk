@@ -55,7 +55,7 @@ fn pay_over_xcm_works() {
 
 	new_test_ext().execute_with(|| {
 		// Check starting balance
-		assert_eq!(mock::Assets::balance(0, &recipient), 0);
+		assert_eq!(mock::Assets::balance(&0, &recipient), 0);
 
 		assert_ok!(PayOverXcm::<
 			InteriorAccount,
@@ -104,7 +104,7 @@ fn pay_over_xcm_works() {
 			Weight::MAX,
 			Weight::zero(),
 		);
-		assert_eq!(mock::Assets::balance(0, &recipient), amount);
+		assert_eq!(mock::Assets::balance(&0, &recipient), amount);
 	});
 }
 
@@ -123,7 +123,7 @@ fn pay_over_xcm_governance_body() {
 
 	new_test_ext().execute_with(|| {
 		// Check starting balance
-		assert_eq!(mock::Assets::balance(relay_asset_index, &recipient), 0);
+		assert_eq!(mock::Assets::balance(&relay_asset_index, &recipient), 0);
 
 		assert_ok!(PayOverXcm::<
 			InteriorBody,
@@ -171,6 +171,6 @@ fn pay_over_xcm_governance_body() {
 			Weight::MAX,
 			Weight::zero(),
 		);
-		assert_eq!(mock::Assets::balance(relay_asset_index, &recipient), amount);
+		assert_eq!(mock::Assets::balance(&relay_asset_index, &recipient), amount);
 	});
 }
