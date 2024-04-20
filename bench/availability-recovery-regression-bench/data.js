@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713538536620,
+  "lastUpdate": 1713575997537,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4535,6 +4535,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.93635579663334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ankan",
+            "username": "Ank4n",
+            "email": "10196091+Ank4n@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e504c41a5adbd5e6d9a7764c07f6dcf47b2dae77",
+          "message": "Allow privileged virtual bond in Staking pallet (#3889)\n\nThis is the first PR in preparation for\nhttps://github.com/paritytech/polkadot-sdk/issues/454.\n\n## Follow ups:\n- https://github.com/paritytech/polkadot-sdk/pull/3904.\n- https://github.com/paritytech/polkadot-sdk/pull/3905.\n\nOverall changes are documented here (lot more visual 😍):\nhttps://hackmd.io/@ak0n/454-np-governance\n\n[Maybe followup](https://github.com/paritytech/polkadot-sdk/issues/4217)\nwith migration of storage item `VirtualStakers` as a bool or enum in\n`Ledger`.\n\n## Context\nWe want to achieve a way for a user (`Delegator`) to delegate their\nfunds to another account (`Agent`). Delegate implies the funds are\nlocked in delegator account itself. Agent can act on behalf of delegator\nto stake directly on Staking pallet.\n\nThe delegation feature is added to Staking via another pallet\n`delegated-staking` worked on\n[here](https://github.com/paritytech/polkadot-sdk/pull/3904).\n\n## Introduces:\n### StakingUnchecked Trait\nAs the name implies, this trait allows unchecked (non-locked) mutation\nof staking ledger. These apis are only meant to be used by other pallets\nin the runtime and should not be exposed directly to user code path.\nAlso related: https://github.com/paritytech/polkadot-sdk/issues/3888.\n\n### Virtual Bond\nAllows other pallets to stake via staking pallet while managing the\nlocks on these accounts themselves. Introduces another storage\n`VirtualStakers` that whitelist these accounts.\n\nWe also restrict virtual stakers to set reward account as themselves.\nSince the account has no locks, we cannot support compounding of\nrewards. Conservatively, we require them to set a separate account\ndifferent from the staker. Since these are code managed, it should be\neasy for another pallet to redistribute reward and rebond them.\n\n### Slashes\nSince there is no actual lock maintained by staking-pallet for virtual\nstakers, this pallet does not apply any slashes. It is then important\nfor pallets managing virtual stakers to listen to slashing events and\napply necessary slashes.",
+          "timestamp": "2024-04-20T00:05:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e504c41a5adbd5e6d9a7764c07f6dcf47b2dae77"
+        },
+        "date": 1713575973713,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.8785590512,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2277690894666667,
             "unit": "seconds"
           }
         ]
