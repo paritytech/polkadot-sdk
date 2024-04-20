@@ -81,14 +81,14 @@ fn deposit_from_set_types_works() {
 		let account2 = 2;
 
 		assert_ok!(<Assets as FungiblesCreate<u64>>::create(asset1, account1, true, 1));
-		assert_ok!(Assets::mint_into(asset1, &account1, 100));
+		assert_ok!(Assets::mint_into(&asset1, &account1, 100));
 
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 
-		let imb = First::<Assets>::deposit((), &account2, 50, Precision::Exact).unwrap();
-		assert_eq!(First::<Assets>::balance((), &account2), 50);
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
+		let imb = First::<Assets>::deposit(&(), &account2, 50, Precision::Exact).unwrap();
+		assert_eq!(First::<Assets>::balance(&(), &account2), 50);
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
 
 		assert_eq!(imb.peek(), 50);
 
@@ -97,14 +97,14 @@ fn deposit_from_set_types_works() {
 		assert_eq!(imb2.peek(), 20);
 
 		drop(imb2);
-		assert_eq!(First::<Assets>::total_issuance(()), 120);
+		assert_eq!(First::<Assets>::total_issuance(&()), 120);
 
 		assert!(First::<Assets>::settle(&account1, imb1, Preservation::Preserve).is_ok());
-		assert_eq!(First::<Assets>::balance((), &account1), 70);
-		assert_eq!(First::<Assets>::balance((), &account2), 50);
-		assert_eq!(First::<Assets>::total_issuance(()), 120);
+		assert_eq!(First::<Assets>::balance(&(), &account1), 70);
+		assert_eq!(First::<Assets>::balance(&(), &account2), 50);
+		assert_eq!(First::<Assets>::total_issuance(&()), 120);
 
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 	});
 }
 
@@ -115,14 +115,14 @@ fn issue_from_set_types_works() {
 		let account1: u64 = 1;
 
 		assert_ok!(<Assets as FungiblesCreate<u64>>::create(asset1, account1, true, 1));
-		assert_ok!(Assets::mint_into(asset1, &account1, 100));
+		assert_ok!(Assets::mint_into(&asset1, &account1, 100));
 
-		assert_eq!(First::<Assets>::balance((), &account1), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::balance(&(), &account1), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 
-		let imb = First::<Assets>::issue((), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), 200);
+		let imb = First::<Assets>::issue(&(), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 200);
 		assert_eq!(imb.peek(), 100);
 
 		let (imb1, imb2) = imb.split(30);
@@ -130,13 +130,13 @@ fn issue_from_set_types_works() {
 		assert_eq!(imb2.peek(), 70);
 
 		drop(imb2);
-		assert_eq!(First::<Assets>::total_issuance(()), 130);
+		assert_eq!(First::<Assets>::total_issuance(&()), 130);
 
 		assert!(First::<Assets>::resolve(&account1, imb1).is_ok());
-		assert_eq!(First::<Assets>::balance((), &account1), 130);
-		assert_eq!(First::<Assets>::total_issuance(()), 130);
+		assert_eq!(First::<Assets>::balance(&(), &account1), 130);
+		assert_eq!(First::<Assets>::total_issuance(&()), 130);
 
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 	});
 }
 
@@ -147,14 +147,14 @@ fn pair_from_set_types_works() {
 		let account1: u64 = 1;
 
 		assert_ok!(<Assets as FungiblesCreate<u64>>::create(asset1, account1, true, 1));
-		assert_ok!(Assets::mint_into(asset1, &account1, 100));
+		assert_ok!(Assets::mint_into(&asset1, &account1, 100));
 
-		assert_eq!(First::<Assets>::balance((), &account1), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::balance(&(), &account1), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 
-		let (debt, credit) = First::<Assets>::pair((), 100).unwrap();
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
+		let (debt, credit) = First::<Assets>::pair(&(), 100).unwrap();
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
 		assert_eq!(debt.peek(), 100);
 		assert_eq!(credit.peek(), 100);
 
@@ -163,24 +163,24 @@ fn pair_from_set_types_works() {
 		assert_eq!(debt2.peek(), 70);
 
 		drop(debt2);
-		assert_eq!(First::<Assets>::total_issuance(()), 170);
+		assert_eq!(First::<Assets>::total_issuance(&()), 170);
 
 		assert!(First::<Assets>::settle(&account1, debt1, Preservation::Preserve).is_ok());
-		assert_eq!(First::<Assets>::balance((), &account1), 70);
-		assert_eq!(First::<Assets>::total_issuance(()), 170);
+		assert_eq!(First::<Assets>::balance(&(), &account1), 70);
+		assert_eq!(First::<Assets>::total_issuance(&()), 170);
 
 		let (credit1, credit2) = credit.split(40);
 		assert_eq!(credit1.peek(), 40);
 		assert_eq!(credit2.peek(), 60);
 
 		drop(credit2);
-		assert_eq!(First::<Assets>::total_issuance(()), 110);
+		assert_eq!(First::<Assets>::total_issuance(&()), 110);
 
 		assert!(First::<Assets>::resolve(&account1, credit1).is_ok());
-		assert_eq!(First::<Assets>::balance((), &account1), 110);
-		assert_eq!(First::<Assets>::total_issuance(()), 110);
+		assert_eq!(First::<Assets>::balance(&(), &account1), 110);
+		assert_eq!(First::<Assets>::total_issuance(&()), 110);
 
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 	});
 }
 
@@ -191,13 +191,13 @@ fn rescind_from_set_types_works() {
 		let account1: u64 = 1;
 
 		assert_ok!(<Assets as FungiblesCreate<u64>>::create(asset1, account1, true, 1));
-		assert_ok!(Assets::mint_into(asset1, &account1, 100));
+		assert_ok!(Assets::mint_into(&asset1, &account1, 100));
 
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 
-		let imb = First::<Assets>::rescind((), 20);
-		assert_eq!(First::<Assets>::total_issuance(()), 80);
+		let imb = First::<Assets>::rescind(&(), 20);
+		assert_eq!(First::<Assets>::total_issuance(&()), 80);
 
 		assert_eq!(imb.peek(), 20);
 
@@ -206,13 +206,13 @@ fn rescind_from_set_types_works() {
 		assert_eq!(imb2.peek(), 5);
 
 		drop(imb2);
-		assert_eq!(First::<Assets>::total_issuance(()), 85);
+		assert_eq!(First::<Assets>::total_issuance(&()), 85);
 
 		assert!(First::<Assets>::settle(&account1, imb1, Preservation::Preserve).is_ok());
-		assert_eq!(First::<Assets>::balance((), &account1), 85);
-		assert_eq!(First::<Assets>::total_issuance(()), 85);
+		assert_eq!(First::<Assets>::balance(&(), &account1), 85);
+		assert_eq!(First::<Assets>::total_issuance(&()), 85);
 
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 	});
 }
 
@@ -225,34 +225,34 @@ fn resolve_from_set_types_works() {
 		let ed = 11;
 
 		assert_ok!(<Assets as FungiblesCreate<u64>>::create(asset1, account1, true, ed));
-		assert_ok!(Assets::mint_into(asset1, &account1, 100));
+		assert_ok!(Assets::mint_into(&asset1, &account1, 100));
 
-		assert_eq!(First::<Assets>::balance((), &account1), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::balance(&(), &account1), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 
-		let imb = First::<Assets>::issue((), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), 200);
+		let imb = First::<Assets>::issue(&(), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 200);
 		assert_eq!(imb.peek(), 100);
 
 		let (imb1, imb2) = imb.split(10);
 		assert_eq!(imb1.peek(), 10);
 		assert_eq!(imb2.peek(), 90);
-		assert_eq!(First::<Assets>::total_issuance(()), 200);
+		assert_eq!(First::<Assets>::total_issuance(&()), 200);
 
 		// ed requirements not met.
 		let imb1 = First::<Assets>::resolve(&account2, imb1).unwrap_err();
 		assert_eq!(imb1.peek(), 10);
 		drop(imb1);
-		assert_eq!(First::<Assets>::total_issuance(()), 190);
-		assert_eq!(First::<Assets>::balance((), &account2), 0);
+		assert_eq!(First::<Assets>::total_issuance(&()), 190);
+		assert_eq!(First::<Assets>::balance(&(), &account2), 0);
 
 		// resolve to new account `2`.
 		assert_ok!(First::<Assets>::resolve(&account2, imb2));
-		assert_eq!(First::<Assets>::total_issuance(()), 190);
-		assert_eq!(First::<Assets>::balance((), &account2), 90);
+		assert_eq!(First::<Assets>::total_issuance(&()), 190);
+		assert_eq!(First::<Assets>::balance(&(), &account2), 90);
 
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 	});
 }
 
@@ -265,48 +265,48 @@ fn settle_from_set_types_works() {
 		let ed = 11;
 
 		assert_ok!(<Assets as FungiblesCreate<u64>>::create(asset1, account1, true, ed));
-		assert_ok!(Assets::mint_into(asset1, &account1, 100));
-		assert_ok!(Assets::mint_into(asset1, &account2, 100));
+		assert_ok!(Assets::mint_into(&asset1, &account1, 100));
+		assert_ok!(Assets::mint_into(&asset1, &account2, 100));
 
-		assert_eq!(First::<Assets>::balance((), &account2), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), 200);
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::balance(&(), &account2), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 200);
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 
-		let imb = First::<Assets>::rescind((), 100);
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
+		let imb = First::<Assets>::rescind(&(), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
 		assert_eq!(imb.peek(), 100);
 
 		let (imb1, imb2) = imb.split(10);
 		assert_eq!(imb1.peek(), 10);
 		assert_eq!(imb2.peek(), 90);
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
 
 		// ed requirements not met.
 		let imb2 = First::<Assets>::settle(&account2, imb2, Preservation::Preserve).unwrap_err();
 		assert_eq!(imb2.peek(), 90);
 		drop(imb2);
-		assert_eq!(First::<Assets>::total_issuance(()), 190);
-		assert_eq!(First::<Assets>::balance((), &account2), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 190);
+		assert_eq!(First::<Assets>::balance(&(), &account2), 100);
 
 		// settle to account `1`.
 		assert_ok!(First::<Assets>::settle(&account2, imb1, Preservation::Preserve));
-		assert_eq!(First::<Assets>::total_issuance(()), 190);
-		assert_eq!(First::<Assets>::balance((), &account2), 90);
+		assert_eq!(First::<Assets>::total_issuance(&()), 190);
+		assert_eq!(First::<Assets>::balance(&(), &account2), 90);
 
-		let imb = First::<Assets>::rescind((), 85);
-		assert_eq!(First::<Assets>::total_issuance(()), 105);
+		let imb = First::<Assets>::rescind(&(), 85);
+		assert_eq!(First::<Assets>::total_issuance(&()), 105);
 		assert_eq!(imb.peek(), 85);
 
 		// settle to account `1` and expect some dust.
 		let imb = First::<Assets>::settle(&account2, imb, Preservation::Expendable).unwrap();
 		assert_eq!(imb.peek(), 5);
-		assert_eq!(First::<Assets>::total_issuance(()), 105);
-		assert_eq!(First::<Assets>::balance((), &account2), 0);
+		assert_eq!(First::<Assets>::total_issuance(&()), 105);
+		assert_eq!(First::<Assets>::balance(&(), &account2), 0);
 
 		drop(imb);
-		assert_eq!(First::<Assets>::total_issuance(()), 100);
+		assert_eq!(First::<Assets>::total_issuance(&()), 100);
 
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 	});
 }
 
@@ -318,11 +318,11 @@ fn withdraw_from_set_types_works() {
 		let account2 = 2;
 
 		assert_ok!(<Assets as FungiblesCreate<u64>>::create(asset1, account1, true, 1));
-		assert_ok!(Assets::mint_into(asset1, &account1, 100));
-		assert_ok!(Assets::mint_into(asset1, &account2, 100));
+		assert_ok!(Assets::mint_into(&asset1, &account1, 100));
+		assert_ok!(Assets::mint_into(&asset1, &account2, 100));
 
-		assert_eq!(First::<Assets>::total_issuance(()), 200);
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), 200);
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 
 		let imb = First::<Assets>::withdraw(
 			(),
@@ -333,14 +333,14 @@ fn withdraw_from_set_types_works() {
 			Fortitude::Polite,
 		)
 		.unwrap();
-		assert_eq!(First::<Assets>::balance((), &account2), 50);
-		assert_eq!(First::<Assets>::total_issuance(()), 200);
+		assert_eq!(First::<Assets>::balance(&(), &account2), 50);
+		assert_eq!(First::<Assets>::total_issuance(&()), 200);
 
 		assert_eq!(imb.peek(), 50);
 		drop(imb);
-		assert_eq!(First::<Assets>::total_issuance(()), 150);
-		assert_eq!(First::<Assets>::balance((), &account2), 50);
+		assert_eq!(First::<Assets>::total_issuance(&()), 150);
+		assert_eq!(First::<Assets>::balance(&(), &account2), 50);
 
-		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+		assert_eq!(First::<Assets>::total_issuance(&()), Assets::total_issuance(&asset1));
 	});
 }
