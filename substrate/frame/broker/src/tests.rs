@@ -329,7 +329,7 @@ fn nft_metadata_works() {
 fn migration_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_set_lease(1000, 8));
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales(100, 1));
 
 		// Sale is for regions from TS4..7
 		// Not ending in this sale period.
@@ -385,7 +385,7 @@ fn instapool_payouts_work() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
-		assert_ok!(Broker::do_start_sales(100, 3));
+		assert_ok!(Broker::do_start_sales(100, 2));
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_pool(region, None, 2, Final));
@@ -411,7 +411,7 @@ fn instapool_partial_core_payouts_work() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
 		let (region1, region2) =
@@ -477,7 +477,7 @@ fn initialize_with_system_paras_works() {
 			ScheduleItem { assignment: Task(4u32), mask: 0x00000_00000_00000_fffff.into() },
 		];
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(items)));
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales(100, 0));
 		advance_to(10);
 		assert_eq!(
 			CoretimeTrace::get(),
@@ -510,7 +510,7 @@ fn initialize_with_leased_slots_works() {
 	TestExt::new().execute_with(|| {
 		assert_ok!(Broker::do_set_lease(1000, 6));
 		assert_ok!(Broker::do_set_lease(1001, 7));
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales(100, 0));
 		advance_to(18);
 		let end_hint = None;
 		assert_eq!(
@@ -925,7 +925,7 @@ fn leases_can_be_renewed() {
 		assert_ok!(Broker::do_set_lease(2001, 9));
 		assert_eq!(Leases::<Test>::get().len(), 1);
 		// Start the sales with only one core for this lease.
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales(100, 0));
 
 		// Advance to sale period 1, we should get an AllowedRenewal for task 2001 for the next
 		// sale.
@@ -1018,7 +1018,7 @@ fn short_leases_cannot_be_renewed() {
 		assert_ok!(Broker::do_set_lease(2001, 3));
 		assert_eq!(Leases::<Test>::get().len(), 1);
 		// Start the sales with one core for this lease.
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales(100, 0));
 
 		// The lease is removed.
 		assert_eq!(Leases::<Test>::get().len(), 0);
@@ -1290,7 +1290,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 		));
 
 		// This intializes the first sale and the period 0.
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales(100, 0));
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::Unavailable);
 		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::Unavailable);
 
