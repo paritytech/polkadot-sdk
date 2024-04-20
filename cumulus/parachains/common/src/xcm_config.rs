@@ -47,7 +47,7 @@ where
 	>,
 {
 	fn charge_weight_in_fungibles(
-		asset_id: <pallet_assets::Pallet<Runtime, AssetInstance> as Inspect<
+		asset_id: &<pallet_assets::Pallet<Runtime, AssetInstance> as Inspect<
 			AccountIdOf<Runtime>,
 		>>::AssetId,
 		weight: Weight,
