@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	EraIndex, OnStakingUpdate, Page, SessionIndex,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, StakerStatus,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -789,6 +789,8 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
+		/// A dangling nomination has been successfully dropped.
+		DanglingNominationDropped { nominator: T::AccountId, target: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -854,6 +856,12 @@ pub mod pallet {
 		ControllerDeprecated,
 		/// Cannot reset a ledger.
 		CannotRestoreLedger,
+		/// Target is not dangling.
+		///
+		/// A dandling target is a target that is part of the target list but is unbonded.
+		NotDanglingTarget,
+		/// Not a nominator.
+		NotNominator,
 	}
 
 	#[pallet::hooks]
@@ -2080,6 +2088,55 @@ pub mod pallet {
 				Error::<T>::BadState
 			);
 			Ok(())
+		}
+
+		/// Removes nomination from a chilled and unbonded target.
+		///
+		/// In the case that an unboded target still has nominations lingering, the approvals stake
+		/// for the "dangling" target needs to remain in the target list. This extrinsic allows
+		/// nominations of dangling targets to be removed.
+		///
+		/// A danling nomination may be removed IFF:
+		///  * The `target` is unbonded and it exists in the target list.
+		///  * The `voter` is nominating `target`.
+		///
+		/// Emits [`Event::DanglingNominationDropped`].
+		#[pallet::call_index(30)]
+		#[pallet::weight(T::WeightInfo::drop_dangling_nomination())]
+		pub fn drop_dangling_nomination(
+			origin: OriginFor<T>,
+			nominator: T::AccountId,
+			target: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+
+			ensure!(
+				Self::status(&target).is_err() && T::TargetList::contains(&target),
+				Error::<T>::NotDanglingTarget
+			);
+
+			match Self::status(&nominator) {
+				Ok(StakerStatus::Nominator(nominations)) => {
+					let count_before = nominations.len();
+
+					let nominations_after =
+						nominations.into_iter().filter(|n| *n != target).collect::<Vec<_>>();
+
+					if nominations_after.len() != count_before {
+						<Self as StakingInterface>::nominate(&nominator, nominations_after)?;
+
+						Self::deposit_event(Event::<T>::DanglingNominationDropped {
+							nominator,
+							target,
+						});
+
+						Ok(Pays::No.into())
+					} else {
+						Ok(Pays::Yes.into())
+					}
+				},
+				_ => Err(Error::<T>::NotNominator.into()),
+			}
 		}
 	}
 }

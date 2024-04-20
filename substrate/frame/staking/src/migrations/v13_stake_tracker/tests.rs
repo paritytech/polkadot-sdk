@@ -18,12 +18,12 @@ use crate::{
 	migrations::v13_stake_tracker::weights::{SubstrateWeight, WeightInfo as _},
 	mock::{
 		clear_target_list, run_to_block, AllPalletsWithSystem, ExtBuilder, MigratorServiceWeight,
-		Staking, System, Test as T, TargetBagsList,
+		Staking, System, TargetBagsList, Test as T,
 	},
 	Validators,
 };
-use frame_support::traits::OnRuntimeUpgrade;
 use frame_election_provider_support::SortedListProvider;
+use frame_support::traits::OnRuntimeUpgrade;
 use pallet_migrations::WeightInfo as _;
 
 #[test]
@@ -46,13 +46,13 @@ fn mb_migration_target_list_simple_works() {
 
 		// 1 step, should migrate 2 targets.
 		run_to_block(2);
-        assert_eq!(TargetBagsList::iter().count(), 2);
+		assert_eq!(TargetBagsList::iter().count(), 2);
 		// migration not completed yet, the one target missing.
 		assert!(Staking::do_try_state(System::block_number()).is_err());
 
-        // next step completes migration.
+		// next step completes migration.
 		run_to_block(3);
-        assert_eq!(TargetBagsList::iter().count() as u32, Validators::<T>::count());
+		assert_eq!(TargetBagsList::iter().count() as u32, Validators::<T>::count());
 
 		// migration done, try state checks pass.
 		assert!(Staking::do_try_state(System::block_number()).is_ok());

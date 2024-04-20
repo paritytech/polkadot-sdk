@@ -141,6 +141,17 @@ pub fn create_validator_with_nominators<T: Config>(
 	Ok((v_stash, nominators))
 }
 
+// returns the target and voter account IDs.
+fn add_dangling_target<T: Config>() -> (T::AccountId, T::AccountId) {
+	let target = account("target", 0, SEED);
+	let voter = account("voter", 0, SEED);
+
+	// TODO: add to mock.
+	//add_dangling_target_with_nominators(target, vec![voter]);
+
+	(target, voter)
+}
+
 struct ListScenario<T: Config> {
 	/// Stash that is expected to be moved.
 	origin_stash1: T::AccountId,
@@ -960,6 +971,18 @@ benchmarks! {
 	}: _(RawOrigin::Root, stash.clone(), None, None, None)
 	verify {
 		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
+	}
+
+	drop_dangling_nomination {
+		let caller  = account("caller", 0, SEED);
+		whitelist_account!(caller);
+
+		let (target, voter) = add_dangling_target::<T>();
+
+	}: _(RawOrigin::Signed(caller), voter, target)
+	verify {
+		// voter is not nominating validator anymore
+		// target is not in the target list
 	}
 
 	impl_benchmark_test_suite!(

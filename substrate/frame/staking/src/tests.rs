@@ -8696,4 +8696,83 @@ mod stake_tracker {
 			);
 		})
 	}
+
+	#[test]
+	fn drop_dangling_nomination_works() {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
+			// setup.
+			bond_validator(42, 10);
+
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(90), 500, RewardDestination::Staked));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(90), vec![11]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
+
+			// target is dangling with nominations from 101 and 90.
+			setup_dangling_target_for_nominators(42, vec![101, 90]);
+
+			// 101 is now nominating 42..
+			assert_ok!(Staking::status(&101), StakerStatus::Nominator(vec![11, 42]));
+			// .. which is unbonded..
+			assert!(Staking::status(&42).is_err());
+			// .. and still part of the target list (thus dangling).
+			assert!(TargetBagsList::contains(&42));
+
+			// remove 90 as dangling nomination.
+			assert_ok!(Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 90, 42));
+
+			assert_eq!(
+				*mock::staking_events().last().unwrap(),
+				Event::<Test>::DanglingNominationDropped { nominator: 90, target: 42 }.into(),
+			);
+
+			// now, 90 is not nominating 42 anymore.
+			assert_ok!(Staking::status(&90), StakerStatus::Nominator(vec![11]));
+			// but 42 is still dangling because 101 is still nominating it
+			assert!(TargetBagsList::contains(&42));
+			assert_ok!(Staking::status(&101), StakerStatus::Nominator(vec![11, 42]));
+
+			// when the last dangling nomination is removed, the danling target is removed.
+			assert_ok!(Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 101, 42));
+
+			assert_ok!(Staking::status(&101), StakerStatus::Nominator(vec![11]));
+			assert!(!TargetBagsList::contains(&42));
+
+			assert_eq!(
+				*mock::staking_events().last().unwrap(),
+				Event::<Test>::DanglingNominationDropped { nominator: 101, target: 42 }.into(),
+			);
+		})
+	}
+
+	#[test]
+	fn drop_dangling_nomination_failures_work() {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
+			// target is not dangling since it does not exist in the target list.
+			assert!(Staking::status(&42).is_err());
+			assert!(!TargetBagsList::contains(&42));
+
+			assert_noop!(
+				Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 10, 42),
+				Error::<Test>::NotDanglingTarget,
+			);
+
+			// target is not dangling since it is still bonded.
+			assert_eq!(Staking::status(&31), Ok(StakerStatus::Validator));
+			assert_noop!(
+				Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 42, 10),
+				Error::<Test>::NotDanglingTarget,
+			);
+
+			// target is dangling but voter is not nominating it.
+			bond_validator(42, 10);
+
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
+			setup_dangling_target_for_nominators(42, vec![101]);
+			assert!(Staking::status(&42).is_err());
+			assert_noop!(
+				Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 11, 42),
+				Error::<Test>::NotNominator,
+			);
+		})
+	}
 }

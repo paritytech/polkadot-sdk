@@ -20,6 +20,7 @@
 
 use crate::{
 	migrations::{v13_stake_tracker, v13_stake_tracker::*},
+	mock::Staking,
 	Config, Pallet,
 };
 use frame_benchmarking::v2::*;
@@ -36,7 +37,10 @@ mod benches {
 
 		#[block]
 		{
-			v13_stake_tracker::MigrationV13::<T, weights::SubstrateWeight<T>>::step(None, &mut meter).unwrap();
+			v13_stake_tracker::MigrationV13::<T, weights::SubstrateWeight<T>>::step(
+				None, &mut meter,
+			)
+			.unwrap();
 		}
 
 		// TODO: after benchmarks sanity checks.

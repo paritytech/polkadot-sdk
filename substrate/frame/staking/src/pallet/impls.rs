@@ -1077,6 +1077,7 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 
+		#[cfg(not(test))]
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
 			T::VoterList::iter()

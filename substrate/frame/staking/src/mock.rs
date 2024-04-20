@@ -37,7 +37,7 @@ use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	OnStakingUpdate, OnStakingUpdateEvent, Stake,
+	OnStakingUpdate, OnStakingUpdateEvent, Stake, StakingInterface,
 };
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
@@ -365,7 +365,6 @@ impl pallet_stake_tracker::Config for Test {
 	type Staking = Staking;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
-	type WeightInfo = ();
 }
 
 impl crate::pallet::pallet::Config for Test {
@@ -1014,6 +1013,46 @@ pub(crate) fn setup_double_bonded_ledgers() {
 	assert_eq!(Ledger::<Test>::get(777).unwrap().stash, 555);
 }
 
+pub(crate) fn setup_dangling_target_for_nominators(target: AccountId, nominators: Vec<AccountId>) {
+	// update nominations.
+	for n in nominators {
+		let mut nominations = Staking::nominations(&n).unwrap();
+		nominations.push(target);
+
+		let nominations: BoundedVec<_, MaxNominationsOf<Test>> =
+			BoundedVec::truncate_from(nominations);
+
+		// update nominations.
+		let prev_nominations = Nominators::<Test>::get(&n).unwrap();
+		Nominators::<Test>::insert(
+			n,
+			Nominations { targets: nominations.clone(), submitted_in: 0, suppressed: false },
+		);
+		<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_update(
+			&n,
+			prev_nominations.targets.to_vec(),
+			nominations.to_vec(),
+		);
+	}
+
+	// remove self-stake/unbond.
+	let stake = Staking::stake(&target).unwrap();
+	let mut stake_after_unbond = stake;
+	stake_after_unbond.active -= 10;
+	stake_after_unbond.total -= 10;
+
+	// now remove all the self-stake score from the validator.
+	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_stake_update(
+		&target,
+		Some(stake),
+		stake_after_unbond,
+	);
+
+	Bonded::<Test>::remove(target);
+	Validators::<Test>::remove(target);
+	Nominators::<Test>::remove(target);
+}
+
 #[macro_export]
 macro_rules! assert_session_era {
 	($session:expr, $era:expr) => {
@@ -1099,8 +1138,6 @@ pub(crate) fn clear_target_list() {
 
 #[allow(dead_code)]
 pub(crate) fn print_lists_debug() {
-	use sp_staking::StakingInterface;
-
 	println!("\nVoters:");
 	let _ = voters_and_targets()
 		.0

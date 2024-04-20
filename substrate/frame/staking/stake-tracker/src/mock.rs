@@ -100,7 +100,6 @@ impl pallet_stake_tracker::Config for Test {
 	type Staking = StakingMock;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
-	type WeightInfo = ();
 }
 
 pub struct StakingMock {}
@@ -293,43 +292,6 @@ pub(crate) fn add_nominator(who: AccountId, stake: Balance) {
 	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_add(&who, vec![]);
 }
 
-pub(crate) fn add_dangling_target_with_nominators(target: AccountId, nominators: Vec<AccountId>) {
-	// add new validator.
-	add_validator(target, 10);
-
-	// update nominations.
-	for n in nominators {
-		let mut nominations = StakingMock::nominations(&n).unwrap();
-		nominations.push(target);
-		update_nominations_of(n, nominations);
-	}
-
-	// remove self-stake/unbond.
-	let stake = <StakingMock as StakingInterface>::stake(&target).unwrap();
-	let mut stake_after_unbond = stake;
-	stake_after_unbond.active -= 10;
-	stake_after_unbond.total -= 10;
-
-	// now remove all the self-stake score from the validator.
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_stake_update(
-		&target,
-		Some(stake),
-		stake_after_unbond,
-	);
-
-	Bonded::mutate(|b| {
-		b.retain(|s| s != &target);
-	});
-
-	TestValidators::mutate(|v| {
-		v.remove(&target);
-	});
-
-	TestNominators::mutate(|n| {
-		n.remove(&target);
-	});
-}
-
 pub(crate) fn stake_of(who: AccountId) -> Option<Stake<Balance>> {
 	StakingMock::stake(&who).ok()
 }
@@ -493,6 +455,7 @@ impl ExtBuilder {
 		self
 	}
 
+	#[allow(dead_code)]
 	pub fn try_state(self, enable: bool) -> Self {
 		DisableTryRuntimeChecks::set(!enable);
 		self
@@ -527,11 +490,4 @@ impl ExtBuilder {
 			});
 		}
 	}
-}
-
-pub(crate) fn assert_last_event(generic_event: RuntimeEvent) {
-	let events = frame_system::Pallet::<Test>::events();
-	// compare to the last event record
-	let frame_system::EventRecord { event, .. } = &events.last().expect("Event expected");
-	assert_eq!(event, &generic_event);
 }
