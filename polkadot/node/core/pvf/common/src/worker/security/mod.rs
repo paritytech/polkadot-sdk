@@ -62,6 +62,10 @@ pub fn check_env_vars_were_cleared(worker_info: &WorkerInfo) -> bool {
 			continue
 		}
 
+		if key == "__LLVM_PROFILE_RT_INIT_ONCE" {
+			continue
+		}
+
 		gum::error!(
 			target: LOG_TARGET,
 			?worker_info,
