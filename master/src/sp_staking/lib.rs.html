@@ -574,6 +574,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -605,7 +639,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, RuntimeDebug, Saturating,
+	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 
 <span class="kw">pub mod </span>offence;
@@ -830,6 +864,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// schedules have reached their unlocking era should allow more calls to this function.
 	</span><span class="kw">fn </span>unbond(stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, value: <span class="self">Self</span>::Balance) -&gt; DispatchResult;
 
+	<span class="doccomment">/// Update the reward destination for the ledger associated with the stash.
+	</span><span class="kw">fn </span>update_payee(stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, reward_acc: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult;
+
 	<span class="doccomment">/// Unlock any funds schedule to unlock before or at the current era.
 	///
 	/// Returns whether the stash was killed because of this withdraw or not.
@@ -850,7 +887,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Checks whether an account `staker` has been exposed in an era.
 	</span><span class="kw">fn </span>is_exposed_in_era(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, era: <span class="kw-2">&amp;</span>EraIndex) -&gt; bool;
 
-	<span class="doccomment">/// Return the status of the given staker, `None` if not staked at all.
+	<span class="doccomment">/// Return the status of the given staker, `Err` if not staked at all.
 	</span><span class="kw">fn </span>status(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;StakerStatus&lt;<span class="self">Self</span>::AccountId&gt;, DispatchError&gt;;
 
 	<span class="doccomment">/// Checks whether or not this is a validator account.
@@ -866,6 +903,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
+	<span class="doccomment">/// Returns the fraction of the slash to be rewarded to reporter.
+	</span><span class="kw">fn </span>slash_reward_fraction() -&gt; Perbill;
+
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>max_exposure_page_size() -&gt; Page;
 
@@ -878,6 +918,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>set_current_era(era: EraIndex);
+}
+
+<span class="doccomment">/// Set of low level apis to manipulate staking ledger.
+///
+/// These apis bypass some or all safety checks and should only be used if you know what you are
+/// doing.
+</span><span class="kw">pub trait </span>StakingUnchecked: StakingInterface {
+	<span class="doccomment">/// Migrate an existing staker to a virtual staker.
+	///
+	/// It would release all funds held by the implementation pallet.
+	</span><span class="kw">fn </span>migrate_to_virtual_staker(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId);
+
+	<span class="doccomment">/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
+	///
+	/// It is important that `keyless_who` is a keyless account and therefore cannot interact with
+	/// staking pallet directly. Caller is responsible for ensuring the passed amount is locked and
+	/// valid.
+	</span><span class="kw">fn </span>virtual_bond(
+		keyless_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		value: <span class="self">Self</span>::Balance,
+		payee: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+	) -&gt; DispatchResult;
+
+	<span class="doccomment">/// Migrate a virtual staker to a direct staker.
+	///
+	/// Only used for testing.
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">fn </span>migrate_to_direct_staker(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId);
 }
 
 <span class="doccomment">/// The amount of exposure for an era that an individual nominator has (susceptible to slashing).

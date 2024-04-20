@@ -448,6 +448,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -483,13 +498,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>frame_support::{
 	defensive, ensure,
-	traits::{Defensive, LockableCurrency, WithdrawReasons},
+	traits::{Defensive, LockableCurrency},
 };
 <span class="kw">use </span>sp_staking::StakingAccount;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
+	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
+	VirtualStakers, STAKING_ID,
 };
 
 <span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
@@ -637,7 +653,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::NotStash)
 		}
 
-		T::Currency::set_lock(STAKING_ID, <span class="kw-2">&amp;</span><span class="self">self</span>.stash, <span class="self">self</span>.total, WithdrawReasons::all());
+		<span class="comment">// We skip locking virtual stakers.
+		</span><span class="kw">if </span>!Pallet::&lt;T&gt;::is_virtual_staker(<span class="kw-2">&amp;</span><span class="self">self</span>.stash) {
+			<span class="comment">// for direct stakers, update lock on stash based on ledger.
+			</span>T::Currency::set_lock(
+				STAKING_ID,
+				<span class="kw-2">&amp;</span><span class="self">self</span>.stash,
+				<span class="self">self</span>.total,
+				frame_support::traits::WithdrawReasons::all(),
+			);
+		}
+
 		Ledger::&lt;T&gt;::insert(
 			<span class="kw-2">&amp;</span><span class="self">self</span>.controller().ok_or_else(|| {
 				<span class="macro">defensive!</span>(<span class="string">"update called on a ledger that is not bonded."</span>);
@@ -654,22 +680,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// It sets the reward preferences for the bonded stash.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>bond(<span class="self">self</span>, payee: RewardDestination&lt;T::AccountId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;T&gt;&gt; {
 		<span class="kw">if </span>&lt;Bonded&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span><span class="self">self</span>.stash) {
-			<span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyBonded)
-		} <span class="kw">else </span>{
-			&lt;Payee&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.stash, payee);
-			&lt;Bonded&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.stash, <span class="kw-2">&amp;</span><span class="self">self</span>.stash);
-			<span class="self">self</span>.update()
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyBonded)
 		}
+
+		&lt;Payee&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.stash, payee);
+		&lt;Bonded&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.stash, <span class="kw-2">&amp;</span><span class="self">self</span>.stash);
+		<span class="self">self</span>.update()
 	}
 
 	<span class="doccomment">/// Sets the ledger Payee.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_payee(<span class="self">self</span>, payee: RewardDestination&lt;T::AccountId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;T&gt;&gt; {
 		<span class="kw">if </span>!&lt;Bonded&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span><span class="self">self</span>.stash) {
-			<span class="prelude-val">Err</span>(Error::&lt;T&gt;::NotStash)
-		} <span class="kw">else </span>{
-			&lt;Payee&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.stash, payee);
-			<span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::NotStash)
 		}
+
+		&lt;Payee&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.stash, payee);
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Sets the ledger controller to its stash.
@@ -702,11 +728,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>controller = &lt;Bonded&lt;T&gt;&gt;::get(stash).ok_or(Error::&lt;T&gt;::NotStash)<span class="question-mark">?</span>;
 
 		&lt;Ledger&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(Error::&lt;T&gt;::NotController).map(|ledger| {
-			T::Currency::remove_lock(STAKING_ID, <span class="kw-2">&amp;</span>ledger.stash);
 			Ledger::&lt;T&gt;::remove(controller);
-
 			&lt;Bonded&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>stash);
 			&lt;Payee&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>stash);
+
+			<span class="comment">// kill virtual staker if it exists.
+			</span><span class="kw">if </span>&lt;VirtualStakers&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>stash).is_none() {
+				<span class="comment">// if not virtual staker, clear locks.
+				</span>T::Currency::remove_lock(STAKING_ID, <span class="kw-2">&amp;</span>ledger.stash);
+			}
 
 			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?

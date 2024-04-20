@@ -2234,15 +2234,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2083" id="2083">2083</a>
 <a href="#2084" id="2084">2084</a>
 <a href="#2085" id="2085">2085</a>
-<a href="#2086" id="2086">2086</a>
-<a href="#2087" id="2087">2087</a>
-<a href="#2088" id="2088">2088</a>
-<a href="#2089" id="2089">2089</a>
-<a href="#2090" id="2090">2090</a>
-<a href="#2091" id="2091">2091</a>
-<a href="#2092" id="2092">2092</a>
-<a href="#2093" id="2093">2093</a>
-<a href="#2094" id="2094">2094</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2277,7 +2268,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::{ensure_root, ensure_signed, pallet_prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>sp_runtime::{
-	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
+	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 
@@ -2623,6 +2614,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::getter(<span class="kw">fn </span>nominators)]
 	</span><span class="kw">pub type </span>Nominators&lt;T: Config&gt; =
 		CountedStorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, Nominations&lt;T&gt;&gt;;
+
+	<span class="doccomment">/// Stakers whose funds are managed by other pallets.
+	///
+	/// This pallet does not apply any locks on them, therefore they are only virtually bonded. They
+	/// are expected to be keyless accounts and hence should not be allowed to mutate their ledger
+	/// directly via this pallet. Instead, these accounts are managed by other pallets and accessed
+	/// via low level apis. We keep track of them to do minimal integrity checks.
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub type </span>VirtualStakers&lt;T: Config&gt; = CountedStorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, ()&gt;;
 
 	<span class="doccomment">/// The maximum nominator count before we stop allowing new validators to join.
 	///
@@ -3103,6 +3103,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>ControllerDeprecated,
 		<span class="doccomment">/// Cannot reset a ledger.
 		</span>CannotRestoreLedger,
+		<span class="doccomment">/// Provided reward destination is not allowed.
+		</span>RewardDestinationRestricted,
+		<span class="doccomment">/// Not enough funds available to withdraw.
+		</span>NotEnoughFunds,
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -3230,29 +3234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[pallet::compact] </span>max_additional: BalanceOf&lt;T&gt;,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>stash = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span><span class="kw-2">mut </span>ledger = <span class="self">Self</span>::ledger(StakingAccount::Stash(stash.clone()))<span class="question-mark">?</span>;
-
-			<span class="kw">let </span>stash_balance = T::Currency::free_balance(<span class="kw-2">&amp;</span>stash);
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(extra) = stash_balance.checked_sub(<span class="kw-2">&amp;</span>ledger.total) {
-				<span class="kw">let </span>extra = extra.min(max_additional);
-				ledger.total += extra;
-				ledger.active += extra;
-				<span class="comment">// Last check: the new active amount of ledger must be more than ED.
-				</span><span class="macro">ensure!</span>(
-					ledger.active &gt;= T::Currency::minimum_balance(),
-					Error::&lt;T&gt;::InsufficientBond
-				);
-
-				<span class="comment">// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-				</span>ledger.update()<span class="question-mark">?</span>;
-				<span class="comment">// update this staker in the sorted list, if they exist in it.
-				</span><span class="kw">if </span>T::VoterList::contains(<span class="kw-2">&amp;</span>stash) {
-					<span class="kw">let _ </span>= T::VoterList::on_update(<span class="kw-2">&amp;</span>stash, <span class="self">Self</span>::weight_of(<span class="kw-2">&amp;</span>stash)).defensive();
-				}
-
-				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Bonded { stash, amount: extra });
-			}
-			<span class="prelude-val">Ok</span>(())
+			<span class="self">Self</span>::do_bond_extra(<span class="kw-2">&amp;</span>stash, max_additional)
 		}
 
 		<span class="doccomment">/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond

@@ -715,6 +715,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -848,6 +856,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
+	<span class="kw">fn </span>update_payee(_stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, _reward_acc: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult {
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
+	}
+
 	<span class="kw">fn </span>chill(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; sp_runtime::DispatchResult {
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -938,6 +950,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>max_exposure_page_size() -&gt; sp_staking::Page {
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
+	}
+
+	<span class="kw">fn </span>slash_reward_fraction() -&gt; Perbill {
 		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
 	}
 }
