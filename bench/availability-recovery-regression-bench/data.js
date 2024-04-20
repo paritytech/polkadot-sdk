@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713575997537,
+  "lastUpdate": 1713605511543,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4577,6 +4577,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.2277690894666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gui",
+            "username": "thiolliere",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f3c3ebb6a99295816ac4ee0a26364d736094c147",
+          "message": "Fix case in type in macro generation (#4223)\n\nGenerated type is not camel case this generate some warnings from IDE\n\nlabel should be R0",
+          "timestamp": "2024-04-20T08:20:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3c3ebb6a99295816ac4ee0a26364d736094c147"
+        },
+        "date": 1713605487336,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2294512655333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.983299136400001,
             "unit": "seconds"
           }
         ]
