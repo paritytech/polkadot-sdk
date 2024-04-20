@@ -164,9 +164,9 @@ impl<
 		// Require at least a payment of minimum_balance
 		// Necessary for fully collateral-backed assets
 		let asset_balance: u128 =
-			FeeCharger::charge_weight_in_fungibles(local_asset_id.clone(), weight)
+			FeeCharger::charge_weight_in_fungibles(&local_asset_id, weight)
 				.map(|amount| {
-					let minimum_balance = ConcreteAssets::minimum_balance(local_asset_id);
+					let minimum_balance = ConcreteAssets::minimum_balance(&local_asset_id);
 					if amount < minimum_balance {
 						minimum_balance
 					} else {
@@ -202,12 +202,12 @@ impl<
 			let (local_asset_id, outstanding_balance) =
 				Matcher::matches_fungibles(&(id.clone(), fun).into()).ok()?;
 
-			let minimum_balance = ConcreteAssets::minimum_balance(local_asset_id.clone());
+			let minimum_balance = ConcreteAssets::minimum_balance(&local_asset_id);
 
 			// Calculate asset_balance
 			// This read should have already be cached in buy_weight
 			let (asset_balance, outstanding_minus_subtracted) =
-				FeeCharger::charge_weight_in_fungibles(local_asset_id, weight).ok().map(
+				FeeCharger::charge_weight_in_fungibles(&local_asset_id, weight).ok().map(
 					|asset_balance| {
 						// Require at least a drop of minimum_balance
 						// Necessary for fully collateral-backed assets
@@ -297,7 +297,7 @@ impl<
 /// in such assetId for that amount of weight
 pub trait ChargeWeightInFungibles<AccountId, Assets: fungibles::Inspect<AccountId>> {
 	fn charge_weight_in_fungibles(
-		asset_id: <Assets as fungibles::Inspect<AccountId>>::AssetId,
+		asset_id: &<Assets as fungibles::Inspect<AccountId>>::AssetId,
 		weight: Weight,
 	) -> Result<<Assets as fungibles::Inspect<AccountId>>::Balance, XcmError>;
 }
@@ -404,7 +404,7 @@ impl<
 			return Err(XcmError::FeesNotMet)
 		}
 
-		let credit_in = Fungibles::issue(fungibles_asset, balance);
+		let credit_in = Fungibles::issue(&fungibles_asset, balance);
 		let fee = WeightToFee::weight_to_fee(&weight);
 
 		// swap the user's asset for the `Target` asset.
@@ -683,24 +683,24 @@ mod test_trader {
 			type AssetId = TestAssetId;
 			type Balance = TestBalance;
 
-			fn total_issuance(_: Self::AssetId) -> Self::Balance {
+			fn total_issuance(_: &Self::AssetId) -> Self::Balance {
 				todo!()
 			}
 
-			fn minimum_balance(_: Self::AssetId) -> Self::Balance {
+			fn minimum_balance(_: &Self::AssetId) -> Self::Balance {
 				0
 			}
 
-			fn balance(_: Self::AssetId, _: &TestAccountId) -> Self::Balance {
+			fn balance(_: &Self::AssetId, _: &TestAccountId) -> Self::Balance {
 				todo!()
 			}
 
-			fn total_balance(_: Self::AssetId, _: &TestAccountId) -> Self::Balance {
+			fn total_balance(_: &Self::AssetId, _: &TestAccountId) -> Self::Balance {
 				todo!()
 			}
 
 			fn reducible_balance(
-				_: Self::AssetId,
+				_: &Self::AssetId,
 				_: &TestAccountId,
 				_: Preservation,
 				_: Fortitude,
@@ -709,7 +709,7 @@ mod test_trader {
 			}
 
 			fn can_deposit(
-				_: Self::AssetId,
+				_: &Self::AssetId,
 				_: &TestAccountId,
 				_: Self::Balance,
 				_: Provenance,
@@ -718,14 +718,14 @@ mod test_trader {
 			}
 
 			fn can_withdraw(
-				_: Self::AssetId,
+				_: &Self::AssetId,
 				_: &TestAccountId,
 				_: Self::Balance,
 			) -> WithdrawConsequence<Self::Balance> {
 				todo!()
 			}
 
-			fn asset_exists(_: Self::AssetId) -> bool {
+			fn asset_exists(_: &Self::AssetId) -> bool {
 				todo!()
 			}
 		}
@@ -739,14 +739,14 @@ mod test_trader {
 				todo!()
 			}
 			fn write_balance(
-				_: Self::AssetId,
+				_: &Self::AssetId,
 				_: &TestAccountId,
 				_: Self::Balance,
 			) -> Result<Option<Self::Balance>, DispatchError> {
 				todo!()
 			}
 
-			fn set_total_issuance(_: Self::AssetId, _: Self::Balance) {
+			fn set_total_issuance(_: &Self::AssetId, _: Self::Balance) {
 				todo!()
 			}
 		}
@@ -754,7 +754,7 @@ mod test_trader {
 		struct FeeChargerAssetsHandleRefund;
 		impl ChargeWeightInFungibles<TestAccountId, TestAssets> for FeeChargerAssetsHandleRefund {
 			fn charge_weight_in_fungibles(
-				_: <TestAssets as fungibles::Inspect<TestAccountId>>::AssetId,
+				_: &<TestAssets as fungibles::Inspect<TestAccountId>>::AssetId,
 				_: Weight,
 			) -> Result<<TestAssets as fungibles::Inspect<TestAccountId>>::Balance, XcmError> {
 				Ok(AMOUNT)
