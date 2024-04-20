@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713575699940,
+  "lastUpdate": 1713605212607,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5719,6 +5719,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01112947089333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gui",
+            "username": "thiolliere",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f3c3ebb6a99295816ac4ee0a26364d736094c147",
+          "message": "Fix case in type in macro generation (#4223)\n\nGenerated type is not camel case this generate some warnings from IDE\n\nlabel should be R0",
+          "timestamp": "2024-04-20T08:20:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3c3ebb6a99295816ac4ee0a26364d736094c147"
+        },
+        "date": 1713605188655,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.913333333334,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1669615220866667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022889248073333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01147075324666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013845966280000005,
             "unit": "seconds"
           }
         ]
