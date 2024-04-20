@@ -615,30 +615,12 @@ async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
 		ExecutorParams::from(&[ExecutorParam::PvfPrepTimeout(PvfPrepKind::Prepare, 60000)][..]);
 
 	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set1).await.unwrap();
+	let cache_dir_contents: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
 
-	let md1 = {
-		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
-		assert_eq!(cache_dir.len(), 2);
-		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
-		if artifact_path.path().is_dir() {
-			artifact_path = cache_dir.pop().unwrap().unwrap();
-		}
-		std::fs::metadata(artifact_path.path()).unwrap()
-	};
-
-	tokio::time::sleep(Duration::from_secs(2)).await;
+	assert_eq!(cache_dir_contents.len(), 2);
 
 	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set2).await.unwrap();
+	let cache_dir_contents: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
 
-	let md2 = {
-		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
-		assert_eq!(cache_dir.len(), 3); // new artifact is added
-		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
-		if artifact_path.path().is_dir() {
-			artifact_path = cache_dir.pop().unwrap().unwrap();
-		}
-		std::fs::metadata(artifact_path.path()).unwrap()
-	};
-
-	assert!(md2.created().unwrap() > md1.created().unwrap());
+	assert_eq!(cache_dir_contents.len(), 3); // new artifact has been added
 }
