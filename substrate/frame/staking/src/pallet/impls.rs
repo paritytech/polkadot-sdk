@@ -1173,26 +1173,6 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn is_virtual_staker(who: &T::AccountId) -> bool {
 		VirtualStakers::<T>::contains_key(who)
 	}
-
-	/// Update the lock for a staker.
-	///
-	/// For virtual stakers, it is no-op.
-	pub(crate) fn update_lock(
-		who: &T::AccountId,
-		amount: BalanceOf<T>,
-	) -> sp_runtime::DispatchResult {
-		// Skip locking virtual stakers. They are handled by external pallets.
-		if !Self::is_virtual_staker(who) {
-			T::Currency::set_lock(
-				crate::STAKING_ID,
-				who,
-				amount,
-				frame_support::traits::WithdrawReasons::all(),
-			);
-		}
-
-		Ok(())
-	}
 }
 
 impl<T: Config> Pallet<T> {
