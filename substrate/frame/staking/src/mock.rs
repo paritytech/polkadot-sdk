@@ -249,17 +249,21 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
+	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
 }
 
 pub struct EventListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
-		_pool_account: &AccountId,
+		pool_account: &AccountId,
 		slashed_bonded: Balance,
 		slashed_chunks: &BTreeMap<EraIndex, Balance>,
-		_total_slashed: Balance,
+		total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
+		SlashObserver::mutate(|map| {
+			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
+		});
 	}
 }
 
@@ -595,6 +599,21 @@ pub(crate) fn bond_validator(who: AccountId, val: Balance) {
 
 pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId>) {
 	bond(who, val);
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
+}
+
+pub(crate) fn bond_virtual_nominator(
+	who: AccountId,
+	payee: AccountId,
+	val: Balance,
+	target: Vec<AccountId>,
+) {
+	// In a real scenario, `who` is a keyless account managed by another pallet which provides for
+	// it.
+	System::inc_providers(&who);
+
+	// Bond who virtually.
+	assert_ok!(<Staking as sp_staking::StakingUnchecked>::virtual_bond(&who, val, &payee));
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
