@@ -2030,7 +2030,6 @@ pub mod pallet {
 		]
 		pub fn full_unbond(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
-
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
 			Self::chill_stash(&ledger.stash);
