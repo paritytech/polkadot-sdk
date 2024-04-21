@@ -20,6 +20,55 @@ use super::*;
 use frame_support::traits::OnRuntimeUpgrade;
 use log;
 
+/// Migrate to v2. Should have been part of https://github.com/paritytech/polkadot-sdk/pull/1340
+pub mod v2 {
+	use super::*;
+	use frame_support::{
+		pallet_prelude::*,
+		storage_alias,
+		traits::{Currency, ReservableCurrency},
+	};
+	use sp_runtime::traits::Saturating;
+
+	#[storage_alias]
+	pub type Candidates<T: Config> = StorageValue<
+		Pallet<T>,
+		BoundedVec<CandidateInfo<<T as frame_system::Config>::AccountId, <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance>, <T as Config>::MaxCandidates>,
+		ValueQuery,
+	>;
+
+	/// Migrate to V2.
+	pub struct MigrateToV2<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			if on_chain_version == 1 {
+				let mut count: u32 = 0;
+				let candidates = Candidates::<T>::take();
+				for candidate in candidates {
+					let _err = T::Currency::unreserve(&candidate.who, candidate.deposit);
+					count.saturating_inc();
+				}
+
+				StorageVersion::new(2).put::<Pallet<T>>();
+				log::info!(
+					target: LOG_TARGET,
+					"Unreserved locked bond of {} candidates, upgraded storage to version 2",
+					count,
+				);
+				// weight: todo
+				T::DbWeight::get().reads_writes(2, 1)
+			} else {
+				log::info!(
+					target: LOG_TARGET,
+					"Migration did not execute. This probably should be removed"
+				);
+				T::DbWeight::get().reads(1)
+			}
+		}
+	}
+}
+
 /// Version 1 Migration
 /// This migration ensures that any existing `Invulnerables` storage lists are sorted.
 pub mod v1 {
