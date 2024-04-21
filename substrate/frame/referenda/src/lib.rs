@@ -111,7 +111,7 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-pub use frame_support::traits::Get;
+pub use frame_support::traits::{Get, OnPollStatusChange};
 pub use sp_std::vec::Vec;
 
 #[macro_export]
@@ -199,6 +199,13 @@ pub mod pallet {
 			+ Debug
 			+ TypeInfo
 			+ MaxEncodedLen;
+		// A Hook thaet announces when a poll changes status
+		type OnPollStatusChange: OnPollStatusChange<
+			Self::Tally,
+			BlockNumberFor<Self>,
+			TrackIdOf<Self, I>,
+			ReferendumIndex,
+		>;
 
 		// Constants
 		/// The minimum amount to be used as a deposit for a public referendum proposal.
@@ -499,6 +506,12 @@ pub mod pallet {
 				alarm: Self::set_alarm(nudge_call, now.saturating_add(T::UndecidingTimeout::get())),
 			};
 			ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
+			let (status, track) = Self::as_ongoing(index)
+				.expect("has been added to ReferendumInfoFor as ongoing; qed");
+			T::OnPollStatusChange::on_poll_status_change(
+				index,
+				&PollStatus::Ongoing(status, track),
+			);
 
 			Self::deposit_event(Event::<T, I>::Submitted { index, track, proposal });
 			Ok(())
@@ -827,8 +840,10 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		Self::note_one_fewer_deciding(status.track);
 		let now = frame_system::Pallet::<T>::block_number();
 		let info = if approved {
+			T::OnPollStatusChange::on_poll_status_change(index, &PollStatus::Completed(now, yes));
 			ReferendumInfo::Approved(now, Some(status.submission_deposit), status.decision_deposit)
 		} else {
+			T::OnPollStatusChange::on_poll_status_change(index, &PollStatus::Completed(now, false));
 			ReferendumInfo::Rejected(now, Some(status.submission_deposit), status.decision_deposit)
 		};
 		ReferendumInfoFor::<T, I>::insert(index, info);
@@ -1180,6 +1195,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								index,
 								tally: status.tally,
 							});
+							T::OnPollStatusChange::on_poll_status_change(
+								index,
+								&PollStatus::Completed(now, true),
+							);
 							return (
 								ReferendumInfo::Approved(
 									now,
@@ -1205,6 +1224,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						Self::ensure_no_alarm(&mut status);
 						Self::note_one_fewer_deciding(status.track);
 						Self::deposit_event(Event::<T, I>::Rejected { index, tally: status.tally });
+						T::OnPollStatusChange::on_poll_status_change(
+							index,
+							&PollStatus::Completed(now, false),
+						);
 						return (
 							ReferendumInfo::Rejected(
 								now,

@@ -203,6 +203,7 @@ impl Config for Test {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;
+	type OnPollStatusChange = ();
 }
 pub struct ExtBuilder {}
 
