@@ -32,11 +32,12 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
+use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex, StakingInterface};
 use sp_std::prelude::*;
 
 pub use frame_benchmarking::v1::{
 	account, benchmarks, impl_benchmark_test_suite, whitelist_account, whitelisted_caller,
+	BenchmarkError,
 };
 use frame_system::RawOrigin;
 
@@ -139,17 +140,6 @@ pub fn create_validator_with_nominators<T: Config>(
 	<ErasValidatorReward<T>>::insert(current_era, total_payout);
 
 	Ok((v_stash, nominators))
-}
-
-// returns the target and voter account IDs.
-fn add_dangling_target<T: Config>() -> (T::AccountId, T::AccountId) {
-	let target = account("target", 0, SEED);
-	let voter = account("voter", 0, SEED);
-
-	// TODO: add to mock.
-	//add_dangling_target_with_nominators(target, vec![voter]);
-
-	(target, voter)
 }
 
 struct ListScenario<T: Config> {
@@ -977,12 +967,34 @@ benchmarks! {
 		let caller  = account("caller", 0, SEED);
 		whitelist_account!(caller);
 
-		let (target, voter) = add_dangling_target::<T>();
+		let mut targets = create_validators_with_nominators_for_era::<T>(2, 1, 2, false, None)?;
+		let dangling_target = T::Lookup::lookup(targets.pop().expect("target_exists."))
+			.map_err(|_| "error looking up validator account")?;
+		let other_target = T::Lookup::lookup(targets.pop().expect("target_exists."))
+			.map_err(|_| "error looking up validator account")?;
+		let voter = nominators_of::<T>(dangling_target.clone())?.pop().expect("voter exists");
 
-	}: _(RawOrigin::Signed(caller), voter, target)
+		assert_eq!(Staking::<T>::status(&dangling_target), Ok(StakerStatus::Validator));
+		Pallet::<T>::setup_dangling_target(dangling_target.clone(), voter.clone());
+
+		// now dangling_target is not validating anymore.
+		assert!(Staking::<T>::status(&dangling_target).is_err());
+		// but the voter is still nominating it.
+		assert!(nominators_of::<T>(dangling_target.clone())?.contains(&voter));
+		// and the target is still part of the TargetList (thus dangling).
+		assert!(T::TargetList::contains(&dangling_target));
+
+		assert_eq!(
+			Staking::<T>::status(&voter),
+			Ok(StakerStatus::Nominator(vec![dangling_target.clone(), other_target.clone()]))
+		);
+
+	}: _(RawOrigin::Signed(caller), voter.clone(), dangling_target.clone())
 	verify {
 		// voter is not nominating validator anymore
-		// target is not in the target list
+		assert_eq!(Staking::<T>::status(&voter), Ok(StakerStatus::Nominator(vec![other_target])));
+		// target is not in the target list anymore.
+		assert!(!T::TargetList::contains(&dangling_target));
 	}
 
 	impl_benchmark_test_suite!(

@@ -880,6 +880,44 @@ impl<T: Config> Pallet<T> {
 		SlashRewardFraction::<T>::put(fraction);
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn setup_dangling_target(target: T::AccountId, nominator: T::AccountId) {
+		let nominations = Self::nominations(&nominator).unwrap();
+		let nominations: BoundedVec<_, MaxNominationsOf<T>> =
+			BoundedVec::truncate_from(nominations);
+
+		let prev_nominations = Nominators::<T>::get(&nominator).unwrap();
+
+		Nominators::<T>::insert(
+			nominator.clone(),
+			Nominations { targets: nominations.clone(), submitted_in: 0, suppressed: false },
+		);
+
+		T::EventListeners::on_nominator_update(
+			&nominator,
+			prev_nominations.targets.into_iter().map(|t| t.into()).collect::<Vec<_>>(),
+			nominations.into_iter().map(|n| n.into()).collect::<Vec<_>>(),
+		);
+
+		let nominator_stake = Self::stake(&nominator).unwrap();
+
+		let prev_stake = Self::stake(&target).unwrap();
+		let stake_after_unbond = Stake {
+			total: prev_stake.total - nominator_stake.total,
+			active: prev_stake.active - nominator_stake.active,
+		};
+
+		T::EventListeners::on_stake_update(
+			&target.clone().into(),
+			Some(prev_stake),
+			stake_after_unbond,
+		);
+
+		Bonded::<T>::remove(target.clone());
+		Validators::<T>::remove(target.clone());
+		Nominators::<T>::remove(target);
+	}
+
 	/// Get all of the voters that are eligible for the npos election.
 	///
 	/// `maybe_max_len` can imposes a cap on the number of voters returned;
