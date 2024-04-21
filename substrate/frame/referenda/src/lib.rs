@@ -840,7 +840,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		Self::note_one_fewer_deciding(status.track);
 		let now = frame_system::Pallet::<T>::block_number();
 		let info = if approved {
-			T::OnPollStatusChange::on_poll_status_change(index, &PollStatus::Completed(now, yes));
+			T::OnPollStatusChange::on_poll_status_change(index, &PollStatus::Completed(now, true));
 			ReferendumInfo::Approved(now, Some(status.submission_deposit), status.decision_deposit)
 		} else {
 			T::OnPollStatusChange::on_poll_status_change(index, &PollStatus::Completed(now, false));
