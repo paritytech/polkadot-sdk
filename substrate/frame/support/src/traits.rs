@@ -107,7 +107,7 @@ pub use dispatch::{
 };
 
 mod voting;
-pub use voting::{ClassCountOf, PollStatus, Polling, VoteTally};
+pub use voting::{ClassCountOf, OnPollStatusChange, PollStatus, Polling, VoteTally};
 
 mod preimages;
 pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePreimage};

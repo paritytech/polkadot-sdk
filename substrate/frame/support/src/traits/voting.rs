@@ -20,6 +20,7 @@
 
 use crate::dispatch::Parameter;
 use codec::{HasCompact, MaxEncodedLen};
+use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::Perbill;
 use sp_runtime::{traits::Member, DispatchError};
 use sp_std::prelude::*;
@@ -124,5 +125,18 @@ pub trait Polling<Tally> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_ongoing() -> (Self::Class, u32) {
 		(Self::classes().into_iter().next().expect("Always one class"), u32::max_value())
+	}
+}
+
+pub trait OnPollStatusChange<Tally, Moment, Class, Index: Copy> {
+	fn on_poll_status_change(index: Index, poll_status: &PollStatus<Tally, Moment, Class>);
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl<Tally, Moment, Class, Index: Copy> OnPollStatusChange<Tally, Moment, Class, Index> for Tuple {
+	fn on_poll_status_change(index: Index, poll_status: &PollStatus<Tally, Moment, Class>) {
+		for_tuples!( #( Tuple::on_poll_status_change(index, poll_status); )* );
 	}
 }
