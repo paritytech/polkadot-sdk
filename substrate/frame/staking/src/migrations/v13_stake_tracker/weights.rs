@@ -14,7 +14,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 
-// TODO: all manual for now for testing. use benchmarking instead.
+use crate::weights::{SubstrateWeight as StakingWeight, WeightInfo as _};
+
 use core::marker::PhantomData;
 use frame_support::weights::Weight;
 
@@ -25,12 +26,12 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn step() -> Weight {
-		1000000000.into()
+		StakingWeight::<T>::v13_mmb_step()
 	}
 }
 
 impl WeightInfo for () {
 	fn step() -> Weight {
-		1000000000.into()
+		Weight::default()
 	}
 }

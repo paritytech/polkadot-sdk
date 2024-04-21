@@ -84,6 +84,7 @@ pub trait WeightInfo {
 	fn set_min_commission() -> Weight;
 	fn restore_ledger() -> Weight;
 	fn drop_dangling_nomination() -> Weight;
+	fn v13_mmb_step() -> Weight;
 }
 
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
@@ -840,6 +841,31 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// TODO(gpestana): run benchmarks.
 		Weight::default()
 	}
+
+    /// Storage: `Staking::Validators` (r:1001 w:0)
+    /// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
+    /// Storage: `Staking::Bonded` (r:4000 w:0)
+    /// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+    /// Storage: `Staking::Ledger` (r:4000 w:0)
+    /// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
+    /// Storage: `Staking::Nominators` (r:3001 w:0)
+    /// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
+    /// Storage: `TargetList::ListNodes` (r:1000 w:1000)
+    /// Proof: `TargetList::ListNodes` (`max_values`: None, `max_size`: Some(170), added: 2645, mode: `MaxEncodedLen`)
+    /// Storage: `TargetList::ListBags` (r:16 w:16)
+    /// Proof: `TargetList::ListBags` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+    /// Storage: `TargetList::CounterForListNodes` (r:1 w:1)
+    /// Proof: `TargetList::CounterForListNodes` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+    fn v13_mmb_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2484224`
+		//  Estimated: `14264990`
+		// Minimum execution time: 15_238_334_000_000 picoseconds.
+        Weight::from_parts(15_238_334_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 14264990))
+            .saturating_add(T::DbWeight::get().reads(13019))
+            .saturating_add(T::DbWeight::get().writes(1017))
+        }
 }
 
 // For backwards compatibility and tests.
@@ -1593,6 +1619,10 @@ impl WeightInfo for () {
 
 	fn drop_dangling_nomination() -> Weight {
 		// TODO(gpestana): run benchmarks.
+		Weight::default()
+	}
+
+	fn v13_mmb_step() -> Weight {
 		Weight::default()
 	}
 }

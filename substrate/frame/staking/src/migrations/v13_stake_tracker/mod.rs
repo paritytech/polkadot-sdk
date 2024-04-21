@@ -19,22 +19,17 @@
 //! Implements the multi-block migrations to support the `pallet-stake-tracker` and a strictly
 //! sorted list of targets with a bags-list.
 
+use super::PALLET_MIGRATIONS_ID;
+use crate::{log, BalanceOf, Config, Nominators, Pallet, Validators};
 use core::marker::PhantomData;
-
+use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration},
 	traits::Defensive,
 };
-
-use super::PALLET_MIGRATIONS_ID;
-use crate::{log, BalanceOf, Config, Nominators, Pallet, Validators};
-use frame_election_provider_support::SortedListProvider;
 use sp_runtime::Saturating;
 use sp_staking::StakingInterface;
 
-// TODO
-//#[cfg(feature = "runtime-benchmarks")]
-//mod benchmarks;
 #[cfg(test)]
 mod tests;
 pub mod weights;

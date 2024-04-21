@@ -90,7 +90,6 @@ runtime-benchmarks = [
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
-	"pallet-stake-tracker/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",

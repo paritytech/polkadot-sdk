@@ -710,7 +710,6 @@ impl pallet_stake_tracker::Config for Runtime {
 	type Staking = Staking;
 	type VoterList = VoterList;
 	type TargetList = TargetList;
-	type WeightInfo = (); // TODO
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -2666,7 +2665,6 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_society, Society]
 		[pallet_staking, Staking]
-		[pallet_stake_tracker, StakeTracker]
 		[pallet_state_trie_migration, StateTrieMigration]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]

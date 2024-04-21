@@ -14,6 +14,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 
+#![cfg(all(test, not(feature = "runtime-benchmarks")))]
+
 use crate::{
 	migrations::v13_stake_tracker::weights::{SubstrateWeight, WeightInfo as _},
 	mock::{
@@ -31,6 +33,7 @@ fn mb_migration_target_list_simple_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// simulates an empty target list which is the case before the migrations.
 		clear_target_list();
+		assert_eq!(TargetBagsList::iter().count(), 0);
 		// try state fails since the target list count != number of validators.
 		assert!(Staking::do_try_state(System::block_number()).is_err());
 
@@ -41,7 +44,6 @@ fn mb_migration_target_list_simple_works() {
 		MigratorServiceWeight::set(&limit);
 
 		// start stepped migrations.
-		System::set_block_number(1);
 		AllPalletsWithSystem::on_runtime_upgrade(); // onboard MBMs
 
 		// 1 step, should migrate 2 targets.

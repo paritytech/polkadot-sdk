@@ -18,15 +18,17 @@
 //! Staking pallet benchmarking.
 
 use super::*;
-use crate::{ConfigOp, Pallet as Staking};
+use crate::{migrations::v13_stake_tracker as v13, ConfigOp, Pallet as Staking};
 use testing_utils::*;
 
 use codec::Decode;
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
+	migrations::SteppedMigration,
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
+	weights::WeightMeter,
 };
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
@@ -998,6 +1000,23 @@ benchmarks! {
 		assert_eq!(Staking::<T>::status(&voter), Ok(StakerStatus::Nominator(vec![other_target])));
 		// target is not in the target list anymore.
 		assert!(!T::TargetList::contains(&dangling_target));
+	}
+
+	// Multiblock-step benchmark.
+	v13_mmb_step {
+		let mut meter = WeightMeter::new();
+
+		let _ =
+			create_validators_with_nominators_for_era::<T>(1000, 3000, 16, false, None).unwrap();
+		// clear target bags list.
+		T::TargetList::unsafe_clear();
+		assert_eq!(T::TargetList::iter().count(), 0);
+
+	}: {
+		v13::MigrationV13::<T, v13::weights::SubstrateWeight<T>>::step(None, &mut meter).unwrap();
+	}
+	verify {
+		assert_eq!(T::TargetList::iter().count(), 1000);
 	}
 
 	impl_benchmark_test_suite!(
