@@ -168,21 +168,26 @@ impl<T: Config> ListScenario<T> {
 	fn new(origin_weight: BalanceOf<T>, is_increase: bool) -> Result<Self, &'static str> {
 		ensure!(!origin_weight.is_zero(), "origin weight must be greater than 0");
 
+		// validator to nominate.
+		let validator = create_validators_with_seed::<T>(1, 100, 42)?
+			.pop()
+			.expect("validator should exist");
+
 		// burn the entire issuance.
 		let i = T::Currency::burn(T::Currency::total_issuance());
 		sp_std::mem::forget(i);
 
 		// create accounts with the origin weight
-
 		let (origin_stash1, origin_controller1) = create_stash_controller_with_balance::<T>(
 			USER_SEED + 2,
 			origin_weight,
 			RewardDestination::Staked,
 		)?;
+
 		Staking::<T>::nominate(
 			RawOrigin::Signed(origin_controller1.clone()).into(),
-			// NOTE: these don't really need to be validators.
-			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
+			// NOTE: these *do* really need to be validators.
+			vec![validator.clone()],
 		)?;
 
 		let (_origin_stash2, origin_controller2) = create_stash_controller_with_balance::<T>(
@@ -190,9 +195,10 @@ impl<T: Config> ListScenario<T> {
 			origin_weight,
 			RewardDestination::Staked,
 		)?;
+
 		Staking::<T>::nominate(
 			RawOrigin::Signed(origin_controller2).into(),
-			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
+			vec![validator.clone()],
 		)?;
 
 		// find a destination weight that will trigger the worst case scenario
@@ -210,10 +216,7 @@ impl<T: Config> ListScenario<T> {
 			dest_weight,
 			RewardDestination::Staked,
 		)?;
-		Staking::<T>::nominate(
-			RawOrigin::Signed(dest_controller1).into(),
-			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
-		)?;
+		Staking::<T>::nominate(RawOrigin::Signed(dest_controller1).into(), vec![validator])?;
 
 		Ok(ListScenario { origin_stash1, origin_controller1, dest_weight })
 	}
