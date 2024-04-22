@@ -48,6 +48,20 @@ pub struct LoadedModule {
 	pub engine: Engine,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum LoadingMode {
+	Checked,
+	Unchecked,
+}
+
+#[cfg(test)]
+pub mod tracker {
+	use sp_std::cell::RefCell;
+	thread_local! {
+		pub static LOADED_MODULE: RefCell<Vec<super::LoadingMode>> = RefCell::new(Vec::new());
+	}
+}
+
 impl LoadedModule {
 	/// Creates a new instance of `LoadedModule`.
 	///
@@ -57,6 +71,7 @@ impl LoadedModule {
 		code: &[u8],
 		determinism: Determinism,
 		stack_limits: Option<StackLimits>,
+		_mode: LoadingMode,
 	) -> Result<Self, &'static str> {
 		// NOTE: wasmi does not support unstable WebAssembly features. The module is implicitly
 		// checked for not having those ones when creating `wasmi::Module` below.
@@ -79,10 +94,15 @@ impl LoadedModule {
 		}
 
 		let engine = Engine::new(&config);
+
+		// TODO use Module::new_unchecked when validate_module is true once we are on wasmi@0.32
 		let module = Module::new(&engine, code).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Module creation failed: {:?}", err);
 			"Can't load the module into wasmi!"
 		})?;
+
+		#[cfg(test)]
+		tracker::LOADED_MODULE.with(|t| t.borrow_mut().push(_mode));
 
 		// Return a `LoadedModule` instance with
 		// __valid__ module.
@@ -229,24 +249,38 @@ where
 	E: Environment<()>,
 	T: Config,
 {
-	(|| {
+	let module = (|| {
+		// We don't actually ever execute this instance so we can get away with a minimal stack
+		// which reduces the amount of memory that needs to be zeroed.
+		let stack_limits = Some(StackLimits::new(1, 1, 0).expect("initial <= max; qed"));
+
 		// We check that the module is generally valid,
 		// and does not have restricted WebAssembly features, here.
 		let contract_module = match *determinism {
 			Determinism::Relaxed =>
-				if let Ok(module) = LoadedModule::new::<T>(code, Determinism::Enforced, None) {
+				if let Ok(module) = LoadedModule::new::<T>(
+					code,
+					Determinism::Enforced,
+					stack_limits,
+					LoadingMode::Checked,
+				) {
 					*determinism = Determinism::Enforced;
 					module
 				} else {
-					LoadedModule::new::<T>(code, Determinism::Relaxed, None)?
+					LoadedModule::new::<T>(code, Determinism::Relaxed, None, LoadingMode::Checked)?
 				},
-			Determinism::Enforced => LoadedModule::new::<T>(code, Determinism::Enforced, None)?,
+			Determinism::Enforced => LoadedModule::new::<T>(
+				code,
+				Determinism::Enforced,
+				stack_limits,
+				LoadingMode::Checked,
+			)?,
 		};
 
 		// The we check that module satisfies constraints the pallet puts on contracts.
 		contract_module.scan_exports()?;
 		contract_module.scan_imports::<T>(schedule)?;
-		Ok(())
+		Ok(contract_module)
 	})()
 	.map_err(|msg: &str| {
 		log::debug!(target: LOG_TARGET, "New code rejected on validation: {}", msg);
@@ -257,22 +291,11 @@ where
 	//
 	// - It doesn't use any unknown imports.
 	// - It doesn't explode the wasmi bytecode generation.
-	//
-	// We don't actually ever execute this instance so we can get away with a minimal stack which
-	// reduces the amount of memory that needs to be zeroed.
-	let stack_limits = StackLimits::new(1, 1, 0).expect("initial <= max; qed");
-	WasmBlob::<T>::instantiate::<E, _>(
-		&code,
-		(),
-		schedule,
-		*determinism,
-		stack_limits,
-		AllowDeprecatedInterface::No,
-	)
-	.map_err(|err| {
-		log::debug!(target: LOG_TARGET, "{}", err);
-		(Error::<T>::CodeRejected.into(), "New code rejected on wasmi instantiation!")
-	})?;
+	WasmBlob::<T>::instantiate::<E, _>(module, (), schedule, AllowDeprecatedInterface::No)
+		.map_err(|err| {
+			log::debug!(target: LOG_TARGET, "{err}");
+			(Error::<T>::CodeRejected.into(), "New code rejected on wasmi instantiation!")
+		})?;
 
 	Ok(())
 }
@@ -325,7 +348,8 @@ pub mod benchmarking {
 		owner: AccountIdOf<T>,
 	) -> Result<WasmBlob<T>, DispatchError> {
 		let determinism = Determinism::Enforced;
-		let contract_module = LoadedModule::new::<T>(&code, determinism, None)?;
+		let contract_module =
+			LoadedModule::new::<T>(&code, determinism, None, LoadingMode::Checked)?;
 		let _ = contract_module.scan_imports::<T>(schedule)?;
 		let code: CodeVec<T> = code.try_into().map_err(|_| <Error<T>>::CodeTooLarge)?;
 		let code_info = CodeInfo {
