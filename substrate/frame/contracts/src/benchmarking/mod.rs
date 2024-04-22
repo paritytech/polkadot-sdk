@@ -34,6 +34,7 @@ use crate::{
 	migration::{
 		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, v16, MigrationStep,
 	},
+	wasm::BenchEnv,
 	Pallet as Contracts, *,
 };
 use codec::{Encode, MaxEncodedLen};
@@ -636,7 +637,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = crate::wasm::BenchEnv::seal0_caller(&mut runtime, &mut memory, 4, 0);
+			result = BenchEnv::seal0_caller(&mut runtime, &mut memory, 4, 0);
 		}
 
 		assert_ok!(result);
@@ -656,7 +657,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = crate::wasm::BenchEnv::seal0_is_contract(&mut runtime, &mut memory, 0);
+			result = BenchEnv::seal0_is_contract(&mut runtime, &mut memory, 0);
 		}
 
 		assert_eq!(result.unwrap(), 1);
@@ -707,12 +708,19 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_own_code_hash(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal0", "seal_own_code_hash", r));
+	fn seal_own_code_hash() {
+		build_runtime!(runtime, contract, memory: (32u32, [0u8; 32]));
+		let result;
 		#[block]
 		{
-			func.call();
+			result = BenchEnv::seal0_own_code_hash(&mut runtime, &mut memory, 4, 0);
 		}
+
+		assert_ok!(result);
+		assert_eq!(
+			<CodeHash<T> as Decode>::decode(&mut &memory[4..]).unwrap(),
+			contract.info().unwrap().code_hash
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -758,48 +766,69 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_address(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal0", "seal_address", r));
+	fn seal_address() {
+		build_runtime!(runtime, contract, memory: (32u32, [0u8; 32]));
+		let result;
 		#[block]
 		{
-			func.call();
+			result = BenchEnv::seal0_address(&mut runtime, &mut memory, 4, 0);
 		}
+		assert_ok!(result);
+		assert_eq!(
+			<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
+			contract.account_id
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_gas_left(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal1", "gas_left", r));
+	fn seal_gas_left() {
+		build_runtime!(runtime, memory: (32u32, [0u8; 32]));
+		let result;
 		#[block]
 		{
-			func.call();
+			result = BenchEnv::seal1_gas_left(&mut runtime, &mut memory, 4, 0);
 		}
+		assert_ok!(result);
+		assert_ok!(<Weight as Decode>::decode(&mut &memory[4..]));
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_balance(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal0", "seal_balance", r));
+	fn seal_balance() {
+		let out_ptr = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: (out_ptr, T::Balance::default()));
+		let result;
 		#[block]
 		{
-			func.call();
+			result = BenchEnv::seal0_seal_balance(&mut runtime, &mut memory, 4, 0);
 		}
+		assert_ok!(result);
+		assert_ok!(<T::Balance as Decode>::decode(&mut &memory[4..]));
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_value_transferred(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal0", "seal_value_transferred", r));
+	fn seal_value_transferred() {
+		let out_ptr = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: (out_ptr, T::Balance::default()));
+		let result;
 		#[block]
 		{
-			func.call();
+			result = BenchEnv::seal0_value_transferred(&mut runtime, &mut memory, 4, 0);
 		}
+		assert_ok!(result);
+		assert_ok!(<T::Balance as Decode>::decode(&mut &memory[4..]));
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_minimum_balance(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal0", "seal_minimum_balance", r));
+		let out_ptr = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: (out_ptr, T::Balance::default()));
+		let result;
 		#[block]
 		{
-			func.call();
+			result = BenchEnv::seal0_minimum_balance(&mut runtime, &mut memory, 4, 0);
 		}
+		assert_ok!(result);
+		assert_ok!(<T::Balance as Decode>::decode(&mut &memory[4..]));
 	}
 
 	#[benchmark(pov_mode = Measured)]
