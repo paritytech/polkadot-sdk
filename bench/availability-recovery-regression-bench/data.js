@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713790170625,
+  "lastUpdate": 1713795522546,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4703,6 +4703,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.15469902343333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a2a049db2bd669a88f6ab410b22b780ebcc8baee",
+          "message": "[subsystem-benchmark] Add approval-voting benchmark to CI (#4216)\n\nCo-authored-by: alvicsam <alvicsam@gmail.com>",
+          "timestamp": "2024-04-22T12:45:54Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2a049db2bd669a88f6ab410b22b780ebcc8baee"
+        },
+        "date": 1713795496484,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.579602472299998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.15036025349999999,
             "unit": "seconds"
           }
         ]
