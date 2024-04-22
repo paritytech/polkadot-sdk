@@ -295,26 +295,6 @@ test-linux-stable-codecov:
         --no-fail-fast \
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     - du -sh target/coverage
-  artifacts:
-    paths:
-      - target/coverage/*
-      - target/release/polkadot*
-      - target/release/substrate*
-      - target/release/libstaging_node*
-
-#
-#
-#
-test-linux-stable-report:
-  stage: test
-  image: paritytech/ci-unified:bullseye-1.77.0
-  needs:
-    - job: test-linux-stable-codecov
-      artifacts: true
-  script:
-    - rustup component add llvm-tools-preview
-    - ls -l target
-    - ls -l target/coverage
     - >
       grcov \
         target/coverage/ \
@@ -323,10 +303,9 @@ test-linux-stable-report:
         -t lcov,cobertura \
         --branch \
         -o target/coverage/result/
-    - ls -l target/coverage/result/
-  artifacts:
-    paths:
-      -  target/coverage/result/lcov
+    - ls -l target/coverage/result/    
+  #
+
 
 
 test-linux-stable:
