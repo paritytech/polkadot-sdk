@@ -819,6 +819,7 @@ fn resubmit_tx_of_fork_that_is_not_part_of_retracted() {
 
 #[test]
 fn resubmit_from_retracted_fork() {
+	let any_hash = Hash::default();
 	let api = TestApi::empty();
 	// starting block A1 (last finalized.)
 	api.push_block(1, vec![], true);
@@ -908,7 +909,7 @@ fn resubmit_from_retracted_fork() {
 		header
 	};
 
-	let ready = pool.ready().map(|t| t.data.encode()).collect::<BTreeSet<_>>();
+	let ready = pool.ready(any_hash).unwrap().map(|t| t.data.encode()).collect::<BTreeSet<_>>();
 	let expected_ready = vec![tx3, tx4, tx5].iter().map(Encode::encode).collect::<BTreeSet<_>>();
 	assert_eq!(expected_ready, ready);
 
@@ -916,7 +917,7 @@ fn resubmit_from_retracted_fork() {
 	block_on(pool.maintain(event));
 
 	assert_eq!(pool.status().ready, 3);
-	let ready = pool.ready().map(|t| t.data.encode()).collect::<BTreeSet<_>>();
+	let ready = pool.ready(any_hash).unwrap().map(|t| t.data.encode()).collect::<BTreeSet<_>>();
 	let expected_ready = vec![tx0, tx1, tx2].iter().map(Encode::encode).collect::<BTreeSet<_>>();
 	assert_eq!(expected_ready, ready);
 }
@@ -927,14 +928,16 @@ fn ready_set_should_not_resolve_before_block_update() {
 	let xt1 = uxt(Alice, 209);
 	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, xt1.clone()))
 		.expect("1. Imported");
+	let hash_of_1 = api.push_block_with_parent(api.genesis_hash(), vec![], true).hash();
 
-	assert!(pool.ready_at(1).now_or_never().is_none());
+	assert!(pool.ready_at(hash_of_1).now_or_never().is_none());
 }
 
 #[test]
 fn ready_set_should_resolve_after_block_update() {
 	let (pool, api, _guard) = maintained_pool();
 	let header = api.push_block(1, vec![], true);
+	let hash_of_1 = header.hash();
 
 	let xt1 = uxt(Alice, 209);
 
@@ -942,13 +945,14 @@ fn ready_set_should_resolve_after_block_update() {
 		.expect("1. Imported");
 	block_on(pool.maintain(block_event(header)));
 
-	assert!(pool.ready_at(1).now_or_never().is_some());
+	assert!(pool.ready_at(hash_of_1).now_or_never().is_some());
 }
 
 #[test]
 fn ready_set_should_eventually_resolve_when_block_update_arrives() {
 	let (pool, api, _guard) = maintained_pool();
 	let header = api.push_block(1, vec![], true);
+	let hash_of_1 = header.hash();
 
 	let xt1 = uxt(Alice, 209);
 
@@ -958,7 +962,7 @@ fn ready_set_should_eventually_resolve_when_block_update_arrives() {
 	let noop_waker = futures::task::noop_waker();
 	let mut context = futures::task::Context::from_waker(&noop_waker);
 
-	let mut ready_set_future = pool.ready_at(1);
+	let mut ready_set_future = pool.ready_at(hash_of_1);
 	if ready_set_future.poll_unpin(&mut context).is_ready() {
 		panic!("Ready set should not be ready before block update!");
 	}
