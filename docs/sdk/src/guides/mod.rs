@@ -24,5 +24,5 @@ pub mod cumulus_enabled_parachain;
 /// and the relay chain to which it is connected.
 pub mod xcm_enabled_parachain;
 
-/// How to enable storage weigt reclaiming in a parachain node and runtime.
+/// How to enable storage weight reclaiming in a parachain node and runtime.
 pub mod enable_pov_reclaim;
