@@ -33,7 +33,7 @@ use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::{
 	Chain, HashOf, HeaderId, HeaderIdOf, Parachain, RelayerVersion, StorageProofError,
 };
-use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
+use frame_support::{dispatch::PostDispatchInfo, traits::Get, DefaultNoBound};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -498,6 +498,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Get compatible relayer version.
+		pub fn compatible_relayer_version() -> RelayerVersion {
+			<T as Config<I>>::CompatibleWithRelayer::get()
+		}
+
 		/// Get stored parachain info.
 		pub fn best_parachain_info(parachain: ParaId) -> Option<ParaInfo> {
 			ParasInfo::<T, I>::get(parachain)

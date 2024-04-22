@@ -45,7 +45,7 @@ use bp_header_chain::{
 use bp_runtime::{
 	BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule, RelayerVersion,
 };
-use frame_support::{dispatch::PostDispatchInfo, ensure, DefaultNoBound};
+use frame_support::{dispatch::PostDispatchInfo, ensure, traits::Get, DefaultNoBound};
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
 	SaturatedConversion,
@@ -654,6 +654,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I>
 where
 	<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T, I>>,
 {
+	/// Get compatible relayer version.
+	pub fn compatible_relayer_version() -> RelayerVersion {
+		T::CompatibleWithRelayer::get()
+	}
+
 	/// Get the GRANDPA justifications accepted in the current block.
 	pub fn synced_headers_grandpa_info() -> Vec<StoredHeaderGrandpaInfo<BridgedHeader<T, I>>> {
 		frame_system::Pallet::<T>::read_events_no_consensus()

@@ -652,6 +652,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Get compatible relayer version.
+		pub fn compatible_relayer_version() -> RelayerVersion {
+			T::CompatibleWithRelayer::get()
+		}
+
 		/// Get stored data of the outbound message with given nonce.
 		pub fn outbound_message_data(lane: LaneId, nonce: MessageNonce) -> Option<MessagePayload> {
 			OutboundMessages::<T, I>::get(MessageKey { lane_id: lane, nonce }).map(Into::into)

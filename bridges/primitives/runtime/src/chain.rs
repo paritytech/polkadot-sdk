@@ -305,6 +305,9 @@ macro_rules! decl_bridge_finality_runtime_apis {
 				/// Name of the `<ThisChain>FinalityApi::best_finalized` runtime method.
 				pub const [<BEST_FINALIZED_ $chain:upper _HEADER_METHOD>]: &str =
 					stringify!([<$chain:camel FinalityApi_best_finalized>]);
+				/// Name of the `<ThisChain>FinalityApi::compatible_relayer_version` runtime method.
+				pub const [<$chain:upper _COMPATIBLE_RELAYER_VERSION>]: &str =
+					stringify!([<$chain:camel FinalityApi_compatible_relayer_version>]);
 
 				$(
 					/// Name of the `<ThisChain>FinalityApi::accepted_<consensus>_finality_proofs`
@@ -321,6 +324,9 @@ macro_rules! decl_bridge_finality_runtime_apis {
 					pub trait [<$chain:camel FinalityApi>] {
 						/// Returns number and hash of the best finalized header known to the bridge module.
 						fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
+						/// Return version of relayer that is compatible with finality pallet configuration
+						/// and may safely submit transaction to this chain.
+						fn compatible_relayer_version() -> bp_runtime::RelayerVersion;
 
 						$(
 							/// Returns the justifications accepted in the current block.
@@ -358,9 +364,17 @@ macro_rules! decl_bridge_messages_runtime_apis {
 				pub const [<TO_ $chain:upper _MESSAGE_DETAILS_METHOD>]: &str =
 					stringify!([<To $chain:camel OutboundLaneApi_message_details>]);
 
+				/// Name of the `To<ThisChain>OutboundLaneApi::compatible_relayer_version` runtime method.
+				pub const [<TO_ $chain:upper _COMPATIBLE_RELAYER_VERSION>]: &str =
+					stringify!([<To $chain:camel OutboundLaneApi_compatible_relayer_version>]);
+
 				/// Name of the `From<ThisChain>InboundLaneApi::message_details` runtime method.
 				pub const [<FROM_ $chain:upper _MESSAGE_DETAILS_METHOD>]: &str =
 					stringify!([<From $chain:camel InboundLaneApi_message_details>]);
+
+				/// Name of the `From<ThisChain>InboundLaneApi::compatible_relayer_version` runtime method.
+				pub const [<FROM_ $chain:upper _COMPATIBLE_RELAYER_VERSION>]: &str =
+					stringify!([<From $chain:camel InboundLaneApi_compatible_relayer_version>]);
 
 				sp_api::decl_runtime_apis! {
 					/// Outbound message lane API for messages that are sent to this chain.
@@ -378,6 +392,10 @@ macro_rules! decl_bridge_messages_runtime_apis {
 							begin: bp_messages::MessageNonce,
 							end: bp_messages::MessageNonce,
 						) -> sp_std::vec::Vec<bp_messages::OutboundMessageDetails>;
+
+						/// Return version of relayer that is compatible with messages pallet configuration
+						/// and may safely submit transaction to this chain.
+						fn compatible_relayer_version() -> bp_runtime::RelayerVersion;
 					}
 
 					/// Inbound message lane API for messages sent by this chain.
@@ -393,6 +411,10 @@ macro_rules! decl_bridge_messages_runtime_apis {
 							lane: bp_messages::LaneId,
 							messages: sp_std::vec::Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
 						) -> sp_std::vec::Vec<bp_messages::InboundMessageDetails>;
+
+						/// Return version of relayer that is compatible with messages pallet configuration
+						/// and may safely submit transaction to this chain.
+						fn compatible_relayer_version() -> bp_runtime::RelayerVersion;
 					}
 				}
 			}

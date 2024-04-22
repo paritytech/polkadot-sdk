@@ -692,6 +692,9 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_rococo::Hash, bp_rococo::BlockNumber>> {
 			BridgeRococoGrandpa::best_finalized()
 		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeRococoGrandpa::compatible_relayer_version()
+		}
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_rococo::Header>> {
 			BridgeRococoGrandpa::synced_headers_grandpa_info()
@@ -703,6 +706,9 @@ impl_runtime_apis! {
 			BridgeRococoParachains::best_parachain_head_id::<
 				bp_bridge_hub_rococo::BridgeHubRococo
 			>().unwrap_or(None)
+		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeRococoParachains::compatible_relayer_version()
 		}
 	}
 
@@ -716,6 +722,9 @@ impl_runtime_apis! {
 				bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 			>(lane, messages)
 		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeRococoMessages::compatible_relayer_version()
+		}
 	}
 
 	impl bp_bridge_hub_rococo::ToBridgeHubRococoOutboundLaneApi<Block> for Runtime {
@@ -728,6 +737,9 @@ impl_runtime_apis! {
 				Runtime,
 				bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 			>(lane, begin, end)
+		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeRococoMessages::compatible_relayer_version()
 		}
 	}
 
