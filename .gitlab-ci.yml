@@ -295,7 +295,7 @@ test-linux-stable-codecov:
         --release \
         --no-fail-fast \
         --features try-runtime,experimental,riscv,ci-only-tests \
-        -partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
+        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     - du -sh target/coverage
   artifacts:
     paths:
