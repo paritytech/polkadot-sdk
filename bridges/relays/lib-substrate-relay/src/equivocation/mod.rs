@@ -27,7 +27,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use bp_runtime::{AccountIdOf, BlockNumberOf, HashOf};
+use bp_runtime::{AccountIdOf, BlockNumberOf, HashOf, HeaderIdProvider};
 use equivocation_detector::EquivocationDetectionPipeline;
 use finality_relay::FinalityPipeline;
 use pallet_grandpa::{Call as GrandpaCall, Config as GrandpaConfig};
@@ -73,9 +73,10 @@ pub trait SubstrateEquivocationDetectionPipeline:
 		enable_version_guard: bool,
 	) -> relay_substrate_client::Result<()> {
 		if enable_version_guard {
+			let best_block_id = source_client.best_header().await?.id();
 			relay_substrate_client::guard::abort_on_spec_version_change(
 				source_client.clone(),
-				source_client.simple_runtime_version().await?.spec_version,
+				source_client.simple_runtime_version(best_block_id).await?.spec_version,
 			);
 		}
 		Ok(())

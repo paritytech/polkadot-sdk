@@ -25,6 +25,7 @@ use crate::{
 
 use async_trait::async_trait;
 use bp_header_chain::justification::{GrandpaJustification, JustificationVerificationContext};
+use bp_runtime::HeaderIdProvider;
 use finality_relay::{FinalityPipeline, FinalitySyncPipeline};
 use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
@@ -79,9 +80,10 @@ pub trait SubstrateFinalitySyncPipeline: BaseSubstrateFinalitySyncPipeline {
 		enable_version_guard: bool,
 	) -> relay_substrate_client::Result<()> {
 		if enable_version_guard {
+			let best_block_id = target_client.best_header().await?.id();
 			relay_substrate_client::guard::abort_on_spec_version_change(
 				target_client.clone(),
-				target_client.simple_runtime_version().await?.spec_version,
+				target_client.simple_runtime_version(best_block_id).await?.spec_version,
 			);
 		}
 		Ok(())

@@ -26,7 +26,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use bp_runtime::{HashOf, TransactionEra};
+use bp_runtime::{HashOf, HeaderIdProvider, TransactionEra};
 use equivocation_detector::SourceClient;
 use finality_relay::SourceClientBase;
 use relay_substrate_client::{
@@ -91,6 +91,7 @@ impl<P: SubstrateEquivocationDetectionPipeline>
 			P::FinalityEngine::generate_source_key_ownership_proof(&self.client, at, &equivocation)
 				.await?;
 
+		let best_block_id = self.client.best_header().await?.id();
 		let mortality = self.transaction_params.mortality;
 		let call = P::ReportEquivocationCallBuilder::build_report_equivocation_call(
 			equivocation,
@@ -98,8 +99,9 @@ impl<P: SubstrateEquivocationDetectionPipeline>
 		);
 		self.client
 			.submit_and_watch_signed_extrinsic(
+				best_block_id,
 				&self.transaction_params.signer,
-				move |best_block_id, transaction_nonce| {
+				move |transaction_nonce| {
 					Ok(UnsignedTransaction::new(call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, mortality)))
 				},

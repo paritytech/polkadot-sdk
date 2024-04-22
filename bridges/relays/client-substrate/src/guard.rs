@@ -20,6 +20,7 @@
 use crate::{error::Error, Chain, Client};
 
 use async_trait::async_trait;
+use bp_runtime::HeaderIdProvider;
 use sp_version::RuntimeVersion;
 use std::{
 	fmt::Display,
@@ -102,7 +103,8 @@ impl<C: Chain> Environment<C> for Client<C> {
 	type Error = Error;
 
 	async fn runtime_version(&mut self) -> Result<RuntimeVersion, Self::Error> {
-		Client::<C>::runtime_version(self).await
+		let best_block_id = self.best_header().await?.id();
+		Client::<C>::runtime_version(self, best_block_id).await
 	}
 }
 

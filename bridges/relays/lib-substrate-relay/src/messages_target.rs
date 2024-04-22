@@ -34,6 +34,7 @@ use bp_messages::{
 	storage_keys::inbound_lane_data_key, ChainWithMessages as _, InboundLaneData, LaneId,
 	MessageNonce, UnrewardedRelayersState,
 };
+use bp_runtime::HeaderIdProvider;
 use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
@@ -249,12 +250,14 @@ where
 			None => messages_proof_call,
 		};
 
+		let best_block_id = self.target_client.best_header().await?.id();
 		let transaction_params = self.transaction_params.clone();
 		let tx_tracker = self
 			.target_client
 			.submit_and_watch_signed_extrinsic(
+				best_block_id,
 				&self.transaction_params.signer,
-				move |best_block_id, transaction_nonce| {
+				move |transaction_nonce| {
 					Ok(UnsignedTransaction::new(final_call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))
 				},

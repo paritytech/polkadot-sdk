@@ -356,11 +356,13 @@ where
 			None => messages_proof_call,
 		};
 
+		let best_block_id = self.source_client.best_header().await?.id();
 		let transaction_params = self.transaction_params.clone();
 		self.source_client
 			.submit_and_watch_signed_extrinsic(
+				best_block_id,
 				&self.transaction_params.signer,
-				move |best_block_id, transaction_nonce| {
+				move |transaction_nonce| {
 					Ok(UnsignedTransaction::new(final_call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))
 				},

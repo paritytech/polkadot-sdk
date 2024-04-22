@@ -129,6 +129,7 @@ where
 		updated_head_hash: ParaHash,
 		proof: ParaHeadsProof,
 	) -> Result<Self::TransactionTracker, Self::Error> {
+		let best_block_id = self.client.best_header().await?.id();
 		let transaction_params = self.transaction_params.clone();
 		let call = P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
 			at_relay_block,
@@ -137,8 +138,9 @@ where
 		);
 		self.client
 			.submit_and_watch_signed_extrinsic(
+				best_block_id,
 				&transaction_params.signer,
-				move |best_block_id, transaction_nonce| {
+				move |transaction_nonce| {
 					Ok(UnsignedTransaction::new(call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))
 				},
