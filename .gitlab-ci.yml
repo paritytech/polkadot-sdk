@@ -289,7 +289,7 @@ test-linux-stable-codecov:
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage
     - >
-      time cargo nextest run -p frame-support-test \
+      time cargo nextest run -p polkadot \
         --workspace \
         --locked \
         --release \
