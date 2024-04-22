@@ -251,7 +251,12 @@ where
 			.ok_or_else(|| Error::VersionInvalid("Core".to_string()))?;
 
 		let extrinsic_inclusion_mode = if core_version >= 5 {
-			api.initialize_block(parent_hash, &header)?
+			// TODO: Hack for Subspace fork caused by https://github.com/subspace/polkadot-sdk/commit/447bbc765020674614e9ac982163f7e11e5b03ea
+			if let Ok(extrinsic_inclusion_mode) = api.initialize_block(parent_hash, &header) {
+				extrinsic_inclusion_mode
+			} else {
+				ExtrinsicInclusionMode::AllExtrinsics
+			}
 		} else {
 			#[allow(deprecated)]
 			api.initialize_block_before_version_5(parent_hash, &header)?;
