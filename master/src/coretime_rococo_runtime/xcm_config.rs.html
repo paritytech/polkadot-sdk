@@ -427,49 +427,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -520,7 +477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
-<span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+<span class="kw">use </span>xcm_executor::XcmExecutor;
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>RocRelayLocation: Location = Location::parent();
@@ -611,49 +568,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
-/// account for proof size weights.
-///
-/// Calls that are allowed through this filter must:
-/// 1. Have a fixed weight;
-/// 2. Cannot lead to another call being made;
-/// 3. Have a defined proof size weight, e.g. no unbounded vecs in call parameters.
-</span><span class="kw">pub struct </span>SafeCallFilter;
-<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>SafeCallFilter {
-	<span class="kw">fn </span>contains(call: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
-		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-		</span>{
-			<span class="kw">if </span><span class="macro">matches!</span>(call, RuntimeCall::System(frame_system::Call::remark_with_event { .. })) {
-				<span class="kw">return </span><span class="bool-val">true
-			</span>}
-		}
-
-		<span class="macro">matches!</span>(
-			call,
-			RuntimeCall::PolkadotXcm(
-				pallet_xcm::Call::force_xcm_version { .. } |
-					pallet_xcm::Call::force_default_xcm_version { .. }
-			) | RuntimeCall::System(
-				frame_system::Call::set_heap_pages { .. } |
-						frame_system::Call::set_code { .. } |
-						frame_system::Call::set_code_without_checks { .. } |
-						frame_system::Call::authorize_upgrade { .. } |
-						frame_system::Call::authorize_upgrade_without_checks { .. } |
-						frame_system::Call::kill_prefix { .. } |
-						<span class="comment">// Should not be in Polkadot/Kusama. Here in order to speed up testing.
-						</span>frame_system::Call::set_storage { .. },
-			) | RuntimeCall::ParachainSystem(..) |
-				RuntimeCall::Timestamp(..) |
-				RuntimeCall::Balances(..) |
-				RuntimeCall::Sudo(..) |
-				RuntimeCall::CollatorSelection(..) |
-				RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-				RuntimeCall::XcmpQueue(..) |
-				RuntimeCall::Broker(..)
-		)
-	}
-}
-
 <span class="kw">pub type </span>Barrier = TrailingSetTopicAsId&lt;
 	DenyThenTry&lt;
 		DenyReserveTransferToRelayChain,
@@ -730,8 +644,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = Nothing;
-	<span class="kw">type </span>CallDispatcher = WithOriginFilter&lt;SafeCallFilter&gt;;
-	<span class="kw">type </span>SafeCallFilter = SafeCallFilter;
+	<span class="kw">type </span>CallDispatcher = RuntimeCall;
+	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
 	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
 	<span class="kw">type </span>HrmpNewChannelOpenRequestHandler = ();
