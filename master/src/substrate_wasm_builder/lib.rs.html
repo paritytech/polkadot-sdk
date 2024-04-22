@@ -595,12 +595,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#444" id="444">444</a>
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -636,15 +630,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! use substrate_wasm_builder::WasmBuilder;
 //!
 //! fn main() {
-//!     WasmBuilder::new()
-//!         // Tell the builder to build the project (crate) this `build.rs` is part of.
-//!         .with_current_project()
-//!         // Make sure to export the `heap_base` global, this is required by Substrate
-//!         .export_heap_base()
-//!         // Build the Wasm file so that it imports the memory (need to be provided by at instantiation)
-//!         .import_memory()
-//!         // Build it.
-//!         .build()
+//!     // Builds the WASM binary using the recommended defaults.
+//!     // If you need more control, you can call `new` or `init_with_defaults`.
+//!     WasmBuilder::build_using_defaults();
 //! }
 //! ```
 //!

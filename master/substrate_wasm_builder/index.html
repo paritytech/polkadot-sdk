@@ -149,7 +149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../substrate_wasm_builder/index.html">substrate_wasm_builder</a><span class="version">17.0.0</span></h2></div><div class="sidebar-elems"><ul class="block">
             <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section></div></nav><div class="sidebar-resizer"></div>
-    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../substrate_wasm_builder/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">substrate_wasm_builder</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/substrate_wasm_builder/lib.rs.html#18-452">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="wasm-builder-is-a-utility-for-building-a-project-as-a-wasm-binary"><a class="doc-anchor" href="#wasm-builder-is-a-utility-for-building-a-project-as-a-wasm-binary">§</a>Wasm builder is a utility for building a project as a Wasm binary</h2>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../substrate_wasm_builder/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">substrate_wasm_builder</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/substrate_wasm_builder/lib.rs.html#18-446">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="wasm-builder-is-a-utility-for-building-a-project-as-a-wasm-binary"><a class="doc-anchor" href="#wasm-builder-is-a-utility-for-building-a-project-as-a-wasm-binary">§</a>Wasm builder is a utility for building a project as a Wasm binary</h2>
 <p>The Wasm builder is a tool that integrates the process of building the WASM binary of your
 project into the main <code>cargo</code> build process.</p>
 <h3 id="project-setup"><a class="doc-anchor" href="#project-setup">§</a>Project setup</h3>
@@ -163,15 +163,9 @@ project into the main <code>cargo</code> build process.</p>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>substrate_wasm_builder::WasmBuilder;
 
 <span class="kw">fn </span>main() {
-    WasmBuilder::new()
-        <span class="comment">// Tell the builder to build the project (crate) this `build.rs` is part of.
-        </span>.with_current_project()
-        <span class="comment">// Make sure to export the `heap_base` global, this is required by Substrate
-        </span>.export_heap_base()
-        <span class="comment">// Build the Wasm file so that it imports the memory (need to be provided by at instantiation)
-        </span>.import_memory()
-        <span class="comment">// Build it.
-        </span>.build()
+    <span class="comment">// Builds the WASM binary using the recommended defaults.
+    // If you need more control, you can call `new` or `init_with_defaults`.
+    </span>WasmBuilder::build_using_defaults();
 }</code></pre></div>
 <p>As the final step, you need to add the following to your project:</p>
 
