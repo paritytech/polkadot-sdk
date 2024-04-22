@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713605212607,
+  "lastUpdate": 1713766615744,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5771,6 +5771,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.013845966280000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "253778c94dd64e6bc174ed1e03ac7e0b43990129",
+          "message": "ci: disallow westend migration failure (#4205)\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-22T05:08:38Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/253778c94dd64e6bc174ed1e03ac7e0b43990129"
+        },
+        "date": 1713766591462,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.886666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013696153539999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16581050518666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02277566974666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011535437613333336,
             "unit": "seconds"
           }
         ]
