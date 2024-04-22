@@ -37,7 +37,7 @@ fn mb_migration_target_list_simple_works() {
 		// try state fails since the target list count != number of validators.
 		assert!(Staking::do_try_state(System::block_number()).is_err());
 
-		// Give it enough weight to do 2 target migrations per block.
+		// Give it enough weight to do 2 steps per block.
 		let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none() +
 			pallet_migrations::Pallet::<T>::exec_migration_max_weight() +
 			SubstrateWeight::<T>::step() * 2;

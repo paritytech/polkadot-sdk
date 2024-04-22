@@ -1158,24 +1158,36 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Multiblock-step benchmark.
+	// Multi-block step benchmark.
+
+	// TODO: comments about the step()
 	#[benchmark]
 	fn v13_mmb_step() {
 		let mut meter = WeightMeter::new();
 
-		let _ =
-			create_validators_with_nominators_for_era::<T>(1000, 3000, 16, false, None).unwrap();
-		// clear target bags list.
+		let n_validators = 1000;
+		let n_nominators = 1000;
+
+		let _ = create_validators_with_nominators_for_era::<T>(
+			n_validators,
+			n_nominators,
+			16,
+			false,
+			None,
+		)
+		.unwrap();
+
 		T::TargetList::unsafe_clear();
 		assert_eq!(T::TargetList::iter().count(), 0);
 
 		#[block]
 		{
-			v13::MigrationV13::<T, v13::weights::SubstrateWeight<T>>::step(None, &mut meter)
+			v13::MigrationV13::<T, crate::weights::SubstrateWeight<T>>::step(None, &mut meter)
 				.unwrap();
 		}
 
-		assert_eq!(T::TargetList::iter().count(), 1000);
+		// TODO: check the current try-state assertions in the stake-tracker.
+		assert_eq!(T::TargetList::iter().count(), n_validators as usize);
 	}
 
 	impl_benchmark_test_suite!(

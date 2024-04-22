@@ -20,7 +20,7 @@
 //! sorted list of targets with a bags-list.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{log, BalanceOf, Config, Nominators, Pallet, Validators};
+use crate::{log, weights, BalanceOf, Config, Nominators, Pallet, Validators};
 use core::marker::PhantomData;
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
@@ -32,7 +32,6 @@ use sp_staking::StakingInterface;
 
 #[cfg(test)]
 mod tests;
-pub mod weights;
 
 pub struct MigrationV13<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
 impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> {
@@ -48,7 +47,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut frame_support::weights::WeightMeter,
 	) -> Result<Option<Self::Cursor>, frame_support::migrations::SteppedMigrationError> {
-		let required = W::step();
+		let required = W::v13_mmb_step();
 
 		// If there's no enough weight left in the block for a migration step, return an error.
 		if meter.remaining().any_lt(required) {
@@ -68,16 +67,11 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 			};
 
 			if let Some((target, _)) = iter.next() {
-				log!(
-                    info,
-                    "multi-block migrations: processing target {:?}. remaining {} targets to migrate.",
-                    target,
-                    iter.count());
-
 				// 2. calculate target's stake which consits of self-stake + all of its nominator's
 				//    stake.
 				let self_stake = Pallet::<T>::stake(&target).defensive_unwrap_or_default().total;
 
+				// TODO: need to split.
 				let total_stake = Nominators::<T>::iter()
 					.filter(|(_v, noms)| noms.targets.contains(&target))
 					.map(|(v, _)| Pallet::<T>::stake(&v).defensive_unwrap_or_default())
@@ -85,6 +79,14 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 
 				// 3. insert (validator, score = total_stake) to the target bags list.
 				let _ = T::TargetList::on_insert(target.clone(), total_stake).defensive();
+
+				log!(
+					info,
+					"multi-block migrations: processed target {:?} (total stake: {:?}). remaining {} targets to migrate.",
+					target,
+					total_stake,
+					iter.count()
+				);
 
 				// 4. progress cursor.
 				cursor = Some(target)

@@ -409,7 +409,7 @@ impl pallet_migrations::Config for Test {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = crate::migrations::v13_stake_tracker::MigrationV13<
 		Test,
-		crate::migrations::v13_stake_tracker::weights::SubstrateWeight<Test>,
+		crate::weights::SubstrateWeight<Test>,
 	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
