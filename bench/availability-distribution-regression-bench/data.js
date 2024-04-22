@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713766615744,
+  "lastUpdate": 1713789891931,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5823,6 +5823,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011535437613333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "921265ca7889b9c9bc615af0eced9c6918c8af9f",
+          "message": "Added prdoc for 4208 (#4239)",
+          "timestamp": "2024-04-22T12:06:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/921265ca7889b9c9bc615af0eced9c6918c8af9f"
+        },
+        "date": 1713789867418,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.926666666663,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012422185153333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022538646013333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01034281784,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15987728674666654,
             "unit": "seconds"
           }
         ]
