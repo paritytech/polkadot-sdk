@@ -107,6 +107,10 @@ parameter_types! {
 		manual: 0,
 		auto: H256(hex!("f9961a122a67ce458f32762060e1e44f0bc7d565370443d6cf4fc376ad427232")),
 	};
+	pub const WithRococoCompatibleParachainsRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("920d6b5cddd9333a2405803c0e30b78d2a05f5c03961e6d1807581a3a3ae68ed")),
+	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -227,6 +231,7 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
 pub type BridgeParachainRococoInstance = pallet_bridge_parachains::Instance1;
 impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithRococoCompatibleParachainsRelayer;
 	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
 	type ParasPalletName = RococoBridgeParachainPalletName;
@@ -294,7 +299,9 @@ mod tests {
 			AssertBridgeMessagesPalletConstants, AssertBridgePalletNames, AssertChainConstants,
 			AssertCompleteBridgeConstants,
 		},
-		relayer_compatibility::ensure_grandpa_relayer_compatibility,
+		relayer_compatibility::{
+			ensure_grandpa_relayer_compatibility, ensure_parachains_relayer_compatibility,
+		},
 	};
 	use parachains_common::Balance;
 	use testnet_parachains_constants::westend;
@@ -377,6 +384,11 @@ mod tests {
 		ensure_grandpa_relayer_compatibility::<
 			Runtime,
 			BridgeGrandpaRococoInstance,
+			crate::SignedExtra,
+		>();
+		ensure_parachains_relayer_compatibility::<
+			Runtime,
+			BridgeParachainRococoInstance,
 			crate::SignedExtra,
 		>();
 	}

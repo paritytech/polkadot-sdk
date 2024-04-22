@@ -251,7 +251,9 @@ mod tests {
 			AssertBridgeMessagesPalletConstants, AssertBridgePalletNames, AssertChainConstants,
 			AssertCompleteBridgeConstants,
 		},
-		relayer_compatibility::ensure_grandpa_relayer_compatibility,
+		relayer_compatibility::{
+			ensure_grandpa_relayer_compatibility, ensure_parachains_relayer_compatibility,
+		},
 	};
 	use parachains_common::Balance;
 	use testnet_parachains_constants::rococo;
@@ -335,6 +337,11 @@ mod tests {
 		ensure_grandpa_relayer_compatibility::<
 			Runtime,
 			BridgeGrandpaWestendInstance,
+			crate::SignedExtra,
+		>();
+		ensure_parachains_relayer_compatibility::<
+			Runtime,
+			BridgeParachainWestendInstance,
 			crate::SignedExtra,
 		>();
 	}

@@ -61,12 +61,14 @@
 //!
 //! - a set of all pallet settings that may affect relayer.
 
+use bp_polkadot_core::parachains::ParaHeadsProof;
 use bp_runtime::RelayerVersion;
 use bp_test_utils::make_default_justification;
 use codec::Encode;
 use pallet_bridge_grandpa::{
 	BridgedHeader as BridgedGrandpaHeader, Call as GrandpaCall, Config as GrandpaConfig,
 };
+use pallet_bridge_parachains::{Call as ParachainsCall, Config as ParachainsConfig};
 use sp_core::{blake2_256, Get, H256};
 use sp_runtime::traits::{Header, SignedExtension};
 
@@ -103,6 +105,30 @@ where
 	);
 }
 
+/// Ensure that the running relayer is compatible with the `pallet-bridge-parachains`, deployed
+/// at `Runtime`.
+pub fn ensure_parachains_relayer_compatibility<Runtime, I, SignedExtra>()
+where
+	Runtime: ParachainsConfig<I>,
+	I: 'static,
+	SignedExtra: SignedExtension,
+	Runtime::RuntimeCall: From<ParachainsCall<Runtime, I>>,
+{
+	let expected_version = <Runtime as ParachainsConfig<I>>::CompatibleWithRelayer::get();
+	let actual_version = RelayerVersion {
+		manual: expected_version.manual,
+		auto: blake2_256(
+			&[parachains_calls_digest::<Runtime, I>(), siged_extensions_digest::<SignedExtra>()]
+				.encode(),
+		)
+		.into(),
+	};
+	assert_eq!(
+		expected_version, actual_version,
+		"Expected parachains relayer version: {expected_version:?}. Actual: {actual_version:?}",
+	);
+}
+
 /// Seal bridge GRANDPA call encoding.
 fn grandpa_calls_digest<Runtime, I>() -> H256
 where
@@ -127,6 +153,26 @@ where
 	}
 	.into();
 	log::info!(target: LOG_TARGET, "Sealing GRANDPA call encoding: {:?}", call);
+	blake2_256(&call.encode()).into()
+}
+
+/// Seal bridge parachains call encoding.
+fn parachains_calls_digest<Runtime, I>() -> H256
+where
+	Runtime: ParachainsConfig<I>,
+	I: 'static,
+	Runtime::RuntimeCall: From<ParachainsCall<Runtime, I>>,
+{
+	// the relayer normally only uses the `submit_parachain_heads` call. Let's ensure that
+	// the encoding stays the same. Obviously, we can not detect all encoding changes here,
+	// but such breaking changes are not assumed to be detected using this test.
+	let call: Runtime::RuntimeCall = ParachainsCall::<Runtime, I>::submit_parachain_heads {
+		at_relay_block: (84, Default::default()),
+		parachains: vec![(42.into(), Default::default())],
+		parachain_heads_proof: ParaHeadsProof { storage_proof: vec![vec![42u8; 42]] },
+	}
+	.into();
+	log::info!(target: LOG_TARGET, "Sealing parachains call encoding: {:?}", call);
 	blake2_256(&call.encode()).into()
 }
 

@@ -51,6 +51,10 @@ parameter_types! {
 		manual: 0,
 		auto: H256(hex!("ed94acc451921d37f6497dc1864f4ea9cca3db53bfae3eb6da7f735ee775430a")),
 	};
+	pub const WithWestendCompatibleParachainsRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("cce194f365e85a948f84c123ab1a2b082850f665917bde2b2ef75da7937c6b5e")),
+	};
 
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
@@ -70,6 +74,7 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaWestendInstance> for Runtime {
 pub type BridgeParachainWestendInstance = pallet_bridge_parachains::Instance3;
 impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithWestendCompatibleParachainsRelayer;
 	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaWestendInstance;
 	type ParasPalletName = WestendBridgeParachainPalletName;
