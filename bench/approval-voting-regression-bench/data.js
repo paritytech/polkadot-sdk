@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713819804787,
+  "lastUpdate": 1713828865766,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -93,6 +93,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.841950453610078,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Adrian Catangiu",
+            "username": "acatangiu",
+            "email": "adrian@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "84c294c3821baf8b81693ce6e5615b9e157b5303",
+          "message": "[testnets] remove XCM SafeCallFilter for chains using Weights::v3 (#4199)\n\nWeights::v3 also accounts for PoV weight so we no longer need the\nSafeCallFilter. All calls are allowed as long as they \"fit in the\nblock\".",
+          "timestamp": "2024-04-22T22:10:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/84c294c3821baf8b81693ce6e5615b9e157b5303"
+        },
+        "date": 1713828841439,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63553.490000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52945.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.973300304849985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.903687700000238,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.496413773119922,
             "unit": "seconds"
           }
         ]
