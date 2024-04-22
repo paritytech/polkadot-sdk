@@ -24,7 +24,7 @@ use sc_transaction_pool_api::{
 	error::{Error as TxPoolError, IntoPoolError},
 	ChainEvent, MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource, UnknownTransaction};
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource};
 use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
@@ -33,14 +33,7 @@ use substrate_test_runtime_client::{
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 const LOG_TARGET: &str = "txpool";
 
-use sc_transaction_pool::fork_aware_pool::ForkAwareTxPool;
-use substrate_test_runtime::{Nonce, TransferData};
-
-fn pool() -> (ForkAwareTxPool<TestApi, Block>, Arc<TestApi>) {
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
-	(pool, api)
-}
+use sc_transaction_pool::fork_aware_pool::{ForkAwareTxPool, ImportNotificationTask};
 
 fn invalid_hash() -> Hash {
 	Default::default()
@@ -72,39 +65,37 @@ fn finalized_block_event(
 	let t = pool.api().tree_route(from, to).expect("Tree route exists");
 
 	let e = t.enacted().iter().map(|h| h.hash).collect::<Vec<_>>();
-	// let mut v = vec![t.common_block().hash];
-	// v.extend(&e[0..e.len() - 1]);
 	ChainEvent::Finalized { hash: to, tree_route: Arc::from(&e[0..e.len() - 1]) }
 }
 
-fn create_basic_pool_with_genesis(test_api: Arc<TestApi>) -> ForkAwareTxPool<TestApi, Block> {
-	let genesis_hash = {
-		test_api
-			.chain()
-			.read()
-			.block_by_number
-			.get(&0)
-			.map(|blocks| blocks[0].0.header.hash())
-			.expect("there is block 0. qed")
-	};
+fn create_basic_pool_with_genesis(
+	test_api: Arc<TestApi>,
+) -> (ForkAwareTxPool<TestApi, Block>, ImportNotificationTask) {
+	let genesis_hash = test_api
+		.chain()
+		.read()
+		.block_by_number
+		.get(&0)
+		.map(|blocks| blocks[0].0.header.hash())
+		.expect("there is block 0. qed");
+
 	ForkAwareTxPool::new_test(test_api, genesis_hash, genesis_hash)
 }
 
-fn create_basic_pool(test_api: Arc<TestApi>) -> ForkAwareTxPool<TestApi, Block> {
-	create_basic_pool_with_genesis(test_api)
+fn create_basic_pool(
+	test_api: Arc<TestApi>,
+) -> (ForkAwareTxPool<TestApi, Block>, futures::executor::ThreadPool) {
+	let (pool, import_notification_task) = create_basic_pool_with_genesis(test_api);
+	let thread_pool = futures::executor::ThreadPool::new().unwrap();
+	thread_pool.spawn_ok(import_notification_task);
+	(pool, thread_pool)
 }
 
-// fn assert_pool_status!(
-// 	hash: Hash,
-// 	pool: &ForkAwareTxPool<TestApi, Block>,
-// 	ready: usize,
-// 	future: usize,
-// ) {
-// 	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
-// 	let status = &pool.status_all()[&hash];
-// 	assert_eq!(status.ready, ready);
-// 	assert_eq!(status.future, future);
-// }
+fn pool() -> (ForkAwareTxPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, thread_pool) = create_basic_pool(api.clone());
+	(pool, api, thread_pool)
+}
 
 macro_rules! assert_pool_status {
 	($hash:expr, $pool:expr, $ready:expr, $future:expr) => {
@@ -278,7 +269,7 @@ fn fap_no_view_future_and_ready_submit_one_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header = api.push_block(1, vec![], true);
 
@@ -300,7 +291,7 @@ fn fap_no_view_future_and_ready_submit_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header = api.push_block(1, vec![], true);
 
@@ -324,7 +315,7 @@ fn fap_one_view_future_and_ready_submit_one_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header = api.push_block(1, vec![], true);
 	// let header01b = api.push_block(1, vec![], true);
@@ -350,7 +341,7 @@ fn fap_one_view_future_and_ready_submit_many_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header = api.push_block(1, vec![], true);
 	// let header01b = api.push_block(1, vec![], true);
@@ -378,7 +369,7 @@ fn fap_one_view_stale_submit_one_fails() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header = api.push_block(1, vec![], true);
 
@@ -403,7 +394,7 @@ fn fap_one_view_stale_submit_many_fails() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header = api.push_block(1, vec![], true);
 
@@ -446,7 +437,7 @@ fn fap_one_view_stale_submit_many_fails() {
 
 #[test]
 fn fap_one_view_future_turns_to_ready_works() {
-	let (pool, api) = pool();
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 	let at = header.hash();
@@ -467,7 +458,7 @@ fn fap_one_view_future_turns_to_ready_works() {
 
 #[test]
 fn fap_one_view_ready_gets_pruned() {
-	let (pool, api) = pool();
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 	let block1 = header.hash();
@@ -490,7 +481,7 @@ fn fap_one_view_ready_gets_pruned() {
 
 #[test]
 fn fap_one_view_ready_turns_to_stale_works() {
-	let (pool, api) = pool();
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 	let block1 = header.hash();
@@ -519,7 +510,7 @@ fn fap_two_views_future_and_ready_sumbit_one() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let genesis = api.genesis_hash();
 	let header01a = api.push_block(1, vec![], true);
@@ -552,7 +543,7 @@ fn fap_two_views_future_and_ready_sumbit_many() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01a = api.push_block(1, vec![], true);
 	let header01b = api.push_block(1, vec![], true);
@@ -588,7 +579,7 @@ fn fap_linear_progress() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let f11 = forks[1][1].hash();
 	let f13 = forks[1][3].hash();
@@ -614,7 +605,7 @@ fn fap_linear_old_ready_becoming_stale() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	// Our initial transactions
 	let xts = vec![uxt(Alice, 300), uxt(Alice, 301), uxt(Alice, 302)];
@@ -652,7 +643,7 @@ fn fap_fork_reorg() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
@@ -697,7 +688,7 @@ fn fap_fork_reorg() {
 fn fap_fork_do_resubmit_same_tx() {
 	let xt = uxt(Alice, 200);
 
-	let (pool, api) = pool();
+	let (pool, api, _) = pool();
 	let header01 = api.push_block(1, vec![], true);
 	let event = new_best_block_event(&pool, None, header01.hash());
 	block_on(pool.maintain(event));
@@ -729,7 +720,7 @@ fn fap_fork_stale_switch_to_future() {
 		(0, _) => false,
 		_ => true,
 	}));
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
@@ -780,7 +771,7 @@ fn fap_fork_no_xts_ready_switch_to_future() {
 	let (api, forks) = test_chain_with_forks::chain(Some(&|f, b| match (f, b) {
 		_ => false,
 	}));
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
@@ -808,7 +799,7 @@ fn fap_ready_at_does_not_trigger() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
@@ -824,7 +815,7 @@ fn fap_ready_at_does_not_trigger_after_submit() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let xt0 = uxt(Alice, 200);
 	let _ = block_on(pool.submit_one(invalid_hash(), SOURCE, xt0));
@@ -844,7 +835,7 @@ fn fap_ready_at_triggered_by_maintain() {
 	let (api, forks) = test_chain_with_forks::chain(Some(&|f, b| match (f, b) {
 		_ => false,
 	}));
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
@@ -873,7 +864,7 @@ fn fap_ready_at_triggered_by_maintain2() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -916,7 +907,7 @@ fn fap_linear_progress_finalization() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let f00 = forks[0][0].hash();
 	let f12 = forks[1][2].hash();
@@ -950,7 +941,7 @@ fn fap_fork_finalization_removes_stale_views() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let f00 = forks[0][0].hash();
 	let f12 = forks[1][2].hash();
@@ -991,7 +982,7 @@ fn fap_watcher_invalid_fails_on_submission() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1015,7 +1006,7 @@ fn fap_watcher_invalid_single_revalidation() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 	let event = new_best_block_event(&pool, Some(api.genesis_hash()), header01.hash());
@@ -1040,7 +1031,7 @@ fn fap_watcher_invalid_single_revalidation2() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let xt0 = uxt(Alice, 200);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
@@ -1062,7 +1053,7 @@ fn fap_watcher_invalid_single_revalidation3() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let xt0 = uxt(Alice, 150);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
@@ -1083,7 +1074,7 @@ fn fap_watcher_future() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1113,7 +1104,7 @@ fn fap_watcher_ready() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1143,7 +1134,7 @@ fn fap_watcher_finalized() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1181,7 +1172,7 @@ fn fap_watcher_in_block() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1209,7 +1200,7 @@ fn fap_watcher_future_and_finalized() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1258,7 +1249,7 @@ fn fap_watcher_two_finalized_in_different_block() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
 
@@ -1335,7 +1326,7 @@ fn fap_no_view_pool_watcher_two_finalized_in_different_block() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
 
@@ -1409,7 +1400,7 @@ fn fap_watcher_in_block_across_many_blocks() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1452,7 +1443,7 @@ fn fap_watcher_dropping_listener_should_work() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1474,7 +1465,7 @@ fn fap_watcher_fork_retract_and_finalize() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1519,7 +1510,7 @@ fn fap_retract_all_forks() {
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 	let genesis = api.genesis_hash();
 
 	let xt0 = uxt(Alice, 200);
@@ -1547,7 +1538,7 @@ fn fap_watcher_finalizing_forks() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
@@ -1652,7 +1643,7 @@ fn fap_watcher_best_block_after_finalized() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 	let header01 = api.push_block(1, vec![], true);
 	let event = finalized_block_event(&pool, api.genesis_hash(), header01.hash());
 	block_on(pool.maintain(event));
@@ -1684,7 +1675,7 @@ fn fap_watcher_best_block_after_finalized2() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let xt0 = uxt(Alice, 200);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
@@ -1713,7 +1704,7 @@ fn fap_watcher_switching_fork_multiple_times_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 
@@ -1764,7 +1755,7 @@ fn fap_watcher_two_blocks_delayed_finalization_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
@@ -1835,7 +1826,7 @@ fn fap_watcher_delayed_finalization_does_not_retract() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
@@ -1883,7 +1874,7 @@ fn fap_watcher_best_block_after_finalization_does_not_retract() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
@@ -1932,7 +1923,7 @@ fn fap_watcher_invalid_many_revalidation() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let header01 = api.push_block(1, vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
@@ -2016,7 +2007,7 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 	let xt = uxt(Alice, 200);
 
 	let header01 = api.push_block(1, vec![], true);
@@ -2049,7 +2040,7 @@ fn should_revalidate_during_maintenance() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 	let xt1 = uxt(Alice, 200);
 	let xt2 = uxt(Alice, 201);
 
@@ -2077,7 +2068,7 @@ fn fap_transactions_purging_stale_on_finalization_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let xt1 = uxt(Alice, 200);
 	let xt2 = uxt(Alice, 201);
@@ -2126,7 +2117,7 @@ fn fap_transactions_purging_invalid_on_finalization_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let pool = create_basic_pool(api.clone());
+	let (pool, _) = create_basic_pool(api.clone());
 
 	let xt1 = uxt(Alice, 200);
 	let xt2 = uxt(Alice, 201);
@@ -2157,3 +2148,126 @@ fn fap_transactions_purging_invalid_on_finalization_works() {
 	assert_eq!(xt1_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid]);
 	assert_eq!(xt2_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid]);
 }
+
+#[test]
+fn import_sink_works() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let genesis = api.genesis_hash();
+	let header01a = api.push_block(1, vec![], true);
+	let header01b = api.push_block(1, vec![], true);
+
+	let import_stream = pool.import_notification_stream();
+
+	let event = new_best_block_event(&pool, None, header01a.hash());
+	block_on(pool.maintain(event));
+
+	let event = new_best_block_event(&pool, None, header01b.hash());
+	block_on(pool.maintain(event));
+
+	api.set_nonce(header01b.hash(), Alice.into(), 202);
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 202);
+
+	let submissions = vec![
+		pool.submit_one(genesis, SOURCE, xt0.clone()),
+		pool.submit_one(genesis, SOURCE, xt1.clone()),
+	];
+
+	block_on(futures::future::join_all(submissions));
+
+	assert_pool_status!(header01a.hash(), &pool, 1, 1);
+	assert_pool_status!(header01b.hash(), &pool, 1, 0);
+
+	let import_events =
+		futures::executor::block_on_stream(import_stream).take(2).collect::<Vec<_>>();
+
+	let expected_import_events = vec![api.hash_and_length(&xt0).0, api.hash_and_length(&xt1).0];
+	assert!(import_events.iter().all(|v| expected_import_events.contains(v)));
+}
+
+#[test]
+fn import_sink_works2() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let genesis = api.genesis_hash();
+	let header01a = api.push_block(1, vec![], true);
+	let header01b = api.push_block(1, vec![], true);
+
+	let import_stream = pool.import_notification_stream();
+
+	let event = new_best_block_event(&pool, None, header01a.hash());
+	block_on(pool.maintain(event));
+
+	let event = new_best_block_event(&pool, None, header01b.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 202);
+
+	let submissions = vec![
+		pool.submit_one(genesis, SOURCE, xt0.clone()),
+		pool.submit_one(genesis, SOURCE, xt1.clone()),
+	];
+
+	block_on(futures::future::join_all(submissions));
+
+	assert_pool_status!(header01a.hash(), &pool, 1, 1);
+	assert_pool_status!(header01b.hash(), &pool, 1, 1);
+
+	let import_events =
+		futures::executor::block_on_stream(import_stream).take(1).collect::<Vec<_>>();
+
+	let expected_import_events = vec![api.hash_and_length(&xt0).0];
+	assert_eq!(import_events, expected_import_events);
+}
+
+#[test]
+fn import_sink_works3() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let import_stream = pool.import_notification_stream();
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 202);
+
+	let submissions = vec![
+		pool.submit_one(genesis, SOURCE, xt0.clone()),
+		pool.submit_one(genesis, SOURCE, xt1.clone()),
+	];
+
+	let x = block_on(futures::future::join_all(submissions));
+
+	let header01a = api.push_block(1, vec![], true);
+	let header01b = api.push_block(1, vec![], true);
+
+	let event = new_best_block_event(&pool, None, header01a.hash());
+	block_on(pool.maintain(event));
+
+	let event = new_best_block_event(&pool, None, header01b.hash());
+	block_on(pool.maintain(event));
+
+	assert_pool_status!(header01a.hash(), &pool, 1, 1);
+	assert_pool_status!(header01b.hash(), &pool, 1, 1);
+
+	log::info!("xxx {x:#?}");
+
+	let import_events =
+		futures::executor::block_on_stream(import_stream).take(1).collect::<Vec<_>>();
+
+	let expected_import_events = vec![api.hash_and_length(&xt0).0];
+	assert_eq!(import_events, expected_import_events);
+}
+
+//todo: add test: check len of filter after finalization (!)
