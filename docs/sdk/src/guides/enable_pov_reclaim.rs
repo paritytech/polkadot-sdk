@@ -9,7 +9,7 @@
 //! validators distribute this PoV among themselves over the network. This distribution is costly
 //! and limits the size of the storage proof. The storage weight dimension of FRAME weights reflects
 //! this cost and limits the size of the storage proof. However, the storage weight determined
-//! during [benchmarking](crate::reference_docs::frame_benchmarking_weight) represents the worst
+//! during [benchmarking](`crate::reference_docs::frame_benchmarking_weight`) represents the worst
 //! case. In reality, runtime operations often consume less space in the storage proof. PoV reclaim
 //! offers a mechanism to reclaim the difference between the benchmarked worst-case and the real
 //! proof-size consumption.
@@ -21,11 +21,12 @@
 //! To reclaim excess storage weight, a parachain runtime needs the
 //! ability to fetch the size of the storage proof from the node. The reclaim
 //! mechanism uses the
-//! [storage_proof_size](cumulus_primitives_proof_size_hostfunction::storage_proof_size)
+//! [storage_proof_size](`cumulus_primitives_proof_size_hostfunction::storage_proof_size`)
 //! hostfunction for this purpose. For convenience, cumulus provides
-//! [ParachainHostFunctions](cumulus_client_service::ParachainHostFunctions), a set of hostfunctions
-//! typically used by cumulus-based parachains. In the binary crate of your parachain, find the
-//! instantiation of the [WasmExecutor](sc_executor::WasmExecutor) and set the correct generic type.
+//! [ParachainHostFunctions](`cumulus_client_service::ParachainHostFunctions`), a set of
+//! hostfunctions typically used by cumulus-based parachains. In the binary crate of your parachain,
+//! find the instantiation of the [WasmExecutor](`sc_executor::WasmExecutor`) and set the correct
+//! generic type.
 //!
 //! This example from the parachain-template shows a type definition that includes the correct
 //! hostfunctions.
@@ -43,8 +44,8 @@
 //! during block authoring and block import. Proof recording during authoring is already enabled on
 //! parachains. You must also ensure that storage proof recording is enabled during block import.
 //! Find where your node builds the fundamental substrate components by calling
-//! [new_full_parts](sc_service::new_full_parts). Replace this
-//! with [new_full_parts_record_import](sc_service::new_full_parts_record_import) and
+//! [new_full_parts](`sc_service::new_full_parts`). Replace this
+//! with [new_full_parts_record_import](`sc_service::new_full_parts_record_import`) and
 //! pass `true` as the last parameter to enable import recording.
 #![doc = docify::embed!("../../templates/parachain/node/src/service.rs", component_instantiation)]
 //!
@@ -58,7 +59,7 @@
 //!
 //! In your runtime, you will find a list of SignedExtensions.
 //! To enable the reclaiming,
-//! add [StorageWeightReclaim](cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim)
+//! add [StorageWeightReclaim](`cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim`)
 //! to that list. The extension will check the size of the storage proof before and after an
 //! extrinsic execution. It reclaims the difference between the calculated size and the benchmarked
 //! size.
