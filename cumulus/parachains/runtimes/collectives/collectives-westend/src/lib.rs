@@ -720,7 +720,7 @@ pub type UncheckedExtrinsic =
 /// `OnRuntimeUpgrade`. Included migrations must be idempotent.
 type Migrations = (
 	// unreleased
-	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	// permanent
