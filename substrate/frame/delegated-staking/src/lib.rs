@@ -543,23 +543,42 @@ impl<T: Config> Pallet<T> {
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
-		if agent.ledger.unclaimed_withdrawals < amount {
+		// keep track if we killed the staker in the process.
+		let stash_killed = if agent.ledger.unclaimed_withdrawals < amount {
 			// withdraw account.
-			let _ = T::CoreStaking::withdraw_unbonded(who.clone(), num_slashing_spans)
+			let killed = T::CoreStaking::withdraw_unbonded(who.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
 			// reload agent from storage since withdrawal might have changed the state.
 			agent = agent.refresh()?;
-		}
+			Some(killed)
+		} else {
+			None
+		};
 
 		// if we still do not have enough funds to release, abort.
 		ensure!(agent.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
-		// claim withdraw from agent. Kill agent if no delegation left.
+		// Claim withdraw from agent. Kill agent if no delegation left.
 		// TODO: Ideally if there is a register, there should be an unregister that should
 		// clean up the agent. Can be improved in future.
 		if agent.remove_unclaimed_withdraw(amount)?.update_or_kill()? {
+			match stash_killed {
+				Some(killed) => {
+					// this implies we did a `CoreStaking::withdraw` before release. Ensure
+					// we killed the staker as well.
+					ensure!(killed, Error::<T>::BadState);
+				},
+				None => {
+					// We did not do a `CoreStaking::withdraw` before release. Ensure staker is
+					// already killed in `CoreStaking`.
+					ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::BadState);
+				},
+			}
+
+			// Remove provider reference for `who`.
 			let _ = frame_system::Pallet::<T>::dec_providers(who).defensive();
 		}
+
 		// book keep delegation
 		delegation.amount = delegation
 			.amount
