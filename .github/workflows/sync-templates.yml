@@ -61,7 +61,7 @@ jobs:
       - name: Install toml-cli
         run: cargo install --git https://github.com/gnprice/toml-cli --rev ea69e9d2ca4f0f858110dc7a5ae28bcb918c07fb # v0.2.3
       - name: Install Polkadot SDK Version Manager
-        run: cargo install --git https://github.com/paritytech/psvm --rev c41261ffb52ab0c115adbbdb17e2cb7900d2bdfd psvm # master
+        run: cargo install --git https://github.com/paritytech/psvm psvm
       - name: Rust compilation prerequisites
         run: |
           sudo apt update

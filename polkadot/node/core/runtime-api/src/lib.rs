@@ -101,7 +101,7 @@ where
 				self.requests_cache.cache_authorities(relay_parent, authorities),
 			Validators(relay_parent, validators) =>
 				self.requests_cache.cache_validators(relay_parent, validators),
-			MinimumBackingVotes(_, session_index, minimum_backing_votes) => self
+			MinimumBackingVotes(session_index, minimum_backing_votes) => self
 				.requests_cache
 				.cache_minimum_backing_votes(session_index, minimum_backing_votes),
 			ValidatorGroups(relay_parent, groups) =>
@@ -155,7 +155,7 @@ where
 				self.requests_cache.cache_on_chain_votes(relay_parent, scraped),
 			PvfsRequirePrecheck(relay_parent, pvfs) =>
 				self.requests_cache.cache_pvfs_require_precheck(relay_parent, pvfs),
-			SubmitPvfCheckStatement(_, _, _, ()) => {},
+			SubmitPvfCheckStatement(()) => {},
 			ValidationCodeHash(relay_parent, para_id, assumption, hash) => self
 				.requests_cache
 				.cache_validation_code_hash((relay_parent, para_id, assumption), hash),
@@ -170,7 +170,7 @@ where
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
 			RequestResult::ApprovalVotingParams(_relay_parent, session_index, params) =>
 				self.requests_cache.cache_approval_voting_params(session_index, params),
-			SubmitReportDisputeLost(_, _, _, _) => {},
+			SubmitReportDisputeLost(_) => {},
 			DisabledValidators(relay_parent, disabled_validators) =>
 				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
 			ParaBackingState(relay_parent, para_id, constraints) => self
@@ -370,7 +370,7 @@ where
 	async fn poll_requests(&mut self) {
 		// If there are no active requests, this future should be pending forever.
 		if self.active_requests.len() == 0 {
-			return futures::pending!()
+			return futures::pending!();
 		}
 
 		// If there are active requests, this will always resolve to `Some(_)` when a request is
@@ -439,7 +439,7 @@ where
 		}};
 		($req_variant:ident, $api_name:ident ($($param:expr),*), ver = $version:expr, $sender:expr, result = ( $($results:expr),* ) ) => {{
 			let sender = $sender;
-			let version: u32 = $version;	// enforce type for the version expression
+			let version: u32 = $version; // enforce type for the version expression
 			let runtime_version = client.api_version_parachain_host(relay_parent).await
 				.unwrap_or_else(|e| {
 					gum::warn!(
@@ -570,7 +570,8 @@ where
 				SubmitPvfCheckStatement,
 				submit_pvf_check_statement(stmt, signature),
 				ver = 2,
-				sender
+				sender,
+				result = ()
 			)
 		},
 		Request::PvfsRequirePrecheck(sender) => {
@@ -606,13 +607,15 @@ where
 			SubmitReportDisputeLost,
 			submit_report_dispute_lost(dispute_proof, key_ownership_proof),
 			ver = Request::SUBMIT_REPORT_DISPUTE_LOST_RUNTIME_REQUIREMENT,
-			sender
+			sender,
+			result = ()
 		),
 		Request::MinimumBackingVotes(index, sender) => query!(
 			MinimumBackingVotes,
 			minimum_backing_votes(index),
 			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
-			sender
+			sender,
+			result = (index)
 		),
 		Request::DisabledValidators(sender) => query!(
 			DisabledValidators,

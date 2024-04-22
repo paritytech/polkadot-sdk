@@ -701,10 +701,13 @@ mod benchmarks {
 		for acc in accounts.iter() {
 			<ContractInfoOf<T>>::insert(acc, info.clone());
 		}
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -737,10 +740,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -759,10 +765,13 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(code);
 		setup.set_origin(Origin::Root);
 		call_builder!(func, setup: setup);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -834,19 +843,25 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_block_number(r: Linear<0, API_BENCHMARK_RUNS>) {
 		call_builder!(func, WasmModule::getter("seal0", "seal_block_number", r));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_now(r: Linear<0, API_BENCHMARK_RUNS>) {
 		call_builder!(func, WasmModule::getter("seal0", "seal_now", r));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -877,10 +892,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -906,10 +924,13 @@ mod benchmarks {
 		});
 
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -970,10 +991,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -996,10 +1020,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// The same argument as for `seal_return` is true here.
@@ -1134,10 +1161,13 @@ mod benchmarks {
 		});
 
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Overhead of calling the function without any topic.
@@ -1166,10 +1196,13 @@ mod benchmarks {
 		});
 
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Benchmark the overhead that topics generate.
@@ -1203,10 +1236,13 @@ mod benchmarks {
 		});
 
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Benchmark debug_message call with zero input data.
@@ -1236,10 +1272,13 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(code);
 		setup.enable_debug_message();
 		call_builder!(func, setup: setup);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1286,10 +1325,13 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(code);
 		setup.enable_debug_message();
 		call_builder!(func, setup: setup);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 		Ok(())
 	}
@@ -1350,10 +1392,13 @@ mod benchmarks {
 			)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1392,10 +1437,13 @@ mod benchmarks {
 			false,
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1435,10 +1483,13 @@ mod benchmarks {
 			false,
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1489,10 +1540,13 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1530,10 +1584,12 @@ mod benchmarks {
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
 
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1590,10 +1646,13 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1639,10 +1698,13 @@ mod benchmarks {
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 
 		Ok(())
 	}
@@ -1693,10 +1755,13 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1734,10 +1799,13 @@ mod benchmarks {
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1793,10 +1861,13 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1842,10 +1913,13 @@ mod benchmarks {
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1893,10 +1967,12 @@ mod benchmarks {
 			assert_eq!(T::Currency::total_balance(account), 0u32.into());
 		}
 
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 
 		for account in &accounts {
 			assert_eq!(T::Currency::total_balance(account), value);
@@ -1973,10 +2049,13 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(code);
 		setup.set_storage_deposit_limit(BalanceOf::<T>::from(u32::MAX.into()));
 		call_builder!(func, setup: setup);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2028,10 +2107,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2083,10 +2165,13 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(code);
 		setup.set_data(vec![42; c as usize]);
 		call_builder!(func, setup: setup);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2191,10 +2276,13 @@ mod benchmarks {
 				return Err("Expected that contract does not exist at this point.".into());
 			}
 		}
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		for addr in &addresses {
 			ContractInfoOf::<T>::get(&addr).ok_or("Contract should have been instantiated")?;
 		}
@@ -2266,10 +2354,13 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(code);
 		setup.set_balance(value + (Pallet::<T>::min_balance() * 2u32.into()));
 		call_builder!(func,  setup: setup);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2277,80 +2368,104 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_hash_sha2_256(r: Linear<0, API_BENCHMARK_RUNS>) {
 		call_builder!(func, WasmModule::hasher("seal_hash_sha2_256", r, 0));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_hash_sha2_256_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
 		call_builder!(func, WasmModule::hasher("seal_hash_sha2_256", 1, n));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_hash_keccak_256(r: Linear<0, API_BENCHMARK_RUNS>) {
 		call_builder!(func, WasmModule::hasher("seal_hash_keccak_256", r, 0));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_hash_keccak_256_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
 		call_builder!(func, WasmModule::hasher("seal_hash_keccak_256", 1, n));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_hash_blake2_256(r: Linear<0, API_BENCHMARK_RUNS>) {
 		call_builder!(func, WasmModule::hasher("seal_hash_blake2_256", r, 0));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_hash_blake2_256_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
 		call_builder!(func, WasmModule::hasher("seal_hash_blake2_256", 1, n));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_hash_blake2_128(r: Linear<0, API_BENCHMARK_RUNS>) {
 		call_builder!(func, WasmModule::hasher("seal_hash_blake2_128", r, 0));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_hash_blake2_128_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
 		call_builder!(func, WasmModule::hasher("seal_hash_blake2_128", 1, n));
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Message input length to verify in bytes.
@@ -2394,10 +2509,13 @@ mod benchmarks {
 		});
 
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2451,10 +2569,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2501,10 +2622,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2541,10 +2665,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2582,10 +2709,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2624,10 +2754,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2682,10 +2815,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2739,10 +2875,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2760,10 +2899,13 @@ mod benchmarks {
 			..Default::default()
 		});
 		call_builder!(func, code);
+
+		let res;
 		#[block]
 		{
-			func.call();
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// We load `i64` values from random linear memory locations and store the loaded
