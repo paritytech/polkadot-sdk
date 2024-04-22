@@ -93,7 +93,7 @@ pub mod v2 {
 					count,
 				);
 				// 1 read/write for storage version
-				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
 				weight
 			} else {
 				log::info!(
