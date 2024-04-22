@@ -88,6 +88,26 @@ pub mod v2 {
 				T::DbWeight::get().reads(1)
 			}
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
+			let number_of_candidates = Candidates::<T>::get().to_vec().len();
+			Ok((number_of_candidates as u32).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_number_of_candidates: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+			let new_number_of_candidates = Candidates::<T>::get().to_vec().len();
+			assert_eq!(
+				new_number_of_candidates, 0 as usize,
+				"after migration, the candidates map should be empty"
+			);
+
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			frame_support::ensure!(on_chain_version >= 1, "must_upgrade");
+
+			Ok(())
+		}
 	}
 }
 
