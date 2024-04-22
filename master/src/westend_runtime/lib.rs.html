@@ -2768,34 +2768,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2617" id="2617">2617</a>
 <a href="#2618" id="2618">2618</a>
 <a href="#2619" id="2619">2619</a>
-<a href="#2620" id="2620">2620</a>
-<a href="#2621" id="2621">2621</a>
-<a href="#2622" id="2622">2622</a>
-<a href="#2623" id="2623">2623</a>
-<a href="#2624" id="2624">2624</a>
-<a href="#2625" id="2625">2625</a>
-<a href="#2626" id="2626">2626</a>
-<a href="#2627" id="2627">2627</a>
-<a href="#2628" id="2628">2628</a>
-<a href="#2629" id="2629">2629</a>
-<a href="#2630" id="2630">2630</a>
-<a href="#2631" id="2631">2631</a>
-<a href="#2632" id="2632">2632</a>
-<a href="#2633" id="2633">2633</a>
-<a href="#2634" id="2634">2634</a>
-<a href="#2635" id="2635">2635</a>
-<a href="#2636" id="2636">2636</a>
-<a href="#2637" id="2637">2637</a>
-<a href="#2638" id="2638">2638</a>
-<a href="#2639" id="2639">2639</a>
-<a href="#2640" id="2640">2640</a>
-<a href="#2641" id="2641">2641</a>
-<a href="#2642" id="2642">2642</a>
-<a href="#2643" id="2643">2643</a>
-<a href="#2644" id="2644">2644</a>
-<a href="#2645" id="2645">2645</a>
-<a href="#2646" id="2646">2646</a>
-<a href="#2647" id="2647">2647</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4444,36 +4416,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="comment">// We don't have a limit in the Relay Chain.
-	</span><span class="kw">const </span>IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
-
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
-	</span><span class="kw">pub type </span>Unreleased = (
-		parachains_configuration::migration::v7::MigrateToV7&lt;Runtime&gt;,
-		pallet_staking::migrations::v14::MigrateToV14&lt;Runtime&gt;,
-		assigned_slots::migration::v1::MigrateToV1&lt;Runtime&gt;,
-		parachains_scheduler::migration::MigrateV1ToV2&lt;Runtime&gt;,
-		parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
-		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
-		paras_registrar::migration::MigrateToV1&lt;Runtime, ()&gt;,
-		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, ()&gt;,
-		pallet_grandpa::migrations::MigrateV4ToV5&lt;Runtime&gt;,
-		parachains_configuration::migration::v10::MigrateToV10&lt;Runtime&gt;,
-		pallet_nomination_pools::migration::unversioned::TotalValueLockedSync&lt;Runtime&gt;,
-		<span class="comment">// Migrate Identity pallet for Usernames
-		</span>pallet_identity::migration::versioned::V0ToV1&lt;Runtime, IDENTITY_MIGRATION_KEY_LIMIT&gt;,
-		parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
-		parachains_configuration::migration::v12::MigrateToV12&lt;Runtime&gt;,
-		<span class="comment">// permanent
-		</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
-		<span class="comment">// Migrate from legacy lease to coretime. Needs to run after configuration v11
-		</span>coretime::migration::MigrateToCoretime&lt;
-			Runtime,
-			<span class="kw">crate</span>::xcm_config::XcmRouter,
-			GetLegacyLeaseImpl,
-		&gt;,
-		parachains_inclusion::migration::MigrateToV1&lt;Runtime&gt;,
-	);
+	</span><span class="kw">pub type </span>Unreleased = ();
 }
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
