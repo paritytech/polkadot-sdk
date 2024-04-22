@@ -8188,6 +8188,60 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.3.0"
+source = "git+https://github.com/paritytech/litep2p?branch=lexnv/merge-fix-for-testing#153d38882d11ab240f231133a6e357448f1b35c9"
+dependencies = [
+ "async-trait",
+ "bs58 0.4.0",
+ "bytes",
+ "cid 0.10.1",
+ "ed25519-dalek 1.0.1",
+ "futures",
+ "futures-timer",
+ "hex-literal",
+ "indexmap 2.2.3",
+ "libc",
+ "mockall",
+ "multiaddr",
+ "multihash 0.17.0",
+ "network-interface",
+ "nohash-hasher",
+ "parking_lot 0.12.1",
+ "pin-project",
+ "prost 0.11.9",
+ "prost-build",
+ "quinn",
+ "rand 0.8.5",
+ "rcgen",
+ "ring 0.16.20",
+ "rustls 0.20.8",
+ "serde",
+ "sha2 0.10.7",
+ "simple-dns",
+ "smallvec",
+ "snow",
+ "socket2 0.5.6",
+ "static_assertions",
+ "str0m 0.4.1",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite 0.20.1",
+ "tokio-util",
+ "tracing",
+ "trust-dns-resolver 0.23.2",
+ "uint",
+ "unsigned-varint",
+ "url",
+ "webpki",
+ "x25519-dalek 2.0.0",
+ "x509-parser 0.15.1",
+ "yasna",
+ "zeroize",
+]
+
+[[package]]
+name = "litep2p"
+version = "0.3.0"
 source = "git+https://github.com/paritytech/litep2p?branch=master#b142c9eb611fb2fe78d2830266a3675b37299ceb"
 dependencies = [
  "async-trait",
@@ -8221,7 +8275,7 @@ dependencies = [
  "snow",
  "socket2 0.5.6",
  "static_assertions",
- "str0m",
+ "str0m 0.2.0",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -17079,7 +17133,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p",
+ "litep2p 0.3.0 (git+https://github.com/paritytech/litep2p?branch=lexnv/merge-fix-for-testing)",
  "log",
  "mockall",
  "multistream-select",
@@ -17304,7 +17358,7 @@ version = "0.10.0-dev"
 dependencies = [
  "bs58 0.4.0",
  "libp2p-identity",
- "litep2p",
+ "litep2p 0.3.0 (git+https://github.com/paritytech/litep2p?branch=master)",
  "multiaddr",
  "multihash 0.17.0",
  "rand 0.8.5",
@@ -20457,6 +20511,26 @@ name = "str0m"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee48572247f422dcbe68630c973f8296fbd5157119cd36a3223e48bf83d47727"
+dependencies = [
+ "combine",
+ "crc",
+ "hmac 0.12.1",
+ "once_cell",
+ "openssl",
+ "openssl-sys",
+ "rand 0.8.5",
+ "sctp-proto",
+ "serde",
+ "sha-1 0.10.1",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "str0m"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3f10d3f68e60168d81110410428a435dbde28cc5525f5f7c6fdec92dbdc2800"
 dependencies = [
  "combine",
  "crc",
