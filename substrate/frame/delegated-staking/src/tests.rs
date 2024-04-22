@@ -25,7 +25,7 @@ use pallet_staking::Error as StakingError;
 use sp_staking::{DelegationInterface, StakerStatus};
 
 #[test]
-fn create_a_agent_with_first_delegator() {
+fn create_an_agent_with_first_delegator() {
 	ExtBuilder::default().build_and_execute(|| {
 		let agent: AccountId = 200;
 		let reward_account: AccountId = 201;

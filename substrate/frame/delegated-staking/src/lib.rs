@@ -46,12 +46,12 @@
 //! primitive function: delegation of funds to an `agent` with the intent of staking. The agent can
 //! then stake the delegated funds to [`Config::CoreStaking`] on behalf of the delegators.
 //!
-//! #### Withdrawal Management
+//! ### Withdrawal Management
 //! Agent unbonding does not regulate ordering of consequent withdrawal for delegators. This is upto
 //! the consumer of this pallet to implement in what order unbondable funds from
 //! [`Config::CoreStaking`] can be withdrawn by the delegators.
 //!
-//! #### Reward and Slashing
+//! ### Reward and Slashing
 //! This pallet does not enforce any specific strategy for how rewards or slashes are applied. It
 //! is upto the `agent` account to decide how to apply the rewards and slashes.
 //!
@@ -206,7 +206,7 @@ pub mod pallet {
 		///
 		/// Possible issues are
 		/// 1) Cannot delegate to self,
-		/// 2) Cannot delegate to multiple delegates,
+		/// 2) Cannot delegate to multiple delegates.
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
@@ -310,8 +310,11 @@ pub mod pallet {
 			reward_account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// ensure who is a staker in `CpreStaking` but not already an agent.
-			ensure!(!Self::is_agent(&who) && Self::is_direct_staker(&who), Error::<T>::NotAllowed);
+			// ensure who is a staker in `CoreStaking` but not already an agent or a delegator.
+			ensure!(
+				Self::is_direct_staker(&who) && !Self::is_agent(&who) && !Self::is_delegator(&who),
+				Error::<T>::NotAllowed
+			);
 
 			// Reward account cannot be same as `agent` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
@@ -342,7 +345,7 @@ pub mod pallet {
 		/// This can be called by `agent` accounts that were previously a direct `Nominator` with
 		/// [`Config::CoreStaking`] and has some remaining unclaimed delegations.
 		///
-		/// Internally, it moves some delegations from `pxoxy_delegator` account to `delegator`
+		/// Internally, it moves some delegations from `proxy_delegator` account to `delegator`
 		/// account and reapplying the holds.
 		pub fn claim_delegation(
 			origin: OriginFor<T>,
@@ -367,7 +370,7 @@ pub mod pallet {
 			let balance_remaining = Self::held_balance_of(&proxy_delegator);
 			ensure!(balance_remaining >= amount, Error::<T>::NotEnoughFunds);
 
-			Self::do_migrate_delegation(&proxy_delegator, &delegator, amount)
+			Self::migrate_delegation(&proxy_delegator, &delegator, amount)
 		}
 
 		/// Delegate given `amount` of tokens to an `Agent` account.
@@ -396,7 +399,7 @@ pub mod pallet {
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
-			// add to delegation
+			// add to delegation.
 			Self::do_delegate(&delegator, &agent, amount)?;
 
 			// bond the newly delegated amount to `CoreStaking`.
@@ -419,7 +422,7 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_sub_account_truncating((account_type, agent.clone()))
 	}
 
-	/// Balance of a delegator that is delegated.
+	/// Held balance of a delegator.
 	pub(crate) fn held_balance_of(who: &T::AccountId) -> BalanceOf<T> {
 		T::Currency::balance_on_hold(&HoldReason::StakingDelegation.into(), who)
 	}
@@ -439,6 +442,7 @@ impl<T: Config> Pallet<T> {
 		T::CoreStaking::status(who).is_ok()
 	}
 
+	/// Registers a new agent in the system.
 	fn do_register_agent(who: &T::AccountId, reward_account: &T::AccountId) {
 		AgentLedger::<T>::new(reward_account).update(who);
 
@@ -449,6 +453,7 @@ impl<T: Config> Pallet<T> {
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
 
+	/// Migrate existing staker account `who` to an `Agent` account.
 	fn do_migrate_to_agent(who: &T::AccountId, reward_account: &T::AccountId) -> DispatchResult {
 		Self::do_register_agent(who, reward_account);
 
@@ -474,6 +479,7 @@ impl<T: Config> Pallet<T> {
 		Self::do_delegate(&proxy_delegator, who, stake.total)
 	}
 
+	/// Bond `amount` to `agent_acc` in [`Config::CoreStaking`].
 	fn do_bond(agent_acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		let agent = Agent::<T>::get(agent_acc)?;
 
@@ -487,6 +493,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Delegate `amount` from `delegator` to `agent`.
 	fn do_delegate(
 		delegator: &T::AccountId,
 		agent: &T::AccountId,
@@ -521,6 +528,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Release `amount` of delegated funds from `agent` to `delegator`.
 	fn do_release(
 		who: &T::AccountId,
 		delegator: &T::AccountId,
@@ -535,23 +543,42 @@ impl<T: Config> Pallet<T> {
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
-		if agent.ledger.unclaimed_withdrawals < amount {
+		// keep track if we killed the staker in the process.
+		let stash_killed = if agent.ledger.unclaimed_withdrawals < amount {
 			// withdraw account.
-			let _ = T::CoreStaking::withdraw_unbonded(who.clone(), num_slashing_spans)
+			let killed = T::CoreStaking::withdraw_unbonded(who.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
 			// reload agent from storage since withdrawal might have changed the state.
 			agent = agent.refresh()?;
-		}
+			Some(killed)
+		} else {
+			None
+		};
 
 		// if we still do not have enough funds to release, abort.
 		ensure!(agent.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
-		// claim withdraw from agent. Kill agent if no delegation left.
-		// TODO(ank4n): Ideally if there is a register, there should be an unregister that should
-		// clean up the agent. Need to improve this.
+		// Claim withdraw from agent. Kill agent if no delegation left.
+		// TODO: Ideally if there is a register, there should be an unregister that should
+		// clean up the agent. Can be improved in future.
 		if agent.remove_unclaimed_withdraw(amount)?.update_or_kill()? {
+			match stash_killed {
+				Some(killed) => {
+					// this implies we did a `CoreStaking::withdraw` before release. Ensure
+					// we killed the staker as well.
+					ensure!(killed, Error::<T>::BadState);
+				},
+				None => {
+					// We did not do a `CoreStaking::withdraw` before release. Ensure staker is
+					// already killed in `CoreStaking`.
+					ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::BadState);
+				},
+			}
+
+			// Remove provider reference for `who`.
 			let _ = frame_system::Pallet::<T>::dec_providers(who).defensive();
 		}
+
 		// book keep delegation
 		delegation.amount = delegation
 			.amount
@@ -580,7 +607,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Migrates delegation of `amount` from `source` account to `destination` account.
-	fn do_migrate_delegation(
+	fn migrate_delegation(
 		source_delegator: &T::AccountId,
 		destination_delegator: &T::AccountId,
 		amount: BalanceOf<T>,
@@ -635,6 +662,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Take slash `amount` from agent's `pending_slash`counter and apply it to `delegator` account.
 	pub fn do_slash(
 		agent_acc: T::AccountId,
 		delegator: T::AccountId,
