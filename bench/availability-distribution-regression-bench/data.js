@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713789891931,
+  "lastUpdate": 1713795185392,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5875,6 +5875,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15987728674666654,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a2a049db2bd669a88f6ab410b22b780ebcc8baee",
+          "message": "[subsystem-benchmark] Add approval-voting benchmark to CI (#4216)\n\nCo-authored-by: alvicsam <alvicsam@gmail.com>",
+          "timestamp": "2024-04-22T12:45:54Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2a049db2bd669a88f6ab410b22b780ebcc8baee"
+        },
+        "date": 1713795159714,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.879999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16125345841333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012504797366666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010642607673333339,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022482682226666675,
             "unit": "seconds"
           }
         ]
