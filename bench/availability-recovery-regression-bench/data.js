@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713605511543,
+  "lastUpdate": 1713766946158,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4619,6 +4619,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.983299136400001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "253778c94dd64e6bc174ed1e03ac7e0b43990129",
+          "message": "ci: disallow westend migration failure (#4205)\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-22T05:08:38Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/253778c94dd64e6bc174ed1e03ac7e0b43990129"
+        },
+        "date": 1713766921480,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.509376390400003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.15905229056666667,
             "unit": "seconds"
           }
         ]
