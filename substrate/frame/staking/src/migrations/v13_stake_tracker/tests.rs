@@ -17,46 +17,149 @@
 #![cfg(all(test, not(feature = "runtime-benchmarks")))]
 
 use crate::{
-	migrations::v13_stake_tracker::weights::{SubstrateWeight, WeightInfo as _},
 	mock::{
-		clear_target_list, run_to_block, AllPalletsWithSystem, ExtBuilder, MigratorServiceWeight,
-		Staking, System, TargetBagsList, Test as T,
+		bond_nominator, bond_validator, run_to_block, AllPalletsWithSystem, ExtBuilder,
+		MigratorServiceWeight, Staking, System, TargetBagsList, Test as T,
 	},
-	Validators,
+	testing_utils,
+	weights::{SubstrateWeight, WeightInfo as _},
+	Nominators,
 };
 use frame_election_provider_support::SortedListProvider;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::{assert_ok, traits::OnRuntimeUpgrade};
 use pallet_migrations::WeightInfo as _;
 
 #[test]
 fn mb_migration_target_list_simple_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		// simulates an empty target list which is the case before the migrations.
-		clear_target_list();
-		assert_eq!(TargetBagsList::iter().count(), 0);
-		// try state fails since the target list count != number of validators.
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		bond_validator(1, 10);
+		bond_validator(2, 20);
+		bond_validator(3, 30);
+		bond_nominator(4, 40, vec![1, 2]);
+		bond_nominator(5, 50, vec![2, 3]);
+		bond_nominator(6, 60, vec![3]);
+
+		TargetBagsList::unsafe_clear();
+		assert!(TargetBagsList::count() == 0);
 		assert!(Staking::do_try_state(System::block_number()).is_err());
 
-		// Give it enough weight to do 2 steps per block.
+		// allocate 3 steps per block to do the full migration in one step.
 		let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none() +
 			pallet_migrations::Pallet::<T>::exec_migration_max_weight() +
-			SubstrateWeight::<T>::step() * 2;
+			SubstrateWeight::<T>::v13_mmb_step() * 3;
 		MigratorServiceWeight::set(&limit);
 
-		// start stepped migrations.
+		// migrate 3 nominators.
 		AllPalletsWithSystem::on_runtime_upgrade(); // onboard MBMs
-
-		// 1 step, should migrate 2 targets.
 		run_to_block(2);
-		assert_eq!(TargetBagsList::iter().count(), 2);
-		// migration not completed yet, the one target missing.
-		assert!(Staking::do_try_state(System::block_number()).is_err());
 
-		// next step completes migration.
-		run_to_block(3);
-		assert_eq!(TargetBagsList::iter().count() as u32, Validators::<T>::count());
+		// stakes of each validators are correct (sum of self_stake and nominations stake).
+		assert_eq!(TargetBagsList::get_score(&1).unwrap(), 10 + 40);
+		assert_eq!(TargetBagsList::get_score(&2).unwrap(), 20 + 40 + 50);
+		assert_eq!(TargetBagsList::get_score(&3).unwrap(), 30 + 50 + 60);
+
+		assert_eq!(TargetBagsList::count(), 3);
 
 		// migration done, try state checks pass.
+		assert!(Staking::do_try_state(System::block_number()).is_ok());
+	})
+}
+
+#[test]
+fn mb_migration_target_list_multiple_steps_works() {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		bond_validator(1, 10);
+		bond_validator(2, 20);
+		bond_validator(3, 30);
+		bond_nominator(4, 40, vec![1, 2]);
+		bond_nominator(5, 50, vec![2, 3]);
+		bond_nominator(6, 60, vec![3]);
+
+		TargetBagsList::unsafe_clear();
+		assert!(TargetBagsList::count() == 0);
+		assert!(Staking::do_try_state(System::block_number()).is_err());
+
+		// allocate 1 step (i.e. 1 nominator) per block.
+		let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none() +
+			pallet_migrations::Pallet::<T>::exec_migration_max_weight() +
+			SubstrateWeight::<T>::v13_mmb_step();
+		MigratorServiceWeight::set(&limit);
+
+		AllPalletsWithSystem::on_runtime_upgrade(); // onboard MBMs
+
+		// starts from last bonded nominator (6).
+		let mut migrating = Nominators::<T>::iter().map(|(n, _)| n);
+		assert_eq!(migrating.next(), Some(6));
+		run_to_block(2);
+
+		// 6 nominates 3, thus target list node 3 has self stake + stake of 6.
+		assert_eq!(TargetBagsList::get_score(&3).unwrap(), 30 + 60);
+		assert_eq!(TargetBagsList::count(), 1);
+
+		// next block, migrates nominator 5.
+		assert_eq!(migrating.next(), Some(5));
+		run_to_block(3);
+
+		// 5 nominates 2 and 3. stakes are updated as expected.
+		assert_eq!(TargetBagsList::get_score(&3).unwrap(), 30 + 60 + 50);
+		assert_eq!(TargetBagsList::get_score(&2).unwrap(), 20 + 50);
+		assert_eq!(TargetBagsList::count(), 2);
+
+		// last block, migrates nominator 4.
+		assert_eq!(migrating.next(), Some(4));
+		run_to_block(4);
+
+		// 4 nominates 1 and 2. stakes are updated as expected.
+		assert_eq!(TargetBagsList::get_score(&2).unwrap(), 20 + 50 + 40);
+		assert_eq!(TargetBagsList::get_score(&1).unwrap(), 10 + 40);
+		assert_eq!(TargetBagsList::count(), 3);
+
+		// migration done, try state checks pass.
+		assert_eq!(migrating.next(), None);
+		assert!(Staking::do_try_state(System::block_number()).is_ok());
+	})
+}
+
+#[test]
+fn mb_migration_target_list_chilled_validator_works() {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		// TODO
+	})
+}
+
+#[test]
+fn mb_migration_target_list_bench_works() {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		// setup:
+		// 1000 validators;
+		// 5 nominators;
+		// 16 nominations.
+		let _ =
+			testing_utils::create_validators_with_nominators_for_era::<T>(1000, 5, 16, true, None);
+		assert_eq!(TargetBagsList::count(), 1000);
+
+		// drop targets from target list nominated by the one nominator to be migrated.
+		let (_to_migrate, nominations) =
+			Nominators::<T>::iter().map(|(n, noms)| (n, noms.targets)).next().unwrap();
+
+		for t in nominations.iter() {
+			assert_ok!(TargetBagsList::on_remove(&t));
+		}
+
+		assert!(TargetBagsList::count() < 1000);
+		assert!(Staking::do_try_state(System::block_number()).is_err());
+
+		// allocate 1 step per block.
+		let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none() +
+			pallet_migrations::Pallet::<T>::exec_migration_max_weight() +
+			SubstrateWeight::<T>::v13_mmb_step();
+		MigratorServiceWeight::set(&limit);
+
+		AllPalletsWithSystem::on_runtime_upgrade(); // onboard MBMs
+		run_to_block(2);
+
+		// migration done, try state checks pass.
+		assert_eq!(TargetBagsList::count(), 1000);
 		assert!(Staking::do_try_state(System::block_number()).is_ok());
 	})
 }

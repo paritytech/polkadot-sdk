@@ -20,14 +20,14 @@
 //! sorted list of targets with a bags-list.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{log, weights, BalanceOf, Config, Nominators, Pallet, Validators};
+use crate::{log, weights, Config, Nominators, Pallet};
 use core::marker::PhantomData;
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
-	migrations::{MigrationId, SteppedMigration},
+	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	traits::Defensive,
 };
-use sp_runtime::Saturating;
+use sp_runtime::traits::CheckedAdd;
 use sp_staking::StakingInterface;
 
 #[cfg(test)]
@@ -46,50 +46,65 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 	fn step(
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut frame_support::weights::WeightMeter,
-	) -> Result<Option<Self::Cursor>, frame_support::migrations::SteppedMigrationError> {
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		let required = W::v13_mmb_step();
 
 		// If there's no enough weight left in the block for a migration step, return an error.
 		if meter.remaining().any_lt(required) {
-			return Err(frame_support::migrations::SteppedMigrationError::InsufficientWeight {
-				required,
-			});
+			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
 		// Do as much progress as possible per step.
 		while meter.try_consume(required).is_ok() {
 			// 1. get next validator in the Validators map.
-			let mut iter = if let Some(ref last_val) = cursor {
-				Validators::<T>::iter_from(Validators::<T>::hashed_key_for(last_val))
+			let mut iter = if let Some(ref last_nom) = cursor {
+				Nominators::<T>::iter_from(Nominators::<T>::hashed_key_for(last_nom))
 			} else {
 				// first step, start from beginning of the validator's map.
-				Validators::<T>::iter()
+				Nominators::<T>::iter()
 			};
 
-			if let Some((target, _)) = iter.next() {
-				// 2. calculate target's stake which consits of self-stake + all of its nominator's
-				//    stake.
-				let self_stake = Pallet::<T>::stake(&target).defensive_unwrap_or_default().total;
-
-				// TODO: need to split.
-				let total_stake = Nominators::<T>::iter()
-					.filter(|(_v, noms)| noms.targets.contains(&target))
-					.map(|(v, _)| Pallet::<T>::stake(&v).defensive_unwrap_or_default())
-					.fold(self_stake, |sum: BalanceOf<T>, stake| stake.total.saturating_add(sum));
-
-				// 3. insert (validator, score = total_stake) to the target bags list.
-				let _ = T::TargetList::on_insert(target.clone(), total_stake).defensive();
+			if let Some((nominator, _)) = iter.next() {
+				let nominator_stake =
+					Pallet::<T>::stake(&nominator).defensive_unwrap_or_default().total;
+				let nominations = Nominators::<T>::get(&nominator)
+					.map(|n| n.targets.into_inner())
+					.unwrap_or_default();
 
 				log!(
 					info,
-					"multi-block migrations: processed target {:?} (total stake: {:?}). remaining {} targets to migrate.",
-					target,
-					total_stake,
+					"multi-block migrations: processing nominator {:?} with {} nominations. remaining {} nominators to migrate.",
+					nominator,
+                    nominations.len(),
 					iter.count()
 				);
 
-				// 4. progress cursor.
-				cursor = Some(target)
+				// iter over up to `MaxNominationsOf<T>` targets of `nominator`.
+				for target in nominations.into_iter() {
+					if let Ok(current_stake) = T::TargetList::get_score(&target) {
+						// target is not in the target list. update with nominator's stake.
+
+						if let Some(total_stake) = current_stake.checked_add(&nominator_stake) {
+							let _ = T::TargetList::on_update(&target, total_stake).defensive();
+						} else {
+							log!(error, "target stake overflow. exit.");
+							return Err(SteppedMigrationError::Failed)
+						}
+					} else {
+						// target is not in the target list, insert new node and consider self
+						// stake.
+						let self_stake = Pallet::<T>::stake(&target).defensive_unwrap_or_default();
+						if let Some(total_stake) = self_stake.total.checked_add(&nominator_stake) {
+							let _ = T::TargetList::on_insert(target, total_stake).defensive();
+						} else {
+							log!(error, "target stake overflow. exit.");
+							return Err(SteppedMigrationError::Failed)
+						}
+					}
+				}
+
+				// progress cursor.
+				cursor = Some(nominator)
 			} else {
 				// done, return earlier.
 				return Ok(None)

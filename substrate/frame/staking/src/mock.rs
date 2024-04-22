@@ -1131,12 +1131,6 @@ pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(Accoun
 	)
 }
 
-#[cfg(not(feature = "runtime-benchmarks"))]
-pub(crate) fn clear_target_list() {
-	TargetBagsList::unsafe_clear();
-	assert!(TargetBagsList::iter().count() == 0);
-}
-
 #[allow(dead_code)]
 pub(crate) fn print_lists_debug() {
 	println!("\nVoters:");
