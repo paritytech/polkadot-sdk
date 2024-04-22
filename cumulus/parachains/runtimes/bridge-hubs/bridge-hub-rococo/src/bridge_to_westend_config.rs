@@ -26,7 +26,7 @@ use crate::{
 	XcmRouter,
 };
 use bp_messages::LaneId;
-use bp_runtime::Chain;
+use bp_runtime::{Chain, RelayerVersion};
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
@@ -46,6 +46,8 @@ use bridge_runtime_common::{
 
 use codec::Encode;
 use frame_support::{parameter_types, traits::PalletInfoAccess};
+use hex_literal::hex;
+use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
@@ -95,6 +97,11 @@ parameter_types! {
 			Parachain(<bp_bridge_hub_westend::BridgeHubWestend as bp_runtime::Parachain>::PARACHAIN_ID)
 		]
 	);
+
+	pub const WithWestendCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("a80d4179b125fd8366ed42c83c9063532d70d8ec40dadc36415b4e7f8246ae1a")),
+	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -195,6 +202,7 @@ bp_runtime::generate_static_str_provider!(RefundComplexWestendBridgeTransactions
 pub type WithBridgeHubWestendMessagesInstance = pallet_bridge_messages::Instance3;
 impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithWestendCompatibleMessagesRelayer;
 	type WeightInfo = weights::pallet_bridge_messages_rococo_to_westend::WeightInfo<Runtime>;
 	type BridgedChainId = BridgeHubWestendChainId;
 	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWestend;
@@ -252,7 +260,8 @@ mod tests {
 			AssertCompleteBridgeConstants,
 		},
 		relayer_compatibility::{
-			ensure_grandpa_relayer_compatibility, ensure_parachains_relayer_compatibility,
+			ensure_grandpa_relayer_compatibility, ensure_messages_relayer_compatibility,
+			ensure_parachains_relayer_compatibility,
 		},
 	};
 	use parachains_common::Balance;
@@ -343,6 +352,13 @@ mod tests {
 			Runtime,
 			BridgeParachainWestendInstance,
 			crate::SignedExtra,
+		>();
+		ensure_messages_relayer_compatibility::<
+			Runtime,
+			BridgeGrandpaWestendInstance,
+			crate::SignedExtra,
+			_,
+			_,
 		>();
 	}
 }

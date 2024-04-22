@@ -111,6 +111,10 @@ parameter_types! {
 		manual: 0,
 		auto: H256(hex!("920d6b5cddd9333a2405803c0e30b78d2a05f5c03961e6d1807581a3a3ae68ed")),
 	};
+	pub const WithRococoCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("e82801f12e4f2c01861dcdae866d67c49a8d08388f248bc699e9afb953bd7507")),
+	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -245,6 +249,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 pub type WithBridgeHubRococoMessagesInstance = pallet_bridge_messages::Instance1;
 impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithRococoCompatibleMessagesRelayer;
 	type WeightInfo = weights::pallet_bridge_messages::WeightInfo<Runtime>;
 	type BridgedChainId = BridgeHubRococoChainId;
 	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubRococo;
@@ -300,7 +305,8 @@ mod tests {
 			AssertCompleteBridgeConstants,
 		},
 		relayer_compatibility::{
-			ensure_grandpa_relayer_compatibility, ensure_parachains_relayer_compatibility,
+			ensure_grandpa_relayer_compatibility, ensure_messages_relayer_compatibility,
+			ensure_parachains_relayer_compatibility,
 		},
 	};
 	use parachains_common::Balance;
@@ -390,6 +396,13 @@ mod tests {
 			Runtime,
 			BridgeParachainRococoInstance,
 			crate::SignedExtra,
+		>();
+		ensure_messages_relayer_compatibility::<
+			Runtime,
+			WithBridgeHubRococoMessagesInstance,
+			crate::SignedExtra,
+			_,
+			_,
 		>();
 	}
 }

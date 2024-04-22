@@ -61,16 +61,28 @@
 //!
 //! - a set of all pallet settings that may affect relayer.
 
+use crate::{
+	messages::{
+		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
+	},
+	messages_xcm_extension::XcmAsPlainPayload,
+};
+use bp_messages::{
+	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, LaneId,
+	UnrewardedRelayersState,
+};
 use bp_polkadot_core::parachains::ParaHeadsProof;
 use bp_runtime::RelayerVersion;
 use bp_test_utils::make_default_justification;
-use codec::Encode;
+use codec::{Decode, Encode};
+use frame_support::weights::Weight;
 use pallet_bridge_grandpa::{
 	BridgedHeader as BridgedGrandpaHeader, Call as GrandpaCall, Config as GrandpaConfig,
 };
+use pallet_bridge_messages::{Call as MessagesCall, Config as MessagesConfig};
 use pallet_bridge_parachains::{Call as ParachainsCall, Config as ParachainsConfig};
 use sp_core::{blake2_256, Get, H256};
-use sp_runtime::traits::{Header, SignedExtension};
+use sp_runtime::traits::{Header, SignedExtension, TrailingZeroInput};
 
 const LOG_TARGET: &str = "bridge";
 
@@ -129,6 +141,50 @@ where
 	);
 }
 
+/// Ensure that the running relayer is compatible with the `pallet-bridge-messages`, deployed
+/// at `Runtime`.
+pub fn ensure_messages_relayer_compatibility<
+	Runtime,
+	I,
+	SignedExtra,
+	BridgedHash,
+	BridgedAccountId,
+>()
+where
+	Runtime:
+		MessagesConfig<I, InboundRelayer = BridgedAccountId, OutboundPayload = XcmAsPlainPayload>,
+	I: 'static,
+	SignedExtra: SignedExtension,
+	Runtime::RuntimeCall: From<MessagesCall<Runtime, I>>,
+	Runtime::SourceHeaderChain:
+		SourceHeaderChain<MessagesProof = FromBridgedChainMessagesProof<BridgedHash>>,
+	Runtime::TargetHeaderChain: TargetHeaderChain<
+		XcmAsPlainPayload,
+		Runtime::AccountId,
+		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<BridgedHash>,
+	>,
+	BridgedHash: Default,
+	BridgedAccountId: Decode,
+{
+	let expected_version = <Runtime as MessagesConfig<I>>::CompatibleWithRelayer::get();
+	let actual_version = RelayerVersion {
+		manual: expected_version.manual,
+		auto: blake2_256(
+			&[
+				messages_calls_digest::<Runtime, I, BridgedHash, BridgedAccountId>(),
+				messages_config_digest::<Runtime, I>(),
+				siged_extensions_digest::<SignedExtra>(),
+			]
+			.encode(),
+		)
+		.into(),
+	};
+	assert_eq!(
+		expected_version, actual_version,
+		"Expected messages relayer version: {expected_version:?}. Actual: {actual_version:?}",
+	);
+}
+
 /// Seal bridge GRANDPA call encoding.
 fn grandpa_calls_digest<Runtime, I>() -> H256
 where
@@ -174,6 +230,68 @@ where
 	.into();
 	log::info!(target: LOG_TARGET, "Sealing parachains call encoding: {:?}", call);
 	blake2_256(&call.encode()).into()
+}
+
+/// Seal bridge messages call encoding.
+fn messages_calls_digest<Runtime, I, BridgedHash, BridgedAccountId>() -> H256
+where
+	Runtime:
+		MessagesConfig<I, InboundRelayer = BridgedAccountId, OutboundPayload = XcmAsPlainPayload>,
+	I: 'static,
+	Runtime::RuntimeCall: From<MessagesCall<Runtime, I>>,
+	Runtime::SourceHeaderChain:
+		SourceHeaderChain<MessagesProof = FromBridgedChainMessagesProof<BridgedHash>>,
+	Runtime::TargetHeaderChain: TargetHeaderChain<
+		XcmAsPlainPayload,
+		Runtime::AccountId,
+		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<BridgedHash>,
+	>,
+	BridgedHash: Default,
+	BridgedAccountId: Decode,
+{
+	// the relayer normally only uses the `receive_messages_proof` and
+	// `receive_messages_delivery_proof` calls. Let's ensure that the encoding stays the same.
+	// Obviously, we can not detect all encoding changes here, but such breaking changes are
+	// not assumed to be detected using this test.
+	let call1: Runtime::RuntimeCall = MessagesCall::<Runtime, I>::receive_messages_proof {
+		relayer_id_at_bridged_chain: BridgedAccountId::decode(&mut TrailingZeroInput::zeroes())
+			.expect("is decoded successfully in tests; qed"),
+		proof: FromBridgedChainMessagesProof {
+			bridged_header_hash: BridgedHash::default(),
+			storage_proof: vec![vec![42u8; 42]],
+			lane: LaneId([0, 0, 0, 0]),
+			nonces_start: 42,
+			nonces_end: 42,
+		},
+		messages_count: 1,
+		dispatch_weight: Weight::zero(),
+	}
+	.into();
+	let call2: Runtime::RuntimeCall = MessagesCall::<Runtime, I>::receive_messages_delivery_proof {
+		proof: FromBridgedChainMessagesDeliveryProof {
+			bridged_header_hash: BridgedHash::default(),
+			storage_proof: vec![vec![42u8; 42]],
+			lane: LaneId([0, 0, 0, 0]),
+		},
+		relayers_state: UnrewardedRelayersState::default(),
+	}
+	.into();
+	log::info!(target: LOG_TARGET, "Sealing message calls encoding: {:?} {:?}", call1, call2);
+	blake2_256(&(call1, call2).encode()).into()
+}
+
+/// Seal bridge messages pallet configuration settings that may affect running relayer.
+fn messages_config_digest<Runtime, I>() -> H256
+where
+	Runtime: MessagesConfig<I>,
+	I: 'static,
+{
+	let settings = (
+		Runtime::MaxUnrewardedRelayerEntriesAtInboundLane::get(),
+		Runtime::MaxUnconfirmedMessagesAtInboundLane::get(),
+	);
+	log::info!(target: LOG_TARGET, "Sealing messages pallet configuration: {:?}", settings);
+	blake2_256(&settings.encode()).into()
 }
 
 /// Seal all signed extensions that may break bridge.

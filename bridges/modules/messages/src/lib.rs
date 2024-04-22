@@ -63,7 +63,8 @@ use bp_messages::{
 	UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{
-	BasicOperatingMode, ChainId, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt, Size,
+	BasicOperatingMode, ChainId, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt,
+	RelayerVersion, Size,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
@@ -102,6 +103,9 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// Version of the relayer that is compatible with this pallet configuration.
+		#[pallet::constant]
+		type CompatibleWithRelayer: Get<RelayerVersion>;
 		/// Benchmarks results from runtime we're plugged into.
 		type WeightInfo: WeightInfoExt;
 

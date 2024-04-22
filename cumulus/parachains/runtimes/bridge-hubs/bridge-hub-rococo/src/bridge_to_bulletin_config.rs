@@ -27,7 +27,7 @@ use crate::{
 	RuntimeEvent, XcmOverRococoBulletin, XcmRouter,
 };
 use bp_messages::LaneId;
-use bp_runtime::Chain;
+use bp_runtime::{Chain, RelayerVersion};
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundSignedExtensionAdapter,
@@ -46,6 +46,8 @@ use bridge_runtime_common::{
 };
 
 use frame_support::{parameter_types, traits::PalletInfoAccess};
+use hex_literal::hex;
+use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
@@ -108,6 +110,11 @@ parameter_types! {
 
 	/// XCM message that is never sent.
 	pub NeverSentMessage: Option<Xcm<()>> = None;
+
+	pub const WithRococoBulletinCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("3f2a464e8390e13d3204e2e254470889925637c7f4ec56b636e2d53ce42be2d8")),
+	};
 }
 pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 0]);
 
@@ -187,6 +194,7 @@ bp_runtime::generate_static_str_provider!(RefundComplexRococoBulletinBridgeTrans
 pub type WithRococoBulletinMessagesInstance = pallet_bridge_messages::Instance4;
 impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithRococoBulletinCompatibleMessagesRelayer;
 	type WeightInfo =
 		weights::pallet_bridge_messages_rococo_to_rococo_bulletin::WeightInfo<Runtime>;
 	type BridgedChainId = RococoBulletinChainId;
@@ -228,8 +236,11 @@ mod tests {
 	use super::*;
 	use crate::bridge_common_config::BridgeGrandpaRococoBulletinInstance;
 	use bridge_runtime_common::{
-		assert_complete_bridge_types, integrity::check_message_lane_weights,
-		relayer_compatibility::ensure_grandpa_relayer_compatibility,
+		assert_complete_bridge_types,
+		integrity::check_message_lane_weights,
+		relayer_compatibility::{
+			ensure_grandpa_relayer_compatibility, ensure_messages_relayer_compatibility,
+		},
 	};
 	use parachains_common::Balance;
 	use testnet_parachains_constants::rococo;
@@ -291,6 +302,13 @@ mod tests {
 			Runtime,
 			BridgeGrandpaRococoBulletinInstance,
 			crate::SignedExtra,
+		>();
+		ensure_messages_relayer_compatibility::<
+			Runtime,
+			BridgeGrandpaRococoBulletinInstance,
+			crate::SignedExtra,
+			_,
+			_,
 		>();
 	}
 }
