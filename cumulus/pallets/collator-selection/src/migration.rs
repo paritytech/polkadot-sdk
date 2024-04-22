@@ -17,7 +17,7 @@
 //! A module that is responsible for migration of storage for Collator Selection.
 
 use super::*;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 use log;
 
 /// Migrate to v2. Should have been part of https://github.com/paritytech/polkadot-sdk/pull/1340
@@ -32,6 +32,17 @@ pub mod v2 {
 	#[cfg(feature = "try-runtime")]
 	use sp_std::vec::Vec;
 
+	/// [`UncheckedMigrationToV2`] wrapped in a
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+	/// migration is only performed when on-chain version is 1.
+	pub type MigrationToV2<T> = frame_support::migrations::VersionedMigration<
+		1,
+		2,
+		UncheckedMigrationToV2<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
 	#[storage_alias]
 	pub type Candidates<T: Config> = StorageValue<
 		Pallet<T>,
@@ -40,8 +51,10 @@ pub mod v2 {
 	>;
 
 	/// Migrate to V2.
-	pub struct MigrateToV2<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
+	///
+	/// Note: This should have been in https://github.com/paritytech/polkadot-sdk/pull/1340.
+	pub struct UncheckedMigrationToV2<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 			if on_chain_version == 1 {
@@ -181,5 +194,56 @@ pub mod v1 {
 
 			Ok(())
 		}
+	}
+}
+
+#[cfg(all(feature = "try-runtime", test))]
+mod tests {
+	use super::*;
+	use crate::{
+		migration::v2::Candidates,
+		mock::{new_test_ext, Balances, Test},
+	};
+	use frame_support::{
+		traits::{Currency, ReservableCurrency, StorageVersion},
+		BoundedVec,
+	};
+	use sp_runtime::traits::ConstU32;
+
+	#[test]
+	fn migrate_to_v2() {
+		new_test_ext().execute_with(|| {
+			let storage_version = StorageVersion::new(1);
+			storage_version.put::<Pallet<Test>>();
+
+			let who = 1u64;
+
+			// Set balance to 100
+			Balances::make_free_balance_be(&who, 100u64);
+			// Reserve 20 -> 10 for the "old" candidacy and 10 for the "new"
+			Balances::reserve(&who, 20u64).unwrap();
+			// Candidate info
+			let candidate = CandidateInfo { who, deposit: 10u64 };
+			let bounded_candidates =
+				BoundedVec::<CandidateInfo<u64, u64>, ConstU32<20>>::try_from(vec![
+					candidate.clone()
+				])
+				.expect("it works");
+			// Candidate is in the old `Candidates` and the new `CandidateList`
+			Candidates::<Test>::put(bounded_candidates.clone());
+			CandidateList::<Test>::put(bounded_candidates);
+			// Sanity check
+			assert_eq!(Balances::free_balance(who), 80);
+
+			// Run migration
+			v2::MigrationToV2::<Test>::on_runtime_upgrade();
+
+			// 10 should have been unreserved from the old candidacy
+			assert_eq!(Balances::free_balance(who), 90);
+			// The storage item should be gone
+			assert!(Candidates::<Test>::get().is_empty());
+			// The new storage item should be preserved
+			assert_eq!(CandidateList::<Test>::get(), vec![candidate]);
+		});
 	}
 }
