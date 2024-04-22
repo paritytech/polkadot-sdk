@@ -339,6 +339,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
@@ -367,7 +369,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>RelayLocation: Location = Location::parent();
 	<span class="kw">pub const </span>RelayNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	<span class="kw">pub </span>UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
+	<span class="comment">// For the real deployment, it is recommended to set `RelayNetwork` according to the relay chain
+	// and prepend `UniversalLocation` with `GlobalConsensus(RelayNetwork::get())`.
+	</span><span class="kw">pub </span>UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 }
 
 <span class="doccomment">/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used

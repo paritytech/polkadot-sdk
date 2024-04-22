@@ -280,8 +280,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>WestendLocation: Location = Location::parent();
-	<span class="kw">pub const </span>WestendNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">Some</span>(NetworkId::Westend);
-	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
+	<span class="kw">pub const </span>WestendNetwork: NetworkId = NetworkId::Westend;
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [GlobalConsensus(WestendNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
 <span class="doccomment">/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,

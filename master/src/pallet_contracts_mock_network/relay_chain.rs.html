@@ -501,7 +501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub </span>RelayNetwork: NetworkId = ByGenesis([<span class="number">0</span>; <span class="number">32</span>]);
 	<span class="kw">pub const </span>TokenLocation: Location = Here.into_location();
-	<span class="kw">pub </span>UniversalLocation: InteriorLocation = Here;
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = RelayNetwork::get().into();
 	<span class="kw">pub </span>UnitWeightCost: u64 = <span class="number">1_000</span>;
 }
 

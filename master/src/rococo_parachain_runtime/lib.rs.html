@@ -1331,9 +1331,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>RocLocation: Location = Location::parent();
-	<span class="kw">pub const </span>RococoNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">Some</span>(NetworkId::Rococo);
+	<span class="kw">pub const </span>RococoNetwork: NetworkId = NetworkId::Rococo;
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [GlobalConsensus(RococoNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 

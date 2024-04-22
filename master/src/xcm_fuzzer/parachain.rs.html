@@ -611,7 +611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>KsmLocation: Location = Location::parent();
 	<span class="kw">pub const </span>RelayNetwork: NetworkId = NetworkId::Kusama;
-	<span class="kw">pub </span>UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(MsgQueue::parachain_id().into())].into();
 }
 
 <span class="kw">pub type </span>LocationToAccountId = (
