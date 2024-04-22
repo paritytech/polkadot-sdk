@@ -28,7 +28,7 @@ pub mod v2 {
 		storage_alias,
 		traits::{Currency, ReservableCurrency},
 	};
-	use sp_runtime::traits::Saturating;
+	use sp_runtime::traits::{Saturating, Zero};
 
 	#[storage_alias]
 	pub type Candidates<T: Config> = StorageValue<
@@ -43,11 +43,32 @@ pub mod v2 {
 		fn on_runtime_upgrade() -> Weight {
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 			if on_chain_version == 1 {
+				let mut weight = Weight::zero();
 				let mut count: u32 = 0;
+				// candidates who exist under the old `Candidates` key
 				let candidates = Candidates::<T>::take();
-				for candidate in candidates {
-					let _err = T::Currency::unreserve(&candidate.who, candidate.deposit);
-					count.saturating_inc();
+
+				// New candidates who have registered since the upgrade. Under normal circumstances,
+				// this should not exist because the migration should be applied when the upgrade
+				// happens. But in Polkadot/Kusama we messed this up, and people registered under
+				// `CandidateList` while their funds were locked in `Candidates`.
+				let new_candidate_list = CandidateList::<T>::get();
+				if new_candidate_list.len().is_zero() {
+					// The new list is empty, so this is essentially being applied correctly. We
+					// just put the candidates into the new storage item.
+					CandidateList::<T>::put(&candidates);
+					// 1 write for the new list
+					weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+				} else {
+					// Oops, the runtime upgraded without the migration. There are new candidates in
+					// `CandidateList`. So, let's just refund the old ones and assume they have
+					// already started participating in the new system.
+					for candidate in candidates {
+						let _err = T::Currency::unreserve(&candidate.who, candidate.deposit);
+						count.saturating_inc();
+					}
+					// TODO: set each accrue to weight of `unreserve`
+					weight.saturating_accrue(T::DbWeight::get().reads_writes(0, count as u64));
 				}
 
 				StorageVersion::new(2).put::<Pallet<T>>();
@@ -56,8 +77,9 @@ pub mod v2 {
 					"Unreserved locked bond of {} candidates, upgraded storage to version 2",
 					count,
 				);
-				// weight: todo
-				T::DbWeight::get().reads_writes(2, 1)
+				// 1 read/write for storage version
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+				weight
 			} else {
 				log::info!(
 					target: LOG_TARGET,
