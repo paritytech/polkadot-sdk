@@ -609,7 +609,6 @@ impl<T: Config> Pallet<T> {
 				details.state = OutboundState::Suspended;
 			} else {
 				if s.try_push(OutboundChannelDetails::new(target).with_suspended_state()).is_err() {
-					// We got a suspension signal on either an unidirectional or a new channel.
 					defensive!("Cannot pause channel; too many outbound channels");
 				}
 			}
