@@ -229,6 +229,7 @@ mod tests {
 	use crate::bridge_common_config::BridgeGrandpaRococoBulletinInstance;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types, integrity::check_message_lane_weights,
+		relayer_compatibility::ensure_grandpa_relayer_compatibility,
 	};
 	use parachains_common::Balance;
 	use testnet_parachains_constants::rococo;
@@ -285,5 +286,11 @@ mod tests {
 		.into();
 
 		assert_eq!(BridgeRococoToRococoBulletinMessagesPalletInstance::get(), expected,);
+
+		ensure_grandpa_relayer_compatibility::<
+			Runtime,
+			BridgeGrandpaRococoBulletinInstance,
+			crate::SignedExtra,
+		>();
 	}
 }

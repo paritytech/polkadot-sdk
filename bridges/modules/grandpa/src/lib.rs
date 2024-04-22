@@ -42,7 +42,9 @@ use bp_header_chain::{
 	HeaderChain, InitializationData, StoredHeaderData, StoredHeaderDataBuilder,
 	StoredHeaderGrandpaInfo,
 };
-use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
+use bp_runtime::{
+	BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule, RelayerVersion,
+};
 use frame_support::{dispatch::PostDispatchInfo, ensure, DefaultNoBound};
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
@@ -97,6 +99,9 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// Version of the relayer that is compatible with this pallet configuration.
+		#[pallet::constant]
+		type CompatibleWithRelayer: Get<RelayerVersion>;
 
 		/// The chain we are bridging to here.
 		type BridgedChain: ChainWithGrandpa;

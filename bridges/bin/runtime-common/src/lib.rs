@@ -32,5 +32,7 @@ mod mock;
 
 #[cfg(feature = "integrity-test")]
 pub mod integrity;
+#[cfg(feature = "integrity-test")]
+pub mod relayer_compatibility;
 
 const LOG_TARGET_BRIDGE_DISPATCH: &str = "runtime::bridge-dispatch";

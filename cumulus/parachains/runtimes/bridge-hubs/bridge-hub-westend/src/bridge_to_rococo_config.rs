@@ -23,7 +23,7 @@ use crate::{
 };
 use bp_messages::LaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
-use bp_runtime::Chain;
+use bp_runtime::{Chain, RelayerVersion};
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
@@ -45,6 +45,8 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU32, PalletInfoAccess},
 };
+use hex_literal::hex;
+use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
@@ -100,6 +102,11 @@ parameter_types! {
 			Parachain(<bp_bridge_hub_rococo::BridgeHubRococo as bp_runtime::Parachain>::PARACHAIN_ID)
 		]
 	);
+
+	pub const WithRococoCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("4de4a845950aaf32f0247922397aba6337a8b3559d11a81f9a052b76dc8d7365")),
+	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -209,6 +216,7 @@ bp_runtime::generate_static_str_provider!(OnBridgeHubWestendRefundBridgeHubRococ
 pub type BridgeGrandpaRococoInstance = pallet_bridge_grandpa::Instance1;
 impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithRococoCompatibleGrandpaRelayer;
 	type BridgedChain = bp_rococo::Rococo;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
@@ -286,6 +294,7 @@ mod tests {
 			AssertBridgeMessagesPalletConstants, AssertBridgePalletNames, AssertChainConstants,
 			AssertCompleteBridgeConstants,
 		},
+		relayer_compatibility::ensure_grandpa_relayer_compatibility,
 	};
 	use parachains_common::Balance;
 	use testnet_parachains_constants::westend;
@@ -364,5 +373,11 @@ mod tests {
 				bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX
 			)]
 		);
+
+		ensure_grandpa_relayer_compatibility::<
+			Runtime,
+			BridgeGrandpaRococoInstance,
+			crate::SignedExtra,
+		>();
 	}
 }
