@@ -2,25 +2,17 @@
 //!
 //! # 1. Add the host function to your node
 //!
-//! In order to reclaim excess storage weight that was benchmarked, your parachain runtime needs to
+//! In order to reclaim excess storage weight that was benchmarked, a parachain runtime needs to
 //! be able to fetch the size of the storage proof from the runtime. To do this, it needs access to
 //! the [storage_proof_size](cumulus_primitives_proof_size_hostfunction::storage_proof_size) host
 //! function. For convenience, cumulus provides
-//! [ParachainHostFunctions](cumulus_client_service::ParachainHostFunctions), a set of typically
-//! expected hostfunctions typically expected by parachain runtimes.
+//! [ParachainHostFunctions](cumulus_client_service::ParachainHostFunctions), a set of hostfunctions
+//! typically used by parachains.
 //!
 //! ## WasmExecutor
 //! If your node is using the [WasmExecutor][`sc_executor::WasmExecutor`], add the hostfunctions
 //! like this:
-//! ```rust
-//! 	let executor = WasmExecutor::<ParachainHostFunctions>::builder()
-//! 	.with_execution_method(config.wasm_method)
-//! 	.with_onchain_heap_alloc_strategy(heap_pages)
-//! 	.with_offchain_heap_alloc_strategy(heap_pages)
-//! 	.with_max_runtime_instances(config.max_runtime_instances)
-//! 	.with_runtime_cache_size(config.runtime_cache_size)
-//! 	.build();
-//! ```
+#![doc = docify::embed!("src/guides/enable_pov_reclaim.rs",wasm_executor)]
 //!
 //! # 2. Enable storage proof recording during import
 //!
@@ -54,3 +46,14 @@
 
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
+
+#[cfg(test)]
+mod test {
+	use cumulus_client_service::ParachainHostFunctions;
+	use sc_executor::WasmExecutor;
+
+	#[docify::export_content(wasm_executor)]
+	fn test() {
+		let executor = WasmExecutor::<ParachainHostFunctions>::builder().build();
+	}
+}
