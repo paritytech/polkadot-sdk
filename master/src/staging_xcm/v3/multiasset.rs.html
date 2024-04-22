@@ -1395,6 +1395,73 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1244" id="1244">1244</a>
 <a href="#1245" id="1245">1245</a>
 <a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2222,7 +2289,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Prepend a `MultiLocation` to any concrete asset items, giving it a new root location.
 	</span><span class="kw">pub fn </span>prepend_with(<span class="kw-2">&amp;mut </span><span class="self">self</span>, prefix: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-		<span class="self">self</span>.<span class="number">0</span>.iter_mut().try_for_each(|i| i.prepend_with(prefix))
+		<span class="self">self</span>.<span class="number">0</span>.iter_mut().try_for_each(|i| i.prepend_with(prefix))<span class="question-mark">?</span>;
+		<span class="self">self</span>.<span class="number">0</span>.sort();
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Mutate the location of the asset identifier if concrete, giving it the same location
@@ -2610,8 +2679,73 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">vec!</span>[asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
 		<span class="macro">assert_eq!</span>(assets.clone(), <span class="macro">vec!</span>[asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
 
+		<span class="comment">// decoding respects limits and sorting
+		</span><span class="macro">assert!</span>(assets
+			.using_encoded(|<span class="kw-2">mut </span>enc| MultiAssets::decode(<span class="kw-2">&amp;mut </span>enc).map(|<span class="kw">_</span>| ()))
+			.is_ok());
+
 		<span class="macro">assert!</span>(assets.reanchor(<span class="kw-2">&amp;</span>dest, reanchor_context).is_ok());
-		<span class="macro">assert_eq!</span>(assets, <span class="macro">vec!</span>[asset_2_reanchored, asset_3_reanchored, asset_1_reanchored].into());
+		<span class="macro">assert_eq!</span>(assets.<span class="number">0</span>, <span class="macro">vec!</span>[asset_2_reanchored, asset_3_reanchored, asset_1_reanchored]);
+
+		<span class="comment">// decoding respects limits and sorting
+		</span><span class="macro">assert!</span>(assets
+			.using_encoded(|<span class="kw-2">mut </span>enc| MultiAssets::decode(<span class="kw-2">&amp;mut </span>enc).map(|<span class="kw">_</span>| ()))
+			.is_ok());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>prepend_preserves_sorting() {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+		<span class="kw">use </span>alloc::vec;
+
+		<span class="kw">let </span>prefix = MultiLocation::new(<span class="number">0</span>, X1(Parachain(<span class="number">1000</span>)));
+
+		<span class="kw">let </span>asset_1: MultiAsset =
+			(MultiLocation::new(<span class="number">0</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>))), <span class="number">10</span>).into();
+		<span class="kw">let </span><span class="kw-2">mut </span>asset_1_prepended = asset_1.clone();
+		<span class="macro">assert!</span>(asset_1_prepended.prepend_with(<span class="kw-2">&amp;</span>prefix).is_ok());
+		<span class="comment">// changes interior X2-&gt;X3
+		</span><span class="macro">assert_eq!</span>(
+			asset_1_prepended,
+			(MultiLocation::new(<span class="number">0</span>, X3(Parachain(<span class="number">1000</span>), PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>))), <span class="number">10</span>)
+				.into()
+		);
+
+		<span class="kw">let </span>asset_2: MultiAsset =
+			(MultiLocation::new(<span class="number">1</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>))), <span class="number">10</span>).into();
+		<span class="kw">let </span><span class="kw-2">mut </span>asset_2_prepended = asset_2.clone();
+		<span class="macro">assert!</span>(asset_2_prepended.prepend_with(<span class="kw-2">&amp;</span>prefix).is_ok());
+		<span class="comment">// changes parent
+		</span><span class="macro">assert_eq!</span>(
+			asset_2_prepended,
+			(MultiLocation::new(<span class="number">0</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>))), <span class="number">10</span>).into()
+		);
+
+		<span class="kw">let </span>asset_3: MultiAsset =
+			(MultiLocation::new(<span class="number">2</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>))), <span class="number">10</span>).into();
+		<span class="kw">let </span><span class="kw-2">mut </span>asset_3_prepended = asset_3.clone();
+		<span class="macro">assert!</span>(asset_3_prepended.prepend_with(<span class="kw-2">&amp;</span>prefix).is_ok());
+		<span class="comment">// changes parent
+		</span><span class="macro">assert_eq!</span>(
+			asset_3_prepended,
+			(MultiLocation::new(<span class="number">1</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>))), <span class="number">10</span>).into()
+		);
+
+		<span class="comment">// `From` impl does sorting.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>assets: MultiAssets = <span class="macro">vec!</span>[asset_1, asset_2, asset_3].into();
+		<span class="comment">// decoding respects limits and sorting
+		</span><span class="macro">assert!</span>(assets
+			.using_encoded(|<span class="kw-2">mut </span>enc| MultiAssets::decode(<span class="kw-2">&amp;mut </span>enc).map(|<span class="kw">_</span>| ()))
+			.is_ok());
+
+		<span class="comment">// let's do `prepend_with`
+		</span><span class="macro">assert!</span>(assets.prepend_with(<span class="kw-2">&amp;</span>prefix).is_ok());
+		<span class="macro">assert_eq!</span>(assets.<span class="number">0</span>, <span class="macro">vec!</span>[asset_2_prepended, asset_1_prepended, asset_3_prepended]);
+
+		<span class="comment">// decoding respects limits and sorting
+		</span><span class="macro">assert!</span>(assets
+			.using_encoded(|<span class="kw-2">mut </span>enc| MultiAssets::decode(<span class="kw-2">&amp;mut </span>enc).map(|<span class="kw">_</span>| ()))
+			.is_ok());
 	}
 
 	<span class="attr">#[test]
