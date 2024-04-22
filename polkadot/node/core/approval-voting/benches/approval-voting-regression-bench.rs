@@ -68,7 +68,7 @@ fn main() -> Result<(), String> {
 
 	let average_usage = BenchmarkUsage::average(&usages);
 	save_to_file(
-		"charts/availability-distribution-regression-bench.json",
+		"charts/approval-voting-regression-bench.json",
 		average_usage.to_chart_json().map_err(|e| e.to_string())?,
 	)
 	.map_err(|e| e.to_string())?;
