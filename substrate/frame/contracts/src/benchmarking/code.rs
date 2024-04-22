@@ -322,6 +322,36 @@ impl<T: Config> WasmModule<T> {
 		.into()
 	}
 
+	/// TODO doc
+	pub fn noop(repeat: u32) -> Self {
+		let pages = max_pages::<T>();
+		ModuleDefinition {
+			memory: Some(ImportedMemory::max::<T>()),
+			imported_functions: vec![ImportedFunction {
+				module: "seal0",
+				name: "noop",
+				params: vec![],
+				return_type: None,
+			}],
+			// Write the output buffer size. The output size will be overwritten by the
+			// supervisor with the real size when calling the getter. Since this size does not
+			// change between calls it suffices to start with an initial value and then just
+			// leave as whatever value was written there.
+			data_segments: vec![DataSegment {
+				offset: 0,
+				value: (pages * 64 * 1024 - 4).to_le_bytes().to_vec(),
+			}],
+			call_body: Some(body::repeated(
+				repeat,
+				&[
+					Instruction::Call(0), // call the imported function
+				],
+			)),
+			..Default::default()
+		}
+		.into()
+	}
+
 	/// Creates a wasm module that calls the imported hash function named `name` `repeat` times
 	/// with an input of size `data_size`. Hash functions have the signature
 	/// (input_ptr: u32, input_len: u32, output_ptr: u32) -> ()

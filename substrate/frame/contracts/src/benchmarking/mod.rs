@@ -39,7 +39,7 @@ use crate::{
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
-	self,
+	self, assert_ok,
 	pallet_prelude::StorageVersion,
 	traits::{fungible::InspectHold, Currency},
 	weights::{Weight, WeightMeter},
@@ -621,8 +621,8 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal0", "seal_caller", r));
+	fn call_noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::noop(r));
 		#[block]
 		{
 			func.call();
@@ -630,12 +630,8 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_2() {
-		let mut setup = CallSetup::<T>::default();
-		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
-		let mut memory = [0u8; 36];
-		memory[0..4].copy_from_slice(&32u32.to_le_bytes());
+	fn seal_caller() {
+		build_runtime!(runtime, memory: (32u32, [0u8; 32]));
 
 		let result;
 		#[block]
@@ -643,47 +639,27 @@ mod benchmarks {
 			result = crate::wasm::BenchEnv::seal0_caller(&mut runtime, &mut memory, 4, 0);
 		}
 
-		frame_support::assert_ok!(result);
+		assert_ok!(result);
 		assert_eq!(
 			<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
-			ext.caller().account_id().unwrap().clone()
+			runtime.ext().caller().account_id().unwrap().clone()
 		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_is_contract(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let accounts = (0..r).map(|n| account::<T::AccountId>("account", n, 0)).collect::<Vec<_>>();
-		let account_len = accounts.get(0).map(|i| i.encode().len()).unwrap_or(0);
-		let accounts_bytes = accounts.iter().flat_map(|a| a.encode()).collect::<Vec<_>>();
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_is_contract",
-				params: vec![ValueType::I32],
-				return_type: Some(ValueType::I32),
-			}],
-			data_segments: vec![DataSegment { offset: 0, value: accounts_bytes }],
-			call_body: Some(body::repeated_dyn(
-				r,
-				vec![
-					Counter(0, account_len as u32), // address_ptr
-					Regular(Instruction::Call(0)),
-					Regular(Instruction::Drop),
-				],
-			)),
-			..Default::default()
-		});
-		call_builder!(func, instance, code);
-		let info = instance.info().unwrap();
-		// every account would be a contract (worst case)
-		for acc in accounts.iter() {
-			<ContractInfoOf<T>>::insert(acc, info.clone());
-		}
+	fn seal_is_contract() {
+		let Contract { account_id, .. } =
+			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+
+		build_runtime!(runtime, memory: account_id);
+
+		let result;
 		#[block]
 		{
-			func.call();
+			result = crate::wasm::BenchEnv::seal0_is_contract(&mut runtime, &mut memory, 0);
 		}
+
+		assert_eq!(result.unwrap(), 1);
 	}
 
 	#[benchmark(pov_mode = Measured)]

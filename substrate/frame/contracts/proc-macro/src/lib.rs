@@ -132,6 +132,7 @@ struct HostFn {
 	alias_to: Option<String>,
 	/// Formulating the predicate inverted makes the expression using it simpler.
 	not_deprecated: bool,
+	cfg: Option<syn::Attribute>,
 }
 
 enum HostFnReturn {
@@ -163,13 +164,13 @@ impl ToTokens for HostFn {
 impl HostFn {
 	pub fn try_from(mut item: syn::ItemFn) -> syn::Result<Self> {
 		let err = |span, msg| {
-			let msg = format!("Invalid host function definition. {}", msg);
+			let msg = format!("Invalid host function definition.\n{}", msg);
 			syn::Error::new(span, msg)
 		};
 
 		// process attributes
 		let msg =
-			"only #[version(<u8>)], #[unstable], #[prefixed_alias] and #[deprecated] attributes are allowed.";
+			"Only #[version(<u8>)], #[unstable], #[prefixed_alias] and #[deprecated] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
@@ -177,6 +178,7 @@ impl HostFn {
 		let mut is_stable = true;
 		let mut alias_to = None;
 		let mut not_deprecated = true;
+		let mut cfg = None;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
 			match ident.as_str() {
@@ -206,7 +208,13 @@ impl HostFn {
 					}
 					not_deprecated = false;
 				},
-				_ => return Err(err(span, msg)),
+				"cfg" => {
+					if cfg.is_some() {
+						return Err(err(span, "#[cfg] can only be specified once"))
+					}
+					cfg = Some(attr);
+				},
+				id => return Err(err(span, &format!("Unsupported attribute \"{id}\". {msg}"))),
 			}
 		}
 		let name = item.sig.ident.to_string();
@@ -311,6 +319,7 @@ impl HostFn {
 							is_stable,
 							alias_to,
 							not_deprecated,
+							cfg,
 						})
 					},
 					_ => Err(err(span, &msg)),
@@ -532,6 +541,8 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 	let dummy_impls = expand_functions(def, ExpandMode::MockImpl);
 	let bench_impls = expand_functions(def, ExpandMode::BenchImpl);
 
+	std::fs::write("/tmp/impls.rs", format!("{}", impls)).unwrap();
+
 	quote! {
 		impl<'a, E: Ext> crate::wasm::Environment<crate::wasm::runtime::Runtime<'a, E>> for Env
 		{
@@ -595,14 +606,12 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 	let impls = def.host_funcs.iter().map(|f| {
 		// skip the context and memory argument
 		let params = f.item.sig.inputs.iter().skip(2);
-
-		let (module, name, body, wasm_output, output) = (
-			f.module(),
-			&f.name,
-			&f.item.block,
-			f.returns.to_wasm_sig(),
-			&f.item.sig.output
-		);
+		let module = f.module();
+		let cfg = &f.cfg;
+		let name = &f.name;
+		let body = &f.item.block;
+		let wasm_output = f.returns.to_wasm_sig();
+		let output = &f.item.sig.output;
 		let is_stable = f.is_stable;
 		let not_deprecated = f.not_deprecated;
 
@@ -718,7 +727,6 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 			quote! { }
 		};
 
-
 		match expand_mode {
 			ExpandMode::BenchImpl => {
 				let name = Ident::new(&format!("{module}_{name}"), Span::call_site());
@@ -735,6 +743,7 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 					// we generate the weights even when those interfaces are not enabled. This
 					// is necessary as the decision whether we allow unstable or deprecated functions
 					// is a decision made at runtime. Generation of the weights happens statically.
+					#cfg
 					if ::core::cfg!(feature = "runtime-benchmarks") ||
 						((#is_stable || __allow_unstable__) && (#not_deprecated || __allow_deprecated__))
 					{

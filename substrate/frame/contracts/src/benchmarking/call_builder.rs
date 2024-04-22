@@ -178,3 +178,13 @@ macro_rules! call_builder(
 		let $func = CallSetup::<T>::prepare_call(&mut ext, module, data);
 	};
 );
+
+#[macro_export]
+macro_rules! build_runtime(
+	($runtime:ident, $memory:ident: $val:expr) => {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut $runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut $memory = $val.encode();
+	};
+);

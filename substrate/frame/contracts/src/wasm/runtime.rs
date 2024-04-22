@@ -957,6 +957,13 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 // for every function.
 #[define_env(doc)]
 pub mod env {
+
+	/// Noop function used to benchmark the time it takes to execute an empty function.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn noop(ctx: _, memory: _) -> Result<(), TrapReason> {
+		Ok(())
+	}
+
 	/// Set the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::set_storage`]
 	#[prefixed_alias]
