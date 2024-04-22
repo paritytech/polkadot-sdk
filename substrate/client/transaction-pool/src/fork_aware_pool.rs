@@ -74,10 +74,13 @@ use sp_runtime::{
 };
 use std::time::Instant;
 
+pub use import_notification_sink::ImportNotificationTask;
+use import_notification_sink::MultiViewImportNotificationSink;
 use multi_view_listener::MultiViewListener;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::transaction_validity::TransactionValidityError;
 
+mod import_notification_sink;
 mod multi_view_listener;
 mod view_revalidation;
 
@@ -511,11 +514,11 @@ where
 	revalidation_queue: Arc<view_revalidation::RevalidationQueue<PoolApi, Block>>,
 
 	most_recent_view: RwLock<Option<Block::Hash>>,
-	import_notification_sinks: Mutex<Vec<Sender<graph::ExtrinsicHash<PoolApi>>>>,
+	import_notification_sink:
+		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<PoolApi>>,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
 	// is_validator: IsValidator,
 	// options: Options,
-	// listener: RwLock<Listener<ExtrinsicHash<B>, B>>,
 	// rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
@@ -530,21 +533,27 @@ where
 		pool_api: Arc<PoolApi>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
-	) -> Self {
+	) -> (Self, ImportNotificationTask) {
 		let listener = Arc::from(MultiViewListener::new());
-		Self {
-			mempool: Arc::from(TxMemPool::new(pool_api.clone(), listener.clone())),
-			api: pool_api.clone(),
-			view_store: Arc::new(ViewStore::new(pool_api, listener)),
-			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
-			enactment_state: Arc::new(Mutex::new(EnactmentState::new(
-				best_block_hash,
-				finalized_hash,
-			))),
-			revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
-			most_recent_view: RwLock::from(None),
-			import_notification_sinks: Default::default(),
-		}
+		let (import_notification_sink, import_notification_sink_task) =
+			MultiViewImportNotificationSink::new_with_worker();
+
+		(
+			Self {
+				mempool: Arc::from(TxMemPool::new(pool_api.clone(), listener.clone())),
+				api: pool_api.clone(),
+				view_store: Arc::new(ViewStore::new(pool_api, listener)),
+				ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
+				enactment_state: Arc::new(Mutex::new(EnactmentState::new(
+					best_block_hash,
+					finalized_hash,
+				))),
+				revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
+				most_recent_view: RwLock::from(None),
+				import_notification_sink,
+			},
+			import_notification_sink_task,
+		)
 	}
 
 	pub fn new_with_background_queue(
@@ -558,10 +567,22 @@ where
 		finalized_hash: Block::Hash,
 	) -> Self {
 		let listener = Arc::from(MultiViewListener::new());
-		let (revalidation_queue, background_task) =
+		let (revalidation_queue, revalidation_task) =
 			view_revalidation::RevalidationQueue::new_with_worker();
 
-		spawner.spawn_essential("txpool-background", Some("transaction-pool"), background_task);
+		let (import_notification_sink, import_notification_sink_task) =
+			MultiViewImportNotificationSink::new_with_worker();
+
+		//todo: error handling?
+		//todo: is it a really god idea? (revalidation_task may be quite heavy)
+		let combined_tasks = async move {
+			tokio::select! {
+				_ = revalidation_task => {},
+				_ = import_notification_sink_task => {},
+			}
+		}
+		.boxed();
+		spawner.spawn_essential("txpool-background", Some("transaction-pool"), combined_tasks);
 
 		Self {
 			mempool: Arc::from(TxMemPool::new(pool_api.clone(), listener.clone())),
@@ -574,7 +595,7 @@ where
 			))),
 			revalidation_queue: Arc::from(revalidation_queue),
 			most_recent_view: RwLock::from(None),
-			import_notification_sinks: Default::default(),
+			import_notification_sink,
 		}
 	}
 
@@ -935,30 +956,8 @@ where
 	/// Consumers of this stream should use the `ready` method to actually get the
 	/// pending transactions in the right order.
 	fn import_notification_stream(&self) -> ImportNotificationStream<ExtrinsicHash<PoolApi>> {
-		//todo:
-		const CHANNEL_BUFFER_SIZE: usize = 1024;
-
-		let (sink, stream) = channel(CHANNEL_BUFFER_SIZE);
-		self.import_notification_sinks.lock().push(sink);
-		stream
+		futures::executor::block_on(self.import_notification_sink.event_stream())
 	}
-	// if let base::Imported::Ready { ref hash, .. } = imported {
-	// 	let sinks = &mut self.import_notification_sinks.lock();
-	// 	sinks.retain_mut(|sink| match sink.try_send(*hash) {
-	// 		Ok(()) => true,
-	// 		Err(e) =>
-	// 			if e.is_full() {
-	// 				log::warn!(
-	// 					target: LOG_TARGET,
-	// 					"[{:?}] Trying to notify an import but the channel is full",
-	// 					hash,
-	// 				);
-	// 				true
-	// 			} else {
-	// 				false
-	// 			},
-	// 	});
-	// }
 
 	fn hash_of(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.api().hash_and_length(xt).0
@@ -1086,6 +1085,11 @@ where
 
 		let mut view = View::new(self.api.clone(), at.clone());
 
+		//we need to capture all import notifiication from the very beginning
+		self.import_notification_sink
+			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed())
+			.await;
+
 		// we need to install listeners first
 		self.update_view(&mut view).await;
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
@@ -1112,6 +1116,11 @@ where
 		log::info!("build_cloned_view: for: {:?} from: {:?}", at.hash, origin_view.at.hash);
 		let new_block_hash = at.hash;
 		let mut view = View::new_from_other(&origin_view, at);
+
+		//we need to capture all import notifiication from the very beginning
+		self.import_notification_sink
+			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed())
+			.await;
 
 		self.update_view(&mut view).await;
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
