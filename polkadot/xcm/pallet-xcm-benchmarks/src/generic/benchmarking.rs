@@ -21,7 +21,7 @@ use frame_benchmarking::{benchmarks, BenchmarkError};
 use frame_support::{dispatch::GetDispatchInfo, traits::fungible::Inspect};
 use sp_std::vec;
 use xcm::{
-	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight},
+	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight, MAX_ITEMS_IN_ASSETS},
 	DoubleEncoded,
 };
 use xcm_executor::{
@@ -57,8 +57,8 @@ benchmarks! {
 				query_id: Default::default(),
 				max_weight: Weight::MAX,
 			},
-			// Worst case is looking through all holdings for every asset explicitly.
-			assets: Definite(holding),
+			// Worst case is looking through all holdings for every asset explicitly - respecting the limit `MAX_ITEMS_IN_ASSETS`.
+			assets: Definite(holding.into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::<Vec<_>>().into()),
 		};
 
 		let xcm = Xcm(vec![instruction]);
