@@ -1041,7 +1041,7 @@ mod tests {
 		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
 
 		assert!(assets.reanchor(&dest, &reanchor_context).is_ok());
-		assert_eq!(assets, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored].into());
+		assert_eq!(assets.0, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored]);
 
 		// decoding respects limits and sorting
 		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
@@ -1088,7 +1088,7 @@ mod tests {
 
 		// let's do `prepend_with`
 		assert!(assets.prepend_with(&prefix).is_ok());
-		assert_eq!(assets, vec![asset_2_prepended, asset_1_prepended, asset_3_prepended].into());
+		assert_eq!(assets.0, vec![asset_2_prepended, asset_1_prepended, asset_3_prepended]);
 
 		// decoding respects limits and sorting
 		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
