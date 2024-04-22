@@ -18,7 +18,7 @@ sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensu
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy", version = "11.0.0" }
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false, version = "0.17.0" }
 pallet-im-online = { path = "../../../../../../../substrate/frame/im-online", default-features = false, version = "25.0.0" }
-pallet-staking = { path = "../../../../../../../substrate/frame/staking", default-features = false, version = "26.0.0" }
+pallet-staking = { path = "../../../../../../../substrate/frame/staking", default-features = false, version = "26.0.2" }
 
 # Polkadot
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false, version = "5.0.0" }

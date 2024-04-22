@@ -49,7 +49,7 @@ pallet-indices = { path = "../../../substrate/frame/indices", default-features =
 pallet-offences = { path = "../../../substrate/frame/offences", default-features = false, version = "25.0.0" }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "26.0.0" }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "26.0.0" }
-pallet-staking = { path = "../../../substrate/frame/staking", default-features = false, version = "26.0.0" }
+pallet-staking = { path = "../../../substrate/frame/staking", default-features = false, version = "26.0.2" }
 pallet-staking-reward-curve = { version = "10.0.0", path = "../../../substrate/frame/staking/reward-curve" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "26.0.0" }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "24.0.0" }
