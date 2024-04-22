@@ -186,10 +186,10 @@ pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtension
 		>,
 		ActualFeeRefund<Runtime>,
 		PriorityBoostPerMessage,
-		StrOnBridgeHubRococoRefundBridgeHubWestendMessages,
+		StrRefundComplexWestendBridgeTransactions,
 	>,
 >;
-bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundBridgeHubWestendMessages);
+bp_runtime::generate_static_str_provider!(RefundComplexWestendBridgeTransactions);
 
 /// Add XCM messages support for BridgeHubRococo to support Rococo->Westend XCM messages
 pub type WithBridgeHubWestendMessagesInstance = pallet_bridge_messages::Instance3;

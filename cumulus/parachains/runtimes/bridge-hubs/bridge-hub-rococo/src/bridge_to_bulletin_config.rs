@@ -178,10 +178,10 @@ pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAd
 		>,
 		ActualFeeRefund<Runtime>,
 		PriorityBoostPerMessage,
-		StrOnBridgeHubRococoRefundRococoBulletinMessages,
+		StrRefundComplexRococoBulletinBridgeTransactions,
 	>,
 >;
-bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundRococoBulletinMessages);
+bp_runtime::generate_static_str_provider!(RefundComplexRococoBulletinBridgeTransactions);
 
 /// Add XCM messages support for BridgeHubRococo to support Rococo->Rococo Bulletin XCM messages.
 pub type WithRococoBulletinMessagesInstance = pallet_bridge_messages::Instance4;

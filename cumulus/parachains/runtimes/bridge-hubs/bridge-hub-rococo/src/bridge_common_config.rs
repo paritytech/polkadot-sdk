@@ -45,11 +45,11 @@ parameter_types! {
 
 	pub const WithRococoBulletinCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("7ec9e6cb30fdad0ec108a5b7c998bcd8b3f86311bc297e51259d50ea11e3fd89")),
+		auto: H256(hex!("63c6b0bdb689ffb0e787890cf9c3171e83fdeb7e7bb1186a8ca927507317a9a6")),
 	};
 	pub const WithWestendCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("0cd8365b008119c8128c05ff295a40f3a426535b3e952e46381c2804eab8721e")),
+		auto: H256(hex!("ed94acc451921d37f6497dc1864f4ea9cca3db53bfae3eb6da7f735ee775430a")),
 	};
 
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;

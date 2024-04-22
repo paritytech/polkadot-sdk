@@ -85,45 +85,47 @@ where
 #[macro_export]
 macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 	($call:ty, $account_id:ty, $($filter_call:ty),*) => {
-		#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
-		pub struct BridgeRejectObsoleteHeadersAndMessages;
-		impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteHeadersAndMessages {
-			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
-			type AccountId = $account_id;
-			type Call = $call;
-			type AdditionalSigned = ();
-			type Pre = ();
+		paste::paste! {
+			#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
+			pub struct BridgeRejectObsoleteHeadersAndMessages;
+			impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteHeadersAndMessages {
+				const IDENTIFIER: &'static str = stringify!([<"BridgeReject" $($filter_call)*>]);
+				type AccountId = $account_id;
+				type Call = $call;
+				type AdditionalSigned = ();
+				type Pre = ();
 
-			fn additional_signed(&self) -> sp_std::result::Result<
-				(),
-				sp_runtime::transaction_validity::TransactionValidityError,
-			> {
-				Ok(())
-			}
+				fn additional_signed(&self) -> sp_std::result::Result<
+					(),
+					sp_runtime::transaction_validity::TransactionValidityError,
+				> {
+					Ok(())
+				}
 
-			fn validate(
-				&self,
-				_who: &Self::AccountId,
-				call: &Self::Call,
-				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-				_len: usize,
-			) -> sp_runtime::transaction_validity::TransactionValidity {
-				let valid = sp_runtime::transaction_validity::ValidTransaction::default();
-				$(
-					let valid = valid
-						.combine_with(<$filter_call as $crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<$call>>::validate(call)?);
-				)*
-				Ok(valid)
-			}
+				fn validate(
+					&self,
+					_who: &Self::AccountId,
+					call: &Self::Call,
+					_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+					_len: usize,
+				) -> sp_runtime::transaction_validity::TransactionValidity {
+					let valid = sp_runtime::transaction_validity::ValidTransaction::default();
+					$(
+						let valid = valid
+							.combine_with(<$filter_call as $crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<$call>>::validate(call)?);
+					)*
+					Ok(valid)
+				}
 
-			fn pre_dispatch(
-				self,
-				who: &Self::AccountId,
-				call: &Self::Call,
-				info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-				len: usize,
-			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-				self.validate(who, call, info, len).map(drop)
+				fn pre_dispatch(
+					self,
+					who: &Self::AccountId,
+					call: &Self::Call,
+					info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+					len: usize,
+				) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
+					self.validate(who, call, info, len).map(drop)
+				}
 			}
 		}
 	};
@@ -185,6 +187,11 @@ mod tests {
 			(),
 			FirstFilterCall,
 			SecondFilterCall
+		);
+
+		assert_eq!(
+			BridgeRejectObsoleteHeadersAndMessages::IDENTIFIER,
+			"BridgeRejectFirstFilterCallSecondFilterCall"
 		);
 
 		assert_err!(

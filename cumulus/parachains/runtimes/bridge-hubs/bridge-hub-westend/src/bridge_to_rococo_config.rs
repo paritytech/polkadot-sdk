@@ -105,7 +105,7 @@ parameter_types! {
 
 	pub const WithRococoCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("4de4a845950aaf32f0247922397aba6337a8b3559d11a81f9a052b76dc8d7365")),
+		auto: H256(hex!("f9961a122a67ce458f32762060e1e44f0bc7d565370443d6cf4fc376ad427232")),
 	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
@@ -207,10 +207,10 @@ pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtension
 		>,
 		ActualFeeRefund<Runtime>,
 		PriorityBoostPerMessage,
-		StrOnBridgeHubWestendRefundBridgeHubRococoMessages,
+		StrRefundComplexRococoBridgeTransactions,
 	>,
 >;
-bp_runtime::generate_static_str_provider!(OnBridgeHubWestendRefundBridgeHubRococoMessages);
+bp_runtime::generate_static_str_provider!(RefundComplexRococoBridgeTransactions);
 
 /// Add GRANDPA bridge pallet to track Rococo relay chain.
 pub type BridgeGrandpaRococoInstance = pallet_bridge_grandpa::Instance1;
