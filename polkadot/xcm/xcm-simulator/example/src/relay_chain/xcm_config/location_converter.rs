@@ -15,13 +15,11 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::relay_chain::{constants::RelayNetwork, AccountId};
-use polkadot_parachain_primitives::primitives::Id as ParaId;
-use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia};
+use xcm_builder::{HashedDescription, DescribeFamily, DescribeAllTerminal, AccountId32Aliases};
 
 type LocationToAccountId = (
-	ChildParachainConvertsVia<ParaId, AccountId>,
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 	AccountId32Aliases<RelayNetwork, AccountId>,
-	Account32Hash<(), AccountId>,
 );
 
 pub type LocationConverter = LocationToAccountId;
