@@ -18,6 +18,7 @@
 
 use crate::SimpleRuntimeVersion;
 use bp_polkadot_core::parachains::ParaId;
+use bp_runtime::RelayerVersion;
 use jsonrpsee::core::ClientError as RpcError;
 use relay_utils::MaybeConnectionError;
 use sc_rpc_api::system::Health;
@@ -128,6 +129,23 @@ pub enum Error {
 		expected: SimpleRuntimeVersion,
 		/// Actual runtime version.
 		actual: SimpleRuntimeVersion,
+	},
+	/// Incompatible relayer version.
+	#[error(
+		"{source_chain} to {target_chain} {relayer_type} relayer version: {offchain_relayer_version:?} \
+		is different from version set at {target_chain}: {onchain_relayer_version:?}"
+	)]
+	IncompatibleRelayerVersion {
+		/// Source chain name.
+		source_chain: &'static str,
+		/// Target chain name.
+		target_chain: &'static str,
+		/// Relayer type.
+		relayer_type: &'static str,
+		/// Offchain (actual) relayer version.
+		offchain_relayer_version: RelayerVersion,
+		/// Onchain (expected) relayer version.
+		onchain_relayer_version: RelayerVersion,
 	},
 	/// Custom logic error.
 	#[error("{0}")]

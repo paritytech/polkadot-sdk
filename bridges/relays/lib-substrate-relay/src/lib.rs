@@ -18,7 +18,8 @@
 
 #![warn(missing_docs)]
 
-use relay_substrate_client::{Chain, ChainWithUtilityPallet, UtilityPallet};
+use bp_runtime::{HeaderIdOf, RelayerVersion};
+use relay_substrate_client::{Chain, ChainWithUtilityPallet, Client, UtilityPallet};
 
 use std::marker::PhantomData;
 
@@ -125,5 +126,29 @@ impl<Call> BatchCallBuilderConstructor<Call> for () {
 impl<Call> BatchCallBuilder<Call> for () {
 	fn build_batch_call(&self, _calls: Vec<Call>) -> Call {
 		unreachable!("never called, because ()::new_builder() returns None; qed")
+	}
+}
+
+/// Ensure that the relayer is compatible with on-chain bridge version.
+pub async fn ensure_relayer_compatibility<SourceChain: Chain, TargetChain: Chain>(
+	relayer_type: &'static str,
+	target_client: &Client<TargetChain>,
+	at_target_block: HeaderIdOf<TargetChain>,
+	onchain_relayer_version_method: &str,
+	offchain_relayer_version: RelayerVersion,
+) -> Result<(), relay_substrate_client::Error> {
+	let onchain_relayer_version: RelayerVersion = target_client
+		.typed_state_call(onchain_relayer_version_method.into(), (), Some(at_target_block.hash()))
+		.await?;
+	if onchain_relayer_version != offchain_relayer_version {
+		Err(relay_substrate_client::Error::IncompatibleRelayerVersion {
+			source_chain: SourceChain::NAME,
+			target_chain: TargetChain::NAME,
+			relayer_type,
+			offchain_relayer_version,
+			onchain_relayer_version,
+		})
+	} else {
+		Ok(())
 	}
 }

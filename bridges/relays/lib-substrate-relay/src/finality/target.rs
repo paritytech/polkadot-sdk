@@ -17,6 +17,7 @@
 //! Substrate client as Substrate finality proof target.
 
 use crate::{
+	ensure_relayer_compatibility,
 	finality::{
 		FinalitySyncPipelineAdapter, SubmitFinalityProofCallBuilder, SubstrateFinalitySyncPipeline,
 	},
@@ -28,7 +29,7 @@ use async_trait::async_trait;
 use bp_runtime::HeaderIdProvider;
 use finality_relay::TargetClient;
 use relay_substrate_client::{
-	AccountKeyPairOf, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
+	AccountKeyPairOf, Chain, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
 	TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
@@ -113,8 +114,18 @@ impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<
 		let context =
 			P::FinalityEngine::verify_and_optimize_proof(&self.client, &header, &mut proof).await?;
 
-		// now we may submit optimized finality proof
+		// check that relayer is compatible with on-chain bridge configuration
 		let best_block_id = self.client.best_header().await?.id();
+		ensure_relayer_compatibility::<P::SourceChain, P::TargetChain>(
+			"finality",
+			&self.client,
+			best_block_id,
+			P::SourceChain::WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD,
+			P::RELAYER_VERSION,
+		)
+		.await?;
+
+		// now we may submit optimized finality proof
 		let mortality = self.transaction_params.mortality;
 		let call = P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(
 			header, proof, context,

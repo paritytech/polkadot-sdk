@@ -56,6 +56,7 @@ impl bp_runtime::Chain for TestChain {
 impl Chain for TestChain {
 	const NAME: &'static str = "Test";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "TestMethod";
+	const WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD: &'static str = "TestMethod";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(0);
 
 	type SignedBlock = sp_runtime::generic::SignedBlock<
@@ -123,6 +124,8 @@ impl bp_runtime::UnderlyingChainProvider for TestParachain {
 impl Chain for TestParachain {
 	const NAME: &'static str = "TestParachain";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "TestParachainMethod";
+	const WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD: &'static str =
+		"TestParachainMethod";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(0);
 
 	type SignedBlock = sp_runtime::generic::SignedBlock<
