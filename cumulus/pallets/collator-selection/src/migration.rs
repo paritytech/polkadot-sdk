@@ -29,6 +29,8 @@ pub mod v2 {
 		traits::{Currency, ReservableCurrency},
 	};
 	use sp_runtime::traits::{Saturating, Zero};
+	#[cfg(feature = "try-runtime")]
+	use sp_std::vec::Vec;
 
 	#[storage_alias]
 	pub type Candidates<T: Config> = StorageValue<
