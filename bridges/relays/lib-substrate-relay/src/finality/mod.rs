@@ -72,7 +72,7 @@ pub trait SubstrateFinalitySyncPipeline: BaseSubstrateFinalitySyncPipeline {
 	/// Version of this relayer. It must match version that the
 	/// `Self::SourceChain::WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD`
 	/// returns when called at `Self::TargetChain`.
-	const RELAYER_VERSION: RelayerVersion;
+	const RELAYER_VERSION: Option<RelayerVersion>;
 
 	/// How submit finality proof call is built?
 	type SubmitFinalityProofCallBuilder: SubmitFinalityProofCallBuilder<Self>;

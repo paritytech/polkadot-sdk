@@ -54,11 +54,11 @@ pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
 	/// Version of this relayer. It must match version that the
 	/// `Self::TargetChain::WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD`
 	/// returns when called at `Self::SourceChain`.
-	const AT_SOURCE_CHAIN_RELAYER_VERSION: RelayerVersion;
+	const AT_SOURCE_CHAIN_RELAYER_VERSION: Option<RelayerVersion>;
 	/// Version of this relayer. It must match version that the
 	/// `Self::SourceChain::WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD`
 	/// returns when called at `Self::TargetChain`.
-	const AT_TARGET_CHAIN_RELAYER_VERSION: RelayerVersion;
+	const AT_TARGET_CHAIN_RELAYER_VERSION: Option<RelayerVersion>;
 
 	/// Messages of this chain are relayed to the `TargetChain`.
 	type SourceChain: ChainWithMessages + ChainWithTransactions;

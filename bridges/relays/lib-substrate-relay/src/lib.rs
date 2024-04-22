@@ -135,17 +135,19 @@ pub async fn ensure_relayer_compatibility<SourceChain: Chain, TargetChain: Chain
 	target_client: &Client<TargetChain>,
 	at_target_block: HeaderIdOf<TargetChain>,
 	onchain_relayer_version_method: &str,
-	offchain_relayer_version: RelayerVersion,
+	offchain_relayer_version: &Option<RelayerVersion>,
 ) -> Result<(), relay_substrate_client::Error> {
+	let Some(offchain_relayer_version) = offchain_relayer_version.as_ref() else { return Ok(()) };
+
 	let onchain_relayer_version: RelayerVersion = target_client
 		.typed_state_call(onchain_relayer_version_method.into(), (), Some(at_target_block.hash()))
 		.await?;
-	if onchain_relayer_version != offchain_relayer_version {
+	if onchain_relayer_version != *offchain_relayer_version {
 		Err(relay_substrate_client::Error::IncompatibleRelayerVersion {
 			source_chain: SourceChain::NAME,
 			target_chain: TargetChain::NAME,
 			relayer_type,
-			offchain_relayer_version,
+			offchain_relayer_version: *offchain_relayer_version,
 			onchain_relayer_version,
 		})
 	} else {

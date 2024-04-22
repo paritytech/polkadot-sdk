@@ -257,7 +257,7 @@ where
 			&self.target_client,
 			best_block_id,
 			P::SourceChain::WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD,
-			P::AT_TARGET_CHAIN_RELAYER_VERSION,
+			&P::AT_TARGET_CHAIN_RELAYER_VERSION,
 		)
 		.await?;
 

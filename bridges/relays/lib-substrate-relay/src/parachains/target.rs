@@ -136,7 +136,7 @@ where
 			&self.client,
 			best_block_id,
 			P::SourceParachain::WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD,
-			P::RELAYER_VERSION,
+			&P::RELAYER_VERSION,
 		)
 		.await?;
 
