@@ -244,7 +244,7 @@ fn construct_runtime_final_expansion(
 		// Prevent UncheckedExtrinsic to print unused warning.
 		const _: () = {
 			#[allow(unused)]
-			type __hidden_use_of_unchecked_extrinsic = #unchecked_extrinsic;
+			type __HiddenUseOfUncheckedExtrinsic = #unchecked_extrinsic;
 		};
 
 		#[derive(
