@@ -31,6 +31,9 @@ pub use {
 	tests::MockExt,
 };
 
+#[cfg(feature = "runtime-benchmarks")]
+pub use crate::wasm::runtime::BenchEnv;
+
 pub use crate::wasm::{
 	prepare::{LoadedModule, LoadingMode},
 	runtime::{

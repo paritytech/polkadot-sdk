@@ -630,6 +630,27 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_caller_2() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut memory = [0u8; 36];
+		memory[0..4].copy_from_slice(&32u32.to_le_bytes());
+
+		let result;
+		#[block]
+		{
+			result = crate::wasm::BenchEnv::seal0_caller(&mut runtime, &mut memory, 4, 0);
+		}
+
+		frame_support::assert_ok!(result);
+		assert_eq!(
+			<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
+			ext.caller().account_id().unwrap().clone()
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_is_contract(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let accounts = (0..r).map(|n| account::<T::AccountId>("account", n, 0)).collect::<Vec<_>>();
 		let account_len = accounts.get(0).map(|i| i.encode().len()).unwrap_or(0);

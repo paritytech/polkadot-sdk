@@ -57,6 +57,16 @@ pub struct CallSetup<T: Config> {
 	data: Vec<u8>,
 }
 
+impl<T> Default for CallSetup<T>
+where
+	T: Config + pallet_balances::Config,
+	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+{
+	fn default() -> Self {
+		Self::new(WasmModule::dummy())
+	}
+}
+
 impl<T> CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
