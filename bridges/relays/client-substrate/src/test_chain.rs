@@ -79,6 +79,8 @@ impl ChainWithMessagesBase for TestChain {
 
 impl ChainWithMessages for TestChain {
 	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = None;
+	const WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD: &'static str =
+		"TestRelayerVersionMethod";
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "TestMessagesDetailsMethod";
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "TestFromMessagesDetailsMethod";
 }

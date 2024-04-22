@@ -19,6 +19,7 @@
 //! `<BridgedName>` chain.
 
 use crate::{
+	ensure_relayer_compatibility,
 	messages_lane::{
 		BatchProofTransaction, MessageLaneAdapter, ReceiveMessagesProofCallBuilder,
 		SubstrateMessageLane,
@@ -41,8 +42,8 @@ use messages_relay::{
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
 };
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, Client, Error as SubstrateError, HashOf,
-	TransactionEra, TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, ChainWithMessages, Client,
+	Error as SubstrateError, HashOf, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
@@ -251,6 +252,15 @@ where
 		};
 
 		let best_block_id = self.target_client.best_header().await?.id();
+		ensure_relayer_compatibility::<P::SourceChain, P::TargetChain>(
+			"finality",
+			&self.target_client,
+			best_block_id,
+			P::SourceChain::WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD,
+			P::AT_TARGET_CHAIN_RELAYER_VERSION,
+		)
+		.await?;
+
 		let transaction_params = self.transaction_params.clone();
 		let tx_tracker = self
 			.target_client
