@@ -280,7 +280,7 @@ test-linux-stable-codecov:
     LLVM_PROFILE_FILE: "target/coverage/cargo-test-${CI_NODE_INDEX}-%p-%m.profraw"     
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-  parallel: 3
+  parallel: 2
   script:
     # Build all but only execute 'runtime' tests.
     # - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
@@ -289,7 +289,7 @@ test-linux-stable-codecov:
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage
     - >
-      time cargo nextest run -p polkadot-node-core-pvf \
+      time cargo nextest run -p polkadot \
         --locked \
         --release \
         --no-fail-fast \
