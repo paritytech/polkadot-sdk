@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713808078611,
+  "lastUpdate": 1713820680982,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5979,6 +5979,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010348097646666672,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "bd9287f766bded2022036a63d12fb86a2f7174a0",
+          "message": "wasm-builder: Make it easier to build a WASM binary (#4177)\n\nBasically combines all the recommended calls into one\n`build_using_defaults()` call or `init_with_defaults()` when there are\nsome custom changes required.",
+          "timestamp": "2024-04-22T19:28:27Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd9287f766bded2022036a63d12fb86a2f7174a0"
+        },
+        "date": 1713820652457,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022577859879999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16351843857999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010986655566666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013090886886666663,
             "unit": "seconds"
           }
         ]
