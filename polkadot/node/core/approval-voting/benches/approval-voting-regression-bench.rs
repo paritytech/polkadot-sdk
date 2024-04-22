@@ -36,7 +36,6 @@ const BENCH_COUNT: usize = 10;
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
 	let mut config = TestConfiguration::default();
-	// A single node effort roughly
 	config.n_cores = 100;
 	config.n_validators = 500;
 	config.num_blocks = 10;
