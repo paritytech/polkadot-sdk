@@ -197,7 +197,7 @@ impl Config {
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(3),
 			prepare_workers_soft_max_num: 1,
-			prepare_workers_hard_max_num: 1,
+			prepare_workers_hard_max_num: 2,
 
 			execute_worker_program_path,
 			execute_worker_spawn_timeout: Duration::from_secs(3),
@@ -959,10 +959,7 @@ pub(crate) mod tests {
 	use crate::{artifacts::generate_artifact_path, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
-	use polkadot_node_core_pvf_common::{
-		error::PrepareError,
-		prepare::{PrepareStats, PrepareSuccess},
-	};
+	use polkadot_node_core_pvf_common::prepare::PrepareStats;
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub(crate) const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
