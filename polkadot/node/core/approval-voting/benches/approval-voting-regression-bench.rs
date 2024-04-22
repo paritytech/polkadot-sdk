@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-// TODO
 //! approval-voting throughput test
 //!
 //! Approval Voting benchmark based on Kusama parameters and scale.
