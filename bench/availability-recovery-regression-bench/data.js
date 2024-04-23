@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713829468466,
+  "lastUpdate": 1713867822100,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4871,6 +4871,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.801833620633332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ac4f421f0b99b73bbf80710206e9ac1463e8cb0b",
+          "message": "parachains_coretime: Expose `MaxXCMTransactWeight` (#4189)\n\nThis should be configured on the runtime level and not somewhere inside\nthe pallet.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2024-04-23T09:51:11Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac4f421f0b99b73bbf80710206e9ac1463e8cb0b"
+        },
+        "date": 1713867797004,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21886011716666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.945297898066666,
             "unit": "seconds"
           }
         ]
