@@ -23,10 +23,9 @@
 use std::collections::VecDeque;
 
 use crate::collator::SlotClaim;
-use codec::{Codec};
+use codec::Codec;
 use cumulus_client_consensus_common::{
-	self as consensus_common, load_abridged_host_configuration,
-	ParentSearchParams,
+	self as consensus_common, load_abridged_host_configuration, ParentSearchParams,
 };
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{relay_chain::Hash as PHash, BlockT};
