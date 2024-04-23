@@ -5,8 +5,8 @@ topic: pallet assets
 doc:
   - audience: Runtime Dev
     description: |
-      The new status live and no privileges is created. Under this status, owner, issuer, admin and
-      freezer has no privileges and metadata are frozen.
+      The new status "live and no privileges" (`LiveAndNoPrivileges`) is created. Under this
+      status, owner, issuer, admin and freezer has no privileges and metadata are frozen.
       The new call `revoke_all_privileges` is created. This call allows `ForceOrigin` or the
       `Owner` to revoke all the privileges on the asset. This operation is irrevesible for the
       `Owner`, `ForceOrigin` can always reverse by using `force_asset_status`.
@@ -20,8 +20,8 @@ doc:
 
   - audience: Runtime User
     description: |
-      The new status live and no privileges is created. Under this status, owner, issuer, admin and
-      freezer has no privileges and metadata are frozen.
+      The new status "live and no privileges" (`LiveAndNoPrivileges`) is created. Under this
+      status, owner, issuer, admin and freezer has no privileges and metadata are frozen.
       The new call `revoke_all_privileges` is created. This call allows `ForceOrigin` or the
       `Owner` to revoke all the privileges on the asset. This operation is irrevesible for the
       `Owner`, `ForceOrigin` can always reverse by using `force_asset_status`.
