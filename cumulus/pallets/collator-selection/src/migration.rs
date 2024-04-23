@@ -81,7 +81,7 @@ pub mod v2 {
 					if err > Zero::zero() {
 						log::info!(
 							target: LOG_TARGET,
-							"{:?} balance was unable to be unreserved from {}",
+							"{:?} balance was unable to be unreserved from {:?}",
 							err, &candidate.who,
 						);
 					}
@@ -222,14 +222,17 @@ mod tests {
 			Balances::make_free_balance_be(&one, 100u64);
 			Balances::make_free_balance_be(&two, 100u64);
 			Balances::make_free_balance_be(&three, 100u64);
+
 			// Reservations: 10 for the "old" candidacy and 10 for the "new"
 			Balances::reserve(&one, 10u64).unwrap(); // old
 			Balances::reserve(&two, 20u64).unwrap(); // old + new
 			Balances::reserve(&three, 10u64).unwrap(); // new
+
 			// Candidate info
 			let candidate_one = CandidateInfo { who: one, deposit };
 			let candidate_two = CandidateInfo { who: two, deposit };
 			let candidate_three = CandidateInfo { who: three, deposit };
+
 			// Storage lists
 			let bounded_candidates =
 				BoundedVec::<CandidateInfo<u64, u64>, ConstU32<20>>::try_from(vec![
@@ -243,9 +246,11 @@ mod tests {
 					candidate_three.clone(),
 				])
 				.expect("it works");
+
 			// Set storage
 			Candidates::<Test>::put(bounded_candidates);
 			CandidateList::<Test>::put(bounded_candidate_list.clone());
+
 			// Sanity check
 			assert_eq!(Balances::free_balance(one), 90);
 			assert_eq!(Balances::free_balance(two), 80);
@@ -281,12 +286,15 @@ mod tests {
 			// Set balance to 100
 			Balances::make_free_balance_be(&one, 100u64);
 			Balances::make_free_balance_be(&two, 100u64);
+
 			// Reservations
 			Balances::reserve(&one, 10u64).unwrap(); // old
 			Balances::reserve(&two, 10u64).unwrap(); // old
+
 			// Candidate info
 			let candidate_one = CandidateInfo { who: one, deposit };
 			let candidate_two = CandidateInfo { who: two, deposit };
+
 			// Storage lists
 			let bounded_candidates =
 				BoundedVec::<CandidateInfo<u64, u64>, ConstU32<20>>::try_from(vec![
@@ -294,8 +302,10 @@ mod tests {
 					candidate_two.clone(),
 				])
 				.expect("it works");
+
 			// Set storage
 			Candidates::<Test>::put(bounded_candidates.clone());
+
 			// Sanity check
 			assert_eq!(Balances::free_balance(one), 90);
 			assert_eq!(Balances::free_balance(two), 90);
