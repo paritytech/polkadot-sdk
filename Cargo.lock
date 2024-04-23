@@ -19302,6 +19302,7 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-application-crypto",
+ "sp-consensus",
  "sp-core",
  "sp-crypto-hashing",
  "sp-io",
