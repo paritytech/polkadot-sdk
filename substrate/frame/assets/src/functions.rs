@@ -374,11 +374,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Returns a `DepositFrom` of an account only if balance is zero.
+	/// Refunds the `DepositFrom` of an account only if its balance is zero.
+	///
+	/// If the `maybe_check_caller` parameter is specified, it must match the account that provided
+	/// the deposit or must be the admin of the asset.
 	pub(super) fn do_refund_other(
 		id: T::AssetId,
 		who: &T::AccountId,
-		caller: &T::AccountId,
+		maybe_check_caller: Option<T::AccountId>,
 	) -> DispatchResult {
 		let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?;
 		let (depositor, deposit) =
@@ -386,11 +389,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		Self::ensure_live_asset(&details)?;
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
-		ensure!(
-			caller == &depositor ||
-				(details.status != AssetStatus::LiveAndNoPrivileges && caller == &details.admin),
-			Error::<T, I>::NoPermission
-		);
+		if let Some(caller) = maybe_check_caller {
+			ensure!(
+				caller == &depositor ||
+					(details.status != AssetStatus::LiveAndNoPrivileges && caller == &details.admin),
+				Error::<T, I>::NoPermission
+			);
+		}
 		ensure!(account.balance.is_zero(), Error::<T, I>::WouldBurn);
 
 		T::Currency::unreserve(&depositor, deposit);
@@ -1085,6 +1090,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			d.status == AssetStatus::Live || d.status == AssetStatus::LiveAndNoPrivileges,
 			Error::<T, I>::AssetNotLive
 		);
+	}
+
+	/// Reset the team for the asset with the given `id`.
+	///
+	/// ### Parameters
+	/// - `id`: The identifier of the asset for which the team is being reset.
+	/// - `owner`: The new `owner` account for the asset.
+	/// - `admin`: The new `admin` account for the asset.
+	/// - `issuer`: The new `issuer` account for the asset.
+	/// - `freezer`: The new `freezer` account for the asset.
+	pub(crate) fn do_reset_team(
+		id: T::AssetId,
+		owner: T::AccountId,
+		admin: T::AccountId,
+		issuer: T::AccountId,
+		freezer: T::AccountId,
+	) -> DispatchResult {
+		let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		d.owner = owner;
+		d.admin = admin;
+		d.issuer = issuer;
+		d.freezer = freezer;
+		Asset::<T, I>::insert(&id, d);
 		Ok(())
 	}
 }
