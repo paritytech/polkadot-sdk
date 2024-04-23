@@ -963,6 +963,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#812" id="812">812</a>
 <a href="#813" id="813">813</a>
 <a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
@@ -1063,6 +1065,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
 </span><span class="kw">pub type </span>Migrations = (
+	pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;,
+	pallet_collator_selection::migration::v2::MigrationToV2&lt;Runtime&gt;,
 	cumulus_pallet_parachain_system::migration::Migration&lt;Runtime&gt;,
 	cumulus_pallet_xcmp_queue::migration::v2::MigrationToV2&lt;Runtime&gt;,
 	cumulus_pallet_xcmp_queue::migration::v3::MigrationToV3&lt;Runtime&gt;,

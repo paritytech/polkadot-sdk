@@ -2905,10 +2905,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
 </span><span class="attr">#[allow(deprecated)]
 </span><span class="kw">pub type </span>Migrations = (
-	pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;,
 	InitStorageVersions,
 	<span class="comment">// unreleased
 	</span>cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
+	pallet_collator_selection::migration::v2::MigrationToV2&lt;Runtime&gt;,
 	<span class="comment">// permanent
 	</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
 );
