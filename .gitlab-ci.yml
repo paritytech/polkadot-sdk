@@ -273,7 +273,7 @@ subsystem-regression-tests-distribution-regression-testnet:
     # - .run-immediately
   variables:
     FORKLIFT_BYPASS: "true"
-  parallel: 6
+  # parallel: 6
   script:
     - sleep 600
     - >
@@ -298,7 +298,7 @@ subsystem-regression-tests-distribution-regression:
     # - .run-immediately
   variables:
     FORKLIFT_BYPASS: "true"
-  parallel: 6
+  # parallel: 6
   script:
     - sleep 600
     - >
