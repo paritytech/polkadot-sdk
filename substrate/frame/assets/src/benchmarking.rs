@@ -554,24 +554,19 @@ benchmarks_instance_pallet! {
 	}
 
 	revoke_all_privileges {
-		let asset_id = default_asset_id::<T, I>();
-		let caller: T::AccountId = whitelisted_caller();
-		let caller_lookup = T::Lookup::unlookup(caller.clone());
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		let name = vec![0u8; T::StringLimit::get() as usize];
+		let symbol = vec![0u8; T::StringLimit::get() as usize];
 
-		let needed_balance = T::Currency::minimum_balance()
-			+ T::AssetDeposit::get()
-			+ T::MetadataDepositBase::get();
-		T::Currency::make_free_balance_be(&caller, needed_balance);
-
-		// We use `create` so we have a deposit to unreserve.
-		assert!(
-			Assets::<T, I>::create(
-				SystemOrigin::Signed(caller.clone()).into(),
-				asset_id.clone(),
-				caller_lookup.clone(),
-				1u32.into(),
-			).is_ok()
-		);
+		// We set some metadata so that it goes to `DepositDestinationOnRevocation`
+		Assets::<T, I>::set_metadata(
+			SystemOrigin::Signed(caller.clone()).into(),
+			asset_id.clone(),
+			name.clone(),
+			symbol.clone(),
+			12
+		)?;
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone())
 	verify {
 		assert_eq!(Asset::<T, I>::get(asset_id.into()).unwrap().status, AssetStatus::LiveAndNoPrivileges);
