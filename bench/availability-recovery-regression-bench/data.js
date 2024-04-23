@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713882672203,
+  "lastUpdate": 1713892666107,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4997,6 +4997,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17984596733333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ffbce2a817ec2e7c8b7ce49f7ed6794584f19667",
+          "message": "pallet_broker: Let `start_sales` calculate and request the correct core count (#4221)",
+          "timestamp": "2024-04-23T15:37:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ffbce2a817ec2e7c8b7ce49f7ed6794584f19667"
+        },
+        "date": 1713892640631,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2342792633,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.926268684599995,
             "unit": "seconds"
           }
         ]
