@@ -35,7 +35,8 @@ async fn test_backing_disabling() -> Result<(), Error> {
 
 	println!("🚀🚀🚀 network deployed");
 
-	sleep(Duration::from_secs(5)).await;
+	// we should add some method to wait_(client/metrics)
+	sleep(Duration::from_secs(12)).await;
 
 	let honest = network.get_node("honest-0")?;
 	let role = honest.reports("node_roles").await?;
