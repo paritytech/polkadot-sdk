@@ -34,6 +34,8 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+const LOG_TARGET: &str = "pallet-example-tasks";
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
@@ -74,11 +76,14 @@ pub mod pallet {
 				let call = frame_system::Call::<T>::do_task { task: runtime_task.into() };
 
 				// Submit the task as an unsigned transaction
-				SubmitTransaction::<T, frame_system::Call<T>>::submit_unsigned_transaction(
-					call.into(),
-				)
-				.map_err(|()| "Unable to submit unsigned transaction.")
-				.unwrap();
+				let res =
+					SubmitTransaction::<T, frame_system::Call<T>>::submit_unsigned_transaction(
+						call.into(),
+					);
+				match res {
+					Ok(_) => log::info!(target: LOG_TARGET, "Submitted the task."),
+					Err(e) => log::error!(target: LOG_TARGET, "Error submitting task: {:?}", e),
+				}
 			}
 		}
 	}

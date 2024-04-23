@@ -1033,7 +1033,13 @@ pub mod pallet {
 			#[cfg(feature = "experimental")]
 			if let Call::do_task { ref task } = call {
 				if task.is_valid() {
-					return Ok(ValidTransaction::default())
+					return Ok(ValidTransaction {
+						priority: u64::max_value(),
+						requires: Vec::new(),
+						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
+						longevity: TransactionLongevity::max_value(),
+						propagate: true,
+					})
 				}
 			}
 			Err(InvalidTransaction::Call.into())
