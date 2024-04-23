@@ -444,6 +444,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -592,8 +604,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	initiate_reserve_withdraw {
 		<span class="kw">let </span>(sender_account, sender_location) = account_and_location::&lt;T&gt;(<span class="number">1</span>);
-		<span class="kw">let </span>holding = T::worst_case_holding(<span class="number">1</span>);
-		<span class="kw">let </span>assets_filter = AssetFilter::Definite(holding.clone().into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().into());
 		<span class="kw">let </span>reserve = T::valid_destination().map_err(|<span class="kw">_</span>| BenchmarkError::Skip)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>(expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
@@ -603,15 +613,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">let </span>sender_account_balance_before = T::TransactAsset::balance(<span class="kw-2">&amp;</span>sender_account);
 
+		<span class="comment">// generate holding and add possible required fees
+		</span><span class="kw">let </span>holding = <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_assets_in_holding) = expected_assets_in_holding {
+			<span class="kw">let </span><span class="kw-2">mut </span>holding = T::worst_case_holding(<span class="number">1 </span>+ expected_assets_in_holding.len() <span class="kw">as </span>u32);
+			<span class="kw">for </span>a <span class="kw">in </span>expected_assets_in_holding.into_inner() {
+				holding.push(a);
+			}
+			holding
+		} <span class="kw">else </span>{
+			T::worst_case_holding(<span class="number">1</span>)
+		};
+
 		<span class="kw">let </span><span class="kw-2">mut </span>executor = new_executor::&lt;T&gt;(sender_location);
-		executor.set_holding(holding.into());
+		executor.set_holding(holding.clone().into());
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(expected_fees_mode) = expected_fees_mode {
 			executor.set_fees_mode(expected_fees_mode);
 		}
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
-		}
-		<span class="kw">let </span>instruction = Instruction::InitiateReserveWithdraw { assets: assets_filter, reserve, xcm: Xcm(<span class="macro">vec!</span>[]) };
+
+		<span class="kw">let </span>instruction = Instruction::InitiateReserveWithdraw {
+			<span class="comment">// Worst case is looking through all holdings for every asset explicitly - respecting the limit `MAX_ITEMS_IN_ASSETS`.
+			</span>assets: Definite(holding.into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().into()),
+			reserve,
+			xcm: Xcm(<span class="macro">vec!</span>[])
+		};
 		<span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[instruction]);
 	}: {
 		executor.bench_process(xcm)<span class="question-mark">?</span>;

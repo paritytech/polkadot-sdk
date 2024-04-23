@@ -449,6 +449,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -570,7 +610,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="kw">let </span>para = id.into();
 		<span class="kw">let </span>price = P::price_for_delivery(para, <span class="kw-2">&amp;</span>xcm);
-		<span class="kw">let </span>blob = W::wrap_version(<span class="kw-2">&amp;</span>d, xcm).map_err(|()| DestinationUnsupported)<span class="question-mark">?</span>.encode();
+		<span class="kw">let </span>versioned_xcm = W::wrap_version(<span class="kw-2">&amp;</span>d, xcm).map_err(|()| DestinationUnsupported)<span class="question-mark">?</span>;
+		versioned_xcm.validate_xcm_nesting().map_err(|()| ExceedsMaxMessageSize)<span class="question-mark">?</span>;
+		<span class="kw">let </span>blob = versioned_xcm.encode();
 		dmp::Pallet::&lt;T&gt;::can_queue_downward_message(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>para, <span class="kw-2">&amp;</span>blob)
 			.map_err(Into::&lt;SendError&gt;::into)<span class="question-mark">?</span>;
 
@@ -687,9 +729,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>frame_support::parameter_types;
+	<span class="kw">use </span><span class="kw">crate</span>::integration_tests::new_test_ext;
+	<span class="kw">use </span>frame_support::{assert_ok, parameter_types};
 	<span class="kw">use </span>runtime_parachains::FeeTracker;
 	<span class="kw">use </span>sp_runtime::FixedU128;
+	<span class="kw">use </span>xcm::MAX_XCM_DECODE_DEPTH;
 
 	<span class="macro">parameter_types! </span>{
 		<span class="kw">pub const </span>BaseDeliveryFee: u128 = <span class="number">300_000_000</span>;
@@ -747,6 +791,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			),
 			(FeeAssetId::get(), result).into()
 		);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>child_parachain_router_validate_nested_xcm_works() {
+		<span class="kw">let </span>dest = Parachain(<span class="number">5555</span>);
+
+		<span class="kw">type </span>Router = ChildParachainRouter&lt;
+			<span class="kw">crate</span>::integration_tests::Test,
+			(),
+			NoPriceForMessageDelivery&lt;ParaId&gt;,
+		&gt;;
+
+		<span class="comment">// Message that is not too deeply nested:
+		</span><span class="kw">let </span><span class="kw-2">mut </span>good = Xcm(<span class="macro">vec!</span>[ClearOrigin]);
+		<span class="kw">for _ in </span><span class="number">0</span>..MAX_XCM_DECODE_DEPTH - <span class="number">1 </span>{
+			good = Xcm(<span class="macro">vec!</span>[SetAppendix(good)]);
+		}
+
+		new_test_ext().execute_with(|| {
+			configuration::ActiveConfig::&lt;<span class="kw">crate</span>::integration_tests::Test&gt;::mutate(|c| {
+				c.max_downward_message_size = u32::MAX;
+			});
+
+			<span class="comment">// Check that the good message is validated:
+			</span><span class="macro">assert_ok!</span>(&lt;Router <span class="kw">as </span>SendXcm&gt;::validate(
+				<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(dest.into()),
+				<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(good.clone())
+			));
+
+			<span class="comment">// Nesting the message one more time should reject it:
+			</span><span class="kw">let </span>bad = Xcm(<span class="macro">vec!</span>[SetAppendix(good)]);
+			<span class="macro">assert_eq!</span>(
+				<span class="prelude-val">Err</span>(ExceedsMaxMessageSize),
+				&lt;Router <span class="kw">as </span>SendXcm&gt;::validate(<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(dest.into()), <span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(bad))
+			);
+		});
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

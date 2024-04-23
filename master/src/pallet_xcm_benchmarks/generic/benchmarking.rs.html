@@ -908,6 +908,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
 <a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -929,9 +941,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_benchmarking::{benchmarks, BenchmarkError};
 <span class="kw">use </span>frame_support::{dispatch::GetDispatchInfo, traits::fungible::Inspect};
-<span class="kw">use </span>sp_std::vec;
+<span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, vec};
 <span class="kw">use </span>xcm::{
-	latest::{prelude::<span class="kw-2">*</span>, MaxDispatchErrorLen, MaybeErrorCode, Weight},
+	latest::{prelude::<span class="kw-2">*</span>, MaxDispatchErrorLen, MaybeErrorCode, Weight, MAX_ITEMS_IN_ASSETS},
 	DoubleEncoded,
 };
 <span class="kw">use </span>xcm_executor::{
@@ -942,7 +954,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">benchmarks! </span>{
 	report_holding {
 		<span class="kw">let </span>(sender_account, sender_location) = account_and_location::&lt;T&gt;(<span class="number">1</span>);
-		<span class="kw">let </span>holding = T::worst_case_holding(<span class="number">0</span>);
 		<span class="kw">let </span>destination = T::valid_destination().map_err(|<span class="kw">_</span>| BenchmarkError::Skip)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>(expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
@@ -952,13 +963,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">let </span>sender_account_balance_before = T::TransactAsset::balance(<span class="kw-2">&amp;</span>sender_account);
 
+		<span class="comment">// generate holding and add possible required fees
+		</span><span class="kw">let </span>holding = <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_assets_in_holding) = expected_assets_in_holding {
+			<span class="kw">let </span><span class="kw-2">mut </span>holding = T::worst_case_holding(expected_assets_in_holding.len() <span class="kw">as </span>u32);
+			<span class="kw">for </span>a <span class="kw">in </span>expected_assets_in_holding.into_inner() {
+				holding.push(a);
+			}
+			holding
+		} <span class="kw">else </span>{
+			T::worst_case_holding(<span class="number">0</span>)
+		};
+
 		<span class="kw">let </span><span class="kw-2">mut </span>executor = new_executor::&lt;T&gt;(sender_location);
 		executor.set_holding(holding.clone().into());
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(expected_fees_mode) = expected_fees_mode {
 			executor.set_fees_mode(expected_fees_mode);
-		}
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
 		}
 
 		<span class="kw">let </span>instruction = Instruction::&lt;XcmCallOf&lt;T&gt;&gt;::ReportHolding {
@@ -967,8 +986,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				query_id: Default::default(),
 				max_weight: Weight::MAX,
 			},
-			<span class="comment">// Worst case is looking through all holdings for every asset explicitly.
-			</span>assets: Definite(holding),
+			<span class="comment">// Worst case is looking through all holdings for every asset explicitly - respecting the limit `MAX_ITEMS_IN_ASSETS`.
+			</span>assets: Definite(holding.into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().into()),
 		};
 
 		<span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[instruction]);
@@ -1522,13 +1541,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>sender_account = T::AccountIdConverter::convert_location(<span class="kw-2">&amp;</span>owner).unwrap();
 		<span class="kw">let </span>sender_account_balance_before = T::TransactAsset::balance(<span class="kw-2">&amp;</span>sender_account);
 
+		<span class="comment">// generate holding and add possible required fees
+		</span><span class="kw">let </span><span class="kw-2">mut </span>holding: Assets = asset.clone().into();
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(expected_assets_in_holding) = expected_assets_in_holding {
+			<span class="kw">for </span>a <span class="kw">in </span>expected_assets_in_holding.into_inner() {
+				holding.push(a);
+			}
+		};
+
 		<span class="kw">let </span><span class="kw-2">mut </span>executor = new_executor::&lt;T&gt;(owner);
-		executor.set_holding(asset.clone().into());
+		executor.set_holding(holding.into());
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(expected_fees_mode) = expected_fees_mode {
 			executor.set_fees_mode(expected_fees_mode);
-		}
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
 		}
 
 		<span class="kw">let </span>instruction = Instruction::LockAsset { asset, unlocker };
