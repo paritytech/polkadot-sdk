@@ -30,7 +30,7 @@ use self::{
 	sandbox::Sandbox,
 };
 use crate::{
-	exec::Key,
+	exec::{Key, SeedOf},
 	migration::{
 		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, v16, MigrationStep,
 	},
@@ -632,7 +632,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_caller() {
-		build_runtime!(runtime, memory: (32u32, [0u8; 32]));
+		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 
 		let result;
 		#[block]
@@ -642,8 +643,8 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(
-			<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().caller().account_id().unwrap().clone()
+			&<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
+			runtime.ext().caller().account_id().unwrap()
 		);
 	}
 
@@ -652,7 +653,7 @@ mod benchmarks {
 		let Contract { account_id, .. } =
 			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 
-		build_runtime!(runtime, memory: account_id);
+		build_runtime!(runtime, memory: [account_id.encode(), ]);
 
 		let result;
 		#[block]
@@ -664,55 +665,28 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_code_hash(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let accounts = (0..r).map(|n| account::<T::AccountId>("account", n, 0)).collect::<Vec<_>>();
-		let account_len = accounts.get(0).map(|i| i.encode().len()).unwrap_or(0);
-		let accounts_bytes = accounts.iter().flat_map(|a| a.encode()).collect::<Vec<_>>();
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_code_hash",
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: Some(ValueType::I32),
-			}],
-			data_segments: vec![
-				DataSegment {
-					offset: 0,
-					value: 32u32.to_le_bytes().to_vec(), // output length
-				},
-				DataSegment { offset: 36, value: accounts_bytes },
-			],
-			call_body: Some(body::repeated_dyn(
-				r,
-				vec![
-					Counter(36, account_len as u32),   // address_ptr
-					Regular(Instruction::I32Const(4)), // ptr to output data
-					Regular(Instruction::I32Const(0)), // ptr to output length
-					Regular(Instruction::Call(0)),
-					Regular(Instruction::Drop),
-				],
-			)),
-			..Default::default()
-		});
-		call_builder!(func, instance, code);
-		let info = instance.info().unwrap();
-		// every account would be a contract (worst case)
-		for acc in accounts.iter() {
-			<ContractInfoOf<T>>::insert(acc, info.clone());
-		}
+	fn seal_code_hash() {
+		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+		let len = <CodeHash<T> as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], contract.account_id.encode(), ]);
 
-		let res;
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_code_hash(&mut runtime, &mut memory, 4 + len, 4, 0);
 		}
-		assert_eq!(res.did_revert(), false);
+
+		assert_ok!(result);
+		assert_eq!(
+			<CodeHash<T> as Decode>::decode(&mut &memory[4..]).unwrap(),
+			contract.info().unwrap().code_hash
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_own_code_hash() {
-		build_runtime!(runtime, contract, memory: (32u32, [0u8; 32]));
+		let len = <CodeHash<T> as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, contract, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 		let result;
 		#[block]
 		{
@@ -727,56 +701,37 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_origin(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_caller_is_origin",
-				params: vec![],
-				return_type: Some(ValueType::I32),
-			}],
-			call_body: Some(body::repeated(r, &[Instruction::Call(0), Instruction::Drop])),
-			..Default::default()
-		});
-		call_builder!(func, code);
+	fn seal_caller_is_origin() {
+		build_runtime!(runtime, memory: []);
 
-		let res;
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_caller_is_origin(&mut runtime, &mut memory);
 		}
-		assert_eq!(res.did_revert(), false);
+		assert_eq!(result.unwrap(), 1u32);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_root(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "caller_is_root",
-				params: vec![],
-				return_type: Some(ValueType::I32),
-			}],
-			call_body: Some(body::repeated(r, &[Instruction::Call(0), Instruction::Drop])),
-			..Default::default()
-		});
-		let mut setup = CallSetup::<T>::new(code);
+	fn seal_caller_is_root() {
+		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::Root);
-		call_builder!(func, setup: setup);
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 
-		let res;
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_caller_is_root(&mut runtime, &mut [0u8; 0]);
 		}
-		assert_eq!(res.did_revert(), false);
+		assert_eq!(result.unwrap(), 1u32);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
-		build_runtime!(runtime, contract, memory: (32u32, [0u8; 32]));
+		let len = <AccountIdOf<T> as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+
 		let result;
 		#[block]
 		{
@@ -784,346 +739,184 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(
-			<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
-			contract.account_id
+			&<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
+			runtime.ext().address()
 		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_gas_left() {
-		build_runtime!(runtime, memory: (32u32, [0u8; 32]));
+		// use correct max_encoded_len when new version of parity-scale-codec is released
+		let len = 18u32;
+		assert!(<Weight as MaxEncodedLen>::max_encoded_len() as u32 != len);
+		build_runtime!(runtime, memory: [32u32.to_le_bytes(), vec![0u8; len as _], ]);
+
 		let result;
 		#[block]
 		{
 			result = BenchEnv::seal1_gas_left(&mut runtime, &mut memory, 4, 0);
 		}
 		assert_ok!(result);
-		assert_ok!(<Weight as Decode>::decode(&mut &memory[4..]));
+		assert_eq!(
+			<Weight as Decode>::decode(&mut &memory[4..]).unwrap(),
+			runtime.ext().gas_meter().gas_left()
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_balance() {
-		let out_ptr = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: (out_ptr, T::Balance::default()));
+		let len = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 		let result;
 		#[block]
 		{
 			result = BenchEnv::seal0_seal_balance(&mut runtime, &mut memory, 4, 0);
 		}
 		assert_ok!(result);
-		assert_ok!(<T::Balance as Decode>::decode(&mut &memory[4..]));
+		assert_eq!(
+			<T::Balance as Decode>::decode(&mut &memory[4..]).unwrap(),
+			runtime.ext().balance().into()
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_value_transferred() {
-		let out_ptr = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: (out_ptr, T::Balance::default()));
+		let len = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 		let result;
 		#[block]
 		{
 			result = BenchEnv::seal0_value_transferred(&mut runtime, &mut memory, 4, 0);
 		}
 		assert_ok!(result);
-		assert_ok!(<T::Balance as Decode>::decode(&mut &memory[4..]));
+		assert_eq!(
+			<T::Balance as Decode>::decode(&mut &memory[4..]).unwrap(),
+			runtime.ext().value_transferred().into()
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_minimum_balance(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let out_ptr = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: (out_ptr, T::Balance::default()));
+		let len = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 		let result;
 		#[block]
 		{
 			result = BenchEnv::seal0_minimum_balance(&mut runtime, &mut memory, 4, 0);
 		}
 		assert_ok!(result);
-		assert_ok!(<T::Balance as Decode>::decode(&mut &memory[4..]));
+		assert_eq!(
+			<T::Balance as Decode>::decode(&mut &memory[4..]).unwrap(),
+			runtime.ext().minimum_balance().into()
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_block_number(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal0", "seal_block_number", r));
-
-		let res;
+	fn seal_block_number() {
+		let len = <BlockNumberFor<T> as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_seal_block_number(&mut runtime, &mut memory, 4, 0);
 		}
-		assert_eq!(res.did_revert(), false);
+		assert_ok!(result);
+		assert_eq!(
+			<BlockNumberFor<T>>::decode(&mut &memory[4..]).unwrap(),
+			runtime.ext().block_number()
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_now(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal0", "seal_now", r));
-
-		let res;
+	fn seal_now() {
+		let len = <MomentOf<T> as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_seal_now(&mut runtime, &mut memory, 4, 0);
 		}
-		assert_eq!(res.did_revert(), false);
+		assert_ok!(result);
+		assert_eq!(<MomentOf<T>>::decode(&mut &memory[4..]).unwrap(), *runtime.ext().now());
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_weight_to_fee(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let pages = code::max_pages::<T>();
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal1",
-				name: "weight_to_fee",
-				params: vec![ValueType::I64, ValueType::I64, ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			data_segments: vec![DataSegment {
-				offset: 0,
-				value: (pages * 64 * 1024 - 4).to_le_bytes().to_vec(),
-			}],
-			call_body: Some(body::repeated(
-				r,
-				&[
-					Instruction::I64Const(500_000),
-					Instruction::I64Const(300_000),
-					Instruction::I32Const(4),
-					Instruction::I32Const(0),
-					Instruction::Call(0),
-				],
-			)),
-			..Default::default()
-		});
-		call_builder!(func, code);
-
-		let res;
+	fn seal_weight_to_fee() {
+		let len = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		let weight = Weight::from_parts(500_000, 300_000);
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal1_weight_to_fee(
+				&mut runtime,
+				&mut memory,
+				weight.ref_time(),
+				weight.proof_size(),
+				4,
+				0,
+			);
 		}
-		assert_eq!(res.did_revert(), false);
+		assert_ok!(result);
+		assert_eq!(
+			<BalanceOf<T>>::decode(&mut &memory[4..]).unwrap(),
+			runtime.ext().get_weight_price(weight)
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_input(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_input",
-				params: vec![ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			data_segments: vec![DataSegment { offset: 0, value: 0u32.to_le_bytes().to_vec() }],
-			call_body: Some(body::repeated(
-				r,
-				&[
-					Instruction::I32Const(4), // ptr where to store output
-					Instruction::I32Const(0), // ptr to length
-					Instruction::Call(0),
-				],
-			)),
-			..Default::default()
-		});
+	fn seal_input(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 - 4 }>) {
+		build_runtime!(runtime, memory: [n.to_le_bytes(), vec![42u8; n as usize], ]);
 
-		call_builder!(func, code);
-
-		let res;
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_input(&mut runtime, &mut memory, 4, 0)
 		}
-		assert_eq!(res.did_revert(), false);
+		assert_ok!(result);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_input_per_byte(
-		n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
-		let buffer_size = code::max_pages::<T>() * 64 * 1024 - 4;
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_input",
-				params: vec![ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			data_segments: vec![DataSegment {
-				offset: 0,
-				value: buffer_size.to_le_bytes().to_vec(),
-			}],
-			call_body: Some(body::plain(vec![
-				Instruction::I32Const(4), // ptr where to store output
-				Instruction::I32Const(0), // ptr to length
-				Instruction::Call(0),
-				Instruction::End,
-			])),
-			..Default::default()
-		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let data = vec![42u8; n.min(buffer_size) as usize];
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, data);
-		Ok(())
-	}
+	fn seal_return(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 - 4 }>) {
+		build_runtime!(runtime, memory: [n.to_le_bytes(), vec![42u8; n as usize], ]);
 
-	// We cannot call `seal_return` multiple times. Therefore our weight determination is not
-	// as precise as with other APIs. Because this function can only be called once per
-	// contract it cannot be used as an attack vector.
-	#[benchmark(pov_mode = Measured)]
-	fn seal_return(r: Linear<0, 1>) {
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_return",
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			call_body: Some(body::repeated(
-				r,
-				&[
-					Instruction::I32Const(0), // flags
-					Instruction::I32Const(0), // data_ptr
-					Instruction::I32Const(0), // data_len
-					Instruction::Call(0),
-				],
-			)),
-			..Default::default()
-		});
-		call_builder!(func, code);
-
-		let res;
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_seal_return(&mut runtime, &mut memory, 0, 0, n)
 		}
-		assert_eq!(res.did_revert(), false);
-	}
 
-	#[benchmark(pov_mode = Measured)]
-	fn seal_return_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_return",
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			call_body: Some(body::plain(vec![
-				Instruction::I32Const(0),        // flags
-				Instruction::I32Const(0),        // data_ptr
-				Instruction::I32Const(n as i32), // data_len
-				Instruction::Call(0),
-				Instruction::End,
-			])),
-			..Default::default()
-		});
-		call_builder!(func, code);
-
-		let res;
-		#[block]
-		{
-			res = func.call();
-		}
-		assert_eq!(res.did_revert(), false);
+		assert!(matches!(
+			result,
+			Err(crate::wasm::TrapReason::Return(crate::wasm::ReturnData { .. }))
+		));
 	}
 
 	// The same argument as for `seal_return` is true here.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
+	fn seal_terminate() -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		let beneficiary_bytes = beneficiary.encode();
-		let beneficiary_len = beneficiary_bytes.len();
 		let caller = whitelisted_caller();
+
+		build_runtime!(runtime, memory: [beneficiary.encode(),]);
 
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 
 		// Maximize the delegate_dependencies to account for the worst-case scenario.
-		let code_hashes = (0..T::MaxDelegateDependencies::get())
-			.map(|i| {
-				let new_code = WasmModule::<T>::dummy_with_bytes(65 + i);
-				Contracts::<T>::store_code_raw(new_code.code, caller.clone())?;
-				Ok(new_code.hash)
-			})
-			.collect::<Result<Vec<_>, &'static str>>()?;
-		let code_hash_len = code_hashes.get(0).map(|x| x.encode().len()).unwrap_or(0);
-		let code_hashes_bytes = code_hashes.iter().flat_map(|x| x.encode()).collect::<Vec<_>>();
-
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![
-				ImportedFunction {
-					module: "seal0",
-					name: "seal_terminate",
-					params: vec![ValueType::I32, ValueType::I32],
-					return_type: None,
-				},
-				ImportedFunction {
-					module: "seal0",
-					name: "lock_delegate_dependency",
-					params: vec![ValueType::I32],
-					return_type: None,
-				},
-			],
-			data_segments: vec![
-				DataSegment { offset: 0, value: beneficiary_bytes },
-				DataSegment { offset: beneficiary_len as u32, value: code_hashes_bytes },
-			],
-			deploy_body: Some(body::repeated_dyn(
-				T::MaxDelegateDependencies::get(),
-				vec![
-					Counter(beneficiary_len as u32, code_hash_len as u32), // code_hash_ptr
-					Regular(Instruction::Call(1)),
-				],
-			)),
-			call_body: Some(body::repeated(
-				r,
-				&[
-					Instruction::I32Const(0),                      // beneficiary_ptr
-					Instruction::I32Const(beneficiary_len as i32), // beneficiary_len
-					Instruction::Call(0),
-				],
-			)),
-			..Default::default()
+		(0..T::MaxDelegateDependencies::get()).for_each(|i| {
+			let new_code = WasmModule::<T>::dummy_with_bytes(65 + i);
+			Contracts::<T>::store_code_raw(new_code.code, caller.clone()).unwrap();
+			runtime.ext().lock_delegate_dependency(new_code.hash).unwrap();
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		assert_eq!(T::Currency::total_balance(&beneficiary), 0u32.into());
-		assert_eq!(
-			T::Currency::balance(&instance.account_id),
-			Pallet::<T>::min_balance() * 2u32.into()
-		);
-		assert_ne!(
-			T::Currency::balance_on_hold(
-				&HoldReason::StorageDepositReserve.into(),
-				&instance.account_id
-			),
-			0u32.into()
-		);
-		assert_eq!(
-			ContractInfoOf::<T>::get(&instance.account_id)
-				.unwrap()
-				.delegate_dependencies_count() as u32,
-			T::MaxDelegateDependencies::get()
-		);
-		#[extrinsic_call]
-		call(origin, instance.addr.clone(), 0u32.into(), Weight::MAX, None, vec![]);
 
-		if r > 0 {
-			assert_eq!(T::Currency::total_balance(&instance.account_id), 0u32.into());
-			assert_eq!(
-				T::Currency::balance_on_hold(
-					&HoldReason::StorageDepositReserve.into(),
-					&instance.account_id
-				),
-				0u32.into()
-			);
-			assert_eq!(
-				T::Currency::total_balance(&beneficiary),
-				Pallet::<T>::min_balance() * 2u32.into()
-			);
+		let result;
+		#[block]
+		{
+			result = BenchEnv::seal1_terminate(&mut runtime, &mut memory, 0)
 		}
+
+		assert!(matches!(result, Err(crate::wasm::TrapReason::Termination)));
+
 		Ok(())
 	}
 
@@ -1131,161 +924,77 @@ mod benchmarks {
 	// number (< 1 KB). Therefore we are not overcharging too much in case a smaller subject is
 	// used.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_random(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let pages = code::max_pages::<T>();
+	fn seal_random() {
 		let subject_len = T::Schedule::get().limits.subject_len;
 		assert!(subject_len < 1024);
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_random",
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			data_segments: vec![DataSegment {
-				offset: 0,
-				value: (pages * 64 * 1024 - subject_len - 4).to_le_bytes().to_vec(),
-			}],
-			call_body: Some(body::repeated(
-				r,
-				&[
-					Instruction::I32Const(4),                        // subject_ptr
-					Instruction::I32Const(subject_len as i32),       // subject_len
-					Instruction::I32Const((subject_len + 4) as i32), // out_ptr
-					Instruction::I32Const(0),                        // out_len_ptr
-					Instruction::Call(0),
-				],
-			)),
-			..Default::default()
-		});
 
-		call_builder!(func, code);
+		let output_len =
+			<(SeedOf<T>, BlockNumberFor<T>) as MaxEncodedLen>::max_encoded_len() as u32;
 
-		let res;
+		build_runtime!(runtime, memory: [
+			output_len.to_le_bytes(),
+			vec![42u8; subject_len as _],
+			vec![0u8; output_len as _],
+		]);
+
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_random(
+				&mut runtime,
+				&mut memory,
+				4,               // subject_ptr
+				subject_len,     // subject_len
+				subject_len + 4, // output_ptr
+				0,               // output_len_ptr
+			)
 		}
-		assert_eq!(res.did_revert(), false);
-	}
 
-	// Overhead of calling the function without any topic.
-	// We benchmark for the worst case (largest event).
-	#[benchmark(pov_mode = Measured)]
-	fn seal_deposit_event(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_deposit_event",
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			call_body: Some(body::repeated(
-				r,
-				&[
-					Instruction::I32Const(0), // topics_ptr
-					Instruction::I32Const(0), // topics_len
-					Instruction::I32Const(0), // data_ptr
-					Instruction::I32Const(0), // data_len
-					Instruction::Call(0),
-				],
-			)),
-			..Default::default()
-		});
-
-		call_builder!(func, code);
-
-		let res;
-		#[block]
-		{
-			res = func.call();
-		}
-		assert_eq!(res.did_revert(), false);
+		assert_ok!(result);
+		assert_ok!(<(SeedOf<T>, BlockNumberFor<T>)>::decode(&mut &memory[subject_len as _..]));
 	}
 
 	// Benchmark the overhead that topics generate.
 	// `t`: Number of topics
 	// `n`: Size of event payload in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_deposit_event_per_topic_and_byte(
+	fn seal_deposit_event(
 		t: Linear<0, { T::Schedule::get().limits.event_topics }>,
 		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
 	) {
 		let topics = (0..t).map(|i| T::Hashing::hash_of(&i)).collect::<Vec<_>>().encode();
-		let topics_len = topics.len();
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_deposit_event",
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			data_segments: vec![DataSegment { offset: 0, value: topics }],
-			call_body: Some(body::plain(vec![
-				Instruction::I32Const(0),                 // topics_ptr
-				Instruction::I32Const(topics_len as i32), // topics_len
-				Instruction::I32Const(0),                 // data_ptr
-				Instruction::I32Const(n as i32),          // data_len
-				Instruction::Call(0),
-				Instruction::End,
-			])),
-			..Default::default()
-		});
+		let topics_len = topics.len() as u32;
 
-		call_builder!(func, code);
+		build_runtime!(runtime, memory: [
+			n.to_le_bytes(),
+			topics,
+			vec![0u8; n as _],
+		]);
 
-		let res;
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_deposit_event(
+				&mut runtime,
+				&mut memory,
+				4,              // topics_ptr
+				topics_len,     // topics_len
+				4 + topics_len, // data_ptr
+				0,              // data_len
+			)
 		}
-		assert_eq!(res.did_revert(), false);
+
+		assert_ok!(result);
 	}
 
-	// Benchmark debug_message call with zero input data.
+	// Benchmark debug_message call
 	// Whereas this function is used in RPC mode only, it still should be secured
 	// against an excessive use.
-	#[benchmark(pov_mode = Measured)]
-	fn seal_debug_message(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory { min_pages: 1, max_pages: 1 }),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_debug_message",
-				params: vec![ValueType::I32, ValueType::I32],
-				return_type: Some(ValueType::I32),
-			}],
-			call_body: Some(body::repeated(
-				r,
-				&[
-					Instruction::I32Const(0), // value_ptr
-					Instruction::I32Const(0), // value_len
-					Instruction::Call(0),
-					Instruction::Drop,
-				],
-			)),
-			..Default::default()
-		});
-		let mut setup = CallSetup::<T>::new(code);
-		setup.enable_debug_message();
-		call_builder!(func, setup: setup);
-
-		let res;
-		#[block]
-		{
-			res = func.call();
-		}
-		assert_eq!(res.did_revert(), false);
-		Ok(())
-	}
-
-	// Vary size of input in bytes up to maximum allowed contract memory
-	// or maximum allowed debug buffer size, whichever is less.
+	//
+	// i: size of input in bytes up to maximum allowed contract memory or maximum allowed debug
+	// buffer size, whichever is less.
 	#[benchmark]
-	fn seal_debug_message_per_byte(
+	fn seal_debug_message(
 		i: Linear<
 			0,
 			{
@@ -1293,113 +1002,21 @@ mod benchmarks {
 					.min(T::MaxDebugBufferLen::get())
 			},
 		>,
-	) -> Result<(), BenchmarkError> {
-		// We benchmark versus messages containing printable ASCII codes.
-		// About 1Kb goes to the contract code instructions,
-		// whereas all the space left we use for the initialization of the debug messages data.
-		let message = (0..T::MaxCodeLen::get() - 1024)
-			.zip((32..127).cycle())
-			.map(|i| i.1)
-			.collect::<Vec<_>>();
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory {
-				min_pages: T::Schedule::get().limits.memory_pages,
-				max_pages: T::Schedule::get().limits.memory_pages,
-			}),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name: "seal_debug_message",
-				params: vec![ValueType::I32, ValueType::I32],
-				return_type: Some(ValueType::I32),
-			}],
-			data_segments: vec![DataSegment { offset: 0, value: message }],
-			call_body: Some(body::plain(vec![
-				Instruction::I32Const(0),        // value_ptr
-				Instruction::I32Const(i as i32), // value_len
-				Instruction::Call(0),
-				Instruction::Drop,
-				Instruction::End,
-			])),
-			..Default::default()
-		});
-		let mut setup = CallSetup::<T>::new(code);
+	) {
+		let mut setup = CallSetup::<T>::default();
 		setup.enable_debug_message();
-		call_builder!(func, setup: setup);
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		// Fill memory with printable ASCII bytes.
+		let mut memory = (0..i).zip((32..127).cycle()).map(|i| i.1).collect::<Vec<_>>();
 
-		let res;
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal0_debug_message(&mut runtime, &mut memory, 0, i);
 		}
-		assert_eq!(res.did_revert(), false);
+		assert_ok!(result);
 		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
-		Ok(())
-	}
-
-	// Only the overhead of calling the function itself with minimal arguments.
-	// The contract is a bit more complex because it needs to use different keys in order
-	// to generate unique storage accesses. However, it is still dominated by the storage
-	// accesses. We store something at all the keys that we are about to write to
-	// because re-writing at an existing key is always more expensive than writing
-	// to an key with no data behind it.
-	//
-	// # Note
-	//
-	// We need to use a smaller `r` because the keys are big and writing them all into the wasm
-	// might exceed the code size.
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_set_storage(r: Linear<0, { API_BENCHMARK_RUNS / 2 }>) -> Result<(), BenchmarkError> {
-		let max_key_len = T::MaxStorageKeyLen::get();
-		let keys = (0..r)
-			.map(|n| {
-				let mut h = T::Hashing::hash_of(&n).as_ref().to_vec();
-				h.resize(max_key_len.try_into().unwrap(), n.to_le_bytes()[0]);
-				h
-			})
-			.collect::<Vec<_>>();
-		let keys_bytes = keys.iter().flatten().cloned().collect::<Vec<_>>();
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal2",
-				name: "set_storage",
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: Some(ValueType::I32),
-			}],
-			data_segments: vec![DataSegment { offset: 0, value: keys_bytes }],
-			call_body: Some(body::repeated_dyn(
-				r,
-				vec![
-					Counter(0, max_key_len as u32),                     // key_ptr
-					Regular(Instruction::I32Const(max_key_len as i32)), // key_len
-					Regular(Instruction::I32Const(0)),                  // value_ptr
-					Regular(Instruction::I32Const(0)),                  // value_len
-					Regular(Instruction::Call(0)),
-					Regular(Instruction::Drop),
-				],
-			)),
-			..Default::default()
-		});
-
-		call_builder!(func, instance, code);
-		let info = instance.info()?;
-		for key in keys {
-			info.write(
-				&Key::<T>::try_from_var(key).map_err(|_| "Key has wrong length")?,
-				Some(vec![]),
-				None,
-				false,
-			)
-			.map_err(|_| "Failed to write to storage during setup.")?;
-		}
-
-		let res;
-		#[block]
-		{
-			res = func.call();
-		}
-		assert_eq!(res.did_revert(), false);
-		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
@@ -1407,43 +1024,30 @@ mod benchmarks {
 		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = T::MaxStorageKeyLen::get();
-		let key = vec![0u8; max_key_len as usize];
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal2",
-				name: "set_storage",
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: Some(ValueType::I32),
-			}],
-			data_segments: vec![DataSegment { offset: 0, value: key.clone() }],
-			call_body: Some(body::plain(vec![
-				Instruction::I32Const(0),                  // key_ptr
-				Instruction::I32Const(max_key_len as i32), // key_len
-				Instruction::I32Const(0),                  // value_ptr
-				Instruction::I32Const(n as i32),           // value_len
-				Instruction::Call(0),
-				Instruction::Drop,
-				Instruction::End,
-			])),
-			..Default::default()
-		});
-		call_builder!(func, instance, code);
-		let info = instance.info()?;
-		info.write(
-			&Key::<T>::try_from_var(key).map_err(|_| "Key has wrong length")?,
-			Some(vec![]),
-			None,
-			false,
-		)
-		.map_err(|_| "Failed to write to storage during setup.")?;
+		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		let value = vec![1u8; n as usize];
 
-		let res;
+		build_runtime!(runtime, instance, memory: [ key.to_vec(), value.clone(), ]);
+		let info = instance.info()?;
+		info.write(&key, Some(vec![]), None, false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal2_set_storage(
+				&mut runtime,
+				&mut memory,
+				0,           // key_ptr
+				max_key_len, // key_len
+				max_key_len, // value_ptr
+				n,           // value_len
+			);
 		}
-		assert_eq!(res.did_revert(), false);
+
+		assert_ok!(result);
+		assert_eq!(info.read(&key).unwrap(), value);
 		Ok(())
 	}
 
@@ -1452,44 +1056,31 @@ mod benchmarks {
 		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = T::MaxStorageKeyLen::get();
-		let key = vec![0u8; max_key_len as usize];
-		let code = WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal2",
-				name: "set_storage",
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: Some(ValueType::I32),
-			}],
-			data_segments: vec![DataSegment { offset: 0, value: key.clone() }],
-			call_body: Some(body::plain(vec![
-				Instruction::I32Const(0),                  // key_ptr
-				Instruction::I32Const(max_key_len as i32), // key_len
-				Instruction::I32Const(0),                  // value_ptr
-				Instruction::I32Const(0),                  /* value_len is 0 as testing vs
-				                                            * pre-existing value len */
-				Instruction::Call(0),
-				Instruction::Drop,
-				Instruction::End,
-			])),
-			..Default::default()
-		});
-		call_builder!(func, instance, code);
-		let info = instance.info()?;
-		info.write(
-			&Key::<T>::try_from_var(key).map_err(|_| "Key has wrong length")?,
-			Some(vec![42u8; n as usize]),
-			None,
-			false,
-		)
-		.map_err(|_| "Failed to write to storage during setup.")?;
+		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		let value = vec![1u8; n as usize];
 
-		let res;
+		build_runtime!(runtime, instance, memory: [ key.to_vec(), value.clone(), ]);
+		let info = instance.info()?;
+
+		info.write(&key, Some(vec![42u8; n as usize]), None, false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
 		#[block]
 		{
-			res = func.call();
+			result = BenchEnv::seal2_set_storage(
+				&mut runtime,
+				&mut memory,
+				0,           // key_ptr
+				max_key_len, // key_len
+				max_key_len, // value_ptr
+				0,           // value_len is 0 as testing vs pre-existing value len
+			);
 		}
-		assert_eq!(res.did_revert(), false);
+
+		assert_ok!(result);
+		assert!(info.read(&key).unwrap().is_empty());
 		Ok(())
 	}
 

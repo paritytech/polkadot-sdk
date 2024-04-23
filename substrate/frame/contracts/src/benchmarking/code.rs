@@ -288,41 +288,7 @@ impl<T: Config> WasmModule<T> {
 		module.into()
 	}
 
-	/// Creates a wasm module that calls the imported function named `getter_name` `repeat`
-	/// times. The imported function is expected to have the "getter signature" of
-	/// (out_ptr: u32, len_ptr: u32) -> ().
-	pub fn getter(module_name: &'static str, getter_name: &'static str, repeat: u32) -> Self {
-		let pages = max_pages::<T>();
-		ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: module_name,
-				name: getter_name,
-				params: vec![ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			// Write the output buffer size. The output size will be overwritten by the
-			// supervisor with the real size when calling the getter. Since this size does not
-			// change between calls it suffices to start with an initial value and then just
-			// leave as whatever value was written there.
-			data_segments: vec![DataSegment {
-				offset: 0,
-				value: (pages * 64 * 1024 - 4).to_le_bytes().to_vec(),
-			}],
-			call_body: Some(body::repeated(
-				repeat,
-				&[
-					Instruction::I32Const(4), // ptr where to store output
-					Instruction::I32Const(0), // ptr to length
-					Instruction::Call(0),     // call the imported function
-				],
-			)),
-			..Default::default()
-		}
-		.into()
-	}
-
-	/// TODO doc
+	/// Creates a wasm module that calls the imported function `noop` `repeat` times.
 	pub fn noop(repeat: u32) -> Self {
 		let pages = max_pages::<T>();
 		ModuleDefinition {

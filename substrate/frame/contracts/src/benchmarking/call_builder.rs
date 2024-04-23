@@ -181,14 +181,23 @@ macro_rules! call_builder(
 
 #[macro_export]
 macro_rules! build_runtime(
-	($runtime:ident, $memory:ident: $val:expr) => {
-		$crate::build_runtime!($runtime, _contract, $memory: $val);
+	// ($runtime:ident, $memory:ident: $val:expr) => {
+	// 	$crate::build_runtime!($runtime, _contract, $memory: $val);
+	// };
+	($runtime:ident, $memory:ident: [$($segment:expr,)*]) => {
+		$crate::build_runtime!($runtime, _contract, $memory: [$($segment,)*]);
 	};
-	($runtime:ident, $contract:ident, $memory:ident: $val:expr) => {
+	($runtime:ident, $contract:ident, $memory:ident: [$($segment:expr,)*]) => {
+		$crate::build_runtime!($runtime, $contract);
+		let mut $memory = vec![]
+			.into_iter()
+			$(.chain($segment))*
+			.collect::<Vec<_>>();
+	};
+	($runtime:ident, $contract:ident) => {
 		let mut setup = CallSetup::<T>::default();
 		let $contract = setup.contract();
 		let (mut ext, _) = setup.ext();
 		let mut $runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
-		let mut $memory = $val.encode();
 	};
 );

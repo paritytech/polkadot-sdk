@@ -32,7 +32,7 @@ pub use {
 };
 
 #[cfg(feature = "runtime-benchmarks")]
-pub use crate::wasm::runtime::BenchEnv;
+pub use crate::wasm::runtime::{BenchEnv, ReturnData, TrapReason};
 
 pub use crate::wasm::{
 	prepare::{LoadedModule, LoadingMode},

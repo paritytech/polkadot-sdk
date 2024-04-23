@@ -303,7 +303,7 @@ pub trait Ext: sealing::Sealed {
 	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()>;
 
 	/// Tests sometimes need to modify and inspect the contract info directly.
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T>;
 
 	/// Sets new code hash for existing contract.
@@ -1500,7 +1500,7 @@ where
 		ECDSAPublic::from(*pk).to_eth_address()
 	}
 
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T> {
 		self.top_frame_mut().contract_info()
 	}
