@@ -11,3 +11,4 @@ doc:
 
 crates:
   - name: pallet-authority-discovery
+    bump: minor
