@@ -444,6 +444,7 @@ impl TryFrom<u8> for StateVersion {
 		match val {
 			0 => Ok(StateVersion::V0),
 			1 => Ok(StateVersion::V1),
+			2 => Ok(StateVersion::V1),
 			_ => Err(()),
 		}
 	}

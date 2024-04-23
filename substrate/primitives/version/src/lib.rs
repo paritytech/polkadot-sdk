@@ -79,7 +79,7 @@ pub mod embed;
 /// 	impl_version: 1,
 /// 	apis: RUNTIME_API_VERSIONS,
 /// 	transaction_version: 2,
-/// 	state_version: 1,
+/// 	system_version: 1,
 /// };
 ///
 /// # const RUNTIME_API_VERSIONS: sp_version::ApisVec = sp_version::create_apis_vec!([]);
@@ -226,9 +226,9 @@ pub struct RuntimeVersion {
 	/// This number should never decrease.
 	pub transaction_version: u32,
 
-	/// Version of the state implementation used by this runtime.
+	/// Version of the system implementation used by this runtime.
 	/// Use of an incorrect version is consensus breaking.
-	pub state_version: u8,
+	pub system_version: u8,
 }
 
 impl RuntimeVersion {
@@ -253,7 +253,7 @@ impl RuntimeVersion {
 			if core_version.is_some() { core_version } else { core_version_from_apis(&apis) };
 		let transaction_version =
 			if core_version.map(|v| v >= 3).unwrap_or(false) { Decode::decode(input)? } else { 1 };
-		let state_version =
+		let system_version =
 			if core_version.map(|v| v >= 4).unwrap_or(false) { Decode::decode(input)? } else { 0 };
 		Ok(RuntimeVersion {
 			spec_name,
@@ -263,7 +263,7 @@ impl RuntimeVersion {
 			impl_version,
 			apis,
 			transaction_version,
-			state_version,
+			system_version,
 		})
 	}
 }
@@ -330,7 +330,7 @@ impl RuntimeVersion {
 	/// Otherwise, V1 trie version will be use.
 	pub fn state_version(&self) -> StateVersion {
 		// If version > than 1, keep using latest version.
-		self.state_version.try_into().unwrap_or(StateVersion::V1)
+		self.system_version.try_into().unwrap_or(StateVersion::V1)
 	}
 }
 
