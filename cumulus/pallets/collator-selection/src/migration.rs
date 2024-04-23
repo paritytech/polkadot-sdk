@@ -55,7 +55,7 @@ pub mod v2 {
 	impl<T: Config + pallet_balances::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = Weight::zero();
-			let mut count: u32 = 0;
+			let mut count: u64 = 0;
 			// candidates who exist under the old `Candidates` key
 			let candidates = Candidates::<T>::take();
 
@@ -86,7 +86,7 @@ pub mod v2 {
 					count.saturating_inc();
 				}
 				weight.saturating_accrue(
-					<<T as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::force_unreserve(),
+					<<T as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::force_unreserve() * count,
 				);
 			}
 
