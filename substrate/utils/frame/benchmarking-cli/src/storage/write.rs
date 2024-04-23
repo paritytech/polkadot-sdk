@@ -83,11 +83,14 @@ impl StorageCmd {
 		info!("Preparing keys from block {}", best_hash);
 		// Load KV pairs and randomly shuffle them.
 		let mut kvs: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
-			trie.pairs(Default::default())?.take(keys_limit).collect()
+			let start_at = self.params.random_seed.map(|seed| sp_core::blake2_256(&seed.to_be_bytes()[..]).to_vec());
+			let mut iter_args = sp_state_machine::IterArgs::default();
+			iter_args.start_at = start_at.as_deref();
+			trie.pairs(iter_args)?.take(keys_limit).collect()
 		} else {
 			trie.pairs(Default::default())?.collect()
 		};
-		let (mut rng, _) = new_rng(None);
+		let (mut rng, _) = new_rng(self.params.random_seed);
 		kvs.shuffle(&mut rng);
 		if kvs.is_empty() {
 			return Err("Can't process benchmarking with empty storage".into())
