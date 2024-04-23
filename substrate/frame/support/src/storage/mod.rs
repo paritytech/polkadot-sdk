@@ -159,13 +159,39 @@ pub trait StorageValue<T: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len() -> Option<usize>
 	where
 		T: StorageDecodeLength,
 	{
 		T::decode_len(&Self::hashed_key())
+	}
+
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `T` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	///
+	/// - `None` does not mean that `get()` does not return a value. The default value is completely
+	/// ignored by this function.
+	///
+	/// # Example
+	#[doc = docify::embed!("src/storage/mod.rs", btree_set_decode_non_dedup_len)]
+	/// This demonstrates how `decode_non_dedup_len` will count even the duplicate values in the
+	/// storage (in this case, the number `4` is counted twice).
+	fn decode_non_dedup_len() -> Option<usize>
+	where
+		T: StorageDecodeNonDedupLength,
+	{
+		T::decode_non_dedup_len(&Self::hashed_key())
 	}
 }
 
@@ -337,13 +363,35 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len<KeyArg: EncodeLike<K>>(key: KeyArg) -> Option<usize>
 	where
 		V: StorageDecodeLength,
 	{
 		V::decode_len(&Self::hashed_key_for(key))
+	}
+
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `V` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	///  - `None` does not mean that `get()` does not return a value. The default value is
+	///    completely
+	/// ignored by this function.
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	fn decode_non_dedup_len<KeyArg: EncodeLike<K>>(key: KeyArg) -> Option<usize>
+	where
+		V: StorageDecodeNonDedupLength,
+	{
+		V::decode_non_dedup_len(&Self::hashed_key_for(key))
 	}
 
 	/// Migrate an item with the given `key` from a defunct `OldHasher` to the current hasher.
@@ -363,7 +411,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 pub trait IterableStorageMap<K: FullEncode, V: FullCodec>: StorageMap<K, V> {
 	/// The type that iterates over all `(key, value)`.
 	type Iterator: Iterator<Item = (K, V)>;
-	/// The type that itereates over all `key`s.
+	/// The type that iterates over all `key`s.
 	type KeyIterator: Iterator<Item = K>;
 
 	/// Enumerate all elements in the map in lexicographical order of the encoded key. If you
@@ -730,7 +778,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
 	where
@@ -739,6 +787,27 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 		V: StorageDecodeLength,
 	{
 		V::decode_len(&Self::hashed_key_for(key1, key2))
+	}
+
+	/// Read the length of the storage value without decoding the entire value under the
+	/// given `key1` and `key2`.
+	///
+	/// `V` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// ignored by this function.
+	fn decode_non_dedup_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
+	where
+		KArg1: EncodeLike<K1>,
+		KArg2: EncodeLike<K2>,
+		V: StorageDecodeNonDedupLength,
+	{
+		V::decode_non_dedup_len(&Self::hashed_key_for(key1, key2))
 	}
 
 	/// Migrate an item with the given `key1` and `key2` from defunct `OldHasher1` and
@@ -912,7 +981,7 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len<KArg: EncodeLikeTuple<K::KArg> + TupleToEncodedIter>(key: KArg) -> Option<usize>
 	where
@@ -1400,8 +1469,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 /// This trait is sealed.
 pub trait StorageAppend<Item: Encode>: private::Sealed {}
 
-/// Marker trait that will be implemented for types that support to decode their length in an
-/// efficient way. It is expected that the length is at the beginning of the encoded object
+/// It is expected that the length is at the beginning of the encoded object
 /// and that the length is a `Compact<u32>`.
 ///
 /// This trait is sealed.
@@ -1414,6 +1482,29 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	/// Returns `None` if the storage value does not exist or the decoding failed.
 	fn decode_len(key: &[u8]) -> Option<usize> {
 		// `Compact<u32>` is 5 bytes in maximum.
+		let mut data = [0u8; 5];
+		let len = sp_io::storage::read(key, &mut data, 0)?;
+		let len = data.len().min(len as usize);
+		<Self as codec::DecodeLength>::len(&data[..len]).ok()
+	}
+}
+
+/// It is expected that the length is at the beginning of the encoded object and that the length is
+/// a `Compact<u32>`.
+///
+/// # Note
+/// The length returned by this trait is not deduplicated, i.e. it is the length of the underlying
+/// stored Vec.
+///
+/// This trait is sealed.
+pub trait StorageDecodeNonDedupLength: private::Sealed + codec::DecodeLength {
+	/// Decode the length of the storage value at `key`.
+	///
+	/// This function assumes that the length is at the beginning of the encoded object and is a
+	/// `Compact<u32>`.
+	///
+	/// Returns `None` if the storage value does not exist or the decoding failed.
+	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
 		let mut data = [0u8; 5];
 		let len = sp_io::storage::read(key, &mut data, 0)?;
 		let len = data.len().min(len as usize);
@@ -1471,7 +1562,14 @@ impl<T: Encode> StorageAppend<T> for Vec<T> {}
 impl<T: Encode> StorageDecodeLength for Vec<T> {}
 
 impl<T: Encode> StorageAppend<T> for BTreeSet<T> {}
-impl<T: Encode> StorageDecodeLength for BTreeSet<T> {}
+impl<T: Encode> StorageDecodeNonDedupLength for BTreeSet<T> {}
+
+// Blanket implementation StorageDecodeNonDedupLength for all types that are StorageDecodeLength.
+impl<T: StorageDecodeLength> StorageDecodeNonDedupLength for T {
+	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
+		T::decode_len(key)
+	}
+}
 
 /// We abuse the fact that SCALE does not put any marker into the encoding, i.e. we only encode the
 /// internal vec and we can append to this vec. We have a test that ensures that if the `Digest`
@@ -1486,7 +1584,7 @@ pub trait StorageTryAppend<Item>: StorageDecodeLength + private::Sealed {
 	fn bound() -> usize;
 }
 
-/// Storage value that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+/// Storage value that is capable of [`StorageTryAppend`].
 pub trait TryAppendValue<T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage item.
 	///
@@ -1515,7 +1613,7 @@ where
 	}
 }
 
-/// Storage map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+/// Storage map that is capable of [`StorageTryAppend`].
 pub trait TryAppendMap<K: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage map at the given `key`.
 	///
@@ -1549,7 +1647,7 @@ where
 	}
 }
 
-/// Storage double map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+/// Storage double map that is capable of [`StorageTryAppend`].
 pub trait TryAppendDoubleMap<K1: Encode, K2: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage double map at the given `key`.
 	///
@@ -1615,7 +1713,7 @@ mod test {
 	use bounded_vec::BoundedVec;
 	use frame_support::traits::ConstU32;
 	use generator::StorageValue as _;
-	use sp_core::hashing::twox_128;
+	use sp_crypto_hashing::twox_128;
 	use sp_io::TestExternalities;
 	use weak_bounded_vec::WeakBoundedVec;
 
@@ -1693,7 +1791,7 @@ mod test {
 		});
 	}
 
-	// This test ensures that the Digest encoding does not change without being noticied.
+	// This test ensures that the Digest encoding does not change without being noticed.
 	#[test]
 	fn digest_storage_append_works_as_expected() {
 		TestExternalities::default().execute_with(|| {
@@ -2026,7 +2124,24 @@ mod test {
 			FooSet::append(6);
 			FooSet::append(7);
 
-			assert_eq!(FooSet::decode_len().unwrap(), 7);
+			assert_eq!(FooSet::decode_non_dedup_len().unwrap(), 7);
+		});
+	}
+
+	#[docify::export]
+	#[test]
+	fn btree_set_decode_non_dedup_len() {
+		#[crate::storage_alias]
+		type Store = StorageValue<Prefix, BTreeSet<u32>>;
+
+		TestExternalities::default().execute_with(|| {
+			Store::append(4);
+			Store::append(4); // duplicate value
+			Store::append(5);
+
+			let length_with_dup_items = 3;
+
+			assert_eq!(Store::decode_non_dedup_len().unwrap(), length_with_dup_items);
 		});
 	}
 }

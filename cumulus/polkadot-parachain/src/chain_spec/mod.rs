@@ -24,8 +24,10 @@ pub mod asset_hubs;
 pub mod bridge_hubs;
 pub mod collectives;
 pub mod contracts;
+pub mod coretime;
 pub mod glutton;
 pub mod penpal;
+pub mod people;
 pub mod rococo_parachain;
 pub mod seedling;
 pub mod shell;
@@ -49,6 +51,9 @@ impl Extensions {
 		sc_chain_spec::get_extension(chain_spec.extensions())
 	}
 }
+
+/// Generic chain spec for all polkadot-parachain runtimes
+pub type GenericChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {

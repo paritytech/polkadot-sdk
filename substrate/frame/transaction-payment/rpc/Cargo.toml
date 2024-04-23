@@ -1,6 +1,6 @@
 [package]
 name = "pallet-transaction-payment-rpc"
-version = "4.0.0-dev"
+version = "30.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,12 +9,15 @@ repository.workspace = true
 description = "RPC interface for the transaction payment pallet."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
+jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
 pallet-transaction-payment-rpc-runtime-api = { path = "runtime-api" }
 sp-api = { path = "../../../primitives/api" }
 sp-blockchain = { path = "../../../primitives/blockchain" }

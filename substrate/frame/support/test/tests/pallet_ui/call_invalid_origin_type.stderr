@@ -1,10 +1,4 @@
-error: Invalid type: expected `OriginFor<T>`
-  --> tests/pallet_ui/call_invalid_origin_type.rs:34:22
-   |
-34 |         pub fn foo(origin: u8) {}
-   |                            ^^
-
-error: expected `OriginFor`
+error: Invalid type: expected `OriginFor<T>` or `T::RuntimeOrigin`
   --> tests/pallet_ui/call_invalid_origin_type.rs:34:22
    |
 34 |         pub fn foo(origin: u8) {}

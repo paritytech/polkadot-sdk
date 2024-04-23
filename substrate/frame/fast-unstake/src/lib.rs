@@ -203,10 +203,6 @@ pub mod pallet {
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// Use only for benchmarking.
-		#[cfg(feature = "runtime-benchmarks")]
-		type MaxBackersPerValidator: Get<u32>;
 	}
 
 	/// The current "head of the queue" being unstaked.
@@ -564,7 +560,7 @@ pub mod pallet {
 				if !remaining.is_zero() {
 					Self::halt("not enough balance to unreserve");
 				} else {
-					log!(info, "unstaked {:?}, outcome: {:?}", stash, result);
+					log!(debug, "unstaked {:?}, outcome: {:?}", stash, result);
 					Self::deposit_event(Event::<T>::Unstaked { stash, result });
 				}
 			};
@@ -575,7 +571,7 @@ pub mod pallet {
 					.any(|e| T::Staking::is_exposed_in_era(&stash, e));
 
 				if is_exposed {
-					T::Currency::slash_reserved(&stash, deposit);
+					let _ = T::Currency::slash_reserved(&stash, deposit);
 					log!(info, "slashed {:?} by {:?}", stash, deposit);
 					Self::deposit_event(Event::<T>::Slashed { stash, amount: deposit });
 					false

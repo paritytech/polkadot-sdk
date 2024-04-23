@@ -1,0 +1,13 @@
+title: "Adapt core-fellowship and salary pallets for swapped members"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The ranked-collective pallet got the ability to swap members but the core-fellowship and
+      salary pallets would not be notified of this change. This MR adds `MemberSwappedHandler` to
+      the collective that is implemented by both pallets.
+
+crates:
+  - name: "pallet-ranked-collective"
+  - name: "pallet-core-fellowship"
+  - name: "pallet-salary"

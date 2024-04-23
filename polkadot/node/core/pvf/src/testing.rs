@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Various things for testing other crates.
+//! Various utilities for testing.
 
 pub use crate::{
 	host::{EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME},
-	worker_intf::{spawn_with_program_path, SpawnErr},
+	worker_interface::{spawn_with_program_path, SpawnErr},
 };
 
 use crate::get_worker_version;
@@ -36,8 +36,8 @@ pub fn validate_candidate(
 	code: &[u8],
 	params: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+	use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
 	use polkadot_node_core_pvf_execute_worker::execute_artifact;
-	use polkadot_node_core_pvf_prepare_worker::{prepare, prevalidate};
 
 	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
 		.expect("Decompressing code failed");
@@ -55,13 +55,42 @@ pub fn validate_candidate(
 	Ok(result)
 }
 
-/// Retrieves the worker paths, checks that they exist and does a version check.
+/// Retrieves the worker paths and builds workers as needed.
 ///
 /// NOTE: This should only be called in dev code (tests, benchmarks) as it relies on the relative
 /// paths of the built workers.
-pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
+pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 	// Only needs to be called once for the current process.
 	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
+
+	fn build_workers() {
+		let mut build_args = vec![
+			"build",
+			"--package=polkadot",
+			"--bin=polkadot-prepare-worker",
+			"--bin=polkadot-execute-worker",
+		];
+
+		if cfg!(build_type = "release") {
+			build_args.push("--release");
+		}
+
+		let mut cargo = std::process::Command::new("cargo");
+		let cmd = cargo
+			// wasm runtime not needed
+			.env("SKIP_WASM_BUILD", "1")
+			.args(build_args)
+			.stdout(std::process::Stdio::piped());
+
+		println!("INFO: calling `{cmd:?}`");
+		let exit_status = cmd.status().expect("Failed to run the build program");
+
+		if !exit_status.success() {
+			eprintln!("ERROR: Failed to build workers: {}", exit_status.code().unwrap());
+			std::process::exit(1);
+		}
+	}
+
 	let mutex = WORKER_PATHS.get_or_init(|| {
 		let mut workers_path = std::env::current_exe().unwrap();
 		workers_path.pop();
@@ -71,25 +100,25 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 		let mut execute_worker_path = workers_path.clone();
 		execute_worker_path.push(EXECUTE_BINARY_NAME);
 
-		// Check that the workers are valid.
-		if !prepare_worker_path.is_executable() || !execute_worker_path.is_executable() {
-			panic!("ERROR: Workers do not exist or are not executable. Workers directory: {:?}", workers_path);
+		// explain why a build happens
+		if !prepare_worker_path.is_executable() {
+			println!("WARN: Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+		}
+		if !execute_worker_path.is_executable() {
+			println!("WARN: Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+		}
+		if let Ok(ver) = get_worker_version(&prepare_worker_path) {
+			if ver != NODE_VERSION {
+				println!("WARN: Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
+			}
+		}
+		if let Ok(ver) = get_worker_version(&execute_worker_path) {
+			if ver != NODE_VERSION {
+				println!("WARN: Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
+			}
 		}
 
-		let worker_version =
-			get_worker_version(&prepare_worker_path).expect("checked for worker existence");
-		if worker_version != NODE_VERSION {
-			panic!("ERROR: Prepare worker version {worker_version} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
-		}
-		let worker_version =
-			get_worker_version(&execute_worker_path).expect("checked for worker existence");
-		if worker_version != NODE_VERSION {
-			panic!("ERROR: Execute worker version {worker_version} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
-		}
-
-		// We don't want to check against the commit hash because we'd have to always rebuild
-		// the calling crate on every commit.
-		eprintln!("WARNING: Workers match the node version, but may have changed in recent commits. Please rebuild them if anything funny happens. Workers path: {workers_path:?}");
+		build_workers();
 
 		Mutex::new((prepare_worker_path, execute_worker_path))
 	});

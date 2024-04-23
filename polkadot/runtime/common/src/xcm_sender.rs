@@ -35,13 +35,13 @@ pub trait PriceForMessageDelivery {
 	/// Type used for charging different prices to different destinations
 	type Id;
 	/// Return the assets required to deliver `message` to the given `para` destination.
-	fn price_for_delivery(id: Self::Id, message: &Xcm<()>) -> MultiAssets;
+	fn price_for_delivery(id: Self::Id, message: &Xcm<()>) -> Assets;
 }
 impl PriceForMessageDelivery for () {
 	type Id = ();
 
-	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
-		MultiAssets::new()
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> Assets {
+		Assets::new()
 	}
 }
 
@@ -49,17 +49,17 @@ pub struct NoPriceForMessageDelivery<Id>(PhantomData<Id>);
 impl<Id> PriceForMessageDelivery for NoPriceForMessageDelivery<Id> {
 	type Id = Id;
 
-	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
-		MultiAssets::new()
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> Assets {
+		Assets::new()
 	}
 }
 
 /// Implementation of [`PriceForMessageDelivery`] which returns a fixed price.
 pub struct ConstantPrice<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<MultiAssets>> PriceForMessageDelivery for ConstantPrice<T> {
+impl<T: Get<Assets>> PriceForMessageDelivery for ConstantPrice<T> {
 	type Id = ();
 
-	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> Assets {
 		T::get()
 	}
 }
@@ -84,7 +84,7 @@ impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForMessage
 {
 	type Id = F::Id;
 
-	fn price_for_delivery(id: Self::Id, msg: &Xcm<()>) -> MultiAssets {
+	fn price_for_delivery(id: Self::Id, msg: &Xcm<()>) -> Assets {
 		let msg_fee = (msg.encoded_size() as u128).saturating_mul(M::get());
 		let fee_sum = B::get().saturating_add(msg_fee);
 		let amount = F::get_fee_factor(id).saturating_mul_int(fee_sum);
@@ -103,11 +103,11 @@ where
 	type Ticket = (HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>);
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>)> {
 		let d = dest.take().ok_or(MissingArgument)?;
-		let id = if let MultiLocation { parents: 0, interior: X1(Parachain(id)) } = &d {
+		let id = if let (0, [Parachain(id)]) = d.unpack() {
 			*id
 		} else {
 			*dest = Some(d);
@@ -116,11 +116,13 @@ where
 
 		// Downward message passing.
 		let xcm = msg.take().ok_or(MissingArgument)?;
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let para = id.into();
 		let price = P::price_for_delivery(para, &xcm);
-		let blob = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?.encode();
-		<dmp::Pallet<T>>::can_queue_downward_message(&config, &para, &blob)
+		let versioned_xcm = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?;
+		versioned_xcm.validate_xcm_nesting().map_err(|()| ExceedsMaxMessageSize)?;
+		let blob = versioned_xcm.encode();
+		dmp::Pallet::<T>::can_queue_downward_message(&config, &para, &blob)
 			.map_err(Into::<SendError>::into)?;
 
 		Ok(((config, para, blob), price))
@@ -130,16 +132,16 @@ where
 		(config, para, blob): (HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>),
 	) -> Result<XcmHash, SendError> {
 		let hash = sp_io::hashing::blake2_256(&blob[..]);
-		<dmp::Pallet<T>>::queue_downward_message(&config, para, blob)
+		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
 			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
 	}
 }
 
-/// Implementation of `pallet_xcm_benchmarks::EnsureDelivery` which helps to ensure delivery to the
+/// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
 /// `ParaId` parachain (sibling or child). Deposits existential deposit for origin (if needed).
 /// Deposits estimated fee to the origin account (if needed).
-/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
+/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if needed).
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ToParachainDeliveryHelper<
 	XcmConfig,
@@ -160,11 +162,11 @@ pub struct ToParachainDeliveryHelper<
 #[cfg(feature = "runtime-benchmarks")]
 impl<
 		XcmConfig: xcm_executor::Config,
-		ExistentialDeposit: Get<Option<MultiAsset>>,
+		ExistentialDeposit: Get<Option<Asset>>,
 		PriceForDelivery: PriceForMessageDelivery<Id = ParaId>,
 		Parachain: Get<ParaId>,
 		ToParachainHelper: EnsureForParachain,
-	> pallet_xcm_benchmarks::EnsureDelivery
+	> xcm_builder::EnsureDelivery
 	for ToParachainDeliveryHelper<
 		XcmConfig,
 		ExistentialDeposit,
@@ -174,14 +176,23 @@ impl<
 	>
 {
 	fn ensure_successful_delivery(
-		origin_ref: &MultiLocation,
-		_dest: &MultiLocation,
+		origin_ref: &Location,
+		dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
-	) -> (Option<xcm_executor::FeesMode>, Option<MultiAssets>) {
+	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
 		use xcm_executor::{
 			traits::{FeeManager, TransactAsset},
 			FeesMode,
 		};
+
+		// check if the destination matches the expected `Parachain`.
+		if let Some(Parachain(para_id)) = dest.first_interior() {
+			if ParaId::from(*para_id) != Parachain::get().into() {
+				return (None, None)
+			}
+		} else {
+			return (None, None)
+		}
 
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
@@ -227,14 +238,16 @@ impl EnsureForParachain for () {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::parameter_types;
+	use crate::integration_tests::new_test_ext;
+	use frame_support::{assert_ok, parameter_types};
 	use runtime_parachains::FeeTracker;
 	use sp_runtime::FixedU128;
+	use xcm::MAX_XCM_DECODE_DEPTH;
 
 	parameter_types! {
 		pub const BaseDeliveryFee: u128 = 300_000_000;
 		pub const TransactionByteFee: u128 = 1_000_000;
-		pub FeeAssetId: AssetId = Concrete(Here.into());
+		pub FeeAssetId: AssetId = AssetId(Here.into());
 	}
 
 	struct TestFeeTracker;
@@ -287,5 +300,41 @@ mod tests {
 			),
 			(FeeAssetId::get(), result).into()
 		);
+	}
+
+	#[test]
+	fn child_parachain_router_validate_nested_xcm_works() {
+		let dest = Parachain(5555);
+
+		type Router = ChildParachainRouter<
+			crate::integration_tests::Test,
+			(),
+			NoPriceForMessageDelivery<ParaId>,
+		>;
+
+		// Message that is not too deeply nested:
+		let mut good = Xcm(vec![ClearOrigin]);
+		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
+			good = Xcm(vec![SetAppendix(good)]);
+		}
+
+		new_test_ext().execute_with(|| {
+			configuration::ActiveConfig::<crate::integration_tests::Test>::mutate(|c| {
+				c.max_downward_message_size = u32::MAX;
+			});
+
+			// Check that the good message is validated:
+			assert_ok!(<Router as SendXcm>::validate(
+				&mut Some(dest.into()),
+				&mut Some(good.clone())
+			));
+
+			// Nesting the message one more time should reject it:
+			let bad = Xcm(vec![SetAppendix(good)]);
+			assert_eq!(
+				Err(ExceedsMaxMessageSize),
+				<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
+			);
+		});
 	}
 }

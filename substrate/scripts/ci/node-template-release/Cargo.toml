@@ -7,11 +7,14 @@ license = "GPL-3.0 WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.5.3", features = ["derive"] }
 flate2 = "1.0"
 fs_extra = "1.3"
 glob = "0.3"

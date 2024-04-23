@@ -31,10 +31,10 @@ pub mod v1 {
 	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
-			if onchain_version == 0 {
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			if on_chain_version == 0 {
 				let invulnerables_len = Invulnerables::<T>::get().to_vec().len();
-				<Invulnerables<T>>::mutate(|invulnerables| {
+				Invulnerables::<T>::mutate(|invulnerables| {
 					invulnerables.sort();
 				});
 
@@ -45,7 +45,7 @@ pub mod v1 {
 					invulnerables_len,
 				);
 				// Similar complexity to `set_invulnerables` (put storage value)
-				// Plus 1 read for length, 1 read for `onchain_version`, 1 write to put version
+				// Plus 1 read for length, 1 read for `on_chain_version`, 1 write to put version
 				T::WeightInfo::set_invulnerables(invulnerables_len as u32)
 					.saturating_add(T::DbWeight::get().reads_writes(2, 1))
 			} else {
@@ -83,8 +83,8 @@ pub mod v1 {
 				"after migration, there should be the same number of invulnerables"
 			);
 
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
-			frame_support::ensure!(onchain_version >= 1, "must_upgrade");
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			frame_support::ensure!(on_chain_version >= 1, "must_upgrade");
 
 			Ok(())
 		}

@@ -32,6 +32,10 @@ honest-flaky-validator-1: reports parachain_candidate_disputes_total is at least
 honest-flaky-validator-1: pause
 
 # Wait for 1 full session to pass after the last unconcluded dispute.
+#
+# TODO: replace with assertion for "New session detected" in logs. I think that
+# would match on previous log lines, so we may need to programmatically wait for
+# a specific session, requiring zombienet v2.
 sleep 110 seconds
 
 # Now resume flaky validators

@@ -25,7 +25,7 @@ pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo2
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
@@ -62,11 +62,11 @@ frame_support::construct_runtime!(
 		// Exclude part `Storage` in order not to check its metadata in tests.
 		System: frame_system exclude_parts { Storage },
 
-		// Pallet exposes `Error` implicitely.
+		// Pallet exposes `Error` implicitly.
 		Example: common::outer_enums::pallet,
 		Instance1Example: common::outer_enums::pallet::<Instance1>,
 
-		// Pallet exposes `Error` implicitely.
+		// Pallet exposes `Error` implicitly.
 		Example2: common::outer_enums::pallet2,
 		Instance1Example2: common::outer_enums::pallet2::<Instance1>,
 
@@ -82,7 +82,7 @@ fn module_error_outer_enum_expand_implicit() {
 
 	// Check that all error types are propagated
 	match RuntimeError::Example(pallet::Error::InsufficientProposersBalance) {
-		// Error passed implicitely to the pallet system.
+		// Error passed implicitly to the pallet system.
 		RuntimeError::System(system) => match system {
 			frame_system::Error::InvalidSpecName => (),
 			frame_system::Error::SpecVersionNeedsToIncrease => (),
@@ -90,6 +90,13 @@ fn module_error_outer_enum_expand_implicit() {
 			frame_system::Error::NonDefaultComposite => (),
 			frame_system::Error::NonZeroRefCount => (),
 			frame_system::Error::CallFiltered => (),
+			frame_system::Error::MultiBlockMigrationsOngoing => (),
+			#[cfg(feature = "experimental")]
+			frame_system::Error::InvalidTask => (),
+			#[cfg(feature = "experimental")]
+			frame_system::Error::FailedTask => (),
+			frame_system::Error::NothingAuthorized => (),
+			frame_system::Error::Unauthorized => (),
 			frame_system::Error::__Ignore(_, _) => (),
 		},
 

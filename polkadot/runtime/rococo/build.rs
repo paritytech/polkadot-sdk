@@ -16,16 +16,12 @@
 
 #[cfg(feature = "std")]
 fn main() {
-	// note: needs to be synced with rococo-runtime-constants::time hard-coded string literal
-	const ROCOCO_EPOCH_DURATION_ENV: &str = "ROCOCO_EPOCH_DURATION";
+	substrate_wasm_builder::WasmBuilder::build_using_defaults();
 
-	substrate_wasm_builder::WasmBuilder::new()
-		.with_current_project()
-		.import_memory()
-		.export_heap_base()
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.set_file_name("fast_runtime_binary.rs")
+		.enable_feature("fast-runtime")
 		.build();
-
-	println!("cargo:rerun-if-env-changed={}", ROCOCO_EPOCH_DURATION_ENV);
 }
 
 #[cfg(not(feature = "std"))]

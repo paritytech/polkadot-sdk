@@ -26,14 +26,14 @@ use crate::{
 	AccountKeyring, BlockBuilderExt, ClientBlockImportExt, TestClientBuilder, TestClientBuilderExt,
 };
 use futures::executor::block_on;
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{
 	backend,
 	blockchain::{Backend as BlockChainBackendT, HeaderBackend},
 };
 use sp_consensus::BlockOrigin;
 use sp_runtime::traits::Block as BlockT;
-use substrate_test_runtime::{self, Transfer};
+use substrate_test_runtime::Transfer;
 
 /// helper to test the `leaves` implementation for various backends
 pub fn test_leaves_for_backend<B: 'static>(backend: Arc<B>)
@@ -54,13 +54,24 @@ where
 	assert_eq!(blockchain.leaves().unwrap(), vec![genesis_hash]);
 
 	// G -> A1
-	let a1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let a1 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(genesis_hash)
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	block_on(client.import(BlockOrigin::Own, a1.clone())).unwrap();
 	assert_eq!(blockchain.leaves().unwrap(), vec![a1.hash()]);
 
 	// A1 -> A2
-	let a2 = client
-		.new_block_at(a1.hash(), Default::default(), false)
+	let a2 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a1.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -70,8 +81,11 @@ where
 	assert_eq!(blockchain.leaves().unwrap(), vec![a2.hash()]);
 
 	// A2 -> A3
-	let a3 = client
-		.new_block_at(a2.hash(), Default::default(), false)
+	let a3 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a2.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -81,8 +95,11 @@ where
 	assert_eq!(blockchain.leaves().unwrap(), vec![a3.hash()]);
 
 	// A3 -> A4
-	let a4 = client
-		.new_block_at(a3.hash(), Default::default(), false)
+	let a4 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a3.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -91,8 +108,11 @@ where
 	assert_eq!(blockchain.leaves().unwrap(), vec![a4.hash()]);
 
 	// A4 -> A5
-	let a5 = client
-		.new_block_at(a4.hash(), Default::default(), false)
+	let a5 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a4.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -102,7 +122,12 @@ where
 	assert_eq!(blockchain.leaves().unwrap(), vec![a5.hash()]);
 
 	// A1 -> B2
-	let mut builder = client.new_block_at(a1.hash(), Default::default(), false).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a1.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap();
 
 	// this push is required as otherwise B2 has the same hash as A2 and won't get imported
 	builder
@@ -118,8 +143,11 @@ where
 	assert_eq!(blockchain.leaves().unwrap(), vec![a5.hash(), b2.hash()]);
 
 	// B2 -> B3
-	let b3 = client
-		.new_block_at(b2.hash(), Default::default(), false)
+	let b3 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(b2.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -129,8 +157,11 @@ where
 	assert_eq!(blockchain.leaves().unwrap(), vec![a5.hash(), b3.hash()]);
 
 	// B3 -> B4
-	let b4 = client
-		.new_block_at(b3.hash(), Default::default(), false)
+	let b4 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(b3.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -139,7 +170,12 @@ where
 	assert_eq!(blockchain.leaves().unwrap(), vec![a5.hash(), b4.hash()]);
 
 	// // B2 -> C3
-	let mut builder = client.new_block_at(b2.hash(), Default::default(), false).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(b2.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap();
 	// this push is required as otherwise C3 has the same hash as B3 and won't get imported
 	builder
 		.push_transfer(Transfer {
@@ -154,7 +190,12 @@ where
 	assert_eq!(blockchain.leaves().unwrap(), vec![a5.hash(), b4.hash(), c3.hash()]);
 
 	// A1 -> D2
-	let mut builder = client.new_block_at(a1.hash(), Default::default(), false).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a1.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap();
 	// this push is required as otherwise D2 has the same hash as B2 and won't get imported
 	builder
 		.push_transfer(Transfer {
@@ -182,14 +223,26 @@ where
 
 	let mut client = TestClientBuilder::with_backend(backend.clone()).build();
 	let blockchain = backend.blockchain();
+	let genesis_hash = client.chain_info().genesis_hash;
 
 	// G -> A1
-	let a1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let a1 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(genesis_hash)
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	block_on(client.import(BlockOrigin::Own, a1.clone())).unwrap();
 
 	// A1 -> A2
-	let a2 = client
-		.new_block_at(a1.hash(), Default::default(), false)
+	let a2 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a1.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -197,8 +250,11 @@ where
 	block_on(client.import(BlockOrigin::Own, a2.clone())).unwrap();
 
 	// A2 -> A3
-	let a3 = client
-		.new_block_at(a2.hash(), Default::default(), false)
+	let a3 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a2.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -206,8 +262,11 @@ where
 	block_on(client.import(BlockOrigin::Own, a3.clone())).unwrap();
 
 	// A3 -> A4
-	let a4 = client
-		.new_block_at(a3.hash(), Default::default(), false)
+	let a4 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a3.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -215,8 +274,11 @@ where
 	block_on(client.import(BlockOrigin::Own, a4.clone())).unwrap();
 
 	// A4 -> A5
-	let a5 = client
-		.new_block_at(a4.hash(), Default::default(), false)
+	let a5 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a4.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -224,7 +286,12 @@ where
 	block_on(client.import(BlockOrigin::Own, a5.clone())).unwrap();
 
 	// A1 -> B2
-	let mut builder = client.new_block_at(a1.hash(), Default::default(), false).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a1.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap();
 	// this push is required as otherwise B2 has the same hash as A2 and won't get imported
 	builder
 		.push_transfer(Transfer {
@@ -238,8 +305,11 @@ where
 	block_on(client.import(BlockOrigin::Own, b2.clone())).unwrap();
 
 	// B2 -> B3
-	let b3 = client
-		.new_block_at(b2.hash(), Default::default(), false)
+	let b3 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(b2.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -247,8 +317,11 @@ where
 	block_on(client.import(BlockOrigin::Own, b3.clone())).unwrap();
 
 	// B3 -> B4
-	let b4 = client
-		.new_block_at(b3.hash(), Default::default(), false)
+	let b4 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(b3.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -256,7 +329,12 @@ where
 	block_on(client.import(BlockOrigin::Own, b4)).unwrap();
 
 	// // B2 -> C3
-	let mut builder = client.new_block_at(b2.hash(), Default::default(), false).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(b2.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap();
 	// this push is required as otherwise C3 has the same hash as B3 and won't get imported
 	builder
 		.push_transfer(Transfer {
@@ -270,7 +348,12 @@ where
 	block_on(client.import(BlockOrigin::Own, c3.clone())).unwrap();
 
 	// A1 -> D2
-	let mut builder = client.new_block_at(a1.hash(), Default::default(), false).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a1.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap();
 	// this push is required as otherwise D2 has the same hash as B2 and won't get imported
 	builder
 		.push_transfer(Transfer {
@@ -309,14 +392,26 @@ where
 	// 		A1 -> D2
 	let mut client = TestClientBuilder::with_backend(backend.clone()).build();
 	let blockchain = backend.blockchain();
+	let genesis_hash = client.chain_info().genesis_hash;
 
 	// G -> A1
-	let a1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let a1 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(genesis_hash)
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	block_on(client.import(BlockOrigin::Own, a1.clone())).unwrap();
 
 	// A1 -> A2
-	let a2 = client
-		.new_block_at(a1.hash(), Default::default(), false)
+	let a2 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a1.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -324,8 +419,11 @@ where
 	block_on(client.import(BlockOrigin::Own, a2.clone())).unwrap();
 
 	// A2 -> A3
-	let a3 = client
-		.new_block_at(a2.hash(), Default::default(), false)
+	let a3 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a2.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -333,8 +431,11 @@ where
 	block_on(client.import(BlockOrigin::Own, a3.clone())).unwrap();
 
 	// A3 -> A4
-	let a4 = client
-		.new_block_at(a3.hash(), Default::default(), false)
+	let a4 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a3.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -342,8 +443,11 @@ where
 	block_on(client.import(BlockOrigin::Own, a4.clone())).unwrap();
 
 	// A4 -> A5
-	let a5 = client
-		.new_block_at(a4.hash(), Default::default(), false)
+	let a5 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a4.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -351,7 +455,12 @@ where
 	block_on(client.import(BlockOrigin::Own, a5.clone())).unwrap();
 
 	// A1 -> B2
-	let mut builder = client.new_block_at(a1.hash(), Default::default(), false).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a1.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap();
 	// this push is required as otherwise B2 has the same hash as A2 and won't get imported
 	builder
 		.push_transfer(Transfer {
@@ -365,8 +474,11 @@ where
 	block_on(client.import(BlockOrigin::Own, b2.clone())).unwrap();
 
 	// B2 -> B3
-	let b3 = client
-		.new_block_at(b2.hash(), Default::default(), false)
+	let b3 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(b2.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -374,8 +486,11 @@ where
 	block_on(client.import(BlockOrigin::Own, b3.clone())).unwrap();
 
 	// B3 -> B4
-	let b4 = client
-		.new_block_at(b3.hash(), Default::default(), false)
+	let b4 = BlockBuilderBuilder::new(&client)
+		.on_parent_block(b3.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
 		.unwrap()
 		.build()
 		.unwrap()
@@ -383,7 +498,12 @@ where
 	block_on(client.import(BlockOrigin::Own, b4)).unwrap();
 
 	// // B2 -> C3
-	let mut builder = client.new_block_at(b2.hash(), Default::default(), false).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(b2.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap();
 	// this push is required as otherwise C3 has the same hash as B3 and won't get imported
 	builder
 		.push_transfer(Transfer {
@@ -397,7 +517,12 @@ where
 	block_on(client.import(BlockOrigin::Own, c3)).unwrap();
 
 	// A1 -> D2
-	let mut builder = client.new_block_at(a1.hash(), Default::default(), false).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(a1.hash())
+		.fetch_parent_block_number(&client)
+		.unwrap()
+		.build()
+		.unwrap();
 	// this push is required as otherwise D2 has the same hash as B2 and won't get imported
 	builder
 		.push_transfer(Transfer {

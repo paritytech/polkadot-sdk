@@ -21,10 +21,7 @@ use ansi_term::Colour;
 use log::info;
 use sc_client_api::ClientInfo;
 use sc_network::NetworkStatus;
-use sc_network_common::sync::{
-	warp::{WarpSyncPhase, WarpSyncProgress},
-	SyncState, SyncStatus,
-};
+use sc_network_sync::{SyncState, SyncStatus, WarpSyncPhase, WarpSyncProgress};
 use sp_runtime::traits::{Block as BlockT, CheckedDiv, NumberFor, Saturating, Zero};
 use std::{fmt, time::Instant};
 
@@ -130,9 +127,10 @@ impl<B: BlockT> InformantDisplay<B> {
 					),
 				(_, Some(state), _) => (
 					"⚙️ ",
-					"Downloading state".into(),
+					"State sync".into(),
 					format!(
-						", {}%, {:.2} Mib",
+						", {}, {}%, {:.2} Mib",
+						state.phase,
 						state.percentage,
 						(state.size as f32) / (1024f32 * 1024f32)
 					),
@@ -144,37 +142,20 @@ impl<B: BlockT> InformantDisplay<B> {
 					("⚙️ ", format!("Preparing{}", speed), format!(", target=#{target}")),
 			};
 
-		if self.format.enable_color {
-			info!(
-				target: "substrate",
-				"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
-				level,
-				Colour::White.bold().paint(&status),
-				target,
-				Colour::White.bold().paint(format!("{}", num_connected_peers)),
-				Colour::White.bold().paint(format!("{}", best_number)),
-				best_hash,
-				Colour::White.bold().paint(format!("{}", finalized_number)),
-				info.chain.finalized_hash,
-				Colour::Green.paint(format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
-				Colour::Red.paint(format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
-			)
-		} else {
-			info!(
-				target: "substrate",
-				"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}",
-				level,
-				status,
-				target,
-				num_connected_peers,
-				best_number,
-				best_hash,
-				finalized_number,
-				info.chain.finalized_hash,
-				TransferRateFormat(avg_bytes_per_sec_inbound),
-				TransferRateFormat(avg_bytes_per_sec_outbound),
-			)
-		}
+		info!(
+			target: "substrate",
+			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
+			level,
+			self.format.print_with_color(Colour::White.bold(), status),
+			target,
+			self.format.print_with_color(Colour::White.bold(), num_connected_peers),
+			self.format.print_with_color(Colour::White.bold(), best_number),
+			best_hash,
+			self.format.print_with_color(Colour::White.bold(), finalized_number),
+			info.chain.finalized_hash,
+			self.format.print_with_color(Colour::Green, format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
+			self.format.print_with_color(Colour::Red, format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
+		)
 	}
 }
 

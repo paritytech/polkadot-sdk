@@ -14,7 +14,7 @@ chain = "rococo-local"
 [[parachains]]
 id = 2000
 cumulus_based = true
-chain = "asset-hub-kusama-local"
+chain = "asset-hub-rococo-local"
 
   # run charlie as parachain collator
   [[parachains.collators]]

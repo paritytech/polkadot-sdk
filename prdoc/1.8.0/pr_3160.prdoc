@@ -1,0 +1,12 @@
+title: "prospective-parachains: allow requesting a chain of backable candidates"
+
+topic: Node
+
+doc:
+  - audience: Node Dev
+    description: |
+      Enable requesting a chain of multiple backable candidates. Will be used by the provisioner
+      to build paras inherent data for elastic scaling.
+
+crates:
+  - name: polkadot-node-core-prospective-parachains

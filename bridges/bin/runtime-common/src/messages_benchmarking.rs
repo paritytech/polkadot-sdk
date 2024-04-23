@@ -22,25 +22,23 @@
 use crate::{
 	messages::{
 		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, ThisChain,
+		AccountIdOf, BridgedChain, HashOf, MessageBridge, ThisChain,
 	},
 	messages_generation::{
-		encode_all_messages, encode_lane_data, grow_trie_leaf_value, prepare_messages_storage_proof,
+		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
+		prepare_messages_storage_proof,
 	},
 };
 
-use bp_messages::{storage_keys, MessagePayload};
+use bp_messages::MessagePayload;
 use bp_polkadot_core::parachains::ParaHash;
-use bp_runtime::{
-	record_all_trie_keys, Chain, Parachain, RawStorageProof, StorageProofSize, UnderlyingChainOf,
-};
+use bp_runtime::{Chain, Parachain, StorageProofSize, UnderlyingChainOf};
 use codec::Encode;
 use frame_support::weights::Weight;
 use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 use sp_runtime::traits::{Header, Zero};
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
-use xcm::v3::prelude::*;
+use xcm::latest::prelude::*;
 
 /// Prepare inbound bridge message according to given message proof parameters.
 fn prepare_inbound_message(
@@ -172,7 +170,11 @@ where
 {
 	// prepare storage proof
 	let lane = params.lane;
-	let (state_root, storage_proof) = prepare_message_delivery_proof::<B>(params);
+	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<B>(
+		params.lane,
+		params.inbound_lane_data,
+		params.size,
+	);
 
 	// update runtime storage
 	let (_, bridged_header_hash) = insert_header_to_grandpa_pallet::<R, FI>(state_root);
@@ -200,7 +202,11 @@ where
 {
 	// prepare storage proof
 	let lane = params.lane;
-	let (state_root, storage_proof) = prepare_message_delivery_proof::<B>(params);
+	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<B>(
+		params.lane,
+		params.inbound_lane_data,
+		params.size,
+	);
 
 	// update runtime storage
 	let (_, bridged_header_hash) =
@@ -211,36 +217,6 @@ where
 		storage_proof,
 		lane,
 	}
-}
-
-/// Prepare in-memory message delivery proof, without inserting anything to the runtime storage.
-fn prepare_message_delivery_proof<B>(
-	params: MessageDeliveryProofParams<AccountIdOf<ThisChain<B>>>,
-) -> (HashOf<BridgedChain<B>>, RawStorageProof)
-where
-	B: MessageBridge,
-{
-	// prepare Bridged chain storage with inbound lane state
-	let storage_key =
-		storage_keys::inbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, &params.lane).0;
-	let mut root = Default::default();
-	let mut mdb = MemoryDB::default();
-	{
-		let mut trie =
-			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb, &mut root).build();
-		let inbound_lane_data =
-			grow_trie_leaf_value(params.inbound_lane_data.encode(), params.size);
-		trie.insert(&storage_key, &inbound_lane_data)
-			.map_err(|_| "TrieMut::insert has failed")
-			.expect("TrieMut::insert should not fail in benchmarks");
-	}
-
-	// generate storage proof to be delivered to This chain
-	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
-		.map_err(|_| "record_all_trie_keys has failed")
-		.expect("record_all_trie_keys should not fail in benchmarks");
-
-	(root, storage_proof)
 }
 
 /// Insert header to the bridge GRANDPA pallet.
@@ -290,19 +266,19 @@ where
 /// Returns callback which generates `BridgeMessage` from Polkadot XCM builder based on
 /// `expected_message_size` for benchmark.
 pub fn generate_xcm_builder_bridge_message_sample(
-	destination: InteriorMultiLocation,
+	destination: InteriorLocation,
 ) -> impl Fn(usize) -> MessagePayload {
 	move |expected_message_size| -> MessagePayload {
 		// For XCM bridge hubs, it is the message that
 		// will be pushed further to some XCM queue (XCMP/UMP)
-		let location = xcm::VersionedInteriorMultiLocation::V3(destination);
+		let location = xcm::VersionedInteriorLocation::V4(destination.clone());
 		let location_encoded_size = location.encoded_size();
 
 		// we don't need to be super-precise with `expected_size` here
 		let xcm_size = expected_message_size.saturating_sub(location_encoded_size);
 		let xcm_data_size = xcm_size.saturating_sub(
 			// minus empty instruction size
-			xcm::v3::Instruction::<()>::ExpectPallet {
+			Instruction::<()>::ExpectPallet {
 				index: 0,
 				name: vec![],
 				module_name: vec![],
@@ -318,8 +294,8 @@ pub fn generate_xcm_builder_bridge_message_sample(
 			expected_message_size, location_encoded_size, xcm_size, xcm_data_size,
 		);
 
-		let xcm = xcm::VersionedXcm::<()>::V3(
-			vec![xcm::v3::Instruction::<()>::ExpectPallet {
+		let xcm = xcm::VersionedXcm::<()>::V4(
+			vec![Instruction::<()>::ExpectPallet {
 				index: 0,
 				name: vec![42; xcm_data_size],
 				module_name: vec![],

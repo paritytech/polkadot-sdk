@@ -1,24 +1,29 @@
 [package]
 name = "cumulus-primitives-aura"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
+license = "Apache-2.0"
+description = "Core primitives for Aura in Cumulus"
+
+[lints]
+workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 
 # Substrate
-sp-api = { path = "../../../substrate/primitives/api", default-features = false}
-sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false}
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
+sp-api = { path = "../../../substrate/primitives/api", default-features = false }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot
-polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false}
-polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
+polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"polkadot-core-primitives/std",

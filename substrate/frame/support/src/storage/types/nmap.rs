@@ -33,24 +33,54 @@ use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_runtime::SaturatedConversion;
 use sp_std::prelude::*;
 
-/// A type that allow to store values for an arbitrary number of keys in the form of
-/// `(Key<Hasher1, key1>, Key<Hasher2, key2>, ..., Key<HasherN, keyN>)`.
+/// A type representing an *NMap* in storage. This structure associates an arbitrary number of keys
+/// with a value of a specified type stored on-chain.
 ///
-/// Each value is stored at:
-/// ```nocompile
-/// Twox128(Prefix::pallet_prefix())
-/// 		++ Twox128(Prefix::STORAGE_PREFIX)
-/// 		++ Hasher1(encode(key1))
-/// 		++ Hasher2(encode(key2))
-/// 	++ ...
-/// 	++ HasherN(encode(keyN))
+/// For example, [`StorageDoubleMap`](frame_support::storage::types::StorageDoubleMap) is a special
+/// case of an *NMap* with N = 2.
+///
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
+/// [`crate::pallet_macros::storage`].
+///
+/// # Example
+///
 /// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+///     # use frame_support::pallet_prelude::*;
+///     # #[pallet::config]
+///     # pub trait Config: frame_system::Config {}
+///     # #[pallet::pallet]
+///     # pub struct Pallet<T>(_);
+/// 	/// A kitchen-sink StorageNMap, with all possible additional attributes.
+///     #[pallet::storage]
+/// 	#[pallet::getter(fn foo)]
+/// 	#[pallet::storage_prefix = "OtherFoo"]
+/// 	#[pallet::unbounded]
+///     pub type Foo<T> = StorageNMap<
+/// 		_,
+/// 		(
+/// 			NMapKey<Blake2_128Concat, u8>,
+/// 			NMapKey<Identity, u16>,
+/// 			NMapKey<Twox64Concat, u32>
+/// 		),
+/// 		u64,
+/// 		ValueQuery,
+/// 	>;
 ///
-/// # Warning
-///
-/// If the keys are not trusted (e.g. can be set by a user), a cryptographic `hasher`
-/// such as `blake2_128_concat` must be used for the key hashers. Otherwise, other values
-/// in storage can be compromised.
+/// 	/// Named alternative syntax.
+///     #[pallet::storage]
+///     pub type Bar<T> = StorageNMap<
+/// 		Key = (
+/// 			NMapKey<Blake2_128Concat, u8>,
+/// 			NMapKey<Identity, u16>,
+/// 			NMapKey<Twox64Concat, u32>
+/// 		),
+/// 		Value = u64,
+/// 		QueryKind = ValueQuery,
+/// 	>;
+/// }
+/// ```
 pub struct StorageNMap<
 	Prefix,
 	Key,
@@ -318,7 +348,7 @@ where
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	pub fn decode_len<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(
 		key: KArg,

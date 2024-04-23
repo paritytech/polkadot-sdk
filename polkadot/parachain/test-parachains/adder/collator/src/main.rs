@@ -22,6 +22,10 @@ use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProt
 use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
+use std::{
+	fs,
+	io::{self, Write},
+};
 use test_parachain_adder_collator::Collator;
 
 /// The parachain ID to collate for in case it wasn't set explicitly through CLI.
@@ -34,15 +38,29 @@ fn main() -> Result<()> {
 	let cli = Cli::from_args();
 
 	match cli.subcommand {
-		Some(cli::Subcommand::ExportGenesisState(_params)) => {
+		Some(cli::Subcommand::ExportGenesisState(params)) => {
 			let collator = Collator::new();
-			println!("0x{:?}", HexDisplay::from(&collator.genesis_head()));
+			let output_buf =
+				format!("0x{:?}", HexDisplay::from(&collator.genesis_head())).into_bytes();
+
+			if let Some(output) = params.output {
+				std::fs::write(output, output_buf)?;
+			} else {
+				std::io::stdout().write_all(&output_buf)?;
+			}
 
 			Ok::<_, Error>(())
 		},
-		Some(cli::Subcommand::ExportGenesisWasm(_params)) => {
+		Some(cli::Subcommand::ExportGenesisWasm(params)) => {
 			let collator = Collator::new();
-			println!("0x{:?}", HexDisplay::from(&collator.validation_code()));
+			let output_buf =
+				format!("0x{:?}", HexDisplay::from(&collator.validation_code())).into_bytes();
+
+			if let Some(output) = params.output {
+				fs::write(output, output_buf)?;
+			} else {
+				io::stdout().write_all(&output_buf)?;
+			}
 
 			Ok(())
 		},
@@ -62,17 +80,18 @@ fn main() -> Result<()> {
 						is_parachain_node: polkadot_service::IsParachainNode::Collator(
 							collator.collator_key(),
 						),
-						grandpa_pause: None,
 						enable_beefy: false,
+						force_authoring_backoff: false,
 						jaeger_agent: None,
 						telemetry_worker_handle: None,
 
 						// Collators don't spawn PVF workers, so we can disable version checks.
 						node_version: None,
+						secure_validator_mode: false,
 						workers_path: None,
 						workers_names: None,
 
-						overseer_gen: polkadot_service::RealOverseerGen,
+						overseer_gen: polkadot_service::CollatorOverseerGen,
 						overseer_message_channel_capacity_override: None,
 						malus_finality_delay: None,
 						hwbench: None,

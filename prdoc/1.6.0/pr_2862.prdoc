@@ -1,0 +1,11 @@
+title: Return latest known relay chain block number in `on_initialize` etc.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `RelaychainDataProvider` and `RelaychainBlockNumberProvider` will now return the latest known
+      relay chain block number in `on_initialize`, aka when `validation_data` wasn't yet set by
+      the inherent.
+
+crates:
+  - name: "cumulus-pallet-parachain-system"

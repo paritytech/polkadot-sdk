@@ -33,6 +33,7 @@ pub(crate) type DefaultLogger = stderr_writer::MakeStderrWriter;
 pub use directives::*;
 pub use sc_tracing_proc_macro::*;
 
+use is_terminal::IsTerminal;
 use std::io;
 use tracing::Subscriber;
 use tracing_subscriber::{
@@ -103,7 +104,7 @@ fn prepare_subscriber<N, E, F, W>(
 where
 	N: for<'writer> FormatFields<'writer> + 'static,
 	E: FormatEvent<Registry, N> + 'static,
-	W: MakeWriter + 'static,
+	W: for<'writer> MakeWriter<'writer> + 'static,
 	F: layer::Layer<Formatter<N, E, W>> + Send + Sync + 'static,
 	FmtLayer<Registry, N, E, W>: layer::Layer<Registry> + Send + Sync + 'static,
 {
@@ -170,7 +171,7 @@ where
 		_ => true,
 	} || detailed_output;
 
-	let enable_color = force_colors.unwrap_or_else(|| atty::is(atty::Stream::Stderr));
+	let enable_color = force_colors.unwrap_or_else(|| io::stderr().is_terminal());
 	let timer = fast_local_time::FastLocalTime { with_fractional: detailed_output };
 
 	let event_format = EventFormat {
@@ -179,7 +180,7 @@ where
 		display_level: detailed_output,
 		display_thread_name: detailed_output,
 		enable_color,
-		dup_to_stdout: !atty::is(atty::Stream::Stderr) && atty::is(atty::Stream::Stdout),
+		dup_to_stdout: !io::stderr().is_terminal() && io::stdout().is_terminal(),
 	};
 	let builder = FmtSubscriber::builder().with_env_filter(env_filter);
 

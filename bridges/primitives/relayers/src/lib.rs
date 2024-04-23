@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use registration::{Registration, StakeAndSlash};
+pub use registration::{ExplicitOrAccountParams, Registration, StakeAndSlash};
 
 use bp_messages::LaneId;
 use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
@@ -115,7 +115,7 @@ where
 impl<T, Relayer> PaymentProcedure<Relayer, T::Balance> for PayRewardFromAccount<T, Relayer>
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,
-	Relayer: Decode + Encode,
+	Relayer: Decode + Encode + Eq,
 {
 	type Error = sp_runtime::DispatchError;
 

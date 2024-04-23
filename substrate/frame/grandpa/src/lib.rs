@@ -30,14 +30,13 @@
 
 // Re-export since this is necessary for `impl_apis` in runtime.
 pub use sp_consensus_grandpa::{
-	self as fg_primitives, AuthorityId, AuthorityList, AuthorityWeight, VersionedAuthorityList,
+	self as fg_primitives, AuthorityId, AuthorityList, AuthorityWeight,
 };
 
-use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	pallet_prelude::Get,
-	storage,
 	traits::OneSessionHandler,
 	weights::Weight,
 	WeakBoundedVec,
@@ -45,8 +44,8 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::{
-	ConsensusLog, EquivocationProof, ScheduledChange, SetId, GRANDPA_AUTHORITIES_KEY,
-	GRANDPA_ENGINE_ID, RUNTIME_LOG_TARGET as LOG_TARGET,
+	ConsensusLog, EquivocationProof, ScheduledChange, SetId, GRANDPA_ENGINE_ID,
+	RUNTIME_LOG_TARGET as LOG_TARGET,
 };
 use sp_runtime::{generic::DigestItem, traits::Zero, DispatchResult};
 use sp_session::{GetSessionNumber, GetValidatorCount};
@@ -74,8 +73,8 @@ pub mod pallet {
 	use frame_support::{dispatch::DispatchResult, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -145,7 +144,7 @@ pub mod pallet {
 
 				// enact the change if we've reached the enacting block
 				if block_number == pending_change.scheduled_at + pending_change.delay {
-					Self::set_grandpa_authorities(&pending_change.next_authorities);
+					Authorities::<T>::put(&pending_change.next_authorities);
 					Self::deposit_event(Event::NewAuthorities {
 						authority_set: pending_change.next_authorities.into_inner(),
 					});
@@ -342,6 +341,11 @@ pub mod pallet {
 	#[pallet::getter(fn session_for_set)]
 	pub(super) type SetIdSession<T: Config> = StorageMap<_, Twox64Concat, SetId, SessionIndex>;
 
+	/// The current list of authorities.
+	#[pallet::storage]
+	pub(crate) type Authorities<T: Config> =
+		StorageValue<_, BoundedAuthorityList<T::MaxAuthorities>, ValueQuery>;
+
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -354,7 +358,7 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			CurrentSetId::<T>::put(SetId::default());
-			Pallet::<T>::initialize(&self.authorities)
+			Pallet::<T>::initialize(self.authorities.clone())
 		}
 	}
 
@@ -428,12 +432,7 @@ pub enum StoredState<N> {
 impl<T: Config> Pallet<T> {
 	/// Get the current set of authorities, along with their respective weights.
 	pub fn grandpa_authorities() -> AuthorityList {
-		storage::unhashed::get_or_default::<VersionedAuthorityList>(GRANDPA_AUTHORITIES_KEY).into()
-	}
-
-	/// Set the current set of authorities, along with their respective weights.
-	fn set_grandpa_authorities(authorities: &AuthorityList) {
-		storage::unhashed::put(GRANDPA_AUTHORITIES_KEY, &VersionedAuthorityList::from(authorities));
+		Authorities::<T>::get().into_inner()
 	}
 
 	/// Schedule GRANDPA to pause starting in the given number of blocks.
@@ -522,10 +521,14 @@ impl<T: Config> Pallet<T> {
 
 	// Perform module initialization, abstracted so that it can be called either through genesis
 	// config builder or through `on_genesis_session`.
-	fn initialize(authorities: &AuthorityList) {
+	fn initialize(authorities: AuthorityList) {
 		if !authorities.is_empty() {
 			assert!(Self::grandpa_authorities().is_empty(), "Authorities are already initialized!");
-			Self::set_grandpa_authorities(authorities);
+			Authorities::<T>::put(
+				&BoundedAuthorityList::<T::MaxAuthorities>::try_from(authorities).expect(
+					"Grandpa: `Config::MaxAuthorities` is smaller than the number of genesis authorities!",
+				),
+			);
 		}
 
 		// NOTE: initialize first session of first set. this is necessary for
@@ -568,7 +571,7 @@ where
 		I: Iterator<Item = (&'a T::AccountId, AuthorityId)>,
 	{
 		let authorities = validators.map(|(_, k)| (k, 1)).collect::<Vec<_>>();
-		Self::initialize(&authorities);
+		Self::initialize(authorities);
 	}
 
 	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, _queued_validators: I)

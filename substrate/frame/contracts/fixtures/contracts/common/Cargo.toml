@@ -1,0 +1,11 @@
+[package]
+name = "pallet-contracts-fixtures-common"
+publish = false
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Common utilities for pallet-contracts-fixtures."
+
+[dependencies]
+uapi = { package = 'pallet-contracts-uapi', path = "../../../uapi", default-features = false }

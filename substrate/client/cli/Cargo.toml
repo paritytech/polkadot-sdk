@@ -1,6 +1,6 @@
 [package]
 name = "sc-cli"
-version = "0.10.0-dev"
+version = "0.36.0"
 authors.workspace = true
 description = "Substrate CLI interface."
 edition.workspace = true
@@ -9,33 +9,38 @@ homepage = "https://substrate.io"
 repository.workspace = true
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = "6.1"
-chrono = "0.4.27"
-clap = { version = "4.4.6", features = ["derive", "string"] }
-fdlimit = "0.2.1"
-futures = "0.3.21"
-libp2p-identity = { version = "0.1.3", features = ["peerid", "ed25519"]}
-log = "0.4.17"
-names = { version = "0.13.0", default-features = false }
+chrono = "0.4.31"
+clap = { version = "4.5.3", features = ["derive", "string", "wrap_help"] }
+fdlimit = "0.3.0"
+futures = "0.3.30"
+itertools = "0.10.3"
+libp2p-identity = { version = "0.1.3", features = ["ed25519", "peerid"] }
+log = { workspace = true, default-features = true }
+names = { version = "0.14.0", default-features = false }
 parity-scale-codec = "3.6.1"
 rand = "0.8.5"
 regex = "1.6.0"
 rpassword = "7.0.0"
-serde = "1.0.188"
-serde_json = "1.0.107"
-thiserror = "1.0.48"
-tiny-bip39 = "1.0.0"
-tokio = { version = "1.22.0", features = ["signal", "rt-multi-thread", "parking_lot"] }
+serde = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+thiserror = { workspace = true }
+# personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
+bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
+tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "signal"] }
 sc-client-api = { path = "../api" }
-sc-client-db = { path = "../db", default-features = false}
+sc-client-db = { path = "../db", default-features = false }
 sc-keystore = { path = "../keystore" }
 sc-mixnet = { path = "../mixnet" }
 sc-network = { path = "../network" }
-sc-service = { path = "../service", default-features = false}
+sc-service = { path = "../service", default-features = false }
 sc-telemetry = { path = "../telemetry" }
 sc-tracing = { path = "../tracing" }
 sc-utils = { path = "../utils" }
@@ -53,5 +58,5 @@ futures-timer = "3.0.1"
 sp-tracing = { path = "../../primitives/tracing" }
 
 [features]
-default = [ "rocksdb" ]
-rocksdb = [ "sc-client-db/rocksdb" ]
+default = ["rocksdb"]
+rocksdb = ["sc-client-db/rocksdb"]

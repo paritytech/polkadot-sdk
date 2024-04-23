@@ -149,7 +149,7 @@ The receiver of such a message needs to request the actual payload via request/r
 
 This is necessary as distribution of a large payload (mega bytes) via gossip would make the network collapse and timely
 distribution of statements would no longer be possible. By using request/response it is ensured that each peer only
-transferes large data once. We only take good care to detect an overloaded peer early and immediately move on to a
+transfers large data once. We only take good care to detect an overloaded peer early and immediately move on to a
 different peer for fetching the data. This mechanism should result in a good load distribution and therefore a rather
 optimal distribution path.
 

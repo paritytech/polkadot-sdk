@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use frame_support::traits::{Contains, OnRuntimeUpgrade};
+use frame_support::traits::{Contains, UncheckedOnRuntimeUpgrade};
 
 #[derive(Encode, Decode)]
 pub struct ParaInfoV1<Account, Balance> {
@@ -27,7 +27,7 @@ pub struct ParaInfoV1<Account, Balance> {
 pub struct VersionUncheckedMigrateToV1<T, UnlockParaIds>(
 	sp_std::marker::PhantomData<(T, UnlockParaIds)>,
 );
-impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
+impl<T: Config, UnlockParaIds: Contains<ParaId>> UncheckedOnRuntimeUpgrade
 	for VersionUncheckedMigrateToV1<T, UnlockParaIds>
 {
 	fn on_runtime_upgrade() -> Weight {
@@ -60,11 +60,10 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 	}
 }
 
-pub type VersionCheckedMigrateToV1<T, UnlockParaIds> =
-	frame_support::migrations::VersionedMigration<
-		0,
-		1,
-		VersionUncheckedMigrateToV1<T, UnlockParaIds>,
-		super::Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
+pub type MigrateToV1<T, UnlockParaIds> = frame_support::migrations::VersionedMigration<
+	0,
+	1,
+	VersionUncheckedMigrateToV1<T, UnlockParaIds>,
+	super::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;

@@ -20,22 +20,20 @@
 
 use crate::keyring::*;
 use kitchensink_runtime::{
-	constants::currency::*, wasm_binary_unwrap, AccountId, AssetsConfig, BabeConfig,
-	BalancesConfig, GluttonConfig, GrandpaConfig, IndicesConfig, RuntimeGenesisConfig,
-	SessionConfig, SocietyConfig, StakerStatus, StakingConfig, SystemConfig,
-	BABE_GENESIS_EPOCH_CONFIG,
+	constants::currency::*, AccountId, AssetsConfig, BalancesConfig, IndicesConfig,
+	RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig,
 };
-use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+use sp_keyring::Ed25519Keyring;
 use sp_runtime::Perbill;
 
 /// Create genesis runtime configuration for tests.
-pub fn config(code: Option<&[u8]>) -> RuntimeGenesisConfig {
-	config_endowed(code, Default::default())
+pub fn config() -> RuntimeGenesisConfig {
+	config_endowed(Default::default())
 }
 
 /// Create genesis runtime configuration for tests with some extra
 /// endowed accounts.
-pub fn config_endowed(code: Option<&[u8]>, extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
+pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 	let mut endowed = vec![
 		(alice(), 111 * DOLLARS),
 		(bob(), 100 * DOLLARS),
@@ -48,21 +46,13 @@ pub fn config_endowed(code: Option<&[u8]>, extra_endowed: Vec<AccountId>) -> Run
 	endowed.extend(extra_endowed.into_iter().map(|endowed| (endowed, 100 * DOLLARS)));
 
 	RuntimeGenesisConfig {
-		system: SystemConfig {
-			code: code.map(|x| x.to_vec()).unwrap_or_else(|| wasm_binary_unwrap().to_vec()),
-			..Default::default()
-		},
 		indices: IndicesConfig { indices: vec![] },
 		balances: BalancesConfig { balances: endowed },
 		session: SessionConfig {
 			keys: vec![
-				(alice(), dave(), to_session_keys(&Ed25519Keyring::Alice, &Sr25519Keyring::Alice)),
-				(bob(), eve(), to_session_keys(&Ed25519Keyring::Bob, &Sr25519Keyring::Bob)),
-				(
-					charlie(),
-					ferdie(),
-					to_session_keys(&Ed25519Keyring::Charlie, &Sr25519Keyring::Charlie),
-				),
+				(alice(), dave(), session_keys_from_seed(Ed25519Keyring::Alice.into())),
+				(bob(), eve(), session_keys_from_seed(Ed25519Keyring::Bob.into())),
+				(charlie(), ferdie(), session_keys_from_seed(Ed25519Keyring::Charlie.into())),
 			],
 		},
 		staking: StakingConfig {
@@ -77,38 +67,8 @@ pub fn config_endowed(code: Option<&[u8]>, extra_endowed: Vec<AccountId>) -> Run
 			invulnerables: vec![alice(), bob(), charlie()],
 			..Default::default()
 		},
-		babe: BabeConfig {
-			authorities: vec![],
-			epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
-		},
-		grandpa: GrandpaConfig { authorities: vec![], _config: Default::default() },
-		im_online: Default::default(),
-		authority_discovery: Default::default(),
-		democracy: Default::default(),
-		council: Default::default(),
-		technical_committee: Default::default(),
-		technical_membership: Default::default(),
-		elections: Default::default(),
-		sudo: Default::default(),
-		treasury: Default::default(),
 		society: SocietyConfig { pot: 0 },
-		vesting: Default::default(),
 		assets: AssetsConfig { assets: vec![(9, alice(), true, 1)], ..Default::default() },
-		pool_assets: Default::default(),
-		transaction_storage: Default::default(),
-		transaction_payment: Default::default(),
-		alliance: Default::default(),
-		alliance_motion: Default::default(),
-		nomination_pools: Default::default(),
-		safe_mode: Default::default(),
-		tx_pause: Default::default(),
-		glutton: GluttonConfig {
-			compute: Default::default(),
-			storage: Default::default(),
-			trash_data_count: Default::default(),
-			..Default::default()
-		},
-		mixnet: Default::default(),
+		..Default::default()
 	}
 }

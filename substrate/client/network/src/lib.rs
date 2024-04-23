@@ -243,8 +243,9 @@
 //! More precise usage details are still being worked on and will likely change in the future.
 
 mod behaviour;
+mod bitswap;
+mod litep2p;
 mod protocol;
-mod service;
 
 #[cfg(test)]
 mod mock;
@@ -258,34 +259,33 @@ pub mod peer_info;
 pub mod peer_store;
 pub mod protocol_controller;
 pub mod request_responses;
+pub mod service;
 pub mod transport;
 pub mod types;
 pub mod utils;
 
-pub use event::{DhtEvent, Event, SyncEvent};
+pub use crate::litep2p::Litep2pNetworkBackend;
+pub use event::{DhtEvent, Event};
 #[doc(inline)]
-pub use libp2p::{multiaddr, Multiaddr, PeerId};
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
 pub use sc_network_common::{
-	role::ObservedRole,
-	sync::{
-		warp::{WarpSyncPhase, WarpSyncProgress},
-		ExtendedPeerInfo, StateDownloadProgress, SyncEventStream, SyncState, SyncStatusProvider,
-	},
+	role::{ObservedRole, Roles},
 	types::ReputationChange,
 };
 pub use service::{
+	metrics::NotificationMetrics,
 	signature::Signature,
 	traits::{
-		KademliaKey, NetworkBlock, NetworkDHTProvider, NetworkEventStream, NetworkNotification,
-		NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo, NetworkStatus,
-		NetworkStatusProvider, NetworkSyncForkRequest, NotificationSender as NotificationSenderT,
-		NotificationSenderError, NotificationSenderReady,
+		KademliaKey, MessageSink, NetworkBackend, NetworkBlock, NetworkDHTProvider,
+		NetworkEventStream, NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo,
+		NetworkStatus, NetworkStatusProvider, NetworkSyncForkRequest, NotificationConfig,
+		NotificationSender as NotificationSenderT, NotificationSenderError,
+		NotificationSenderReady, NotificationService,
 	},
-	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, NotificationsSink,
-	OutboundFailure, PublicKey,
+	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
+	PublicKey,
 };
-pub use types::ProtocolName;
+pub use types::{multiaddr, Multiaddr, PeerId, ProtocolName};
 
 /// The maximum allowed number of established connections per peer.
 ///

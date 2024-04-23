@@ -148,6 +148,12 @@ impl MutItemAttrs for syn::ImplItemFn {
 	}
 }
 
+impl MutItemAttrs for syn::ItemType {
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
+		Some(&mut self.attrs)
+	}
+}
+
 /// Parse for `()`
 struct Unit;
 impl syn::parse::Parse for Unit {
@@ -613,7 +619,7 @@ pub fn check_pallet_call_return_type(type_: &syn::Type) -> syn::Result<()> {
 }
 
 pub(crate) fn two128_str(s: &str) -> TokenStream {
-	bytes_to_array(sp_core_hashing::twox_128(s.as_bytes()).into_iter())
+	bytes_to_array(sp_crypto_hashing::twox_128(s.as_bytes()).into_iter())
 }
 
 pub(crate) fn bytes_to_array(bytes: impl IntoIterator<Item = u8>) -> TokenStream {

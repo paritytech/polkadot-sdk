@@ -182,7 +182,7 @@ pub trait Proposer<B: BlockT> {
 		+ Send
 		+ Unpin
 		+ 'static;
-	/// The supported proof recording by the implementator of this trait. See [`ProofRecording`]
+	/// The supported proof recording by the implementor of this trait. See [`ProofRecording`]
 	/// for more information.
 	type ProofRecording: self::ProofRecording<Proof = Self::Proof> + Send + Sync + 'static;
 	/// The proof type used by [`Self::ProofRecording`].

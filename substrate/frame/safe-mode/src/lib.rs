@@ -15,6 +15,62 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Safe Mode
+//!
+//! Trigger for stopping all extrinsics outside of a specific whitelist.
+//!
+//! ## WARNING
+//!
+//! NOT YET AUDITED. DO NOT USE IN PRODUCTION.
+//!
+//! ## Pallet API
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events, and errors.
+//!
+//! ## Overview
+//!
+//! Safe mode is entered via two paths (deposit or forced) until a set block number.
+//! The mode is exited when the block number is reached or a call to one of the exit extrinsics is
+//! made. A `WhitelistedCalls` configuration item contains all calls that can be executed while in
+//! safe mode.
+//!
+//! ### Primary Features
+//!
+//! - Entering safe mode can be via privileged origin or anyone who places a deposit.
+//! - Origin configuration items are separated for privileged entering and exiting safe mode.
+//! - A configurable duration sets the number of blocks after which the system will exit safe mode.
+//! - Safe mode may be extended beyond the configured exit by additional calls.
+//!
+//! ### Example
+//!
+//! Configuration of call filters:
+//!
+//! ```ignore
+//! impl frame_system::Config for Runtime {
+//!   // …
+//!   type BaseCallFilter = InsideBoth<DefaultFilter, SafeMode>;
+//!   // …
+//! }
+//! ```
+//!
+//! Entering safe mode with deposit:
+#![doc = docify::embed!("src/tests.rs", can_activate)]
+//!
+//! Entering safe mode via privileged origin:
+#![doc = docify::embed!("src/tests.rs", can_force_activate_with_config_origin)]
+//!
+//! Exiting safe mode via privileged origin:
+#![doc = docify::embed!("src/tests.rs", can_force_deactivate_with_config_origin)]
+//!
+//! ## Low Level / Implementation Details
+//!
+//! ### Use Cost
+//!
+//! A storage value (`EnteredUntil`) is used to store the block safe mode will be exited on.
+//! Using the call filter will require a db read of that storage on the first extrinsic.
+//! The storage will be added to the overlay and incur low cost for all additional calls.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
@@ -23,13 +79,14 @@ pub mod mock;
 mod tests;
 pub mod weights;
 
+use core::convert::TryInto;
 use frame_support::{
 	defensive_assert,
 	pallet_prelude::*,
 	traits::{
 		fungible::{
-			hold::{Inspect as FunHoldInspect, Mutate as FunHoldMutate},
-			Inspect as FunInspect,
+			self,
+			hold::{Inspect, Mutate},
 		},
 		tokens::{Fortitude, Precision},
 		CallMetadata, Contains, Defensive, GetCallMetadata, PalletInfoAccess, SafeModeNotify,
@@ -40,13 +97,12 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_arithmetic::traits::Zero;
 use sp_runtime::traits::Saturating;
-use sp_std::{convert::TryInto, prelude::*};
 
 pub use pallet::*;
 pub use weights::*;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -61,8 +117,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Currency type for this pallet, used for Deposits.
-		type Currency: FunHoldInspect<Self::AccountId>
-			+ FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The hold reason when reserving funds for entering or extending the safe-mode.
 		type RuntimeHoldReason: From<HoldReason>;

@@ -42,6 +42,7 @@ mod keyword {
 	syn::custom_keyword!(ValidateUnsigned);
 	syn::custom_keyword!(FreezeReason);
 	syn::custom_keyword!(HoldReason);
+	syn::custom_keyword!(Task);
 	syn::custom_keyword!(LockId);
 	syn::custom_keyword!(SlashReason);
 	syn::custom_keyword!(exclude_parts);
@@ -321,7 +322,7 @@ impl Parse for PalletDeclaration {
 /// A struct representing a path to a pallet. `PalletPath` is almost identical to the standard
 /// Rust path with a few restrictions:
 /// - No leading colons allowed
-/// - Path segments can only consist of identifers separated by colons
+/// - Path segments can only consist of identifiers separated by colons
 #[derive(Debug, Clone)]
 pub struct PalletPath {
 	pub inner: Path,
@@ -404,6 +405,7 @@ pub enum PalletPartKeyword {
 	ValidateUnsigned(keyword::ValidateUnsigned),
 	FreezeReason(keyword::FreezeReason),
 	HoldReason(keyword::HoldReason),
+	Task(keyword::Task),
 	LockId(keyword::LockId),
 	SlashReason(keyword::SlashReason),
 }
@@ -434,6 +436,8 @@ impl Parse for PalletPartKeyword {
 			Ok(Self::FreezeReason(input.parse()?))
 		} else if lookahead.peek(keyword::HoldReason) {
 			Ok(Self::HoldReason(input.parse()?))
+		} else if lookahead.peek(keyword::Task) {
+			Ok(Self::Task(input.parse()?))
 		} else if lookahead.peek(keyword::LockId) {
 			Ok(Self::LockId(input.parse()?))
 		} else if lookahead.peek(keyword::SlashReason) {
@@ -459,6 +463,7 @@ impl PalletPartKeyword {
 			Self::ValidateUnsigned(_) => "ValidateUnsigned",
 			Self::FreezeReason(_) => "FreezeReason",
 			Self::HoldReason(_) => "HoldReason",
+			Self::Task(_) => "Task",
 			Self::LockId(_) => "LockId",
 			Self::SlashReason(_) => "SlashReason",
 		}
@@ -471,7 +476,7 @@ impl PalletPartKeyword {
 
 	/// Returns the names of all pallet parts that allow to have a generic argument.
 	fn all_generic_arg() -> &'static [&'static str] {
-		&["Event", "Error", "Origin", "Config"]
+		&["Event", "Error", "Origin", "Config", "Task"]
 	}
 }
 
@@ -489,6 +494,7 @@ impl ToTokens for PalletPartKeyword {
 			Self::ValidateUnsigned(inner) => inner.to_tokens(tokens),
 			Self::FreezeReason(inner) => inner.to_tokens(tokens),
 			Self::HoldReason(inner) => inner.to_tokens(tokens),
+			Self::Task(inner) => inner.to_tokens(tokens),
 			Self::LockId(inner) => inner.to_tokens(tokens),
 			Self::SlashReason(inner) => inner.to_tokens(tokens),
 		}
@@ -589,7 +595,7 @@ pub struct Pallet {
 	pub is_expanded: bool,
 	/// The name of the pallet, e.g.`System` in `System: frame_system`.
 	pub name: Ident,
-	/// Either automatically infered, or defined (e.g. `MyPallet ...  = 3,`).
+	/// Either automatically inferred, or defined (e.g. `MyPallet ...  = 3,`).
 	pub index: u8,
 	/// The path of the pallet, e.g. `frame_system` in `System: frame_system`.
 	pub path: PalletPath,
@@ -628,7 +634,7 @@ impl Pallet {
 /// +----------+    +----------+    +------------------+
 /// ```
 enum PalletsConversion {
-	/// Pallets implicitely declare parts.
+	/// Pallets implicitly declare parts.
 	///
 	/// `System: frame_system`.
 	Implicit(Vec<PalletDeclaration>),
@@ -642,7 +648,7 @@ enum PalletsConversion {
 	/// Pallets explicitly declare parts that are fully expanded.
 	///
 	/// This is the end state that contains extra parts included by
-	/// default by Subtrate.
+	/// default by Substrate.
 	///
 	/// `System: frame_system expanded::{Error} ::{Pallet, Call}`
 	///
@@ -654,7 +660,7 @@ enum PalletsConversion {
 ///
 /// Check if all pallet have explicit declaration of their parts, if so then assign index to each
 /// pallet using same rules as rust for fieldless enum. I.e. implicit are assigned number
-/// incrementedly from last explicit or 0.
+/// incrementally from last explicit or 0.
 fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConversion> {
 	if pallets.iter().any(|pallet| pallet.pallet_parts.is_none()) {
 		return Ok(PalletsConversion::Implicit(pallets))

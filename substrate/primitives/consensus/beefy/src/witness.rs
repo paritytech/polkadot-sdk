@@ -23,9 +23,8 @@
 //! verification. This allows lowering the data and computation cost of verifying the
 //! signed commitment.
 
-use sp_std::prelude::*;
-
 use crate::commitment::{Commitment, SignedCommitment};
+use alloc::vec::Vec;
 
 /// A light form of [SignedCommitment].
 ///
@@ -77,7 +76,8 @@ impl<TBlockNumber, TSignatureAccumulator>
 
 #[cfg(test)]
 mod tests {
-	use sp_core::{keccak_256, Pair};
+	use sp_core::Pair;
+	use sp_crypto_hashing::keccak_256;
 
 	use super::*;
 	use codec::Decode;

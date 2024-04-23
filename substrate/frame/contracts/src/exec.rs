@@ -18,6 +18,7 @@
 use crate::{
 	debug::{CallInterceptor, CallSpan, Tracing},
 	gas::GasMeter,
+	primitives::{ExecReturnValue, StorageDeposit},
 	storage::{self, meter::Diff, WriteOutcome},
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet as Contracts, Schedule,
@@ -37,7 +38,6 @@ use frame_support::{
 	Blake2_128Concat, BoundedVec, StorageHasher,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use pallet_contracts_primitives::{ExecReturnValue, StorageDeposit};
 use smallvec::{Array, SmallVec};
 use sp_core::{
 	ecdsa::Public as ECDSAPublic,
@@ -100,7 +100,7 @@ impl<T: Config> Key<T> {
 /// Call or instantiate both called into other contracts and pass through errors happening
 /// in those to the caller. This enum is for the caller to distinguish whether the error
 /// happened during the execution of the callee or in the current execution context.
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, codec::Decode, codec::Encode)]
 pub enum ErrorOrigin {
 	/// Caller error origin.
 	///
@@ -112,7 +112,7 @@ pub enum ErrorOrigin {
 }
 
 /// Error returned by contract execution.
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, codec::Decode, codec::Encode)]
 pub struct ExecError {
 	/// The reason why the execution failed.
 	pub error: DispatchError,
@@ -287,6 +287,9 @@ pub trait Ext: sealing::Sealed {
 	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
 	fn append_debug_buffer(&mut self, msg: &str) -> bool;
 
+	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
+	fn debug_buffer_enabled(&self) -> bool;
+
 	/// Call some dispatchable and return the result.
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
 
@@ -345,20 +348,20 @@ pub trait Ext: sealing::Sealed {
 	/// - [`Error::<T>::MaxDelegateDependenciesReached`]
 	/// - [`Error::<T>::CannotAddSelfAsDelegateDependency`]
 	/// - [`Error::<T>::DelegateDependencyAlreadyExists`]
-	fn add_delegate_dependency(
+	fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<Self::T>,
 	) -> Result<(), DispatchError>;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
-	/// This is the counterpart of [`Self::add_delegate_dependency`]. It decreases the reference
-	/// count and refunds the deposit that was charged by [`Self::add_delegate_dependency`].
+	/// This is the counterpart of [`Self::lock_delegate_dependency`]. It decreases the reference
+	/// count and refunds the deposit that was charged by [`Self::lock_delegate_dependency`].
 	///
 	/// # Errors
 	///
 	/// - [`Error::<T>::DelegateDependencyNotFound`]
-	fn remove_delegate_dependency(
+	fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<Self::T>,
 	) -> Result<(), DispatchError>;
@@ -528,9 +531,9 @@ enum FrameArgs<'a, T: Config, E> {
 		nonce: u64,
 		/// The executable whose `deploy` function is run.
 		executable: E,
-		/// A salt used in the contract address deriviation of the new contract.
+		/// A salt used in the contract address derivation of the new contract.
 		salt: &'a [u8],
-		/// The input data is used in the contract address deriviation of the new contract.
+		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
 	},
 }
@@ -730,6 +733,30 @@ where
 		stack.run(executable, input_data).map(|ret| (account_id, ret))
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_new_call(
+		dest: T::AccountId,
+		origin: Origin<T>,
+		gas_meter: &'a mut GasMeter<T>,
+		storage_meter: &'a mut storage::meter::Meter<T>,
+		schedule: &'a Schedule<T>,
+		value: BalanceOf<T>,
+		debug_message: Option<&'a mut DebugBufferVec<T>>,
+		determinism: Determinism,
+	) -> (Self, E) {
+		Self::new(
+			FrameArgs::Call { dest, cached_info: None, delegated_call: None },
+			origin,
+			gas_meter,
+			storage_meter,
+			schedule,
+			value,
+			debug_message,
+			determinism,
+		)
+		.unwrap()
+	}
+
 	/// Create a new call stack.
 	fn new(
 		args: FrameArgs<T, E>,
@@ -834,7 +861,7 @@ where
 			contract_info: CachedContract::Cached(contract_info),
 			account_id,
 			entry_point,
-			nested_gas: gas_meter.nested(gas_limit)?,
+			nested_gas: gas_meter.nested(gas_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 		};
@@ -1429,6 +1456,10 @@ where
 		self.top_frame_mut().nested_storage.charge(diff)
 	}
 
+	fn debug_buffer_enabled(&self) -> bool {
+		self.debug_message.is_some()
+	}
+
 	fn append_debug_buffer(&mut self, msg: &str) -> bool {
 		if let Some(buffer) = &mut self.debug_message {
 			buffer
@@ -1459,14 +1490,14 @@ where
 
 	fn sr25519_verify(&self, signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> bool {
 		sp_io::crypto::sr25519_verify(
-			&SR25519Signature(*signature),
+			&SR25519Signature::from(*signature),
 			message,
-			&SR25519Public(*pub_key),
+			&SR25519Public::from(*pub_key),
 		)
 	}
 
 	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()> {
-		ECDSAPublic(*pk).to_eth_address()
+		ECDSAPublic::from(*pk).to_eth_address()
 	}
 
 	#[cfg(test)]
@@ -1547,7 +1578,7 @@ where
 		});
 	}
 
-	fn add_delegate_dependency(
+	fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<Self::T>,
 	) -> Result<(), DispatchError> {
@@ -1558,7 +1589,7 @@ where
 		let code_info = CodeInfoOf::<T>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		let deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		info.add_delegate_dependency(code_hash, deposit)?;
+		info.lock_delegate_dependency(code_hash, deposit)?;
 		Self::increment_refcount(code_hash)?;
 		frame
 			.nested_storage
@@ -1566,14 +1597,14 @@ where
 		Ok(())
 	}
 
-	fn remove_delegate_dependency(
+	fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<Self::T>,
 	) -> Result<(), DispatchError> {
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 
-		let deposit = info.remove_delegate_dependency(code_hash)?;
+		let deposit = info.unlock_delegate_dependency(code_hash)?;
 		Self::decrement_refcount(*code_hash);
 		frame
 			.nested_storage
@@ -1618,7 +1649,7 @@ mod tests {
 	use codec::{Decode, Encode};
 	use frame_support::{assert_err, assert_ok, parameter_types};
 	use frame_system::{EventRecord, Phase};
-	use pallet_contracts_primitives::ReturnFlags;
+	use pallet_contracts_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
 	use sp_runtime::{traits::Hash, DispatchError};
 	use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};

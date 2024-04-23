@@ -17,22 +17,22 @@
 
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use enumflags2::{BitFlag, BitFlags, _internal::RawBitFlags};
 use frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::{
 	build::{Fields, Variants},
-	meta_type, Path, Type, TypeInfo, TypeParameter,
+	Path, Type, TypeInfo,
 };
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_runtime::{
+	traits::{Member, Zero},
+	RuntimeDebug,
+};
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
 
 /// An identifier for a single name registrar/identity verification service.
 pub type RegistrarIndex = u32;
-
-pub trait U64BitFlag: BitFlag + RawBitFlags<Numeric = u64> {}
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -232,26 +232,21 @@ impl<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + Part
 
 /// Information concerning the identity of the controller of an account.
 pub trait IdentityInformationProvider:
-	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
+	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + Default
 {
-	/// Type capable of representing all of the fields present in the identity information as bit
-	/// flags in `u64` format.
-	type IdentityField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag;
+	/// Type capable of holding information on which identity fields are set.
+	type FieldsIdentifier: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
 
 	/// Check if an identity registered information for some given `fields`.
-	fn has_identity(&self, fields: u64) -> bool;
+	fn has_identity(&self, fields: Self::FieldsIdentifier) -> bool;
 
-	/// Interface for providing the number of additional fields this identity information provider
-	/// holds, used to charge for additional storage and weight. This interface is present for
-	/// backwards compatibility reasons only and will be removed as soon as the reference identity
-	/// provider removes additional fields.
-	#[deprecated]
-	fn additional(&self) -> usize {
-		0
-	}
-
+	/// Create a basic instance of the identity information.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn create_identity_info(num_fields: u32) -> Self;
+	fn create_identity_info() -> Self;
+
+	/// The identity information representation for all identity fields enabled.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn all_fields() -> Self::FieldsIdentifier;
 }
 
 /// Information on an identity along with judgements from registrars.
@@ -262,7 +257,7 @@ pub trait IdentityInformationProvider:
 	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[codec(mel_bound())]
-#[scale_info(skip_type_params(MaxJudgements, MaxAdditionalFields))]
+#[scale_info(skip_type_params(MaxJudgements))]
 pub struct Registration<
 	Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
 	MaxJudgements: Get<u32>,
@@ -311,7 +306,7 @@ impl<
 pub struct RegistrarInfo<
 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
-	IdField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag,
+	IdField: Encode + Decode + Clone + Debug + Default + Eq + PartialEq + TypeInfo + MaxEncodedLen,
 > {
 	/// The account of the registrar.
 	pub account: AccountId,
@@ -321,53 +316,30 @@ pub struct RegistrarInfo<
 
 	/// Relevant fields for this registrar. Registrar judgements are limited to attestations on
 	/// these fields.
-	pub fields: IdentityFields<IdField>,
+	pub fields: IdField,
 }
 
-/// Wrapper type for `BitFlags<IdentityField>` that implements `Codec`.
-#[derive(Clone, Copy, PartialEq, RuntimeDebug)]
-pub struct IdentityFields<IdField: BitFlag>(pub BitFlags<IdField>);
+/// Authority properties for a given pallet configuration.
+pub type AuthorityPropertiesOf<T> = AuthorityProperties<Suffix<T>>;
 
-impl<IdField: U64BitFlag> Default for IdentityFields<IdField> {
-	fn default() -> Self {
-		Self(Default::default())
-	}
+/// The number of usernames that an authority may allocate.
+type Allocation = u32;
+/// A byte vec used to represent a username.
+pub(crate) type Suffix<T> = BoundedVec<u8, <T as Config>::MaxSuffixLength>;
+
+/// Properties of a username authority.
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
+pub struct AuthorityProperties<Suffix> {
+	/// The suffix added to usernames granted by this authority. Will be appended to usernames; for
+	/// example, a suffix of `wallet` will result in `.wallet` being appended to a user's selected
+	/// name.
+	pub suffix: Suffix,
+	/// The number of usernames remaining that this authority can grant.
+	pub allocation: Allocation,
 }
 
-impl<IdField: U64BitFlag> MaxEncodedLen for IdentityFields<IdField>
-where
-	IdentityFields<IdField>: Encode,
-{
-	fn max_encoded_len() -> usize {
-		u64::max_encoded_len()
-	}
-}
-
-impl<IdField: U64BitFlag + PartialEq> Eq for IdentityFields<IdField> {}
-impl<IdField: U64BitFlag> Encode for IdentityFields<IdField> {
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let bits: u64 = self.0.bits();
-		bits.using_encoded(f)
-	}
-}
-impl<IdField: U64BitFlag> Decode for IdentityFields<IdField> {
-	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
-		let field = u64::decode(input)?;
-		Ok(Self(<BitFlags<IdField>>::from_bits(field).map_err(|_| "invalid value")?))
-	}
-}
-impl<IdField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag> TypeInfo
-	for IdentityFields<IdField>
-{
-	type Identity = Self;
-
-	fn type_info() -> Type {
-		Type::builder()
-			.path(Path::new("BitFlags", module_path!()))
-			.type_params(vec![TypeParameter::new("T", Some(meta_type::<IdField>()))])
-			.composite(Fields::unnamed().field(|f| f.ty::<u64>().type_name("IdentityField")))
-	}
-}
+/// A byte vec used to represent a username.
+pub(crate) type Username<T> = BoundedVec<u8, <T as Config>::MaxUsernameLength>;
 
 #[cfg(test)]
 mod tests {

@@ -20,11 +20,12 @@
 use crate::{core_mask::*, mock::*, *};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::nonfungible::{Inspect as NftInspect, Transfer},
+	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
 use frame_system::RawOrigin::Root;
-use sp_runtime::traits::Get;
+use pretty_assertions::assert_eq;
+use sp_runtime::{traits::Get, TokenError};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -145,6 +146,7 @@ fn drop_history_works() {
 			advance_to(16);
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
 			advance_to(17);
+			assert_noop!(Broker::do_drop_history(u32::MAX), Error::<Test>::StillValid);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
 			advance_to(18);
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
@@ -194,6 +196,47 @@ fn transfer_works() {
 		assert_eq!(<Broker as NftInspect<_>>::owner(&region.into()), Some(2));
 		assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::NotOwner);
 		assert_ok!(Broker::do_assign(region, Some(2), 1002, Final));
+	});
+}
+
+#[test]
+fn mutate_operations_work() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		let region_id = RegionId { begin: 0, core: 0, mask: CoreMask::complete() };
+		assert_noop!(
+			<Broker as Mutate<_>>::mint_into(&region_id.into(), &2),
+			Error::<Test>::UnknownRegion
+		);
+
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_noop!(
+			<Broker as Mutate<_>>::mint_into(&region_id.into(), &2),
+			Error::<Test>::NotAllowed
+		);
+
+		assert_noop!(
+			<Broker as Mutate<_>>::burn(&region_id.into(), Some(&2)),
+			Error::<Test>::NotOwner
+		);
+		// 'withdraw' the region from user 1:
+		assert_ok!(<Broker as Mutate<_>>::burn(&region_id.into(), Some(&1)));
+		assert_eq!(Regions::<Test>::get(region_id).unwrap().owner, None);
+
+		// `mint_into` works after burning:
+		assert_ok!(<Broker as Mutate<_>>::mint_into(&region_id.into(), &2));
+		assert_eq!(Regions::<Test>::get(region_id).unwrap().owner, Some(2));
+
+		// Unsupported operations:
+		assert_noop!(
+			<Broker as Mutate<_>>::set_attribute(&region_id.into(), &[], &[]),
+			TokenError::Unsupported
+		);
+		assert_noop!(
+			<Broker as Mutate<_>>::set_typed_attribute::<u8, u8>(&region_id.into(), &0, &0),
+			TokenError::Unsupported
+		);
 	});
 }
 
@@ -263,7 +306,7 @@ fn nft_metadata_works() {
 		assert_eq!(attribute::<Timeslice>(region, b"begin"), 4);
 		assert_eq!(attribute::<Timeslice>(region, b"length"), 3);
 		assert_eq!(attribute::<Timeslice>(region, b"end"), 7);
-		assert_eq!(attribute::<u64>(region, b"owner"), 1);
+		assert_eq!(attribute::<Option<u64>>(region, b"owner"), Some(1));
 		assert_eq!(attribute::<CoreMask>(region, b"part"), 0xfffff_fffff_fffff_fffff.into());
 		assert_eq!(attribute::<CoreIndex>(region, b"core"), 0);
 		assert_eq!(attribute::<Option<u64>>(region, b"paid"), Some(100));
@@ -275,7 +318,7 @@ fn nft_metadata_works() {
 		assert_eq!(attribute::<Timeslice>(region, b"begin"), 6);
 		assert_eq!(attribute::<Timeslice>(region, b"length"), 1);
 		assert_eq!(attribute::<Timeslice>(region, b"end"), 7);
-		assert_eq!(attribute::<u64>(region, b"owner"), 42);
+		assert_eq!(attribute::<Option<u64>>(region, b"owner"), Some(42));
 		assert_eq!(attribute::<CoreMask>(region, b"part"), 0x00000_fffff_fffff_00000.into());
 		assert_eq!(attribute::<CoreIndex>(region, b"core"), 0);
 		assert_eq!(attribute::<Option<u64>>(region, b"paid"), None);
@@ -352,6 +395,11 @@ fn instapool_payouts_work() {
 		advance_to(11);
 		assert_eq!(pot(), 14);
 		assert_eq!(revenue(), 106);
+
+		// Cannot claim for 0 timeslices.
+		assert_noop!(Broker::do_claim_revenue(region, 0), Error::<Test>::NoClaimTimeslices);
+
+		// Revenue can be claimed.
 		assert_ok!(Broker::do_claim_revenue(region, 100));
 		assert_eq!(pot(), 10);
 		assert_eq!(balance(2), 4);
@@ -603,6 +651,43 @@ fn interlace_works() {
 }
 
 #[test]
+fn cant_assign_unowned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let (region1, region2) =
+			Broker::do_interlace(region, Some(1), CoreMask::from_chunk(0, 30)).unwrap();
+
+		// Transfer the interlaced region to account 2.
+		assert_ok!(Broker::do_transfer(region2, Some(1), 2));
+
+		// The initial owner should not be able to assign the non-interlaced region, since they have
+		// just transferred an interlaced part of it to account 2.
+		assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::UnknownRegion);
+
+		// Account 1 can assign only the interlaced region that they did not transfer.
+		assert_ok!(Broker::do_assign(region1, Some(1), 1001, Final));
+		// Account 2 can assign the region they received.
+		assert_ok!(Broker::do_assign(region2, Some(2), 1002, Final));
+
+		advance_to(10);
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![(
+				6,
+				AssignCore {
+					core: 0,
+					begin: 8,
+					assignment: vec![(Task(1001), 21600), (Task(1002), 36000)],
+					end_hint: None
+				}
+			),]
+		);
+	});
+}
+
+#[test]
 fn interlace_then_partition_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
@@ -807,6 +892,184 @@ fn cannot_set_expired_lease() {
 }
 
 #[test]
+fn short_leases_are_cleaned() {
+	TestExt::new().region_length(3).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(200, 1));
+		advance_to(2);
+
+		// New leases are allowed to expire within this region given expiry > `current_timeslice`.
+		assert_noop!(
+			Broker::do_set_lease(1000, Broker::current_timeslice()),
+			Error::<Test>::AlreadyExpired
+		);
+		assert_eq!(Leases::<Test>::get().len(), 0);
+		assert_ok!(Broker::do_set_lease(1000, Broker::current_timeslice().saturating_add(1)));
+		assert_eq!(Leases::<Test>::get().len(), 1);
+
+		// But are cleaned up in the next rotate_sale.
+		let config = Configuration::<Test>::get().unwrap();
+		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
+		advance_to(timeslice_period.saturating_mul(config.region_length.into()));
+		assert_eq!(Leases::<Test>::get().len(), 0);
+	});
+}
+
+#[test]
+fn leases_can_be_renewed() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Timeslice period is 2.
+		//
+		// Sale 1 starts at block 7, Sale 2 starts at 13.
+
+		// Set lease to expire in sale 1 and start sales.
+		assert_ok!(Broker::do_set_lease(2001, 9));
+		assert_eq!(Leases::<Test>::get().len(), 1);
+		// Start the sales with only one core for this lease.
+		assert_ok!(Broker::do_start_sales(100, 1));
+
+		// Advance to sale period 1, we should get an AllowedRenewal for task 2001 for the next
+		// sale.
+		advance_sale_period();
+		assert_eq!(
+			AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }),
+			Some(AllowedRenewalRecord {
+				price: 100,
+				completion: CompletionStatus::Complete(
+					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
+						.try_into()
+						.unwrap()
+				)
+			})
+		);
+		// And the lease has been removed from storage.
+		assert_eq!(Leases::<Test>::get().len(), 0);
+
+		// Advance to sale period 2, where we can renew.
+		advance_sale_period();
+		assert_ok!(Broker::do_renew(1, 0));
+		// We renew for the base price of the previous sale period.
+		assert_eq!(balance(1), 900);
+
+		// We just renewed for this period.
+		advance_sale_period();
+		// Now we are off core and the core is pooled.
+		advance_sale_period();
+		// Check the trace agrees.
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				// Period 0 gets no assign core, but leases are on-core.
+				// Period 1:
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(CoreAssignment::Task(2001), 57600)],
+						end_hint: None,
+					},
+				),
+				// Period 2 - expiring at the end of this period, so we called renew.
+				(
+					12,
+					AssignCore {
+						core: 0,
+						begin: 14,
+						assignment: vec![(CoreAssignment::Task(2001), 57600)],
+						end_hint: None,
+					},
+				),
+				// Period 3 - we get assigned a core because we called renew in period 2.
+				(
+					18,
+					AssignCore {
+						core: 0,
+						begin: 20,
+						assignment: vec![(CoreAssignment::Task(2001), 57600)],
+						end_hint: None,
+					},
+				),
+				// Period 4 - we don't get a core as we didn't call renew again.
+				// This core is recycled into the pool.
+				(
+					24,
+					AssignCore {
+						core: 0,
+						begin: 26,
+						assignment: vec![(CoreAssignment::Pool, 57600)],
+						end_hint: None,
+					},
+				),
+			]
+		);
+	});
+}
+
+// We understand that this does not work as intended for leases that expire within `region_length`
+// timeslices after calling `start_sales`.
+#[test]
+fn short_leases_cannot_be_renewed() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Timeslice period is 2.
+		//
+		// Sale 1 starts at block 7, Sale 2 starts at 13.
+
+		// Set lease to expire in sale period 0 and start sales.
+		assert_ok!(Broker::do_set_lease(2001, 3));
+		assert_eq!(Leases::<Test>::get().len(), 1);
+		// Start the sales with one core for this lease.
+		assert_ok!(Broker::do_start_sales(100, 1));
+
+		// The lease is removed.
+		assert_eq!(Leases::<Test>::get().len(), 0);
+
+		// We should have got an entry in AllowedRenewals, but we don't because rotate_sale
+		// schedules leases a period in advance. This renewal should be in the period after next
+		// because while bootstrapping our way into the sale periods, we give everything a lease for
+		// period 1, so they can renew for period 2. So we have a core until the end of period 1,
+		// but we are not marked as able to renew because we expired before sale period 1 starts.
+		//
+		// This should be fixed.
+		assert_eq!(AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }), None);
+		// And the lease has been removed from storage.
+		assert_eq!(Leases::<Test>::get().len(), 0);
+
+		// Advance to sale period 2, where we now cannot renew.
+		advance_to(13);
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
+
+		// Check the trace.
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				// Period 0 gets no assign core, but leases are on-core.
+				// Period 1 we get assigned a core due to the way the sales are bootstrapped.
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(CoreAssignment::Task(2001), 57600)],
+						end_hint: None,
+					},
+				),
+				// Period 2 - we don't get a core as we couldn't renew.
+				// This core is recycled into the pool.
+				(
+					12,
+					AssignCore {
+						core: 0,
+						begin: 14,
+						assignment: vec![(CoreAssignment::Pool, 57600)],
+						end_hint: None,
+					},
+				),
+			]
+		);
+	});
+}
+
+#[test]
 fn leases_are_limited() {
 	TestExt::new().execute_with(|| {
 		let max_leases: u32 = <Test as Config>::MaxLeasedCores::get();
@@ -1005,5 +1268,143 @@ fn config_works() {
 		// Bad config is a noop:
 		cfg.leadin_length = 0;
 		assert_noop!(Broker::configure(Root.into(), cfg), Error::<Test>::InvalidConfig);
+	});
+}
+
+/// Ensure that a lease that ended before `start_sales` was called can be renewed.
+#[test]
+fn renewal_works_leases_ended_before_start_sales() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		let config = Configuration::<Test>::get().unwrap();
+
+		// This lease is ended before `start_stales` was called.
+		assert_ok!(Broker::do_set_lease(1, 1));
+
+		// Go to some block to ensure that the lease of task 1 already ended.
+		advance_to(5);
+
+		// This lease will end three sale periods in.
+		assert_ok!(Broker::do_set_lease(
+			2,
+			Broker::latest_timeslice_ready_to_commit(&config) + config.region_length * 3
+		));
+
+		// This intializes the first sale and the period 0.
+		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::Unavailable);
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::Unavailable);
+
+		// Lease for task 1 should have been dropped.
+		assert!(Leases::<Test>::get().iter().any(|l| l.task == 2));
+
+		// This intializes the second and the period 1.
+		advance_sale_period();
+
+		// Now we can finally renew the core 0 of task 1.
+		let new_core = Broker::do_renew(1, 0).unwrap();
+		// Renewing the active lease doesn't work.
+		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::SoldOut);
+		assert_eq!(balance(1), 900);
+
+		// This intializes the third sale and the period 2.
+		advance_sale_period();
+		let new_core = Broker::do_renew(1, new_core).unwrap();
+
+		// Renewing the active lease doesn't work.
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::SoldOut);
+		assert_eq!(balance(1), 800);
+
+		// All leases should have ended
+		assert!(Leases::<Test>::get().is_empty());
+
+		// This intializes the fourth sale and the period 3.
+		advance_sale_period();
+
+		// Renew again
+		assert_eq!(0, Broker::do_renew(1, new_core).unwrap());
+		// Renew the task 2.
+		assert_eq!(1, Broker::do_renew(1, 0).unwrap());
+		assert_eq!(balance(1), 600);
+
+		// This intializes the fifth sale and the period 4.
+		advance_sale_period();
+
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				(
+					10,
+					AssignCore {
+						core: 0,
+						begin: 12,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					10,
+					AssignCore {
+						core: 1,
+						begin: 12,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					16,
+					AssignCore {
+						core: 0,
+						begin: 18,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					16,
+					AssignCore {
+						core: 1,
+						begin: 18,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					22,
+					AssignCore {
+						core: 0,
+						begin: 24,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None,
+					},
+				),
+				(
+					22,
+					AssignCore {
+						core: 1,
+						begin: 24,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None,
+					},
+				),
+				(
+					28,
+					AssignCore {
+						core: 0,
+						begin: 30,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None,
+					},
+				),
+				(
+					28,
+					AssignCore {
+						core: 1,
+						begin: 30,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None,
+					},
+				),
+			]
+		);
 	});
 }

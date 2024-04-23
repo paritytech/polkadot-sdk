@@ -55,20 +55,15 @@ impl<SiblingBridgeHubParaId: Get<ParaId>, Runtime: crate::Config>
 		let sibling_bridge_hub_id: ParaId = SiblingBridgeHubParaId::get();
 
 		// let's find the channel's state with the sibling parachain,
-		let Some((outbound_state, queued_pages)) = pallet::Pallet::<Runtime>::outbound_channel_state(sibling_bridge_hub_id) else {
+		let Some((outbound_state, queued_pages)) =
+			pallet::Pallet::<Runtime>::outbound_channel_state(sibling_bridge_hub_id)
+		else {
 			return false
 		};
 		// suspended channel => it is congested
 		if outbound_state == OutboundState::Suspended {
 			return true
 		}
-
-		// TODO: https://github.com/paritytech/polkadot-sdk/pull/1556 - once this PR is merged, we may
-		// remove the following code.
-		// TODO: the following restriction is arguable, we may live without that, assuming that
-		// There can't be more than some `N` messages queued at the bridge queue (at the source BH)
-		// AND before accepting next (or next-after-next) delivery transaction, we'll receive the
-		// suspension signal from the target parachain and stop accepting delivery transactions.
 
 		// It takes some time for target parachain to suspend inbound channel with the target BH and
 		// during that we will keep accepting new message delivery transactions. Let's also reject

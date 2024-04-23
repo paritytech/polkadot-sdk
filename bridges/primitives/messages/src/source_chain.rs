@@ -16,7 +16,7 @@
 
 //! Primitives of messages module, that are used on the source chain.
 
-use crate::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData, VerificationError};
+use crate::{InboundLaneData, LaneId, MessageNonce, VerificationError};
 
 use crate::UnrewardedRelayer;
 use bp_runtime::Size;
@@ -62,24 +62,6 @@ pub trait TargetHeaderChain<Payload, AccountId> {
 	fn verify_messages_delivery_proof(
 		proof: Self::MessagesDeliveryProof,
 	) -> Result<(LaneId, InboundLaneData<AccountId>), VerificationError>;
-}
-
-/// Lane message verifier.
-///
-/// Runtime developer may implement any additional validation logic over message-lane mechanism.
-/// E.g. if lanes should have some security (e.g. you can only accept Lane1 messages from
-/// Submitter1, Lane2 messages for those who has submitted first message to this lane, disable
-/// Lane3 until some block, ...), then it may be built using this verifier.
-///
-/// Any fee requirements should also be enforced here.
-pub trait LaneMessageVerifier<Payload> {
-	/// Verify message payload and return Ok(()) if message is valid and allowed to be sent over the
-	/// lane.
-	fn verify_message(
-		lane: &LaneId,
-		outbound_data: &OutboundLaneData,
-		payload: &Payload,
-	) -> Result<(), VerificationError>;
 }
 
 /// Manages payments that are happening at the source chain during delivery confirmation
@@ -143,25 +125,25 @@ pub trait MessagesBridge<Payload> {
 	/// Error type.
 	type Error: Debug;
 
+	/// Intermediary structure returned by `validate_message()`.
+	///
+	/// It can than be passed to `send_message()` in order to actually send the message
+	/// on the bridge.
+	type SendMessageArgs;
+
+	/// Check if the message can be sent over the bridge.
+	fn validate_message(
+		lane: LaneId,
+		message: &Payload,
+	) -> Result<Self::SendMessageArgs, Self::Error>;
+
 	/// Send message over the bridge.
 	///
 	/// Returns unique message nonce or error if send has failed.
-	fn send_message(lane: LaneId, message: Payload) -> Result<SendMessageArtifacts, Self::Error>;
+	fn send_message(message: Self::SendMessageArgs) -> SendMessageArtifacts;
 }
 
-/// Bridge that does nothing when message is being sent.
-#[derive(Eq, RuntimeDebug, PartialEq)]
-pub struct NoopMessagesBridge;
-
-impl<Payload> MessagesBridge<Payload> for NoopMessagesBridge {
-	type Error = &'static str;
-
-	fn send_message(_lane: LaneId, _message: Payload) -> Result<SendMessageArtifacts, Self::Error> {
-		Ok(SendMessageArtifacts { nonce: 0, enqueued_messages: 0 })
-	}
-}
-
-/// Structure that may be used in place of `TargetHeaderChain`, `LaneMessageVerifier` and
+/// Structure that may be used in place of `TargetHeaderChain` and
 /// `MessageDeliveryAndDispatchPayment` on chains, where outbound messages are forbidden.
 pub struct ForbidOutboundMessages;
 
@@ -179,16 +161,6 @@ impl<Payload, AccountId> TargetHeaderChain<Payload, AccountId> for ForbidOutboun
 	fn verify_messages_delivery_proof(
 		_proof: Self::MessagesDeliveryProof,
 	) -> Result<(LaneId, InboundLaneData<AccountId>), VerificationError> {
-		Err(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
-	}
-}
-
-impl<Payload> LaneMessageVerifier<Payload> for ForbidOutboundMessages {
-	fn verify_message(
-		_lane: &LaneId,
-		_outbound_data: &OutboundLaneData,
-		_payload: &Payload,
-	) -> Result<(), VerificationError> {
 		Err(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
 	}
 }

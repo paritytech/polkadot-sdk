@@ -19,11 +19,11 @@
 //! The [`ParachainInherentData`] is the data that is passed by the collator to the parachain
 //! runtime. The runtime will use this data to execute messages from other parachains/the relay
 //! chain or to read data from the relay chain state. When the parachain is validated by a parachain
-//! validator on the relay chain, this data is checked for correctnes. If the data passed by the
+//! validator on the relay chain, this data is checked for correctness. If the data passed by the
 //! collator to the runtime isn't correct, the parachain candidate is considered invalid.
 //!
-//! Use [`ParachainInherentData::create_at`] to create the [`ParachainInherentData`] at a given
-//! relay chain block to include it in a parachain block.
+//! To create a [`ParachainInherentData`] for a specific relay chain block, there exists the
+//! `ParachainInherentDataExt` trait in `cumulus-client-parachain-inherent` that helps with this.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -35,15 +35,6 @@ use cumulus_primitives_core::{
 use scale_info::TypeInfo;
 use sp_inherents::InherentIdentifier;
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
-
-#[cfg(feature = "std")]
-mod client_side;
-#[cfg(feature = "std")]
-pub use client_side::*;
-#[cfg(feature = "std")]
-mod mock;
-#[cfg(feature = "std")]
-pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
 /// The identifier for the parachain inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
@@ -70,6 +61,25 @@ pub struct ParachainInherentData {
 	pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
 }
 
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+impl sp_inherents::InherentDataProvider for ParachainInherentData {
+	async fn provide_inherent_data(
+		&self,
+		inherent_data: &mut sp_inherents::InherentData,
+	) -> Result<(), sp_inherents::Error> {
+		inherent_data.put_data(INHERENT_IDENTIFIER, &self)
+	}
+
+	async fn try_handle_error(
+		&self,
+		_: &sp_inherents::InherentIdentifier,
+		_: &[u8],
+	) -> Option<Result<(), sp_inherents::Error>> {
+		None
+	}
+}
+
 /// This struct provides ability to extend a message queue chain (MQC) and compute a new head.
 ///
 /// MQC is an instance of a [hash chain] applied to a message queue. Using a hash chain it's
@@ -86,6 +96,11 @@ pub struct ParachainInherentData {
 pub struct MessageQueueChain(RelayHash);
 
 impl MessageQueueChain {
+	/// Create a new instance initialized to `hash`.
+	pub fn new(hash: RelayHash) -> Self {
+		Self(hash)
+	}
+
 	/// Extend the hash chain with an HRMP message. This method should be used only when
 	/// this chain is tracking HRMP.
 	pub fn extend_hrmp(&mut self, horizontal_message: &InboundHrmpMessage) -> &mut Self {

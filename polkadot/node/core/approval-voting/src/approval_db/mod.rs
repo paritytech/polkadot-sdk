@@ -30,4 +30,7 @@
 //! In the future, we may use a temporary DB which doesn't need to be wiped, but for the
 //! time being we share the same DB with the rest of Substrate.
 
+pub mod common;
 pub mod v1;
+pub mod v2;
+pub mod v3;

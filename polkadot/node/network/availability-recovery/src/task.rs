@@ -20,9 +20,10 @@
 
 use crate::{
 	futures_undead::FuturesUndead, is_chunk_valid, is_unavailable, metrics::Metrics, ErasureTask,
-	LOG_TARGET,
+	PostRecoveryCheck, LOG_TARGET,
 };
 use futures::{channel::oneshot, SinkExt};
+use parity_scale_codec::Encode;
 #[cfg(not(test))]
 use polkadot_node_network_protocol::request_response::CHUNK_REQUEST_TIMEOUT;
 use polkadot_node_network_protocol::request_response::{
@@ -95,6 +96,12 @@ pub struct RecoveryParams {
 
 	/// Do not request data from availability-store. Useful for collators.
 	pub bypass_availability_store: bool,
+
+	/// The type of check to perform after available data was recovered.
+	pub post_recovery_check: PostRecoveryCheck,
+
+	/// The blake2-256 hash of the PoV.
+	pub pov_hash: Hash,
 }
 
 /// Intermediate/common data that must be passed between `RecoveryStrategy`s belonging to the
@@ -426,7 +433,7 @@ where
 					return Err(err)
 				},
 				Ok(data) => {
-					self.params.metrics.on_recovery_succeeded();
+					self.params.metrics.on_recovery_succeeded(data.encoded_size());
 					return Ok(data)
 				},
 			}
@@ -501,39 +508,48 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 			match response.await {
 				Ok(req_res::v1::AvailableDataFetchingResponse::AvailableData(data)) => {
-					let (reencode_tx, reencode_rx) = oneshot::channel();
-					self.params
-						.erasure_task_tx
-						.send(ErasureTask::Reencode(
-							common_params.n_validators,
-							common_params.erasure_root,
-							data,
-							reencode_tx,
-						))
-						.await
-						.map_err(|_| RecoveryError::ChannelClosed)?;
+					let maybe_data = match common_params.post_recovery_check {
+						PostRecoveryCheck::Reencode => {
+							let (reencode_tx, reencode_rx) = oneshot::channel();
+							self.params
+								.erasure_task_tx
+								.send(ErasureTask::Reencode(
+									common_params.n_validators,
+									common_params.erasure_root,
+									data,
+									reencode_tx,
+								))
+								.await
+								.map_err(|_| RecoveryError::ChannelClosed)?;
 
-					let reencode_response =
-						reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?;
+							reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?
+						},
+						PostRecoveryCheck::PovHash =>
+							(data.pov.hash() == common_params.pov_hash).then_some(data),
+					};
 
-					if let Some(data) = reencode_response {
-						gum::trace!(
-							target: LOG_TARGET,
-							candidate_hash = ?common_params.candidate_hash,
-							"Received full data",
-						);
+					match maybe_data {
+						Some(data) => {
+							gum::trace!(
+								target: LOG_TARGET,
+								candidate_hash = ?common_params.candidate_hash,
+								"Received full data",
+							);
 
-						return Ok(data)
-					} else {
-						gum::debug!(
-							target: LOG_TARGET,
-							candidate_hash = ?common_params.candidate_hash,
-							?validator_index,
-							"Invalid data response",
-						);
+							return Ok(data)
+						},
+						None => {
+							gum::debug!(
+								target: LOG_TARGET,
+								candidate_hash = ?common_params.candidate_hash,
+								?validator_index,
+								"Invalid data response",
+							);
 
-						// it doesn't help to report the peer with req/res.
-					}
+							// it doesn't help to report the peer with req/res.
+							// we'll try the next backer.
+						},
+					};
 				},
 				Ok(req_res::v1::AvailableDataFetchingResponse::NoSuchData) => {},
 				Err(e) => gum::debug!(
@@ -647,22 +663,43 @@ impl FetchChunks {
 
 		match available_data_response {
 			Ok(data) => {
-				// Send request to re-encode the chunks and check merkle root.
-				let (reencode_tx, reencode_rx) = oneshot::channel();
-				self.erasure_task_tx
-					.send(ErasureTask::Reencode(
-						common_params.n_validators,
-						common_params.erasure_root,
-						data,
-						reencode_tx,
-					))
-					.await
-					.map_err(|_| RecoveryError::ChannelClosed)?;
+				let maybe_data = match common_params.post_recovery_check {
+					PostRecoveryCheck::Reencode => {
+						// Send request to re-encode the chunks and check merkle root.
+						let (reencode_tx, reencode_rx) = oneshot::channel();
+						self.erasure_task_tx
+							.send(ErasureTask::Reencode(
+								common_params.n_validators,
+								common_params.erasure_root,
+								data,
+								reencode_tx,
+							))
+							.await
+							.map_err(|_| RecoveryError::ChannelClosed)?;
 
-				let reencode_response =
-					reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?;
+						reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?.or_else(|| {
+							gum::trace!(
+								target: LOG_TARGET,
+								candidate_hash = ?common_params.candidate_hash,
+								erasure_root = ?common_params.erasure_root,
+								"Data recovery error - root mismatch",
+							);
+							None
+						})
+					},
+					PostRecoveryCheck::PovHash =>
+						(data.pov.hash() == common_params.pov_hash).then_some(data).or_else(|| {
+							gum::trace!(
+								target: LOG_TARGET,
+								candidate_hash = ?common_params.candidate_hash,
+								pov_hash = ?common_params.pov_hash,
+								"Data recovery error - PoV hash mismatch",
+							);
+							None
+						}),
+				};
 
-				if let Some(data) = reencode_response {
+				if let Some(data) = maybe_data {
 					gum::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?common_params.candidate_hash,
@@ -673,12 +710,6 @@ impl FetchChunks {
 					Ok(data)
 				} else {
 					recovery_duration.map(|rd| rd.stop_and_discard());
-					gum::trace!(
-						target: LOG_TARGET,
-						candidate_hash = ?common_params.candidate_hash,
-						erasure_root = ?common_params.erasure_root,
-						"Data recovery error - root mismatch",
-					);
 
 					Err(RecoveryError::Invalid)
 				}

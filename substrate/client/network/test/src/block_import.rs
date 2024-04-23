@@ -20,7 +20,6 @@
 
 use super::*;
 use futures::executor::block_on;
-use sc_block_builder::BlockBuilderProvider;
 use sc_consensus::{
 	import_single_block, BasicQueue, BlockImportError, BlockImportStatus, ImportedAux,
 	IncomingBlock,
@@ -34,7 +33,14 @@ use substrate_test_runtime_client::{
 
 fn prepare_good_block() -> (TestClient, Hash, u64, PeerId, IncomingBlock<Block>) {
 	let mut client = substrate_test_runtime_client::new();
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	block_on(client.import(BlockOrigin::File, block)).unwrap();
 
 	let (hash, number) = (client.block_hash(1).unwrap().unwrap(), 1);
@@ -52,7 +58,7 @@ fn prepare_good_block() -> (TestClient, Hash, u64, PeerId, IncomingBlock<Block>)
 			body: Some(Vec::new()),
 			indexed_body: None,
 			justifications,
-			origin: Some(peer_id),
+			origin: Some(peer_id.into()),
 			allow_missing_state: false,
 			import_existing: false,
 			state: None,
@@ -75,7 +81,7 @@ fn import_single_good_block_works() {
 		&mut PassThroughVerifier::new(true),
 	)) {
 		Ok(BlockImportStatus::ImportedUnknown(ref num, ref aux, ref org))
-			if *num == number && *aux == expected_aux && *org == Some(peer_id) => {},
+			if *num == number && *aux == expected_aux && *org == Some(peer_id.into()) => {},
 		r @ _ => panic!("{:?}", r),
 	}
 }
@@ -104,7 +110,7 @@ fn import_single_good_block_without_header_fails() {
 		block,
 		&mut PassThroughVerifier::new(true),
 	)) {
-		Err(BlockImportError::IncompleteHeader(ref org)) if *org == Some(peer_id) => {},
+		Err(BlockImportError::IncompleteHeader(ref org)) if *org == Some(peer_id.into()) => {},
 		_ => panic!(),
 	}
 }

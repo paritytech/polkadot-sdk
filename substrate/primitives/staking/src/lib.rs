@@ -20,12 +20,17 @@
 //! A crate which contains primitives that are useful for implementation that uses staking
 //! approaches in general. Definitions related to sessions, slashing, etc go here.
 
+extern crate alloc;
+
 use crate::currency_to_vote::CurrencyToVote;
-use codec::{FullCodec, MaxEncodedLen};
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
+use core::ops::Sub;
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
-use sp_runtime::{DispatchError, DispatchResult, Saturating};
-use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec::Vec};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, Zero},
+	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
+};
 
 pub mod offence;
 
@@ -37,6 +42,8 @@ pub type SessionIndex = u32;
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
 
+/// Type for identifying a page.
+pub type Page = u32;
 /// Representation of a staking account, which may be a stash or controller account.
 ///
 /// Note: once the controller is completely deprecated, this enum can also be deprecated in favor of
@@ -146,6 +153,9 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 		_slashed_total: Balance,
 	) {
 	}
+
+	/// Fired when a portion of a staker's balance has been withdrawn.
+	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
 }
 
 /// A generic representation of a staking implementation.
@@ -165,7 +175,7 @@ pub trait StakingInterface {
 		+ Saturating;
 
 	/// AccountId type used by the staking system.
-	type AccountId: Clone + sp_std::fmt::Debug;
+	type AccountId: Clone + core::fmt::Debug;
 
 	/// Means of converting Currency to VoteWeight.
 	type CurrencyToVote: CurrencyToVote<Self::Balance>;
@@ -244,6 +254,9 @@ pub trait StakingInterface {
 	/// schedules have reached their unlocking era should allow more calls to this function.
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 
+	/// Update the reward destination for the ledger associated with the stash.
+	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult;
+
 	/// Unlock any funds schedule to unlock before or at the current era.
 	///
 	/// Returns whether the stash was killed because of this withdraw or not.
@@ -264,7 +277,7 @@ pub trait StakingInterface {
 	/// Checks whether an account `staker` has been exposed in an era.
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool;
 
-	/// Return the status of the given staker, `None` if not staked at all.
+	/// Return the status of the given staker, `Err` if not staked at all.
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError>;
 
 	/// Checks whether or not this is a validator account.
@@ -280,6 +293,12 @@ pub trait StakingInterface {
 		}
 	}
 
+	/// Returns the fraction of the slash to be rewarded to reporter.
+	fn slash_reward_fraction() -> Perbill;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_exposure_page_size() -> Page;
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add_era_stakers(
 		current_era: &EraIndex,
@@ -289,6 +308,152 @@ pub trait StakingInterface {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_era(era: EraIndex);
+}
+
+/// Set of low level apis to manipulate staking ledger.
+///
+/// These apis bypass some or all safety checks and should only be used if you know what you are
+/// doing.
+pub trait StakingUnchecked: StakingInterface {
+	/// Migrate an existing staker to a virtual staker.
+	///
+	/// It would release all funds held by the implementation pallet.
+	fn migrate_to_virtual_staker(who: &Self::AccountId);
+
+	/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
+	///
+	/// It is important that `keyless_who` is a keyless account and therefore cannot interact with
+	/// staking pallet directly. Caller is responsible for ensuring the passed amount is locked and
+	/// valid.
+	fn virtual_bond(
+		keyless_who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult;
+
+	/// Migrate a virtual staker to a direct staker.
+	///
+	/// Only used for testing.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn migrate_to_direct_staker(who: &Self::AccountId);
+}
+
+/// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct IndividualExposure<AccountId, Balance: HasCompact> {
+	/// The stash account of the nominator in question.
+	pub who: AccountId,
+	/// Amount of funds exposed.
+	#[codec(compact)]
+	pub value: Balance,
+}
+
+/// A snapshot of the stake backing a single validator in the system.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct Exposure<AccountId, Balance: HasCompact> {
+	/// The total balance backing this validator.
+	#[codec(compact)]
+	pub total: Balance,
+	/// The validator's own stash that is exposed.
+	#[codec(compact)]
+	pub own: Balance,
+	/// The portions of nominators stashes that are exposed.
+	pub others: Vec<IndividualExposure<AccountId, Balance>>,
+}
+
+impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, Balance> {
+	fn default() -> Self {
+		Self { total: Default::default(), own: Default::default(), others: vec![] }
+	}
+}
+
+impl<
+		AccountId: Clone,
+		Balance: HasCompact + AtLeast32BitUnsigned + Copy + codec::MaxEncodedLen,
+	> Exposure<AccountId, Balance>
+{
+	/// Splits an `Exposure` into `PagedExposureMetadata` and multiple chunks of
+	/// `IndividualExposure` with each chunk having maximum of `page_size` elements.
+	pub fn into_pages(
+		self,
+		page_size: Page,
+	) -> (PagedExposureMetadata<Balance>, Vec<ExposurePage<AccountId, Balance>>) {
+		let individual_chunks = self.others.chunks(page_size as usize);
+		let mut exposure_pages: Vec<ExposurePage<AccountId, Balance>> =
+			Vec::with_capacity(individual_chunks.len());
+
+		for chunk in individual_chunks {
+			let mut page_total: Balance = Zero::zero();
+			let mut others: Vec<IndividualExposure<AccountId, Balance>> =
+				Vec::with_capacity(chunk.len());
+			for individual in chunk.iter() {
+				page_total.saturating_accrue(individual.value);
+				others.push(IndividualExposure {
+					who: individual.who.clone(),
+					value: individual.value,
+				})
+			}
+
+			exposure_pages.push(ExposurePage { page_total, others });
+		}
+
+		(
+			PagedExposureMetadata {
+				total: self.total,
+				own: self.own,
+				nominator_count: self.others.len() as u32,
+				page_count: exposure_pages.len() as Page,
+			},
+			exposure_pages,
+		)
+	}
+}
+
+/// A snapshot of the stake backing a single validator in the system.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct ExposurePage<AccountId, Balance: HasCompact> {
+	/// The total balance of this chunk/page.
+	#[codec(compact)]
+	pub page_total: Balance,
+	/// The portions of nominators stashes that are exposed.
+	pub others: Vec<IndividualExposure<AccountId, Balance>>,
+}
+
+impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
+	fn default() -> Self {
+		ExposurePage { page_total: Default::default(), others: vec![] }
+	}
+}
+
+/// Metadata for Paged Exposure of a validator such as total stake across pages and page count.
+///
+/// In combination with the associated `ExposurePage`s, it can be used to reconstruct a full
+/// `Exposure` set of a validator. This is useful for cases where we want to query full set of
+/// `Exposure` as one page (for backward compatibility).
+#[derive(
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Clone,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	TypeInfo,
+	Default,
+	MaxEncodedLen,
+)]
+pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
+	/// The total balance backing this validator.
+	#[codec(compact)]
+	pub total: Balance,
+	/// The validator's own stash that is exposed.
+	#[codec(compact)]
+	pub own: Balance,
+	/// Number of nominators backing this validator.
+	pub nominator_count: u32,
+	/// Number of pages of nominators.
+	pub page_count: Page,
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

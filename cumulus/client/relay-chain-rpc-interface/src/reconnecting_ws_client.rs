@@ -27,7 +27,7 @@ use jsonrpsee::{
 	core::{
 		client::{Client as JsonRpcClient, ClientT, Subscription},
 		params::ArrayParams,
-		Error as JsonRpseeError, JsonValue,
+		ClientError as JsonRpseeError, JsonValue,
 	},
 	ws_client::WsClientBuilder,
 };
@@ -293,7 +293,8 @@ impl ReconnectingWebsocketWorker {
 	///   listeners. If an error occurs during sending, the receiver has been closed and we remove
 	///   the sender from the list.
 	/// - Find a new valid RPC server to connect to in case the websocket connection is terminated.
-	///   If the worker is not able to connec to an RPC server from the list, the worker shuts down.
+	///   If the worker is not able to connect to an RPC server from the list, the worker shuts
+	///   down.
 	pub async fn run(mut self) {
 		let mut pending_requests = FuturesUnordered::new();
 

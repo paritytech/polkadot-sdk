@@ -1,0 +1,29 @@
+[package]
+name = "messages-relay"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+async-std = { version = "1.9.0", features = ["attributes"] }
+async-trait = "0.1.79"
+env_logger = "0.11"
+futures = "0.3.30"
+hex = "0.4"
+log = { workspace = true }
+num-traits = "0.2"
+parking_lot = "0.12.1"
+
+# Bridge Dependencies
+
+bp-messages = { path = "../../primitives/messages" }
+finality-relay = { path = "../finality" }
+relay-utils = { path = "../utils" }
+
+sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }

@@ -36,7 +36,7 @@ on:
             -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/$OWNER/$REPO/releases | \
             jq '.[] | { name: .name, id: .id }'
         required: true
-        type: string
+        type: number
 
       registry:
         description: Container registry
@@ -61,7 +61,6 @@ permissions:
   contents: write
 
 env:
-  RELEASE_ID: ${{ inputs.release_id }}
   ENGINE: docker
   REGISTRY: ${{ inputs.registry }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,6 +70,7 @@ env:
   # EVENT_ACTION: ${{ github.event.action }}
   EVENT_NAME: ${{ github.event_name }}
   IMAGE_TYPE: ${{ inputs.image_type }}
+  VERSION: ${{ inputs.version }}
 
 jobs:
   fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
@@ -95,16 +95,19 @@ jobs:
         #   chmod a+x $BINARY
         #   ls -al
 
-      - name: Fetch rc artifacts or release artifacts based on release id
+      - name: Fetch rc artifacts or release artifacts from s3 based on version
         #this step runs only if the workflow is triggered manually
         if: ${{ env.EVENT_NAME  == 'workflow_dispatch' }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          fetch_release_artifacts
+          VERSION=$(filter_version_from_input "${{ inputs.version }}")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          fetch_release_artifacts_from_s3
 
       - name: Cache the artifacts
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         with:
           key: artifacts-${{ env.BINARY }}-${{ github.sha }}
           path: |
@@ -121,7 +124,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Get artifacts from cache
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         with:
           key: artifacts-${{ env.BINARY }}-${{ github.sha }}
           fail-on-cache-miss: true
@@ -147,7 +150,10 @@ jobs:
         if: ${{ env.IMAGE_TYPE == 'rc' }}
         id: fetch_rc_refs
         run: |
-          release=release-${{ inputs.release_id }} && \
+          . ./.github/scripts/common/lib.sh
+
+          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
+          release=release-$RELEASE_ID && \
           echo "release=${release}" >> $GITHUB_OUTPUT
 
           commit=$(git rev-parse --short HEAD) && \
@@ -220,6 +226,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       polkadot_apt_version: ${{ steps.fetch-latest-apt.outputs.polkadot_apt_version }}
+      polkadot_container_tag: ${{ steps.fetch-latest-apt.outputs.polkadot_container_tag }}
     container:
       image: paritytech/parity-keyring
       options: --user root
@@ -230,7 +237,9 @@ jobs:
           apt update
           apt show polkadot
           version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
+          tag=$(echo $version | sed 's/-.*//')
           echo "polkadot_apt_version=v$version" >> $GITHUB_OUTPUT
+          echo "polkadot_container_tag=v$tag" >> $GITHUB_OUTPUT
           echo "You passed ${{ inputs.version }} but this is ignored"
           echo "We use the version from the Debian Package: $version"
 
@@ -247,7 +256,7 @@ jobs:
         uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
 
       - name: Cache Docker layers
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         with:
          path: /tmp/.buildx-cache
          key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -268,7 +277,7 @@ jobs:
 
       - name: Build and push
         id:   docker_build
-        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 #  v5.0.0
+        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 #  v5.1.0
         with:
           push: true
           file: docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile
@@ -276,7 +285,7 @@ jobs:
           # TODO: It would be good to get rid of this GHA that we don't really need.
           tags: |
             parity/polkadot:latest
-            parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}
+            parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_container_tag }}
           build-args: |
             VCS_REF=${{ github.ref }}
             POLKADOT_VERSION=${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}

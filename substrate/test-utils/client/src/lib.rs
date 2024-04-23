@@ -21,7 +21,7 @@
 
 pub mod client_ext;
 
-pub use self::client_ext::{ClientBlockImportExt, ClientExt};
+pub use self::client_ext::{BlockOrigin, ClientBlockImportExt, ClientExt};
 pub use sc_client_api::{execution_extensions::ExecutionExtensions, BadBlocks, ForkBlocks};
 pub use sc_client_db::{self, Backend, BlocksPruning};
 pub use sc_executor::{self, NativeElseWasmExecutor, WasmExecutionMethod, WasmExecutor};
@@ -72,6 +72,7 @@ pub struct TestClientBuilder<Block: BlockT, ExecutorDispatch, Backend: 'static, 
 	fork_blocks: ForkBlocks<Block>,
 	bad_blocks: BadBlocks<Block>,
 	enable_offchain_indexing_api: bool,
+	enable_import_proof_recording: bool,
 	no_genesis: bool,
 }
 
@@ -120,6 +121,7 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 			bad_blocks: None,
 			enable_offchain_indexing_api: false,
 			no_genesis: false,
+			enable_import_proof_recording: false,
 		}
 	}
 
@@ -165,6 +167,12 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		self
 	}
 
+	/// Enable proof recording on import.
+	pub fn enable_import_proof_recording(mut self) -> Self {
+		self.enable_import_proof_recording = true;
+		self
+	}
+
 	/// Disable writing genesis.
 	pub fn set_no_genesis(mut self) -> Self {
 		self.no_genesis = true;
@@ -202,6 +210,7 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		};
 
 		let client_config = ClientConfig {
+			enable_import_proof_recording: self.enable_import_proof_recording,
 			offchain_indexing_api: self.enable_offchain_indexing_api,
 			no_genesis: self.no_genesis,
 			..Default::default()
@@ -263,9 +272,10 @@ impl<Block: BlockT, D, Backend, G: GenesisInit>
 		D: sc_executor::NativeExecutionDispatch + 'static,
 		Backend: sc_client_api::backend::Backend<Block> + 'static,
 	{
-		let executor = executor.into().unwrap_or_else(|| {
+		let mut executor = executor.into().unwrap_or_else(|| {
 			NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build())
 		});
+		executor.disable_use_native();
 		let executor = LocalCallExecutor::new(
 			self.backend.clone(),
 			executor.clone(),
@@ -283,7 +293,7 @@ pub struct RpcTransactionOutput {
 	/// The output string of the transaction if any.
 	pub result: String,
 	/// An async receiver if data will be returned via a callback.
-	pub receiver: futures::channel::mpsc::UnboundedReceiver<String>,
+	pub receiver: tokio::sync::mpsc::Receiver<String>,
 }
 
 impl std::fmt::Debug for RpcTransactionOutput {
@@ -343,7 +353,7 @@ impl RpcHandlersExt for RpcHandlers {
 
 pub(crate) fn parse_rpc_result(
 	result: String,
-	receiver: futures::channel::mpsc::UnboundedReceiver<String>,
+	receiver: tokio::sync::mpsc::Receiver<String>,
 ) -> Result<RpcTransactionOutput, RpcTransactionError> {
 	let json: serde_json::Value =
 		serde_json::from_str(&result).expect("the result can only be a JSONRPC string; qed");
@@ -397,7 +407,7 @@ where
 mod tests {
 	#[test]
 	fn parses_error_properly() {
-		let (_, rx) = futures::channel::mpsc::unbounded();
+		let (_, rx) = tokio::sync::mpsc::channel(1);
 		assert!(super::parse_rpc_result(
 			r#"{
 				"jsonrpc": "2.0",
@@ -409,7 +419,7 @@ mod tests {
 		)
 		.is_ok());
 
-		let (_, rx) = futures::channel::mpsc::unbounded();
+		let (_, rx) = tokio::sync::mpsc::channel(1);
 		let error = super::parse_rpc_result(
 			r#"{
 				"jsonrpc": "2.0",
@@ -427,7 +437,7 @@ mod tests {
 		assert_eq!(error.message, "Method not found");
 		assert!(error.data.is_none());
 
-		let (_, rx) = futures::channel::mpsc::unbounded();
+		let (_, rx) = tokio::sync::mpsc::channel(1);
 		let error = super::parse_rpc_result(
 			r#"{
 				"jsonrpc": "2.0",

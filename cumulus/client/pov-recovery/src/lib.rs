@@ -18,7 +18,7 @@
 //!
 //! A parachain needs to build PoVs that are send to the relay chain to progress. These PoVs are
 //! erasure encoded and one piece of it is stored by each relay chain validator. As the relay chain
-//! decides on which PoV per parachain to include and thus, to progess the parachain it can happen
+//! decides on which PoV per parachain to include and thus, to progress the parachain it can happen
 //! that the block corresponding to this PoV isn't propagated in the parachain network. This can
 //! have several reasons, either a malicious collator that managed to include its own PoV and
 //! doesn't want to share it with the rest of the network or maybe a collator went down before it
@@ -51,7 +51,7 @@ use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
 use sp_consensus::{BlockOrigin, BlockStatus, SyncOracle};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
-use polkadot_node_primitives::{AvailableData, POV_BOMB_LIMIT};
+use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
@@ -338,23 +338,19 @@ where
 		let mut blocks_to_delete = vec![hash];
 
 		while let Some(delete) = blocks_to_delete.pop() {
-			if let Some(childs) = self.waiting_for_parent.remove(&delete) {
-				blocks_to_delete.extend(childs.iter().map(BlockT::hash));
+			if let Some(children) = self.waiting_for_parent.remove(&delete) {
+				blocks_to_delete.extend(children.iter().map(BlockT::hash));
 			}
 		}
 		self.clear_waiting_recovery(&hash);
 	}
 
 	/// Handle a recovered candidate.
-	async fn handle_candidate_recovered(
-		&mut self,
-		block_hash: Block::Hash,
-		available_data: Option<AvailableData>,
-	) {
-		let available_data = match available_data {
-			Some(data) => {
+	async fn handle_candidate_recovered(&mut self, block_hash: Block::Hash, pov: Option<&PoV>) {
+		let pov = match pov {
+			Some(pov) => {
 				self.candidates_in_retry.remove(&block_hash);
-				data
+				pov
 			},
 			None =>
 				if self.candidates_in_retry.insert(block_hash) {
@@ -373,18 +369,16 @@ where
 				},
 		};
 
-		let raw_block_data = match sp_maybe_compressed_blob::decompress(
-			&available_data.pov.block_data.0,
-			POV_BOMB_LIMIT,
-		) {
-			Ok(r) => r,
-			Err(error) => {
-				tracing::debug!(target: LOG_TARGET, ?error, "Failed to decompress PoV");
+		let raw_block_data =
+			match sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT) {
+				Ok(r) => r,
+				Err(error) => {
+					tracing::debug!(target: LOG_TARGET, ?error, "Failed to decompress PoV");
 
-				self.reset_candidate(block_hash);
-				return
-			},
-		};
+					self.reset_candidate(block_hash);
+					return
+				},
+			};
 
 		let block_data = match ParachainBlockData::<Block>::decode(&mut &raw_block_data[..]) {
 			Ok(d) => d,
@@ -416,6 +410,7 @@ where
 						?block_hash,
 						parent_hash = ?parent,
 						parent_scheduled_for_recovery,
+						waiting_blocks = self.waiting_for_parent.len(),
 						"Waiting for recovery of parent.",
 					);
 
@@ -448,13 +443,13 @@ where
 			_ => (),
 		}
 
-		self.import_block(block).await;
+		self.import_block(block);
 	}
 
 	/// Import the given `block`.
 	///
-	/// This will also recursivley drain `waiting_for_parent` and import them as well.
-	async fn import_block(&mut self, block: Block) {
+	/// This will also recursively drain `waiting_for_parent` and import them as well.
+	fn import_block(&mut self, block: Block) {
 		let mut blocks = VecDeque::new();
 
 		tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), "Importing block retrieved using pov_recovery");
@@ -500,7 +495,7 @@ where
 					tracing::debug!(
 						target: LOG_TARGET,
 						block_hash = ?hash,
-						"Cound not recover. Block was never announced as candidate"
+						"Could not recover. Block was never announced as candidate"
 					);
 					return
 				},
@@ -557,7 +552,6 @@ where
 		};
 
 		futures::pin_mut!(pending_candidates);
-
 		loop {
 			select! {
 				pending_candidate = pending_candidates.next() => {
@@ -579,6 +573,17 @@ where
 				imported = imported_blocks.next() => {
 					if let Some(imported) = imported {
 						self.clear_waiting_recovery(&imported.hash);
+
+						// We need to double check that no blocks are waiting for this block.
+						// Can happen when a waiting child block is queued to wait for parent while the parent block is still
+						// in the import queue.
+						if let Some(waiting_blocks) = self.waiting_for_parent.remove(&imported.hash) {
+							for block in waiting_blocks {
+								tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), resolved_parent = ?imported.hash, "Found new waiting child block during import, queuing.");
+								self.import_block(block);
+							}
+						};
+
 					} else {
 						tracing::debug!(target: LOG_TARGET,	"Imported blocks stream ended");
 						return;
@@ -595,10 +600,10 @@ where
 				next_to_recover = self.candidate_recovery_queue.next_recovery().fuse() => {
 						self.recover_candidate(next_to_recover).await;
 				},
-				(block_hash, available_data) =
+				(block_hash, pov) =
 					self.active_candidate_recovery.wait_for_recovery().fuse() =>
 				{
-					self.handle_candidate_recovered(block_hash, available_data).await;
+					self.handle_candidate_recovered(block_hash, pov.as_deref()).await;
 				},
 			}
 		}

@@ -14,11 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{weights::WeightInfo, BridgedBlockNumber, BridgedHeader, Config, Error, Pallet};
-use bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
+use crate::{
+	weights::WeightInfo, BridgedBlockNumber, BridgedHeader, Config, CurrentAuthoritySet, Error,
+	Pallet,
+};
+use bp_header_chain::{
+	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
+	ChainWithGrandpa, GrandpaConsensusLogReader,
+};
 use bp_runtime::{BlockNumberOf, OwnedBridgeModule};
 use codec::Encode;
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight};
+use sp_consensus_grandpa::SetId;
 use sp_runtime::{
 	traits::{Header, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
@@ -30,6 +37,9 @@ use sp_runtime::{
 pub struct SubmitFinalityProofInfo<N> {
 	/// Number of the finality target.
 	pub block_number: N,
+	/// An identifier of the validators set that has signed the submitted justification.
+	/// It might be `None` if deprecated version of the `submit_finality_proof` is used.
+	pub current_set_id: Option<SetId>,
 	/// Extra weight that we assume is included in the call.
 	///
 	/// We have some assumptions about headers and justifications of the bridged chain.
@@ -58,9 +68,11 @@ pub struct SubmitFinalityProofHelper<T: Config<I>, I: 'static> {
 
 impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 	/// Check that the GRANDPA head provided by the `SubmitFinalityProof` is better than the best
-	/// one we know.
+	/// one we know. Additionally, checks if `current_set_id` matches the current authority set
+	/// id, if specified.
 	pub fn check_obsolete(
 		finality_target: BlockNumberOf<T::BridgedChain>,
+		current_set_id: Option<SetId>,
 	) -> Result<(), Error<T, I>> {
 		let best_finalized = crate::BestFinalized::<T, I>::get().ok_or_else(|| {
 			log::trace!(
@@ -80,6 +92,20 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 			);
 
 			return Err(Error::<T, I>::OldHeader)
+		}
+
+		if let Some(current_set_id) = current_set_id {
+			let actual_set_id = <CurrentAuthoritySet<T, I>>::get().set_id;
+			if current_set_id != actual_set_id {
+				log::trace!(
+					target: crate::LOG_TARGET,
+					"Cannot finalize header signed by unknown authority set: bundled {:?}, best {:?}",
+					current_set_id,
+					actual_set_id,
+				);
+
+				return Err(Error::<T, I>::InvalidAuthoritySetId)
+			}
 		}
 
 		Ok(())
@@ -108,6 +134,18 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 			return Some(submit_finality_proof_info_from_args::<T, I>(
 				finality_target,
 				justification,
+				None,
+			))
+		} else if let Some(crate::Call::<T, I>::submit_finality_proof_ex {
+			finality_target,
+			justification,
+			current_set_id,
+		}) = self.is_sub_type()
+		{
+			return Some(submit_finality_proof_info_from_args::<T, I>(
+				finality_target,
+				justification,
+				Some(*current_set_id),
 			))
 		}
 
@@ -130,7 +168,10 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 			return InvalidTransaction::Call.into()
 		}
 
-		match SubmitFinalityProofHelper::<T, I>::check_obsolete(finality_target.block_number) {
+		match SubmitFinalityProofHelper::<T, I>::check_obsolete(
+			finality_target.block_number,
+			finality_target.current_set_id,
+		) {
 			Ok(_) => Ok(ValidTransaction::default()),
 			Err(Error::<T, I>::OldHeader) => InvalidTransaction::Stale.into(),
 			Err(_) => InvalidTransaction::Call.into(),
@@ -147,6 +188,7 @@ impl<T: Config<I>, I: 'static> CallSubType<T, I> for T::RuntimeCall where
 pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 	finality_target: &BridgedHeader<T, I>,
 	justification: &GrandpaJustification<BridgedHeader<T, I>>,
+	current_set_id: Option<SetId>,
 ) -> SubmitFinalityProofInfo<BridgedBlockNumber<T, I>> {
 	let block_number = *finality_target.number();
 
@@ -163,32 +205,32 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 	// as an extra weight.
 	let votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
 	let extra_weight =
-		if votes_ancestries_len > T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY {
+		if votes_ancestries_len > T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY {
 			T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
 		} else {
 			Weight::zero()
 		};
+
+	// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
+	// size
+	let is_mandatory_finality_target =
+		GrandpaConsensusLogReader::<BridgedBlockNumber<T, I>>::find_scheduled_change(
+			finality_target.digest(),
+		)
+		.is_some();
 
 	// we can estimate extra call size easily, without any additional significant overhead
 	let actual_call_size: u32 = finality_target
 		.encoded_size()
 		.saturating_add(justification.encoded_size())
 		.saturated_into();
-	let max_expected_call_size = max_expected_call_size::<T, I>(required_precommits);
+	let max_expected_call_size = max_expected_submit_finality_proof_arguments_size::<T::BridgedChain>(
+		is_mandatory_finality_target,
+		required_precommits,
+	);
 	let extra_size = actual_call_size.saturating_sub(max_expected_call_size);
 
-	SubmitFinalityProofInfo { block_number, extra_weight, extra_size }
-}
-
-/// Returns maximal expected size of `submit_finality_proof` call arguments.
-fn max_expected_call_size<T: Config<I>, I: 'static>(required_precommits: u32) -> u32 {
-	let max_expected_justification_size =
-		GrandpaJustification::<BridgedHeader<T, I>>::max_reasonable_size::<T::BridgedChain>(
-			required_precommits,
-		);
-
-	// call arguments are header and justification
-	T::BridgedChain::MAX_HEADER_SIZE.saturating_add(max_expected_justification_size)
+	SubmitFinalityProofInfo { block_number, current_set_id, extra_weight, extra_size }
 }
 
 #[cfg(test)]
@@ -196,20 +238,24 @@ mod tests {
 	use crate::{
 		call_ext::CallSubType,
 		mock::{run_test, test_header, RuntimeCall, TestBridgedChain, TestNumber, TestRuntime},
-		BestFinalized, Config, PalletOperatingMode, WeightInfo,
+		BestFinalized, Config, CurrentAuthoritySet, PalletOperatingMode, StoredAuthoritySet,
+		SubmitFinalityProofInfo, WeightInfo,
 	};
 	use bp_header_chain::ChainWithGrandpa;
 	use bp_runtime::{BasicOperatingMode, HeaderId};
 	use bp_test_utils::{
 		make_default_justification, make_justification_for_header, JustificationGeneratorParams,
+		TEST_GRANDPA_SET_ID,
 	};
 	use frame_support::weights::Weight;
 	use sp_runtime::{testing::DigestItem, traits::Header as _, SaturatedConversion};
 
 	fn validate_block_submit(num: TestNumber) -> bool {
-		let bridge_grandpa_call = crate::Call::<TestRuntime, ()>::submit_finality_proof {
+		let bridge_grandpa_call = crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
 			finality_target: Box::new(test_header(num)),
 			justification: make_default_justification(&test_header(num)),
+			// not initialized => zero
+			current_set_id: 0,
 		};
 		RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
 			bridge_grandpa_call,
@@ -254,6 +300,18 @@ mod tests {
 	}
 
 	#[test]
+	fn extension_rejects_new_header_if_set_id_is_invalid() {
+		run_test(|| {
+			// when set id is different from the passed one => tx is rejected
+			sync_to_header_10();
+			let next_set = StoredAuthoritySet::<TestRuntime, ()>::try_new(vec![], 0x42).unwrap();
+			CurrentAuthoritySet::<TestRuntime, ()>::put(next_set);
+
+			assert!(!validate_block_submit(15));
+		});
+	}
+
+	#[test]
 	fn extension_accepts_new_header() {
 		run_test(|| {
 			// when current best finalized is #10 and we're trying to import header#15 => tx is
@@ -261,6 +319,42 @@ mod tests {
 			sync_to_header_10();
 			assert!(validate_block_submit(15));
 		});
+	}
+
+	#[test]
+	fn submit_finality_proof_info_is_parsed() {
+		// when `submit_finality_proof` is used, `current_set_id` is set to `None`
+		let deprecated_call =
+			RuntimeCall::Grandpa(crate::Call::<TestRuntime, ()>::submit_finality_proof {
+				finality_target: Box::new(test_header(42)),
+				justification: make_default_justification(&test_header(42)),
+			});
+		assert_eq!(
+			deprecated_call.submit_finality_proof_info(),
+			Some(SubmitFinalityProofInfo {
+				block_number: 42,
+				current_set_id: None,
+				extra_weight: Weight::zero(),
+				extra_size: 0,
+			})
+		);
+
+		// when `submit_finality_proof_ex` is used, `current_set_id` is set to `Some`
+		let deprecated_call =
+			RuntimeCall::Grandpa(crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
+				finality_target: Box::new(test_header(42)),
+				justification: make_default_justification(&test_header(42)),
+				current_set_id: 777,
+			});
+		assert_eq!(
+			deprecated_call.submit_finality_proof_info(),
+			Some(SubmitFinalityProofInfo {
+				block_number: 42,
+				current_set_id: Some(777),
+				extra_weight: Weight::zero(),
+				extra_size: 0,
+			})
+		);
 	}
 
 	#[test]
@@ -272,9 +366,10 @@ mod tests {
 			..Default::default()
 		};
 		let small_justification = make_justification_for_header(justification_params);
-		let small_call = RuntimeCall::Grandpa(crate::Call::submit_finality_proof {
+		let small_call = RuntimeCall::Grandpa(crate::Call::submit_finality_proof_ex {
 			finality_target: Box::new(small_finality_target),
 			justification: small_justification,
+			current_set_id: TEST_GRANDPA_SET_ID,
 		});
 		assert_eq!(small_call.submit_finality_proof_info().unwrap().extra_size, 0);
 
@@ -288,9 +383,10 @@ mod tests {
 			..Default::default()
 		};
 		let large_justification = make_justification_for_header(justification_params);
-		let large_call = RuntimeCall::Grandpa(crate::Call::submit_finality_proof {
+		let large_call = RuntimeCall::Grandpa(crate::Call::submit_finality_proof_ex {
 			finality_target: Box::new(large_finality_target),
 			justification: large_justification,
+			current_set_id: TEST_GRANDPA_SET_ID,
 		});
 		assert_ne!(large_call.submit_finality_proof_info().unwrap().extra_size, 0);
 	}
@@ -300,28 +396,30 @@ mod tests {
 		let finality_target = test_header(1);
 		let mut justification_params = JustificationGeneratorParams {
 			header: finality_target.clone(),
-			ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY,
+			ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY,
 			..Default::default()
 		};
 
-		// when there are `REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY` headers => no refund
+		// when there are `REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY` headers => no refund
 		let justification = make_justification_for_header(justification_params.clone());
-		let call = RuntimeCall::Grandpa(crate::Call::submit_finality_proof {
+		let call = RuntimeCall::Grandpa(crate::Call::submit_finality_proof_ex {
 			finality_target: Box::new(finality_target.clone()),
 			justification,
+			current_set_id: TEST_GRANDPA_SET_ID,
 		});
 		assert_eq!(call.submit_finality_proof_info().unwrap().extra_weight, Weight::zero());
 
-		// when there are `REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY + 1` headers => full refund
+		// when there are `REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY + 1` headers => full refund
 		justification_params.ancestors += 1;
 		let justification = make_justification_for_header(justification_params);
 		let call_weight = <TestRuntime as Config>::WeightInfo::submit_finality_proof(
 			justification.commit.precommits.len().saturated_into(),
 			justification.votes_ancestries.len().saturated_into(),
 		);
-		let call = RuntimeCall::Grandpa(crate::Call::submit_finality_proof {
+		let call = RuntimeCall::Grandpa(crate::Call::submit_finality_proof_ex {
 			finality_target: Box::new(finality_target),
 			justification,
+			current_set_id: TEST_GRANDPA_SET_ID,
 		});
 		assert_eq!(call.submit_finality_proof_info().unwrap().extra_weight, call_weight);
 	}

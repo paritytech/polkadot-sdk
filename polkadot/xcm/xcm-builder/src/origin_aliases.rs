@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Implementation for `ContainsPair<MultiLocation, MultiLocation>`.
+//! Implementation for `ContainsPair<Location, Location>`.
 
 use frame_support::traits::{Contains, ContainsPair};
 use sp_std::marker::PhantomData;
@@ -25,13 +25,15 @@ use xcm::latest::prelude::*;
 ///
 /// Requires that the prefixed origin `AccountId32` matches the target `AccountId32`.
 pub struct AliasForeignAccountId32<Prefix>(PhantomData<Prefix>);
-impl<Prefix: Contains<MultiLocation>> ContainsPair<MultiLocation, MultiLocation>
+impl<Prefix: Contains<Location>> ContainsPair<Location, Location>
 	for AliasForeignAccountId32<Prefix>
 {
-	fn contains(origin: &MultiLocation, target: &MultiLocation) -> bool {
-		if let (prefix, Some(account_id @ AccountId32 { .. })) = origin.split_last_interior() {
+	fn contains(origin: &Location, target: &Location) -> bool {
+		if let (prefix, Some(account_id @ AccountId32 { .. })) =
+			origin.clone().split_last_interior()
+		{
 			return Prefix::contains(&prefix) &&
-				*target == MultiLocation { parents: 0, interior: X1(account_id) }
+				*target == Location { parents: 0, interior: [account_id].into() }
 		}
 		false
 	}

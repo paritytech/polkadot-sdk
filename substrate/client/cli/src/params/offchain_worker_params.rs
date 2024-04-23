@@ -32,8 +32,7 @@ use crate::{error, OffchainWorkerEnabled};
 /// Offchain worker related parameters.
 #[derive(Debug, Clone, Args)]
 pub struct OffchainWorkerParams {
-	/// Should execute offchain workers on every block.
-	/// By default it's only enabled for nodes that are authoring new blocks.
+	/// Execute offchain workers on every block.
 	#[arg(
 		long = "offchain-worker",
 		value_name = "ENABLED",
@@ -43,8 +42,9 @@ pub struct OffchainWorkerParams {
 	)]
 	pub enabled: OffchainWorkerEnabled,
 
-	/// Enable Offchain Indexing API, which allows block import to write to Offchain DB.
-	/// Enables a runtime to write directly to a offchain workers DB during block import.
+	/// Enable offchain indexing API.
+	///
+	/// Allows the runtime to write directly to offchain workers DB during block import.
 	#[arg(long = "enable-offchain-indexing", value_name = "ENABLE_OFFCHAIN_INDEXING", default_value_t = false, action = ArgAction::Set)]
 	pub indexing_enabled: bool,
 }

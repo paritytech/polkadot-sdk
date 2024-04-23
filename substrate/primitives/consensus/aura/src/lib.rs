@@ -19,9 +19,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 use sp_runtime::ConsensusEngineId;
-use sp_std::vec::Vec;
 
 pub mod digests;
 pub mod inherents;

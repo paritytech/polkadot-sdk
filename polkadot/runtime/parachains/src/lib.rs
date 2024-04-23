@@ -23,10 +23,11 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "256")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod assigner;
+pub mod assigner_coretime;
 pub mod assigner_on_demand;
 pub mod assigner_parachains;
 pub mod configuration;
+pub mod coretime;
 pub mod disputes;
 pub mod dmp;
 pub mod hrmp;
@@ -53,7 +54,7 @@ mod mock;
 mod ump_tests;
 
 pub use origin::{ensure_parachain, Origin};
-pub use paras::{ParaLifecycle, SetGoAhead};
+pub use paras::{ParaLifecycle, UpgradeStrategy};
 use primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_runtime::{DispatchResult, FixedU128};
 
@@ -81,12 +82,12 @@ pub fn schedule_para_initialize<T: paras::Config>(
 	id: ParaId,
 	genesis: paras::ParaGenesisArgs,
 ) -> Result<(), ()> {
-	<paras::Pallet<T>>::schedule_para_initialize(id, genesis).map_err(|_| ())
+	paras::Pallet::<T>::schedule_para_initialize(id, genesis).map_err(|_| ())
 }
 
 /// Schedule a para to be cleaned up at the start of the next session.
 pub fn schedule_para_cleanup<T: paras::Config>(id: primitives::Id) -> Result<(), ()> {
-	<paras::Pallet<T>>::schedule_para_cleanup(id).map_err(|_| ())
+	paras::Pallet::<T>::schedule_para_cleanup(id).map_err(|_| ())
 }
 
 /// Schedule a parathread (on-demand parachain) to be upgraded to a lease holding parachain.
@@ -103,7 +104,7 @@ pub fn schedule_parachain_downgrade<T: paras::Config>(id: ParaId) -> Result<(), 
 pub fn schedule_code_upgrade<T: paras::Config>(
 	id: ParaId,
 	new_code: ValidationCode,
-	set_go_ahead: SetGoAhead,
+	set_go_ahead: UpgradeStrategy,
 ) -> DispatchResult {
 	paras::Pallet::<T>::schedule_code_upgrade_external(id, new_code, set_go_ahead)
 }

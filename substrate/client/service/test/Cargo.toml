@@ -8,27 +8,30 @@ publish = false
 homepage = "https://substrate.io"
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 async-channel = "1.8.0"
 array-bytes = "6.1"
-fdlimit = "0.2.1"
-futures = "0.3.21"
-log = "0.4.17"
+fdlimit = "0.3.0"
+futures = "0.3.30"
+log = { workspace = true, default-features = true }
 parity-scale-codec = "3.6.1"
 parking_lot = "0.12.1"
 tempfile = "3.1.0"
 tokio = { version = "1.22.0", features = ["time"] }
 sc-block-builder = { path = "../../block-builder" }
 sc-client-api = { path = "../../api" }
-sc-client-db = { path = "../../db", default-features = false}
+sc-client-db = { path = "../../db", default-features = false }
 sc-consensus = { path = "../../consensus/common" }
 sc-executor = { path = "../../executor" }
 sc-network = { path = "../../network" }
 sc-network-sync = { path = "../../network/sync" }
-sc-service = { path = "..", features = ["test-helpers"]}
+sc-service = { path = "..", features = ["test-helpers"] }
 sc-transaction-pool-api = { path = "../../transaction-pool/api" }
 sp-api = { path = "../../../primitives/api" }
 sp-blockchain = { path = "../../../primitives/blockchain" }

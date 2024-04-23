@@ -4,6 +4,11 @@
 # common settings for all zombienet jobs
 .zombienet-substrate-common:
   before_script:
+    # Exit if the job is not merge queue
+    # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # Docker images have different tag in merge queues
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
+    - export SUBSTRATE_IMAGE_TAG=${DOCKER_IMAGES_VERSION}
     - echo "Zombienet Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${GH_DIR}"
@@ -19,7 +24,7 @@
     - .kubernetes-env
     - .zombienet-refs
   variables:
-    SUBSTRATE_IMAGE_TAG: ${DOCKER_IMAGES_VERSION}
+    # SUBSTRATE_IMAGE_TAG: ${DOCKER_IMAGES_VERSION}
     SUBSTRATE_IMAGE: "docker.io/paritypr/substrate"
     GH_DIR: "https://github.com/paritytech/substrate/tree/${CI_COMMIT_SHA}/zombienet"
     LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/substrate/zombienet"
@@ -38,6 +43,16 @@
   tags:
     - zombienet-polkadot-integration-test
 
+.zombienet-substrate-warp-sync-common:
+  extends:
+    - .zombienet-substrate-common
+  variables:
+    # DB generated from commit: https://github.com/paritytech/polkadot-sdk/commit/868788a5bff3ef94869bd36432726703fe3b4e96
+    # TODO: As a workaround for https://github.com/paritytech/polkadot-sdk/issues/2568 the DB was generated in archive mode.
+    # After the issue is fixed, we should replace it with a pruned version of the DB.
+    DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-9677807d738b951e9f6c82e5fd15518eb0ae0419.tgz"
+    DB_BLOCK_HEIGHT: 56687
+
 zombienet-substrate-0000-block-building:
   extends:
     - .zombienet-substrate-common
@@ -48,7 +63,7 @@ zombienet-substrate-0000-block-building:
 
 zombienet-substrate-0001-basic-warp-sync:
   extends:
-    - .zombienet-substrate-common
+    - .zombienet-substrate-warp-sync-common
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/0001-basic-warp-sync"
@@ -56,7 +71,10 @@ zombienet-substrate-0001-basic-warp-sync:
 
 zombienet-substrate-0002-validators-warp-sync:
   extends:
-    - .zombienet-substrate-common
+    - .zombienet-substrate-warp-sync-common
+  before_script:
+    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/0002-validators-warp-sync"
@@ -64,7 +82,10 @@ zombienet-substrate-0002-validators-warp-sync:
 
 zombienet-substrate-0003-block-building-warp-sync:
   extends:
-    - .zombienet-substrate-common
+    - .zombienet-substrate-warp-sync-common
+  before_script:
+    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/0003-block-building-warp-sync"

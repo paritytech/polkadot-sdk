@@ -1,14 +1,17 @@
 [package]
 name = "polkadot-node-core-candidate-validation"
 description = "Polkadot crate that implements the Candidate Validation subsystem. Handles requests to validate candidates according to a PVF."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
-async-trait = "0.1.57"
-futures = "0.3.21"
+async-trait = "0.1.79"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 
@@ -28,7 +31,7 @@ polkadot-node-core-pvf = { path = "../pvf" }
 
 [dev-dependencies]
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-futures = { version = "0.3.21", features = ["thread-pool"] }
+futures = { version = "0.3.30", features = ["thread-pool"] }
 assert_matches = "1.4.0"
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-core = { path = "../../../../substrate/primitives/core" }

@@ -1,6 +1,6 @@
 [package]
 name = "sp-wasm-interface"
-version = "14.0.0"
+version = "20.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -10,18 +10,20 @@ description = "Types and traits for interfacing between the host and the wasm ru
 documentation = "https://docs.rs/sp-wasm-interface"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
-log = { version = "0.4.17", optional = true }
+log = { optional = true, workspace = true, default-features = true }
 wasmtime = { version = "8.0.1", default-features = false, optional = true }
-anyhow = { version = "1.0.68", optional = true }
-sp-std = { path = "../std", default-features = false}
+anyhow = { version = "1.0.81", optional = true }
 
 [features]
-default = [ "std" ]
-std = [ "codec/std", "log", "sp-std/std", "wasmtime" ]
-wasmtime = [ "anyhow", "dep:wasmtime" ]
+default = ["std"]
+std = ["codec/std", "log/std"]
+wasmtime = ["anyhow", "dep:wasmtime"]

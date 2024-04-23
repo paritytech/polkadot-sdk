@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Client, FullBackend};
+use crate::Client;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_primitives::{Block, InherentData as ParachainsInherentData};
 use polkadot_test_runtime::UncheckedExtrinsic;
 use polkadot_test_service::GetLastTimestamp;
-use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus_babe::{
 	digests::{PreDigest, SecondaryPlainPreDigest},
@@ -34,9 +34,7 @@ pub trait InitPolkadotBlockBuilder {
 	///
 	/// This will automatically create and push the inherents for you to make the block valid for
 	/// the test runtime.
-	fn init_polkadot_block_builder(
-		&self,
-	) -> sc_block_builder::BlockBuilder<Block, Client, FullBackend>;
+	fn init_polkadot_block_builder(&self) -> sc_block_builder::BlockBuilder<Block, Client>;
 
 	/// Init a Polkadot specific block builder at a specific block that works for the test runtime.
 	///
@@ -45,11 +43,11 @@ pub trait InitPolkadotBlockBuilder {
 	fn init_polkadot_block_builder_at(
 		&self,
 		hash: <Block as BlockT>::Hash,
-	) -> sc_block_builder::BlockBuilder<Block, Client, FullBackend>;
+	) -> sc_block_builder::BlockBuilder<Block, Client>;
 }
 
 impl InitPolkadotBlockBuilder for Client {
-	fn init_polkadot_block_builder(&self) -> BlockBuilder<Block, Client, FullBackend> {
+	fn init_polkadot_block_builder(&self) -> BlockBuilder<Block, Client> {
 		let chain_info = self.chain_info();
 		self.init_polkadot_block_builder_at(chain_info.best_hash)
 	}
@@ -57,7 +55,7 @@ impl InitPolkadotBlockBuilder for Client {
 	fn init_polkadot_block_builder_at(
 		&self,
 		hash: <Block as BlockT>::Hash,
-	) -> BlockBuilder<Block, Client, FullBackend> {
+	) -> BlockBuilder<Block, Client> {
 		let last_timestamp =
 			self.runtime_api().get_last_timestamp(hash).expect("Get last timestamp");
 
@@ -90,8 +88,12 @@ impl InitPolkadotBlockBuilder for Client {
 			)],
 		};
 
-		let mut block_builder = self
-			.new_block_at(hash, digest, false)
+		let mut block_builder = BlockBuilderBuilder::new(self)
+			.on_parent_block(hash)
+			.fetch_parent_block_number(&self)
+			.expect("Fetches parent block number")
+			.with_inherent_digests(digest)
+			.build()
 			.expect("Creates new block builder for test runtime");
 
 		let mut inherent_data = sp_inherents::InherentData::new();
@@ -144,7 +146,7 @@ pub trait BlockBuilderExt {
 	) -> Result<(), sp_blockchain::Error>;
 }
 
-impl BlockBuilderExt for BlockBuilder<'_, Block, Client, FullBackend> {
+impl BlockBuilderExt for BlockBuilder<'_, Block, Client> {
 	fn push_polkadot_extrinsic(
 		&mut self,
 		ext: UncheckedExtrinsic,

@@ -17,11 +17,14 @@
 
 //! The imbalance type and its associates, which handles keeps everything adding up properly with
 //! unbalanced operations.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use super::{super::Imbalance as ImbalanceT, Balanced, *};
 use crate::traits::{
+	fungibles,
 	misc::{SameOrOther, TryDrop},
-	tokens::Balance,
+	tokens::{AssetId, Balance},
 };
 use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use sp_runtime::traits::Zero;
@@ -87,6 +90,11 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	pub(crate) fn new(amount: B) -> Self {
 		Self { amount, _phantom: PhantomData }
 	}
+
+	/// Forget the imbalance without invoking the on-drop handler.
+	pub(crate) fn forget(imbalance: Self) {
+		sp_std::mem::forget(imbalance);
+	}
 }
 
 impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>>
@@ -147,6 +155,27 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	fn peek(&self) -> B {
 		self.amount
 	}
+}
+
+/// Converts a `fungibles` `imbalance` instance to an instance of a `fungible` imbalance type.
+///
+/// This function facilitates imbalance conversions within the implementations of
+/// [`frame_support::traits::fungibles::UnionOf`], [`frame_support::traits::fungible::UnionOf`], and
+/// [`frame_support::traits::fungible::ItemOf`] adapters. It is intended only for internal use
+/// within the current crate.
+pub(crate) fn from_fungibles<
+	A: AssetId,
+	B: Balance,
+	OnDropIn: fungibles::HandleImbalanceDrop<A, B>,
+	OppositeIn: fungibles::HandleImbalanceDrop<A, B>,
+	OnDropOut: HandleImbalanceDrop<B>,
+	OppositeOut: HandleImbalanceDrop<B>,
+>(
+	imbalance: fungibles::Imbalance<A, B, OnDropIn, OppositeIn>,
+) -> Imbalance<B, OnDropOut, OppositeOut> {
+	let new = Imbalance::new(imbalance.peek());
+	fungibles::Imbalance::forget(imbalance);
+	new
 }
 
 /// Imbalance implying that the total_issuance value is less than the sum of all account balances.

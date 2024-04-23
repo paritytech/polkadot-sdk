@@ -1433,8 +1433,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let weight_root = rank + 1;
 		let weight = weight_root * weight_root;
 		match approve {
-			true => tally.approvals.saturating_accrue(1),
-			false => tally.rejections.saturating_accrue(1),
+			true => tally.approvals.saturating_accrue(weight),
+			false => tally.rejections.saturating_accrue(weight),
 		}
 		Vote { approve, weight }
 	}
@@ -1509,7 +1509,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// the Founder.
 		if MemberCount::<T, I>::get() > 2 {
 			let defender = next_defender
-				.or_else(|| Self::pick_defendent(rng))
+				.or_else(|| Self::pick_defendant(rng))
 				.expect("exited if members empty; qed");
 			let skeptic =
 				Self::pick_member_except(rng, &defender).expect("exited if members empty; qed");
@@ -1871,7 +1871,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// If only the Founder and Head members exist (or the state is inconsistent), then `None`
 	/// may be returned.
-	fn pick_defendent(rng: &mut impl RngCore) -> Option<T::AccountId> {
+	fn pick_defendant(rng: &mut impl RngCore) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count <= 2 {
 			return None
@@ -1976,7 +1976,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Transfer some `amount` from the main account into the payouts account and reduce the Pot
 	/// by this amount.
 	fn reserve_payout(amount: BalanceOf<T, I>) {
-		// Tramsfer payout from the Pot into the payouts account.
+		// Transfer payout from the Pot into the payouts account.
 		Pot::<T, I>::mutate(|pot| pot.saturating_reduce(amount));
 
 		// this should never fail since we ensure we can afford the payouts in a previous
@@ -1988,7 +1988,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Transfer some `amount` from the main account into the payouts account and increase the Pot
 	/// by this amount.
 	fn unreserve_payout(amount: BalanceOf<T, I>) {
-		// Tramsfer payout from the Pot into the payouts account.
+		// Transfer payout from the Pot into the payouts account.
 		Pot::<T, I>::mutate(|pot| pot.saturating_accrue(amount));
 
 		// this should never fail since we ensure we can afford the payouts in a previous

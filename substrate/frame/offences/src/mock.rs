@@ -23,7 +23,7 @@ use crate as offences;
 use crate::Config;
 use codec::Encode;
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{constants::RocksDbWeight, Weight},
 };
@@ -68,13 +68,13 @@ pub fn with_on_offence_fractions<R, F: FnOnce(&mut Vec<Perbill>) -> R>(f: F) -> 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Offences: offences::{Pallet, Storage, Event},
+	pub enum Runtime {
+		System: frame_system,
+		Offences: offences,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

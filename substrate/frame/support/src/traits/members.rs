@@ -66,6 +66,15 @@ impl<A, B, CP: ContainsPair<A, B>> Contains<(A, B)> for FromContainsPair<CP> {
 	}
 }
 
+/// A [`ContainsPair`] implementation that has a `Contains` implementation for each member of the
+/// pair.
+pub struct FromContains<CA, CB>(PhantomData<(CA, CB)>);
+impl<A, B, CA: Contains<A>, CB: Contains<B>> ContainsPair<A, B> for FromContains<CA, CB> {
+	fn contains(a: &A, b: &B) -> bool {
+		CA::contains(a) && CB::contains(b)
+	}
+}
+
 /// A [`Contains`] implementation that contains every value.
 pub enum Everything {}
 impl<T> Contains<T> for Everything {
@@ -295,6 +304,13 @@ pub trait RankedMembers {
 	/// Demote a member to the next lower rank; demoting beyond the `min_rank` removes the
 	/// member entirely.
 	fn demote(who: &Self::AccountId) -> DispatchResult;
+}
+
+/// Handler that can deal with the swap of two members.
+#[impl_trait_for_tuples::impl_for_tuples(16)]
+pub trait RankedMembersSwapHandler<AccountId, Rank> {
+	/// Member `old` was swapped with `new` at `rank`.
+	fn swapped(who: &AccountId, new_who: &AccountId, rank: Rank);
 }
 
 /// Trait for type that can handle the initialization of account IDs at genesis.

@@ -1,6 +1,6 @@
 [package]
 name = "sc-keystore"
-version = "4.0.0-dev"
+version = "25.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -10,14 +10,17 @@ description = "Keystore (and session key management) for ed25519 based chains li
 documentation = "https://docs.rs/sc-keystore"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = "6.1"
 parking_lot = "0.12.1"
-serde_json = "1.0.107"
-thiserror = "1.0"
+serde_json = { workspace = true, default-features = true }
+thiserror = { workspace = true }
 sp-application-crypto = { path = "../../primitives/application-crypto" }
 sp-core = { path = "../../primitives/core" }
 sp-keystore = { path = "../../primitives/keystore" }

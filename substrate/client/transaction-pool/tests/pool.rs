@@ -24,7 +24,7 @@ use futures::{
 	prelude::*,
 	task::Poll,
 };
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::client::BlockchainEvents;
 use sc_transaction_pool::*;
 use sc_transaction_pool_api::{
@@ -73,7 +73,7 @@ fn create_basic_pool_with_genesis(
 			.map(|blocks| blocks[0].0.header.hash())
 			.expect("there is block 0. qed")
 	};
-	BasicPool::new_test(test_api, genesis_hash, genesis_hash)
+	BasicPool::new_test(test_api, genesis_hash, genesis_hash, Default::default())
 }
 
 fn create_basic_pool(test_api: TestApi) -> BasicPool<TestApi, Block> {
@@ -994,11 +994,12 @@ fn import_notification_to_pool_maintain_works() {
 			)),
 			best_hash,
 			finalized_hash,
+			Default::default(),
 		)
 		.0,
 	);
 
-	// Prepare the extrisic, push it to the pool and check that it was added.
+	// Prepare the extrinsic, push it to the pool and check that it was added.
 	let xt = uxt(Alice, 0);
 	block_on(pool.submit_one(
 		pool.api().block_id_to_hash(&BlockId::Number(0)).unwrap().unwrap(),
@@ -1011,7 +1012,11 @@ fn import_notification_to_pool_maintain_works() {
 	let mut import_stream = block_on_stream(client.import_notification_stream());
 
 	// Build the block with the transaction included
-	let mut block_builder = client.new_block(Default::default()).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(best_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
 	block_builder.push(xt).unwrap();
 	let block = block_builder.build().unwrap().block;
 	block_on(client.import(BlockOrigin::Own, block)).unwrap();

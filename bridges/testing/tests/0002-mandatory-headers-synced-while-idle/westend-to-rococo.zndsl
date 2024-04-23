@@ -1,0 +1,7 @@
+Description: While relayer is idle, we only sync mandatory Westend (and a single Westend BH) headers to Rococo BH.
+Network: {{ENV_PATH}}/bridge_hub_rococo_local_network.toml
+Creds: config
+
+# ensure that relayer is only syncing mandatory headers while idle. This includes both headers that were
+# generated while relay was offline and those in the next 100 seconds while script is active.
+bridge-hub-rococo-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/only-mandatory-headers-synced-when-idle.js with "300,westend-at-rococo" within 600 seconds

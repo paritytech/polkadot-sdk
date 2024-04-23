@@ -357,10 +357,7 @@ use frame_support::{
 	pallet_prelude::{MaxEncodedLen, *},
 	storage::bounded_btree_map::BoundedBTreeMap,
 	traits::{
-		fungible::{
-			Inspect as FunInspect, InspectFreeze, Mutate as FunMutate,
-			MutateFreeze as FunMutateFreeze,
-		},
+		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
 		tokens::{Fortitude, Preservation},
 		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
@@ -408,7 +405,7 @@ pub use weights::WeightInfo;
 
 /// The balance type used by the currency system.
 pub type BalanceOf<T> =
-	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 /// Type used for unique identifier of each pool.
 pub type PoolId = u32;
 
@@ -454,35 +451,47 @@ enum AccountType {
 /// The permission a pool member can set for other accounts to claim rewards on their behalf.
 #[derive(Encode, Decode, MaxEncodedLen, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
 pub enum ClaimPermission {
-	/// Only the pool member themself can claim their rewards.
+	/// Only the pool member themselves can claim their rewards.
 	Permissioned,
 	/// Anyone can compound rewards on a pool member's behalf.
 	PermissionlessCompound,
 	/// Anyone can withdraw rewards on a pool member's behalf.
 	PermissionlessWithdraw,
-	/// Anyone can withdraw and compound rewards on a member's behalf.
+	/// Anyone can withdraw and compound rewards on a pool member's behalf.
 	PermissionlessAll,
 }
 
+impl Default for ClaimPermission {
+	fn default() -> Self {
+		Self::PermissionlessWithdraw
+	}
+}
+
 impl ClaimPermission {
+	/// Permissionless compounding of pool rewards is allowed if the current permission is
+	/// `PermissionlessCompound`, or permissionless.
 	fn can_bond_extra(&self) -> bool {
 		matches!(self, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessCompound)
 	}
 
+	/// Permissionless payout claiming is allowed if the current permission is
+	/// `PermissionlessWithdraw`, or permissionless.
 	fn can_claim_payout(&self) -> bool {
 		matches!(self, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessWithdraw)
 	}
 }
 
-impl Default for ClaimPermission {
-	fn default() -> Self {
-		Self::Permissioned
-	}
-}
-
 /// A member in a pool.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, CloneNoBound)]
-#[cfg_attr(feature = "std", derive(frame_support::PartialEqNoBound, DefaultNoBound))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	frame_support::PartialEqNoBound,
+)]
+#[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct PoolMember<T: Config> {
@@ -676,6 +685,13 @@ pub struct PoolRoles<AccountId> {
 	pub bouncer: Option<AccountId>,
 }
 
+// A pool's possible commission claiming permissions.
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum CommissionClaimPermission<AccountId> {
+	Permissionless,
+	Account(AccountId),
+}
+
 /// Pool commission.
 ///
 /// The pool `root` can set commission configuration after pool creation. By default, all commission
@@ -705,6 +721,9 @@ pub struct Commission<T: Config> {
 	/// The block from where throttling should be checked from. This value will be updated on all
 	/// commission updates and when setting an initial `change_rate`.
 	pub throttle_from: Option<BlockNumberFor<T>>,
+	// Whether commission can be claimed permissionlessly, or whether an account can claim
+	// commission. `Root` role can always claim.
+	pub claim_permission: Option<CommissionClaimPermission<T::AccountId>>,
 }
 
 impl<T: Config> Commission<T> {
@@ -1078,6 +1097,17 @@ impl<T: Config> BondedPool<T> {
 		self.is_root(who)
 	}
 
+	fn can_claim_commission(&self, who: &T::AccountId) -> bool {
+		if let Some(permission) = self.commission.claim_permission.as_ref() {
+			match permission {
+				CommissionClaimPermission::Permissionless => true,
+				CommissionClaimPermission::Account(account) => account == who || self.is_root(who),
+			}
+		} else {
+			self.is_root(who)
+		}
+	}
+
 	fn is_destroying(&self) -> bool {
 		matches!(self.state, PoolState::Destroying)
 	}
@@ -1266,27 +1296,6 @@ impl<T: Config> BondedPool<T> {
 				new_state: state,
 			});
 		};
-	}
-
-	/// Withdraw all the funds that are already unlocked from staking for the
-	/// [`BondedPool::bonded_account`].
-	///
-	/// Also reduces the [`TotalValueLocked`] by the difference of the
-	/// [`T::Staking::total_stake`] of the [`BondedPool::bonded_account`] that might occur by
-	/// [`T::Staking::withdraw_unbonded`].
-	///
-	/// Returns the result of [`T::Staking::withdraw_unbonded`]
-	fn withdraw_from_staking(&self, num_slashing_spans: u32) -> Result<bool, DispatchError> {
-		let bonded_account = self.bonded_account();
-
-		let prev_total = T::Staking::total_stake(&bonded_account.clone()).unwrap_or_default();
-		let outcome = T::Staking::withdraw_unbonded(bonded_account.clone(), num_slashing_spans);
-		let diff = prev_total
-			.defensive_saturating_sub(T::Staking::total_stake(&bonded_account).unwrap_or_default());
-		TotalValueLocked::<T>::mutate(|tvl| {
-			tvl.saturating_reduce(diff);
-		});
-		outcome
 	}
 }
 
@@ -1571,8 +1580,8 @@ pub mod pallet {
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_runtime::Perbill;
 
-	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1587,8 +1596,8 @@ pub mod pallet {
 		type WeightInfo: weights::WeightInfo;
 
 		/// The currency type used for nomination pool.
-		type Currency: FunMutate<Self::AccountId>
-			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
+		type Currency: Mutate<Self::AccountId>
+			+ MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
 
 		/// The overarching freeze reason.
 		type RuntimeFreezeReason: From<FreezeReason>;
@@ -1626,6 +1635,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPointsToBalance: Get<u8>;
 
+		/// The maximum number of simultaneous unbonding chunks that can exist per member.
+		#[pallet::constant]
+		type MaxUnbonding: Get<u32>;
+
 		/// Infallible method for converting `Currency::Balance` to `U256`.
 		type BalanceToU256: Convert<BalanceOf<Self>, U256>;
 
@@ -1645,8 +1658,8 @@ pub mod pallet {
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
 
-		/// The maximum number of simultaneous unbonding chunks that can exist per member.
-		type MaxUnbonding: Get<u32>;
+		/// The origin that can manage pool configurations.
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	/// The sum of funds across all pools.
@@ -1706,7 +1719,7 @@ pub mod pallet {
 		CountedStorageMap<_, Twox64Concat, PoolId, BondedPoolInner<T>>;
 
 	/// Reward pools. This is where there rewards for each pool accumulate. When a members payout is
-	/// claimed, the balance comes out fo the reward pool. Keyed by the bonded pools account.
+	/// claimed, the balance comes out of the reward pool. Keyed by the bonded pools account.
 	#[pallet::storage]
 	pub type RewardPools<T: Config> = CountedStorageMap<_, Twox64Concat, PoolId, RewardPool<T>>;
 
@@ -1726,8 +1739,8 @@ pub mod pallet {
 
 	/// A reverse lookup from the pool's account id to its id.
 	///
-	/// This is only used for slashing. In all other instances, the pool id is used, and the
-	/// accounts are deterministically derived from it.
+	/// This is only used for slashing and on automatic withdraw update. In all other instances, the
+	/// pool id is used, and the accounts are deterministically derived from it.
 	#[pallet::storage]
 	pub type ReversePoolIdLookup<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, PoolId, OptionQuery>;
@@ -1848,6 +1861,11 @@ pub mod pallet {
 		PoolCommissionChangeRateUpdated {
 			pool_id: PoolId,
 			change_rate: CommissionChangeRate<BlockNumberFor<T>>,
+		},
+		/// Pool commission claim permission has been updated.
+		PoolCommissionClaimPermissionUpdated {
+			pool_id: PoolId,
+			permission: Option<CommissionClaimPermission<T::AccountId>>,
 		},
 		/// Pool commission has been claimed.
 		PoolCommissionClaimed { pool_id: PoolId, commission: BalanceOf<T> },
@@ -2055,7 +2073,7 @@ pub mod pallet {
 		/// The member will earn rewards pro rata based on the members stake vs the sum of the
 		/// members in the pools stake. Rewards do not "expire".
 		///
-		/// See `claim_payout_other` to caim rewards on bahalf of some `other` pool member.
+		/// See `claim_payout_other` to claim rewards on behalf of some `other` pool member.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout(origin: OriginFor<T>) -> DispatchResult {
@@ -2116,7 +2134,12 @@ pub mod pallet {
 				bonded_pool.points,
 				bonded_pool.commission.current(),
 			)?;
-			let _ = Self::do_reward_payout(&who, &mut member, &mut bonded_pool, &mut reward_pool)?;
+			let _ = Self::do_reward_payout(
+				&member_account,
+				&mut member,
+				&mut bonded_pool,
+				&mut reward_pool,
+			)?;
 
 			let current_era = T::Staking::current_era();
 			let unbond_era = T::Staking::bonding_duration().saturating_add(current_era);
@@ -2186,7 +2209,7 @@ pub mod pallet {
 			// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
 			// is destroying then `withdraw_unbonded` can be used.
 			ensure!(pool.state != PoolState::Destroying, Error::<T>::NotDestroying);
-			pool.withdraw_from_staking(num_slashing_spans)?;
+			T::Staking::withdraw_unbonded(pool.bonded_account(), num_slashing_spans)?;
 
 			Ok(())
 		}
@@ -2238,7 +2261,8 @@ pub mod pallet {
 
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
 			// `transferrable_balance` is correct.
-			let stash_killed = bonded_pool.withdraw_from_staking(num_slashing_spans)?;
+			let stash_killed =
+				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)?;
 
 			// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
@@ -2384,6 +2408,11 @@ pub mod pallet {
 		///
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
+		///
+		/// # Note
+		///
+		/// In addition to a `root` or `nominator` role of `origin`, pool's depositor needs to have
+		/// at least `depositor_min_bond` in the pool to start nominating.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() as u32))]
 		pub fn nominate(
@@ -2394,6 +2423,16 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
 			ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+
+			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
+				.ok_or(Error::<T>::PoolMemberNotFound)?
+				.active_points();
+
+			ensure!(
+				bonded_pool.points_to_balance(depositor_points) >= Self::depositor_min_bond(),
+				Error::<T>::MinimumBondNotMet
+			);
+
 			T::Staking::nominate(&bonded_pool.bonded_account(), validators)
 		}
 
@@ -2459,7 +2498,7 @@ pub mod pallet {
 		}
 
 		/// Update configurations for the nomination pools. The origin for this call must be
-		/// Root.
+		/// [`Config::AdminOrigin`].
 		///
 		/// # Arguments
 		///
@@ -2480,7 +2519,7 @@ pub mod pallet {
 			max_members_per_pool: ConfigOp<u32>,
 			global_max_commission: ConfigOp<Perbill>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 
 			macro_rules! config_op_exp {
 				($storage:ty, $op:ident) => {
@@ -2556,17 +2595,37 @@ pub mod pallet {
 
 		/// Chill on behalf of the pool.
 		///
-		/// The dispatch origin of this call must be signed by the pool nominator or the pool
+		/// The dispatch origin of this call can be signed by the pool nominator or the pool
 		/// root role, same as [`Pallet::nominate`].
 		///
+		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
+		/// account).
+		///
+		/// # Conditions for a permissionless dispatch:
+		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise  pool members
+		///   are unable to unbond.
+		///
+		/// # Conditions for permissioned dispatch:
+		/// * The caller has a nominator or root role of the pool.
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-			ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+
+			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
+				.ok_or(Error::<T>::PoolMemberNotFound)?
+				.active_points();
+
+			if bonded_pool.points_to_balance(depositor_points) >=
+				T::Staking::minimum_nominator_bond()
+			{
+				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+			}
+
 			T::Staking::chill(&bonded_pool.bonded_account())
 		}
 
@@ -2578,7 +2637,7 @@ pub mod pallet {
 		///
 		/// In the case of `origin != other`, `origin` can only bond extra pending rewards of
 		/// `other` members assuming set_claim_permission for the given member is
-		/// `PermissionlessAll` or `PermissionlessCompound`.
+		/// `PermissionlessCompound` or `PermissionlessAll`.
 		#[pallet::call_index(14)]
 		#[pallet::weight(
 			T::WeightInfo::bond_extra_transfer()
@@ -2596,15 +2655,10 @@ pub mod pallet {
 		/// Allows a pool member to set a claim permission to allow or disallow permissionless
 		/// bonding and withdrawing.
 		///
-		/// By default, this is `Permissioned`, which implies only the pool member themselves can
-		/// claim their pending rewards. If a pool member wishes so, they can set this to
-		/// `PermissionlessAll` to allow any account to claim their rewards and bond extra to the
-		/// pool.
-		///
 		/// # Arguments
 		///
 		/// * `origin` - Member of a pool.
-		/// * `actor` - Account to claim reward. // improve this
+		/// * `permission` - The permission to be applied.
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn set_claim_permission(
@@ -2614,16 +2668,18 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(PoolMembers::<T>::contains_key(&who), Error::<T>::PoolMemberNotFound);
+
 			ClaimPermissions::<T>::mutate(who, |source| {
 				*source = permission;
 			});
+
 			Ok(())
 		}
 
 		/// `origin` can claim payouts on some pool member `other`'s behalf.
 		///
-		/// Pool member `other` must have a `PermissionlessAll` or `PermissionlessWithdraw` in order
-		/// for this call to be successful.
+		/// Pool member `other` must have a `PermissionlessWithdraw` or `PermissionlessAll` claim
+		/// permission for this call to be successful.
 		#[pallet::call_index(16)]
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout_other(origin: OriginFor<T>, other: T::AccountId) -> DispatchResult {
@@ -2741,6 +2797,32 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			Self::do_adjust_pool_deposit(who, pool_id)
 		}
+
+		/// Set or remove a pool's commission claim permission.
+		///
+		/// Determines who can claim the pool's pending commission. Only the `Root` role of the pool
+		/// is able to configure commission claim permissions.
+		#[pallet::call_index(22)]
+		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
+		pub fn set_commission_claim_permission(
+			origin: OriginFor<T>,
+			pool_id: PoolId,
+			permission: Option<CommissionClaimPermission<T::AccountId>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
+
+			bonded_pool.commission.claim_permission = permission.clone();
+			bonded_pool.put();
+
+			Self::deposit_event(Event::<T>::PoolCommissionClaimPermissionUpdated {
+				pool_id,
+				permission,
+			});
+
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -2758,7 +2840,7 @@ pub mod pallet {
 			assert!(
 				T::Staking::bonding_duration() < TotalUnbondingPools::<T>::get(),
 				"There must be more unbonding pools then the bonding duration /
-				so a slash can be applied to relevant unboding pools. (We assume /
+				so a slash can be applied to relevant unbonding pools. (We assume /
 				the bonding duration > slash deffer duration.",
 			);
 		}
@@ -2879,6 +2961,11 @@ impl<T: Config> Pallet<T> {
 		bonded_pool: BondedPool<T>,
 		reward_pool: RewardPool<T>,
 	) {
+		// The pool id of a member cannot change in any case, so we use it to make sure
+		// `member_account` is the right one.
+		debug_assert_eq!(PoolMembers::<T>::get(member_account).unwrap().pool_id, member.pool_id);
+		debug_assert_eq!(member.pool_id, bonded_pool.id);
+
 		bonded_pool.put();
 		RewardPools::insert(member.pool_id, reward_pool);
 		PoolMembers::<T>::insert(member_account, member);
@@ -2902,9 +2989,12 @@ impl<T: Config> Pallet<T> {
 			},
 			(false, false) => {
 				// Equivalent to (current_points / current_balance) * new_funds
-				balance(u256(current_points).saturating_mul(u256(new_funds)))
-					// We check for zero above
-					.div(current_balance)
+				balance(
+					u256(current_points)
+						.saturating_mul(u256(new_funds))
+						// We check for zero above
+						.div(u256(current_balance)),
+				)
 			},
 		}
 	}
@@ -2942,6 +3032,7 @@ impl<T: Config> Pallet<T> {
 		reward_pool: &mut RewardPool<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		debug_assert_eq!(member.pool_id, bonded_pool.id);
+		debug_assert_eq!(&mut PoolMembers::<T>::get(member_account).unwrap(), member);
 
 		// a member who has no skin in the game anymore cannot claim any rewards.
 		ensure!(!member.active_points().is_zero(), Error::<T>::FullyUnbonding);
@@ -3058,18 +3149,19 @@ impl<T: Config> Pallet<T> {
 
 	fn do_bond_extra(
 		signer: T::AccountId,
-		who: T::AccountId,
+		member_account: T::AccountId,
 		extra: BondExtra<BalanceOf<T>>,
 	) -> DispatchResult {
-		if signer != who {
+		if signer != member_account {
 			ensure!(
-				ClaimPermissions::<T>::get(&who).can_bond_extra(),
+				ClaimPermissions::<T>::get(&member_account).can_bond_extra(),
 				Error::<T>::DoesNotHavePermission
 			);
 			ensure!(extra == BondExtra::Rewards, Error::<T>::BondExtraRestricted);
 		}
 
-		let (mut member, mut bonded_pool, mut reward_pool) = Self::get_member_with_pools(&who)?;
+		let (mut member, mut bonded_pool, mut reward_pool) =
+			Self::get_member_with_pools(&member_account)?;
 
 		// payout related stuff: we must claim the payouts, and updated recorded payout data
 		// before updating the bonded pool points, similar to that of `join` transaction.
@@ -3078,14 +3170,18 @@ impl<T: Config> Pallet<T> {
 			bonded_pool.points,
 			bonded_pool.commission.current(),
 		)?;
-		let claimed =
-			Self::do_reward_payout(&who, &mut member, &mut bonded_pool, &mut reward_pool)?;
+		let claimed = Self::do_reward_payout(
+			&member_account,
+			&mut member,
+			&mut bonded_pool,
+			&mut reward_pool,
+		)?;
 
 		let (points_issued, bonded) = match extra {
 			BondExtra::FreeBalance(amount) =>
-				(bonded_pool.try_bond_funds(&who, amount, BondType::Later)?, amount),
+				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Later)?, amount),
 			BondExtra::Rewards =>
-				(bonded_pool.try_bond_funds(&who, claimed, BondType::Later)?, claimed),
+				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Later)?, claimed),
 		};
 
 		bonded_pool.ok_to_be_open()?;
@@ -3093,24 +3189,24 @@ impl<T: Config> Pallet<T> {
 			member.points.checked_add(&points_issued).ok_or(Error::<T>::OverflowRisk)?;
 
 		Self::deposit_event(Event::<T>::Bonded {
-			member: who.clone(),
+			member: member_account.clone(),
 			pool_id: member.pool_id,
 			bonded,
 			joined: false,
 		});
-		Self::put_member_with_pools(&who, member, bonded_pool, reward_pool);
+		Self::put_member_with_pools(&member_account, member, bonded_pool, reward_pool);
 
 		Ok(())
 	}
 
 	fn do_claim_commission(who: T::AccountId, pool_id: PoolId) -> DispatchResult {
 		let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-		ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
+		ensure!(bonded_pool.can_claim_commission(&who), Error::<T>::DoesNotHavePermission);
 
 		let mut reward_pool = RewardPools::<T>::get(pool_id)
 			.defensive_ok_or::<Error<T>>(DefensiveError::RewardPoolNotFound.into())?;
 
-		// IMPORTANT: make sure that any newly pending commission not yet processed is added to
+		// IMPORTANT: ensure newly pending commission not yet processed is added to
 		// `total_commission_pending`.
 		reward_pool.update_records(
 			pool_id,
@@ -3147,18 +3243,27 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn do_claim_payout(signer: T::AccountId, who: T::AccountId) -> DispatchResult {
-		if signer != who {
+	pub(crate) fn do_claim_payout(
+		signer: T::AccountId,
+		member_account: T::AccountId,
+	) -> DispatchResult {
+		if signer != member_account {
 			ensure!(
-				ClaimPermissions::<T>::get(&who).can_claim_payout(),
+				ClaimPermissions::<T>::get(&member_account).can_claim_payout(),
 				Error::<T>::DoesNotHavePermission
 			);
 		}
-		let (mut member, mut bonded_pool, mut reward_pool) = Self::get_member_with_pools(&who)?;
+		let (mut member, mut bonded_pool, mut reward_pool) =
+			Self::get_member_with_pools(&member_account)?;
 
-		let _ = Self::do_reward_payout(&who, &mut member, &mut bonded_pool, &mut reward_pool)?;
+		let _ = Self::do_reward_payout(
+			&member_account,
+			&mut member,
+			&mut bonded_pool,
+			&mut reward_pool,
+		)?;
 
-		Self::put_member_with_pools(&who, member, bonded_pool, reward_pool);
+		Self::put_member_with_pools(&member_account, member, bonded_pool, reward_pool);
 		Ok(())
 	}
 
@@ -3414,7 +3519,13 @@ impl<T: Config> Pallet<T> {
 	/// Check if any pool have an incorrect amount of ED frozen.
 	///
 	/// This can happen if the ED has changed since the pool was created.
-	#[cfg(any(feature = "try-runtime", feature = "runtime-benchmarks", test, debug_assertions))]
+	#[cfg(any(
+		feature = "try-runtime",
+		feature = "runtime-benchmarks",
+		feature = "fuzzing",
+		test,
+		debug_assertions
+	))]
 	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
 		let mut failed: u32 = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
@@ -3535,5 +3646,15 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 			defensive!("Expected SubPools were not found");
 		}
 		Self::deposit_event(Event::<T>::PoolSlashed { pool_id, balance: slashed_bonded });
+	}
+
+	/// Reduces the overall `TotalValueLocked` if a withdrawal happened for a pool involved in the
+	/// staking withdraw.
+	fn on_withdraw(pool_account: &T::AccountId, amount: BalanceOf<T>) {
+		if ReversePoolIdLookup::<T>::get(pool_account).is_some() {
+			TotalValueLocked::<T>::mutate(|tvl| {
+				tvl.saturating_reduce(amount);
+			});
+		}
 	}
 }

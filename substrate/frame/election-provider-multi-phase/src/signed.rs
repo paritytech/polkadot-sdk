@@ -572,6 +572,40 @@ mod tests {
 	use sp_runtime::Percent;
 
 	#[test]
+	fn cannot_submit_on_different_round() {
+		ExtBuilder::default().build_and_execute(|| {
+			// roll to a few rounds ahead.
+			roll_to_round(5);
+			assert_eq!(MultiPhase::round(), 5);
+
+			roll_to_signed();
+			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+
+			// create a temp snapshot only for this test.
+			MultiPhase::create_snapshot().unwrap();
+			let mut solution = raw_solution();
+
+			// try a solution prepared in a previous round.
+			solution.round = MultiPhase::round() - 1;
+
+			assert_noop!(
+				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
+				Error::<Runtime>::PreDispatchDifferentRound,
+			);
+
+			// try a solution prepared in a later round (not expected to happen, but in any case).
+			MultiPhase::create_snapshot().unwrap();
+			let mut solution = raw_solution();
+			solution.round = MultiPhase::round() + 1;
+
+			assert_noop!(
+				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
+				Error::<Runtime>::PreDispatchDifferentRound,
+			);
+		})
+	}
+
+	#[test]
 	fn cannot_submit_too_early() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to(2);

@@ -37,7 +37,7 @@ use sp_core::bandersnatch;
 }
 
 sp_keystore::bls_experimental_enabled! {
-use sp_core::{bls377, bls381};
+use sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
 }
 
 use crate::{Error, Result};
@@ -47,6 +47,13 @@ pub struct LocalKeystore(RwLock<KeystoreInner>);
 
 impl LocalKeystore {
 	/// Create a local keystore from filesystem.
+	///
+	/// The keystore will be created at `path`. The keystore optionally supports to encrypt/decrypt
+	/// the keys in the keystore using `password`.
+	///
+	/// NOTE: Even when passing a `password`, the keys on disk appear to look like normal secret
+	/// uris. However, without having the correct password the secret uri will not generate the
+	/// correct private key. See [`SecretUri`](sp_core::crypto::SecretUri) for more information.
 	pub fn open<T: Into<PathBuf>>(path: T, password: Option<SecretString>) -> Result<Self> {
 		let inner = KeystoreInner::open(path, password)?;
 		Ok(Self(RwLock::new(inner)))
@@ -120,22 +127,29 @@ impl LocalKeystore {
 		Ok(sig)
 	}
 
-	fn vrf_output<T: CorePair + VrfSecret>(
+	fn vrf_pre_output<T: CorePair + VrfSecret>(
 		&self,
 		key_type: KeyTypeId,
 		public: &T::Public,
 		input: &T::VrfInput,
-	) -> std::result::Result<Option<T::VrfOutput>, TraitError> {
-		let preout = self
+	) -> std::result::Result<Option<T::VrfPreOutput>, TraitError> {
+		let pre_output = self
 			.0
 			.read()
 			.key_pair_by_type::<T>(public, key_type)?
-			.map(|pair| pair.vrf_output(input));
-		Ok(preout)
+			.map(|pair| pair.vrf_pre_output(input));
+		Ok(pre_output)
 	}
 }
 
 impl Keystore for LocalKeystore {
+	/// Insert a new secret key.
+	///
+	/// WARNING: if the secret keypair has been manually generated using a password
+	/// (e.g. using methods such as [`sp_core::crypto::Pair::from_phrase`]) then such
+	/// a password must match the one used to open the keystore via [`LocalKeystore::open`].
+	/// If the passwords doesn't match then the inserted key ends up being unusable under
+	/// the current keystore instance.
 	fn insert(
 		&self,
 		key_type: KeyTypeId,
@@ -188,13 +202,13 @@ impl Keystore for LocalKeystore {
 		self.vrf_sign::<sr25519::Pair>(key_type, public, data)
 	}
 
-	fn sr25519_vrf_output(
+	fn sr25519_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &sr25519::Public,
 		input: &sr25519::vrf::VrfInput,
-	) -> std::result::Result<Option<sr25519::vrf::VrfOutput>, TraitError> {
-		self.vrf_output::<sr25519::Pair>(key_type, public, input)
+	) -> std::result::Result<Option<sr25519::vrf::VrfPreOutput>, TraitError> {
+		self.vrf_pre_output::<sr25519::Pair>(key_type, public, input)
 	}
 
 	fn ed25519_public_keys(&self, key_type: KeyTypeId) -> Vec<ed25519::Public> {
@@ -293,13 +307,13 @@ impl Keystore for LocalKeystore {
 			self.vrf_sign::<bandersnatch::Pair>(key_type, public, data)
 		}
 
-		fn bandersnatch_vrf_output(
+		fn bandersnatch_vrf_pre_output(
 			&self,
 			key_type: KeyTypeId,
 			public: &bandersnatch::Public,
 			input: &bandersnatch::vrf::VrfInput,
-		) -> std::result::Result<Option<bandersnatch::vrf::VrfOutput>, TraitError> {
-			self.vrf_output::<bandersnatch::Pair>(key_type, public, input)
+		) -> std::result::Result<Option<bandersnatch::vrf::VrfPreOutput>, TraitError> {
+			self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
 		}
 
 		fn bandersnatch_ring_vrf_sign(
@@ -366,6 +380,45 @@ impl Keystore for LocalKeystore {
 		) -> std::result::Result<Option<bls377::Signature>, TraitError> {
 			self.sign::<bls377::Pair>(key_type, public, msg)
 		}
+
+		fn ecdsa_bls377_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls377::Public> {
+			self.public_keys::<ecdsa_bls377::Pair>(key_type)
+		}
+
+		/// Generate a new pair of paired-keys compatible with the '(ecdsa,bls377)' signature scheme.
+		///
+		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
+		fn ecdsa_bls377_generate_new(
+			&self,
+			key_type: KeyTypeId,
+			seed: Option<&str>,
+		) -> std::result::Result<ecdsa_bls377::Public, TraitError> {
+			self.generate_new::<ecdsa_bls377::Pair>(key_type, seed)
+		}
+
+		fn ecdsa_bls377_sign(
+			&self,
+			key_type: KeyTypeId,
+			public: &ecdsa_bls377::Public,
+			msg: &[u8],
+		) -> std::result::Result<Option<ecdsa_bls377::Signature>, TraitError> {
+			self.sign::<ecdsa_bls377::Pair>(key_type, public, msg)
+		}
+
+			fn ecdsa_bls377_sign_with_keccak256(
+			&self,
+			key_type: KeyTypeId,
+			public: &ecdsa_bls377::Public,
+			msg: &[u8],
+		) -> std::result::Result<Option<ecdsa_bls377::Signature>, TraitError> {
+			 let sig = self.0
+			.read()
+			.key_pair_by_type::<ecdsa_bls377::Pair>(public, key_type)?
+			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
+			Ok(sig)
+		}
+
+
 	}
 }
 

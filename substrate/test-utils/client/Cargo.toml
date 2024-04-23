@@ -9,26 +9,29 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = "6.1"
-async-trait = "0.1.57"
+async-trait = "0.1.79"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-futures = "0.3.21"
-serde = "1.0.188"
-serde_json = "1.0.107"
+futures = "0.3.30"
+serde = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 sc-client-api = { path = "../../client/api" }
 sc-client-db = { path = "../../client/db", default-features = false, features = [
 	"test-helpers",
-]}
+] }
 sc-consensus = { path = "../../client/consensus/common" }
 sc-executor = { path = "../../client/executor" }
 sc-offchain = { path = "../../client/offchain" }
 sc-service = { path = "../../client/service", default-features = false, features = [
 	"test-helpers",
-]}
+] }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 sp-core = { path = "../../primitives/core" }
@@ -36,3 +39,4 @@ sp-keyring = { path = "../../primitives/keyring" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
+tokio = { version = "1.22.0", features = ["sync"] }

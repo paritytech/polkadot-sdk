@@ -1,19 +1,23 @@
 [package]
 name = "cumulus-pallet-parachain-system-proc-macro"
-version = "0.1.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 description = "Proc macros provided by the parachain-system pallet"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [lib]
 proc-macro = true
 
 [dependencies]
-syn = "2.0.38"
+syn = { workspace = true }
 proc-macro2 = "1.0.64"
-quote = "1.0.33"
-proc-macro-crate = "1.3.1"
+quote = { workspace = true }
+proc-macro-crate = "3.0.0"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = []

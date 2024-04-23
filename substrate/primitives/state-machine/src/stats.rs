@@ -17,7 +17,7 @@
 
 //! Usage statistics for state db
 
-use sp_std::cell::RefCell;
+use core::cell::RefCell;
 #[cfg(feature = "std")]
 use std::time::{Duration, Instant};
 

@@ -1,6 +1,6 @@
 [package]
 name = "sc-storage-monitor"
-version = "0.1.0"
+version = "0.16.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -8,11 +8,13 @@ repository.workspace = true
 description = "Storage monitor service for substrate"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
-clap = { version = "4.4.6", features = ["derive", "string"] }
-log = "0.4.17"
-fs4 = "0.6.3"
-sc-client-db = { path = "../db", default-features = false}
+clap = { version = "4.5.3", features = ["derive", "string"] }
+log = { workspace = true, default-features = true }
+fs4 = "0.7.0"
 sp-core = { path = "../../primitives/core" }
-tokio = "1.22.0"
-thiserror = "1.0.48"
+tokio = { version = "1.22.0", features = ["time"] }
+thiserror = { workspace = true }
