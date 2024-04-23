@@ -37,8 +37,8 @@ mod barriers;
 pub use barriers::{
 	AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, IsChildSystemParachain, RespectSuspension, TakeWeightCredit, TrailingSetTopicAsId,
-	WithComputedOrigin,
+	DenyThenTry, IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain,
+	RespectSuspension, TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;
@@ -119,7 +119,7 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod routing;
-pub use routing::{EnsureDelivery, WithTopicSource, WithUniqueTopic};
+pub use routing::{EnsureDecodableXcm, EnsureDelivery, WithTopicSource, WithUniqueTopic};
 
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;

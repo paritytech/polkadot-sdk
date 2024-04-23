@@ -74,6 +74,8 @@ publish-subsystem-benchmarks:
       artifacts: true
     - job: subsystem-benchmark-availability-distribution
       artifacts: true
+    - job: subsystem-benchmark-approval-voting
+      artifacts: true
     - job: publish-rustdoc
       artifacts: false
   script:
@@ -114,6 +116,8 @@ trigger_workflow:
     - job: subsystem-benchmark-availability-recovery
       artifacts: true
     - job: subsystem-benchmark-availability-distribution
+      artifacts: true
+    - job: subsystem-benchmark-approval-voting
       artifacts: true
   script:
     - echo "Triggering workflow"
