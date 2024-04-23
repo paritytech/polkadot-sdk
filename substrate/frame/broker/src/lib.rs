@@ -565,7 +565,9 @@ pub mod pallet {
 		/// This will call [`Self::request_core_count`] internally to set the correct core count on
 		/// the relay chain.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::start_sales(T::MaxLeasedCores::get() + T::MaxReservedCores::get()))]
+		#[pallet::weight(T::WeightInfo::start_sales(
+			T::MaxLeasedCores::get() + T::MaxReservedCores::get() + *extra_cores as u32
+		))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
 			initial_price: BalanceOf<T>,
