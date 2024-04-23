@@ -657,7 +657,8 @@ fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_insufficie
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
-		// Check that the token was received and issued as a foreign asset on AssetHub
+		// Check that the message was not processed successfully due to insufficient fee
+
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
