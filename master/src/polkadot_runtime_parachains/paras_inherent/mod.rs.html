@@ -2744,7 +2744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Helper function for filtering candidates which don't pass the given predicate. When/if the first
-// candidate which failes the predicate is found, all the other candidates that follow are dropped.
+// candidate which failed the predicate is found, all the other candidates that follow are dropped.
 </span><span class="kw">fn </span>retain_candidates&lt;
 	T: inclusion::Config + paras::Config + inclusion::Config,
 	F: FnMut(ParaId, <span class="kw-2">&amp;mut </span>C) -&gt; bool,

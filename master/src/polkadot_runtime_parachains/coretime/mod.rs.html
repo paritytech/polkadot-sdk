@@ -421,6 +421,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -533,6 +536,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Something that provides the weight of this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 		<span class="kw">type </span>SendXcm: SendXcm;
+
+		<span class="doccomment">/// Maximum weight for any XCM transact call that should be executed on the coretime chain.
+		///
+		/// Basically should be `max_weight(set_leases, reserve, notify_core_count)`.
+		</span><span class="kw">type </span>MaxXcmTransactWeight: Get&lt;Weight&gt;;
 	}
 
 	<span class="attr">#[pallet::event]
@@ -648,7 +656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: <span class="prelude-val">None</span>,
 				},
-				mk_coretime_call(<span class="kw">crate</span>::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
+				mk_coretime_call::&lt;T&gt;(<span class="kw">crate</span>::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
 			]);
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = send_xcm::&lt;T::SendXcm&gt;(
 				Location::new(<span class="number">0</span>, [Junction::Parachain(T::BrokerId::get())]),
@@ -667,7 +675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: <span class="prelude-val">None</span>,
 			},
-			mk_coretime_call(<span class="kw">crate</span>::coretime::CoretimeCalls::SwapLeases(one, other)),
+			mk_coretime_call::&lt;T&gt;(<span class="kw">crate</span>::coretime::CoretimeCalls::SwapLeases(one, other)),
 		]);
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = send_xcm::&lt;T::SendXcm&gt;(
 			Location::new(<span class="number">0</span>, [Junction::Parachain(T::BrokerId::get())]),
@@ -684,12 +692,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>mk_coretime_call(call: <span class="kw">crate</span>::coretime::CoretimeCalls) -&gt; Instruction&lt;()&gt; {
+<span class="kw">fn </span>mk_coretime_call&lt;T: Config&gt;(call: <span class="kw">crate</span>::coretime::CoretimeCalls) -&gt; Instruction&lt;()&gt; {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		<span class="comment">// Largest call is set_lease with 1526 byte:
-		// Longest call is reserve() with 31_000_000
-		</span>require_weight_at_most: Weight::from_parts(<span class="number">170_000_000</span>, <span class="number">20_000</span>),
+		require_weight_at_most: T::MaxXcmTransactWeight::get(),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }

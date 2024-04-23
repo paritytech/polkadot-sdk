@@ -666,7 +666,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				mask: CoreMask::complete(),
 				assignment: CoreAssignment::Task(p.into()),
 			}]);
-			mk_coretime_call(<span class="kw">crate</span>::coretime::CoretimeCalls::Reserve(schedule))
+			mk_coretime_call::&lt;T&gt;(<span class="kw">crate</span>::coretime::CoretimeCalls::Reserve(schedule))
 		});
 
 		<span class="kw">let </span>leases = lease_holding.into_iter().filter_map(|p| {
@@ -687,14 +687,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>round_up = <span class="kw">if </span>valid_until % TIME_SLICE_PERIOD &gt; <span class="number">0 </span>{ <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
 			<span class="kw">let </span>time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;
 			<span class="macro">log::trace!</span>(target: <span class="string">"coretime-migration"</span>, <span class="string">"Sending of lease holding para {:?}, valid_until: {:?}, time_slice: {:?}"</span>, p, valid_until, time_slice);
-			<span class="prelude-val">Some</span>(mk_coretime_call(<span class="kw">crate</span>::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
+			<span class="prelude-val">Some</span>(mk_coretime_call::&lt;T&gt;(<span class="kw">crate</span>::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
 
 		<span class="kw">let </span>core_count: u16 = configuration::ActiveConfig::&lt;T&gt;::get()
 			.scheduler_params
 			.num_cores
 			.saturated_into();
-		<span class="kw">let </span>set_core_count = iter::once(mk_coretime_call(
+		<span class="kw">let </span>set_core_count = iter::once(mk_coretime_call::&lt;T&gt;(
 			<span class="kw">crate</span>::coretime::CoretimeCalls::NotifyCoreCount(core_count),
 		));
 
@@ -705,7 +705,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}]);
 			<span class="comment">// Reserved cores will come before lease cores, so cores will change their assignments
 			// when coretime chain sends us their assign_core calls -&gt; Good test.
-			</span>mk_coretime_call(<span class="kw">crate</span>::coretime::CoretimeCalls::Reserve(schedule))
+			</span>mk_coretime_call::&lt;T&gt;(<span class="kw">crate</span>::coretime::CoretimeCalls::Reserve(schedule))
 		});
 
 		<span class="kw">let </span>message_content = iter::once(Instruction::UnpaidExecution {

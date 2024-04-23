@@ -2686,6 +2686,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2535" id="2535">2535</a>
 <a href="#2536" id="2536">2536</a>
 <a href="#2537" id="2537">2537</a>
+<a href="#2538" id="2538">2538</a>
+<a href="#2539" id="2539">2539</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3745,6 +3747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>BrokerId: u32 = BROKER_ID;
+	<span class="kw">pub </span>MaxXcmTransactWeight: Weight = Weight::from_parts(<span class="number">200_000_000</span>, <span class="number">20_000</span>);
 }
 
 <span class="kw">impl </span>coretime::Config <span class="kw">for </span>Runtime {
@@ -3754,6 +3757,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>BrokerId = BrokerId;
 	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_coretime::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>SendXcm = <span class="kw">crate</span>::xcm_config::XcmRouter;
+	<span class="kw">type </span>MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 <span class="macro">parameter_types! </span>{
