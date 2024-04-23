@@ -56,51 +56,48 @@ pub mod v2 {
 	pub struct UncheckedMigrationToV2<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let on_chain_version = Pallet::<T>::on_chain_storage_version();
-			if on_chain_version == 1 {
-				let mut weight = Weight::zero();
-				let mut count: u32 = 0;
-				// candidates who exist under the old `Candidates` key
-				let candidates = Candidates::<T>::take();
+			let mut weight = Weight::zero();
+			let mut count: u32 = 0;
+			// candidates who exist under the old `Candidates` key
+			let candidates = Candidates::<T>::take();
 
-				// New candidates who have registered since the upgrade. Under normal circumstances,
-				// this should not exist because the migration should be applied when the upgrade
-				// happens. But in Polkadot/Kusama we messed this up, and people registered under
-				// `CandidateList` while their funds were locked in `Candidates`.
-				let new_candidate_list = CandidateList::<T>::get();
-				if new_candidate_list.len().is_zero() {
-					// The new list is empty, so this is essentially being applied correctly. We
-					// just put the candidates into the new storage item.
-					CandidateList::<T>::put(&candidates);
-					// 1 write for the new list
-					weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
-				} else {
-					// Oops, the runtime upgraded without the migration. There are new candidates in
-					// `CandidateList`. So, let's just refund the old ones and assume they have
-					// already started participating in the new system.
-					for candidate in candidates {
-						let _err = T::Currency::unreserve(&candidate.who, candidate.deposit).defensive();
-						count.saturating_inc();
-					}
-					// TODO: set each accrue to weight of `unreserve`
-					weight.saturating_accrue(T::DbWeight::get().reads_writes(0, count as u64));
-				}
-
-				log::info!(
-					target: LOG_TARGET,
-					"Unreserved locked bond of {} candidates, upgraded storage to version 2",
-					count,
-				);
-				// 1 read/write for storage version
-				weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
-				weight
+			// New candidates who have registered since the upgrade. Under normal circumstances,
+			// this should not exist because the migration should be applied when the upgrade
+			// happens. But in Polkadot/Kusama we messed this up, and people registered under
+			// `CandidateList` while their funds were locked in `Candidates`.
+			let new_candidate_list = CandidateList::<T>::get();
+			if new_candidate_list.len().is_zero() {
+				// The new list is empty, so this is essentially being applied correctly. We just
+				// put the candidates into the new storage item.
+				CandidateList::<T>::put(&candidates);
+				// 1 write for the new list
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
 			} else {
-				log::info!(
-					target: LOG_TARGET,
-					"Migration did not execute. This probably should be removed"
-				);
-				T::DbWeight::get().reads(1)
+				// Oops, the runtime upgraded without the migration. There are new candidates in
+				// `CandidateList`. So, let's just refund the old ones and assume they have already
+				// started participating in the new system.
+				for candidate in candidates {
+					let err = T::Currency::unreserve(&candidate.who, candidate.deposit);
+					if err > Zero::zero() {
+						log::info!(
+							target: LOG_TARGET,
+							"{:?} balance was unable to be unreserved from {}",
+							err, &candidate.who,
+						);
+					}
+					// weight.saturating_accrue(<T as pallet_balances::Config>::WeightInfo::force_unreserve());
+					count.saturating_inc();
+				}
 			}
+
+			log::info!(
+				target: LOG_TARGET,
+				"Unreserved locked bond of {} candidates, upgraded storage to version 2",
+				count,
+			);
+
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+			weight
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -116,8 +113,6 @@ pub mod v2 {
 				new_number_of_candidates, 0 as usize,
 				"after migration, the candidates map should be empty"
 			);
-
-
 			Ok(())
 		}
 	}
@@ -208,39 +203,111 @@ mod tests {
 	use sp_runtime::traits::ConstU32;
 
 	#[test]
-	fn migrate_to_v2() {
+	fn migrate_to_v2_with_new_candidates() {
 		new_test_ext().execute_with(|| {
 			let storage_version = StorageVersion::new(1);
 			storage_version.put::<Pallet<Test>>();
 
-			let who = 1u64;
+			let one = 1u64;
+			let two = 2u64;
+			let three = 3u64;
+			let deposit = 10u64;
 
 			// Set balance to 100
-			Balances::make_free_balance_be(&who, 100u64);
-			// Reserve 20 -> 10 for the "old" candidacy and 10 for the "new"
-			Balances::reserve(&who, 20u64).unwrap();
+			Balances::make_free_balance_be(&one, 100u64);
+			Balances::make_free_balance_be(&two, 100u64);
+			Balances::make_free_balance_be(&three, 100u64);
+			// Reservations: 10 for the "old" candidacy and 10 for the "new"
+			Balances::reserve(&one, 10u64).unwrap(); // old
+			Balances::reserve(&two, 20u64).unwrap(); // old + new
+			Balances::reserve(&three, 10u64).unwrap(); // new
 			// Candidate info
-			let candidate = CandidateInfo { who, deposit: 10u64 };
+			let candidate_one = CandidateInfo { who: one, deposit };
+			let candidate_two = CandidateInfo { who: two, deposit };
+			let candidate_three = CandidateInfo { who: three, deposit };
+			// Storage lists
 			let bounded_candidates =
 				BoundedVec::<CandidateInfo<u64, u64>, ConstU32<20>>::try_from(vec![
-					candidate.clone()
+					candidate_one.clone(),
+					candidate_two.clone(),
 				])
 				.expect("it works");
-			// Candidate is in the old `Candidates` and the new `CandidateList`
-			Candidates::<Test>::put(bounded_candidates.clone());
-			CandidateList::<Test>::put(bounded_candidates);
+			let bounded_candidate_list =
+				BoundedVec::<CandidateInfo<u64, u64>, ConstU32<20>>::try_from(vec![
+					candidate_two.clone(),
+					candidate_three.clone(),
+				])
+				.expect("it works");
+			// Set storage
+			Candidates::<Test>::put(bounded_candidates);
+			CandidateList::<Test>::put(bounded_candidate_list.clone());
 			// Sanity check
-			assert_eq!(Balances::free_balance(who), 80);
+			assert_eq!(Balances::free_balance(one), 90);
+			assert_eq!(Balances::free_balance(two), 80);
+			assert_eq!(Balances::free_balance(three), 90);
 
 			// Run migration
 			v2::MigrationToV2::<Test>::on_runtime_upgrade();
 
+			let new_storage_version = StorageVersion::get::<Pallet<Test>>();
+			assert_eq!(new_storage_version, 2);
+
 			// 10 should have been unreserved from the old candidacy
-			assert_eq!(Balances::free_balance(who), 90);
+			assert_eq!(Balances::free_balance(one), 100);
+			assert_eq!(Balances::free_balance(two), 90);
+			assert_eq!(Balances::free_balance(three), 90);
 			// The storage item should be gone
 			assert!(Candidates::<Test>::get().is_empty());
 			// The new storage item should be preserved
-			assert_eq!(CandidateList::<Test>::get(), vec![candidate]);
+			assert_eq!(CandidateList::<Test>::get(), bounded_candidate_list);
+		});
+	}
+
+	#[test]
+	fn migrate_to_v2_without_new_candidates() {
+		new_test_ext().execute_with(|| {
+			let storage_version = StorageVersion::new(1);
+			storage_version.put::<Pallet<Test>>();
+
+			let one = 1u64;
+			let two = 2u64;
+			let deposit = 10u64;
+
+			// Set balance to 100
+			Balances::make_free_balance_be(&one, 100u64);
+			Balances::make_free_balance_be(&two, 100u64);
+			// Reservations
+			Balances::reserve(&one, 10u64).unwrap(); // old
+			Balances::reserve(&two, 10u64).unwrap(); // old
+			// Candidate info
+			let candidate_one = CandidateInfo { who: one, deposit };
+			let candidate_two = CandidateInfo { who: two, deposit };
+			// Storage lists
+			let bounded_candidates =
+				BoundedVec::<CandidateInfo<u64, u64>, ConstU32<20>>::try_from(vec![
+					candidate_one.clone(),
+					candidate_two.clone(),
+				])
+				.expect("it works");
+			// Set storage
+			Candidates::<Test>::put(bounded_candidates.clone());
+			// Sanity check
+			assert_eq!(Balances::free_balance(one), 90);
+			assert_eq!(Balances::free_balance(two), 90);
+
+			// Run migration
+			v2::MigrationToV2::<Test>::on_runtime_upgrade();
+
+			let new_storage_version = StorageVersion::get::<Pallet<Test>>();
+			assert_eq!(new_storage_version, 2);
+
+			// Nothing changes deposit-wise
+			assert_eq!(Balances::free_balance(one), 90);
+			assert_eq!(Balances::free_balance(two), 90);
+			// The storage item should be gone
+			assert!(Candidates::<Test>::get().is_empty());
+			// The new storage item should have the info now
+			assert_eq!(CandidateList::<Test>::get(), bounded_candidates);
 		});
 	}
 }
