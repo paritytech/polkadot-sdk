@@ -205,7 +205,8 @@ pub trait RelayChainInterface: Send + Sync {
 	) -> RelayChainResult<Option<ValidationCodeHash>>;
 
 	/// Yields information on all availability cores as relevant to the child block.
-	/// Cores are either free or occupied. Free cores can have paras assigned to them.
+	///
+	/// Cores are either free, scheduled or occupied. Free cores can have paras assigned to them.
 	async fn availability_cores(
 		&self,
 		relay_parent: PHash,

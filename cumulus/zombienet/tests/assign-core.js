@@ -1,3 +1,7 @@
+// Assign a parachain to a core.
+//
+// First argument should be the parachain id.
+// Second argument should be the core.
 async function run(nodeName, networkInfo, args) {
   const { wsUri, userDefinedTypes } = networkInfo.nodesByName[nodeName];
   const api = await zombie.connect(wsUri, userDefinedTypes);
@@ -8,10 +12,11 @@ async function run(nodeName, networkInfo, args) {
 
   await zombie.util.cryptoWaitReady();
 
-  // account to submit tx
+  // Submit transaction with Alice accoung
   const keyring = new zombie.Keyring({ type: "sr25519" });
   const alice = keyring.addFromUri("//Alice");
 
+  // Wait for this transaction to be finalized in a block.
   await new Promise(async (resolve, reject) => {
     const unsub = await api.tx.sudo
       .sudo(api.tx.coretime.assignCore(core, 0, [[{ task: para }, 57600]], null))

@@ -16,7 +16,8 @@
 
 use codec::Decode;
 use polkadot_primitives::{
-	Block as PBlock, Hash as PHash, Header as PHeader, PersistedValidationData, ValidationCodeHash,
+	Block as PBlock, Hash as PHash, HeadData, Header as PHeader, PersistedValidationData,
+	ValidationCodeHash,
 };
 
 use cumulus_primitives_core::{
@@ -275,6 +276,49 @@ impl<B: BlockT> std::fmt::Debug for PotentialParent<B> {
 	}
 }
 
+/// Fetch the included and pending block from the relay chain.
+async fn fetch_included_pending_from_relay<B: BlockT>(
+	relay_client: &impl RelayChainInterface,
+	backend: &impl Backend<B>,
+	para_id: ParaId,
+	relay_parent: PHash,
+) -> Result<Option<(B::Header, B::Hash, Option<HeadData>)>, RelayChainError> {
+	let included_header = relay_client
+		.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::TimedOut)
+		.await?;
+	let included_header = match included_header {
+		Some(pvd) => pvd.parent_head,
+		None => return Ok(None), // this implies the para doesn't exist.
+	};
+
+	// Fetch the pending header from the relay chain.
+	let pending_pvd = relay_client
+		.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::Included)
+		.await?
+		.and_then(|x| if x.parent_head != included_header { Some(x.parent_head) } else { None });
+
+	let included_header = match B::Header::decode(&mut &included_header.0[..]).ok() {
+		None => return Ok(None),
+		Some(x) => x,
+	};
+
+	let included_hash = included_header.hash();
+	// If the included block is not locally known, we can't do anything.
+	match backend.blockchain().header(included_hash) {
+		Ok(None) | Err(_) => {
+			tracing::warn!(
+				target: PARENT_SEARCH_LOG_TARGET,
+				%included_hash,
+				"Failed to get header for included block.",
+			);
+			return Ok(None)
+		},
+		_ => {},
+	};
+
+	Ok(Some((included_header, included_hash, pending_pvd)))
+}
+
 /// Perform a recursive search through blocks to find potential
 /// parent blocks for a new block.
 ///
@@ -297,120 +341,76 @@ pub async fn find_potential_parents<B: BlockT>(
 ) -> Result<Vec<PotentialParent<B>>, RelayChainError> {
 	tracing::trace!("Parent search parameters: {params:?}");
 	// Get the included block.
-	let (included_header, included_hash, pending_pvd) = {
-		let included_header = relay_client
-			.persisted_validation_data(
-				params.relay_parent,
-				params.para_id,
-				OccupiedCoreAssumption::TimedOut,
-			)
-			.await?;
-		let included_header = match included_header {
-			Some(pvd) => pvd.parent_head,
-			None => return Ok(Vec::new()), // this implies the para doesn't exist.
-		};
-
-		// Fetch the pending header from the relay chain.
-		let pending_pvd = relay_client
-			.persisted_validation_data(
-				params.relay_parent,
-				params.para_id,
-				OccupiedCoreAssumption::Included,
-			)
-			.await?
-			.and_then(
-				|x| if x.parent_head != included_header { Some(x.parent_head) } else { None },
-			);
-
-		let included_header = match B::Header::decode(&mut &included_header.0[..]).ok() {
-			None => return Ok(Vec::new()),
-			Some(x) => x,
-		};
-
-		let included_hash = included_header.hash();
-		// If the included block is not locally known, we can't do anything.
-		match backend.blockchain().header(included_hash) {
-			Ok(None) | Err(_) => {
-				tracing::warn!(
-					target: PARENT_SEARCH_LOG_TARGET,
-					%included_hash,
-					"Failed to get header for included block.",
-				);
-				return Ok(Default::default())
-			},
-			_ => {},
-		};
-
-		(included_header, included_hash, pending_pvd)
+	let Some((included_header, included_hash, pending_pvd)) = fetch_included_pending_from_relay(
+		relay_client,
+		backend,
+		params.para_id,
+		params.relay_parent,
+	)
+	.await?
+	else {
+		return Ok(Default::default())
 	};
 
-	// Get the pending block.
-	let (pending_header, pending_hash) = {
-		// Fetch the pending header from the relay chain.
+	let only_included = vec![PotentialParent {
+		hash: included_hash,
+		header: included_header.clone(),
+		depth: 0,
+		aligned_with_pending: true,
+	}];
+
+	if params.max_depth == 0 {
+		return Ok(only_included)
+	};
+
+	// Pending header and hash.
+	let maybe_pending = {
+		// Try to decode the pending header.
 		let pending_header = pending_pvd.and_then(|p| B::Header::decode(&mut &p.0[..]).ok());
 
-		let pending_hash = pending_header.as_ref().map(|hdr| hdr.hash());
-
 		// If the pending block is not locally known, we can't do anything.
-		if let Some(hash) = pending_hash {
-			match backend.blockchain().header(hash) {
+		if let Some(header) = pending_header {
+			let pending_hash = header.hash();
+			match backend.blockchain().header(pending_hash) {
 				// We are supposed to ignore branches that don't contain the pending block, but we
 				// do not know the pending block locally.
 				Ok(None) | Err(_) if params.ignore_alternative_branches => {
 					tracing::warn!(
 						target: PARENT_SEARCH_LOG_TARGET,
-						%hash,
+						%pending_hash,
 						"Failed to get header for pending block.",
 					);
-					return Ok(vec![PotentialParent {
-						hash: included_hash,
-						header: included_header,
-						depth: 0,
-						aligned_with_pending: true,
-					}])
+					return Ok(only_included)
 				},
-				Ok(Some(_)) => (pending_header, pending_hash),
-				_ => (None, None),
+				Ok(Some(_)) => Some((header, pending_hash)),
+				_ => None,
 			}
 		} else {
-			(None, None)
+			None
 		}
 	};
 
-	if params.max_depth == 0 {
-		return Ok(vec![PotentialParent {
-			hash: included_hash,
-			header: included_header,
-			depth: 0,
-			aligned_with_pending: true,
-		}])
-	};
-
-	let maybe_route = pending_hash
-		.map(|pending| sp_blockchain::tree_route(backend.blockchain(), included_hash, pending))
+	let maybe_route = maybe_pending
+		.as_ref()
+		.map(|(_, pending)| {
+			sp_blockchain::tree_route(backend.blockchain(), included_hash, *pending)
+		})
 		.transpose()?;
 
 	// If we want to ignore alternative branches there is no reason to start
 	// the parent search at the included block. We can add the included block and
 	// the path to the pending block to the potential parents directly (limited by max_depth).
 	let (frontier, potential_parents) = match (
-		pending_header,
+		&maybe_pending,
 		params.ignore_alternative_branches,
 		&maybe_route,
 	) {
-		(Some(pending), true, Some(ref route_to_pending)) => {
-			let mut potential_parents = Vec::new();
-			// Included block is always a potential parent
-			potential_parents.push(PotentialParent {
-				hash: included_hash,
-				header: included_header.clone(),
-				depth: 0,
-				aligned_with_pending: true,
-			});
+		(Some((pending_header, pending_hash)), true, Some(ref route_to_pending)) => {
+			let mut potential_parents = only_included;
 
 			// This is a defensive check, should never happen.
 			if !route_to_pending.retracted().is_empty() {
-				tracing::warn!(target: PARENT_SEARCH_LOG_TARGET, "Pending block not an ancestor of included block. This should not happen.");
+				tracing::warn!(target: PARENT_SEARCH_LOG_TARGET, "Included block not an ancestor of pending block. This should not happen.");
 				return Ok(Default::default())
 			}
 
@@ -421,11 +421,7 @@ pub async fn find_potential_parents<B: BlockT>(
 			for (num, block) in
 				route_to_pending.enacted().iter().take(num_parents_on_path).enumerate()
 			{
-				let header = match backend.blockchain().header(block.hash) {
-					Ok(Some(h)) => h,
-					Ok(None) => continue,
-					Err(_) => continue,
-				};
+				let Ok(Some(header)) = backend.blockchain().header(block.hash) else { continue };
 
 				potential_parents.push(PotentialParent {
 					hash: block.hash,
@@ -439,23 +435,15 @@ pub async fn find_potential_parents<B: BlockT>(
 			// the pending block.
 			(
 				vec![PotentialParent {
-					hash: pending.hash(),
-					header: pending.clone(),
+					hash: *pending_hash,
+					header: pending_header.clone(),
 					depth: route_to_pending.enacted().len(),
 					aligned_with_pending: true,
 				}],
 				potential_parents,
 			)
 		},
-		_ => (
-			vec![PotentialParent {
-				hash: included_hash,
-				header: included_header.clone(),
-				depth: 0,
-				aligned_with_pending: true,
-			}],
-			Default::default(),
-		),
+		_ => (only_included, Default::default()),
 	};
 
 	if potential_parents.len() > params.max_depth {
@@ -471,7 +459,7 @@ pub async fn find_potential_parents<B: BlockT>(
 		frontier,
 		maybe_route,
 		included_header,
-		pending_hash,
+		maybe_pending.map(|(_, hash)| hash),
 		backend,
 		params.max_depth,
 		params.ignore_alternative_branches,
@@ -482,10 +470,13 @@ pub async fn find_potential_parents<B: BlockT>(
 
 /// Build an ancestry of relay parents that are acceptable.
 ///
-/// An acceptable relay parent is one that is no more than `ancestry_lookback` + 1 blocks above the
+/// An acceptable relay parent is one that is no more than `ancestry_lookback` + 1 blocks below the
 /// relay parent we want to build on. Parachain blocks anchored on relay parents older than that can
 /// not be considered potential parents for block building. They have no chance of still getting
 /// included, so our newly build parachain block would also not get included.
+///
+/// On success, returns a vector of `(header_hash, state_root)` of the relevant relay chain
+/// ancestry blocks.
 async fn build_relay_parent_ancestry(
 	ancestry_lookback: usize,
 	relay_parent: PHash,
@@ -597,11 +588,7 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 				continue
 			}
 
-			let header = match backend.blockchain().header(child) {
-				Ok(Some(h)) => h,
-				Ok(None) => continue,
-				Err(_) => continue,
-			};
+			let Ok(Some(header)) = backend.blockchain().header(child) else { continue };
 
 			frontier.push(PotentialParent {
 				hash: child,

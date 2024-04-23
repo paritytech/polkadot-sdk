@@ -1376,7 +1376,9 @@ fn find_potential_parents_aligned_with_late_pending() {
 			.insert(search_relay_parent, pending_block.header().clone());
 	}
 
-	// Build two sibling chains from the included block.
+	// Build some blocks on the pending block and on the included block.
+	// We end up with two sibling chains, one is aligned with the pending block,
+	// the other is not.
 	let mut aligned_blocks = Vec::new();
 	let mut parent = pending_block.header().hash();
 	for _ in 2..NON_INCLUDED_CHAIN_LEN {
