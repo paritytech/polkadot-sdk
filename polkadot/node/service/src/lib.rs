@@ -943,6 +943,14 @@ pub fn new_full<
 				secure_validator_mode,
 				prep_worker_path,
 				exec_worker_path,
+				pvf_execute_workers_max_num: match config.chain_spec.identify_chain() {
+					// The intention is to use this logic for gradual increasing from 2 to 4
+					// of this configuration chain by chain untill it reaches production chain.
+					Chain::Polkadot | Chain::Kusama => 2,
+					Chain::Rococo | Chain::Westend | Chain::Unknown => 4,
+				},
+				pvf_prepare_workers_soft_max_num: 1,
+				pvf_prepare_workers_hard_max_num: 2,
 			})
 		} else {
 			None
