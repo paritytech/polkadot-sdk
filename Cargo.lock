@@ -1947,7 +1947,7 @@ dependencies = [
  "bp-parachains",
  "bp-polkadot-core",
  "bp-runtime",
- "ed25519-dalek 2.1.0",
+ "ed25519-dalek 2.1.1",
  "finality-grandpa",
  "parity-scale-codec",
  "sp-application-crypto",
@@ -5026,9 +5026,9 @@ dependencies = [
 
 [[package]]
 name = "ed25519-dalek"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f628eaec48bfd21b865dc2950cfa014450c01d2fa2b69a86c2fd5844ec523c0"
+checksum = "4a3daa8e81a3963a60642bcc1f90a670680bd4a77535faa384e9d1c79d620871"
 dependencies = [
  "curve25519-dalek 4.1.2",
  "ed25519 2.2.2",
@@ -7726,7 +7726,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "276bb57e7af15d8f100d3c11cbdd32c6752b7eef4ba7a18ecf464972c07abcce"
 dependencies = [
  "bs58 0.4.0",
- "ed25519-dalek 2.1.0",
+ "ed25519-dalek 2.1.1",
  "log",
  "multiaddr",
  "multihash 0.17.0",
@@ -8150,7 +8150,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/litep2p?branch=master#b142c9eb611fb2fe78d2830266a3675b37299ceb"
+source = "git+https://github.com/paritytech/litep2p?branch=master#08112ca642cea3809625ae0abde05dc0dc46b4f3"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -17244,12 +17244,15 @@ name = "sc-network-types"
 version = "0.10.0-dev"
 dependencies = [
  "bs58 0.4.0",
+ "ed25519-dalek 2.1.1",
  "libp2p-identity",
  "litep2p",
  "multiaddr",
  "multihash 0.17.0",
+ "quickcheck",
  "rand 0.8.5",
  "thiserror",
+ "zeroize",
 ]
 
 [[package]]
@@ -19520,7 +19523,7 @@ name = "sp-io"
 version = "30.0.0"
 dependencies = [
  "bytes",
- "ed25519-dalek 2.1.0",
+ "ed25519-dalek 2.1.1",
  "libsecp256k1",
  "log",
  "parity-scale-codec",
@@ -19845,7 +19848,7 @@ version = "10.0.0"
 dependencies = [
  "aes-gcm 0.10.3",
  "curve25519-dalek 4.1.2",
- "ed25519-dalek 2.1.0",
+ "ed25519-dalek 2.1.1",
  "hkdf",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -20394,9 +20397,9 @@ dependencies = [
 
 [[package]]
 name = "str0m"
-version = "0.2.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee48572247f422dcbe68630c973f8296fbd5157119cd36a3223e48bf83d47727"
+checksum = "d3f10d3f68e60168d81110410428a435dbde28cc5525f5f7c6fdec92dbdc2800"
 dependencies = [
  "combine",
  "crc",
