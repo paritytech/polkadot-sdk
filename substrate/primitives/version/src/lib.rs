@@ -332,6 +332,16 @@ impl RuntimeVersion {
 		// If version > than 1, keep using latest version.
 		self.system_version.try_into().unwrap_or(StateVersion::V1)
 	}
+
+	/// Returns the state version to use for Extrinsics root.
+	pub fn extrinsics_root_state_version(&self) -> StateVersion {
+		match self.system_version {
+			// for system version 0 and 1, return V0
+			0 | 1 => StateVersion::V0,
+			// anything above 1, return V1
+			_ => StateVersion::V1,
+		}
+	}
 }
 
 /// The version of the native runtime.
