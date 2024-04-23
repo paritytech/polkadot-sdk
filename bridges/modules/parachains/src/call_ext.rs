@@ -87,25 +87,25 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 			return Err(InvalidTransaction::Call.into());
 		}
 
+		// if free headers interval is not configured and call is expected to execute
+		// for free => it is a relayer error, it should've been able to detect that.
+		let free_headers_interval = match T::FreeHeadersInterval::get() {
+			Some(free_headers_interval) => free_headers_interval,
+			None => return Ok(improved_by),
+		};
+
 		// reject if we are importing parachain headers too often
-		if let Some(free_headers_interval) = T::FreeHeadersInterval::get() {
-			let reject = improved_by < free_headers_interval;
+		if improved_by < free_headers_interval {
+			log::trace!(
+				target: crate::LOG_TARGET,
+				"The free parachain {:?} head can't be updated: it improves previous
+				best head by {} while at least {} is expected.",
+				update.para_id,
+				improved_by,
+				free_headers_interval,
+			);
 
-			if reject {
-				log::trace!(
-					target: crate::LOG_TARGET,
-					"The free parachain {:?} head can't be updated: it improves previous
-					best head by {} while at least {} is expected.",
-					update.para_id,
-					improved_by,
-					free_headers_interval,
-				);
-
-				return Err(InvalidTransaction::Stale.into());
-			}
-		} else {
-			// free headers interval is not configured and call is expected to execute
-			// for free => it is a relayer error, it should've been able to detect that
+			return Err(InvalidTransaction::Stale.into());
 		}
 
 		Ok(improved_by)
