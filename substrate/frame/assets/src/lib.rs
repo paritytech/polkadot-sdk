@@ -1790,7 +1790,10 @@ pub mod pallet {
 				T::Currency::unreserve(owner, deposit_amount);
 				Imbalance::zero()
 			} else {
-				// TODO TODO: log error
+				log::error!(
+					target: LOG_TARGET,
+					"asset is ensured to be `Live` thus asset has an owner; qed"
+				);
 				Imbalance::zero()
 			};
 
