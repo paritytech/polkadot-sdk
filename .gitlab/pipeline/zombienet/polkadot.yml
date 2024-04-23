@@ -312,6 +312,8 @@ zombienet-polkadot-backing-disabling:
   variables:
     ZOMBIE_PROVIDER: "k8s"
   script:
+    - unset NEXTEST_FAILURE_OUTPUT
+    - unset NEXTEST_SUCCESS_OUTPUT
     - RUST_LOG=zombienet_orchestrator=debug,zombienet_provider=debug
       cargo nextest run --archive-file ./artifacts/disabling-e2.tar.zst --no-capture -- tests::test_backing_disabling
 
@@ -323,6 +325,8 @@ zombienet-polkadot-disputes-offchain-disabling:
   variables:
     ZOMBIE_PROVIDER: "k8s"
   script:
+    - unset NEXTEST_FAILURE_OUTPUT
+    - unset NEXTEST_SUCCESS_OUTPUT
     - RUST_LOG=zombienet_orchestrator=debug,zombienet_provider=debug
       cargo nextest run --archive-file ./artifacts/disabling-e2.tar.zst --no-capture -- tests::test_disputes_offchain_disabling
 
