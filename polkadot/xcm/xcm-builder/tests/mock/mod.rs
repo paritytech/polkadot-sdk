@@ -139,7 +139,7 @@ impl configuration::Config for Runtime {
 parameter_types! {
 	pub const KsmLocation: Location = Location::here();
 	pub const KusamaNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = KusamaNetwork::get().into();
 	pub CheckAccount: (AccountId, MintLocation) = (XcmPallet::check_account(), MintLocation::Local);
 }
 
