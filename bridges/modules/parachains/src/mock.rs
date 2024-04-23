@@ -22,7 +22,7 @@ use frame_support::{
 };
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Header as HeaderT},
+	traits::{BlakeTwo256, GetDefault, Header as HeaderT},
 	MultiSignature,
 };
 
@@ -172,6 +172,7 @@ parameter_types! {
 
 impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = GetDefault;
 	type BridgedChain = TestBridgedChain;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
@@ -180,6 +181,7 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRun
 
 impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance2> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = GetDefault;
 	type BridgedChain = TestBridgedChain;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<2>;
 	type HeadersToKeep = HeadersToKeep;
@@ -194,6 +196,7 @@ parameter_types! {
 
 impl pallet_bridge_parachains::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = GetDefault;
 	type WeightInfo = ();
 	type BridgesGrandpaPalletInstance = pallet_bridge_grandpa::Instance1;
 	type ParasPalletName = ParasPalletName;
