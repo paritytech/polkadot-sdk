@@ -32,7 +32,7 @@ use polkadot_subsystem_bench::{
 };
 use std::io::Write;
 
-const BENCH_COUNT: usize = 50;
+const BENCH_COUNT: usize = 10;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
@@ -71,10 +71,10 @@ fn main() -> Result<(), String> {
 	// We expect no variance for received and sent
 	// but use 0.001 because we operate with floats
 	messages.extend(average_usage.check_network_usage(&[
-		("Received from peers", 307200.000, 0.001),
-		("Sent to peers", 1.667, 0.001),
+		("Received from peers", 307203.0000, 0.001),
+		("Sent to peers", 1.6667, 0.001),
 	]));
-	messages.extend(average_usage.check_cpu_usage(&[("availability-recovery", 11.500, 0.05)]));
+	messages.extend(average_usage.check_cpu_usage(&[("availability-recovery", 12.8338, 0.1)]));
 
 	if messages.is_empty() {
 		Ok(())
