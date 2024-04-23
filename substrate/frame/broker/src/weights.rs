@@ -78,6 +78,7 @@ pub trait WeightInfo {
 	fn request_revenue_info_at() -> Weight;
 	fn notify_core_count() -> Weight;
 	fn do_tick_base() -> Weight;
+	fn force_reserve() -> Weight;
 	fn swap_leases() -> Weight;
 }
 
@@ -475,6 +476,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(13_541_000, 4068)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	fn force_reserve() -> Weight {
+		Weight::from_parts(0,0)
 	}
 	/// Storage: `Broker::Leases` (r:1 w:1)
 	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
@@ -882,6 +886,9 @@ impl WeightInfo for () {
 		Weight::from_parts(13_541_000, 4068)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	fn force_reserve() -> Weight {
+		Weight::from_parts(0,0)
 	}
 	/// Storage: `Broker::Leases` (r:1 w:1)
 	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)

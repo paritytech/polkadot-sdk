@@ -21,7 +21,7 @@ use frame_support::{
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::{BlockNumberProvider, Convert};
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
@@ -57,6 +57,31 @@ impl<T: Config> Pallet<T> {
 		let workload = r.remove(index as usize);
 		Reservations::<T>::put(r);
 		Self::deposit_event(Event::<T>::ReservationCancelled { index, workload });
+		Ok(())
+	}
+
+	pub(crate) fn do_force_reserve(workload: Schedule) -> DispatchResult {
+		// Sales must have started, otherwise reserve is equivalent.
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+
+		// Reserve - starts at second sale period boundary from now.
+		Self::do_reserve(workload.clone())?;
+
+		// Request an extra core only if the reserve was successful.
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let core_count = status.core_count;
+		Self::do_request_core_count(core_count.saturating_add(1))?;
+
+		// Add to workload - grants one region from the next sale boundary.
+		Workplan::<T>::insert((sale.region_begin, core_count), &workload);
+
+		// Assign now directly on the relay chain until the next sale boundary.
+		let timeslice = Self::current_timeslice();
+		Workplan::<T>::insert((timeslice, core_count), &workload);
+		let rc_begin =
+			<T::Coretime as CoretimeInterface>::RelayChainBlockNumberProvider::current_block_number(
+			);
+		Self::process_core_schedule(timeslice, rc_begin, core_count);
 		Ok(())
 	}
 

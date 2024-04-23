@@ -512,6 +512,9 @@ pub mod pallet {
 
 		/// Reserve a core for a workload.
 		///
+		/// The core will be given a reservation, but two sale period boundaries must pass before
+		/// the core is assigned.
+		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `workload`: The workload which should be permanently placed on a core.
 		#[pallet::call_index(1)]
@@ -801,6 +804,21 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_notify_core_count(core_count)?;
 			Ok(())
+		}
+
+		/// Reserve a core for a workload immediately.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `workload`: The workload which should be permanently placed on a core starting
+		///   immediately.
+		#[pallet::call_index(20)]
+		pub fn force_reserve(
+			origin: OriginFor<T>,
+			workload: Schedule,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_force_reserve(workload)?;
+			Ok(Pays::No.into())
 		}
 
 		#[pallet::call_index(99)]
