@@ -159,6 +159,11 @@ pub struct StorageParams {
 	/// This is only used when `mode` is `validate-block`.
 	#[arg(long, default_value_t = 20)]
 	pub validate_block_rounds: u32,
+
+	/// Maximum number of keys to read
+	/// (All keys if not define)
+	#[arg(long)]
+	pub keys_limit: Option<usize>,
 }
 
 impl StorageParams {
@@ -248,7 +253,11 @@ impl StorageCmd {
 		BA: ClientBackend<B>,
 	{
 		let hash = client.usage_info().chain.best_hash;
-		let mut keys: Vec<_> = client.storage_keys(hash, None, None)?.collect();
+		let mut keys: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
+			client.storage_keys(hash, None, None)?.take(keys_limit).collect()
+		} else {
+			client.storage_keys(hash, None, None)?.collect()
+		};
 		let (mut rng, _) = new_rng(None);
 		keys.shuffle(&mut rng);
 

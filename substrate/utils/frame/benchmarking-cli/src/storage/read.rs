@@ -58,8 +58,12 @@ impl StorageCmd {
 		let best_hash = client.usage_info().chain.best_hash;
 
 		info!("Preparing keys from block {}", best_hash);
-		// Load all keys and randomly shuffle them.
-		let mut keys: Vec<_> = client.storage_keys(best_hash, None, None)?.collect();
+		// Load keys and randomly shuffle them.
+		let mut keys: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
+			client.storage_keys(best_hash, None, None)?.take(keys_limit).collect()
+		} else {
+			client.storage_keys(best_hash, None, None)?.collect()
+		};
 		let (mut rng, _) = new_rng(None);
 		keys.shuffle(&mut rng);
 		if keys.is_empty() {

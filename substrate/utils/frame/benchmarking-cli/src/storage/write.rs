@@ -81,8 +81,12 @@ impl StorageCmd {
 		);
 
 		info!("Preparing keys from block {}", best_hash);
-		// Load all KV pairs and randomly shuffle them.
-		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
+		// Load KV pairs and randomly shuffle them.
+		let mut kvs: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
+			trie.pairs(Default::default())?.take(keys_limit).collect()
+		} else {
+			trie.pairs(Default::default())?.collect()
+		};
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
 		if kvs.is_empty() {
