@@ -1528,8 +1528,8 @@ fn hypothetical_membership_stricter_on_complete_candidates() {
 	assert!(!chain.hypothetical_membership(
 		candidate_a_hash,
 		HypotheticalCandidate::Complete {
-			receipt: Cow::Owned(candidate_a),
-			persisted_validation_data: Cow::Owned(pvd_a),
+			receipt: Arc::new(candidate_a),
+			persisted_validation_data: &pvd_a,
 		},
 		&storage,
 	));

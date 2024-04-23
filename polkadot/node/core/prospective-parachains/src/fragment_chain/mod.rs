@@ -85,11 +85,11 @@
 mod tests;
 
 use std::{
-	borrow::Cow,
 	collections::{
 		hash_map::{Entry, HashMap},
 		BTreeMap, HashSet,
 	},
+	sync::Arc,
 };
 
 use super::LOG_TARGET;
@@ -165,14 +165,14 @@ impl CandidateStorage {
 			output_head_data_hash: candidate.commitments.head_data.hash(),
 			relay_parent: candidate.descriptor.relay_parent,
 			state,
-			candidate: ProspectiveCandidate {
-				commitments: Cow::Owned(candidate.commitments),
+			candidate: Arc::new(ProspectiveCandidate {
+				commitments: candidate.commitments,
 				collator: candidate.descriptor.collator,
 				collator_signature: candidate.descriptor.signature,
 				persisted_validation_data,
 				pov_hash: candidate.descriptor.pov_hash,
 				validation_code_hash: candidate.descriptor.validation_code_hash,
-			},
+			}),
 		};
 
 		self.by_parent_head
@@ -318,7 +318,7 @@ pub(crate) struct CandidateEntry {
 	parent_head_data_hash: Hash,
 	output_head_data_hash: Hash,
 	relay_parent: Hash,
-	candidate: ProspectiveCandidate<'static>,
+	candidate: Arc<ProspectiveCandidate>,
 	state: CandidateState,
 }
 
@@ -459,8 +459,8 @@ impl Scope {
 /// the fragment chain already.
 pub(crate) enum HypotheticalCandidate<'a> {
 	Complete {
-		receipt: Cow<'a, CommittedCandidateReceipt>,
-		persisted_validation_data: Cow<'a, PersistedValidationData>,
+		receipt: Arc<CommittedCandidateReceipt>,
+		persisted_validation_data: &'a PersistedValidationData,
 	},
 	Incomplete {
 		relay_parent: Hash,
@@ -471,10 +471,10 @@ pub(crate) enum HypotheticalCandidate<'a> {
 impl<'a> HypotheticalCandidate<'a> {
 	fn parent_head_data_hash(&self) -> Hash {
 		match *self {
-			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } =>
-				persisted_validation_data.as_ref().parent_head.hash(),
-			HypotheticalCandidate::Incomplete { ref parent_head_data_hash, .. } =>
-				*parent_head_data_hash,
+			HypotheticalCandidate::Complete { persisted_validation_data, .. } =>
+				persisted_validation_data.parent_head.hash(),
+			HypotheticalCandidate::Incomplete { parent_head_data_hash, .. } =>
+				parent_head_data_hash,
 		}
 	}
 
@@ -503,8 +503,8 @@ impl<'a> From<&'a messages::HypotheticalCandidate> for HypotheticalCandidate<'a>
 				persisted_validation_data,
 				..
 			} => Self::Complete {
-				receipt: Cow::Borrowed(receipt),
-				persisted_validation_data: Cow::Borrowed(persisted_validation_data),
+				receipt: receipt.clone(),
+				persisted_validation_data: &persisted_validation_data,
 			},
 			messages::HypotheticalCandidate::Incomplete {
 				parent_head_data_hash,
@@ -519,7 +519,7 @@ impl<'a> From<&'a messages::HypotheticalCandidate> for HypotheticalCandidate<'a>
 }
 
 pub struct FragmentNode {
-	fragment: Fragment<'static>,
+	fragment: Fragment,
 	pub candidate_hash: CandidateHash,
 	cumulative_modifications: ConstraintModifications,
 }
@@ -666,25 +666,18 @@ impl FragmentChain {
 			if let HypotheticalCandidate::Complete { ref receipt, ref persisted_validation_data } =
 				candidate
 			{
-				let prospective_candidate = ProspectiveCandidate {
-					commitments: Cow::Borrowed(&receipt.commitments),
-					collator: receipt.descriptor().collator.clone(),
-					collator_signature: receipt.descriptor().signature.clone(),
-					persisted_validation_data: persisted_validation_data.as_ref().clone(),
-					pov_hash: receipt.descriptor().pov_hash,
-					validation_code_hash: receipt.descriptor().validation_code_hash,
-				};
-
-				if Fragment::new(
-					candidate_relay_parent.clone(),
-					child_constraints,
-					prospective_candidate,
+				if Fragment::check_against_constraints(
+					&candidate_relay_parent,
+					&child_constraints,
+					&receipt.commitments,
+					&receipt.descriptor().validation_code_hash,
+					persisted_validation_data,
 				)
 				.is_err()
 				{
 					gum::debug!(
 						target: LOG_TARGET,
-						"Fragment::new() returned error",
+						"Fragment::check_against_constraints() returned error",
 					);
 					return false
 				}
@@ -992,11 +985,12 @@ impl FragmentChain {
 					let f = Fragment::new(
 						relay_parent.clone(),
 						constraints,
-						candidate.candidate.partial_clone(),
+						// It's cheap to clone because it's wrapped in an Arc
+						candidate.candidate.clone(),
 					);
 
 					match f {
-						Ok(f) => f.into_owned(),
+						Ok(f) => f,
 						Err(e) => {
 							gum::debug!(
 								target: LOG_TARGET,
