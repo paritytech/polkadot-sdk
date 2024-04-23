@@ -530,19 +530,19 @@ subsystem-benchmark-availability-recovery:
   extends:
     - .subsystem-benchmark-template
   script:
-    - cargo bench -p polkadot-availability-recovery --bench availability-recovery-regression-bench --features subsystem-benchmarks
+    - cargo bench --profile=testnet -p polkadot-availability-recovery --bench availability-recovery-regression-bench --features subsystem-benchmarks
   allow_failure: true
 
 subsystem-benchmark-availability-distribution:
   extends:
     - .subsystem-benchmark-template
   script:
-    - cargo bench -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks
+    - cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks
   allow_failure: true
 
 subsystem-benchmark-approval-voting:
   extends:
     - .subsystem-benchmark-template
   script:
-    - cargo bench -p polkadot-node-core-approval-voting --bench approval-voting-regression-bench --features subsystem-benchmarks
+    - cargo bench --profile=testnet -p polkadot-node-core-approval-voting --bench approval-voting-regression-bench --features subsystem-benchmarks
   allow_failure: true
