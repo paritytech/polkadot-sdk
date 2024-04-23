@@ -20,7 +20,7 @@ use super::*;
 use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 use log;
 
-/// Migrate to v2. Should have been part of https://github.com/paritytech/polkadot-sdk/pull/1340
+/// Migrate to v2. Should have been part of <https://github.com/paritytech/polkadot-sdk/pull/1340>.
 pub mod v2 {
 	use super::*;
 	use frame_support::{
@@ -51,8 +51,6 @@ pub mod v2 {
 	>;
 
 	/// Migrate to V2.
-	///
-	/// Note: This should have been in https://github.com/paritytech/polkadot-sdk/pull/1340.
 	pub struct UncheckedMigrationToV2<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
