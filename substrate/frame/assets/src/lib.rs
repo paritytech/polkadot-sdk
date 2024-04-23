@@ -79,6 +79,7 @@
 //! * Update an asset class's total supply.
 //! * Allow administrative activities by specially privileged accounts including freezing account
 //!   balances and minting/burning assets.
+//! * Allow revokation of all administrative privileges.
 //!
 //! ## Interface
 //!
@@ -120,6 +121,7 @@
 //!   called by the asset class's Freezer or Admin.
 //! * `block`: Disallows further `transfer`s to and from an account; called by the asset class's
 //!   Freezer.
+//! * `revoke_all_privileges`: Revoke owner, issuer, admin, and freezer privileges for the asset class.
 //!
 //! Please refer to the [`Call`] enum and its associated variants for documentation on each
 //! function.
