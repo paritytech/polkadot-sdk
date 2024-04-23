@@ -165,3 +165,33 @@ impl<'a> FromIterator<Protocol<'a>> for Multiaddr {
 		LiteP2pMultiaddr::from_iter(iter.into_iter().map(Into::into)).into()
 	}
 }
+
+/// Easy way for a user to create a `Multiaddr`.
+///
+/// Example:
+///
+/// ```rust
+/// # use multiaddr::multiaddr;
+/// let addr = build_multiaddr!(Ip4([127, 0, 0, 1]), Tcp(10500u16));
+/// ```
+///
+/// Each element passed to `multiaddr!` should be a variant of the `Protocol` enum. The
+/// optional parameter is turned into the proper type with the `Into` trait.
+///
+/// For example, `Ip4([127, 0, 0, 1])` works because `Ipv4Addr` implements `From<[u8; 4]>`.
+#[macro_export]
+macro_rules! build_multiaddr {
+    ($($comp:ident $(($param:expr))*),+) => {
+        {
+            use std::iter;
+            let elem = iter::empty::<$crate::multiaddr::Protocol>();
+            $(
+                let elem = {
+                    let cmp = $crate::multiaddr::Protocol::$comp $(( $param.into() ))*;
+                    elem.chain(iter::once(cmp))
+                };
+            )+
+            elem.collect::<$crate::multiaddr::Multiaddr>()
+        }
+    }
+}
