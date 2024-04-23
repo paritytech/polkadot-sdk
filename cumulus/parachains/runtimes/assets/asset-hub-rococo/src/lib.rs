@@ -1519,9 +1519,9 @@ impl_runtime_apis! {
 				fn worst_case_holding(depositable_count: u32) -> xcm::v4::Assets {
 					// A mix of fungible, non-fungible, and concrete assets.
 					let holding_non_fungibles = MaxAssetsIntoHolding::get() / 2 - depositable_count;
-					let holding_fungibles = holding_non_fungibles.saturating_sub(1);
+					let holding_fungibles = holding_non_fungibles.saturating_sub(2);  // -2 for two `iter::once` bellow
 					let fungibles_amount: u128 = 100;
-					let mut assets = (0..holding_fungibles)
+					(0..holding_fungibles)
 						.map(|i| {
 							Asset {
 								id: GeneralIndex(i as u128).into(),
@@ -1529,17 +1529,13 @@ impl_runtime_apis! {
 							}
 						})
 						.chain(core::iter::once(Asset { id: Here.into(), fun: Fungible(u128::MAX) }))
+						.chain(core::iter::once(Asset { id: AssetId(TokenLocation::get()), fun: Fungible(1_000_000 * UNITS) }))
 						.chain((0..holding_non_fungibles).map(|i| Asset {
 							id: GeneralIndex(i as u128).into(),
 							fun: NonFungible(asset_instance_from(i)),
 						}))
-						.collect::<Vec<_>>();
-
-					assets.push(Asset {
-						id: AssetId(TokenLocation::get()),
-						fun: Fungible(1_000_000 * UNITS),
-					});
-					assets.into()
+						.collect::<Vec<_>>()
+						.into()
 				}
 			}
 
