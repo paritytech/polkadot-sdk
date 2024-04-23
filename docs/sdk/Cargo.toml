@@ -62,9 +62,9 @@ cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-syst
 	"parameterized-consensus-hook",
 ] }
 parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info" }
-cumulus-primitives-proof-size-hostfunction = { version = "0.2.0", path = "../../cumulus/primitives/proof-size-hostfunction" }
+cumulus-primitives-proof-size-hostfunction = { path = "../../cumulus/primitives/proof-size-hostfunction" }
 cumulus-client-service = { path = "../../cumulus/client/service" }
-cumulus-primitives-storage-weight-reclaim = { version = "1.0.0", path = "../../cumulus/primitives/storage-weight-reclaim" }
+cumulus-primitives-storage-weight-reclaim = { path = "../../cumulus/primitives/storage-weight-reclaim" }
 
 # Pallets and FRAME internals
 pallet-aura = { path = "../../substrate/frame/aura" }
