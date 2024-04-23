@@ -79,7 +79,7 @@
 //! * Update an asset class's total supply.
 //! * Allow administrative activities by specially privileged accounts including freezing account
 //!   balances and minting/burning assets.
-//! * Allow revokation of all administrative privileges.
+//! * Allow revocation of all administrative privileges.
 //!
 //! ## Interface
 //!
@@ -1726,8 +1726,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Revoke irreversibly Issuer, Admin and Freezer privileges of the asset. Freeze the
-		/// metadata.
+		/// Revoke irreversibly Owner, Issuer, Admin, and Freezer privileges of the asset. Freeze
+		/// the metadata.
 		///
 		/// Warning: this action is irreversible.
 		///
@@ -1736,7 +1736,7 @@ pub mod pallet {
 		///
 		/// If origin is the owner: The deposit of the asset details and metadata will be
 		/// unreserved then withdrawn and sent to `DepositDestinationOnRevocation`. If no metadata
-		/// was set then the new deposit will be withdrawn from the owner.
+		/// was set then the new deposit for the new metadata will be withdrawn from the owner.
 		///
 		/// If origin is `ForceOrigin`: The deposit of owner is unreserved.
 		///
