@@ -165,8 +165,9 @@ build-disabling-e2e-tests:
     - .collect-artifacts
   script:
     - cd polkadot/zombienet-sdk-tests
-    - cargo nextest archive --archive-file disabling-e2.tar.zst
     - mkdir -p artifacts
+    - curl -L  --output artifacts/polkadot_metadata_small.scale https://github.com/paritytech/subxt/raw/master/artifacts/polkadot_metadata_small.scale
+    - cargo nextest archive --archive-file disabling-e2.tar.zst
     - cp ./disabling-e2.tar.zst ./artifacts/
 
 # build jobs from cumulus
