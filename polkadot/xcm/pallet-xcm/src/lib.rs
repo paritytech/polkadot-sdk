@@ -45,7 +45,7 @@ use sp_runtime::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
 		Saturating, Zero,
 	},
-	RuntimeDebug,
+	Either, RuntimeDebug,
 };
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
@@ -1311,7 +1311,7 @@ pub mod pallet {
 			Self::do_transfer_assets(
 				origin,
 				dest,
-				beneficiary,
+				Either::Left(beneficiary),
 				assets,
 				assets_transfer_type,
 				fee_asset_item,
@@ -1421,50 +1421,59 @@ pub mod pallet {
 		///  - `TransferType::Teleport`: burn local assets and forward XCM to `dest` chain to
 		///    mint/teleport assets and deposit them to `beneficiary`.
 		///
-		/// Fee payment on the source, destination and all intermediary hops, is specified through
-		/// `fees_id`, but make sure enough of the specified `fees_id` asset is included in the
-		/// given list of `assets`. `fees_id` should be enough to pay for `weight_limit`. If more
-		/// weight is needed than `weight_limit`, then the operation will fail and the sent assets
-		/// may be at risk.
+		/// On the destination chain, as well as any intermediary hops, `BuyExecution` is used to
+		/// buy execution using transferred `assets` identified by `fees_id`.
+		/// Make sure enough of the specified `fees_id` asset is included in the given list of
+		/// `assets`. `fees_id` should be enough to pay for `weight_limit`. If more weight is needed
+		/// than `weight_limit`, then the operation will fail and the sent assets may be at risk.
 		///
 		/// `fees_id` may use different transfer type than rest of `assets` and can be specified
 		/// through `fees_transfer_type`.
+		///
+		/// The caller needs to specify what should happen to the transferred assets once they reach
+		/// the `dest` chain. This is done through the `custom_xcm_on_dest` parameter, which
+		/// contains the instructions to execute on `dest` as a final step.
+		///     This is usually as simple as:
+		///     `Xcm::<()>(vec![DepositAsset { assets: Wild(AllCounted(assets.len())), beneficiary
+		/// }])`,     but could be something more exotic like sending the `assets` even further.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
 		/// - `dest`: Destination context for the assets. Will typically be `[Parent,
 		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send from
 		///   relay to parachain, or `(parents: 2, (GlobalConsensus(..), ..))` to send from
 		///   parachain across a bridge to another ecosystem destination.
-		/// - `beneficiary`: A beneficiary location for the assets in the context of `dest`. Will
-		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
 		/// - `assets_transfer_type`: The XCM `TransferType` used to transfer the `assets`.
 		/// - `fees_id`: One of the included `assets` to be be used to pay fees.
 		/// - `fees_transfer_type`: The XCM `TransferType` used to transfer the `fees` assets.
+		/// - `custom_xcm_on_dest`: The XCM to be executed on `dest` chain as the last step of the
+		///   transfer, which also determines what happens to the assets on the destination chain.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::transfer_assets())]
 		pub fn transfer_assets_using_type(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
-			beneficiary: Box<VersionedLocation>,
 			assets: Box<VersionedAssets>,
 			assets_transfer_type: Box<TransferType>,
-			fees_id: Box<VersionedAssetId>,
+			remote_fees_id: Box<VersionedAssetId>,
 			fees_transfer_type: Box<TransferType>,
+			custom_xcm_on_dest: Box<VersionedXcm<()>>,
 			weight_limit: WeightLimit,
 		) -> DispatchResult {
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let dest: Location = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let beneficiary: Location =
-				(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			let assets: Assets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let fees_id: AssetId = (*fees_id).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let fees_id: AssetId =
+				(*remote_fees_id).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let remote_xcm: Xcm<()> =
+				(*custom_xcm_on_dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			log::debug!(
 				target: "xcm::pallet_xcm::transfer_assets_using_type",
-				"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?} through {:?}, fees-id {:?} through {:?}",
-				origin_location, dest, beneficiary, assets, assets_transfer_type, fees_id, fees_transfer_type,
+				"origin {origin_location:?}, dest {dest:?}, assets {assets:?} through {assets_transfer_type:?}, \
+				remote_fees_id {fees_id:?} through {fees_transfer_type:?}, \
+				custom_xcm_on_dest {remote_xcm:?}, weight-limit {weight_limit:?}",
 			);
 
 			let assets = assets.into_inner();
@@ -1475,7 +1484,7 @@ pub mod pallet {
 			Self::do_transfer_assets(
 				origin_location,
 				dest,
-				beneficiary,
+				Either::Right(remote_xcm),
 				assets,
 				*assets_transfer_type,
 				fee_asset_index,
@@ -1650,7 +1659,7 @@ impl<T: Config> Pallet<T> {
 		let (local_xcm, remote_xcm) = Self::build_xcm_transfer_type(
 			origin.clone(),
 			dest.clone(),
-			beneficiary,
+			Either::Left(beneficiary),
 			assets,
 			assets_transfer_type,
 			FeesHandling::Batched { fees },
@@ -1692,7 +1701,7 @@ impl<T: Config> Pallet<T> {
 		let (local_xcm, remote_xcm) = Self::build_xcm_transfer_type(
 			origin_location.clone(),
 			dest.clone(),
-			beneficiary,
+			Either::Left(beneficiary),
 			assets,
 			TransferType::Teleport,
 			FeesHandling::Batched { fees },
@@ -1704,7 +1713,7 @@ impl<T: Config> Pallet<T> {
 	fn do_transfer_assets(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
+		beneficiary: Either<Location, Xcm<()>>,
 		mut assets: Vec<Asset>,
 		assets_transfer_type: TransferType,
 		fee_asset_index: usize,
@@ -1770,7 +1779,7 @@ impl<T: Config> Pallet<T> {
 	fn build_xcm_transfer_type(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
+		beneficiary: Either<Location, Xcm<()>>,
 		assets: Vec<Asset>,
 		transfer_type: TransferType,
 		fees: FeesHandling<T>,
@@ -1782,27 +1791,38 @@ impl<T: Config> Pallet<T> {
 			fees_handling {:?}, weight_limit: {:?}",
 			origin, dest, beneficiary, assets, transfer_type, fees, weight_limit,
 		);
+		// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
+		let custom_remote_xcm = match beneficiary {
+			Either::Right(custom_xcm) => custom_xcm,
+			Either::Left(beneficiary) => {
+				// max assets is `assets` (+ potentially separately handled fee)
+				let max_assets = assets.len() as u32 +
+					if matches!(&fees, FeesHandling::Batched { .. }) { 0 } else { 1 };
+				// deposit all remaining assets in holding to `beneficiary` location
+				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+			},
+		};
 		Ok(match transfer_type {
 			TransferType::LocalReserve => {
-				let (local, remote) = Self::local_reserve_transfer_programs(
+				let (local, mut remote) = Self::local_reserve_transfer_programs(
 					origin.clone(),
 					dest.clone(),
-					beneficiary,
 					assets,
 					fees,
 					weight_limit,
 				)?;
+				remote.0.extend(custom_remote_xcm.into_iter());
 				(local, Some(remote))
 			},
 			TransferType::DestinationReserve => {
-				let (local, remote) = Self::destination_reserve_transfer_programs(
+				let (local, mut remote) = Self::destination_reserve_transfer_programs(
 					origin.clone(),
 					dest.clone(),
-					beneficiary,
 					assets,
 					fees,
 					weight_limit,
 				)?;
+				remote.0.extend(custom_remote_xcm.into_iter());
 				(local, Some(remote))
 			},
 			TransferType::RemoteReserve(reserve) => {
@@ -1814,22 +1834,22 @@ impl<T: Config> Pallet<T> {
 					origin.clone(),
 					reserve.try_into().map_err(|()| Error::<T>::BadVersion)?,
 					dest.clone(),
-					beneficiary,
 					assets,
 					fees,
 					weight_limit,
+					custom_remote_xcm,
 				)?;
 				(local, None)
 			},
 			TransferType::Teleport => {
-				let (local, remote) = Self::teleport_assets_program(
+				let (local, mut remote) = Self::teleport_assets_program(
 					origin.clone(),
 					dest.clone(),
-					beneficiary,
 					assets,
 					fees,
 					weight_limit,
 				)?;
+				remote.0.extend(custom_remote_xcm.into_iter());
 				(local, Some(remote))
 			},
 		})
@@ -1947,7 +1967,6 @@ impl<T: Config> Pallet<T> {
 	fn local_reserve_transfer_programs(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
 		assets: Vec<Asset>,
 		fees: FeesHandling<T>,
 		weight_limit: WeightLimit,
@@ -1956,9 +1975,6 @@ impl<T: Config> Pallet<T> {
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
 
-		// max assets is `assets` (+ potentially separately handled fee)
-		let max_assets =
-			assets.len() as u32 + if matches!(&fees, FeesHandling::Batched { .. }) { 0 } else { 1 };
 		let assets: Assets = assets.into();
 		let context = T::UniversalLocation::get();
 		let mut reanchored_assets = assets.clone();
@@ -1980,10 +1996,6 @@ impl<T: Config> Pallet<T> {
 		]);
 		// handle fees
 		Self::add_fees_to_xcm(dest, fees, weight_limit, &mut local_execute_xcm, &mut xcm_on_dest)?;
-		// deposit all remaining assets in holding to `beneficiary` location
-		xcm_on_dest
-			.inner_mut()
-			.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
 
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
@@ -2022,7 +2034,6 @@ impl<T: Config> Pallet<T> {
 	fn destination_reserve_transfer_programs(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
 		assets: Vec<Asset>,
 		fees: FeesHandling<T>,
 		weight_limit: WeightLimit,
@@ -2031,9 +2042,6 @@ impl<T: Config> Pallet<T> {
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
 
-		// max assets is `assets` (+ potentially separately handled fee)
-		let max_assets =
-			assets.len() as u32 + if matches!(&fees, FeesHandling::Batched { .. }) { 0 } else { 1 };
 		let assets: Assets = assets.into();
 		let context = T::UniversalLocation::get();
 		let mut reanchored_assets = assets.clone();
@@ -2058,11 +2066,6 @@ impl<T: Config> Pallet<T> {
 		// handle fees
 		Self::add_fees_to_xcm(dest, fees, weight_limit, &mut local_execute_xcm, &mut xcm_on_dest)?;
 
-		// deposit all remaining assets in holding to `beneficiary` location
-		xcm_on_dest
-			.inner_mut()
-			.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
-
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
 
@@ -2071,10 +2074,10 @@ impl<T: Config> Pallet<T> {
 		origin: Location,
 		reserve: Location,
 		dest: Location,
-		beneficiary: Location,
 		assets: Vec<Asset>,
 		fees: Asset,
 		weight_limit: WeightLimit,
+		custom_xcm_on_dest: Xcm<()>,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let value = (origin, assets);
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
@@ -2096,10 +2099,9 @@ impl<T: Config> Pallet<T> {
 		// identifies `dest` as seen by `reserve`
 		let dest = dest.reanchored(&reserve, &context).map_err(|_| Error::<T>::CannotReanchor)?;
 		// xcm to be executed at dest
-		let xcm_on_dest = Xcm(vec![
-			BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() },
-			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-		]);
+		let mut xcm_on_dest =
+			Xcm(vec![BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() }]);
+		xcm_on_dest.0.extend(custom_xcm_on_dest.into_iter());
 		// xcm to be executed on reserve
 		let xcm_on_reserve = Xcm(vec![
 			BuyExecution { fees: reserve_fees, weight_limit },
@@ -2171,7 +2173,6 @@ impl<T: Config> Pallet<T> {
 	fn teleport_assets_program(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
 		assets: Vec<Asset>,
 		fees: FeesHandling<T>,
 		weight_limit: WeightLimit,
@@ -2180,9 +2181,6 @@ impl<T: Config> Pallet<T> {
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
 
-		// max assets is `assets` (+ potentially separately handled fee)
-		let max_assets =
-			assets.len() as u32 + if matches!(&fees, FeesHandling::Batched { .. }) { 0 } else { 1 };
 		let context = T::UniversalLocation::get();
 		let assets: Assets = assets.into();
 		let mut reanchored_assets = assets.clone();
@@ -2231,10 +2229,6 @@ impl<T: Config> Pallet<T> {
 		]);
 		// handle fees
 		Self::add_fees_to_xcm(dest, fees, weight_limit, &mut local_execute_xcm, &mut xcm_on_dest)?;
-		// deposit all remaining assets in holding to `beneficiary` location
-		xcm_on_dest
-			.inner_mut()
-			.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
 
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
