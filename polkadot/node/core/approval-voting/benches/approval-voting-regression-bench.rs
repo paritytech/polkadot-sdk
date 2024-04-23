@@ -14,57 +14,61 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! availability-read regression tests
+//! approval-voting throughput test
 //!
-//! Availability read benchmark based on Kusama parameters and scale.
+//! Approval Voting benchmark based on Kusama parameters and scale.
 //!
 //! Subsystems involved:
-//! - availability-distribution
-//! - bitfield-distribution
-//! - availability-store
+//! - approval-distribution
+//! - approval-voting
 
 use polkadot_subsystem_bench::{
-	availability::{benchmark_availability_write, prepare_test, TestState},
+	self,
+	approval::{bench_approvals, prepare_test, ApprovalsOptions},
 	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
 	utils::save_to_file,
 };
 use std::io::Write;
 
-const BENCH_COUNT: usize = 50;
+const BENCH_COUNT: usize = 10;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
 	let mut config = TestConfiguration::default();
-	// A single node effort roughly
-	config.n_cores = 10;
+	config.n_cores = 100;
 	config.n_validators = 500;
-	config.num_blocks = 3;
+	config.num_blocks = 10;
+	config.peer_bandwidth = 524288000000;
+	config.bandwidth = 524288000000;
+	config.latency = None;
+	config.connectivity = 100;
 	config.generate_pov_sizes();
-	let state = TestState::new(&config);
+	let options = ApprovalsOptions {
+		last_considered_tranche: 89,
+		coalesce_mean: 3.0,
+		coalesce_std_dev: 1.0,
+		coalesce_tranche_diff: 12,
+		enable_assignments_v2: true,
+		stop_when_approved: false,
+		workdir_prefix: "/tmp".to_string(),
+		num_no_shows_per_candidate: 0,
+	};
 
 	println!("Benchmarking...");
 	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let (mut env, _cfgs) = prepare_test(
-				&state,
-				polkadot_subsystem_bench::availability::TestDataAvailability::Write,
-				false,
-			);
-			env.runtime().block_on(benchmark_availability_write(
-				"data_availability_write",
-				&mut env,
-				&state,
-			))
+			let (mut env, state) = prepare_test(config.clone(), options.clone(), false);
+			env.runtime().block_on(bench_approvals("approvals_throughput", &mut env, state))
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
 
 	let average_usage = BenchmarkUsage::average(&usages);
 	save_to_file(
-		"charts/availability-distribution-regression-bench.json",
+		"charts/approval-voting-regression-bench.json",
 		average_usage.to_chart_json().map_err(|e| e.to_string())?,
 	)
 	.map_err(|e| e.to_string())?;
@@ -73,13 +77,12 @@ fn main() -> Result<(), String> {
 	// We expect no variance for received and sent
 	// but use 0.001 because we operate with floats
 	messages.extend(average_usage.check_network_usage(&[
-		("Received from peers", 433.3333, 0.001),
-		("Sent to peers", 18479.9000, 0.001),
+		("Received from peers", 52944.7000, 0.001),
+		("Sent to peers", 63532.2000, 0.001),
 	]));
 	messages.extend(average_usage.check_cpu_usage(&[
-		("availability-distribution", 0.0123, 0.1),
-		("availability-store", 0.1597, 0.1),
-		("bitfield-distribution", 0.0223, 0.1),
+		("approval-distribution", 7.7883, 0.1),
+		("approval-voting", 10.4655, 0.1),
 	]));
 
 	if messages.is_empty() {
