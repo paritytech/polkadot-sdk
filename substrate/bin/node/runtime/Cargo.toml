@@ -66,6 +66,7 @@ frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api",
 frame-try-runtime = { path = "../../../frame/try-runtime", default-features = false, optional = true }
 pallet-alliance = { path = "../../../frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "../../../frame/asset-conversion", default-features = false }
+pallet-asset-conversion-ops = { path = "../../../frame/asset-conversion/ops", default-features = false }
 pallet-asset-rate = { path = "../../../frame/asset-rate", default-features = false }
 pallet-assets = { path = "../../../frame/assets", default-features = false }
 pallet-authority-discovery = { path = "../../../frame/authority-discovery", default-features = false }
@@ -89,6 +90,7 @@ pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", defaul
 pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
 pallet-fast-unstake = { path = "../../../frame/fast-unstake", default-features = false }
 pallet-migrations = { path = "../../../frame/migrations", default-features = false }
+pallet-example-mbm = { path = "../../../frame/examples/multi-block-migrations", default-features = false }
 pallet-nis = { path = "../../../frame/nis", default-features = false }
 pallet-grandpa = { path = "../../../frame/grandpa", default-features = false }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false }
@@ -165,6 +167,7 @@ std = [
 	"log/std",
 	"node-primitives/std",
 	"pallet-alliance/std",
+	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
 	"pallet-asset-rate/std",
@@ -188,6 +191,7 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen/std",
+	"pallet-example-mbm/std",
 	"pallet-example-tasks/std",
 	"pallet-fast-unstake/std",
 	"pallet-glutton/std",
@@ -276,6 +280,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
+	"pallet-asset-conversion-ops/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
@@ -294,6 +299,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
+	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
@@ -351,6 +357,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-alliance/try-runtime",
+	"pallet-asset-conversion-ops/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
 	"pallet-asset-rate/try-runtime",
@@ -373,6 +380,7 @@ try-runtime = [
 	"pallet-democracy/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
+	"pallet-example-mbm/try-runtime",
 	"pallet-example-tasks/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-glutton/try-runtime",
