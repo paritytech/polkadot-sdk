@@ -278,7 +278,15 @@ zombienet-polkadot-misc-0002-upgrade-node:
       --local-dir="${LOCAL_DIR}/misc"
       --test="0002-upgrade-node.zndsl"
 
-# Manual tests
+zombienet-polkadot-malus-0001-dispute-valid:
+  extends:
+    - .zombienet-polkadot-common
+  variables:
+    LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/polkadot/node/malus"
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/integrationtests"
+      --test="0001-dispute-valid-block.zndsl"
 
 zombienet-polkadot-malus-0001-dispute-valid:
   extends:
@@ -290,26 +298,22 @@ zombienet-polkadot-malus-0001-dispute-valid:
       --local-dir="${LOCAL_DIR}/integrationtests"
       --test="0001-dispute-valid-block.zndsl"
 
+
+# Manual tests
+
 zombienet-polkadot-backing-disabling:
   extends:
     - .zombienet-polkadot-common
+  needs:
+    - job: build-disabling-e2e-tests
+      artifacts: true
   rules:
     - when: manual
   variables:
     ZOMBIE_PROVIDER: "k8s"
   script:
     - RUST_LOG=zombienet_orchestrator=debug,zombienet_provider=debug
-      cargo test --package zombienet-sdk-tests --lib -- tests::test_backing_disabling --exact --nocapture
-
-zombienet-polkadot-malus-0001-dispute-valid:
-  extends:
-    - .zombienet-polkadot-common
-  variables:
-    LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/polkadot/node/malus"
-  script:
-    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-      --local-dir="${LOCAL_DIR}/integrationtests"
-      --test="0001-dispute-valid-block.zndsl"
+      cargo nextest run --archive-file ./artifacts/disabling-e2.tar.zst --no-capture -- tests::test_backing_disabling
 
 zombienet-polkadot-disputes-offchain-disabling:
   extends:
@@ -320,4 +324,5 @@ zombienet-polkadot-disputes-offchain-disabling:
     ZOMBIE_PROVIDER: "k8s"
   script:
     - RUST_LOG=zombienet_orchestrator=debug,zombienet_provider=debug
-      cargo test --package zombienet-sdk-tests --lib -- tests::test_disputes_offchain_disabling --exact --nocapture
+      cargo nextest run --archive-file ./artifacts/disabling-e2.tar.zst --no-capture -- tests::test_disputes_offchain_disabling
+

@@ -156,6 +156,19 @@ build-short-benchmark:
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
 
+build-disabling-e2e-tests:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  script:
+    - cd polkadot/zombienet-sdk-tests
+    - cargo nextest archive --archive-file disabling-e2.tar.zst
+    - mkdir -p artifacts
+    - cp ./disabling-e2.tar.zst ./artifacts/
+
 # build jobs from cumulus
 
 build-linux-stable-cumulus:
