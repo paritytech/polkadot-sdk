@@ -290,6 +290,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -429,6 +463,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)* );
 		<span class="comment">// doing nothing
 		</span>(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+	}
+}
+
+<span class="doccomment">/// A wrapper router that attempts to *encode* and *decode* passed XCM `message` to ensure that the
+/// receiving side will be able to decode, at least with the same XCM version.
+///
+/// This is designed to be at the top-level of any routers which do the real delivery. While other
+/// routers can manipulate the `message`, we cannot access the final XCM due to the generic
+/// `Inner::Ticket`. Therefore, this router aims to validate at least the passed `message`.
+///
+/// NOTE: For use in mock runtimes which don't have the DMP/UMP/HRMP XCM validations.
+</span><span class="kw">pub struct </span>EnsureDecodableXcm&lt;Inner&gt;(sp_std::marker::PhantomData&lt;Inner&gt;);
+<span class="kw">impl</span>&lt;Inner: SendXcm&gt; SendXcm <span class="kw">for </span>EnsureDecodableXcm&lt;Inner&gt; {
+	<span class="kw">type </span>Ticket = Inner::Ticket;
+
+	<span class="kw">fn </span>validate(
+		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
+		message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
+	) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = message {
+			<span class="kw">let </span>versioned_xcm = VersionedXcm::&lt;()&gt;::from(msg.clone());
+			<span class="kw">if </span>versioned_xcm.validate_xcm_nesting().is_err() {
+				<span class="macro">log::error!</span>(
+					target: <span class="string">"xcm::validate_xcm_nesting"</span>,
+					<span class="string">"EnsureDecodableXcm validate_xcm_nesting error for \nversioned_xcm: {versioned_xcm:?}\nbased on xcm: {msg:?}"
+				</span>);
+				<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::Transport(<span class="string">"EnsureDecodableXcm validate_xcm_nesting error"</span>))
+			}
+		}
+		Inner::validate(destination, message)
+	}
+
+	<span class="kw">fn </span>deliver(ticket: <span class="self">Self</span>::Ticket) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
+		Inner::deliver(ticket)
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

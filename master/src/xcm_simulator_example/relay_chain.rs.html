@@ -482,9 +482,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	ConvertedConcreteId, EnsureDecodableXcm, FixedRateOfFungible, FixedWeightBounds,
+	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
@@ -614,7 +614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
 }
 
-<span class="kw">pub type </span>XcmRouter = <span class="kw">super</span>::RelayChainXcmRouter;
+<span class="kw">pub type </span>XcmRouter = EnsureDecodableXcm&lt;<span class="kw">super</span>::RelayChainXcmRouter&gt;;
 <span class="kw">pub type </span>Barrier = AllowUnpaidExecutionFrom&lt;Everything&gt;;
 
 <span class="kw">pub struct </span>XcmConfig;

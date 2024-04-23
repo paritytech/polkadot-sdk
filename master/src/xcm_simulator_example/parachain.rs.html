@@ -661,10 +661,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedXcm};
 <span class="kw">use </span>xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, ConvertedConcreteId,
-	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation,
+	EnsureDecodableXcm, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
+	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset, NoChecking,
+	NonFungiblesAdapter, ParentIsPreset, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation,
 };
 <span class="kw">use </span>xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -833,7 +833,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;,
 );
 
-<span class="kw">pub type </span>XcmRouter = <span class="kw">super</span>::ParachainXcmRouter&lt;MsgQueue&gt;;
+<span class="kw">pub type </span>XcmRouter = EnsureDecodableXcm&lt;<span class="kw">super</span>::ParachainXcmRouter&lt;MsgQueue&gt;&gt;;
 <span class="kw">pub type </span>Barrier = AllowUnpaidExecutionFrom&lt;Everything&gt;;
 
 <span class="macro">parameter_types! </span>{
