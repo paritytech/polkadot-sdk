@@ -16,7 +16,7 @@
 
 //! A mock runtime for XCM benchmarking.
 
-use crate::{fungible as xcm_balances_benchmark, mock::*};
+use crate::{fungible as xcm_balances_benchmark, generate_holding_assets, mock::*};
 use frame_benchmarking::BenchmarkError;
 use frame_support::{
 	derive_impl, parameter_types,
@@ -130,9 +130,8 @@ impl crate::Config for Test {
 		Ok(valid_destination)
 	}
 	fn worst_case_holding(depositable_count: u32) -> Assets {
-		crate::mock_worst_case_holding(
-			depositable_count,
-			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get(),
+		generate_holding_assets(
+			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get() - depositable_count,
 		)
 	}
 }
