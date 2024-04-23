@@ -140,6 +140,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV2<T, 
 				Multisigs::<T>::insert(last_key1.clone(), last_key2, new_multisig);
 				cursor = Some((last_key1, last_key2)) // Return the processed key as the new cursor.
 			} else {
+				StorageVersion::new(2).put::<crate::Pallet>();
 				cursor = None; // Signal that the migration is complete (no more items to process).
 				break;
 			}
