@@ -1242,8 +1242,9 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 
 /// Controls validator disabling
 pub trait DisablingStrategy<T: Config> {
-	/// Make a decision if an offender should be disabled or not. The result is a `Vec` of validator
-	/// indices that should be disabled
+	/// Make a disabling decision. Returns the index of the validator to disable or `None` if no new
+	/// validator should be disabled. Note that the returned index might not be the index of the
+	/// offender.
 	fn decision(
 		offender_stash: &T::AccountId,
 		slash_era: EraIndex,
@@ -1281,12 +1282,6 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 		currently_disabled: &Vec<u32>,
 	) -> Option<u32> {
 		let active_set = T::SessionInterface::validators();
-		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
-			idx as u32
-		} else {
-			// offender not found in the active set, do nothing
-			return None
-		};
 
 		// We don't disable more than the limit
 		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
@@ -1294,9 +1289,16 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 		}
 
 		// We don't disable for offences in previous eras
-		if Pallet::<T>::current_era().unwrap_or(1) > slash_era {
+		if Pallet::<T>::current_era().unwrap_or_default() > slash_era {
 			return None
 		}
+
+		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
+			idx as u32
+		} else {
+			// offender not found in the active set, do nothing
+			return None
+		};
 
 		Some(offender_idx)
 	}
