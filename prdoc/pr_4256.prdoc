@@ -1,0 +1,30 @@
+title: Bridges: Making relayer compatible with runtime upgrades
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Bridge pallets are extended with compatible relayer version constants.
+      This constant "seals" all bridge settings that may affect running relayer.
+      Once it changes, a new relayer version needs to be deployed. On the other
+      hand, we may keep running the same relayer over multiple runtime upgrades
+      if relayer version stays the same.
+
+crates:
+  - name: bridge-runtime-common
+    bump: major
+  - name: pallet-bridge-grandpa
+    bump: major
+  - name: pallet-bridge-messages
+    bump: major
+  - name: pallet-bridge-parachains
+    bump: major
+  - name: bp-runtime
+    bump: major
+  - relay-substrate-client
+    bump: major
+  - substrate-relay-helper
+    bump: major
+  - bridge-hub-rococo-runtime
+    bump: major
+  - bridge-hub-westend-runtime
+    bump: major
