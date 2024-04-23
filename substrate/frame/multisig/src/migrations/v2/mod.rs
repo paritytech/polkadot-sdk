@@ -18,7 +18,7 @@
 use super::PALLET_MIGRATIONS_ID;
 use crate::{pallet::Config, Multisig, Multisigs};
 use frame_support::{
-	migrations::{SteppedMigration, SteppedMigrationError},
+	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 };
@@ -67,16 +67,6 @@ mod v1 {
 			<T as Config>::MaxSignatories,
 		>,
 	>;
-}
-
-use crate::{Decode, Encode, MaxEncodedLen};
-// TODO: did not want to touch frame/support/src/migrations.rs
-// so I moved it here, please double check
-#[derive(MaxEncodedLen, Encode, Decode)]
-pub struct MigrationId<const N: usize> {
-	pub pallet_id: [u8; N],
-	pub version_from: u8,
-	pub version_to: u8,
 }
 
 /// Migrates the items of the [`crate::Multisigs`] map, by wrapping the timepoint value with `Some`,
