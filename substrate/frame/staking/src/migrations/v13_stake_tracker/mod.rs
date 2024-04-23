@@ -33,6 +33,18 @@ use sp_staking::StakingInterface;
 #[cfg(test)]
 mod tests;
 
+/// V13 Multi-block migration to introduce the stake-tracker pallet.
+///
+/// A step of the migration consists of processing one nominator in the [`Nominators`] list. All
+/// nominatior's target nominations are processed per step (bound by upper bound of the max
+/// nominations).
+///
+/// The goals of the migration are:
+/// - Insert all the nominated targets into the [`SortedListProvider`] target list.
+/// - Ensure the target score (total stake) is the sum of the self stake and all its nominations
+/// stake.
+/// - Ensure the new targets in the list are sorted per total stake (as per the underlying
+///   [`SortedListProvider`]).
 pub struct MigrationV13<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
 impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> {
 	type Cursor = T::AccountId;

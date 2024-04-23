@@ -24,6 +24,7 @@ use testing_utils::*;
 use codec::Decode;
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
+	assert_ok,
 	migrations::SteppedMigration,
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
@@ -1158,15 +1159,20 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Multi-block step benchmark.
-
-	// TODO: comments about the step()
+	/// Multi-block step benchmark for v13 stake-tracker migration.
+	///
+	/// The setup benchmarks the worst case scenario of a *single-step* of the migration. A single
+	/// step of this MMB migration consists of migrating one nominator, i.e. fetch all the
+	/// nominated targets of one nominator and add them to the target list.
+	/// The worst case scenario case should consider potential rebaggings done internally by the
+	/// sorted list provider, thus we populate the target list with 1000 validators before the
+	/// migration.
 	#[benchmark]
 	fn v13_mmb_step() {
 		let mut meter = WeightMeter::new();
 
 		let n_validators = 1000;
-		let n_nominators = 1000;
+		let n_nominators = 5;
 
 		let _ = create_validators_with_nominators_for_era::<T>(
 			n_validators,
@@ -1177,8 +1183,23 @@ mod benchmarks {
 		)
 		.unwrap();
 
-		T::TargetList::unsafe_clear();
-		assert_eq!(T::TargetList::iter().count(), 0);
+		// drop targets from target list nominated by the one nominator to be migrated.
+		let (_to_migrate, mut nominations) = Nominators::<T>::iter()
+			.map(|(n, noms)| (n, noms.targets.into_inner()))
+			.next()
+			.unwrap();
+
+		// remove duplicates.
+		nominations.sort();
+		nominations.dedup();
+
+		for t in nominations.iter() {
+			assert_ok!(T::TargetList::on_remove(&t));
+		}
+
+		// targets nominated by first nominator will be dropped from the target list.
+		// note: +1 because there is one extra validator added by the test setup.
+		assert_eq!(T::TargetList::count(), n_validators + 1 - nominations.len() as u32);
 
 		#[block]
 		{
@@ -1186,8 +1207,7 @@ mod benchmarks {
 				.unwrap();
 		}
 
-		// TODO: check the current try-state assertions in the stake-tracker.
-		assert_eq!(T::TargetList::iter().count(), n_validators as usize);
+		assert_eq!(T::TargetList::count(), n_validators + 1);
 	}
 
 	impl_benchmark_test_suite!(

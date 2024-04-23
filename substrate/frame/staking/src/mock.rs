@@ -562,6 +562,10 @@ impl ExtBuilder {
 		SkipStakeTrackerTryStateCheck::set(!enable);
 		self
 	}
+	pub fn max_winners(self, max: u32) -> Self {
+		MaxWinners::set(max);
+		self
+	}
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

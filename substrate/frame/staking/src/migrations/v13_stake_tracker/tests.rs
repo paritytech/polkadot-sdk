@@ -129,37 +129,51 @@ fn mb_migration_target_list_chilled_validator_works() {
 
 #[test]
 fn mb_migration_target_list_bench_works() {
-	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
-		// setup:
-		// 1000 validators;
-		// 5 nominators;
-		// 16 nominations.
-		let _ =
-			testing_utils::create_validators_with_nominators_for_era::<T>(1000, 5, 16, true, None);
-		assert_eq!(TargetBagsList::count(), 1000);
+	ExtBuilder::default()
+		.has_stakers(false)
+		.max_winners(1000)
+		.build_and_execute(|| {
+			// setup:
+			// 1000 validators;
+			// 5 nominators;
+			// 16 nominations.
+			let _ = testing_utils::create_validators_with_nominators_for_era::<T>(
+				1000, 5, 16, true, None,
+			);
+			assert_eq!(TargetBagsList::count(), 1000);
 
-		// drop targets from target list nominated by the one nominator to be migrated.
-		let (_to_migrate, nominations) =
-			Nominators::<T>::iter().map(|(n, noms)| (n, noms.targets)).next().unwrap();
+			// drop targets from target list nominated by the one nominator to be migrated.
+			let (_to_migrate, mut nominations) = Nominators::<T>::iter()
+				.map(|(n, noms)| (n, noms.targets.into_inner()))
+				.next()
+				.unwrap();
 
-		for t in nominations.iter() {
-			assert_ok!(TargetBagsList::on_remove(&t));
-		}
+			// remove duplicates.
+			nominations.sort();
+			nominations.dedup();
 
-		assert!(TargetBagsList::count() < 1000);
-		assert!(Staking::do_try_state(System::block_number()).is_err());
+			for t in nominations.iter() {
+				assert_ok!(TargetBagsList::on_remove(&t));
+			}
 
-		// allocate 1 step per block.
-		let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none() +
-			pallet_migrations::Pallet::<T>::exec_migration_max_weight() +
-			SubstrateWeight::<T>::v13_mmb_step();
-		MigratorServiceWeight::set(&limit);
+			// targets nominated by first nominator will be dropped from the target list.
+			assert_eq!(TargetBagsList::count(), 1000 - nominations.len() as u32);
+			assert!(Staking::do_try_state(System::block_number()).is_err());
 
-		AllPalletsWithSystem::on_runtime_upgrade(); // onboard MBMs
-		run_to_block(2);
+			// allocate 1 step per block.
+			let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none() +
+				pallet_migrations::Pallet::<T>::exec_migration_max_weight() +
+				SubstrateWeight::<T>::v13_mmb_step();
+			MigratorServiceWeight::set(&limit);
 
-		// migration done, try state checks pass.
-		assert_eq!(TargetBagsList::count(), 1000);
-		assert!(Staking::do_try_state(System::block_number()).is_ok());
-	})
+			AllPalletsWithSystem::on_runtime_upgrade(); // onboard MBMs
+
+			// migrate first nominator, which will add back all the targets to the target list.
+			run_to_block(2);
+
+			// migration done, try state checks pass.
+			assert_eq!(TargetBagsList::count(), 1000);
+			Staking::do_try_state(System::block_number()).unwrap();
+			assert!(Staking::do_try_state(System::block_number()).is_ok());
+		})
 }
