@@ -1008,8 +1008,8 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+			ensure!(details.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
 			ensure!(d.freezer() == Some(&origin), Error::<T, I>::NoPermission);
-			Self::ensure_live_asset(&d)?;
 			let who = T::Lookup::lookup(who)?;
 
 			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
@@ -1042,8 +1042,8 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(details.admin() == Some(&origin), Error::<T, I>::NoPermission);
 			ensure!(details.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
+			ensure!(details.admin() == Some(&origin), Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
 
 			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
@@ -1072,8 +1072,8 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let d = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(d.freezer() == Some(&origin), Error::<T, I>::NoPermission);
 				Self::ensure_live_asset(&d)?;
+				ensure!(d.freezer() == Some(&origin), Error::<T, I>::NoPermission);
 
 				d.status = AssetStatus::Frozen;
 
@@ -1130,9 +1130,9 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
+				Self::ensure_live_asset(&details)?;
 				let current_owner = details.owner().ok_or(Error::<T, I>::NoPermission)?;
 				ensure!(current_owner == &origin, Error::<T, I>::NoPermission);
-				Self::ensure_live_asset(&details)?;
 				if current_owner == &owner {
 					return Ok(())
 				}
@@ -1185,9 +1185,9 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
+				Self::ensure_live_asset(&details)?;
 				let owner = details.owner().ok_or(Error::<T, I>::NoPermission)?;
 				ensure!(owner == &origin, Error::<T, I>::NoPermission);
-				Self::ensure_live_asset(&details)?;
 
 				match details.try_set_team(&owner.clone(), &issuer, &admin, &freezer) {
 					Ok(()) => (),
@@ -1250,9 +1250,9 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+			Self::ensure_live_asset(&d)?;
 			let owner = d.owner().ok_or_else(|| Error::<T, I>::NoPermission)?;
 			ensure!(owner == &origin, Error::<T, I>::NoPermission);
-			Self::ensure_live_asset(&d)?;
 
 			Metadata::<T, I>::try_mutate_exists(id.clone(), |metadata| {
 				let deposit = metadata.take().ok_or(Error::<T, I>::Unknown)?.deposit;
@@ -1711,8 +1711,8 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(d.freezer() == Some(&origin), Error::<T, I>::NoPermission);
 			ensure!(d.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
+			ensure!(d.freezer() == Some(&origin), Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
 
 			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
