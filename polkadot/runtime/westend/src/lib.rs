@@ -1646,9 +1646,7 @@ pub mod migrations {
 	}
 
 	/// Unreleased migrations. Add new ones here:
-	pub type Unreleased = (
-		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
-	);
+	pub type Unreleased = (pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
