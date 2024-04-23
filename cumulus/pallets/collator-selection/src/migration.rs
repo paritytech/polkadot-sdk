@@ -85,9 +85,14 @@ pub mod v2 {
 							err, &candidate.who,
 						);
 					}
-					// weight.saturating_accrue(<T as pallet_balances::Config>::WeightInfo::force_unreserve());
 					count.saturating_inc();
 				}
+				// conservative benchmarks from `force_unreserve`
+				weight.saturating_accrue(
+					Weight::from_parts(20_000_000, 4_000)
+						.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+						.saturating_mul(count.into()),
+				);
 			}
 
 			log::info!(
