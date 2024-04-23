@@ -738,9 +738,6 @@ impl_runtime_apis! {
 				bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 			>(lane, begin, end)
 		}
-		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
-			BridgeRococoMessages::compatible_relayer_version()
-		}
 	}
 
 	#[cfg(feature = "try-runtime")]

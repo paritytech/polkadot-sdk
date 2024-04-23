@@ -986,9 +986,6 @@ impl_runtime_apis! {
 				bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 			>(lane, begin, end)
 		}
-		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
-			BridgeWestendMessages::compatible_relayer_version()
-		}
 	}
 
 	impl bp_polkadot_bulletin::PolkadotBulletinFinalityApi<Block> for Runtime {
@@ -1029,9 +1026,6 @@ impl_runtime_apis! {
 				Runtime,
 				bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
 			>(lane, begin, end)
-		}
-		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
-			BridgeRococoBulletinMessages::compatible_relayer_version()
 		}
 	}
 
