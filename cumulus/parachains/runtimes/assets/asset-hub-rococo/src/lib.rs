@@ -959,7 +959,67 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Migrations to apply on runtime upgrade.
-pub type Migrations = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
+#[allow(deprecated)]
+pub type Migrations = (
+	InitStorageVersions,
+	// unreleased
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	// permanent
+	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+);
+
+/// Migration to initialize storage versions for pallets added after genesis.
+///
+/// This is now done automatically (see <https://github.com/paritytech/polkadot-sdk/pull/1297>),
+/// but some pallets had made it in and had storage set in them for this parachain before it was
+/// merged.
+pub struct InitStorageVersions;
+
+impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::{GetStorageVersion, StorageVersion};
+
+		let mut writes = 0;
+
+		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
+			PolkadotXcm::in_code_storage_version().put::<PolkadotXcm>();
+			writes.saturating_inc();
+		}
+
+		if Multisig::on_chain_storage_version() == StorageVersion::new(0) {
+			Multisig::in_code_storage_version().put::<Multisig>();
+			writes.saturating_inc();
+		}
+
+		if Assets::on_chain_storage_version() == StorageVersion::new(0) {
+			Assets::in_code_storage_version().put::<Assets>();
+			writes.saturating_inc();
+		}
+
+		if Uniques::on_chain_storage_version() == StorageVersion::new(0) {
+			Uniques::in_code_storage_version().put::<Uniques>();
+			writes.saturating_inc();
+		}
+
+		if Nfts::on_chain_storage_version() == StorageVersion::new(0) {
+			Nfts::in_code_storage_version().put::<Nfts>();
+			writes.saturating_inc();
+		}
+
+		if ForeignAssets::on_chain_storage_version() == StorageVersion::new(0) {
+			ForeignAssets::in_code_storage_version().put::<ForeignAssets>();
+			writes.saturating_inc();
+		}
+
+		if PoolAssets::on_chain_storage_version() == StorageVersion::new(0) {
+			PoolAssets::in_code_storage_version().put::<PoolAssets>();
+			writes.saturating_inc();
+		}
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(7, writes)
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
