@@ -226,7 +226,7 @@ async fn handle_active_leaves_update<Context>(
 		let mut fragment_chains = HashMap::new();
 		for para in scheduled_paras {
 			let candidate_storage =
-				view.candidate_storage.entry(para).or_insert_with(CandidateStorage::new);
+				view.candidate_storage.entry(para).or_insert_with(CandidateStorage::default);
 
 			let backing_state = fetch_backing_state(&mut *ctx, hash, para).await?;
 
@@ -446,29 +446,31 @@ async fn handle_introduce_seconded_candidate<Context>(
 
 	// Add the candidate to storage.
 	// Then attempt to add it to all chains.
-	let storage = match view.candidate_storage.get_mut(&para) {
-		None => {
-			gum::warn!(
-				target: LOG_TARGET,
-				para_id = ?para,
-				candidate_hash = ?candidate.hash(),
-				"Received seconded candidate for inactive para",
-			);
+	let Some(storage) = view.candidate_storage.get_mut(&para) else {
+		gum::warn!(
+			target: LOG_TARGET,
+			para_id = ?para,
+			candidate_hash = ?candidate.hash(),
+			"Received seconded candidate for inactive para",
+		);
 
-			let _ = tx.send(false);
-			return
-		},
-		Some(storage) => storage,
+		let _ = tx.send(false);
+		return
 	};
 
-	let actual_relay_parent = candidate.descriptor.relay_parent;
 	let parent_head_hash = pvd.parent_head.hash();
 	let output_head_hash = Some(candidate.commitments.head_data.hash());
+
+	// We first introduce the candidate in the storage and then try to extend the chain.
+	// If the candidate gets included in the chain, we can keep it in storage.
+	// If it doesn't, check that it's still a potential candidate in at least one fragment chain.
+	// If it's not, we can remove it.
+
 	let candidate_hash =
 		match storage.add_candidate(candidate.clone(), pvd, CandidateState::Seconded) {
 			Ok(c) => c,
 			Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
-				gum::warn!(
+				gum::debug!(
 					target: LOG_TARGET,
 					para = ?para,
 					"Attempting to introduce an already known candidate: {:?}",
@@ -504,7 +506,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 				"Candidates in chain before trying to introduce a new one: {:?}",
 				chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
 			);
-			chain.repopulate(&*storage);
+			chain.extend_from_storage(&*storage);
 			if chain.contains_candidate(&candidate_hash) {
 				keep_in_storage = true;
 
@@ -524,7 +526,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 				);
 			} else if chain.can_add_candidate_as_potential(
 				&storage,
-				&actual_relay_parent,
+				&candidate.descriptor.relay_parent,
 				parent_head_hash,
 				output_head_hash,
 			) {
@@ -627,49 +629,40 @@ fn answer_get_backable_candidates(
 	ancestors: Ancestors,
 	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 ) {
-	let data = match view.active_leaves.get(&relay_parent) {
-		None => {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				para_id = ?para,
-				"Requested backable candidate for inactive relay-parent."
-			);
+	let Some(data) = view.active_leaves.get(&relay_parent) else {
+		gum::debug!(
+			target: LOG_TARGET,
+			?relay_parent,
+			para_id = ?para,
+			"Requested backable candidate for inactive relay-parent."
+		);
 
-			let _ = tx.send(vec![]);
-			return
-		},
-		Some(d) => d,
+		let _ = tx.send(vec![]);
+		return
 	};
 
-	let chain = match data.fragment_chains.get(&para) {
-		None => {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				para_id = ?para,
-				"Requested backable candidate for inactive para."
-			);
+	let Some(chain) = data.fragment_chains.get(&para) else {
+		gum::debug!(
+			target: LOG_TARGET,
+			?relay_parent,
+			para_id = ?para,
+			"Requested backable candidate for inactive para."
+		);
 
-			let _ = tx.send(vec![]);
-			return
-		},
-		Some(chain) => chain,
+		let _ = tx.send(vec![]);
+		return
 	};
 
-	let storage = match view.candidate_storage.get(&para) {
-		None => {
-			gum::warn!(
-				target: LOG_TARGET,
-				?relay_parent,
-				para_id = ?para,
-				"No candidate storage for active para",
-			);
+	let Some(storage) = view.candidate_storage.get(&para) else {
+		gum::warn!(
+			target: LOG_TARGET,
+			?relay_parent,
+			para_id = ?para,
+			"No candidate storage for active para",
+		);
 
-			let _ = tx.send(vec![]);
-			return
-		},
-		Some(s) => s,
+		let _ = tx.send(vec![]);
+		return
 	};
 
 	gum::debug!(
@@ -692,7 +685,7 @@ fn answer_get_backable_candidates(
 		.find_backable_chain(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
 		.into_iter()
 		.filter_map(|child_hash| {
-			storage.relay_parent_by_candidate_hash(&child_hash).map_or_else(
+			storage.relay_parent_of_candidate(&child_hash).map_or_else(
 				|| {
 					// Here, we'd actually need to trim all of the candidates that follow. Or
 					// not, the runtime will do this. Impossible scenario anyway.
@@ -822,8 +815,7 @@ fn answer_prospective_validation_data_request(
 			break
 		}
 		if relay_parent_info.is_none() {
-			relay_parent_info =
-				fragment_chain.scope().ancestor_by_hash(&request.candidate_relay_parent);
+			relay_parent_info = fragment_chain.scope().ancestor(&request.candidate_relay_parent);
 		}
 		if head_data.is_none() {
 			let required_parent = &fragment_chain.scope().base_constraints().required_parent;
@@ -832,10 +824,8 @@ fn answer_prospective_validation_data_request(
 			}
 		}
 		if max_pov_size.is_none() {
-			let contains_ancestor = fragment_chain
-				.scope()
-				.ancestor_by_hash(&request.candidate_relay_parent)
-				.is_some();
+			let contains_ancestor =
+				fragment_chain.scope().ancestor(&request.candidate_relay_parent).is_some();
 			if contains_ancestor {
 				// We are leaning hard on two assumptions here.
 				// 1. That the fragment chain never contains allowed relay-parents whose session for

@@ -114,7 +114,7 @@ pub enum CandidateStorageInsertionError {
 
 /// Stores candidates and information about them such as their relay-parents and their backing
 /// states.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct CandidateStorage {
 	// Index from head data hash to candidate hashes with that head data as a parent. Purely for
 	// efficiency when responding to `ProspectiveValidationDataRequest`s or when trying to find a
@@ -134,15 +134,6 @@ pub(crate) struct CandidateStorage {
 }
 
 impl CandidateStorage {
-	/// Create a new `CandidateStorage`.
-	pub fn new() -> Self {
-		CandidateStorage {
-			by_parent_head: HashMap::new(),
-			by_output_head: HashMap::new(),
-			by_candidate_hash: HashMap::new(),
-		}
-	}
-
 	/// Introduce a new candidate.
 	pub fn add_candidate(
 		&mut self,
@@ -272,10 +263,7 @@ impl CandidateStorage {
 	}
 
 	/// Returns candidate's relay parent, if present.
-	pub(crate) fn relay_parent_by_candidate_hash(
-		&self,
-		candidate_hash: &CandidateHash,
-	) -> Option<Hash> {
+	pub(crate) fn relay_parent_of_candidate(&self, candidate_hash: &CandidateHash) -> Option<Hash> {
 		self.by_candidate_hash.get(candidate_hash).map(|entry| entry.relay_parent)
 	}
 
@@ -349,12 +337,19 @@ pub(crate) struct PendingAvailability {
 /// The scope of a [`FragmentChain`].
 #[derive(Debug, Clone)]
 pub(crate) struct Scope {
+	/// The assigned para id of this `FragmentChain`.
 	para: ParaId,
+	/// The relay parent we're currently building on top of.
 	relay_parent: RelayChainBlockInfo,
+	/// The other relay parents candidates are allowed to build upon, mapped by the block number.
 	ancestors: BTreeMap<BlockNumber, RelayChainBlockInfo>,
+	/// The other relay parents candidates are allowed to build upon, mapped by the block hash.
 	ancestors_by_hash: HashMap<Hash, RelayChainBlockInfo>,
+	/// The candidates pending availability at this block.
 	pending_availability: Vec<PendingAvailability>,
+	/// The base constraints derived from the latest included candidate.
 	base_constraints: Constraints,
+	/// Equal to `max_candidate_depth`.
 	max_depth: usize,
 }
 
@@ -433,7 +428,7 @@ impl Scope {
 	}
 
 	/// Get the relay ancestor of the fragment chain by hash.
-	pub fn ancestor_by_hash(&self, hash: &Hash) -> Option<RelayChainBlockInfo> {
+	pub fn ancestor(&self, hash: &Hash) -> Option<RelayChainBlockInfo> {
 		if hash == &self.relay_parent.hash {
 			return Some(self.relay_parent.clone())
 		}
@@ -596,7 +591,7 @@ impl FragmentChain {
 	/// Try accumulating more candidates onto the chain.
 	///
 	/// Candidates can only be added if they build on the already existing chain.
-	pub(crate) fn repopulate(&mut self, storage: &CandidateStorage) {
+	pub(crate) fn extend_from_storage(&mut self, storage: &CandidateStorage) {
 		self.populate_chain(storage);
 	}
 
@@ -631,8 +626,7 @@ impl FragmentChain {
 			return false
 		}
 
-		let Some(candidate_relay_parent) = self.scope.ancestor_by_hash(&candidate.relay_parent())
-		else {
+		let Some(candidate_relay_parent) = self.scope.ancestor(&candidate.relay_parent()) else {
 			// can_add_candidate_as_potential already checked for this, but just to be safe.
 			return false
 		};
@@ -750,7 +744,7 @@ impl FragmentChain {
 	fn earliest_relay_parent(&self) -> RelayChainBlockInfo {
 		if let Some(last_candidate) = self.chain.last() {
 			self.scope
-				.ancestor_by_hash(&last_candidate.relay_parent())
+				.ancestor(&last_candidate.relay_parent())
 				.or_else(|| {
 					// if the relay-parent is out of scope _and_ it is in the chain,
 					// it must be a candidate pending availability.
@@ -828,11 +822,7 @@ impl FragmentChain {
 	// introduce a fork or a cycle in the parachain.
 	// `output_head_hash` is optional because we sometimes make this check before retrieving the
 	// collation.
-	fn check_forks_and_cycles(
-		&self,
-		parent_head_hash: Hash,
-		output_head_hash: Option<Hash>,
-	) -> bool {
+	fn is_fork_or_cycle(&self, parent_head_hash: Hash, output_head_hash: Option<Hash>) -> bool {
 		if self.by_parent_head.contains_key(&parent_head_hash) {
 			// fork. our parent has another child already
 			return false;
@@ -871,13 +861,13 @@ impl FragmentChain {
 		parent_head_hash: Hash,
 		output_head_hash: Option<Hash>,
 	) -> bool {
-		if !self.check_forks_and_cycles(parent_head_hash, output_head_hash) {
+		if !self.is_fork_or_cycle(parent_head_hash, output_head_hash) {
 			return false;
 		}
 
 		let earliest_rp = self.earliest_relay_parent();
 
-		let Some(relay_parent) = self.scope.ancestor_by_hash(relay_parent) else { return false };
+		let Some(relay_parent) = self.scope.ancestor(relay_parent) else { return false };
 
 		if relay_parent.number < earliest_rp.number {
 			return false // relay parent moved backwards.
@@ -931,7 +921,7 @@ impl FragmentChain {
 				// 4. all non-pending-availability candidates have relay-parent in scope.
 				// 5. candidate outputs fulfill constraints
 
-				if !self.check_forks_and_cycles(
+				if !self.is_fork_or_cycle(
 					candidate.parent_head_data_hash(),
 					Some(candidate.output_head_data_hash()),
 				) {
@@ -946,7 +936,7 @@ impl FragmentChain {
 				let pending = self.scope.get_pending_availability(&candidate.candidate_hash);
 				let Some(relay_parent) = pending
 					.map(|p| p.relay_parent.clone())
-					.or_else(|| self.scope.ancestor_by_hash(&candidate.relay_parent))
+					.or_else(|| self.scope.ancestor(&candidate.relay_parent))
 				else {
 					continue
 				};

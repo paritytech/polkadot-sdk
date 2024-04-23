@@ -56,8 +56,8 @@
 ///
 /// ## Fragment Chains
 ///
-/// For simplicity, we expect that collators of the same parachain are cooperating and don't
-/// create parachain forks on the same relay chain active leaf.
+/// For simplicity and practicality, we expect that collators of the same parachain are
+/// cooperating and don't create parachain forks or cycles on the same relay chain active leaf.
 /// Therefore, higher-level code should maintain one fragment chain for each active leaf (not a
 /// fragment tree). If parachains do create forks, their performance in regards to async
 /// backing and elastic scaling will suffer, because different validators will have different
