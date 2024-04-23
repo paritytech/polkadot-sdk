@@ -157,8 +157,13 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		if let Some(msg) = message {
-			if let Some(e) = Self::ensure_encode_decode(msg) {
-				return Err(e)
+			let versioned_xcm = VersionedXcm::<()>::from(msg.clone());
+			if versioned_xcm.validate_xcm_nesting().is_err() {
+				log::error!(
+					target: "xcm::validate_xcm_nesting",
+					"EnsureDecodableXcm validate_xcm_nesting error for \nversioned_xcm: {versioned_xcm:?}\nbased on xcm: {msg:?}"
+				);
+				return Err(SendError::Transport("EnsureDecodableXcm validate_xcm_nesting error"))
 			}
 		}
 		Inner::validate(destination, message)
@@ -167,41 +172,4 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
 		Inner::deliver(ticket)
 	}
-}
-impl<Inner> EnsureDecodableXcm<Inner> {
-	fn ensure_encode_decode(xcm: &Xcm<()>) -> Option<SendError> {
-		use parity_scale_codec::Decode;
-		let encoded = xcm.encode();
-		match Xcm::<()>::decode(&mut &encoded[..]) {
-			Ok(decoded_xcm) => match decoded_xcm.eq(xcm) {
-				true => None,
-				false => {
-					log::error!(target: "xcm::test_utils", "EnsureDecodableXcm `decoded_xcm` does not match `xcm` - \ndecoded_xcm: {decoded_xcm:?} \nxcm:{xcm:?}");
-					Some(SendError::Transport("Decoded xcm does not match xcm!"))
-				},
-			},
-			Err(e) => {
-				log::error!(target: "xcm::test_utils", "EnsureDecodableXcm decode error: {e:?} occurred for xcm: {xcm:?}");
-				Some(SendError::Transport("Failed to encode/decode xcm!"))
-			},
-		}
-	}
-}
-
-#[test]
-fn ensure_encode_decode_works() {
-	let good_fun = vec![(Here, 10).into(), (Parent, 10).into()];
-	assert!(Assets::from_sorted_and_deduplicated(good_fun.clone()).is_ok());
-
-	let good_xcm = Xcm(vec![ReserveAssetDeposited(Assets::from(good_fun.clone()))]);
-	assert!(EnsureDecodableXcm::<()>::ensure_encode_decode(&good_xcm).is_none());
-
-	let bad_xcm = Xcm(vec![
-		ReserveAssetDeposited(Assets::from(good_fun));
-		(xcm::latest::MAX_INSTRUCTIONS_TO_DECODE + 1) as usize
-	]);
-	assert_eq!(
-		EnsureDecodableXcm::<()>::ensure_encode_decode(&bad_xcm),
-		Some(SendError::Transport("Failed to encode/decode xcm!"))
-	);
 }
