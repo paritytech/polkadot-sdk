@@ -364,10 +364,6 @@ macro_rules! decl_bridge_messages_runtime_apis {
 				pub const [<TO_ $chain:upper _MESSAGE_DETAILS_METHOD>]: &str =
 					stringify!([<To $chain:camel OutboundLaneApi_message_details>]);
 
-				/// Name of the `To<ThisChain>OutboundLaneApi::compatible_relayer_version` runtime method.
-				pub const [<TO_ $chain:upper _MESSAGES_COMPATIBLE_RELAYER_VERSION>]: &str =
-					stringify!([<To $chain:camel OutboundLaneApi_compatible_relayer_version>]);
-
 				/// Name of the `From<ThisChain>InboundLaneApi::message_details` runtime method.
 				pub const [<FROM_ $chain:upper _MESSAGE_DETAILS_METHOD>]: &str =
 					stringify!([<From $chain:camel InboundLaneApi_message_details>]);
@@ -392,10 +388,6 @@ macro_rules! decl_bridge_messages_runtime_apis {
 							begin: bp_messages::MessageNonce,
 							end: bp_messages::MessageNonce,
 						) -> sp_std::vec::Vec<bp_messages::OutboundMessageDetails>;
-
-						/// Return version of relayer that is compatible with messages pallet configuration
-						/// and may safely submit transaction to this chain.
-						fn compatible_relayer_version() -> bp_runtime::RelayerVersion;
 					}
 
 					/// Inbound message lane API for messages sent by this chain.
