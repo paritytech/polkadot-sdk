@@ -1285,20 +1285,33 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 
 		// We don't disable more than the limit
 		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
+			log!(
+				debug,
+				"Won't disable: reached disabling limit {:?}",
+				Self::disable_limit(active_set.len())
+			);
 			return None
 		}
 
 		// We don't disable for offences in previous eras
-		if Pallet::<T>::current_era().unwrap_or_default() > slash_era {
+		if ActiveEra::<T>::get().map(|e| e.index).unwrap_or_default() > slash_era {
+			log!(
+				debug,
+				"Won't disable: current_era {:?} > slash_era {:?}",
+				Pallet::<T>::current_era().unwrap_or_default(),
+				slash_era
+			);
 			return None
 		}
 
 		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
 			idx as u32
 		} else {
-			// offender not found in the active set, do nothing
+			log!(debug, "Won't disable: offender not in active set",);
 			return None
 		};
+
+		log!(debug, "Will disable {:?}", offender_idx);
 
 		Some(offender_idx)
 	}
