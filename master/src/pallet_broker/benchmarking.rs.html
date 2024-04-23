@@ -1090,6 +1090,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#939" id="939">939</a>
 <a href="#940" id="940">940</a>
 <a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1281,11 +1285,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>config = new_config_record::&lt;T&gt;();
 		Configuration::&lt;T&gt;::put(config.clone());
 
+		<span class="kw">let </span><span class="kw-2">mut </span>extra_cores = n;
+
 		<span class="comment">// Assume Reservations to be filled for worst case
-		</span>setup_reservations::&lt;T&gt;(T::MaxReservedCores::get());
+		</span>setup_reservations::&lt;T&gt;(extra_cores.min(T::MaxReservedCores::get()));
+		extra_cores = extra_cores.saturating_sub(T::MaxReservedCores::get());
 
 		<span class="comment">// Assume Leases to be filled for worst case
-		</span>setup_leases::&lt;T&gt;(T::MaxLeasedCores::get(), <span class="number">1</span>, <span class="number">10</span>);
+		</span>setup_leases::&lt;T&gt;(extra_cores.min(T::MaxLeasedCores::get()), <span class="number">1</span>, <span class="number">10</span>);
+		extra_cores = extra_cores.saturating_sub(T::MaxLeasedCores::get());
 
 		<span class="kw">let </span>latest_region_begin = Broker::&lt;T&gt;::latest_timeslice_ready_to_commit(<span class="kw-2">&amp;</span>config);
 
@@ -1295,7 +1303,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::AdminOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		<span class="attr">#[extrinsic_call]
-		</span><span class="kw">_</span>(origin <span class="kw">as </span>T::RuntimeOrigin, initial_price, n.try_into().unwrap());
+		</span><span class="kw">_</span>(origin <span class="kw">as </span>T::RuntimeOrigin, initial_price, extra_cores.try_into().unwrap());
 
 		<span class="macro">assert!</span>(SaleInfo::&lt;T&gt;::get().is_some());
 		assert_last_event::&lt;T&gt;(

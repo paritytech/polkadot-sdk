@@ -963,11 +963,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#812" id="812">812</a>
 <a href="#813" id="813">813</a>
 <a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1529,27 +1524,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `initial_price`: The price of Bulk Coretime in the first sale.
-		/// - `total_core_count`: This is the total number of cores the relay chain should have
-		/// after the sale concludes.
+		/// - `extra_cores`: Number of extra cores that should be requested on top of the cores
+		///   required for `Reservations` and `Leases`.
 		///
-		/// NOTE: This function does not actually request that new core count from the relay chain.
-		/// You need to make sure to call `request_core_count` afterwards to bring the relay chain
-		/// in sync.
-		///
-		/// When to call the function depends on the new core count. If it is larger than what it
-		/// was before, you can call it immediately or even before `start_sales` as non allocated
-		/// cores will just be `Idle`. If you are actually reducing the number of cores, you should
-		/// call `request_core_count`, right before the next sale, to avoid shutting down tasks too
-		/// early.
+		/// This will call [`Self::request_core_count`] internally to set the correct core count on
+		/// the relay chain.
 		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
-		#[pallet::weight(T::WeightInfo::start_sales((<span class="kw-2">*</span>total_core_count).into()))]
+		#[pallet::weight(T::WeightInfo::start_sales(
+			T::MaxLeasedCores::get() + T::MaxReservedCores::get() + <span class="kw-2">*</span>extra_cores <span class="kw">as </span>u32
+		))]
 		</span><span class="kw">pub fn </span>start_sales(
 			origin: OriginFor&lt;T&gt;,
 			initial_price: BalanceOf&lt;T&gt;,
-			total_core_count: CoreIndex,
+			extra_cores: CoreIndex,
 		) -&gt; DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::do_start_sales(initial_price, total_core_count)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::do_start_sales(initial_price, extra_cores)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}
 
