@@ -8188,7 +8188,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/litep2p?branch=lexnv/merge-fix-for-testing#153d38882d11ab240f231133a6e357448f1b35c9"
+source = "git+https://github.com/paritytech/litep2p?branch=lexnv/merge-fix-for-testing#4440725545382c39437dda0ff37277ee1af9ffa4"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
