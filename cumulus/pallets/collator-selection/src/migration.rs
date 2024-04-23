@@ -79,14 +79,13 @@ pub mod v2 {
 					// `CandidateList`. So, let's just refund the old ones and assume they have
 					// already started participating in the new system.
 					for candidate in candidates {
-						let _err = T::Currency::unreserve(&candidate.who, candidate.deposit);
+						let _err = T::Currency::unreserve(&candidate.who, candidate.deposit).defensive();
 						count.saturating_inc();
 					}
 					// TODO: set each accrue to weight of `unreserve`
 					weight.saturating_accrue(T::DbWeight::get().reads_writes(0, count as u64));
 				}
 
-				StorageVersion::new(2).put::<Pallet<T>>();
 				log::info!(
 					target: LOG_TARGET,
 					"Unreserved locked bond of {} candidates, upgraded storage to version 2",
@@ -118,8 +117,6 @@ pub mod v2 {
 				"after migration, the candidates map should be empty"
 			);
 
-			let on_chain_version = Pallet::<T>::on_chain_storage_version();
-			frame_support::ensure!(on_chain_version >= 1, "must_upgrade");
 
 			Ok(())
 		}
