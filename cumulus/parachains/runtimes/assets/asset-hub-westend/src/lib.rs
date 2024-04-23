@@ -975,6 +975,10 @@ pub type Migrations = (
 	DeleteUndecodableStorage,
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	// unreleased
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, TrustBackedAssetsInstance>,
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, PoolAssetsInstance>,
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, ForeignAssetsInstance>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
