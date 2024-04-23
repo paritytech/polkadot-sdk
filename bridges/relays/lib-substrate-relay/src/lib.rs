@@ -139,18 +139,31 @@ pub async fn ensure_relayer_compatibility<SourceChain: Chain, TargetChain: Chain
 ) -> Result<(), relay_substrate_client::Error> {
 	let Some(offchain_relayer_version) = offchain_relayer_version.as_ref() else { return Ok(()) };
 
+	// read onchain version
 	let onchain_relayer_version: RelayerVersion = target_client
 		.typed_state_call(onchain_relayer_version_method.into(), (), Some(at_target_block.hash()))
 		.await?;
-	if onchain_relayer_version != *offchain_relayer_version {
-		Err(relay_substrate_client::Error::IncompatibleRelayerVersion {
-			source_chain: SourceChain::NAME,
-			target_chain: TargetChain::NAME,
-			relayer_type,
-			offchain_relayer_version: *offchain_relayer_version,
-			onchain_relayer_version,
-		})
-	} else {
-		Ok(())
+	// if they are the same => just return, we are safe to submit transactions
+	if onchain_relayer_version == *offchain_relayer_version {
+		return Ok(())
 	}
+
+	// else if offchain version is lower than onchain, we need to abort - we are running the old
+	// version. We also abort if the `manual` version is the same, but `auto` version is different.
+	// It means a programming error and we are incompatible
+	let error = relay_substrate_client::Error::IncompatibleRelayerVersion {
+		source_chain: SourceChain::NAME,
+		target_chain: TargetChain::NAME,
+		relayer_type,
+		offchain_relayer_version: *offchain_relayer_version,
+		onchain_relayer_version,
+	};
+	if offchain_relayer_version.manual <= onchain_relayer_version.manual {
+		log::error!(target: "bridge-guard", "Aborting relay: {error}");
+		std::process::abort();
+	}
+
+	// we are running a newer version, so let's just return an error and wait until runtime is
+	// upgraded
+	Err(error)
 }
