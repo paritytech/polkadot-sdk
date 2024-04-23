@@ -983,7 +983,7 @@ pub type Migrations = (
 	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, TrustBackedAssetsInstance>,
 	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, PoolAssetsInstance>,
 	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, ForeignAssetsInstance>,
-  // unreleased
+	// unreleased
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
