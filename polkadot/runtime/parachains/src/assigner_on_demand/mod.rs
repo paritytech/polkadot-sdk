@@ -620,7 +620,8 @@ where
 	}
 
 	/// Collect the revenue from the `when` blockheight
-	pub fn revenue_until(now: BlockNumberFor<T>, when: BlockNumberFor<T>) -> BalanceOf<T> {
+	pub fn revenue_until(when: BlockNumberFor<T>) -> BalanceOf<T> {
+		let now = <frame_system::Pallet<T>>::block_number();
 		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
 		Revenue::<T>::mutate(|revenue| {
 			revenue.into_iter().enumerate().for_each(|(index, block_revenue)| {

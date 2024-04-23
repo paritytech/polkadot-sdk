@@ -270,7 +270,7 @@ impl<T: Config> Pallet<T> {
 		// When cannot be in the future.
 		ensure!(when_bnf <= now, Error::<T>::RequestedFutureRevenue);
 
-		let revenue = <assigner_on_demand::Pallet<T>>::revenue_until(now, when_bnf);
+		let revenue = <assigner_on_demand::Pallet<T>>::revenue_until(when_bnf);
 		log::info!(target: LOG_TARGET, "Revenue info requested: {:?}", revenue);
 		match TryInto::<Balance>::try_into(revenue) {
 			Ok(raw_revenue) => {

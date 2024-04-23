@@ -725,50 +725,14 @@ fn queue_status_size_fn_works() {
 	});
 }
 
-//#[test]
-//fn add_revenue_info_works() {
-//	let alice = 100u64;
-//	let amt = 10_000_000u128;
-//	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-//		Balances::make_free_balance_be(&alice, amt);
-//		assert_eq!(Balances::total_issuance(), amt);
-//
-//		// Revenue should be empty on block 0
-//		assert_eq!(Revenue::<Test>::get().len(), 0);
-//
-//		// Mock assigner sets max revenue history to 10.
-//		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
-//		assert_eq!(Revenue::<Test>::get().len(), 10);
-//
-//		// New revenue
-//		let val: u128 = 1;
-//		let imbalance = NegativeImbalance::new(val);
-//		OnDemandAssigner::add_revenue_info(imbalance);
-//		let rev = Revenue::<Test>::get();
-//		assert_eq!(rev.get(0).unwrap(), &val);
-//
-//		let imbalance = NegativeImbalance::new(val);
-//		OnDemandAssigner::add_revenue_info(imbalance);
-//		let rev = Revenue::<Test>::get();
-//		assert_eq!(rev.get(0).unwrap(), &2);
-//
-//		// Should still be at 10 and the previous value should be
-//		// shifted from index 0 -> 1.
-//		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
-//		assert_eq!(Revenue::<Test>::get().len(), 10);
-//		let rev = Revenue::<Test>::get();
-//		assert_eq!(rev.get(1).unwrap(), &2);
-//	});
-//}
-
 #[test]
-fn get_revenue_info_works() {
+fn revenue_information_fetching_works() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
 		schedule_blank_para(para_a, ParaKind::Parathread);
 		// Mock assigner sets max revenue history to 10.
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
-		let revenue = OnDemandAssigner::revenue_until(10, 10);
+		let revenue = OnDemandAssigner::revenue_until(10);
 
 		// No revenue should be recorded.
 		assert_eq!(revenue, 0);
@@ -776,13 +740,13 @@ fn get_revenue_info_works() {
 		// Place one order
 		place_order_run_to_blocknumber(para_a, Some(11));
 		let revenue = OnDemandAssigner::get_revenue();
-		let amt = OnDemandAssigner::revenue_until(11, 11);
+		let amt = OnDemandAssigner::revenue_until(11);
 
 		// Revenue for a single order should be recorded.
 		assert_eq!(amt, revenue[0]);
 
 		run_to_block(12, |n| if n == 12 { Some(Default::default()) } else { None });
-		let revenue = OnDemandAssigner::revenue_until(12, 12);
+		let revenue = OnDemandAssigner::revenue_until(12);
 
 		// No revenue should be recorded.
 		assert_eq!(revenue, 0);
@@ -797,11 +761,17 @@ fn get_revenue_info_works() {
 
 		run_to_block(14, |n| if n == 14 { Some(Default::default()) } else { None });
 
-		println!("{:?}", OnDemandAssigner::get_revenue());
-		let revenue = OnDemandAssigner::revenue_until(14, 14);
-		println!("{:?}", OnDemandAssigner::get_revenue());
+		let revenue = OnDemandAssigner::revenue_until(14);
 
-		// All 3 orders should be
+		// All 3 orders should be accounted for.
 		assert_eq!(revenue, 30_000);
+
+		// Place one order
+		place_order_run_to_blocknumber(para_a, Some(16));
+
+		let revenue = OnDemandAssigner::revenue_until(15);
+
+		// Order is not in range of  the revenue_until call
+		assert_eq!(revenue, 0);
 	});
 }
