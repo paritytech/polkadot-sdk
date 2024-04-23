@@ -16,18 +16,11 @@
 
 #[cfg(feature = "std")]
 fn main() {
-	substrate_wasm_builder::WasmBuilder::new()
-		.with_current_project()
-		.import_memory()
-		.export_heap_base()
-		.build();
+	substrate_wasm_builder::WasmBuilder::build_using_defaults();
 
-	substrate_wasm_builder::WasmBuilder::new()
-		.with_current_project()
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
 		.set_file_name("fast_runtime_binary.rs")
 		.enable_feature("fast-runtime")
-		.import_memory()
-		.export_heap_base()
 		.build();
 }
 
