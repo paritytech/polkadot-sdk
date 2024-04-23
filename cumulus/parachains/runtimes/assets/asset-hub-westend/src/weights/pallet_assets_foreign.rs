@@ -537,4 +537,16 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Metadata` (r:1 w:1)
+	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
+	fn revoke_all_privileges() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `351`
+		//  Estimated: `3675`
+		// Minimum execution time: 43_242_000 picoseconds.
+		Weight::from_parts(45_982_000, 3675)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 }
