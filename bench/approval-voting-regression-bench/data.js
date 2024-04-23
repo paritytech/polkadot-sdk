@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713882073960,
+  "lastUpdate": 1713892059764,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -281,6 +281,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.0689954355900957,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ffbce2a817ec2e7c8b7ce49f7ed6794584f19667",
+          "message": "pallet_broker: Let `start_sales` calculate and request the correct core count (#4221)",
+          "timestamp": "2024-04-23T15:37:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ffbce2a817ec2e7c8b7ce49f7ed6794584f19667"
+        },
+        "date": 1713892035366,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63546.10000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.949043325160032,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.407199724850006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9184529612400936,
             "unit": "seconds"
           }
         ]
