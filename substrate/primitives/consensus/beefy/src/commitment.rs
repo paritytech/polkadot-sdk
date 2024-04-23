@@ -20,7 +20,6 @@ use codec::{Decode, Encode, Error, Input};
 use core::cmp;
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
-use sp_consensus::Error as ConsensusError;
 use sp_runtime::traits::Hash;
 
 use crate::{BeefyAuthorityId, Payload, ValidatorSet, ValidatorSetId};
@@ -148,7 +147,7 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 		&'a self,
 		target_number: TBlockNumber,
 		validator_set: &'a ValidatorSet<TAuthorityId>,
-	) -> Result<Vec<KnownSignature<&'a TAuthorityId, &'a TSignature>>, (ConsensusError, u32)>
+	) -> Result<Vec<KnownSignature<&'a TAuthorityId, &'a TSignature>>, u32>
 	where
 		TBlockNumber: Clone + Encode + PartialEq,
 		TAuthorityId: RuntimeAppPublic<Signature = TSignature> + BeefyAuthorityId<MsgHash>,
@@ -158,7 +157,7 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 			self.commitment.validator_set_id != validator_set.id() ||
 			self.commitment.block_number != target_number
 		{
-			return Err((ConsensusError::InvalidJustification, 0))
+			return Err(0)
 		}
 
 		// Arrangement of signatures in the commitment should be in the same order

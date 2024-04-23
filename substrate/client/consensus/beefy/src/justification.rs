@@ -57,7 +57,10 @@ pub(crate) fn verify_with_validator_set<'a, Block: BlockT>(
 	match proof {
 		VersionedFinalityProof::V1(signed_commitment) => {
 			let signatories = signed_commitment
-				.verify_signatures::<_, BeefySignatureHasher>(target_number, validator_set)?;
+				.verify_signatures::<_, BeefySignatureHasher>(target_number, validator_set)
+				.map_err(|checked_signatures| {
+					(ConsensusError::InvalidJustification, checked_signatures)
+				})?;
 
 			if signatories.len() >= crate::round::threshold(validator_set.len()) {
 				Ok(signatories)
