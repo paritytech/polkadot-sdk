@@ -93,7 +93,7 @@ use std::{
 };
 
 use super::LOG_TARGET;
-use polkadot_node_subsystem::messages::{self, Ancestors};
+use polkadot_node_subsystem::messages::{Ancestors, HypotheticalCandidate};
 use polkadot_node_subsystem_util::inclusion_emulator::{
 	ConstraintModifications, Constraints, Fragment, ProspectiveCandidate, RelayChainBlockInfo,
 };
@@ -450,69 +450,6 @@ impl Scope {
 	}
 }
 
-/// A hypothetical candidate, which may or may not exist in
-/// the fragment chain already.
-pub(crate) enum HypotheticalCandidate<'a> {
-	Complete {
-		receipt: Arc<CommittedCandidateReceipt>,
-		persisted_validation_data: &'a PersistedValidationData,
-	},
-	Incomplete {
-		relay_parent: Hash,
-		parent_head_data_hash: Hash,
-	},
-}
-
-impl<'a> HypotheticalCandidate<'a> {
-	fn parent_head_data_hash(&self) -> Hash {
-		match *self {
-			HypotheticalCandidate::Complete { persisted_validation_data, .. } =>
-				persisted_validation_data.parent_head.hash(),
-			HypotheticalCandidate::Incomplete { parent_head_data_hash, .. } =>
-				parent_head_data_hash,
-		}
-	}
-
-	fn output_head_data_hash(&self) -> Option<Hash> {
-		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				Some(receipt.descriptor.para_head),
-			HypotheticalCandidate::Incomplete { .. } => None,
-		}
-	}
-
-	fn relay_parent(&self) -> Hash {
-		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				receipt.descriptor().relay_parent,
-			HypotheticalCandidate::Incomplete { ref relay_parent, .. } => *relay_parent,
-		}
-	}
-}
-
-impl<'a> From<&'a messages::HypotheticalCandidate> for HypotheticalCandidate<'a> {
-	fn from(value: &'a messages::HypotheticalCandidate) -> Self {
-		match value {
-			messages::HypotheticalCandidate::Complete {
-				receipt,
-				persisted_validation_data,
-				..
-			} => Self::Complete {
-				receipt: receipt.clone(),
-				persisted_validation_data: &persisted_validation_data,
-			},
-			messages::HypotheticalCandidate::Incomplete {
-				parent_head_data_hash,
-				candidate_relay_parent,
-				..
-			} => Self::Incomplete {
-				relay_parent: *candidate_relay_parent,
-				parent_head_data_hash: *parent_head_data_hash,
-			},
-		}
-	}
-}
-
 pub struct FragmentNode {
 	fragment: Fragment,
 	pub candidate_hash: CandidateHash,
@@ -608,10 +545,11 @@ impl FragmentChain {
 	/// ever)
 	pub(crate) fn hypothetical_membership(
 		&self,
-		candidate_hash: CandidateHash,
 		candidate: HypotheticalCandidate,
 		candidate_storage: &CandidateStorage,
 	) -> bool {
+		let candidate_hash = candidate.candidate_hash();
+
 		// If we've already used this candidate in the chain
 		if self.candidates.contains(&candidate_hash) {
 			return true
@@ -657,8 +595,11 @@ impl FragmentChain {
 		let parent_head_hash = candidate.parent_head_data_hash();
 		if parent_head_hash == child_constraints.required_parent.hash() {
 			// We do additional checks for complete candidates.
-			if let HypotheticalCandidate::Complete { ref receipt, ref persisted_validation_data } =
-				candidate
+			if let HypotheticalCandidate::Complete {
+				ref receipt,
+				ref persisted_validation_data,
+				..
+			} = candidate
 			{
 				if Fragment::check_against_constraints(
 					&candidate_relay_parent,

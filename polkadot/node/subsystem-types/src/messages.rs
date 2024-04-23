@@ -1098,6 +1098,15 @@ impl HypotheticalCandidate {
 				candidate_relay_parent,
 		}
 	}
+
+	/// Get the output head data hash, if the candidate is complete.
+	pub fn output_head_data_hash(&self) -> Option<Hash> {
+		match *self {
+			HypotheticalCandidate::Complete { ref receipt, .. } =>
+				Some(receipt.descriptor.para_head),
+			HypotheticalCandidate::Incomplete { .. } => None,
+		}
+	}
 }
 
 /// Request specifying which candidates are either already included

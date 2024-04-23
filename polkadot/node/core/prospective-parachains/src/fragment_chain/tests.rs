@@ -1358,56 +1358,62 @@ fn hypothetical_membership() {
 
 	// Check candidates which are already present
 	assert!(chain.hypothetical_membership(
-		candidate_a_hash,
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0a]).hash(),
-			relay_parent: relay_parent_a,
+			candidate_relay_parent: relay_parent_a,
+			candidate_para: para_id,
+			candidate_hash: candidate_a_hash,
 		},
 		&storage,
 	));
 	assert!(chain.hypothetical_membership(
-		candidate_b_hash,
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0b]).hash(),
-			relay_parent: relay_parent_a,
+			candidate_relay_parent: relay_parent_a,
+			candidate_para: para_id,
+			candidate_hash: candidate_b_hash,
 		},
 		&storage,
 	));
 
 	// Forks not allowed.
 	assert!(!chain.hypothetical_membership(
-		CandidateHash(Hash::repeat_byte(21)),
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0a]).hash(),
-			relay_parent: relay_parent_a,
+			candidate_relay_parent: relay_parent_a,
+			candidate_para: para_id,
+			candidate_hash: CandidateHash(Hash::repeat_byte(21)),
 		},
 		&storage,
 	));
 	assert!(!chain.hypothetical_membership(
-		CandidateHash(Hash::repeat_byte(22)),
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0b]).hash(),
-			relay_parent: relay_parent_a,
+			candidate_relay_parent: relay_parent_a,
+			candidate_para: para_id,
+			candidate_hash: CandidateHash(Hash::repeat_byte(22)),
 		},
 		&storage,
 	));
 
 	// Unknown candidate which builds on top of the current chain.
 	assert!(chain.hypothetical_membership(
-		CandidateHash(Hash::repeat_byte(23)),
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0c]).hash(),
-			relay_parent: relay_parent_a,
+			candidate_relay_parent: relay_parent_a,
+			candidate_para: para_id,
+			candidate_hash: CandidateHash(Hash::repeat_byte(23)),
 		},
 		&storage,
 	));
 
 	// Unknown unconnected candidate which may be valid.
 	assert!(chain.hypothetical_membership(
-		CandidateHash(Hash::repeat_byte(23)),
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0e]).hash(),
-			relay_parent: relay_parent_a,
+			candidate_relay_parent: relay_parent_a,
+			candidate_para: para_id,
+			candidate_hash: CandidateHash(Hash::repeat_byte(23)),
 		},
 		&storage,
 	));
@@ -1457,20 +1463,22 @@ fn hypothetical_membership() {
 
 		// Check that C is accepted as a potential unconnected candidate.
 		assert!(!chain.hypothetical_membership(
-			candidate_c_hash,
 			HypotheticalCandidate::Incomplete {
 				parent_head_data_hash: HeadData::from(vec![0x0e]).hash(),
-				relay_parent: relay_parent_a,
+				candidate_relay_parent: relay_parent_a,
+				candidate_hash: candidate_c_hash,
+				candidate_para: para_id
 			},
 			&storage,
 		));
 
 		// Since C is already an unconnected candidate in the storage.
 		assert!(!chain.hypothetical_membership(
-			CandidateHash(Hash::repeat_byte(23)),
 			HypotheticalCandidate::Incomplete {
 				parent_head_data_hash: HeadData::from(vec![0x0f]).hash(),
-				relay_parent: relay_parent_a,
+				candidate_relay_parent: relay_parent_a,
+				candidate_para: para_id,
+				candidate_hash: CandidateHash(Hash::repeat_byte(23)),
 			},
 			&storage,
 		));
@@ -1517,19 +1525,20 @@ fn hypothetical_membership_stricter_on_complete_candidates() {
 	let chain = FragmentChain::populate(scope, &storage);
 
 	assert!(chain.hypothetical_membership(
-		candidate_a_hash,
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0a]).hash(),
-			relay_parent: relay_parent_a,
+			candidate_relay_parent: relay_parent_a,
+			candidate_para: para_id,
+			candidate_hash: candidate_a_hash,
 		},
 		&storage,
 	));
 
 	assert!(!chain.hypothetical_membership(
-		candidate_a_hash,
 		HypotheticalCandidate::Complete {
 			receipt: Arc::new(candidate_a),
-			persisted_validation_data: &pvd_a,
+			persisted_validation_data: pvd_a,
+			candidate_hash: candidate_a_hash,
 		},
 		&storage,
 	));
@@ -1608,37 +1617,41 @@ fn hypothetical_membership_with_pending_availability_in_scope() {
 	let candidate_d_hash = CandidateHash(Hash::repeat_byte(0xAA));
 
 	assert!(chain.hypothetical_membership(
-		candidate_a_hash,
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0a]).hash(),
-			relay_parent: relay_parent_a,
+			candidate_relay_parent: relay_parent_a,
+			candidate_hash: candidate_a_hash,
+			candidate_para: para_id
 		},
 		&storage,
 	));
 
 	assert!(!chain.hypothetical_membership(
-		candidate_d_hash,
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0a]).hash(),
-			relay_parent: relay_parent_c,
+			candidate_relay_parent: relay_parent_c,
+			candidate_para: para_id,
+			candidate_hash: candidate_d_hash,
 		},
 		&storage,
 	));
 
 	assert!(!chain.hypothetical_membership(
-		candidate_d_hash,
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0b]).hash(),
-			relay_parent: relay_parent_c,
+			candidate_relay_parent: relay_parent_c,
+			candidate_para: para_id,
+			candidate_hash: candidate_d_hash,
 		},
 		&storage,
 	));
 
 	assert!(chain.hypothetical_membership(
-		candidate_d_hash,
 		HypotheticalCandidate::Incomplete {
 			parent_head_data_hash: HeadData::from(vec![0x0c]).hash(),
-			relay_parent: relay_parent_b,
+			candidate_relay_parent: relay_parent_b,
+			candidate_para: para_id,
+			candidate_hash: candidate_d_hash,
 		},
 		&storage,
 	));

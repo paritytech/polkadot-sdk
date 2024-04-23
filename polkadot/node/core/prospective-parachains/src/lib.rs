@@ -739,19 +739,12 @@ fn answer_hypothetical_membership_request(
 		.iter()
 		.filter(|(h, _)| required_active_leaf.as_ref().map_or(true, |x| h == &x))
 	{
-		for &mut (ref c, ref mut membership) in &mut response {
-			let fragment_chain = match leaf_view.fragment_chains.get(&c.candidate_para()) {
-				None => continue,
-				Some(f) => f,
-			};
-			let candidate_storage = match view.candidate_storage.get(&c.candidate_para()) {
-				None => continue,
-				Some(storage) => storage,
-			};
+		for &mut (ref candidate, ref mut membership) in &mut response {
+			let para_id = &candidate.candidate_para();
+			let Some(fragment_chain) = leaf_view.fragment_chains.get(para_id) else { continue };
+			let Some(candidate_storage) = view.candidate_storage.get(para_id) else { continue };
 
-			let candidate_hash = c.candidate_hash();
-
-			if fragment_chain.hypothetical_membership(candidate_hash, c.into(), candidate_storage) {
+			if fragment_chain.hypothetical_membership(candidate.clone(), candidate_storage) {
 				membership.push(*active_leaf);
 			}
 		}
