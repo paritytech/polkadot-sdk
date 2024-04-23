@@ -12,6 +12,6 @@ doc:
 
 crates:
   - name: frame-support
-    bump: patch
+    bump: minor
   - name: frame-support-procedural
-    bump: patch
+    bump: minor
