@@ -105,15 +105,15 @@ parameter_types! {
 
 	pub const WithRococoCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("f9961a122a67ce458f32762060e1e44f0bc7d565370443d6cf4fc376ad427232")),
+		auto: H256(hex!("8ef000d4f0184c4751b9462471473368c4b4bdcf1f376264b254e2acf8f705c8")),
 	};
 	pub const WithRococoCompatibleParachainsRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("920d6b5cddd9333a2405803c0e30b78d2a05f5c03961e6d1807581a3a3ae68ed")),
+		auto: H256(hex!("938c8cddccea01a54fb58e8b949f501998f31c5d4edea176722c706b032e1ddd")),
 	};
 	pub const WithRococoCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("e82801f12e4f2c01861dcdae866d67c49a8d08388f248bc699e9afb953bd7507")),
+		auto: H256(hex!("815e02321b71bf951f7054f78929c11be5b9056ffc954980d94931b4522a7f02")),
 	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
@@ -387,22 +387,24 @@ mod tests {
 			)]
 		);
 
-		ensure_grandpa_relayer_compatibility::<
-			Runtime,
-			BridgeGrandpaRococoInstance,
-			crate::SignedExtra,
-		>();
-		ensure_parachains_relayer_compatibility::<
-			Runtime,
-			BridgeParachainRococoInstance,
-			crate::SignedExtra,
-		>();
-		ensure_messages_relayer_compatibility::<
-			Runtime,
-			WithBridgeHubRococoMessagesInstance,
-			crate::SignedExtra,
-			_,
-			_,
-		>();
+		sp_io::TestExternalities::default().execute_with(|| {
+			ensure_grandpa_relayer_compatibility::<
+				Runtime,
+				BridgeGrandpaRococoInstance,
+				crate::SignedExtra,
+			>();
+			ensure_parachains_relayer_compatibility::<
+				Runtime,
+				BridgeParachainRococoInstance,
+				crate::SignedExtra,
+			>();
+			ensure_messages_relayer_compatibility::<
+				Runtime,
+				WithBridgeHubRococoMessagesInstance,
+				crate::SignedExtra,
+				_,
+				_,
+			>();
+		});
 	}
 }

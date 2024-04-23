@@ -113,7 +113,7 @@ parameter_types! {
 
 	pub const WithRococoBulletinCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("3f2a464e8390e13d3204e2e254470889925637c7f4ec56b636e2d53ce42be2d8")),
+		auto: H256(hex!("32fe8334c91604ec9c02e6c9581f3f2f6d430dc0f55ffd04f58acdf21f92f072")),
 	};
 }
 pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 0]);
@@ -298,17 +298,19 @@ mod tests {
 
 		assert_eq!(BridgeRococoToRococoBulletinMessagesPalletInstance::get(), expected,);
 
-		ensure_grandpa_relayer_compatibility::<
-			Runtime,
-			BridgeGrandpaRococoBulletinInstance,
-			crate::SignedExtra,
-		>();
-		ensure_messages_relayer_compatibility::<
-			Runtime,
-			BridgeGrandpaRococoBulletinInstance,
-			crate::SignedExtra,
-			_,
-			_,
-		>();
+		sp_io::TestExternalities::default().execute_with(|| {
+			ensure_grandpa_relayer_compatibility::<
+				Runtime,
+				BridgeGrandpaRococoBulletinInstance,
+				crate::SignedExtra,
+			>();
+			ensure_messages_relayer_compatibility::<
+				Runtime,
+				BridgeGrandpaRococoBulletinInstance,
+				crate::SignedExtra,
+				_,
+				_,
+			>();
+		});
 	}
 }

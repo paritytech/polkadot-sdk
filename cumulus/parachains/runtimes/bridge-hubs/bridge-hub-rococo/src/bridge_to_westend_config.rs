@@ -100,7 +100,7 @@ parameter_types! {
 
 	pub const WithWestendCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("a80d4179b125fd8366ed42c83c9063532d70d8ec40dadc36415b4e7f8246ae1a")),
+		auto: H256(hex!("ec797ce348d5ce03001b3000f16b7623b0f6b654e441caf8289608e476223969")),
 	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([0, 0, 0, 2]);
@@ -343,22 +343,24 @@ mod tests {
 
 		assert_eq!(BridgeRococoToWestendMessagesPalletInstance::get(), expected,);
 
-		ensure_grandpa_relayer_compatibility::<
-			Runtime,
-			BridgeGrandpaWestendInstance,
-			crate::SignedExtra,
-		>();
-		ensure_parachains_relayer_compatibility::<
-			Runtime,
-			BridgeParachainWestendInstance,
-			crate::SignedExtra,
-		>();
-		ensure_messages_relayer_compatibility::<
-			Runtime,
-			BridgeGrandpaWestendInstance,
-			crate::SignedExtra,
-			_,
-			_,
-		>();
+		sp_io::TestExternalities::default().execute_with(|| {
+			ensure_grandpa_relayer_compatibility::<
+				Runtime,
+				BridgeGrandpaWestendInstance,
+				crate::SignedExtra,
+			>();
+			ensure_parachains_relayer_compatibility::<
+				Runtime,
+				BridgeParachainWestendInstance,
+				crate::SignedExtra,
+			>();
+			ensure_messages_relayer_compatibility::<
+				Runtime,
+				BridgeGrandpaWestendInstance,
+				crate::SignedExtra,
+				_,
+				_,
+			>();
+		});
 	}
 }

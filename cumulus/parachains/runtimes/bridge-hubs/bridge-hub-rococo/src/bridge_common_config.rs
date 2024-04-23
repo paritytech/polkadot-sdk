@@ -45,15 +45,15 @@ parameter_types! {
 
 	pub const WithRococoBulletinCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("63c6b0bdb689ffb0e787890cf9c3171e83fdeb7e7bb1186a8ca927507317a9a6")),
+		auto: H256(hex!("3571175ab14864166b8291f6ba7ef74a2465cb83e1075ee927a6aa392c534692")),
 	};
 	pub const WithWestendCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("ed94acc451921d37f6497dc1864f4ea9cca3db53bfae3eb6da7f735ee775430a")),
+		auto: H256(hex!("f3b72b260a9262b1a9cc09c87ece99e305cdb8e6d1e052eaba9eec2f4cf368a1")),
 	};
 	pub const WithWestendCompatibleParachainsRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("cce194f365e85a948f84c123ab1a2b082850f665917bde2b2ef75da7937c6b5e")),
+		auto: H256(hex!("53c49a5c17f529842eb2f2a85053415ff77be4331c90e0a6f26594686fdfb6ce")),
 	};
 
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;

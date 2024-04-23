@@ -75,12 +75,20 @@ use bp_polkadot_core::parachains::ParaHeadsProof;
 use bp_runtime::RelayerVersion;
 use bp_test_utils::make_default_justification;
 use codec::{Decode, Encode};
-use frame_support::weights::Weight;
+use frame_support::{
+	traits::{GetStorageVersion, PalletInfoAccess},
+	weights::Weight,
+};
 use pallet_bridge_grandpa::{
 	BridgedHeader as BridgedGrandpaHeader, Call as GrandpaCall, Config as GrandpaConfig,
+	Pallet as GrandpaPallet,
 };
-use pallet_bridge_messages::{Call as MessagesCall, Config as MessagesConfig};
-use pallet_bridge_parachains::{Call as ParachainsCall, Config as ParachainsConfig};
+use pallet_bridge_messages::{
+	Call as MessagesCall, Config as MessagesConfig, Pallet as MessagesPallet,
+};
+use pallet_bridge_parachains::{
+	Call as ParachainsCall, Config as ParachainsConfig, Pallet as ParachainsPallet,
+};
 use sp_core::{blake2_256, Get, H256};
 use sp_runtime::traits::{Header, SignedExtension, TrailingZeroInput};
 
@@ -99,6 +107,7 @@ pub fn ensure_grandpa_relayer_compatibility<Runtime, I, SignedExtra>()
 where
 	Runtime: GrandpaConfig<I>,
 	I: 'static,
+	GrandpaPallet<Runtime, I>: PalletInfoAccess,
 	SignedExtra: SignedExtension,
 	Runtime::RuntimeCall: From<GrandpaCall<Runtime, I>>,
 {
@@ -106,8 +115,13 @@ where
 	let actual_version = RelayerVersion {
 		manual: expected_version.manual,
 		auto: blake2_256(
-			&[grandpa_calls_digest::<Runtime, I>(), siged_extensions_digest::<SignedExtra>()]
-				.encode(),
+			&[
+				pallet_storage_digest::<GrandpaPallet<Runtime, I>>(),
+				grandpa_calls_digest::<Runtime, I>(),
+				runtime_version_digest::<Runtime>(),
+				siged_extensions_digest::<SignedExtra>(),
+			]
+			.encode(),
 		)
 		.into(),
 	};
@@ -123,6 +137,7 @@ pub fn ensure_parachains_relayer_compatibility<Runtime, I, SignedExtra>()
 where
 	Runtime: ParachainsConfig<I>,
 	I: 'static,
+	ParachainsPallet<Runtime, I>: PalletInfoAccess,
 	SignedExtra: SignedExtension,
 	Runtime::RuntimeCall: From<ParachainsCall<Runtime, I>>,
 {
@@ -130,8 +145,13 @@ where
 	let actual_version = RelayerVersion {
 		manual: expected_version.manual,
 		auto: blake2_256(
-			&[parachains_calls_digest::<Runtime, I>(), siged_extensions_digest::<SignedExtra>()]
-				.encode(),
+			&[
+				pallet_storage_digest::<ParachainsPallet<Runtime, I>>(),
+				parachains_calls_digest::<Runtime, I>(),
+				runtime_version_digest::<Runtime>(),
+				siged_extensions_digest::<SignedExtra>(),
+			]
+			.encode(),
 		)
 		.into(),
 	};
@@ -154,6 +174,7 @@ where
 	Runtime:
 		MessagesConfig<I, InboundRelayer = BridgedAccountId, OutboundPayload = XcmAsPlainPayload>,
 	I: 'static,
+	MessagesPallet<Runtime, I>: PalletInfoAccess,
 	SignedExtra: SignedExtension,
 	Runtime::RuntimeCall: From<MessagesCall<Runtime, I>>,
 	Runtime::SourceHeaderChain:
@@ -171,8 +192,10 @@ where
 		manual: expected_version.manual,
 		auto: blake2_256(
 			&[
+				pallet_storage_digest::<MessagesPallet<Runtime, I>>(),
 				messages_calls_digest::<Runtime, I, BridgedHash, BridgedAccountId>(),
 				messages_config_digest::<Runtime, I>(),
+				runtime_version_digest::<Runtime>(),
 				siged_extensions_digest::<SignedExtra>(),
 			]
 			.encode(),
@@ -183,6 +206,24 @@ where
 		expected_version, actual_version,
 		"Expected messages relayer version: {expected_version:?}. Actual: {actual_version:?}",
 	);
+}
+
+/// Seal bridge pallet storage version.
+fn pallet_storage_digest<P>() -> H256
+where
+	P: PalletInfoAccess + GetStorageVersion,
+{
+	// keys of storage entries, used by pallet are computed using:
+	// 1) name of the pallet, used in `construct_runtime!` macro call;
+	// 2) name of the storage value/map/doublemap itself.
+	//
+	// When the `1` from above is changed, `PalletInfoAccess::name()` shall change;
+	// When the `2` from above is changed, `GetStorageVersion::in_code_storage_version()` shall
+	// change.
+	let pallet_name = P::name();
+	let storage_version = P::on_chain_storage_version();
+	log::info!(target: LOG_TARGET, "Sealing pallet storage: {:?}", (pallet_name, storage_version));
+	blake2_256(&(pallet_name, storage_version).encode()).into()
 }
 
 /// Seal bridge GRANDPA call encoding.
@@ -292,6 +333,15 @@ where
 	);
 	log::info!(target: LOG_TARGET, "Sealing messages pallet configuration: {:?}", settings);
 	blake2_256(&settings.encode()).into()
+}
+
+/// Seal runtime version. We want to make relayer tolerant towards `spec_version` and
+/// `transcation_version` changes. But any changes to storage trie format are breaking,
+/// not only for the relay, but for all involved pallets on other chains as well.
+fn runtime_version_digest<Runtime: frame_system::Config>() -> H256 {
+	let state_version = Runtime::Version::get().state_version;
+	log::info!(target: LOG_TARGET, "Sealing runtime version: {:?}", state_version);
+	blake2_256(&state_version.encode()).into()
 }
 
 /// Seal all signed extensions that may break bridge.
