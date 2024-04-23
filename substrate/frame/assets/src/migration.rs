@@ -43,24 +43,26 @@ pub mod v1 {
 		pub is_frozen: bool,
 	}
 
-	impl<Balance, AccountId, DepositBalance> OldAssetDetails<Balance, AccountId, DepositBalance> {
+	impl<Balance, AccountId: Clone, DepositBalance>
+		OldAssetDetails<Balance, AccountId, DepositBalance>
+	{
 		fn migrate_to_v1(self) -> AssetDetails<Balance, AccountId, DepositBalance> {
 			let status = if self.is_frozen { AssetStatus::Frozen } else { AssetStatus::Live };
 
-			AssetDetails {
-				owner: self.owner,
-				issuer: self.issuer,
-				admin: self.admin,
-				freezer: self.freezer,
-				supply: self.supply,
-				deposit: self.deposit,
-				min_balance: self.min_balance,
-				is_sufficient: self.is_sufficient,
-				accounts: self.accounts,
-				sufficients: self.sufficients,
-				approvals: self.approvals,
+			AssetDetails::new(
+				self.owner,
+				self.issuer,
+				self.admin,
+				self.freezer,
+				self.supply,
+				self.deposit,
+				self.min_balance,
+				self.is_sufficient,
+				self.accounts,
+				self.sufficients,
+				self.approvals,
 				status,
-			}
+			)
 		}
 	}
 

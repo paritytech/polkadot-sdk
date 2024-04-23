@@ -54,17 +54,18 @@ pub(super) enum AssetStatus {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	/// Can change and revoke `owner`, `issuer`, `freezer` and `admin` accounts.
-	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
-	pub(super) owner: AccountId,
+	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege
+	/// and should not be holding any deposit.
+	owner: AccountId,
 	/// Can mint tokens.
 	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
-	pub(super) issuer: AccountId,
+	issuer: AccountId,
 	/// Can thaw tokens, force transfers and burn tokens from any account.
 	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
-	pub(super) admin: AccountId,
+	admin: AccountId,
 	/// Can freeze tokens.
 	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
-	pub(super) freezer: AccountId,
+	freezer: AccountId,
 	/// The total supply across all accounts.
 	pub(super) supply: Balance,
 	/// The balance deposited for this asset. This pays for the data stored here.
@@ -82,6 +83,106 @@ pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	pub(super) approvals: u32,
 	/// The status of the asset
 	pub(super) status: AssetStatus,
+}
+
+/// Error that can occur when setting the owner, issuer, admin or freezer of an asset.
+pub enum SetTeamError {
+	/// The asset has no privileges, so team cannot be set.
+	AssetStatusLiveAndNoPrivileges,
+}
+
+impl<Balance, AccountId: Clone, DepositBalance> AssetDetails<Balance, AccountId, DepositBalance> {
+	/// Create a new asset details.
+	pub(super) fn new(
+		owner: AccountId,
+		issuer: AccountId,
+		admin: AccountId,
+		freezer: AccountId,
+		supply: Balance,
+		deposit: DepositBalance,
+		min_balance: Balance,
+		is_sufficient: bool,
+		accounts: u32,
+		sufficients: u32,
+		approvals: u32,
+		status: AssetStatus,
+	) -> Self {
+		Self {
+			owner,
+			issuer,
+			admin,
+			freezer,
+			supply,
+			deposit,
+			min_balance,
+			is_sufficient,
+			accounts,
+			sufficients,
+			approvals,
+			status,
+		}
+	}
+
+	/// If asset status is `LiveAndNoPrivileges` return `None` otherwise return the owner.
+	pub(super) fn owner(&self) -> Option<&AccountId> {
+		match self.status {
+			AssetStatus::LiveAndNoPrivileges => None,
+			_ => Some(&self.owner),
+		}
+	}
+
+	/// If asset status is `LiveAndNoPrivileges` return `None` otherwise return the admin.
+	pub(super) fn admin(&self) -> Option<&AccountId> {
+		match self.status {
+			AssetStatus::LiveAndNoPrivileges => None,
+			_ => Some(&self.admin),
+		}
+	}
+
+	/// If asset status is `LiveAndNoPrivileges` return `None` otherwise return the issuer.
+	pub(super) fn issuer(&self) -> Option<&AccountId> {
+		match self.status {
+			AssetStatus::LiveAndNoPrivileges => None,
+			_ => Some(&self.issuer),
+		}
+	}
+
+	/// If asset status is `LiveAndNoPrivileges` return `None` otherwise return the freezer.
+	pub(super) fn freezer(&self) -> Option<&AccountId> {
+		match self.status {
+			AssetStatus::LiveAndNoPrivileges => None,
+			_ => Some(&self.freezer),
+		}
+	}
+
+	/// Set the owner of the asset, fails if asset status is `LiveAndNoPrivileges`.
+	pub(super) fn try_set_owner(&mut self, owner: &AccountId) -> Result<(), SetTeamError> {
+		if self.status == AssetStatus::LiveAndNoPrivileges {
+			Err(SetTeamError::AssetStatusLiveAndNoPrivileges)
+		} else {
+			self.owner = owner.clone();
+			Ok(())
+		}
+	}
+
+	/// Set the team of the asset, fails if asset status is `LiveAndNoPrivileges`.
+	pub(super) fn try_set_team(
+		&mut self,
+		owner: &AccountId,
+		issuer: &AccountId,
+		admin: &AccountId,
+		freezer: &AccountId,
+	) -> Result<(), SetTeamError> {
+		if self.status == AssetStatus::LiveAndNoPrivileges {
+			Err(SetTeamError::AssetStatusLiveAndNoPrivileges)
+		} else {
+			self.owner = owner.clone();
+			self.issuer = issuer.clone();
+			self.admin = admin.clone();
+			self.freezer = freezer.clone();
+			Ok(())
+		}
+	}
 }
 
 /// Data concerning an approval.

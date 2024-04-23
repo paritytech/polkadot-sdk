@@ -1796,7 +1796,7 @@ fn revoke_with_not_owner_or_already_revoked() {
 
 		assert_noop!(
 			Assets::revoke_all_privileges(RuntimeOrigin::signed(owner + 1), 0),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
+			Error::<Test>::NoPermission
 		);
 	});
 }
@@ -1941,10 +1941,7 @@ fn live_and_lock_should_have_no_privilege() {
 
 		assert_eq!(Asset::<Test>::get(0).unwrap().status, AssetStatus::LiveAndNoPrivileges);
 
-		assert_noop!(
-			Assets::start_destroy(owner_origin.clone(), 0),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
+		assert_noop!(Assets::start_destroy(owner_origin.clone(), 0), Error::<Test>::NoPermission);
 		assert_noop!(
 			Assets::destroy_accounts(owner_origin.clone(), 0),
 			Error::<Test>::IncorrectStatus
@@ -1957,70 +1954,43 @@ fn live_and_lock_should_have_no_privilege() {
 			Assets::finish_destroy(owner_origin.clone(), 0),
 			Error::<Test>::IncorrectStatus
 		);
-		assert_noop!(
-			Assets::mint(owner_origin.clone(), 0, 2, 1),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
-		assert_noop!(
-			Assets::burn(owner_origin.clone(), 0, 2, 1),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
+		assert_noop!(Assets::mint(owner_origin.clone(), 0, 2, 1), Error::<Test>::NoPermission);
+		assert_noop!(Assets::burn(owner_origin.clone(), 0, 2, 1), Error::<Test>::NoPermission);
 		assert_noop!(
 			Assets::force_transfer(owner_origin.clone(), 0, 2, 1, 1),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
+			Error::<Test>::NoPermission
 		);
-		assert_noop!(
-			Assets::freeze(owner_origin.clone(), 0, 2),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
-		assert_noop!(
-			Assets::thaw(owner_origin.clone(), 0, 2),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
-		assert_noop!(
-			Assets::freeze_asset(owner_origin.clone(), 0),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
-		assert_noop!(
-			Assets::thaw_asset(owner_origin.clone(), 0),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
+		assert_noop!(Assets::freeze(owner_origin.clone(), 0, 2), Error::<Test>::NoPermission);
+		assert_noop!(Assets::thaw(owner_origin.clone(), 0, 2), Error::<Test>::NoPermission);
+		assert_noop!(Assets::freeze_asset(owner_origin.clone(), 0), Error::<Test>::NoPermission);
+		assert_noop!(Assets::thaw_asset(owner_origin.clone(), 0), Error::<Test>::NoPermission);
 		assert_noop!(
 			Assets::transfer_ownership(owner_origin.clone(), 0, 2),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
+			Error::<Test>::NoPermission
 		);
 		assert_noop!(
 			Assets::set_team(owner_origin.clone(), 0, 2, 2, 2),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
+			Error::<Test>::NoPermission
 		);
 		assert_noop!(
 			Assets::set_metadata(owner_origin.clone(), 0, vec![], vec![], 2),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
+			Error::<Test>::NoPermission
 		);
-		assert_noop!(
-			Assets::clear_metadata(owner_origin.clone(), 0),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
+		assert_noop!(Assets::clear_metadata(owner_origin.clone(), 0), Error::<Test>::NoPermission);
 		assert_noop!(
 			Assets::force_cancel_approval(owner_origin.clone(), 0, 2, 3),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
+			Error::<Test>::NoPermission
 		);
 		assert_noop!(
 			Assets::set_min_balance(owner_origin.clone(), 0, 2),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
+			Error::<Test>::NoPermission
 		);
-		assert_noop!(
-			Assets::touch_other(owner_origin.clone(), 0, 4),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
+		assert_noop!(Assets::touch_other(owner_origin.clone(), 0, 4), Error::<Test>::NoPermission);
 		assert_noop!(Assets::refund_other(owner_origin.clone(), 0, 3), Error::<Test>::NoPermission);
-		assert_noop!(
-			Assets::block(owner_origin.clone(), 0, 2),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
-		);
+		assert_noop!(Assets::block(owner_origin.clone(), 0, 2), Error::<Test>::NoPermission);
 		assert_noop!(
 			Assets::revoke_all_privileges(owner_origin.clone(), 0),
-			Error::<Test>::NoPermissionAssetLiveAndNoPrivileges
+			Error::<Test>::NoPermission
 		);
 	});
 }
@@ -2028,7 +1998,7 @@ fn live_and_lock_should_have_no_privilege() {
 #[test]
 fn live_and_lock_should_work_like_live() {
 	use frame_support::traits::{
-		fungibles::Mutate,
+		fungibles::{roles::ResetTeam, Mutate},
 		tokens::{Fortitude, Precision, Preservation},
 	};
 
@@ -2095,5 +2065,40 @@ fn live_and_lock_should_work_like_live() {
 		assert_ok!(Assets::restore(0, &5, 7));
 		assert_ok!(<Assets as Mutate<_>>::transfer(0, &5, &6, 10, Preservation::Expendable));
 		assert_eq!(Assets::set_balance(0, &5, 10), 10);
+
+		assert_ok!(Assets::reset_team(0, 6, 8, 7, 9));
+
+		{
+			let asset = Asset::<Test>::get(0).unwrap();
+			assert_eq!(asset.owner(), Some(&6));
+			assert_eq!(asset.issuer(), Some(&7));
+			assert_eq!(asset.admin(), Some(&8));
+			assert_eq!(asset.freezer(), Some(&9));
+		}
+	});
+}
+
+#[test]
+fn reset_team_from_no_privileges() {
+	use frame_support::traits::fungibles::roles::ResetTeam;
+
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, owner, false, 1));
+		assert_ok!(Assets::revoke_all_privileges(RuntimeOrigin::root(), 0));
+
+		assert_eq!(Asset::<Test>::get(0).unwrap().status, AssetStatus::LiveAndNoPrivileges);
+
+		assert_ok!(Assets::reset_team(0, 6, 8, 7, 9));
+
+		{
+			let asset = Asset::<Test>::get(0).unwrap();
+			assert_eq!(asset.owner(), Some(&6));
+			assert_eq!(asset.issuer(), Some(&7));
+			assert_eq!(asset.admin(), Some(&8));
+			assert_eq!(asset.freezer(), Some(&9));
+			assert_eq!(asset.status, AssetStatus::Live);
+		}
 	});
 }
