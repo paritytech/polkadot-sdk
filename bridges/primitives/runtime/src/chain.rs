@@ -306,7 +306,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 				pub const [<BEST_FINALIZED_ $chain:upper _HEADER_METHOD>]: &str =
 					stringify!([<$chain:camel FinalityApi_best_finalized>]);
 				/// Name of the `<ThisChain>FinalityApi::compatible_relayer_version` runtime method.
-				pub const [<$chain:upper _COMPATIBLE_RELAYER_VERSION>]: &str =
+				pub const [<$chain:upper _FINALITY_COMPATIBLE_RELAYER_VERSION>]: &str =
 					stringify!([<$chain:camel FinalityApi_compatible_relayer_version>]);
 
 				$(
@@ -365,7 +365,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 					stringify!([<To $chain:camel OutboundLaneApi_message_details>]);
 
 				/// Name of the `To<ThisChain>OutboundLaneApi::compatible_relayer_version` runtime method.
-				pub const [<TO_ $chain:upper _COMPATIBLE_RELAYER_VERSION>]: &str =
+				pub const [<TO_ $chain:upper _MESSAGES_COMPATIBLE_RELAYER_VERSION>]: &str =
 					stringify!([<To $chain:camel OutboundLaneApi_compatible_relayer_version>]);
 
 				/// Name of the `From<ThisChain>InboundLaneApi::message_details` runtime method.
@@ -373,7 +373,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 					stringify!([<From $chain:camel InboundLaneApi_message_details>]);
 
 				/// Name of the `From<ThisChain>InboundLaneApi::compatible_relayer_version` runtime method.
-				pub const [<FROM_ $chain:upper _COMPATIBLE_RELAYER_VERSION>]: &str =
+				pub const [<FROM_ $chain:upper _MESSAGES_COMPATIBLE_RELAYER_VERSION>]: &str =
 					stringify!([<From $chain:camel InboundLaneApi_compatible_relayer_version>]);
 
 				sp_api::decl_runtime_apis! {
