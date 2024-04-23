@@ -26,6 +26,7 @@ use crate::{
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
+	ensure,
 	pallet_prelude::{TransactionValidity, ValidTransaction},
 	traits::Get,
 };
@@ -148,10 +149,10 @@ pub(crate) mod pallet {
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
-			// TODO
 			// Check if score is an improvement, the current phase, page index and other paged
 			// solution metadata checks.
-			//Self::pre_dispatch_checks(&raw_solution).expect(error_message);
+			Self::pre_dispatch_checks(page, &solution, &partial_score, &claimed_full_score)
+				.expect(error_message);
 
 			// The verifier will store the paged solution, if valid.
 			let _ = <T::Verifier as verifier::Verifier>::verify_synchronous(
@@ -229,16 +230,6 @@ impl<T: Config> Pallet<T> {
 				let (full_score, partial_score, partial_solution) =
 					OffchainWorkerMiner::<T>::fetch_or_mine(page)?;
 
-				sublog!(
-					trace,
-					"unsigned",
-					"[POVLOG] Submitting unsigned page {:?}: (full score: {:?}, partial_score: {:?}) \n [POVLOG] partial solution: {:?}",
-					page,
-					full_score,
-					partial_score,
-					partial_solution,
-				);
-
 				// submit page only if full score improves the current queued score.
 				if <T::Verifier as Verifier>::ensure_score_improves(full_score) {
 					OffchainWorkerMiner::<T>::submit_paged_call(
@@ -262,13 +253,30 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn pre_dispatch_checks(
+		page: PageIndex,
+		paged_solution: &SolutionOf<T>,
+		partial_score: &ElectionScore,
+		claimed_full_score: &ElectionScore,
+	) -> Result<(), ()> {
+		// timing and metadata checks.
+		ensure!(crate::Pallet::<T>::current_phase().is_unsigned(), ());
+		ensure!(page <= crate::Pallet::<T>::msp(), ());
+
+		// full solution checks.
+		ensure!(<T::Verifier as Verifier>::ensure_score_improves(*claimed_full_score), ());
+
+		Ok(())
+	}
+
 	pub(crate) fn validate_inherent(
 		page: &PageIndex,
 		solution: &SolutionOf<T>,
 		partial_score: &ElectionScore,
 		claimed_full_score: &ElectionScore,
 	) -> TransactionValidity {
-		// TODO: perform checks, etc
+		// TODO: perform pre_dispatch checks here??
+
 		ValidTransaction::with_tag_prefix("ElectionOffchainWorker")
 			.priority(T::MinerTxPriority::get())
 			.longevity(5) // todo
@@ -280,7 +288,7 @@ impl<T: Config> Pallet<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::*;
+	use crate::{mock::*, PagedTargetSnapshot, PagedVoterSnapshot};
 	use frame_election_provider_support::ElectionProvider;
 	use frame_support::assert_ok;
 
@@ -331,6 +339,71 @@ mod tests {
 
 			// 2nd round election predicted at 60.
 			assert_eq!(election_prediction(), 60);
+		})
+	}
+
+	#[test]
+	fn unsigned_submission_no_snapshot() {
+		let (mut ext, pool) = ExtBuilder::default().build_offchainify(1);
+		ext.execute_with(|| {
+			// election predicted at 30.
+			assert_eq!(election_prediction(), 30);
+
+			roll_to_phase_with_ocw(Phase::Signed, Some(pool.clone()));
+
+			// no solution available until the unsigned phase.
+			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
+			assert!(<VerifierPallet as Verifier>::get_queued_solution(2).is_none());
+
+			// but snapshot exists.
+			assert!(PagedVoterSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_some());
+			assert!(PagedTargetSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_some());
+			// so let's clear it.
+			clear_snapshot();
+			assert!(PagedVoterSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_none());
+			assert!(PagedTargetSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_none());
+
+			// progress through unsigned phase just before the election.
+			roll_to_with_ocw(29, Some(pool.clone()));
+
+			// snapshot was not available, so unsigned submissions and thus no solution queued.
+			assert_eq!(unsigned_events().len(), 0);
+			// no solution available until the unsigned phase.
+			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
+			assert!(<VerifierPallet as Verifier>::get_queued_solution(2).is_none());
+
+			// call elect (which fails) to restart the phase.
+			assert!(call_elect().is_err());
+			assert_eq!(current_phase(), Phase::Off);
+
+			roll_to_phase_with_ocw(Phase::Signed, Some(pool.clone()));
+
+			// snapshot exists now.
+			assert!(PagedVoterSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_some());
+			assert!(PagedTargetSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_some());
+
+			roll_to_with_ocw(election_prediction() - 1, Some(pool.clone()));
+			// successful submission events for all 3 pages, as expected.
+			assert_eq!(
+				unsigned_events(),
+				[
+					Event::UnsignedSolutionSubmitted { at: 55, page: 2 },
+					Event::UnsignedSolutionSubmitted { at: 56, page: 1 },
+					Event::UnsignedSolutionSubmitted { at: 57, page: 0 }
+				]
+			);
+			// now, solution exists.
+			assert!(<VerifierPallet as Verifier>::queued_score().is_some());
+			assert!(<VerifierPallet as Verifier>::get_queued_solution(2).is_some());
+			assert!(<VerifierPallet as Verifier>::get_queued_solution(1).is_some());
+			assert!(<VerifierPallet as Verifier>::get_queued_solution(0).is_some());
+
+			// elect() works as expected.
+			assert_ok!(<MultiPhase as ElectionProvider>::elect(2));
+			assert_ok!(<MultiPhase as ElectionProvider>::elect(1));
+			assert_ok!(<MultiPhase as ElectionProvider>::elect(0));
+
+			assert_eq!(current_phase(), Phase::Off);
 		})
 	}
 }

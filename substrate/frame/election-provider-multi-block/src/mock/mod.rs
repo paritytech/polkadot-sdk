@@ -332,14 +332,14 @@ impl ExtBuilder {
 }
 
 pub(crate) fn compute_snapshot_checked() {
-    let msp = crate::Pallet::<T>::msp();
+	let msp = crate::Pallet::<T>::msp();
 
-    for page in (0..=msp).rev() {
-        crate::Pallet::<T>::try_progress_snapshot(page);
+	for page in (0..=msp).rev() {
+		crate::Pallet::<T>::try_progress_snapshot(page);
 
 		assert!(Snapshot::<T>::targets_snapshot_exists());
-        assert!(Snapshot::<T>::voters(page).is_some());
-    }
+		assert!(Snapshot::<T>::voters(page).is_some());
+	}
 }
 
 pub(crate) fn roll_to(n: BlockNumber) {
@@ -390,6 +390,15 @@ pub fn roll_one_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>) {
 	roll_to(bn);
 }
 
+pub fn roll_to_phase_with_ocw(
+	phase: Phase<BlockNumber>,
+	maybe_pool: Option<Arc<RwLock<PoolState>>>,
+) {
+	while MultiPhase::current_phase() != phase {
+		roll_one_with_ocw(maybe_pool.clone());
+	}
+}
+
 pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>>>) {
 	let now = System::block_number();
 	for _i in now + 1..=n {
@@ -405,6 +414,18 @@ pub fn election_prediction() -> BlockNumber {
 
 pub fn current_phase() -> Phase<BlockNumber> {
 	MultiPhase::current_phase()
+}
+
+pub fn call_elect() -> Result<(), crate::ElectionError<T>> {
+	for p in (0..=Pallet::<T>::msp()).rev() {
+		<MultiPhase as ElectionProvider>::elect(p)?;
+	}
+	Ok(())
+}
+
+pub fn clear_snapshot() {
+	let _ = crate::PagedVoterSnapshot::<T>::clear(u32::MAX, None);
+	let _ = crate::PagedTargetSnapshot::<T>::clear(u32::MAX, None);
 }
 
 pub(crate) fn unsigned_events() -> Vec<crate::unsigned::Event<T>> {

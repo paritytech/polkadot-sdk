@@ -547,7 +547,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		outcome
 	}
 
-	fn ensure_score_quality(score: ElectionScore) -> Result<(), FeasibilityError> {
+	pub fn ensure_score_quality(score: ElectionScore) -> Result<(), FeasibilityError> {
 		let is_improvement = <Self as Verifier>::queued_score().map_or(true, |best_score| {
 			score.strict_threshold_better(best_score, T::SolutionImprovementThreshold::get())
 		});
@@ -601,9 +601,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 				debug_assert!(*_voter == assignment.who);
 
 				// Check that all of the targets are valid based on the snapshot.
-				if assignment.distribution.iter().any(|(t, _)| {
-					!targets.contains(t)
-				}) {
+				if assignment.distribution.iter().any(|(t, _)| !targets.contains(t)) {
 					return Err(FeasibilityError::InvalidVote)
 				}
 				Ok(())
