@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713829168069,
+  "lastUpdate": 1713867523434,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -6083,6 +6083,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022106961399999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ac4f421f0b99b73bbf80710206e9ac1463e8cb0b",
+          "message": "parachains_coretime: Expose `MaxXCMTransactWeight` (#4189)\n\nThis should be configured on the runtime level and not somewhere inside\nthe pallet.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2024-04-23T09:51:11Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac4f421f0b99b73bbf80710206e9ac1463e8cb0b"
+        },
+        "date": 1713867498298,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.88666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1606442662666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01235991210666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010540011666666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022406134019999992,
             "unit": "seconds"
           }
         ]
