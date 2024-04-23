@@ -22,16 +22,30 @@
 
 use std::collections::VecDeque;
 
-use cumulus_client_consensus_common::load_abridged_host_configuration;
+use crate::collator::SlotClaim;
+use codec::{Codec};
+use cumulus_client_consensus_common::{
+	self as consensus_common, load_abridged_host_configuration,
+	ParentSearchParams,
+};
+use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
+use cumulus_primitives_core::{relay_chain::Hash as PHash, BlockT};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_primitives::{
 	AsyncBackingParams, CoreIndex, CoreState, Hash as RHash, Id as ParaId, OccupiedCoreAssumption,
 	ValidationCodeHash,
 };
+use sc_consensus_aura::{standalone as aura_internal, AuraApi};
+use sp_api::ProvideRuntimeApi;
+use sp_core::Pair;
+use sp_keystore::KeystorePtr;
+use sp_timestamp::Timestamp;
 
 pub mod basic;
 pub mod lookahead;
 pub mod slot_based;
+
+const PARENT_SEARCH_DEPTH: usize = 10;
 
 /// Check the `local_validation_code_hash` against the validation code hash in the relay chain
 /// state.
@@ -154,4 +168,101 @@ async fn cores_scheduled_for_para(
 			}
 		})
 		.collect()
+}
+
+// Checks if we own the slot at the given block and whether there
+// is space in the unincluded segment.
+async fn can_build_upon<Block: BlockT, Client, P>(
+	slot: Slot,
+	timestamp: Timestamp,
+	parent_hash: Block::Hash,
+	included_block: Block::Hash,
+	client: &Client,
+	keystore: &KeystorePtr,
+) -> Option<SlotClaim<P::Public>>
+where
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block>,
+	P: Pair,
+	P::Public: Codec,
+	P::Signature: Codec,
+{
+	let runtime_api = client.runtime_api();
+	let authorities = runtime_api.authorities(parent_hash).ok()?;
+	let author_pub = aura_internal::claim_slot::<P>(slot, &authorities, keystore).await?;
+
+	// Here we lean on the property that building on an empty unincluded segment must always
+	// be legal. Skipping the runtime API query here allows us to seamlessly run this
+	// collator against chains which have not yet upgraded their runtime.
+	if parent_hash != included_block {
+		if !runtime_api.can_build_upon(parent_hash, included_block, slot).ok()? {
+			tracing::debug!(
+				target: crate::LOG_TARGET,
+				?parent_hash,
+				?included_block,
+				?slot,
+				"Cannot build on top of the current block, skipping slot."
+			);
+			return None
+		}
+	}
+
+	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
+}
+
+/// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that
+/// we can build on. Once a list of potential parents is retrieved, return the last one of the
+/// longest chain.
+async fn find_parent<Block>(
+	relay_parent: PHash,
+	para_id: ParaId,
+	para_backend: &impl sc_client_api::Backend<Block>,
+	relay_client: &impl RelayChainInterface,
+) -> Option<(<Block as BlockT>::Hash, consensus_common::PotentialParent<Block>)>
+where
+	Block: BlockT,
+{
+	let parent_search_params = ParentSearchParams {
+		relay_parent,
+		para_id,
+		ancestry_lookback: crate::collators::async_backing_params(relay_parent, relay_client)
+			.await
+			.map_or(0, |params| params.allowed_ancestry_len as usize),
+		max_depth: PARENT_SEARCH_DEPTH,
+		ignore_alternative_branches: true,
+	};
+
+	let potential_parents = cumulus_client_consensus_common::find_potential_parents::<Block>(
+		parent_search_params,
+		para_backend,
+		relay_client,
+	)
+	.await;
+
+	let mut potential_parents = match potential_parents {
+		Err(e) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?relay_parent,
+				err = ?e,
+				"Could not fetch potential parents to build upon"
+			);
+
+			return None
+		},
+		Ok(x) => x,
+	};
+
+	let included_block = match potential_parents.iter().find(|x| x.depth == 0) {
+		None => return None, // also serves as an `is_empty` check.
+		Some(b) => b.hash,
+	};
+	potential_parents.sort_by_key(|a| a.depth);
+
+	let parent = match potential_parents.pop() {
+		None => return None,
+		Some(p) => p,
+	};
+
+	Some((included_block, parent))
 }

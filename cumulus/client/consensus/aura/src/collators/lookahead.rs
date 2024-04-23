@@ -34,7 +34,7 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
+	self as consensus_common, ParachainBlockImportMarker,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
@@ -49,7 +49,6 @@ use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
-use sc_consensus_aura::standalone as aura_internal;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
@@ -58,10 +57,9 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
-use sp_timestamp::Timestamp;
 use std::{sync::Arc, time::Duration};
 
-use crate::collator::{self as collator_util, SlotClaim};
+use crate::collator::{self as collator_util};
 
 /// Parameters for [`run`].
 pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
@@ -133,8 +131,6 @@ where
 	// Since we only search for parent blocks which have already been imported,
 	// we can guarantee that all imported blocks respect the unincluded segment
 	// rules specified by the parachain's runtime and thus will never be too deep.
-	const PARENT_SEARCH_DEPTH: usize = 10;
-
 	async move {
 		cumulus_client_collator::initialize_collator_subsystems(
 			&mut params.overseer_handle,
@@ -214,42 +210,16 @@ where
 				},
 			};
 
-			let parent_search_params = ParentSearchParams {
+			let (included_block, initial_parent) = match crate::collators::find_parent(
 				relay_parent,
-				para_id: params.para_id,
-				ancestry_lookback: super::async_backing_params(relay_parent, &params.relay_client)
-					.await
-					.map(|c| c.allowed_ancestry_len as usize)
-					.unwrap_or(0),
-				max_depth: PARENT_SEARCH_DEPTH,
-				ignore_alternative_branches: true,
-			};
-
-			let potential_parents =
-				cumulus_client_consensus_common::find_potential_parents::<Block>(
-					parent_search_params,
-					&*params.para_backend,
-					&params.relay_client,
-				)
-				.await;
-
-			let mut potential_parents = match potential_parents {
-				Err(e) => {
-					tracing::error!(
-						target: crate::LOG_TARGET,
-						?relay_parent,
-						err = ?e,
-						"Could not fetch potential parents to build upon"
-					);
-
-					continue
-				},
-				Ok(x) => x,
-			};
-
-			let included_block = match potential_parents.iter().find(|x| x.depth == 0) {
-				None => continue, // also serves as an `is_empty` check.
-				Some(b) => b.hash,
+				params.para_id,
+				&*params.para_backend,
+				&params.relay_client,
+			)
+			.await
+			{
+				Some(value) => value,
+				None => continue,
 			};
 
 			let para_client = &*params.para_client;
@@ -280,7 +250,7 @@ where
 					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
 					"Adjusted relay-chain slot to parachain slot"
 				);
-				Some(can_build_upon::<_, _, P>(
+				Some(super::can_build_upon::<_, _, P>(
 					slot_now,
 					timestamp,
 					block_hash,
@@ -289,13 +259,6 @@ where
 					&keystore,
 				))
 			};
-
-			// Sort by depth, ascending, to choose the longest chain.
-			//
-			// If the longest chain has space, build upon that. Otherwise, don't
-			// build at all.
-			potential_parents.sort_by_key(|a| a.depth);
-			let Some(initial_parent) = potential_parents.pop() else { continue };
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
@@ -424,37 +387,4 @@ where
 			}
 		}
 	}
-}
-
-// Checks if we own the slot at the given block and whether there
-// is space in the unincluded segment.
-async fn can_build_upon<Block: BlockT, Client, P>(
-	slot: Slot,
-	timestamp: Timestamp,
-	parent_hash: Block::Hash,
-	included_block: Block::Hash,
-	client: &Client,
-	keystore: &KeystorePtr,
-) -> Option<SlotClaim<P::Public>>
-where
-	Client: ProvideRuntimeApi<Block>,
-	Client::Api: AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block>,
-	P: Pair,
-	P::Public: Codec,
-	P::Signature: Codec,
-{
-	let runtime_api = client.runtime_api();
-	let authorities = runtime_api.authorities(parent_hash).ok()?;
-	let author_pub = aura_internal::claim_slot::<P>(slot, &authorities, keystore).await?;
-
-	// Here we lean on the property that building on an empty unincluded segment must always
-	// be legal. Skipping the runtime API query here allows us to seamlessly run this
-	// collator against chains which have not yet upgraded their runtime.
-	if parent_hash != included_block {
-		if !runtime_api.can_build_upon(parent_hash, included_block, slot).ok()? {
-			return None
-		}
-	}
-
-	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
 }

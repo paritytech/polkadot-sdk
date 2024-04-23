@@ -37,6 +37,7 @@ use futures_timer::Delay;
 use polkadot_primitives::HeadData;
 use sc_client_api::{Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
+use sp_blockchain::Backend as BlockchainBackend;
 use sp_consensus::{BlockOrigin, BlockStatus};
 use std::{
 	collections::{BTreeMap, HashMap},
