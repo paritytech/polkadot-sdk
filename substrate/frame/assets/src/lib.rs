@@ -1008,7 +1008,7 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(details.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
+			ensure!(d.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
 			ensure!(d.freezer() == Some(&origin), Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
 
@@ -1131,9 +1131,9 @@ pub mod pallet {
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
 				Self::ensure_live_asset(&details)?;
-				let current_owner = details.owner().ok_or(Error::<T, I>::NoPermission)?;
-				ensure!(current_owner == &origin, Error::<T, I>::NoPermission);
-				if current_owner == &owner {
+				let old_owner = details.owner().ok_or(Error::<T, I>::NoPermission)?;
+				ensure!(old_owner == &origin, Error::<T, I>::NoPermission);
+				if old_owner == &owner {
 					return Ok(())
 				}
 
@@ -1141,14 +1141,14 @@ pub mod pallet {
 				let deposit = details.deposit + metadata_deposit;
 
 				// Move the deposit to the new owner.
-				T::Currency::repatriate_reserved(&current_owner, &owner, deposit, Reserved)?;
+				T::Currency::repatriate_reserved(&old_owner, &owner, deposit, Reserved)?;
 
 				match details.try_set_owner(&owner) {
 					Ok(()) => (),
 					Err(SetTeamError::AssetStatusLiveAndNoPrivileges) => log::error!(
 						target: LOG_TARGET,
 						"Operation failed because status is `LiveAndNoPrivileges`, but there is
-						a current owner so status cannot be `LiveAndNoPrivileges`; qed"
+						an owner so status cannot be `LiveAndNoPrivileges`; qed"
 					),
 				}
 
