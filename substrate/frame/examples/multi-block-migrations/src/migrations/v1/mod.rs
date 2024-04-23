@@ -29,6 +29,9 @@ use frame_support::{
 	weights::WeightMeter,
 };
 
+#[cfg(feature = "try-runtime")]
+use sp_std::collections::btree_map::BTreeMap;
+
 mod benchmarks;
 mod tests;
 pub mod weights;
@@ -114,5 +117,30 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 			}
 		}
 		Ok(cursor)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
+		use codec::Encode;
+
+		// Return the state of the storage before the migration.
+		Ok(v0::MyMap::<T>::iter().collect::<BTreeMap<_, _>>().encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+		use codec::Decode;
+
+		// Check the state of the storage after the migration.
+		let prev_map = BTreeMap::<u32, u32>::decode(&mut &prev[..])
+			.expect("Failed to decode the previous storage state");
+
+		for (key, value) in MyMap::<T>::iter() {
+			let prev_value =
+				prev_map.get(&key).expect("Key not found in the previous storage state");
+			assert_eq!(value as u32, *prev_value, "Migration failed for key {}", key);
+		}
+
+		Ok(())
 	}
 }

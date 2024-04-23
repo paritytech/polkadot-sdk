@@ -69,22 +69,22 @@
 //! either be [`MigrationCursor::Active`] or [`MigrationCursor::Stuck`]. In the active case it
 //! points to the currently active migration and stores its inner cursor. The inner cursor can then
 //! be used by the migration to store its inner state and advance. Each time when the migration
-//! returns `Some(cursor)`, it signals the pallet that it is not done yet.  
+//! returns `Some(cursor)`, it signals the pallet that it is not done yet.
 //! The cursor is reset on each runtime upgrade. This ensures that it starts to execute at the
 //! first migration in the vector. The pallets cursor is only ever incremented or set to `Stuck`
 //! once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
-//! it is fixed through manual governance intervention.  
+//! it is fixed through manual governance intervention.
 //! As soon as the cursor of the pallet becomes `Some(_)`; [`MultiStepMigrator::ongoing`] returns
 //! `true` (Goal 2). This can be used by upstream code to possibly pause transactions.
 //! In `on_initialize` the pallet will load the current migration and check whether it was already
 //! executed in the past by checking for membership of its ID in the [`Historic`] set. Historic
 //! migrations are skipped without causing an error. Each successfully executed migration is added
-//! to this set (Goal 5).  
+//! to this set (Goal 5).
 //! This proceeds until no more migrations remain. At that point, the event `UpgradeCompleted` is
-//! emitted (Goal 1).  
+//! emitted (Goal 1).
 //! The execution of each migration happens by calling [`SteppedMigration::transactional_step`].
 //! This function wraps the inner `step` function into a transactional layer to allow rollback in
-//! the error case (Goal 6).  
+//! the error case (Goal 6).
 //! Weight limits must be checked by the migration itself. The pallet provides a [`WeightMeter`] for
 //! that purpose. The pallet may return [`SteppedMigrationError::InsufficientWeight`] at any point.
 //! In that scenario, one of two things will happen: if that migration was exclusively executed
@@ -784,5 +784,101 @@ impl<T: Config> MultiStepMigrator for Pallet<T> {
 
 	fn step() -> Weight {
 		Self::progress_mbms(System::<T>::block_number())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn try_mbms() -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_std::collections::btree_map::BTreeMap;
+
+		// Check if migrations were initiated.
+		if !Self::ongoing() {
+			return Ok(())
+		}
+
+		// Store pre_upgrade state for all migrations.
+		let mut pre_upgrade_state = BTreeMap::<u32, Vec<u8>>::new();
+		let mut errors = Vec::new();
+		for i in 0..T::Migrations::len() {
+			match T::Migrations::nth_pre_upgrade(i) {
+				Ok(state) => {
+					pre_upgrade_state.insert(i, state);
+				},
+				Err(e) => {
+					errors.push((i, "pre-upgrade", e));
+				},
+			}
+		}
+
+		// Run migrations to completion.
+		match Self::try_step_until_completion() {
+			Ok(blocks) => {
+				log::info!("ℹ️ MBMs executed in {} blocks", blocks);
+			},
+			Err((i, e)) => errors.push((i, "step", e)),
+		}
+
+		// Run post_upgrade for all migrations.
+		for i in 0..T::Migrations::len() {
+			if let Err(e) = T::Migrations::nth_post_upgrade(
+				i,
+				pre_upgrade_state.get(&i).unwrap_or(&vec![]).clone(),
+			) {
+				errors.push((i, "post-upgrade", e));
+			}
+		}
+
+		if !errors.is_empty() {
+			log::error!("❌ MBM errors occured:");
+			for (i, p, e) in errors {
+				log::error!(
+					"  - Migration at index {} errored during phase '{}' error: {:?}",
+					i,
+					p,
+					e
+				);
+			}
+			return Err("MBM failure/s. See error logs for info.".into())
+		}
+
+		Ok(())
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	#[cfg(feature = "try-runtime")]
+	fn try_step_until_completion() -> Result<BlockNumberFor<T>, (u32, sp_runtime::TryRuntimeError)>
+	{
+		use frame_support::traits::Hooks;
+
+		let start_block = System::<T>::block_number();
+		loop {
+			let migration_index = match Cursor::<T>::get() {
+				Some(MigrationCursor::Active(active)) => active.index,
+				_ => unreachable!("migration must be active"),
+			};
+
+			// Simulate a step.
+			log::debug!("Block {}", System::<T>::block_number());
+			System::<T>::set_block_number(System::<T>::block_number() + 1u32.into());
+			System::<T>::on_initialize(System::<T>::block_number());
+			crate::Pallet::<T>::on_initialize(System::<T>::block_number());
+			Self::step();
+			<crate::Pallet<T>>::on_finalize(System::<T>::block_number());
+			<frame_system::Pallet<T>>::on_finalize(System::<T>::block_number());
+
+			// Check events for `UpgradeCompleted` or `UpgradeFailed`.
+			for e in System::<T>::events().iter() {
+				let e_success: <T as crate::Config>::RuntimeEvent =
+					Event::<T>::UpgradeCompleted.into();
+				let e_failed: <T as crate::Config>::RuntimeEvent = Event::<T>::UpgradeFailed.into();
+				if e.event == e_success.into() {
+					let end_block = System::<T>::block_number();
+					return Ok(end_block - start_block)
+				}
+				if e.event == e_failed.into() {
+					return Err((migration_index, "UpgradeFailed event emitted".into()))
+				}
+			}
+		}
 	}
 }

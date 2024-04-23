@@ -41,6 +41,8 @@ pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
+pallet-example-mbm = { path = "../../../../../substrate/frame/examples/multi-block-migrations", default-features = false }
+pallet-migrations = { path = "../../../../../substrate/frame/migrations", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false }
 sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
@@ -120,6 +122,8 @@ snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/primi
 snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/runtime-common", default-features = false }
 
 bridge-hub-common = { path = "../common", default-features = false }
+
+
 
 [dev-dependencies]
 static_assertions = "1.1"
@@ -221,6 +225,8 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"pallet-example-mbm/std",
+	"pallet-migrations/std"
 ]
 
 runtime-benchmarks = [
@@ -262,6 +268,8 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"pallet-example-mbm/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks"
 ]
 
 try-runtime = [
@@ -296,6 +304,8 @@ try-runtime = [
 	"snowbridge-pallet-outbound-queue/try-runtime",
 	"snowbridge-pallet-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-example-mbm/try-runtime",
+	"pallet-migrations/try-runtime"
 ]
 
 fast-runtime = []

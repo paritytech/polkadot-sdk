@@ -333,3 +333,127 @@ fn migration_timeout_errors() {
 		assert_eq!(upgrades_started_completed_failed(), (0, 0, 1));
 	});
 }
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn try_mbms_success_case() {
+	use frame_support::migrations::MultiStepMigrator;
+	use Event::*;
+	test_closure(|| {
+		// Add three migrations, each taking one block longer than the previous.
+		MockedMigrations::set(vec![(SucceedAfter, 0), (SucceedAfter, 1), (SucceedAfter, 2)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		crate::Pallet::<T>::try_mbms().unwrap();
+
+		// Check that we got all events.
+		assert_events(vec![
+			UpgradeStarted { migrations: 3 },
+			MigrationCompleted { index: 0, took: 1 },
+			MigrationAdvanced { index: 1, took: 0 },
+			MigrationCompleted { index: 1, took: 1 },
+			MigrationAdvanced { index: 2, took: 0 },
+			MigrationAdvanced { index: 2, took: 1 },
+			MigrationCompleted { index: 2, took: 2 },
+			UpgradeCompleted,
+		]);
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn try_mbms_pre_upgrade_failure() {
+	use frame_support::migrations::MultiStepMigrator;
+	use Event::*;
+	test_closure(|| {
+		// Add three migrations, it should fail after the second one.
+		MockedMigrations::set(vec![(SucceedAfter, 0), (PreUpgradeFail, 1), (SucceedAfter, 2)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+
+		// try_mbms should fail, but all events should still be emitted.
+		let _ = crate::Pallet::<T>::try_mbms().unwrap_err();
+		assert_events(vec![
+			UpgradeStarted { migrations: 3 },
+			MigrationCompleted { index: 0, took: 1 },
+			MigrationAdvanced { index: 1, took: 0 },
+			MigrationCompleted { index: 1, took: 1 },
+			MigrationAdvanced { index: 2, took: 0 },
+			MigrationAdvanced { index: 2, took: 1 },
+			MigrationCompleted { index: 2, took: 2 },
+			UpgradeCompleted,
+		]);
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn try_mbms_post_upgrade_failure() {
+	use frame_support::migrations::MultiStepMigrator;
+	use Event::*;
+	test_closure(|| {
+		// Add three migrations, it should fail after the second one.
+		MockedMigrations::set(vec![(SucceedAfter, 0), (PostUpgradeFail, 1), (SucceedAfter, 2)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+
+		// try_mbms should fail, but all events should still be emitted.
+		let _ = crate::Pallet::<T>::try_mbms().unwrap_err();
+		assert_events(vec![
+			UpgradeStarted { migrations: 3 },
+			MigrationCompleted { index: 0, took: 1 },
+			MigrationAdvanced { index: 1, took: 0 },
+			MigrationCompleted { index: 1, took: 1 },
+			MigrationAdvanced { index: 2, took: 0 },
+			MigrationAdvanced { index: 2, took: 1 },
+			MigrationCompleted { index: 2, took: 2 },
+			UpgradeCompleted,
+		]);
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn try_mbms_migration_failure() {
+	use frame_support::migrations::MultiStepMigrator;
+	use Event::*;
+	test_closure(|| {
+		// Add three migrations, it should fail after the second one.
+		MockedMigrations::set(vec![(SucceedAfter, 0), (FailAfter, 5), (SucceedAfter, 10)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		let _ = crate::Pallet::<T>::try_mbms().unwrap_err();
+
+		// Check that we got all events.
+		assert_events(vec![
+			UpgradeStarted { migrations: 3 },
+			MigrationCompleted { index: 0, took: 1 },
+			MigrationAdvanced { index: 1, took: 0 },
+			MigrationAdvanced { index: 1, took: 1 },
+			MigrationAdvanced { index: 1, took: 2 },
+			MigrationAdvanced { index: 1, took: 3 },
+			MigrationAdvanced { index: 1, took: 4 },
+			MigrationFailed { index: 1, took: 5 },
+			UpgradeFailed,
+		]);
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn try_step_no_migrations() {
+	use frame_support::migrations::MultiStepMigrator;
+	test_closure(|| {
+		MockedMigrations::set(vec![]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		let _ = crate::Pallet::<T>::try_mbms();
+
+		assert_eq!(System::events().len(), 0);
+	});
+}

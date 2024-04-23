@@ -17,7 +17,7 @@
 
 //! Supporting types for try-runtime, testing and dry-running commands.
 
-pub use frame_support::traits::{TryStateSelect, UpgradeCheckSelect};
+pub use frame_support::traits::{TryOnRuntimeUpgradeOpts, TryStateSelect};
 use frame_support::weights::Weight;
 
 sp_api::decl_runtime_apis! {
@@ -31,10 +31,8 @@ sp_api::decl_runtime_apis! {
 		/// Returns the consumed weight of the migration in case of a successful one, combined with
 		/// the total allowed block weight of the runtime.
 		///
-		/// If `checks` is `true`, `pre_migrate` and `post_migrate` of each migration and
-		/// `try_state` of all pallets will be executed. Else, no. If checks are executed, the PoV
-		/// tracking is likely inaccurate.
-		fn on_runtime_upgrade(checks: UpgradeCheckSelect) -> (Weight, Weight);
+		/// [`TryOnRuntimeUpgradeOpts`] allows configuration of which checks to run post-upgrade.
+		fn on_runtime_upgrade(opts: TryOnRuntimeUpgradeOpts) -> (Weight, Weight);
 
 		/// Execute the given block, but optionally disable state-root and signature checks.
 		///

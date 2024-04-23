@@ -460,6 +460,11 @@ impl MultiStepMigrator for MockedModeGetter {
 	fn step() -> Weight {
 		Weight::zero()
 	}
+
+	#[cfg(feature = "try-runtime")]
+	fn try_mbms() -> Result<(), sp_runtime::TryRuntimeError> {
+		Ok(())
+	}
 }
 
 fn extra(nonce: u64, fee: Balance) -> SignedExtra {

@@ -102,6 +102,11 @@ impl frame_support::migrations::MultiStepMigrator for MockedMigrator {
 	fn step() -> Weight {
 		Weight::zero()
 	}
+
+	#[cfg(feature = "try-runtime")]
+	fn try_mbms() -> Result<(), sp_runtime::TryRuntimeError> {
+		Ok(())
+	}
 }
 
 pub type SysEvent = frame_system::Event<Test>;
