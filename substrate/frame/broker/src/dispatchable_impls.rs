@@ -70,8 +70,16 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_start_sales(price: BalanceOf<T>, core_count: CoreIndex) -> DispatchResult {
+	pub(crate) fn do_start_sales(price: BalanceOf<T>, extra_cores: CoreIndex) -> DispatchResult {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+
+		// Determine the core count
+		let core_count = Leases::<T>::decode_len().unwrap_or(0) as CoreIndex +
+			Reservations::<T>::decode_len().unwrap_or(0) as CoreIndex +
+			extra_cores;
+
+		Self::do_request_core_count(core_count)?;
+
 		let commit_timeslice = Self::latest_timeslice_ready_to_commit(&config);
 		let status = StatusRecord {
 			core_count,
