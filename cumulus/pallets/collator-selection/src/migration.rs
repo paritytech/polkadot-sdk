@@ -77,7 +77,7 @@ pub mod v2 {
 				for candidate in candidates {
 					let err = T::Currency::unreserve(&candidate.who, candidate.deposit);
 					if err > Zero::zero() {
-						log::info!(
+						log::error!(
 							target: LOG_TARGET,
 							"{:?} balance was unable to be unreserved from {:?}",
 							err, &candidate.who,
@@ -86,7 +86,7 @@ pub mod v2 {
 					count.saturating_inc();
 				}
 				weight.saturating_accrue(
-					<<T as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::force_unreserve() * count,
+					<<T as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::force_unreserve().saturating_mul(count.into()),
 				);
 			}
 
