@@ -52,7 +52,7 @@ pub mod v2 {
 
 	/// Migrate to V2.
 	pub struct UncheckedMigrationToV2<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
+	impl<T: Config + pallet_balances::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = Weight::zero();
 			let mut count: u32 = 0;
@@ -85,11 +85,8 @@ pub mod v2 {
 					}
 					count.saturating_inc();
 				}
-				// conservative benchmarks from `force_unreserve`
 				weight.saturating_accrue(
-					Weight::from_parts(20_000_000, 4_000)
-						.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-						.saturating_mul(count.into()),
+					<<T as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::force_unreserve(),
 				);
 			}
 
