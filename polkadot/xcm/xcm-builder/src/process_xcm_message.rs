@@ -77,7 +77,7 @@ impl<
 				meter.remaining(),
 			);
 
-			return Err(ProcessMessageError::Overweight(Some(required)))
+			return Err(ProcessMessageError::Overweight(required))
 		}
 
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
@@ -103,7 +103,7 @@ impl<
 					"XCM message execution error: {error:?}",
 				);
 				let error = match error {
-					xcm::latest::Error::ExceedsStackLimit => ProcessMessageError::Overweight(None),
+					xcm::latest::Error::ExceedsStackLimit => ProcessMessageError::StackLimitReached,
 					_ => ProcessMessageError::Unsupported,
 				};
 
@@ -188,7 +188,7 @@ mod tests {
 				&mut WeightMeter::new(),
 				&mut [0; 32]
 			),
-			ProcessMessageError::Overweight(None)
+			ProcessMessageError::StackLimitReached,
 		);
 	}
 
@@ -203,7 +203,7 @@ mod tests {
 				let mut id = [0; 32];
 				assert_err!(
 					Processor::process_message(msg, ORIGIN, meter, &mut id),
-					Overweight(Some(1000.into()))
+					Overweight(1000.into())
 				);
 				assert_eq!(meter.consumed(), 0.into());
 			}

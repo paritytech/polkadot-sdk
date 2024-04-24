@@ -329,7 +329,7 @@ macro_rules! decl_test_network {
 						);
 						match r {
 							Err($crate::ProcessMessageError::Overweight(required)) =>
-								return Err($crate::XcmError::WeightLimitReached(required.expect("Processor must know the max weight."))),
+								return Err($crate::XcmError::WeightLimitReached(required)),
 							// Not really the correct error, but there is no "undecodable".
 							Err(_) => return Err($crate::XcmError::Unimplemented),
 							Ok(_) => (),

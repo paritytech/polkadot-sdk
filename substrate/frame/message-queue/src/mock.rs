@@ -191,13 +191,14 @@ impl ProcessMessage for RecordingMessageProcessor {
 			MessagesProcessed::set(m);
 			Ok(true)
 		} else {
-			Err(ProcessMessageError::Overweight(Some(required)))
+			Err(ProcessMessageError::Overweight(required))
 		}
 	}
 }
 
 parameter_types! {
 	pub static Callback: Box<fn (&MessageOrigin, u32)> = Box::new(|_, _| {});
+	pub static IgnoreStackOvError: bool = false;
 }
 
 /// Processed a mocked message. Messages that end with `badformat`, `corrupt`, `unsupported` or
@@ -216,6 +217,8 @@ fn processing_message(msg: &[u8], origin: &MessageOrigin) -> Result<(), ProcessM
 		Err(ProcessMessageError::Unsupported)
 	} else if msg.ends_with("yield") {
 		Err(ProcessMessageError::Yield)
+	} else if msg.ends_with("stacklimitreached") && !IgnoreStackOvError::get() {
+		Err(ProcessMessageError::StackLimitReached)
 	} else {
 		Ok(())
 	}
@@ -254,7 +257,7 @@ impl ProcessMessage for CountingMessageProcessor {
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
 		} else {
-			Err(ProcessMessageError::Overweight(Some(required)))
+			Err(ProcessMessageError::Overweight(required))
 		}
 	}
 }

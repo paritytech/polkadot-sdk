@@ -37,8 +37,8 @@ pub enum ProcessMessageError {
 	Unsupported,
 	/// Message processing was not attempted because it was not certain that the weight limit
 	/// would be respected. The parameter gives the maximum weight which the message could take
-	/// to process. If none is given, then the worst case is assumed.
-	Overweight(Option<Weight>),
+	/// to process.
+	Overweight(Weight),
 	/// The queue wants to give up its current processing slot.
 	///
 	/// Hints the message processor to cease servicing this queue and proceed to the next
@@ -46,6 +46,8 @@ pub enum ProcessMessageError {
 	/// the case that a queue is re-serviced within the same block after *yielding*. A queue is
 	/// not required to *yield* again when it is being re-serviced withing the same block.
 	Yield,
+	/// The message could not be processed for reaching the stack depth limit.
+	StackLimitReached,
 }
 
 /// Can process messages from a specific origin.
@@ -96,6 +98,8 @@ pub trait ServiceQueues {
 	/// - `weight_limit`: The maximum amount of dynamic weight that this call can use.
 	///
 	/// Returns the dynamic weight used by this call; is never greater than `weight_limit`.
+	/// Should only be called in top-level runtime entry points like `on_initialize` or `on_idle`.
+	/// Otherwise, stack depth limit errors may be miss-handled.
 	fn service_queues(weight_limit: Weight) -> Weight;
 
 	/// Executes a message that could not be executed by [`Self::service_queues()`] because it was

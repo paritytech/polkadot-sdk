@@ -42,7 +42,7 @@ fn take_weight_credit_barrier_should_work() {
 		Weight::from_parts(10, 10),
 		&mut properties,
 	);
-	assert_eq!(r, Err(ProcessMessageError::Overweight(Some(Weight::from_parts(10, 10)))));
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(10, 10))));
 	assert_eq!(properties.weight_credit, Weight::zero());
 }
 
@@ -163,7 +163,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err(ProcessMessageError::Overweight(Some(Weight::from_parts(20, 20)))));
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
 	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
@@ -171,7 +171,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err(ProcessMessageError::Overweight(Some(Weight::from_parts(20, 20)))));
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
 	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
@@ -195,7 +195,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err(ProcessMessageError::Overweight(Some(Weight::from_parts(20, 20)))));
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
 	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
@@ -234,7 +234,7 @@ fn allow_paid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err(ProcessMessageError::Overweight(Some(Weight::from_parts(30, 30)))));
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(30, 30))));
 
 	let fees = (Parent, 1).into();
 	let mut paying_message = Xcm::<()>(vec![
@@ -272,7 +272,7 @@ fn allow_paid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err(ProcessMessageError::Overweight(Some(Weight::from_parts(20, 20)))));
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
 	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
 		&Parent.into(),
