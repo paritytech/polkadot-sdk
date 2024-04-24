@@ -140,31 +140,20 @@ pub mod v1 {
 }
 
 pub mod v2 {
-	use frame_support::{pallet_prelude::*, weights::Weight};
+	use frame_support::{migrations::VersionedMigration, pallet_prelude::*, weights::Weight};
 
 	use super::*;
 
-	pub struct MigrateV1ToV2<T, I = ()>(core::marker::PhantomData<(T, I)>);
-	impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateV1ToV2<T, I> {
-		fn on_runtime_upgrade() -> Weight {
-			let in_code_version = Pallet::<T, I>::in_code_storage_version();
-			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
-			if on_chain_version == 1 && in_code_version == 2 {
-				in_code_version.put::<Pallet<T, I>>();
-				log::info!(
-					target: LOG_TARGET,
-					"Upgraded storage to version {:?}",
-					in_code_version
-				);
-				T::DbWeight::get().reads_writes(1, 1)
-			} else {
-				log::info!(
-					target: LOG_TARGET,
-					"Migration did not execute. This probably should be removed"
-				);
-				T::DbWeight::get().reads(1)
-			}
-		}
+	pub type MigrateV1ToV2<T, I = ()> = VersionedMigration<
+		1,
+		2,
+		MigrateV1ToV2Inner<T, I>,
+		crate::Pallet<T, I>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+	struct MigrateV1ToV2Inner<T, I = ()>(core::marker::PhantomData<(T, I)>);
+	impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateV1ToV2Inner<T, I> {
+		fn on_runtime_upgrade() -> Weight {}
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
