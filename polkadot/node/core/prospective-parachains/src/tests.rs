@@ -390,7 +390,6 @@ async fn get_backable_candidates(
 		})
 		.await;
 	let resp = rx.await.unwrap();
-	assert_eq!(resp.len(), expected_result.len());
 	assert_eq!(resp, expected_result);
 }
 
@@ -480,7 +479,7 @@ fn should_do_no_work_if_async_backing_disabled_for_leaf() {
 }
 
 // Send some candidates and make sure all are found:
-// - Two for the same leaf A
+// - Two for the same leaf A (one for parachain 1 and one for parachain 2)
 // - One for leaf B on parachain 1
 // - One for leaf C on parachain 2
 #[test]
@@ -529,8 +528,8 @@ fn send_candidates_and_check_if_found() {
 			HeadData(vec![1]),
 			test_state.validation_code_hash,
 		);
-		// let candidate_hash_a1 = candidate_a1.hash();
-		// let response_a1 = vec![(leaf_a.hash, vec![0])];
+		let candidate_hash_a1 = candidate_a1.hash();
+		let response_a1 = vec![(candidate_hash_a1, leaf_a.hash)];
 
 		// Candidate A2
 		let (candidate_a2, pvd_a2) = make_candidate(
@@ -541,8 +540,8 @@ fn send_candidates_and_check_if_found() {
 			HeadData(vec![2]),
 			test_state.validation_code_hash,
 		);
-		// let candidate_hash_a2 = candidate_a2.hash();
-		// let response_a2 = vec![(leaf_a.hash, vec![0])];
+		let candidate_hash_a2 = candidate_a2.hash();
+		let response_a2 = vec![(candidate_hash_a2, leaf_a.hash)];
 
 		// Candidate B
 		let (candidate_b, pvd_b) = make_candidate(
@@ -553,8 +552,8 @@ fn send_candidates_and_check_if_found() {
 			HeadData(vec![3]),
 			test_state.validation_code_hash,
 		);
-		// let candidate_hash_b = candidate_b.hash();
-		// let response_b = vec![(leaf_b.hash, vec![0])];
+		let candidate_hash_b = candidate_b.hash();
+		let response_b = vec![(candidate_hash_b, leaf_b.hash)];
 
 		// Candidate C
 		let (candidate_c, pvd_c) = make_candidate(
@@ -565,26 +564,79 @@ fn send_candidates_and_check_if_found() {
 			HeadData(vec![4]),
 			test_state.validation_code_hash,
 		);
-		// let candidate_hash_c = candidate_c.hash();
-		// let response_c = vec![(leaf_c.hash, vec![0])];
+		let candidate_hash_c = candidate_c.hash();
+		let response_c = vec![(candidate_hash_c, leaf_c.hash)];
 
 		// Introduce candidates.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a1, pvd_a1).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a2, pvd_a2).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b, pvd_b).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c, pvd_c).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a1.clone(), pvd_a1).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a2.clone(), pvd_a2).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c).await;
+
+		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
+		back_candidate(&mut virtual_overseer, &candidate_a1, candidate_hash_a1).await;
+		back_candidate(&mut virtual_overseer, &candidate_a2, candidate_hash_a2).await;
+		back_candidate(&mut virtual_overseer, &candidate_b, candidate_hash_b).await;
+		back_candidate(&mut virtual_overseer, &candidate_c, candidate_hash_c).await;
 
 		// Check candidate tree membership.
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_a1, response_a1).await;
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_a2, response_a2).await;
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_b, response_b).await;
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_c, response_c).await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			1.into(),
+			Ancestors::default(),
+			5,
+			response_a1,
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			2.into(),
+			Ancestors::default(),
+			5,
+			response_a2,
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			1.into(),
+			Ancestors::default(),
+			5,
+			response_b,
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_c,
+			2.into(),
+			Ancestors::default(),
+			5,
+			response_c,
+		)
+		.await;
 
-		// // The candidates should not be found on other parachains.
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_a1, vec![]).await;
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_a2, vec![]).await;
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_b, vec![]).await;
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_c, vec![]).await;
+		// Check membership on other leaves.
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			2.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_c,
+			1.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
 
 		virtual_overseer
 	});
@@ -644,7 +696,7 @@ fn check_candidate_parent_leaving_view() {
 			HeadData(vec![1]),
 			test_state.validation_code_hash,
 		);
-		// let candidate_hash_a1 = candidate_a1.hash();
+		let candidate_hash_a1 = candidate_a1.hash();
 
 		// Candidate A2
 		let (candidate_a2, pvd_a2) = make_candidate(
@@ -655,7 +707,7 @@ fn check_candidate_parent_leaving_view() {
 			HeadData(vec![2]),
 			test_state.validation_code_hash,
 		);
-		// let candidate_hash_a2 = candidate_a2.hash();
+		let candidate_hash_a2 = candidate_a2.hash();
 
 		// Candidate B
 		let (candidate_b, pvd_b) = make_candidate(
@@ -666,8 +718,8 @@ fn check_candidate_parent_leaving_view() {
 			HeadData(vec![3]),
 			test_state.validation_code_hash,
 		);
-		// let candidate_hash_b = candidate_b.hash();
-		// let response_b = vec![(leaf_b.hash, vec![0])];
+		let candidate_hash_b = candidate_b.hash();
+		let response_b = vec![(candidate_hash_b, leaf_b.hash)];
 
 		// Candidate C
 		let (candidate_c, pvd_c) = make_candidate(
@@ -678,42 +730,143 @@ fn check_candidate_parent_leaving_view() {
 			HeadData(vec![4]),
 			test_state.validation_code_hash,
 		);
-		// let candidate_hash_c = candidate_c.hash();
-		// let response_c = vec![(leaf_c.hash, vec![0])];
+		let candidate_hash_c = candidate_c.hash();
+		let response_c = vec![(candidate_hash_c, leaf_c.hash)];
 
 		// Introduce candidates.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a1, pvd_a1).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a2, pvd_a2).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b, pvd_b).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c, pvd_c).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a1.clone(), pvd_a1).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a2.clone(), pvd_a2).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c).await;
+
+		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
+		back_candidate(&mut virtual_overseer, &candidate_a1, candidate_hash_a1).await;
+		back_candidate(&mut virtual_overseer, &candidate_a2, candidate_hash_a2).await;
+		back_candidate(&mut virtual_overseer, &candidate_b, candidate_hash_b).await;
+		back_candidate(&mut virtual_overseer, &candidate_c, candidate_hash_c).await;
 
 		// Deactivate leaf A.
 		deactivate_leaf(&mut virtual_overseer, leaf_a.hash).await;
 
-		// // Candidates A1 and A2 should be gone. Candidates B and C should remain.
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_a1, vec![]).await;
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_a2, vec![]).await;
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_b, response_b).await;
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_c,
-		// response_c.clone()).await;
+		// Candidates A1 and A2 should be gone. Candidates B and C should remain.
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			1.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			2.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			1.into(),
+			Ancestors::default(),
+			5,
+			response_b,
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_c,
+			2.into(),
+			Ancestors::default(),
+			5,
+			response_c.clone(),
+		)
+		.await;
 
 		// Deactivate leaf B.
 		deactivate_leaf(&mut virtual_overseer, leaf_b.hash).await;
 
-		// // Candidate B should be gone, C should remain.
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_a1, vec![]).await;
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_a2, vec![]).await;
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_b, vec![]).await;
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_c, response_c).await;
+		// Candidate B should be gone, C should remain.
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			1.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			2.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			1.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_c,
+			2.into(),
+			Ancestors::default(),
+			5,
+			response_c,
+		)
+		.await;
 
 		// Deactivate leaf C.
 		deactivate_leaf(&mut virtual_overseer, leaf_c.hash).await;
 
-		// // Candidate C should be gone.
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_a1, vec![]).await;
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_a2, vec![]).await;
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_b, vec![]).await;
-		// get_membership(&mut virtual_overseer, 2.into(), candidate_hash_c, vec![]).await;
+		// Candidate C should be gone.
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			1.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			2.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			1.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_c,
+			2.into(),
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
 
 		virtual_overseer
 	});
@@ -727,40 +880,30 @@ fn check_candidate_parent_leaving_view() {
 fn check_candidate_on_multiple_forks() {
 	let test_state = TestState::default();
 	let view = test_harness(|mut virtual_overseer| async move {
-		// Leaf A
-		let leaf_a = TestLeaf {
-			number: 100,
-			hash: Hash::from_low_u64_be(130),
-			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
-			],
-		};
 		// Leaf B
 		let leaf_b = TestLeaf {
 			number: 101,
 			hash: Hash::from_low_u64_be(131),
 			para_data: vec![
-				(1.into(), PerParaData::new(99, HeadData(vec![3, 4, 5]))),
+				(1.into(), PerParaData::new(99, HeadData(vec![1, 2, 3]))),
 				(2.into(), PerParaData::new(101, HeadData(vec![4, 5, 6]))),
 			],
 		};
-		// Leaf C
-		let leaf_c = TestLeaf {
-			number: 102,
-			hash: Hash::from_low_u64_be(132),
+		// Leaf A
+		let leaf_a = TestLeaf {
+			number: 100,
+			hash: get_parent_hash(leaf_b.hash),
 			para_data: vec![
-				(1.into(), PerParaData::new(102, HeadData(vec![5, 6, 7]))),
-				(2.into(), PerParaData::new(98, HeadData(vec![6, 7, 8]))),
+				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
 			],
 		};
 
 		// Activate leaves.
 		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
 		activate_leaf(&mut virtual_overseer, &leaf_b, &test_state).await;
-		activate_leaf(&mut virtual_overseer, &leaf_c, &test_state).await;
 
-		// Candidate on leaf A.
+		// Candidate built on leaf A.
 		let (candidate_a, pvd_a) = make_candidate(
 			leaf_a.hash,
 			leaf_a.number,
@@ -769,50 +912,39 @@ fn check_candidate_on_multiple_forks() {
 			HeadData(vec![1]),
 			test_state.validation_code_hash,
 		);
-		// let candidate_hash_a = candidate_a.hash();
-		// let response_a = vec![(leaf_a.hash, vec![0])];
+		let candidate_hash_a = candidate_a.hash();
+		let response_a = vec![(candidate_hash_a, leaf_a.hash)];
 
-		// Candidate on leaf B.
-		let (candidate_b, pvd_b) = make_candidate(
-			leaf_b.hash,
-			leaf_b.number,
-			1.into(),
-			HeadData(vec![3, 4, 5]),
-			HeadData(vec![1]),
-			test_state.validation_code_hash,
-		);
-		// let candidate_hash_b = candidate_b.hash();
-		// let response_b = vec![(leaf_b.hash, vec![0])];
-
-		// Candidate on leaf C.
-		let (candidate_c, pvd_c) = make_candidate(
-			leaf_c.hash,
-			leaf_c.number,
-			1.into(),
-			HeadData(vec![5, 6, 7]),
-			HeadData(vec![1]),
-			test_state.validation_code_hash,
-		);
-		// let candidate_hash_c = candidate_c.hash();
-		// let response_c = vec![(leaf_c.hash, vec![0])];
-
-		// Introduce candidates on all three leaves.
+		// Introduce candidate. Should be present on leaves B and C.
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c).await;
+		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
 
 		// Check candidate tree membership.
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_a, response_a).await;
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_b, response_b).await;
-		// get_membership(&mut virtual_overseer, 1.into(), candidate_hash_c, response_c).await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			1.into(),
+			Ancestors::default(),
+			5,
+			response_a.clone(),
+		)
+		.await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			1.into(),
+			Ancestors::default(),
+			5,
+			response_a.clone(),
+		)
+		.await;
 
 		virtual_overseer
 	});
 
-	assert_eq!(view.active_leaves.len(), 3);
+	assert_eq!(view.active_leaves.len(), 2);
 	assert_eq!(view.candidate_storage.len(), 2);
-	// Three parents and three candidates on para 1.
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (3, 3));
+	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (1, 1));
 	assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (0, 0));
 }
 
