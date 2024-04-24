@@ -305,33 +305,25 @@ where
 
 		// Ensure the listen addresses are consistent with the transport.
 		ensure_addresses_consistent_with_transport(
-			listen_addresses.iter(),
+			network_config.listen_addresses.iter(),
 			&network_config.transport,
 		)?;
 		ensure_addresses_consistent_with_transport(
-			network_config.boot_nodes.iter().map(|x| &x.multiaddr.into()),
+			network_config.boot_nodes.iter().map(|x| &x.multiaddr),
 			&network_config.transport,
 		)?;
 		ensure_addresses_consistent_with_transport(
-			network_config
-				.default_peers_set
-				.reserved_nodes
-				.iter()
-				.map(|x| &x.multiaddr.into()),
+			network_config.default_peers_set.reserved_nodes.iter().map(|x| &x.multiaddr),
 			&network_config.transport,
 		)?;
 		for notification_protocol in &notification_protocols {
 			ensure_addresses_consistent_with_transport(
-				notification_protocol
-					.set_config()
-					.reserved_nodes
-					.iter()
-					.map(|x| &x.multiaddr.into()),
+				notification_protocol.set_config().reserved_nodes.iter().map(|x| &x.multiaddr),
 				&network_config.transport,
 			)?;
 		}
 		ensure_addresses_consistent_with_transport(
-			public_addresses.iter(),
+			network_config.public_addresses.iter(),
 			&network_config.transport,
 		)?;
 
@@ -1879,14 +1871,14 @@ where
 }
 
 pub(crate) fn ensure_addresses_consistent_with_transport<'a>(
-	addresses: impl Iterator<Item = &'a Multiaddr>,
+	addresses: impl Iterator<Item = &'a sc_network_types::multiaddr::Multiaddr>,
 	transport: &TransportConfig,
 ) -> Result<(), Error> {
+	use sc_network_types::multiaddr::Protocol;
+
 	if matches!(transport, TransportConfig::MemoryOnly) {
 		let addresses: Vec<_> = addresses
-			.filter(|x| {
-				x.iter().any(|y| !matches!(y, libp2p::core::multiaddr::Protocol::Memory(_)))
-			})
+			.filter(|x| x.iter().any(|y| !matches!(y, Protocol::Memory(_))))
 			.cloned()
 			.collect();
 
@@ -1898,7 +1890,7 @@ pub(crate) fn ensure_addresses_consistent_with_transport<'a>(
 		}
 	} else {
 		let addresses: Vec<_> = addresses
-			.filter(|x| x.iter().any(|y| matches!(y, libp2p::core::multiaddr::Protocol::Memory(_))))
+			.filter(|x| x.iter().any(|y| matches!(y, Protocol::Memory(_))))
 			.cloned()
 			.collect();
 

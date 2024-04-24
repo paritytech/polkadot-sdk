@@ -227,7 +227,7 @@ impl Discovery {
 		let (identify_config, identify_event_stream) = IdentifyConfig::new(
 			"/substrate/1.0".to_string(),
 			Some(user_agent),
-			config.public_addresses.clone(),
+			config.public_addresses.clone().into_iter().map(Into::into).collect(),
 		);
 
 		let (mdns_config, mdns_event_stream) = match config.transport {
@@ -266,7 +266,7 @@ impl Discovery {
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(8)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
-				public_addresses: config.public_addresses.iter().cloned().collect(),
+				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: Some(Delay::new(KADEMLIA_QUERY_INTERVAL)),
 				local_protocols: HashSet::from_iter([
 					kademlia_protocol_name(genesis_hash, fork_id),
@@ -462,7 +462,10 @@ impl Stream for Discovery {
 					"`GET_RECORD` succeeded for {query_id:?}: {record:?}",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, record }));
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess {
+					query_id,
+					record: record.record,
+				}));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),

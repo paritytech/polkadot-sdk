@@ -844,11 +844,11 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 	/// Verify addresses are consistent with enabled transports.
 	pub fn sanity_check_addresses(&self) -> Result<(), crate::error::Error> {
 		ensure_addresses_consistent_with_transport(
-			self.network_config.listen_addresses.iter().map(|addr| &addr.to_owned().into()),
+			self.network_config.listen_addresses.iter(),
 			&self.network_config.transport,
 		)?;
 		ensure_addresses_consistent_with_transport(
-			self.network_config.boot_nodes.iter().map(|x| &x.multiaddr.into()),
+			self.network_config.boot_nodes.iter().map(|x| &x.multiaddr),
 			&self.network_config.transport,
 		)?;
 		ensure_addresses_consistent_with_transport(
@@ -856,22 +856,18 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 				.default_peers_set
 				.reserved_nodes
 				.iter()
-				.map(|x| &x.multiaddr.into()),
+				.map(|x| &x.multiaddr),
 			&self.network_config.transport,
 		)?;
 
 		for notification_protocol in &self.notification_protocols {
 			ensure_addresses_consistent_with_transport(
-				notification_protocol
-					.set_config()
-					.reserved_nodes
-					.iter()
-					.map(|x| &x.multiaddr.into()),
+				notification_protocol.set_config().reserved_nodes.iter().map(|x| &x.multiaddr),
 				&self.network_config.transport,
 			)?;
 		}
 		ensure_addresses_consistent_with_transport(
-			self.network_config.public_addresses.iter().map(|addr| &addr.to_owned().into()),
+			self.network_config.public_addresses.iter(),
 			&self.network_config.transport,
 		)?;
 

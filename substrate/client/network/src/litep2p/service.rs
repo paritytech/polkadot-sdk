@@ -24,7 +24,6 @@ use crate::{
 		notification::{config::ProtocolControlHandle, peerset::PeersetCommand},
 		request_response::OutboundRequest,
 	},
-	multiaddr::Protocol,
 	network_state::NetworkState,
 	peer_store::PeerStoreProvider,
 	service::out_events,
@@ -35,8 +34,11 @@ use crate::{
 
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
-use libp2p::{identity::SigningError, kad::record::Key as KademliaKey, Multiaddr};
-use litep2p::crypto::ed25519::Keypair;
+use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
+use litep2p::{
+	crypto::ed25519::Keypair,
+	types::multiaddr::{Multiaddr, Protocol},
+};
 use parking_lot::RwLock;
 
 use sc_network_common::{
@@ -273,7 +275,9 @@ impl NetworkPeers for Litep2pNetworkService {
 			protocol: self.block_announce_protocol.clone(),
 			peers: peers
 				.into_iter()
-				.map(|peer| Multiaddr::empty().with(Protocol::P2p(peer.into())))
+				.map(|peer| {
+					Multiaddr::empty().with(Protocol::P2p(litep2p::PeerId::from(peer).into()))
+				})
 				.collect(),
 		});
 	}
@@ -322,7 +326,7 @@ impl NetworkPeers for Litep2pNetworkService {
 	fn add_reserved_peer(&self, peer: MultiaddrWithPeerId) -> Result<(), String> {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::AddPeersToReservedSet {
 			protocol: self.block_announce_protocol.clone(),
-			peers: HashSet::from_iter([peer.concat()]),
+			peers: HashSet::from_iter([peer.concat().into()]),
 		});
 
 		Ok(())
