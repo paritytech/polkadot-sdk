@@ -48,6 +48,7 @@ sp-tracing = { path = "../../primitives/tracing", optional = true }
 #
 # This pulls in quite a lot of dependencies and thus, is disabled by default.
 metadata-hash = [
+	"array-bytes",
 	"merkleized-metadata",
 	"sc-executor",
 	"sp-core", "sp-io",

@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::builder::MetadataExtraInfo;
 use codec::{Decode, Encode};
 use frame_metadata::RuntimeMetadataPrefixed;
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};

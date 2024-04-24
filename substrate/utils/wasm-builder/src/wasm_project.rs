@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "metadata-hash")]
+use crate::builder::MetadataExtraInfo;
 use crate::{write_file_if_changed, CargoCommandVersioned, RuntimeTarget, OFFLINE};
 
 use build_helper::rerun_if_changed;
@@ -820,8 +822,7 @@ fn build_bloaty_blob(
 	project: &Path,
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
-	#[cfg(feature = "metadata-hash")]
-	metadata_hash: Option<[u8; 32]>,
+	#[cfg(feature = "metadata-hash")] metadata_hash: Option<[u8; 32]>,
 ) -> PathBuf {
 	let manifest_path = project.join("Cargo.toml");
 	let mut build_cmd = cargo_cmd.command();

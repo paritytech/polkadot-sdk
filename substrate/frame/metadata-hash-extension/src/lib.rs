@@ -32,6 +32,9 @@
 //! As generating the metadata hash requires to compile the runtime twice, it is
 //! recommended to only enable the metadata hash generation when doing a build for a release.
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::DebugNoBound;
 use frame_system::Config;

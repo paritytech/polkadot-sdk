@@ -16,6 +16,12 @@
 
 use substrate_wasm_builder::WasmBuilder;
 
+#[cfg(not(feature = "metadata-hash"))]
 fn main() {
 	WasmBuilder::build_using_defaults();
+}
+
+#[cfg(feature = "metadata-hash")]
+fn main() {
+	WasmBuilder::init_with_defaults().enable_metadata_hash("WND", 12, 42).build();
 }

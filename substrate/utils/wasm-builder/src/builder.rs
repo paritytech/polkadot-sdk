@@ -27,7 +27,7 @@ use crate::RuntimeTarget;
 #[cfg(feature = "metadata-hash")]
 pub(crate) struct MetadataExtraInfo {
 	pub base58_prefix: u16,
-	pub decimals: u32,
+	pub decimals: u8,
 	pub token_symbol: String,
 }
 
@@ -123,7 +123,7 @@ pub struct WasmBuilder {
 
 	/// Whether to enable the metadata hash generation.
 	#[cfg(feature = "metadata-hash")]
-	enable_metadata_hash: Option<()>,
+	enable_metadata_hash: Option<MetadataExtraInfo>,
 }
 
 impl WasmBuilder {
@@ -207,18 +207,24 @@ impl WasmBuilder {
 		self
 	}
 
+	/// Enable generation of the metadata hash.
+	///
+	/// This will compile the runtime once, fetch the metadata, build the metadata hash and
+	/// then compile again with the env `RUNTIME_METADATA_HASH` set. For more information
+	/// about the metadata hash see [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html).
+	///
+	/// - `token_symbol`: The symbol of the main native token of the chain.
+	/// - `decimals`: The number of decimals of the main native token.
+	/// - `base58_prefix`: The `SS58` prefix for addresses of the chain.
 	#[cfg(feature = "metadata-hash")]
 	pub fn enable_metadata_hash(
 		mut self,
 		token_symbol: impl Into<String>,
-		decimals: u32,
+		decimals: u8,
 		base58_prefix: u16,
 	) -> Self {
-		self.enable_metadata_hash = Some(MetadataExtraInfo {
-			token_symbol: token_symbol.into(),
-			decimals,
-			base58_prefix,
-		});
+		self.enable_metadata_hash =
+			Some(MetadataExtraInfo { token_symbol: token_symbol.into(), decimals, base58_prefix });
 
 		self
 	}
@@ -345,8 +351,7 @@ fn build_project(
 	features_to_enable: Vec<String>,
 	wasm_binary_name: Option<String>,
 	check_for_runtime_version_section: bool,
-	#[cfg(feature = "metadata-hash")]
-	enable_metadata_hash: Option<MetadataExtraInfo>,
+	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
 ) {
 	let cargo_cmd = match crate::prerequisites::check(target) {
 		Ok(cmd) => cmd,
