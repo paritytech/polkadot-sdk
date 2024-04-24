@@ -30,7 +30,7 @@ wasmtime = { version = "8.0.1", default-features = false, features = [
 	"parallel-compilation",
 	"pooling-allocator",
 ] }
-anyhow = "1.0.68"
+anyhow = "1.0.81"
 sc-allocator = { path = "../../allocator" }
 sc-executor-common = { path = "../common" }
 sp-runtime-interface = { path = "../../../primitives/runtime-interface" }

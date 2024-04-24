@@ -31,13 +31,17 @@ use sp_runtime::{traits::AccountIdConversion, DispatchError, ModuleError};
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
-// Helper function to deduplicate testing different teleport types.
-fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
-	origin_location: Location,
-	expected_beneficiary: Location,
-	call: Call,
-	expected_weight_limit: WeightLimit,
-) {
+/// Test `limited_teleport_assets`
+///
+/// Asserts that the sender's balance is decreased as a result of execution of
+/// local effects.
+#[test]
+fn limited_teleport_assets_works() {
+	let origin_location: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+	let expected_beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
+	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
+	let expected_weight_limit = weight_limit.clone();
+
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
@@ -47,7 +51,14 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 		let weight = BaseXcmWeight::get() * 2;
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		// call extrinsic
-		call();
+		assert_ok!(XcmPallet::limited_teleport_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(RelayLocation::get().into()),
+			Box::new(expected_beneficiary.clone().into()),
+			Box::new((Here, SEND_AMOUNT).into()),
+			0,
+			weight_limit,
+		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 		assert_eq!(
 			sent_xcm(),
@@ -86,57 +97,6 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
 		));
 	});
-}
-
-/// Test `teleport_assets`
-///
-/// Asserts that the sender's balance is decreased as a result of execution of
-/// local effects.
-#[test]
-fn teleport_assets_works() {
-	let origin_location: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-	let beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
-	do_test_and_verify_teleport_assets(
-		origin_location.clone(),
-		beneficiary.clone(),
-		|| {
-			assert_ok!(XcmPallet::teleport_assets(
-				RuntimeOrigin::signed(ALICE),
-				Box::new(RelayLocation::get().into()),
-				Box::new(beneficiary.into()),
-				Box::new((Here, SEND_AMOUNT).into()),
-				0,
-			));
-		},
-		Unlimited,
-	);
-}
-
-/// Test `limited_teleport_assets`
-///
-/// Asserts that the sender's balance is decreased as a result of execution of
-/// local effects.
-#[test]
-fn limited_teleport_assets_works() {
-	let origin_location: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-	let beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
-	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
-	let expected_weight_limit = weight_limit.clone();
-	do_test_and_verify_teleport_assets(
-		origin_location.clone(),
-		beneficiary.clone(),
-		|| {
-			assert_ok!(XcmPallet::limited_teleport_assets(
-				RuntimeOrigin::signed(ALICE),
-				Box::new(RelayLocation::get().into()),
-				Box::new(beneficiary.into()),
-				Box::new((Here, SEND_AMOUNT).into()),
-				0,
-				weight_limit,
-			));
-		},
-		expected_weight_limit,
-	);
 }
 
 /// `limited_teleport_assets` should fail for filtered assets
@@ -184,12 +144,13 @@ fn reserve_transfer_assets_with_paid_router_works() {
 		let dest: Location =
 			Junction::AccountId32 { network: None, id: user_account.clone().into() }.into();
 		assert_eq!(Balances::total_balance(&user_account), INITIAL_BALANCE);
-		assert_ok!(XcmPallet::reserve_transfer_assets(
+		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
 			RuntimeOrigin::signed(user_account.clone()),
 			Box::new(Parachain(paid_para_id).into()),
 			Box::new(dest.clone().into()),
 			Box::new((Here, SEND_AMOUNT).into()),
 			0,
+			Unlimited,
 		));
 
 		// XCM_FEES_NOT_WAIVED_USER_ACCOUNT spent amount
@@ -248,7 +209,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 pub(crate) fn set_up_foreign_asset(
 	reserve_para_id: u32,
 	inner_junction: Option<Junction>,
-	benficiary: AccountId,
+	beneficiary: AccountId,
 	initial_amount: u128,
 	is_sufficient: bool,
 ) -> (Location, AccountId, Location) {
@@ -276,7 +237,7 @@ pub(crate) fn set_up_foreign_asset(
 	assert_ok!(AssetsPallet::mint(
 		RuntimeOrigin::signed(BOB),
 		foreign_asset_id_location.clone(),
-		benficiary,
+		beneficiary,
 		initial_amount
 	));
 
@@ -2601,6 +2562,177 @@ fn teleport_assets_using_destination_reserve_fee_disallowed() {
 	}));
 	teleported_asset_using_destination_reserve_fee_call(
 		XcmPallet::limited_teleport_assets,
+		expected_result,
+	);
+}
+
+/// Test `tested_call` transferring single asset using remote reserve.
+///
+/// Transferring Para3000 asset (`Para3000` reserve) to
+/// `OTHER_PARA_ID` (no teleport trust), therefore triggering remote reserve.
+/// Using the same asset asset (Para3000 reserve) for fees.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+///
+/// Verifies that XCM router fees (`SendXcm::validate` -> `Assets`) are withdrawn from correct
+/// user account and deposited to a correct target account (`XcmFeesTargetAccount`).
+/// Verifies `expected_result`.
+fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
+	tested_call: Call,
+	expected_result: DispatchResult,
+) where
+	Call: FnOnce(
+		OriginFor<Test>,
+		Box<VersionedLocation>,
+		Box<VersionedLocation>,
+		Box<VersionedAssets>,
+		u32,
+		WeightLimit,
+	) -> DispatchResult,
+{
+	let weight = BaseXcmWeight::get() * 3;
+	let user_account = AccountId::from(XCM_FEES_NOT_WAIVED_USER_ACCOUNT);
+	let xcm_router_fee_amount = Para3000PaymentAmount::get();
+	let paid_para_id = Para3000::get();
+	let balances = vec![
+		(user_account.clone(), INITIAL_BALANCE),
+		(ParaId::from(paid_para_id).into_account_truncating(), INITIAL_BALANCE),
+		(XcmFeesTargetAccount::get(), INITIAL_BALANCE),
+	];
+	let beneficiary: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// create sufficient foreign asset BLA
+		let foreign_initial_amount = 142;
+		let (reserve_location, _, foreign_asset_id_location) = set_up_foreign_asset(
+			paid_para_id,
+			None,
+			user_account.clone(),
+			foreign_initial_amount,
+			true,
+		);
+
+		// transfer destination is another chain that is not the reserve location
+		// the goal is to trigger the remoteReserve case
+		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
+
+		let transferred_asset: Assets = (foreign_asset_id_location.clone(), SEND_AMOUNT).into();
+
+		// balances checks before
+		assert_eq!(
+			AssetsPallet::balance(foreign_asset_id_location.clone(), user_account.clone()),
+			foreign_initial_amount
+		);
+		assert_eq!(Balances::free_balance(user_account.clone()), INITIAL_BALANCE);
+
+		// do the transfer
+		let result = tested_call(
+			RuntimeOrigin::signed(user_account.clone()),
+			Box::new(dest.clone().into()),
+			Box::new(beneficiary.clone().into()),
+			Box::new(transferred_asset.into()),
+			0 as u32,
+			Unlimited,
+		);
+		assert_eq!(result, expected_result);
+		if expected_result.is_err() {
+			// short-circuit here for tests where we expect failure
+			return;
+		}
+
+		let mut last_events = last_events(7).into_iter();
+		// asset events
+		// forceCreate
+		last_events.next().unwrap();
+		// mint tokens
+		last_events.next().unwrap();
+		// burn tokens
+		last_events.next().unwrap();
+		// balance events
+		// burn delivery fee
+		last_events.next().unwrap();
+		// mint delivery fee
+		last_events.next().unwrap();
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted {
+				outcome: Outcome::Complete { used: weight }
+			})
+		);
+
+		// user account spent (transferred) amount
+		assert_eq!(
+			AssetsPallet::balance(foreign_asset_id_location.clone(), user_account.clone()),
+			foreign_initial_amount - SEND_AMOUNT
+		);
+
+		// user account spent delivery fees
+		assert_eq!(Balances::free_balance(user_account), INITIAL_BALANCE - xcm_router_fee_amount);
+
+		// XcmFeesTargetAccount where should lend xcm_router_fee_amount
+		assert_eq!(
+			Balances::free_balance(XcmFeesTargetAccount::get()),
+			INITIAL_BALANCE + xcm_router_fee_amount
+		);
+
+		// Verify total and active issuance of foreign BLA have decreased (burned on
+		// reserve-withdraw)
+		let expected_issuance = foreign_initial_amount - SEND_AMOUNT;
+		assert_eq!(
+			AssetsPallet::total_issuance(foreign_asset_id_location.clone()),
+			expected_issuance
+		);
+		assert_eq!(
+			AssetsPallet::active_issuance(foreign_asset_id_location.clone()),
+			expected_issuance
+		);
+
+		let context = UniversalLocation::get();
+		let foreign_id_location_reanchored =
+			foreign_asset_id_location.reanchored(&dest, &context).unwrap();
+		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
+
+		// Verify sent XCM program
+		assert_eq!(
+			sent_xcm(),
+			vec![(
+				reserve_location,
+				// `assets` are burned on source and withdrawn from SA in remote reserve chain
+				Xcm(vec![
+					WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
+					ClearOrigin,
+					buy_execution((Location::here(), SEND_AMOUNT / 2)),
+					DepositReserveAsset {
+						assets: Wild(AllCounted(1)),
+						// final destination is `dest` as seen by `reserve`
+						dest: dest_reanchored,
+						// message sent onward to `dest`
+						xcm: Xcm(vec![
+							buy_execution((foreign_id_location_reanchored, SEND_AMOUNT / 2)),
+							DepositAsset { assets: AllCounted(1).into(), beneficiary }
+						])
+					}
+				])
+			)]
+		);
+	});
+}
+/// Test `transfer_assets` with remote asset reserve and remote fee reserve.
+#[test]
+fn transfer_assets_with_remote_asset_reserve_and_remote_asset_fee_reserve_paid_works() {
+	let expected_result = Ok(());
+	remote_asset_reserve_and_remote_fee_reserve_paid_call(
+		XcmPallet::transfer_assets,
+		expected_result,
+	);
+}
+/// Test `limited_reserve_transfer_assets` with remote asset reserve and remote fee reserve.
+#[test]
+fn limited_reserve_transfer_assets_with_remote_asset_reserve_and_remote_asset_fee_reserve_paid_works(
+) {
+	let expected_result = Ok(());
+	remote_asset_reserve_and_remote_fee_reserve_paid_call(
+		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
 	);
 }

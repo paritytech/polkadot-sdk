@@ -19,7 +19,7 @@ use assert_matches::assert_matches;
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		AllMessages, HypotheticalFrontierRequest, ProspectiveParachainsMessage,
+		AllMessages, HypotheticalFrontierRequest, ParentHeadData, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest,
 	},
 };
@@ -468,7 +468,7 @@ async fn get_pvd(
 	let request = ProspectiveValidationDataRequest {
 		para_id,
 		candidate_relay_parent,
-		parent_head_data_hash: parent_head_data.hash(),
+		parent_head_data: ParentHeadData::OnlyHash(parent_head_data.hash()),
 	};
 	let (tx, rx) = oneshot::channel();
 	virtual_overseer
@@ -1797,7 +1797,10 @@ fn persists_pending_availability_candidate() {
 	test_state.availability_cores = test_state
 		.availability_cores
 		.into_iter()
-		.filter(|core| core.para_id().map_or(false, |id| id == para_id))
+		.filter(|core| match core {
+			CoreState::Scheduled(scheduled_core) => scheduled_core.para_id == para_id,
+			_ => false,
+		})
 		.collect();
 	assert_eq!(test_state.availability_cores.len(), 1);
 
@@ -1896,7 +1899,10 @@ fn backwards_compatible() {
 	test_state.availability_cores = test_state
 		.availability_cores
 		.into_iter()
-		.filter(|core| core.para_id().map_or(false, |id| id == para_id))
+		.filter(|core| match core {
+			CoreState::Scheduled(scheduled_core) => scheduled_core.para_id == para_id,
+			_ => false,
+		})
 		.collect();
 	assert_eq!(test_state.availability_cores.len(), 1);
 

@@ -19,7 +19,7 @@
 use crate::{MessageIntent, Network, ValidationResult, Validator, ValidatorContext};
 
 use ahash::AHashSet;
-use libp2p::PeerId;
+use sc_network_types::PeerId;
 use schnellru::{ByLength, LruMap};
 
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
@@ -546,8 +546,7 @@ mod tests {
 	use futures::prelude::*;
 	use sc_network::{
 		config::MultiaddrWithPeerId, event::Event, service::traits::NotificationEvent, MessageSink,
-		NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
-		NotificationSenderError, NotificationSenderT as NotificationSender, ReputationChange,
+		NetworkBlock, NetworkEventStream, NetworkPeers, ReputationChange,
 	};
 	use sp_runtime::{
 		testing::{Block as RawBlock, ExtrinsicWrapper, H256},
@@ -608,6 +607,7 @@ mod tests {
 		peer_reports: Vec<(PeerId, ReputationChange)>,
 	}
 
+	#[async_trait::async_trait]
 	impl NetworkPeers for NoOpNetwork {
 		fn set_authorized_peers(&self, _peers: HashSet<PeerId>) {
 			unimplemented!();
@@ -680,28 +680,14 @@ mod tests {
 		fn peer_role(&self, _peer_id: PeerId, _handshake: Vec<u8>) -> Option<ObservedRole> {
 			None
 		}
+
+		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
+			unimplemented!();
+		}
 	}
 
 	impl NetworkEventStream for NoOpNetwork {
 		fn event_stream(&self, _name: &'static str) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
-			unimplemented!();
-		}
-	}
-
-	impl NetworkNotification for NoOpNetwork {
-		fn write_notification(&self, _target: PeerId, _protocol: ProtocolName, _message: Vec<u8>) {
-			unimplemented!();
-		}
-
-		fn notification_sender(
-			&self,
-			_target: PeerId,
-			_protocol: ProtocolName,
-		) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
-			unimplemented!();
-		}
-
-		fn set_notification_handshake(&self, _protocol: ProtocolName, _handshake: Vec<u8>) {
 			unimplemented!();
 		}
 	}
@@ -736,13 +722,13 @@ mod tests {
 		}
 
 		/// Send synchronous `notification` to `peer`.
-		fn send_sync_notification(&self, _peer: &PeerId, _notification: Vec<u8>) {
+		fn send_sync_notification(&mut self, _peer: &PeerId, _notification: Vec<u8>) {
 			unimplemented!();
 		}
 
 		/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 		async fn send_async_notification(
-			&self,
+			&mut self,
 			_peer: &PeerId,
 			_notification: Vec<u8>,
 		) -> Result<(), sc_network::error::Error> {

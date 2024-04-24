@@ -164,7 +164,7 @@ impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
 
 		// Grant access to linear memory.
 		// Every contract module is required to have an imported memory.
-		// If no memory is specified in the passed ModuleDefenition, then
+		// If no memory is specified in the passed ModuleDefinition, then
 		// default to (1, 1).
 		let (init, max) = if let Some(memory) = &def.memory {
 			(memory.min_pages, Some(memory.max_pages))

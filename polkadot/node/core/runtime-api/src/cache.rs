@@ -14,19 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::btree_map::BTreeMap;
+use std::collections::{btree_map::BTreeMap, VecDeque};
 
 use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	async_backing, slashing,
-	vstaging::{self, ApprovalVotingParams},
-	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that
@@ -49,6 +48,7 @@ pub(crate) struct RequestResultCache {
 	validation_code: LruMap<(Hash, ParaId, OccupiedCoreAssumption), Option<ValidationCode>>,
 	validation_code_by_hash: LruMap<ValidationCodeHash, Option<ValidationCode>>,
 	candidate_pending_availability: LruMap<(Hash, ParaId), Option<CommittedCandidateReceipt>>,
+	candidates_pending_availability: LruMap<(Hash, ParaId), Vec<CommittedCandidateReceipt>>,
 	candidate_events: LruMap<Hash, Vec<CandidateEvent>>,
 	session_executor_params: LruMap<SessionIndex, Option<ExecutorParams>>,
 	session_info: LruMap<SessionIndex, SessionInfo>,
@@ -68,8 +68,9 @@ pub(crate) struct RequestResultCache {
 	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
 	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
-	node_features: LruMap<SessionIndex, vstaging::NodeFeatures>,
+	node_features: LruMap<SessionIndex, NodeFeatures>,
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
+	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 }
 
 impl Default for RequestResultCache {
@@ -86,6 +87,7 @@ impl Default for RequestResultCache {
 			validation_code: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			validation_code_by_hash: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			candidate_pending_availability: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			candidates_pending_availability: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			candidate_events: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			session_executor_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			session_info: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
@@ -105,6 +107,7 @@ impl Default for RequestResultCache {
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			claim_queue: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -258,6 +261,21 @@ impl RequestResultCache {
 		value: Option<CommittedCandidateReceipt>,
 	) {
 		self.candidate_pending_availability.insert(key, value);
+	}
+
+	pub(crate) fn candidates_pending_availability(
+		&mut self,
+		key: (Hash, ParaId),
+	) -> Option<&Vec<CommittedCandidateReceipt>> {
+		self.candidates_pending_availability.get(&key).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_candidates_pending_availability(
+		&mut self,
+		key: (Hash, ParaId),
+		value: Vec<CommittedCandidateReceipt>,
+	) {
+		self.candidates_pending_availability.insert(key, value);
 	}
 
 	pub(crate) fn candidate_events(&mut self, relay_parent: &Hash) -> Option<&Vec<CandidateEvent>> {
@@ -451,17 +469,14 @@ impl RequestResultCache {
 		self.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
-	pub(crate) fn node_features(
-		&mut self,
-		session_index: SessionIndex,
-	) -> Option<&vstaging::NodeFeatures> {
+	pub(crate) fn node_features(&mut self, session_index: SessionIndex) -> Option<&NodeFeatures> {
 		self.node_features.get(&session_index).map(|f| &*f)
 	}
 
 	pub(crate) fn cache_node_features(
 		&mut self,
 		session_index: SessionIndex,
-		features: vstaging::NodeFeatures,
+		features: NodeFeatures,
 	) {
 		self.node_features.insert(session_index, features);
 	}
@@ -525,13 +540,28 @@ impl RequestResultCache {
 	) {
 		self.approval_voting_params.insert(session_index, value);
 	}
+
+	pub(crate) fn claim_queue(
+		&mut self,
+		relay_parent: &Hash,
+	) -> Option<&BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		self.claim_queue.get(relay_parent).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_claim_queue(
+		&mut self,
+		relay_parent: Hash,
+		value: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	) {
+		self.claim_queue.insert(relay_parent, value);
+	}
 }
 
 pub(crate) enum RequestResult {
 	// The structure of each variant is (relay_parent, [params,]*, result)
 	Authorities(Hash, Vec<AuthorityDiscoveryId>),
 	Validators(Hash, Vec<ValidatorId>),
-	MinimumBackingVotes(Hash, SessionIndex, u32),
+	MinimumBackingVotes(SessionIndex, u32),
 	ValidatorGroups(Hash, (Vec<Vec<ValidatorIndex>>, GroupRotationInfo)),
 	AvailabilityCores(Hash, Vec<CoreState>),
 	PersistedValidationData(Hash, ParaId, OccupiedCoreAssumption, Option<PersistedValidationData>),
@@ -559,22 +589,21 @@ pub(crate) enum RequestResult {
 	FetchOnChainVotes(Hash, Option<ScrapedOnChainVotes>),
 	PvfsRequirePrecheck(Hash, Vec<ValidationCodeHash>),
 	// This is a request with side-effects and no result, hence ().
-	SubmitPvfCheckStatement(Hash, PvfCheckStatement, ValidatorSignature, ()),
+	#[allow(dead_code)]
+	SubmitPvfCheckStatement(()),
 	ValidationCodeHash(Hash, ParaId, OccupiedCoreAssumption, Option<ValidationCodeHash>),
 	Version(Hash, u32),
 	Disputes(Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>),
 	UnappliedSlashes(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
 	KeyOwnershipProof(Hash, ValidatorId, Option<slashing::OpaqueKeyOwnershipProof>),
 	// This is a request with side-effects.
-	SubmitReportDisputeLost(
-		Hash,
-		slashing::DisputeProof,
-		slashing::OpaqueKeyOwnershipProof,
-		Option<()>,
-	),
+	#[allow(dead_code)]
+	SubmitReportDisputeLost(Option<()>),
 	ApprovalVotingParams(Hash, SessionIndex, ApprovalVotingParams),
 	DisabledValidators(Hash, Vec<ValidatorIndex>),
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
-	NodeFeatures(SessionIndex, vstaging::NodeFeatures),
+	NodeFeatures(SessionIndex, NodeFeatures),
+	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
+	CandidatesPendingAvailability(Hash, ParaId, Vec<CommittedCandidateReceipt>),
 }

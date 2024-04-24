@@ -525,12 +525,21 @@ pub mod pallet {
 		type MaxStale: Get<u32>;
 
 		/// The amount of weight (if any) which should be provided to the message queue for
-		/// servicing enqueued items.
+		/// servicing enqueued items `on_initialize`.
 		///
 		/// This may be legitimately `None` in the case that you will call
-		/// `ServiceQueues::service_queues` manually.
+		/// `ServiceQueues::service_queues` manually or set [`Self::IdleMaxServiceWeight`] to have
+		/// it run in `on_idle`.
 		#[pallet::constant]
 		type ServiceWeight: Get<Option<Weight>>;
+
+		/// The maximum amount of weight (if any) to be used from remaining weight `on_idle` which
+		/// should be provided to the message queue for servicing enqueued items `on_idle`.
+		/// Useful for parachains to process messages at the same block they are received.
+		///
+		/// If `None`, it will not call `ServiceQueues::service_queues` in `on_idle`.
+		#[pallet::constant]
+		type IdleMaxServiceWeight: Get<Option<Weight>>;
 	}
 
 	#[pallet::event]
@@ -638,6 +647,15 @@ pub mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			if let Some(weight_limit) = T::ServiceWeight::get() {
 				Self::service_queues(weight_limit)
+			} else {
+				Weight::zero()
+			}
+		}
+
+		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			if let Some(weight_limit) = T::IdleMaxServiceWeight::get() {
+				// Make use of the remaining weight to process enqueued messages.
+				Self::service_queues(weight_limit.min(remaining_weight))
 			} else {
 				Weight::zero()
 			}
@@ -1460,7 +1478,7 @@ impl<T: Config> Pallet<T> {
 
 /// Run a closure that errors on re-entrance. Meant to be used by anything that services queues.
 pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
-	// Holds the singelton token instance.
+	// Holds the singleton token instance.
 	environmental::environmental!(token: Option<()>);
 
 	token::using_once(&mut Some(()), || {

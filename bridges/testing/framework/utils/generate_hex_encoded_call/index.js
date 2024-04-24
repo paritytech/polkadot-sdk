@@ -126,36 +126,36 @@ if (!process.argv[2] || !process.argv[3]) {
 }
 
 const type = process.argv[2];
-const rpcEnpoint = process.argv[3];
+const rpcEndpoint = process.argv[3];
 const output = process.argv[4];
 const inputArgs = process.argv.slice(5, process.argv.length);
 console.log(`Generating hex-encoded call data for:`);
 console.log(`	type: ${type}`);
-console.log(`	rpcEnpoint: ${rpcEnpoint}`);
+console.log(`	rpcEndpoint: ${rpcEndpoint}`);
 console.log(`	output: ${output}`);
 console.log(`	inputArgs: ${inputArgs}`);
 
 switch (type) {
 	case 'remark-with-event':
-		remarkWithEvent(rpcEnpoint, output);
+		remarkWithEvent(rpcEndpoint, output);
 		break;
 	case 'add-exporter-config':
-		addExporterConfig(rpcEnpoint, output, inputArgs[0], inputArgs[1]);
+		addExporterConfig(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
 		break;
 	case 'remove-exporter-config':
-		removeExporterConfig(rpcEnpoint, output, inputArgs[0], inputArgs[1]);
+		removeExporterConfig(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
 		break;
 	case 'add-universal-alias':
-		addUniversalAlias(rpcEnpoint, output, inputArgs[0], inputArgs[1]);
+		addUniversalAlias(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
 		break;
 	case 'add-reserve-location':
-		addReserveLocation(rpcEnpoint, output, inputArgs[0]);
+		addReserveLocation(rpcEndpoint, output, inputArgs[0]);
 		break;
 	case 'force-create-asset':
-		forceCreateAsset(rpcEnpoint, output, inputArgs[0], inputArgs[1], inputArgs[2], inputArgs[3]);
+		forceCreateAsset(rpcEndpoint, output, inputArgs[0], inputArgs[1], inputArgs[2], inputArgs[3]);
 		break;
 	case 'force-xcm-version':
-		forceXcmVersion(rpcEnpoint, output, inputArgs[0], inputArgs[1]);
+		forceXcmVersion(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
 		break;
 	case 'check':
 		console.log(`Checking nodejs installation, if you see this everything is ready!`);
