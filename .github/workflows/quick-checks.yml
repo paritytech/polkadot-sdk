@@ -27,7 +27,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   fmt:
     runs-on: arc-runners-polkadot-sdk
-    timeout-minutes: 5
+    timeout-minutes: 10
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
