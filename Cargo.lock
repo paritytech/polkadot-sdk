@@ -2086,7 +2086,6 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
- "parity-scale-codec",
  "rococo-westend-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
@@ -9368,7 +9367,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-collator-selection"
-version = "13.0.0"
+version = "13.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
