@@ -3,7 +3,7 @@ name = "binary-merkle-tree"
 path = "substrate/utils/binary-merkle-tree"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -27,7 +27,7 @@ name = "cumulus-pallet-parachain-system-proc-macro"
 path = "cumulus/pallets/parachain-system/proc-macro"
 from = "0.2.0"
 to = "0.3.1"
-bump = "unknown"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -35,7 +35,7 @@ name = "fork-tree"
 path = "substrate/utils/fork-tree"
 from = "9.0.0"
 to = "10.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -43,7 +43,7 @@ name = "frame-election-provider-solution-type"
 path = "substrate/frame/election-provider-support/solution-type"
 from = "10.0.0"
 to = "11.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -63,7 +63,7 @@ name = "frame-support-procedural-tools-derive"
 path = "substrate/frame/support/procedural/tools/derive"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -72,7 +72,7 @@ name = "node-template-release"
 path = "substrate/scripts/ci/node-template-release"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate]]
@@ -80,7 +80,7 @@ name = "pallet-contracts-proc-macro"
 path = "substrate/frame/contracts/proc-macro"
 from = "14.0.0"
 to = "15.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -89,7 +89,7 @@ name = "pallet-election-provider-e2e-test"
 path = "substrate/frame/election-provider-multi-phase/test-staking-e2e"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -162,7 +162,7 @@ name = "pallet-nomination-pools-test-staking"
 path = "substrate/frame/nomination-pools/test-staking"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -230,7 +230,7 @@ name = "pallet-staking-reward-curve"
 path = "substrate/frame/staking/reward-curve"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -242,7 +242,7 @@ name = "sc-chain-spec-derive"
 path = "substrate/client/chain-spec/derive"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -250,7 +250,7 @@ name = "sc-tracing-proc-macro"
 path = "substrate/client/tracing/proc-macro"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -258,7 +258,7 @@ name = "sp-api-proc-macro"
 path = "substrate/primitives/api/proc-macro"
 from = "10.0.0"
 to = "11.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -266,7 +266,7 @@ name = "sp-core-hashing"
 path = "substrate/primitives/core/hashing"
 from = "11.0.0"
 to = "12.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -274,7 +274,7 @@ name = "sp-database"
 path = "substrate/primitives/database"
 from = "7.0.0"
 to = "8.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -282,7 +282,7 @@ name = "sp-debug-derive"
 path = "substrate/primitives/debug-derive"
 from = "10.0.0"
 to = "11.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -290,7 +290,7 @@ name = "sp-maybe-compressed-blob"
 path = "substrate/primitives/maybe-compressed-blob"
 from = "7.0.0"
 to = "8.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -298,7 +298,7 @@ name = "sp-panic-handler"
 path = "substrate/primitives/panic-handler"
 from = "10.0.0"
 to = "11.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -306,7 +306,7 @@ name = "sp-runtime-interface-proc-macro"
 path = "substrate/primitives/runtime-interface/proc-macro"
 from = "13.0.0"
 to = "14.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -314,7 +314,7 @@ name = "sp-std"
 path = "substrate/primitives/std"
 from = "10.0.0"
 to = "11.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -322,7 +322,7 @@ name = "sp-version-proc-macro"
 path = "substrate/primitives/version/proc-macro"
 from = "10.0.0"
 to = "11.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -334,7 +334,7 @@ name = "substrate-build-script-utils"
 path = "substrate/utils/build-script-utils"
 from = "7.0.0"
 to = "8.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -342,7 +342,7 @@ name = "substrate-prometheus-endpoint"
 path = "substrate/utils/prometheus"
 from = "0.14.0"
 to = "0.15.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -351,7 +351,7 @@ name = "substrate-test-utils"
 path = "substrate/test-utils"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -363,7 +363,7 @@ name = "tracing-gum-proc-macro"
 path = "polkadot/node/gum/proc-macro"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -371,7 +371,7 @@ name = "xcm-procedural"
 path = "polkadot/xcm/procedural"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate]]
@@ -379,7 +379,7 @@ name = "frame-support-procedural-tools"
 path = "substrate/frame/support/procedural/tools"
 from = "7.0.0"
 to = "8.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -391,7 +391,7 @@ name = "sc-proposer-metrics"
 path = "substrate/client/proposer-metrics"
 from = "0.14.0"
 to = "0.15.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -404,7 +404,7 @@ name = "sc-rpc-server"
 path = "substrate/client/rpc-servers"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -417,7 +417,7 @@ name = "sp-arithmetic"
 path = "substrate/primitives/arithmetic"
 from = "18.0.0"
 to = "19.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -437,7 +437,7 @@ name = "sp-core-hashing-proc-macro"
 path = "substrate/primitives/core/hashing/proc-macro"
 from = "11.0.0"
 to = "12.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -449,7 +449,7 @@ name = "sp-metadata-ir"
 path = "substrate/primitives/metadata-ir"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -461,7 +461,7 @@ name = "sp-storage"
 path = "substrate/primitives/storage"
 from = "15.0.0"
 to = "16.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -477,7 +477,7 @@ name = "sp-tracing"
 path = "substrate/primitives/tracing"
 from = "12.0.0"
 to = "13.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -489,7 +489,7 @@ name = "sp-wasm-interface"
 path = "substrate/primitives/wasm-interface"
 from = "16.0.0"
 to = "17.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -501,7 +501,7 @@ name = "substrate-wasm-builder"
 path = "substrate/utils/wasm-builder"
 from = "12.0.0"
 to = "13.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -513,7 +513,7 @@ name = "frame-support-procedural"
 path = "substrate/frame/support/procedural"
 from = "18.0.0"
 to = "19.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -525,7 +525,7 @@ name = "pallet-staking-reward-fn"
 path = "substrate/frame/staking/reward-fn"
 from = "14.0.0"
 to = "15.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -537,7 +537,7 @@ name = "sc-utils"
 path = "substrate/client/utils"
 from = "9.0.0"
 to = "10.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -550,7 +550,7 @@ name = "sp-arithmetic-fuzzer"
 path = "substrate/primitives/arithmetic/fuzzer"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -562,7 +562,7 @@ name = "sp-externalities"
 path = "substrate/primitives/externalities"
 from = "0.21.0"
 to = "0.22.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -579,7 +579,7 @@ name = "test-parachain-halt"
 path = "polkadot/parachain/test-parachains/halt"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -591,7 +591,7 @@ name = "sc-telemetry"
 path = "substrate/client/telemetry"
 from = "10.0.0"
 to = "11.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -603,7 +603,7 @@ name = "sp-runtime-interface"
 path = "substrate/primitives/runtime-interface"
 from = "19.0.0"
 to = "20.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -667,7 +667,7 @@ name = "sp-core"
 path = "substrate/primitives/core"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -703,7 +703,7 @@ name = "sp-crypto-ec-utils"
 path = "substrate/primitives/crypto/ec-utils"
 from = "0.5.0"
 to = "0.6.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -751,7 +751,7 @@ name = "sc-allocator"
 path = "substrate/client/allocator"
 from = "18.0.0"
 to = "19.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -767,7 +767,7 @@ name = "sc-state-db"
 path = "substrate/client/state-db"
 from = "0.25.0"
 to = "0.26.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -779,7 +779,7 @@ name = "sp-keystore"
 path = "substrate/primitives/keystore"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -795,7 +795,7 @@ name = "sp-rpc"
 path = "substrate/primitives/rpc"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -807,7 +807,7 @@ name = "sp-trie"
 path = "substrate/primitives/trie"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -831,7 +831,7 @@ name = "sp-weights"
 path = "substrate/primitives/weights"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -855,7 +855,7 @@ name = "sc-executor-common"
 path = "substrate/client/executor/common"
 from = "0.24.0"
 to = "0.25.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -875,7 +875,7 @@ name = "sp-state-machine"
 path = "substrate/primitives/state-machine"
 from = "0.30.0"
 to = "0.31.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -911,7 +911,7 @@ name = "staging-xcm"
 path = "polkadot/xcm"
 from = "2.0.0"
 to = "3.0.1"
-bump = "unknown"
+bump = "patch"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -931,7 +931,7 @@ name = "sc-executor-wasmtime"
 path = "substrate/client/executor/wasmtime"
 from = "0.24.0"
 to = "0.25.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -963,7 +963,7 @@ name = "sp-io"
 path = "substrate/primitives/io"
 from = "25.0.0"
 to = "26.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1003,7 +1003,7 @@ name = "sc-sysinfo"
 path = "substrate/client/sysinfo"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1031,7 +1031,7 @@ name = "sp-application-crypto"
 path = "substrate/primitives/application-crypto"
 from = "25.0.0"
 to = "26.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1052,7 +1052,7 @@ name = "sp-runtime-interface-test-wasm"
 path = "substrate/primitives/runtime-interface/test-wasm"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1081,7 +1081,7 @@ name = "sp-runtime-interface-test-wasm-deprecated"
 path = "substrate/primitives/runtime-interface/test-wasm-deprecated"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1105,7 +1105,7 @@ name = "sc-keystore"
 path = "substrate/client/keystore"
 from = "20.0.0"
 to = "21.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1125,7 +1125,7 @@ name = "sp-runtime"
 path = "substrate/primitives/runtime"
 from = "26.0.0"
 to = "27.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1185,7 +1185,7 @@ name = "bp-xcm-bridge-hub-router"
 path = "bridges/primitives/xcm-bridge-hub-router"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1202,7 +1202,7 @@ name = "node-primitives"
 path = "substrate/bin/node/primitives"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1218,7 +1218,7 @@ name = "pallet-contracts-primitives"
 path = "substrate/frame/contracts/primitives"
 from = "26.0.0"
 to = "27.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1238,7 +1238,7 @@ name = "polkadot-core-primitives"
 path = "polkadot/core-primitives"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1259,7 +1259,7 @@ name = "sc-runtime-test"
 path = "substrate/client/executor/runtime-test"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1291,7 +1291,7 @@ name = "slot-range-helper"
 path = "polkadot/runtime/common/slot_range_helper"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1307,7 +1307,7 @@ name = "sp-inherents"
 path = "substrate/primitives/inherents"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1323,7 +1323,7 @@ name = "sp-keyring"
 path = "substrate/primitives/keyring"
 from = "26.0.0"
 to = "27.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1339,7 +1339,7 @@ name = "sp-npos-elections"
 path = "substrate/primitives/npos-elections"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1367,7 +1367,7 @@ name = "sp-staking"
 path = "substrate/primitives/staking"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1388,7 +1388,7 @@ name = "sp-test-primitives"
 path = "substrate/primitives/test-primitives"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1412,7 +1412,7 @@ name = "sp-version"
 path = "substrate/primitives/version"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1436,7 +1436,7 @@ name = "sp-api"
 path = "substrate/primitives/api"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1488,7 +1488,7 @@ name = "sp-consensus"
 path = "substrate/primitives/consensus/common"
 from = "0.27.0"
 to = "0.28.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1517,7 +1517,7 @@ name = "sp-npos-elections-fuzzer"
 path = "substrate/primitives/npos-elections/fuzzer"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1533,7 +1533,7 @@ name = "sp-timestamp"
 path = "substrate/primitives/timestamp"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1553,7 +1553,7 @@ name = "sp-transaction-storage-proof"
 path = "substrate/primitives/transaction-storage-proof"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1581,7 +1581,7 @@ name = "frame-system-rpc-runtime-api"
 path = "substrate/frame/system/rpc/runtime-api"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1593,7 +1593,7 @@ name = "pallet-staking-runtime-api"
 path = "substrate/frame/staking/runtime-api"
 from = "9.0.0"
 to = "10.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1605,7 +1605,7 @@ name = "sc-executor"
 path = "substrate/client/executor"
 from = "0.27.0"
 to = "0.28.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1705,7 +1705,7 @@ name = "sp-authority-discovery"
 path = "substrate/primitives/authority-discovery"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1729,7 +1729,7 @@ name = "sp-block-builder"
 path = "substrate/primitives/block-builder"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1753,7 +1753,7 @@ name = "sp-blockchain"
 path = "substrate/primitives/blockchain"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1781,7 +1781,7 @@ name = "sp-consensus-grandpa"
 path = "substrate/primitives/consensus/grandpa"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1813,7 +1813,7 @@ name = "sp-consensus-pow"
 path = "substrate/primitives/consensus/pow"
 from = "0.27.0"
 to = "0.28.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1837,7 +1837,7 @@ name = "sp-consensus-slots"
 path = "substrate/primitives/consensus/slots"
 from = "0.27.0"
 to = "0.28.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1853,7 +1853,7 @@ name = "sp-genesis-builder"
 path = "substrate/primitives/genesis-builder"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1873,7 +1873,7 @@ name = "sp-mmr-primitives"
 path = "substrate/primitives/merkle-mountain-range"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1901,7 +1901,7 @@ name = "sp-offchain"
 path = "substrate/primitives/offchain"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1921,7 +1921,7 @@ name = "sp-session"
 path = "substrate/primitives/session"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1953,7 +1953,7 @@ name = "sp-statement-store"
 path = "substrate/primitives/statement-store"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -1989,7 +1989,7 @@ name = "sp-transaction-pool"
 path = "substrate/primitives/transaction-pool"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2005,7 +2005,7 @@ name = "frame-support"
 path = "substrate/frame/support"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2093,7 +2093,7 @@ name = "mmr-rpc"
 path = "substrate/client/merkle-mountain-range/rpc"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2121,7 +2121,7 @@ name = "sc-transaction-pool-api"
 path = "substrate/client/transaction-pool/api"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2141,7 +2141,7 @@ name = "sp-consensus-aura"
 path = "substrate/primitives/consensus/aura"
 from = "0.27.0"
 to = "0.28.0"
-bump = "unknown"
+bump = "minor"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2177,7 +2177,7 @@ name = "sp-consensus-babe"
 path = "substrate/primitives/consensus/babe"
 from = "0.27.0"
 to = "0.28.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2217,7 +2217,7 @@ name = "sp-consensus-beefy"
 path = "substrate/primitives/consensus/beefy"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2254,7 +2254,7 @@ name = "sp-runtime-interface-test"
 path = "substrate/primitives/runtime-interface/test"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2294,7 +2294,7 @@ name = "bp-asset-hub-kusama"
 path = "bridges/primitives/chain-asset-hub-kusama"
 from = "0.0.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2310,7 +2310,7 @@ name = "bp-asset-hub-polkadot"
 path = "bridges/primitives/chain-asset-hub-polkadot"
 from = "0.0.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2330,7 +2330,7 @@ name = "frame-system"
 path = "substrate/frame/system"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2378,7 +2378,7 @@ name = "frame-try-runtime"
 path = "substrate/frame/try-runtime"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2402,7 +2402,7 @@ name = "polkadot-parachain-primitives"
 path = "polkadot/parachain"
 from = "1.0.0"
 to = "2.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2430,7 +2430,7 @@ name = "sc-client-api"
 path = "substrate/client/api"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2507,7 +2507,7 @@ name = "bp-runtime"
 path = "bridges/primitives/runtime"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2547,7 +2547,7 @@ name = "frame-benchmarking"
 path = "substrate/frame/benchmarking"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2607,7 +2607,7 @@ name = "frame-election-provider-support"
 path = "substrate/frame/election-provider-support"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2659,7 +2659,7 @@ name = "frame-executive"
 path = "substrate/frame/executive"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2748,7 +2748,7 @@ name = "frame-support-test-compile-pass"
 path = "substrate/frame/support/test/compile_pass"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2778,7 +2778,7 @@ name = "frame-support-test-pallet"
 path = "substrate/frame/support/test/pallet"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2798,7 +2798,7 @@ name = "pallet-atomic-swap"
 path = "substrate/frame/atomic-swap"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2842,7 +2842,7 @@ name = "pallet-authorship"
 path = "substrate/frame/authorship"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2882,7 +2882,7 @@ name = "pallet-default-config-example"
 path = "substrate/frame/examples/default-config"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2910,7 +2910,7 @@ name = "pallet-example-offchain-worker"
 path = "substrate/frame/examples/offchain-worker"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2946,7 +2946,7 @@ name = "pallet-insecure-randomness-collective-flip"
 path = "substrate/frame/insecure-randomness-collective-flip"
 from = "11.0.0"
 to = "12.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -2986,7 +2986,7 @@ name = "pallet-nicks"
 path = "substrate/frame/nicks"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3034,7 +3034,7 @@ name = "pallet-node-authorization"
 path = "substrate/frame/node-authorization"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3067,7 +3067,7 @@ name = "pallet-root-testing"
 path = "substrate/frame/root-testing"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3099,7 +3099,7 @@ name = "pallet-scored-pool"
 path = "substrate/frame/scored-pool"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3147,7 +3147,7 @@ name = "pallet-statement"
 path = "substrate/frame/statement"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3199,7 +3199,7 @@ name = "pallet-transaction-payment"
 path = "substrate/frame/transaction-payment"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3243,7 +3243,7 @@ name = "polkadot-primitives"
 path = "polkadot/primitives"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3311,7 +3311,7 @@ name = "sc-block-builder"
 path = "substrate/client/block-builder"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3355,7 +3355,7 @@ name = "sc-client-db"
 path = "substrate/client/db"
 from = "0.30.0"
 to = "0.31.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3415,7 +3415,7 @@ name = "sc-consensus"
 path = "substrate/client/consensus/common"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3464,7 +3464,7 @@ name = "sc-statement-store"
 path = "substrate/client/statement-store"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3505,7 +3505,7 @@ name = "sc-tracing"
 path = "substrate/client/tracing"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3545,7 +3545,7 @@ name = "sc-transaction-pool"
 path = "substrate/client/transaction-pool"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3615,7 +3615,7 @@ name = "test-parachain-adder"
 path = "polkadot/parachain/test-parachains/adder"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3641,7 +3641,7 @@ name = "test-parachain-undying"
 path = "polkadot/parachain/test-parachains/undying"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3666,7 +3666,7 @@ name = "bp-header-chain"
 path = "bridges/primitives/header-chain"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3702,7 +3702,7 @@ name = "cumulus-primitives-aura"
 path = "cumulus/primitives/aura"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3734,7 +3734,7 @@ name = "cumulus-primitives-core"
 path = "cumulus/primitives/core"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3775,7 +3775,7 @@ name = "frame-benchmarking-pallet-pov"
 path = "substrate/frame/benchmarking/pov"
 from = "13.0.0"
 to = "14.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3808,7 +3808,7 @@ name = "frame-election-solution-type-fuzzer"
 path = "substrate/frame/election-provider-support/solution-type/fuzzer"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3841,7 +3841,7 @@ name = "frame-support-test"
 path = "substrate/frame/support/test"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3906,7 +3906,7 @@ name = "frame-system-benchmarking"
 path = "substrate/frame/system/benchmarking"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -3962,7 +3962,7 @@ name = "pallet-asset-conversion"
 path = "substrate/frame/asset-conversion"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4039,7 +4039,7 @@ name = "pallet-asset-rate"
 path = "substrate/frame/asset-rate"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4099,7 +4099,7 @@ name = "pallet-asset-tx-payment"
 path = "substrate/frame/transaction-payment/asset-tx-payment"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4191,7 +4191,7 @@ name = "pallet-assets"
 path = "substrate/frame/assets"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4251,7 +4251,7 @@ name = "pallet-balances"
 path = "substrate/frame/balances"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4307,7 +4307,7 @@ name = "pallet-broker"
 path = "substrate/frame/broker"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4351,7 +4351,7 @@ name = "pallet-collective"
 path = "substrate/frame/collective"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4387,7 +4387,7 @@ name = "pallet-collective-content"
 path = "cumulus/parachains/pallets/collective-content"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4427,7 +4427,7 @@ name = "pallet-conviction-voting"
 path = "substrate/frame/conviction-voting"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4499,7 +4499,7 @@ name = "pallet-core-fellowship"
 path = "substrate/frame/core-fellowship"
 from = "7.0.0"
 to = "8.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4539,7 +4539,7 @@ name = "pallet-democracy"
 path = "substrate/frame/democracy"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4623,7 +4623,7 @@ name = "pallet-election-provider-support-benchmarking"
 path = "substrate/frame/election-provider-support/benchmarking"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4655,7 +4655,7 @@ name = "pallet-elections-phragmen"
 path = "substrate/frame/elections-phragmen"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4731,7 +4731,7 @@ name = "pallet-example-split"
 path = "substrate/frame/examples/split"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4767,7 +4767,7 @@ name = "pallet-fast-unstake"
 path = "substrate/frame/fast-unstake"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4879,7 +4879,7 @@ name = "pallet-glutton"
 path = "substrate/frame/glutton"
 from = "9.0.0"
 to = "10.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4931,7 +4931,7 @@ name = "pallet-identity"
 path = "substrate/frame/identity"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -4987,7 +4987,7 @@ name = "pallet-im-online"
 path = "substrate/frame/im-online"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5047,7 +5047,7 @@ name = "pallet-indices"
 path = "substrate/frame/indices"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5103,7 +5103,7 @@ name = "pallet-lottery"
 path = "substrate/frame/lottery"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5175,7 +5175,7 @@ name = "pallet-membership"
 path = "substrate/frame/membership"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5211,7 +5211,7 @@ name = "pallet-message-queue"
 path = "substrate/frame/message-queue"
 from = "26.0.0"
 to = "27.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5263,7 +5263,7 @@ name = "pallet-mmr"
 path = "substrate/frame/merkle-mountain-range"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5303,7 +5303,7 @@ name = "pallet-multisig"
 path = "substrate/frame/multisig"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5351,7 +5351,7 @@ name = "pallet-nfts"
 path = "substrate/frame/nfts"
 from = "17.0.0"
 to = "18.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5411,7 +5411,7 @@ name = "pallet-nis"
 path = "substrate/frame/nis"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5471,7 +5471,7 @@ name = "pallet-paged-list"
 path = "substrate/frame/paged-list"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5511,7 +5511,7 @@ name = "pallet-parachain-template"
 path = "cumulus/parachain-template/pallets/template"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5563,7 +5563,7 @@ name = "pallet-preimage"
 path = "substrate/frame/preimage"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5619,7 +5619,7 @@ name = "pallet-proxy"
 path = "substrate/frame/proxy"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5691,7 +5691,7 @@ name = "pallet-ranked-collective"
 path = "substrate/frame/ranked-collective"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5731,7 +5731,7 @@ name = "pallet-recovery"
 path = "substrate/frame/recovery"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5787,7 +5787,7 @@ name = "pallet-referenda"
 path = "substrate/frame/referenda"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5879,7 +5879,7 @@ name = "pallet-remark"
 path = "substrate/frame/remark"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5919,7 +5919,7 @@ name = "pallet-salary"
 path = "substrate/frame/salary"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -5959,7 +5959,7 @@ name = "pallet-scheduler"
 path = "substrate/frame/scheduler"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6023,7 +6023,7 @@ name = "pallet-society"
 path = "substrate/frame/society"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6099,7 +6099,7 @@ name = "pallet-sudo"
 path = "substrate/frame/sudo"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6140,7 +6140,7 @@ name = "pallet-template"
 path = "substrate/bin/node-template/pallets/template"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6196,7 +6196,7 @@ name = "pallet-timestamp"
 path = "substrate/frame/timestamp"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6252,7 +6252,7 @@ name = "pallet-transaction-payment-rpc-runtime-api"
 path = "substrate/frame/transaction-payment/rpc/runtime-api"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6276,7 +6276,7 @@ name = "pallet-uniques"
 path = "substrate/frame/uniques"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6340,7 +6340,7 @@ name = "pallet-utility"
 path = "substrate/frame/utility"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6440,7 +6440,7 @@ name = "pallet-vesting"
 path = "substrate/frame/vesting"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6500,7 +6500,7 @@ name = "pallet-whitelist"
 path = "substrate/frame/whitelist"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6580,7 +6580,7 @@ name = "polkadot-node-primitives"
 path = "polkadot/node/primitives"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6625,7 +6625,7 @@ name = "polkadot-primitives-test-helpers"
 path = "polkadot/primitives/test-helpers"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6653,7 +6653,7 @@ name = "polkadot-runtime-metrics"
 path = "polkadot/runtime/metrics"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6678,7 +6678,7 @@ name = "polkadot-statement-table"
 path = "polkadot/statement-table"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6695,7 +6695,7 @@ name = "sc-basic-authorship"
 path = "substrate/client/basic-authorship"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6760,7 +6760,7 @@ name = "sc-consensus-epochs"
 path = "substrate/client/consensus/epochs"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6788,7 +6788,7 @@ name = "sc-consensus-pow"
 path = "substrate/client/consensus/pow"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6841,7 +6841,7 @@ name = "sc-consensus-slots"
 path = "substrate/client/consensus/slots"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6897,7 +6897,7 @@ name = "sc-network-common"
 path = "substrate/client/network/common"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6921,7 +6921,7 @@ name = "sc-storage-monitor"
 path = "substrate/client/storage-monitor"
 from = "0.11.0"
 to = "0.12.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6937,7 +6937,7 @@ name = "staging-xcm-executor"
 path = "polkadot/xcm/xcm-executor"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -6983,7 +6983,7 @@ name = "test-parachains"
 path = "polkadot/parachain/test-parachains"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7005,7 +7005,7 @@ name = "bp-messages"
 path = "bridges/primitives/messages"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7033,7 +7033,7 @@ name = "cumulus-pallet-dmp-queue"
 path = "cumulus/pallets/dmp-queue"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7086,7 +7086,7 @@ name = "cumulus-pallet-xcm"
 path = "cumulus/pallets/xcm"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7123,7 +7123,7 @@ name = "cumulus-primitives-timestamp"
 path = "cumulus/primitives/timestamp"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7147,7 +7147,7 @@ name = "cumulus-test-relay-sproof-builder"
 path = "cumulus/test/relay-sproof-builder"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7179,7 +7179,7 @@ name = "pallet-alliance"
 path = "substrate/frame/alliance"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7251,7 +7251,7 @@ name = "pallet-asset-conversion-tx-payment"
 path = "substrate/frame/transaction-payment/asset-conversion-tx-payment"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7331,7 +7331,7 @@ name = "pallet-aura"
 path = "substrate/frame/aura"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7383,7 +7383,7 @@ name = "pallet-bags-list"
 path = "substrate/frame/bags-list"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7455,7 +7455,7 @@ name = "pallet-contracts"
 path = "substrate/frame/contracts"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7579,7 +7579,7 @@ name = "pallet-dev-mode"
 path = "substrate/frame/examples/dev-mode"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7619,7 +7619,7 @@ name = "pallet-election-provider-multi-phase"
 path = "substrate/frame/election-provider-multi-phase"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7711,7 +7711,7 @@ name = "pallet-example-basic"
 path = "substrate/frame/examples/basic"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7755,7 +7755,7 @@ name = "pallet-example-kitchensink"
 path = "substrate/frame/examples/kitchensink"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7799,7 +7799,7 @@ name = "pallet-nft-fractionalization"
 path = "substrate/frame/nft-fractionalization"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7871,7 +7871,7 @@ name = "pallet-nfts-runtime-api"
 path = "substrate/frame/nfts/runtime-api"
 from = "9.0.0"
 to = "10.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7887,7 +7887,7 @@ name = "pallet-nomination-pools"
 path = "substrate/frame/nomination-pools"
 from = "20.0.0"
 to = "21.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7939,7 +7939,7 @@ name = "pallet-offences"
 path = "substrate/frame/offences"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -7988,7 +7988,7 @@ name = "pallet-paged-list-fuzzer"
 path = "substrate/frame/paged-list/fuzzer"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8008,7 +8008,7 @@ name = "pallet-safe-mode"
 path = "substrate/frame/safe-mode"
 from = "4.0.0"
 to = "5.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8080,7 +8080,7 @@ name = "pallet-session"
 path = "substrate/frame/session"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8132,7 +8132,7 @@ name = "pallet-transaction-payment-rpc"
 path = "substrate/frame/transaction-payment/rpc"
 from = "25.0.0"
 to = "26.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8168,7 +8168,7 @@ name = "pallet-transaction-storage"
 path = "substrate/frame/transaction-storage"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8224,7 +8224,7 @@ name = "pallet-treasury"
 path = "substrate/frame/treasury"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8288,7 +8288,7 @@ name = "pallet-tx-pause"
 path = "substrate/frame/tx-pause"
 from = "4.0.0"
 to = "5.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8356,7 +8356,7 @@ name = "pallet-xcm"
 path = "polkadot/xcm/pallet-xcm"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8443,7 +8443,7 @@ name = "staging-parachain-info"
 path = "cumulus/parachains/pallets/parachain-info"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8471,7 +8471,7 @@ name = "polkadot-erasure-coding"
 path = "polkadot/erasure-coding"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8495,7 +8495,7 @@ name = "sc-consensus-aura"
 path = "substrate/client/consensus/aura"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8600,7 +8600,7 @@ name = "sc-consensus-babe"
 path = "substrate/client/consensus/babe"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8709,7 +8709,7 @@ name = "sc-network"
 path = "substrate/client/network"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8774,7 +8774,7 @@ name = "staging-xcm-builder"
 path = "polkadot/xcm/xcm-builder"
 from = "2.0.0"
 to = "3.0.1"
-bump = "unknown"
+bump = "patch"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8885,7 +8885,7 @@ name = "bp-polkadot-core"
 path = "bridges/primitives/polkadot-core"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8921,7 +8921,7 @@ name = "bp-relayers"
 path = "bridges/primitives/relayers"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8949,7 +8949,7 @@ name = "cumulus-pallet-session-benchmarking"
 path = "cumulus/pallets/session-benchmarking"
 from = "4.0.0"
 to = "5.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -8981,7 +8981,7 @@ name = "cumulus-ping"
 path = "cumulus/parachains/pallets/ping"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9019,7 +9019,7 @@ name = "erasure_coding_fuzzer"
 path = "polkadot/erasure-coding/fuzzer"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9040,7 +9040,7 @@ name = "pallet-authority-discovery"
 path = "substrate/frame/authority-discovery"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9092,7 +9092,7 @@ name = "pallet-babe"
 path = "substrate/frame/babe"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9229,7 +9229,7 @@ name = "pallet-bags-list-fuzzer"
 path = "substrate/frame/bags-list/fuzzer"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9245,7 +9245,7 @@ name = "pallet-beefy"
 path = "substrate/frame/beefy"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9381,7 +9381,7 @@ name = "pallet-bounties"
 path = "substrate/frame/bounties"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9437,7 +9437,7 @@ name = "pallet-bridge-messages"
 path = "bridges/modules/messages"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9497,7 +9497,7 @@ name = "pallet-collator-selection"
 path = "cumulus/pallets/collator-selection"
 from = "4.0.0"
 to = "5.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9593,7 +9593,7 @@ name = "pallet-examples"
 path = "substrate/frame/examples"
 from = "5.0.0"
 to = "6.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9625,7 +9625,7 @@ name = "pallet-grandpa"
 path = "substrate/frame/grandpa"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9778,7 +9778,7 @@ name = "pallet-nomination-pools-fuzzer"
 path = "substrate/frame/nomination-pools/fuzzer"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9810,7 +9810,7 @@ name = "pallet-nomination-pools-runtime-api"
 path = "substrate/frame/nomination-pools/runtime-api"
 from = "18.0.0"
 to = "19.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9830,7 +9830,7 @@ name = "pallet-staking"
 path = "substrate/frame/staking"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -9970,7 +9970,7 @@ name = "pallet-tips"
 path = "substrate/frame/tips"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10034,7 +10034,7 @@ name = "pallet-xcm-benchmarks"
 path = "polkadot/xcm/pallet-xcm-benchmarks"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10134,7 +10134,7 @@ name = "pallet-xcm-bridge-hub-router"
 path = "bridges/modules/xcm-bridge-hub-router"
 from = "0.0.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10188,7 +10188,7 @@ name = "polkadot-node-jaeger"
 path = "polkadot/node/jaeger"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10212,7 +10212,7 @@ name = "sc-authority-discovery"
 path = "substrate/client/authority-discovery"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10265,7 +10265,7 @@ name = "sc-chain-spec"
 path = "substrate/client/chain-spec"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10309,7 +10309,7 @@ name = "sc-consensus-manual-seal"
 path = "substrate/client/consensus/manual-seal"
 from = "0.30.0"
 to = "0.31.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10406,7 +10406,7 @@ name = "sc-informant"
 path = "substrate/client/informant"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10434,7 +10434,7 @@ name = "sc-network-bitswap"
 path = "substrate/client/network/bitswap"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10482,7 +10482,7 @@ name = "sc-network-gossip"
 path = "substrate/client/network-gossip"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10511,7 +10511,7 @@ name = "sc-network-light"
 path = "substrate/client/network/light"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10539,7 +10539,7 @@ name = "sc-network-statement"
 path = "substrate/client/network/statement"
 from = "0.11.0"
 to = "0.12.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10568,7 +10568,7 @@ name = "sc-network-sync"
 path = "substrate/client/network/sync"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10645,7 +10645,7 @@ name = "sc-network-transactions"
 path = "substrate/client/network/transactions"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10678,7 +10678,7 @@ name = "sc-offchain"
 path = "substrate/client/offchain"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10758,7 +10758,7 @@ name = "bp-bridge-hub-cumulus"
 path = "bridges/primitives/chain-bridge-hub-cumulus"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10798,7 +10798,7 @@ name = "bp-kusama"
 path = "bridges/primitives/chain-kusama"
 from = "0.0.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10830,7 +10830,7 @@ name = "bp-parachains"
 path = "bridges/primitives/parachains"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10866,7 +10866,7 @@ name = "bp-polkadot"
 path = "bridges/primitives/chain-polkadot"
 from = "0.0.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10898,7 +10898,7 @@ name = "bp-rococo"
 path = "bridges/primitives/chain-rococo"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10930,7 +10930,7 @@ name = "generate-bags"
 path = "substrate/utils/frame/generate-bags"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -10958,7 +10958,7 @@ name = "mmr-gadget"
 path = "substrate/client/merkle-mountain-range"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11015,7 +11015,7 @@ name = "node-template-runtime"
 path = "substrate/bin/node-template/runtime"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11143,7 +11143,7 @@ name = "pallet-beefy-mmr"
 path = "substrate/frame/beefy-mmr"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11211,7 +11211,7 @@ name = "pallet-bridge-relayers"
 path = "bridges/modules/relayers"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11287,7 +11287,7 @@ name = "pallet-child-bounties"
 path = "substrate/frame/child-bounties"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11347,7 +11347,7 @@ name = "pallet-nomination-pools-benchmarking"
 path = "substrate/frame/nomination-pools/benchmarking"
 from = "21.0.0"
 to = "22.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11443,7 +11443,7 @@ name = "pallet-offences-benchmarking"
 path = "substrate/frame/offences/benchmarking"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11539,7 +11539,7 @@ name = "pallet-root-offences"
 path = "substrate/frame/root-offences"
 from = "20.0.0"
 to = "21.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11647,7 +11647,7 @@ name = "pallet-session-benchmarking"
 path = "substrate/frame/session/benchmarking"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11743,7 +11743,7 @@ name = "polkadot-runtime-parachains"
 path = "polkadot/runtime/parachains"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11897,7 +11897,7 @@ name = "sc-consensus-beefy"
 path = "substrate/client/consensus/beefy"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -11998,7 +11998,7 @@ name = "sc-consensus-grandpa"
 path = "substrate/client/consensus/grandpa"
 from = "0.14.0"
 to = "0.15.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12111,7 +12111,7 @@ name = "sc-rpc-api"
 path = "substrate/client/rpc-api"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12143,7 +12143,7 @@ name = "sc-rpc-spec-v2"
 path = "substrate/client/rpc-spec-v2"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12211,7 +12211,7 @@ name = "tracing-gum"
 path = "polkadot/node/gum"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12233,7 +12233,7 @@ name = "bp-bridge-hub-kusama"
 path = "bridges/primitives/chain-bridge-hub-kusama"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12269,7 +12269,7 @@ name = "bp-bridge-hub-polkadot"
 path = "bridges/primitives/chain-bridge-hub-polkadot"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12305,7 +12305,7 @@ name = "bp-bridge-hub-rococo"
 path = "bridges/primitives/chain-bridge-hub-rococo"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12341,7 +12341,7 @@ name = "bp-bridge-hub-wococo"
 path = "bridges/primitives/chain-bridge-hub-wococo"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12377,7 +12377,7 @@ name = "bp-test-utils"
 path = "bridges/primitives/test-utils"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12425,7 +12425,7 @@ name = "bp-wococo"
 path = "bridges/primitives/chain-wococo"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12461,7 +12461,7 @@ name = "polkadot-node-core-pvf-common"
 path = "polkadot/node/core/pvf/common"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12510,7 +12510,7 @@ name = "polkadot-node-network-protocol"
 path = "polkadot/node/network/protocol"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12543,7 +12543,7 @@ name = "polkadot-runtime-common"
 path = "polkadot/runtime/common"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12700,7 +12700,7 @@ name = "sc-consensus-babe-rpc"
 path = "substrate/client/consensus/babe/rpc"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12772,7 +12772,7 @@ name = "sc-rpc"
 path = "substrate/client/rpc"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12876,7 +12876,7 @@ name = "sc-sync-state-rpc"
 path = "substrate/client/sync-state-rpc"
 from = "0.29.0"
 to = "0.30.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12912,7 +12912,7 @@ name = "substrate-frame-rpc-support"
 path = "substrate/utils/frame/rpc/support"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12944,7 +12944,7 @@ name = "substrate-frame-rpc-system"
 path = "substrate/utils/frame/rpc/system"
 from = "23.0.0"
 to = "24.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -12996,7 +12996,7 @@ name = "substrate-rpc-client"
 path = "substrate/utils/frame/rpc/client"
 from = "0.28.0"
 to = "0.29.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13016,7 +13016,7 @@ name = "substrate-state-trie-migration-rpc"
 path = "substrate/utils/frame/rpc/state-trie-migration-rpc"
 from = "22.0.0"
 to = "23.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13048,7 +13048,7 @@ name = "xcm-simulator"
 path = "polkadot/xcm/xcm-simulator"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13096,7 +13096,7 @@ name = "zombienet-backchannel"
 path = "polkadot/node/zombienet-backchannel"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13109,7 +13109,7 @@ name = "cumulus-pallet-xcmp-queue"
 path = "cumulus/pallets/xcmp-queue"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13196,7 +13196,7 @@ name = "cumulus-primitives-utility"
 path = "cumulus/primitives/utility"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13243,7 +13243,7 @@ name = "frame-remote-externalities"
 path = "substrate/utils/frame/remote-externalities"
 from = "0.30.0"
 to = "0.31.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13275,7 +13275,7 @@ name = "kusama-runtime-constants"
 path = "polkadot/runtime/kusama/constants"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13309,7 +13309,7 @@ name = "pallet-bridge-grandpa"
 path = "bridges/modules/grandpa"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13365,7 +13365,7 @@ name = "polkadot-node-core-pvf-execute-worker"
 path = "polkadot/node/core/pvf/execute-worker"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13402,7 +13402,7 @@ name = "polkadot-node-core-pvf-prepare-worker"
 path = "polkadot/node/core/pvf/prepare-worker"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13451,7 +13451,7 @@ name = "polkadot-node-subsystem-types"
 path = "polkadot/node/subsystem-types"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13507,7 +13507,7 @@ name = "polkadot-runtime-constants"
 path = "polkadot/runtime/polkadot/constants"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13541,7 +13541,7 @@ name = "rococo-runtime-constants"
 path = "polkadot/runtime/rococo/constants"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13575,7 +13575,7 @@ name = "sc-consensus-beefy-rpc"
 path = "substrate/client/consensus/beefy/rpc"
 from = "8.0.0"
 to = "9.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13611,7 +13611,7 @@ name = "sc-consensus-grandpa-rpc"
 path = "substrate/client/consensus/grandpa/rpc"
 from = "0.14.0"
 to = "0.15.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13667,7 +13667,7 @@ name = "sc-service"
 path = "substrate/client/service"
 from = "0.30.0"
 to = "0.31.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13837,7 +13837,7 @@ name = "test-runtime-constants"
 path = "polkadot/runtime/test-runtime/constants"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13871,7 +13871,7 @@ name = "westend-runtime-constants"
 path = "polkadot/runtime/westend/constants"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13905,7 +13905,7 @@ name = "xcm-simulator-example"
 path = "polkadot/xcm/xcm-simulator/example"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -13989,7 +13989,7 @@ name = "xcm-simulator-fuzzer"
 path = "polkadot/xcm/xcm-simulator/fuzzer"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -14065,7 +14065,7 @@ name = "node-rpc"
 path = "substrate/bin/node/rpc"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -14170,7 +14170,7 @@ name = "pallet-bags-list-remote-tests"
 path = "substrate/frame/bags-list/remote-tests"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -14223,7 +14223,7 @@ name = "pallet-bridge-parachains"
 path = "bridges/modules/parachains"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -14291,7 +14291,7 @@ name = "pallet-state-trie-migration"
 path = "substrate/frame/state-trie-migration"
 from = "24.0.0"
 to = "25.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -14360,7 +14360,7 @@ name = "parachains-common"
 path = "cumulus/parachains/common"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -14475,7 +14475,7 @@ name = "polkadot-rpc"
 path = "polkadot/rpc"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -14581,7 +14581,7 @@ name = "polkadot-runtime"
 path = "polkadot/runtime/polkadot"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -14949,7 +14949,7 @@ name = "polkadot-test-runtime"
 path = "polkadot/runtime/test-runtime"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -15166,7 +15166,7 @@ name = "sc-cli"
 path = "substrate/client/cli"
 from = "0.31.0"
 to = "0.32.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -15239,7 +15239,7 @@ name = "substrate-test-client"
 path = "substrate/test-utils/client"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -15300,7 +15300,7 @@ name = "substrate-test-runtime"
 path = "substrate/test-utils/runtime"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -15456,7 +15456,7 @@ name = "assets-common"
 path = "cumulus/parachains/runtimes/assets/common"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -15519,7 +15519,7 @@ name = "bridge-runtime-common"
 path = "bridges/bin/runtime-common"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -15633,7 +15633,7 @@ name = "cumulus-client-cli"
 path = "cumulus/client/cli"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -15665,7 +15665,7 @@ name = "frame-benchmarking-cli"
 path = "substrate/utils/frame/benchmarking-cli"
 from = "27.0.0"
 to = "28.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -15766,7 +15766,7 @@ name = "kitchensink-runtime"
 path = "substrate/bin/node/runtime"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -16187,7 +16187,7 @@ name = "node-inspect"
 path = "substrate/bin/node/inspect"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -16219,7 +16219,7 @@ name = "polkadot-node-metrics"
 path = "polkadot/node/metrics"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -16273,7 +16273,7 @@ name = "rococo-runtime"
 path = "polkadot/runtime/rococo"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -16612,7 +16612,7 @@ name = "staging-kusama-runtime"
 path = "polkadot/runtime/kusama"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17015,7 +17015,7 @@ name = "subkey"
 path = "substrate/bin/utils/subkey"
 from = "4.0.0"
 to = "5.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17027,7 +17027,7 @@ name = "substrate-frame-cli"
 path = "substrate/utils/frame/frame-utilities-cli"
 from = "27.0.0"
 to = "28.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17056,7 +17056,7 @@ name = "substrate-test-runtime-client"
 path = "substrate/test-utils/runtime/client"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17104,7 +17104,7 @@ name = "try-runtime-cli"
 path = "substrate/utils/frame/try-runtime/cli"
 from = "0.33.0"
 to = "0.34.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17209,7 +17209,7 @@ name = "westend-runtime"
 path = "polkadot/runtime/westend"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17585,7 +17585,7 @@ name = "node-executor"
 path = "substrate/bin/node/executor"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17702,7 +17702,7 @@ name = "node-runtime-generate-bags"
 path = "substrate/utils/frame/generate-bags/node-runtime"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17719,7 +17719,7 @@ name = "node-template"
 path = "substrate/bin/node-template/node"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17863,7 +17863,7 @@ name = "polkadot-node-core-pvf"
 path = "polkadot/node/core/pvf"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -17942,7 +17942,7 @@ name = "polkadot-overseer"
 path = "polkadot/node/overseer"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18006,7 +18006,7 @@ name = "polkadot-performance-test"
 path = "polkadot/node/test/performance-test"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18043,7 +18043,7 @@ name = "polkadot-voter-bags"
 path = "polkadot/utils/generate-bags"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18073,7 +18073,7 @@ name = "remote-ext-tests-bags-list"
 path = "polkadot/utils/remote-ext-tests/bags-list"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18123,7 +18123,7 @@ name = "sc-network-test"
 path = "substrate/client/network/test"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18196,7 +18196,7 @@ name = "sc-service-test"
 path = "substrate/client/service/test"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18289,7 +18289,7 @@ name = "sp-api-test"
 path = "substrate/primitives/api/test"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18334,7 +18334,7 @@ name = "sp-application-crypto-test"
 path = "substrate/primitives/application-crypto/test"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18363,7 +18363,7 @@ name = "substrate-test-runtime-transaction-pool"
 path = "substrate/test-utils/runtime/transaction-pool"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18391,7 +18391,7 @@ name = "cumulus-relay-chain-interface"
 path = "cumulus/client/relay-chain-interface"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18424,7 +18424,7 @@ name = "node-cli"
 path = "substrate/bin/node/cli"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18735,7 +18735,7 @@ name = "node-testing"
 path = "substrate/bin/node/testing"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18843,7 +18843,7 @@ name = "polkadot-node-subsystem"
 path = "polkadot/node/subsystem"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18864,7 +18864,7 @@ name = "chain-spec-builder"
 path = "substrate/bin/utils/chain-spec-builder"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18892,7 +18892,7 @@ name = "cumulus-client-network"
 path = "cumulus/client/network"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -18984,7 +18984,7 @@ name = "cumulus-client-pov-recovery"
 path = "cumulus/client/pov-recovery"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19052,7 +19052,7 @@ name = "cumulus-primitives-parachain-inherent"
 path = "cumulus/primitives/parachain-inherent"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19108,7 +19108,7 @@ name = "cumulus-relay-chain-rpc-interface"
 path = "cumulus/client/relay-chain-rpc-interface"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19169,7 +19169,7 @@ name = "node-bench"
 path = "substrate/bin/node/bench"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19237,7 +19237,7 @@ name = "polkadot-network-bridge"
 path = "polkadot/node/network/bridge"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19298,7 +19298,7 @@ name = "polkadot-node-core-chain-api"
 path = "polkadot/node/core/chain-api"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19347,7 +19347,7 @@ name = "polkadot-node-core-parachains-inherent"
 path = "polkadot/node/core/parachains-inherent"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19380,7 +19380,7 @@ name = "polkadot-node-core-runtime-api"
 path = "polkadot/node/core/runtime-api"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19438,7 +19438,7 @@ name = "polkadot-node-subsystem-util"
 path = "polkadot/node/subsystem-util"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19508,7 +19508,7 @@ name = "substrate-cli-test-utils"
 path = "substrate/test-utils/cli"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19540,7 +19540,7 @@ name = "cumulus-client-consensus-common"
 path = "cumulus/client/consensus/common"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19620,7 +19620,7 @@ name = "cumulus-client-consensus-proposer"
 path = "cumulus/client/consensus/proposer"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19648,7 +19648,7 @@ name = "cumulus-pallet-parachain-system"
 path = "cumulus/pallets/parachain-system"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19745,7 +19745,7 @@ name = "polkadot-approval-distribution"
 path = "polkadot/node/network/approval-distribution"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19802,7 +19802,7 @@ name = "polkadot-availability-bitfield-distribution"
 path = "polkadot/node/network/bitfield-distribution"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19855,7 +19855,7 @@ name = "polkadot-availability-distribution"
 path = "polkadot/node/network/availability-distribution"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19924,7 +19924,7 @@ name = "polkadot-availability-recovery"
 path = "polkadot/node/network/availability-recovery"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -19989,7 +19989,7 @@ name = "polkadot-collator-protocol"
 path = "polkadot/node/network/collator-protocol"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20058,7 +20058,7 @@ name = "polkadot-dispute-distribution"
 path = "polkadot/node/network/dispute-distribution"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20127,7 +20127,7 @@ name = "polkadot-gossip-support"
 path = "polkadot/node/network/gossip-support"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20196,7 +20196,7 @@ name = "polkadot-node-collation-generation"
 path = "polkadot/node/collation-generation"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20250,7 +20250,7 @@ name = "polkadot-node-core-approval-voting"
 path = "polkadot/node/core/approval-voting"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20332,7 +20332,7 @@ name = "polkadot-node-core-av-store"
 path = "polkadot/node/core/av-store"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20399,7 +20399,7 @@ name = "polkadot-node-core-backing"
 path = "polkadot/node/core/backing"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20471,7 +20471,7 @@ name = "polkadot-node-core-bitfield-signing"
 path = "polkadot/node/core/bitfield-signing"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20509,7 +20509,7 @@ name = "polkadot-node-core-candidate-validation"
 path = "polkadot/node/core/candidate-validation"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20575,7 +20575,7 @@ name = "polkadot-node-core-chain-selection"
 path = "polkadot/node/core/chain-selection"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20612,7 +20612,7 @@ name = "polkadot-node-core-dispute-coordinator"
 path = "polkadot/node/core/dispute-coordinator"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20674,7 +20674,7 @@ name = "polkadot-node-core-prospective-parachains"
 path = "polkadot/node/core/prospective-parachains"
 from = "1.0.0"
 to = "2.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20735,7 +20735,7 @@ name = "polkadot-node-core-provisioner"
 path = "polkadot/node/core/provisioner"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20781,7 +20781,7 @@ name = "polkadot-node-core-pvf-checker"
 path = "polkadot/node/core/pvf-checker"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20848,7 +20848,7 @@ name = "polkadot-node-subsystem-test-helpers"
 path = "polkadot/node/subsystem-test-helpers"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20896,7 +20896,7 @@ name = "polkadot-statement-distribution"
 path = "polkadot/node/network/statement-distribution"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -20981,7 +20981,7 @@ name = "cumulus-client-collator"
 path = "cumulus/client/collator"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -21065,7 +21065,7 @@ name = "cumulus-client-consensus-relay-chain"
 path = "cumulus/client/consensus/relay-chain"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -21121,7 +21121,7 @@ name = "cumulus-pallet-aura-ext"
 path = "cumulus/pallets/aura-ext"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -21169,7 +21169,7 @@ name = "cumulus-pallet-solo-to-para"
 path = "cumulus/pallets/solo-to-para"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -21205,7 +21205,7 @@ name = "cumulus-relay-chain-minimal-node"
 path = "cumulus/client/relay-chain-minimal-node"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -21306,7 +21306,7 @@ name = "cumulus-test-runtime"
 path = "cumulus/test/runtime"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -21406,7 +21406,7 @@ name = "parachains-runtimes-test-utils"
 path = "cumulus/parachains/runtimes/test-utils"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -21521,7 +21521,7 @@ name = "polkadot-service"
 path = "polkadot/node/service"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -21944,7 +21944,7 @@ name = "xcm-emulator"
 path = "cumulus/xcm/xcm-emulator"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -22034,7 +22034,7 @@ name = "asset-hub-kusama-runtime"
 path = "cumulus/parachains/runtimes/assets/asset-hub-kusama"
 from = "0.10.0"
 to = "0.11.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -22294,7 +22294,7 @@ name = "asset-hub-polkadot-runtime"
 path = "cumulus/parachains/runtimes/assets/asset-hub-polkadot"
 from = "0.10.0"
 to = "0.11.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -22542,7 +22542,7 @@ name = "asset-hub-westend-runtime"
 path = "cumulus/parachains/runtimes/assets/asset-hub-westend"
 from = "0.10.0"
 to = "0.11.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -22798,7 +22798,7 @@ name = "asset-test-utils"
 path = "cumulus/parachains/runtimes/assets/test-utils"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -22913,7 +22913,7 @@ name = "bridge-hub-kusama-runtime"
 path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-kusama"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -23133,7 +23133,7 @@ name = "bridge-hub-polkadot-runtime"
 path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-polkadot"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -23353,7 +23353,7 @@ name = "bridge-hub-rococo-runtime"
 path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -23641,7 +23641,7 @@ name = "collectives-polkadot-runtime"
 path = "cumulus/parachains/runtimes/collectives/collectives-polkadot"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -23901,7 +23901,7 @@ name = "contracts-rococo-runtime"
 path = "cumulus/parachains/runtimes/contracts/contracts-rococo"
 from = "0.3.0"
 to = "0.4.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -24125,7 +24125,7 @@ name = "cumulus-client-consensus-aura"
 path = "cumulus/client/consensus/aura"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -24253,7 +24253,7 @@ name = "glutton-runtime"
 path = "cumulus/parachains/runtimes/glutton/glutton-kusama"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -24405,7 +24405,7 @@ name = "parachain-template-runtime"
 path = "cumulus/parachain-template/runtime"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -24597,7 +24597,7 @@ name = "penpal-runtime"
 path = "cumulus/parachains/runtimes/testing/penpal"
 from = "0.9.27"
 to = "0.10.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -24805,7 +24805,7 @@ name = "polkadot-cli"
 path = "polkadot/cli"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -24879,7 +24879,7 @@ name = "polkadot-test-service"
 path = "polkadot/node/test/service"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -25058,7 +25058,7 @@ name = "rococo-parachain-runtime"
 path = "cumulus/parachains/runtimes/testing/rococo-parachain"
 from = "0.1.0"
 to = "0.2.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -25230,7 +25230,7 @@ name = "seedling-runtime"
 path = "cumulus/parachains/runtimes/starters/seedling"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -25347,7 +25347,7 @@ name = "shell-runtime"
 path = "cumulus/parachains/runtimes/starters/shell"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -25471,7 +25471,7 @@ name = "bridge-hub-test-utils"
 path = "cumulus/parachains/runtimes/bridge-hubs/test-utils"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -25635,7 +25635,7 @@ name = "cumulus-relay-chain-inprocess-interface"
 path = "cumulus/client/relay-chain-inprocess-interface"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -25716,7 +25716,7 @@ name = "integration-tests-common"
 path = "cumulus/parachains/integration-tests/emulated/common"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -25900,7 +25900,7 @@ name = "polkadot"
 path = "polkadot"
 from = "2.0.0"
 to = "3.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -25945,7 +25945,7 @@ name = "polkadot-test-client"
 path = "polkadot/node/test/client"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26038,7 +26038,7 @@ name = "polkadot-test-malus"
 path = "polkadot/node/malus"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26125,7 +26125,7 @@ name = "test-parachain-adder-collator"
 path = "polkadot/parachain/test-parachains/adder/collator"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26194,7 +26194,7 @@ name = "test-parachain-undying-collator"
 path = "polkadot/parachain/test-parachains/undying/collator"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26263,7 +26263,7 @@ name = "asset-hub-kusama-integration-tests"
 path = "cumulus/parachains/integration-tests/emulated/assets/asset-hub-kusama"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26337,7 +26337,7 @@ name = "asset-hub-polkadot-integration-tests"
 path = "cumulus/parachains/integration-tests/emulated/assets/asset-hub-polkadot"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26411,7 +26411,7 @@ name = "asset-hub-westend-integration-tests"
 path = "cumulus/parachains/integration-tests/emulated/assets/asset-hub-westend"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26485,7 +26485,7 @@ name = "bridge-hub-rococo-integration-tests"
 path = "cumulus/parachains/integration-tests/emulated/bridges/bridge-hub-rococo"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26551,7 +26551,7 @@ name = "collectives-polkadot-integration-tests"
 path = "cumulus/parachains/integration-tests/emulated/collectives/collectives-polkadot"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26636,7 +26636,7 @@ name = "cumulus-client-service"
 path = "cumulus/client/service"
 from = "0.2.0"
 to = "0.3.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26753,7 +26753,7 @@ name = "xcm-executor-integration-tests"
 path = "polkadot/xcm/xcm-executor/integration-tests"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -26816,7 +26816,7 @@ name = "cumulus-test-service"
 path = "cumulus/test/service"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -27069,7 +27069,7 @@ name = "parachain-template-node"
 path = "cumulus/parachain-template/node"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -27254,7 +27254,7 @@ name = "polkadot-parachain-bin"
 path = "cumulus/polkadot-parachain"
 from = "1.0.0"
 to = "2.0.0"
-bump = "unknown"
+bump = "major"
 reason = "changed"
 
 [[crate.rewrite_dep]]
@@ -27513,7 +27513,7 @@ name = "cumulus-test-client"
 path = "cumulus/test/client"
 from = "0.1.0"
 to = "0.1.0"
-bump = "unknown"
+bump = "none"
 reason = "changed"
 
 [[crate.rewrite_dep]]
