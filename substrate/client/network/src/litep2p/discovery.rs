@@ -36,7 +36,7 @@ use litep2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
 				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, KademliaEvent,
-				KademliaHandle, QueryId, Quorum, Record, RecordKey,
+				KademliaHandle, PeerRecord, QueryId, Quorum, Record, RecordKey,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -125,7 +125,7 @@ pub enum DiscoveryEvent {
 		query_id: QueryId,
 
 		/// Record.
-		record: Record,
+		record: PeerRecord,
 	},
 
 	/// Record was successfully stored on the DHT.
@@ -333,6 +333,17 @@ impl Discovery {
 	pub async fn put_value(&mut self, key: KademliaKey, value: Vec<u8>) -> QueryId {
 		self.kademlia_handle
 			.put_record(Record::new(RecordKey::new(&key.to_vec()), value))
+			.await
+	}
+
+	/// Put record to given peers.
+	pub async fn put_value_to_peers(
+		&mut self,
+		record: Record,
+		peers: Vec<sc_network_types::PeerId>,
+	) -> QueryId {
+		self.kademlia_handle
+			.put_record_to_peers(record, peers.into_iter().map(|peer| peer.into()).collect())
 			.await
 	}
 

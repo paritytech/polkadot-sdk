@@ -36,7 +36,7 @@ use crate::{
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
 use libp2p::{identity::SigningError, kad::record::Key as KademliaKey, Multiaddr};
-use litep2p::crypto::ed25519::Keypair;
+use litep2p::{crypto::ed25519::Keypair, protocol::libp2p::kademlia::Record};
 use parking_lot::RwLock;
 
 use sc_network_common::{
@@ -71,6 +71,16 @@ pub enum NetworkServiceCommand {
 
 		/// Record value.
 		value: Vec<u8>,
+	},
+
+	/// Put value to DHT.
+	PutValueTo {
+		/// Record.
+		record: Record,
+		/// Peers we want to put the record.
+		peers: Vec<sc_network_types::PeerId>,
+		/// If we should update the local storage or not.
+		update_local_storage: bool,
 	},
 
 	/// Query network status.
@@ -237,11 +247,23 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 
 	fn put_record_to(
 		&self,
-		_record: libp2p::kad::Record,
-		_peers: HashSet<PeerId>,
-		_update_local_storage: bool,
+		record: libp2p::kad::Record,
+		peers: HashSet<PeerId>,
+		update_local_storage: bool,
 	) {
-		todo!("Litep2p does not implement put_record_to");
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValueTo {
+			record: Record {
+				key: record.key.to_vec().into(),
+				value: record.value,
+				publisher: record.publisher.map(|peer_id| {
+					let peer_id: sc_network_types::PeerId = peer_id.into();
+					peer_id.into()
+				}),
+				expires: record.expires,
+			},
+			peers: peers.into_iter().collect(),
+			update_local_storage,
+		});
 	}
 }
 

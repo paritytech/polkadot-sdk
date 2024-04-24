@@ -696,6 +696,13 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							let query_id = self.discovery.put_value(key.clone(), value).await;
 							self.pending_put_values.insert(query_id, (key, Instant::now()));
 						}
+
+						NetworkServiceCommand::PutValueTo { record, peers, update_local_storage: _ } => {
+							let kademlia_key = record.key.to_vec().into();
+							let query_id = self.discovery.put_value_to_peers(record, peers).await;
+							self.pending_put_values.insert(query_id, (kademlia_key, Instant::now()));
+						}
+
 						NetworkServiceCommand::EventStream { tx } => {
 							self.event_streams.push(tx);
 						}
@@ -805,7 +812,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								log::trace!(
 									target: LOG_TARGET,
 									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
-									record.key,
+									record.record.key,
 								);
 
 								self.event_streams.send(
@@ -813,12 +820,18 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										DhtEvent::ValueFound(
 											PeerRecord {
 												record: Record {
-													key: record.key.to_vec().into(),
-													value: record.value,
-													publisher: None,
-													expires: None
+													key: record.record.key.to_vec().into(),
+													value: record.record.value,
+													publisher: record.record.publisher.map(|peer_id| {
+														let peer_id: sc_network_types::PeerId = peer_id.into();
+														peer_id.into()
+													}),
+													expires: record.record.expires,
 												},
-												peer: None,
+												peer: record.peer.map(|peer_id| {
+													let peer_id: sc_network_types::PeerId = peer_id.into();
+													peer_id.into()
+												}),
 											}
 										)
 									)
