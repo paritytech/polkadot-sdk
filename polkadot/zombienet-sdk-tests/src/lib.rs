@@ -40,9 +40,11 @@ pub fn runtime_config() -> serde_json::Value {
 	json!({
 		"configuration": {
 			"config": {
-				"max_validators_per_core": 1,
 				"needed_approvals": 1,
-				"group_rotation_frequency": 10
+				"group_rotation_frequency": 10,
+				"scheduler_params": {
+					"max_validators_per_core": 1,
+				}
 			}
 		}
 	})
