@@ -65,7 +65,7 @@ fn send_asset_from_penpal_rococo_through_local_asset_hub_to_westend_asset_hub(
 			beneficiary,
 		}]);
 
-		<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type(
+		<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 			signed_origin,
 			bx!(destination.into()),
 			bx!(assets.clone().into()),

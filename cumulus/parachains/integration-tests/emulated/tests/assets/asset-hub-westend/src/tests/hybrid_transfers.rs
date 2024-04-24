@@ -58,7 +58,7 @@ fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
 	}]);
-	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type(
+	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
@@ -77,7 +77,7 @@ fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
 	}]);
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type(
+	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
@@ -97,7 +97,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
 	}]);
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type(
+	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
@@ -116,7 +116,7 @@ fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> Dispatc
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
 	}]);
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type(
+	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
@@ -135,7 +135,7 @@ fn asset_hub_to_para_teleport_foreign_assets(t: SystemParaToParaTest) -> Dispatc
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
 	}]);
-	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type(
+	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
@@ -770,7 +770,7 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 		}]);
 
 		// First leg is a teleport, from there a local-reserve-transfer to final dest
-		<Westend as WestendPallet>::XcmPallet::transfer_assets_using_type(
+		<Westend as WestendPallet>::XcmPallet::transfer_assets_using_type_and_then(
 			t.signed_origin,
 			bx!(asset_hub_location.into()),
 			bx!(t.args.assets.into()),
