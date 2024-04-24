@@ -76,7 +76,7 @@ where
 	/// `None` if it is unsigned or an inherent.
 	pub signature: Option<UncheckedSignaturePayload<Address, Signature, Extra>>,
 	/// The function that should be called.
-	pub function: Call,
+	function: Call,
 }
 
 impl<Address: TypeInfo, Signature: TypeInfo, Extra: TypeInfo> SignaturePayload
@@ -132,6 +132,11 @@ impl<Address, Call, Signature, Extra: SignedExtension>
 	/// New instance of an unsigned extrinsic aka "inherent".
 	pub fn new_unsigned(function: Call) -> Self {
 		Self { signature: None, function }
+	}
+
+	/// Get the function that should be called.
+	pub fn function(&self) -> &Call {
+		&self.function
 	}
 }
 

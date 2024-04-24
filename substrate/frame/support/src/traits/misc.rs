@@ -939,7 +939,7 @@ where
 	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
 {
 	fn call(&self) -> &Self::Call {
-		&self.function
+		self.function()
 	}
 }
 
