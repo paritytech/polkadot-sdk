@@ -34,6 +34,7 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+#[cfg(feature = "experimental")]
 const LOG_TARGET: &str = "pallet-example-tasks";
 
 #[frame_support::pallet(dev_mode)]
