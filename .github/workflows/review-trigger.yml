@@ -45,7 +45,7 @@ jobs:
 
           # We request them to review again
           echo $REVIEWERS | gh api --method POST repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers --input -
-          
+
           echo "::error::Project needs to be reviewed again"
           exit 1
         env:
@@ -53,22 +53,8 @@ jobs:
       - name: Comment requirements
         # If the previous step failed and github-actions hasn't commented yet we comment instructions
         if: failure() && !contains(fromJson(steps.comments.outputs.bodies), 'Review required! Latest push from author must always be reviewed')
-        run: |          
+        run: |
           gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "Review required! Latest push from author must always be reviewed"
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENTS: ${{ steps.comments.outputs.users }}
-      - name: Get PR number
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          echo "Saving PR number: $PR_NUMBER"
-          mkdir -p ./pr
-          echo $PR_NUMBER > ./pr/pr_number
-      - uses: actions/upload-artifact@v4.3.3
-        name: Save PR number
-        with:
-          name: pr_number
-          path: pr/
-          if-no-files-found: error
-          retention-days: 5
