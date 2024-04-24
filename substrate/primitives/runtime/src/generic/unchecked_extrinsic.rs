@@ -28,10 +28,10 @@ use crate::{
 };
 use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
-use sp_io::hashing::blake2_256;
+use sp_io::{hashing::blake2_256, CopyReader};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::format;
-use sp_std::{fmt, prelude::*};
+use sp_std::{fmt, marker::PhantomData, prelude::*};
 
 /// Current version of the [`UncheckedExtrinsic`] encoded format.
 ///
@@ -75,8 +75,10 @@ where
 	///
 	/// `None` if it is unsigned or an inherent.
 	pub signature: Option<UncheckedSignaturePayload<Address, Signature, Extra>>,
-	/// The function that should be called.
-	function: Call,
+	/// The function that should be called. We store it in an encoded form for memory efficiency.
+	encoded_function: Vec<u8>,
+
+	_phantom: PhantomData<Call>,
 }
 
 impl<Address: TypeInfo, Signature: TypeInfo, Extra: TypeInfo> SignaturePayload
@@ -121,27 +123,41 @@ where
 	}
 }
 
-impl<Address, Call, Signature, Extra: SignedExtension>
+impl<Address, Call: Encode, Signature, Extra: SignedExtension>
 	UncheckedExtrinsic<Address, Call, Signature, Extra>
 {
 	/// New instance of a signed extrinsic aka "transaction".
 	pub fn new_signed(function: Call, signed: Address, signature: Signature, extra: Extra) -> Self {
-		Self { signature: Some((signed, signature, extra)), function }
+		Self {
+			signature: Some((signed, signature, extra)),
+			encoded_function: function.encode(),
+			_phantom: Default::default(),
+		}
 	}
 
 	/// New instance of an unsigned extrinsic aka "inherent".
 	pub fn new_unsigned(function: Call) -> Self {
-		Self { signature: None, function }
-	}
-
-	/// Get the function that should be called.
-	pub fn function(&self) -> &Call {
-		&self.function
+		Self { signature: None, encoded_function: function.encode(), _phantom: Default::default() }
 	}
 }
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extra: SignedExtension + TypeInfo>
-	Extrinsic for UncheckedExtrinsic<Address, Call, Signature, Extra>
+impl<Address, Call: Decode, Signature, Extra: SignedExtension>
+	UncheckedExtrinsic<Address, Call, Signature, Extra>
+{
+	/// Get the function that should be called in a decoded form.
+	pub fn decode_function(&self) -> Call {
+		Call::decode(&mut &self.encoded_function[..]).expect(
+			"We always check if the function is valid before setting the encoded_function field",
+		)
+	}
+}
+
+impl<
+		Address: TypeInfo,
+		Call: Encode + TypeInfo,
+		Signature: TypeInfo,
+		Extra: SignedExtension + TypeInfo,
+	> Extrinsic for UncheckedExtrinsic<Address, Call, Signature, Extra>
 {
 	type Call = Call;
 
@@ -164,7 +180,7 @@ impl<LookupSource, AccountId, Call, Signature, Extra, Lookup> Checkable<Lookup>
 	for UncheckedExtrinsic<LookupSource, Call, Signature, Extra>
 where
 	LookupSource: Member + MaybeDisplay,
-	Call: Encode + Member,
+	Call: Encode + Decode + Member,
 	Signature: Member + traits::Verify,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
 	Extra: SignedExtension<AccountId = AccountId>,
@@ -174,10 +190,11 @@ where
 	type Checked = CheckedExtrinsic<AccountId, Call, Extra>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
+		let function = self.decode_function();
 		Ok(match self.signature {
 			Some((signed, signature, extra)) => {
 				let signed = lookup.lookup(signed)?;
-				let raw_payload = SignedPayload::new(self.function, extra)?;
+				let raw_payload = SignedPayload::new(function, extra)?;
 				if !raw_payload.using_encoded(|payload| signature.verify(payload, &signed)) {
 					return Err(InvalidTransaction::BadProof.into())
 				}
@@ -185,7 +202,7 @@ where
 				let (function, extra, _) = raw_payload.deconstruct();
 				CheckedExtrinsic { signed: Some((signed, extra)), function }
 			},
-			None => CheckedExtrinsic { signed: None, function: self.function },
+			None => CheckedExtrinsic { signed: None, function },
 		})
 	}
 
@@ -194,14 +211,15 @@ where
 		self,
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
+		let function = self.decode_function();
 		Ok(match self.signature {
 			Some((signed, _, extra)) => {
 				let signed = lookup.lookup(signed)?;
-				let raw_payload = SignedPayload::new(self.function, extra)?;
+				let raw_payload = SignedPayload::new(function, extra)?;
 				let (function, extra, _) = raw_payload.deconstruct();
 				CheckedExtrinsic { signed: Some((signed, extra)), function }
 			},
-			None => CheckedExtrinsic { signed: None, function: self.function },
+			None => CheckedExtrinsic { signed: None, function },
 		})
 	}
 }
@@ -285,7 +303,7 @@ where
 		// with SCALE's generic `Vec<u8>` type. Basically this just means accepting that there
 		// will be a prefix of vector length.
 		let expected_length: Compact<u32> = Decode::decode(input)?;
-		let before_length = input.remaining_len()?;
+		let maybe_before_length = input.remaining_len()?;
 
 		let version = input.read_byte()?;
 
@@ -296,10 +314,13 @@ where
 		}
 
 		let signature = is_signed.then(|| Decode::decode(input)).transpose()?;
-		let function = Decode::decode(input)?;
 
-		if let Some((before_length, after_length)) =
-			input.remaining_len()?.and_then(|a| before_length.map(|b| (b, a)))
+		let mut input = CopyReader::new(input);
+		// We have to check that the function decodes correctly.
+		Call::decode(&mut input)?;
+
+		if let (Some(before_length), Some(after_length)) =
+			(maybe_before_length, input.remaining_len()?)
 		{
 			let length = before_length.saturating_sub(after_length);
 
@@ -308,7 +329,7 @@ where
 			}
 		}
 
-		Ok(Self { signature, function })
+		Ok(Self { signature, encoded_function: input.into_vec(), _phantom: Default::default() })
 	}
 }
 
@@ -333,7 +354,7 @@ where
 				tmp.push(EXTRINSIC_FORMAT_VERSION & 0b0111_1111);
 			},
 		}
-		self.function.encode_to(&mut tmp);
+		tmp.extend_from_slice(&self.encoded_function);
 
 		let compact_len = codec::Compact::<u32>(tmp.len() as u32);
 
@@ -370,7 +391,7 @@ impl<Address: Encode, Signature: Encode, Call: Encode, Extra: SignedExtension> s
 }
 
 #[cfg(feature = "serde")]
-impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extra: SignedExtension>
+impl<'a, Address: Decode, Signature: Decode, Call: Encode + Decode, Extra: SignedExtension>
 	serde::Deserialize<'a> for UncheckedExtrinsic<Address, Call, Signature, Extra>
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
@@ -395,7 +416,7 @@ where
 			f,
 			"UncheckedExtrinsic({:?}, {:?})",
 			self.signature.as_ref().map(|x| (&x.0, &x.2)),
-			self.function,
+			self.encoded_function,
 		)
 	}
 }

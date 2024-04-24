@@ -77,7 +77,7 @@ impl ChainApi for TestApi {
 		let hash = self.hash_and_length(&uxt).0;
 		let block_number = self.block_id_to_number(&BlockId::Hash(at)).unwrap().unwrap();
 
-		let res = match uxt.function() {
+		let res = match uxt.decode_function() {
 			RuntimeCall::Balances(BalancesCall::transfer_allow_death { .. }) => {
 				let TransferData { nonce, .. } = (&uxt).try_into().unwrap();
 				// This is used to control the test flow.

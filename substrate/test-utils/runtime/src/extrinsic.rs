@@ -62,11 +62,11 @@ impl Default for TransferData {
 impl TryFrom<&Extrinsic> for TransferData {
 	type Error = ();
 	fn try_from(uxt: &Extrinsic) -> Result<Self, Self::Error> {
-		match (uxt.function(), &uxt.signature) {
+		match (uxt.decode_function(), &uxt.signature) {
 			(
 				RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }),
 				Some((from, _, (CheckNonce(nonce), ..))),
-			) => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
+			) => Ok(TransferData { from: *from, to: dest, amount: value, nonce: *nonce }),
 			(RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }), None) =>
 				Ok(transfer.clone()),
 			_ => Err(()),

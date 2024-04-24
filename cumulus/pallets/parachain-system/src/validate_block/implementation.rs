@@ -235,25 +235,30 @@ where
 /// Extract the [`ParachainInherentData`].
 fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
 	block: &B,
-) -> &ParachainInherentData
+) -> ParachainInherentData
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
 {
-	block
+	let xts = block
 		.extrinsics()
 		.iter()
 		// Inherents are at the front of the block and are unsigned.
 		//
 		// If `is_signed` is returning `None`, we keep it safe and assume that it is "signed".
 		// We are searching for unsigned transactions anyway.
-		.take_while(|e| !e.is_signed().unwrap_or(true))
-		.filter_map(|e| e.call().is_sub_type())
-		.find_map(|c| match c {
-			crate::Call::set_validation_data { data: validation_data } => Some(validation_data),
-			_ => None,
-		})
-		.expect("Could not find `set_validation_data` inherent")
+		.take_while(|e| !e.is_signed().unwrap_or(true));
+	for xt in xts {
+		if let Some(call) = xt.call().is_sub_type() {
+			match call {
+				crate::Call::set_validation_data { data: validation_data } =>
+					return validation_data.clone(),
+				_ => {},
+			}
+		}
+	}
+
+	panic!("Could not find `set_validation_data` inherent")
 }
 
 /// Validate the given [`PersistedValidationData`] against the [`MemoryOptimizedValidationParams`].

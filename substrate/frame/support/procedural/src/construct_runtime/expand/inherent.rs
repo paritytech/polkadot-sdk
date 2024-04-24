@@ -133,7 +133,7 @@ pub fn expand_outer_inherent(
 						#pallet_attrs
 						{
 							let call = <#unchecked_extrinsic as ExtrinsicCall>::call(xt);
-							if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+							if let Some(call) = IsSubType::<_>::is_sub_type(&call) {
 								if #pallet_names::is_inherent(call) {
 									is_inherent = true;
 									if let Err(e) = #pallet_names::check_inherent(call, self) {
@@ -168,7 +168,7 @@ pub fn expand_outer_inherent(
 									let call = <
 										#unchecked_extrinsic as ExtrinsicCall
 									>::call(xt);
-									if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+									if let Some(call) = IsSubType::<_>::is_sub_type(&call) {
 										#pallet_names::is_inherent(&call)
 									} else {
 										false
@@ -218,7 +218,7 @@ pub fn expand_outer_inherent(
 					#pallet_attrs
 					{
 						let call = <#unchecked_extrinsic as ExtrinsicCall>::call(ext);
-						if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+						if let Some(call) = IsSubType::<_>::is_sub_type(&call) {
 							if <#pallet_names as ProvideInherent>::is_inherent(&call) {
 								return true;
 							}

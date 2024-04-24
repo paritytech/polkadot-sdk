@@ -916,17 +916,17 @@ pub trait IsInherent<Extrinsic> {
 /// An extrinsic on which we can get access to call.
 pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
 	/// Get the call of the extrinsic.
-	fn call(&self) -> &Self::Call;
+	fn call(&self) -> Self::Call;
 }
 
 #[cfg(feature = "std")]
 impl<Call, Extra> ExtrinsicCall for sp_runtime::testing::TestXt<Call, Extra>
 where
-	Call: codec::Codec + Sync + Send + TypeInfo,
+	Call: codec::Codec + Clone + Sync + Send + TypeInfo,
 	Extra: TypeInfo,
 {
-	fn call(&self) -> &Self::Call {
-		&self.call
+	fn call(&self) -> Self::Call {
+		self.call.clone()
 	}
 }
 
@@ -934,12 +934,12 @@ impl<Address, Call, Signature, Extra> ExtrinsicCall
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Address: TypeInfo,
-	Call: TypeInfo,
+	Call: Encode + Decode + TypeInfo,
 	Signature: TypeInfo,
 	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
 {
-	fn call(&self) -> &Self::Call {
-		self.function()
+	fn call(&self) -> Self::Call {
+		self.decode_function()
 	}
 }
 
