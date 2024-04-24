@@ -242,6 +242,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -318,7 +321,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		LocalReservableFromAssetHub <span class="kw">as </span>PenpalLocalReservableFromAssetHub,
 		LocalTeleportableToAssetHub <span class="kw">as </span>PenpalLocalTeleportableToAssetHub,
 	};
-	<span class="kw">pub use </span>westend_runtime::xcm_config::XcmConfig <span class="kw">as </span>WestendXcmConfig;
+	<span class="kw">pub use </span>westend_runtime::xcm_config::{
+		UniversalLocation <span class="kw">as </span>WestendUniversalLocation, XcmConfig <span class="kw">as </span>WestendXcmConfig,
+	};
 
 	<span class="kw">pub const </span>ASSET_ID: u32 = <span class="number">3</span>;
 	<span class="kw">pub const </span>ASSET_MIN_BALANCE: u128 = <span class="number">1000</span>;
@@ -331,6 +336,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub type </span>ParaToSystemParaTest = Test&lt;PenpalA, AssetHubWestend&gt;;
 	<span class="kw">pub type </span>ParaToParaThroughRelayTest = Test&lt;PenpalA, PenpalB, Westend&gt;;
 	<span class="kw">pub type </span>ParaToParaThroughAHTest = Test&lt;PenpalA, PenpalB, AssetHubWestend&gt;;
+	<span class="kw">pub type </span>RelayToParaThroughAHTest = Test&lt;Westend, PenpalA, AssetHubWestend&gt;;
 }
 
 <span class="attr">#[cfg(test)]

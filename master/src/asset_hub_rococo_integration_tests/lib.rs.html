@@ -238,6 +238,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -310,7 +313,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		LocalReservableFromAssetHub <span class="kw">as </span>PenpalLocalReservableFromAssetHub,
 		LocalTeleportableToAssetHub <span class="kw">as </span>PenpalLocalTeleportableToAssetHub,
 	};
-	<span class="kw">pub use </span>rococo_runtime::xcm_config::XcmConfig <span class="kw">as </span>RococoXcmConfig;
+	<span class="kw">pub use </span>rococo_runtime::xcm_config::{
+		UniversalLocation <span class="kw">as </span>RococoUniversalLocation, XcmConfig <span class="kw">as </span>RococoXcmConfig,
+	};
 
 	<span class="kw">pub const </span>ASSET_ID: u32 = <span class="number">3</span>;
 	<span class="kw">pub const </span>ASSET_MIN_BALANCE: u128 = <span class="number">1000</span>;
@@ -323,6 +328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub type </span>ParaToSystemParaTest = Test&lt;PenpalA, AssetHubRococo&gt;;
 	<span class="kw">pub type </span>ParaToParaThroughRelayTest = Test&lt;PenpalA, PenpalB, Rococo&gt;;
 	<span class="kw">pub type </span>ParaToParaThroughAHTest = Test&lt;PenpalA, PenpalB, AssetHubRococo&gt;;
+	<span class="kw">pub type </span>RelayToParaThroughAHTest = Test&lt;Rococo, PenpalA, AssetHubRococo&gt;;
 }
 
 <span class="attr">#[cfg(test)]

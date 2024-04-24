@@ -3446,6 +3446,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3295" id="3295">3295</a>
 <a href="#3296" id="3296">3296</a>
 <a href="#3297" id="3297">3297</a>
+<a href="#3298" id="3298">3298</a>
+<a href="#3299" id="3299">3299</a>
+<a href="#3300" id="3300">3300</a>
+<a href="#3301" id="3301">3301</a>
+<a href="#3302" id="3302">3302</a>
+<a href="#3303" id="3303">3303</a>
+<a href="#3304" id="3304">3304</a>
+<a href="#3305" id="3305">3305</a>
+<a href="#3306" id="3306">3306</a>
+<a href="#3307" id="3307">3307</a>
+<a href="#3308" id="3308">3308</a>
+<a href="#3309" id="3309">3309</a>
+<a href="#3310" id="3310">3310</a>
+<a href="#3311" id="3311">3311</a>
+<a href="#3312" id="3312">3312</a>
+<a href="#3313" id="3313">3313</a>
+<a href="#3314" id="3314">3314</a>
+<a href="#3315" id="3315">3315</a>
+<a href="#3316" id="3316">3316</a>
+<a href="#3317" id="3317">3317</a>
+<a href="#3318" id="3318">3318</a>
+<a href="#3319" id="3319">3319</a>
+<a href="#3320" id="3320">3320</a>
+<a href="#3321" id="3321">3321</a>
+<a href="#3322" id="3322">3322</a>
+<a href="#3323" id="3323">3323</a>
+<a href="#3324" id="3324">3324</a>
+<a href="#3325" id="3325">3325</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3493,7 +3521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
 		Saturating, Zero,
 	},
-	RuntimeDebug,
+	Either, RuntimeDebug,
 };
 <span class="kw">use </span>sp_std::{boxed::Box, marker::PhantomData, prelude::<span class="kw-2">*</span>, result::Result, vec};
 <span class="kw">use </span>xcm::{latest::QueryResponseInfo, prelude::<span class="kw-2">*</span>};
@@ -4759,7 +4787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::do_transfer_assets(
 				origin,
 				dest,
-				beneficiary,
+				Either::Left(beneficiary),
 				assets,
 				assets_transfer_type,
 				fee_asset_item,
@@ -4869,50 +4897,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///  - `TransferType::Teleport`: burn local assets and forward XCM to `dest` chain to
 		///    mint/teleport assets and deposit them to `beneficiary`.
 		///
-		/// Fee payment on the source, destination and all intermediary hops, is specified through
-		/// `fees_id`, but make sure enough of the specified `fees_id` asset is included in the
-		/// given list of `assets`. `fees_id` should be enough to pay for `weight_limit`. If more
-		/// weight is needed than `weight_limit`, then the operation will fail and the sent assets
-		/// may be at risk.
+		/// On the destination chain, as well as any intermediary hops, `BuyExecution` is used to
+		/// buy execution using transferred `assets` identified by `remote_fees_id`.
+		/// Make sure enough of the specified `remote_fees_id` asset is included in the given list
+		/// of `assets`. `remote_fees_id` should be enough to pay for `weight_limit`. If more weight
+		/// is needed than `weight_limit`, then the operation will fail and the sent assets may be
+		/// at risk.
 		///
-		/// `fees_id` may use different transfer type than rest of `assets` and can be specified
-		/// through `fees_transfer_type`.
+		/// `remote_fees_id` may use different transfer type than rest of `assets` and can be
+		/// specified through `fees_transfer_type`.
+		///
+		/// The caller needs to specify what should happen to the transferred assets once they reach
+		/// the `dest` chain. This is done through the `custom_xcm_on_dest` parameter, which
+		/// contains the instructions to execute on `dest` as a final step.
+		///   This is usually as simple as:
+		///   `Xcm(vec![DepositAsset { assets: Wild(AllCounted(assets.len())), beneficiary }])`,
+		///   but could be something more exotic like sending the `assets` even further.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
 		/// - `dest`: Destination context for the assets. Will typically be `[Parent,
 		///   Parachain(..)]` to send from parachain to parachain, or `[Parachain(..)]` to send from
 		///   relay to parachain, or `(parents: 2, (GlobalConsensus(..), ..))` to send from
 		///   parachain across a bridge to another ecosystem destination.
-		/// - `beneficiary`: A beneficiary location for the assets in the context of `dest`. Will
-		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
 		/// - `assets_transfer_type`: The XCM `TransferType` used to transfer the `assets`.
-		/// - `fees_id`: One of the included `assets` to be be used to pay fees.
+		/// - `remote_fees_id`: One of the included `assets` to be be used to pay fees.
 		/// - `fees_transfer_type`: The XCM `TransferType` used to transfer the `fees` assets.
+		/// - `custom_xcm_on_dest`: The XCM to be executed on `dest` chain as the last step of the
+		///   transfer, which also determines what happens to the assets on the destination chain.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		</span><span class="attr">#[pallet::call_index(<span class="number">15</span>)]
 		#[pallet::weight(T::WeightInfo::transfer_assets())]
-		</span><span class="kw">pub fn </span>transfer_assets_using_type(
+		</span><span class="kw">pub fn </span>transfer_assets_using_type_and_then(
 			origin: OriginFor&lt;T&gt;,
 			dest: Box&lt;VersionedLocation&gt;,
-			beneficiary: Box&lt;VersionedLocation&gt;,
 			assets: Box&lt;VersionedAssets&gt;,
 			assets_transfer_type: Box&lt;TransferType&gt;,
-			fees_id: Box&lt;VersionedAssetId&gt;,
+			remote_fees_id: Box&lt;VersionedAssetId&gt;,
 			fees_transfer_type: Box&lt;TransferType&gt;,
+			custom_xcm_on_dest: Box&lt;VersionedXcm&lt;()&gt;&gt;,
 			weight_limit: WeightLimit,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>dest: Location = (<span class="kw-2">*</span>dest).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
-			<span class="kw">let </span>beneficiary: Location =
-				(<span class="kw-2">*</span>beneficiary).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 			<span class="kw">let </span>assets: Assets = (<span class="kw-2">*</span>assets).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
-			<span class="kw">let </span>fees_id: AssetId = (<span class="kw-2">*</span>fees_id).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
+			<span class="kw">let </span>fees_id: AssetId =
+				(<span class="kw-2">*</span>remote_fees_id).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
+			<span class="kw">let </span>remote_xcm: Xcm&lt;()&gt; =
+				(<span class="kw-2">*</span>custom_xcm_on_dest).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 			<span class="macro">log::debug!</span>(
-				target: <span class="string">"xcm::pallet_xcm::transfer_assets_using_type"</span>,
-				<span class="string">"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?} through {:?}, fees-id {:?} through {:?}"</span>,
-				origin_location, dest, beneficiary, assets, assets_transfer_type, fees_id, fees_transfer_type,
+				target: <span class="string">"xcm::pallet_xcm::transfer_assets_using_type_and_then"</span>,
+				<span class="string">"origin {origin_location:?}, dest {dest:?}, assets {assets:?} through {assets_transfer_type:?}, \
+				remote_fees_id {fees_id:?} through {fees_transfer_type:?}, \
+				custom_xcm_on_dest {remote_xcm:?}, weight-limit {weight_limit:?}"</span>,
 			);
 
 			<span class="kw">let </span>assets = assets.into_inner();
@@ -4923,7 +4961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::do_transfer_assets(
 				origin_location,
 				dest,
-				beneficiary,
+				Either::Right(remote_xcm),
 				assets,
 				<span class="kw-2">*</span>assets_transfer_type,
 				fee_asset_index,
@@ -5098,7 +5136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(local_xcm, remote_xcm) = <span class="self">Self</span>::build_xcm_transfer_type(
 			origin.clone(),
 			dest.clone(),
-			beneficiary,
+			Either::Left(beneficiary),
 			assets,
 			assets_transfer_type,
 			FeesHandling::Batched { fees },
@@ -5140,7 +5178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(local_xcm, remote_xcm) = <span class="self">Self</span>::build_xcm_transfer_type(
 			origin_location.clone(),
 			dest.clone(),
-			beneficiary,
+			Either::Left(beneficiary),
 			assets,
 			TransferType::Teleport,
 			FeesHandling::Batched { fees },
@@ -5152,7 +5190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>do_transfer_assets(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
+		beneficiary: Either&lt;Location, Xcm&lt;()&gt;&gt;,
 		<span class="kw-2">mut </span>assets: Vec&lt;Asset&gt;,
 		assets_transfer_type: TransferType,
 		fee_asset_index: usize,
@@ -5218,7 +5256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>build_xcm_transfer_type(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
+		beneficiary: Either&lt;Location, Xcm&lt;()&gt;&gt;,
 		assets: Vec&lt;Asset&gt;,
 		transfer_type: TransferType,
 		fees: FeesHandling&lt;T&gt;,
@@ -5230,57 +5268,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			fees_handling {:?}, weight_limit: {:?}"</span>,
 			origin, dest, beneficiary, assets, transfer_type, fees, weight_limit,
 		);
-		<span class="prelude-val">Ok</span>(<span class="kw">match </span>transfer_type {
-			TransferType::LocalReserve =&gt; {
-				<span class="kw">let </span>(local, remote) = <span class="self">Self</span>::local_reserve_transfer_programs(
-					origin.clone(),
-					dest.clone(),
-					beneficiary,
-					assets,
-					fees,
-					weight_limit,
-				)<span class="question-mark">?</span>;
-				(local, <span class="prelude-val">Some</span>(remote))
-			},
-			TransferType::DestinationReserve =&gt; {
-				<span class="kw">let </span>(local, remote) = <span class="self">Self</span>::destination_reserve_transfer_programs(
-					origin.clone(),
-					dest.clone(),
-					beneficiary,
-					assets,
-					fees,
-					weight_limit,
-				)<span class="question-mark">?</span>;
-				(local, <span class="prelude-val">Some</span>(remote))
-			},
+		<span class="kw">match </span>transfer_type {
+			TransferType::LocalReserve =&gt; <span class="self">Self</span>::local_reserve_transfer_programs(
+				origin.clone(),
+				dest.clone(),
+				beneficiary,
+				assets,
+				fees,
+				weight_limit,
+			)
+			.map(|(local, remote)| (local, <span class="prelude-val">Some</span>(remote))),
+			TransferType::DestinationReserve =&gt; <span class="self">Self</span>::destination_reserve_transfer_programs(
+				origin.clone(),
+				dest.clone(),
+				beneficiary,
+				assets,
+				fees,
+				weight_limit,
+			)
+			.map(|(local, remote)| (local, <span class="prelude-val">Some</span>(remote))),
 			TransferType::RemoteReserve(reserve) =&gt; {
 				<span class="kw">let </span>fees = <span class="kw">match </span>fees {
 					FeesHandling::Batched { fees } =&gt; fees,
 					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidAssetUnsupportedReserve.into()),
 				};
-				<span class="kw">let </span>local = <span class="self">Self</span>::remote_reserve_transfer_program(
+				<span class="self">Self</span>::remote_reserve_transfer_program(
 					origin.clone(),
 					reserve.try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>,
-					dest.clone(),
 					beneficiary,
+					dest.clone(),
 					assets,
 					fees,
 					weight_limit,
-				)<span class="question-mark">?</span>;
-				(local, <span class="prelude-val">None</span>)
+				)
+				.map(|local| (local, <span class="prelude-val">None</span>))
 			},
-			TransferType::Teleport =&gt; {
-				<span class="kw">let </span>(local, remote) = <span class="self">Self</span>::teleport_assets_program(
-					origin.clone(),
-					dest.clone(),
-					beneficiary,
-					assets,
-					fees,
-					weight_limit,
-				)<span class="question-mark">?</span>;
-				(local, <span class="prelude-val">Some</span>(remote))
-			},
-		})
+			TransferType::Teleport =&gt; <span class="self">Self</span>::teleport_assets_program(
+				origin.clone(),
+				dest.clone(),
+				beneficiary,
+				assets,
+				fees,
+				weight_limit,
+			)
+			.map(|(local, remote)| (local, <span class="prelude-val">Some</span>(remote))),
+		}
 	}
 
 	<span class="kw">fn </span>execute_xcm_transfer(
@@ -5395,7 +5427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>local_reserve_transfer_programs(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
+		beneficiary: Either&lt;Location, Xcm&lt;()&gt;&gt;,
 		assets: Vec&lt;Asset&gt;,
 		fees: FeesHandling&lt;T&gt;,
 		weight_limit: WeightLimit,
@@ -5428,10 +5460,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		]);
 		<span class="comment">// handle fees
 		</span><span class="self">Self</span>::add_fees_to_xcm(dest, fees, weight_limit, <span class="kw-2">&amp;mut </span>local_execute_xcm, <span class="kw-2">&amp;mut </span>xcm_on_dest)<span class="question-mark">?</span>;
-		<span class="comment">// deposit all remaining assets in holding to `beneficiary` location
-		</span>xcm_on_dest
-			.inner_mut()
-			.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
+
+		<span class="comment">// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
+		</span><span class="kw">let </span>custom_remote_xcm = <span class="kw">match </span>beneficiary {
+			Either::Right(custom_xcm) =&gt; custom_xcm,
+			Either::Left(beneficiary) =&gt; {
+				<span class="comment">// deposit all remaining assets in holding to `beneficiary` location
+				</span>Xcm(<span class="macro">vec!</span>[DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+			},
+		};
+		xcm_on_dest.<span class="number">0</span>.extend(custom_remote_xcm.into_iter());
 
 		<span class="prelude-val">Ok</span>((local_execute_xcm, xcm_on_dest))
 	}
@@ -5470,7 +5508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>destination_reserve_transfer_programs(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
+		beneficiary: Either&lt;Location, Xcm&lt;()&gt;&gt;,
 		assets: Vec&lt;Asset&gt;,
 		fees: FeesHandling&lt;T&gt;,
 		weight_limit: WeightLimit,
@@ -5506,10 +5544,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// handle fees
 		</span><span class="self">Self</span>::add_fees_to_xcm(dest, fees, weight_limit, <span class="kw-2">&amp;mut </span>local_execute_xcm, <span class="kw-2">&amp;mut </span>xcm_on_dest)<span class="question-mark">?</span>;
 
-		<span class="comment">// deposit all remaining assets in holding to `beneficiary` location
-		</span>xcm_on_dest
-			.inner_mut()
-			.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
+		<span class="comment">// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
+		</span><span class="kw">let </span>custom_remote_xcm = <span class="kw">match </span>beneficiary {
+			Either::Right(custom_xcm) =&gt; custom_xcm,
+			Either::Left(beneficiary) =&gt; {
+				<span class="comment">// deposit all remaining assets in holding to `beneficiary` location
+				</span>Xcm(<span class="macro">vec!</span>[DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+			},
+		};
+		xcm_on_dest.<span class="number">0</span>.extend(custom_remote_xcm.into_iter());
 
 		<span class="prelude-val">Ok</span>((local_execute_xcm, xcm_on_dest))
 	}
@@ -5518,8 +5561,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>remote_reserve_transfer_program(
 		origin: Location,
 		reserve: Location,
+		beneficiary: Either&lt;Location, Xcm&lt;()&gt;&gt;,
 		dest: Location,
-		beneficiary: Location,
 		assets: Vec&lt;Asset&gt;,
 		fees: Asset,
 		weight_limit: WeightLimit,
@@ -5544,10 +5587,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// identifies `dest` as seen by `reserve`
 		</span><span class="kw">let </span>dest = dest.reanchored(<span class="kw-2">&amp;</span>reserve, <span class="kw-2">&amp;</span>context).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotReanchor)<span class="question-mark">?</span>;
 		<span class="comment">// xcm to be executed at dest
-		</span><span class="kw">let </span>xcm_on_dest = Xcm(<span class="macro">vec!</span>[
-			BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() },
-			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-		]);
+		</span><span class="kw">let </span><span class="kw-2">mut </span>xcm_on_dest =
+			Xcm(<span class="macro">vec!</span>[BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() }]);
+		<span class="comment">// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
+		</span><span class="kw">let </span>custom_xcm_on_dest = <span class="kw">match </span>beneficiary {
+			Either::Right(custom_xcm) =&gt; custom_xcm,
+			Either::Left(beneficiary) =&gt; {
+				<span class="comment">// deposit all remaining assets in holding to `beneficiary` location
+				</span>Xcm(<span class="macro">vec!</span>[DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+			},
+		};
+		xcm_on_dest.<span class="number">0</span>.extend(custom_xcm_on_dest.into_iter());
 		<span class="comment">// xcm to be executed on reserve
 		</span><span class="kw">let </span>xcm_on_reserve = Xcm(<span class="macro">vec!</span>[
 			BuyExecution { fees: reserve_fees, weight_limit },
@@ -5619,7 +5669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>teleport_assets_program(
 		origin: Location,
 		dest: Location,
-		beneficiary: Location,
+		beneficiary: Either&lt;Location, Xcm&lt;()&gt;&gt;,
 		assets: Vec&lt;Asset&gt;,
 		fees: FeesHandling&lt;T&gt;,
 		weight_limit: WeightLimit,
@@ -5679,10 +5729,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		]);
 		<span class="comment">// handle fees
 		</span><span class="self">Self</span>::add_fees_to_xcm(dest, fees, weight_limit, <span class="kw-2">&amp;mut </span>local_execute_xcm, <span class="kw-2">&amp;mut </span>xcm_on_dest)<span class="question-mark">?</span>;
-		<span class="comment">// deposit all remaining assets in holding to `beneficiary` location
-		</span>xcm_on_dest
-			.inner_mut()
-			.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
+
+		<span class="comment">// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
+		</span><span class="kw">let </span>custom_remote_xcm = <span class="kw">match </span>beneficiary {
+			Either::Right(custom_xcm) =&gt; custom_xcm,
+			Either::Left(beneficiary) =&gt; {
+				<span class="comment">// deposit all remaining assets in holding to `beneficiary` location
+				</span>Xcm(<span class="macro">vec!</span>[DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+			},
+		};
+		xcm_on_dest.<span class="number">0</span>.extend(custom_remote_xcm.into_iter());
 
 		<span class="prelude-val">Ok</span>((local_execute_xcm, xcm_on_dest))
 	}
