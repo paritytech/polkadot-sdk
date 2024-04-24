@@ -28,7 +28,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use fragment_chain::FragmentChain;
+use fragment_chain::{FragmentChain, PotentialAddition};
 use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
@@ -390,22 +390,20 @@ async fn preprocess_candidates_pending_availability<Context>(
 	let expected_count = pending_availability.len();
 
 	for (i, pending) in pending_availability.into_iter().enumerate() {
-		let relay_parent =
-			match fetch_block_info(ctx, cache, pending.descriptor.relay_parent).await? {
-				None => {
-					gum::debug!(
-						target: LOG_TARGET,
-						?pending.candidate_hash,
-						?pending.descriptor.para_id,
-						index = ?i,
-						?expected_count,
-						"Had to stop processing pending candidates early due to missing info.",
-					);
+		let Some(relay_parent) =
+			fetch_block_info(ctx, cache, pending.descriptor.relay_parent).await?
+		else {
+			gum::debug!(
+				target: LOG_TARGET,
+				?pending.candidate_hash,
+				?pending.descriptor.para_id,
+				index = ?i,
+				?expected_count,
+				"Had to stop processing pending candidates early due to missing info.",
+			);
 
-					break
-				},
-				Some(b) => b,
-			};
+			break
+		};
 
 		let next_required_parent = pending.commitments.head_data.clone();
 		importable.push(ImportablePendingAvailability {
@@ -524,36 +522,41 @@ async fn handle_introduce_seconded_candidate<Context>(
 					"Candidates in chain after introducing a new one: {:?}",
 					chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
 				);
-			} else if chain.can_add_candidate_as_potential(
-				&storage,
-				&candidate.descriptor.relay_parent,
-				parent_head_hash,
-				output_head_hash,
-			) {
-				gum::debug!(
-					target: LOG_TARGET,
-					para = ?para,
-					?relay_parent,
-					?candidate_hash,
-					"kept unconnected candidate",
-				);
-
-				gum::debug!(
-					target: LOG_TARGET,
-					para = ?para,
-					"Candidates in chain after introducing a new one: {:?}",
-					chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
-				);
-
-				keep_in_storage = true;
 			} else {
-				gum::debug!(
-					target: LOG_TARGET,
-					para = ?para,
-					?relay_parent,
-					"Not introducing a new one: {:?}",
-					candidate_hash
-				);
+				match chain.can_add_candidate_as_potential(
+					&storage,
+					&candidate.descriptor.relay_parent,
+					parent_head_hash,
+					output_head_hash,
+				) {
+					PotentialAddition::Anyhow => {
+						gum::debug!(
+							target: LOG_TARGET,
+							para = ?para,
+							?relay_parent,
+							?candidate_hash,
+							"kept unconnected candidate",
+						);
+
+						gum::debug!(
+							target: LOG_TARGET,
+							para = ?para,
+							"Candidates in chain after introducing a new one: {:?}",
+							chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+						);
+
+						keep_in_storage = true;
+					},
+					_ => {
+						gum::debug!(
+							target: LOG_TARGET,
+							para = ?para,
+							?relay_parent,
+							"Not introducing a new one: {:?}",
+							candidate_hash
+						);
+					},
+				}
 			}
 		}
 	}

@@ -462,6 +462,17 @@ impl FragmentNode {
 	}
 }
 
+/// Response given by `can_add_candidate_as_potential`
+#[derive(PartialEq, Debug)]
+pub enum PotentialAddition {
+	/// Can be added as either connected or unconnected candidate.
+	Anyhow,
+	/// Can only be added as a connected candidate to the chain.
+	IfConnected,
+	/// Cannot be added.
+	None,
+}
+
 /// This is a chain of candidates based on some underlying storage of candidates and a scope.
 ///
 /// All nodes in the chain must be either pending availability or within the scope. Within the scope
@@ -555,12 +566,14 @@ impl FragmentChain {
 			return true
 		}
 
-		if !self.can_add_candidate_as_potential(
+		let can_add_as_potential = self.can_add_candidate_as_potential(
 			candidate_storage,
 			&candidate.relay_parent(),
 			candidate.parent_head_data_hash(),
 			candidate.output_head_data_hash(),
-		) {
+		);
+
+		if can_add_as_potential == PotentialAddition::None {
 			return false
 		}
 
@@ -620,9 +633,12 @@ impl FragmentChain {
 
 			// If we got this far, it can be added to the chain right now.
 			true
-		} else {
-			// Otherwise it is or can be an unconnected candidate.
+		} else if can_add_as_potential == PotentialAddition::Anyhow {
+			// Otherwise it is or can be an unconnected candidate, but only if PotentialAddition
+			// does not force us to only add a connected candidate.
 			true
+		} else {
+			false
 		}
 	}
 
@@ -707,28 +723,29 @@ impl FragmentChain {
 		relay_parent: &Hash,
 		parent_head_hash: Hash,
 		output_head_hash: Option<Hash>,
-	) -> bool {
+	) -> PotentialAddition {
 		// If we've got enough candidates for the configured depth, no point in adding more.
 		if self.chain.len() > self.scope.max_depth {
-			return false
+			return PotentialAddition::None
 		}
 
 		if !self.check_potential(relay_parent, parent_head_hash, output_head_hash) {
-			return false
+			return PotentialAddition::None
 		}
-
-		// Todo: if max depth is 0, a potential candidate is only a connected candidate.
 
 		let unconnected = self.find_unconnected_potential_candidates(storage).len();
 
-		if (self.chain.len() + unconnected) <= self.scope.max_depth {
-			true
+		if (self.chain.len() + unconnected) < self.scope.max_depth {
+			PotentialAddition::Anyhow
+		} else if (self.chain.len() + unconnected) == self.scope.max_depth {
+			// If we've only one slot left to fill, it must be filled with a connected candidate.
+			PotentialAddition::IfConnected
 		} else {
 			gum::debug!(
 				target: LOG_TARGET,
 				"Too many unconnected candidates",
 			);
-			false
+			PotentialAddition::None
 		}
 	}
 
