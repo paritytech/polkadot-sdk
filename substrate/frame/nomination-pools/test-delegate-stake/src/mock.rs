@@ -222,11 +222,12 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
+		num_slashing_spans: u32,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::member_withdraw(who, pool_account, amount)
+			return TransferStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
 		}
-		DelegateStake::member_withdraw(who, pool_account, amount)
+		DelegateStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
 	}
 
 	fn has_pending_slash(pool_account: &Self::AccountId) -> bool {
@@ -288,12 +289,14 @@ impl pallet_nomination_pools::Config for Runtime {
 
 parameter_types! {
 	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"py/dlstk");
+	pub const SlashRewardFraction: Perbill = Perbill::from_percent(1);
 }
 impl pallet_delegated_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = DelegatedStakingPalletId;
 	type Currency = Balances;
 	type OnSlash = ();
+	type SlashRewardFraction = SlashRewardFraction;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;
 }

@@ -2322,6 +2322,7 @@ pub mod pallet {
 				&member_account,
 				&bonded_pool.bonded_account(),
 				balance_to_unbond,
+				num_slashing_spans,
 			)?;
 
 			Self::deposit_event(Event::<T>::Withdrawn {

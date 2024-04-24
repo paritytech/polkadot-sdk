@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::*;
-use sp_staking::DelegationInterface;
+use sp_staking::{DelegationInterface, DelegationMigrator};
 
 /// Types of stake strategies.
 ///
@@ -129,6 +129,7 @@ pub trait StakeStrategy {
 		who: &Self::AccountId,
 		pool_account: &Self::AccountId,
 		amount: Self::Balance,
+		num_slashing_spans: u32,
 	) -> DispatchResult;
 
 	/// Check if there is any pending slash for the pool.
@@ -223,6 +224,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		who: &T::AccountId,
 		pool_account: &Self::AccountId,
 		amount: BalanceOf<T>,
+		_num_slashing_spans: u32,
 	) -> DispatchResult {
 		T::Currency::transfer(pool_account, &who, amount, Preservation::Expendable)?;
 
@@ -277,7 +279,8 @@ pub struct DelegateStake<T: Config, Staking: StakingInterface, Delegation: Deleg
 impl<
 		T: Config,
 		Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>,
-		Delegation: DelegationInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>,
+		Delegation: DelegationInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>
+			+ DelegationMigrator<Balance = BalanceOf<T>, AccountId = T::AccountId>,
 	> StakeStrategy for DelegateStake<T, Staking, Delegation>
 {
 	type Balance = BalanceOf<T>;
@@ -296,7 +299,7 @@ impl<
 		Delegation::agent_balance(pool_account)
 	}
 
-	fn member_delegation_balance(member_account: &T::AccountId) -> Delegation::Balance {
+	fn member_delegation_balance(member_account: &T::AccountId) -> BalanceOf<T> {
 		Delegation::delegator_balance(member_account)
 	}
 
@@ -323,8 +326,9 @@ impl<
 		who: &T::AccountId,
 		pool_account: &Self::AccountId,
 		amount: BalanceOf<T>,
+		num_slashing_spans: u32,
 	) -> DispatchResult {
-		Delegation::withdraw_delegation(&who, pool_account, amount)
+		Delegation::withdraw_delegation(&who, pool_account, amount, num_slashing_spans)
 	}
 
 	fn has_pending_slash(pool_account: &Self::AccountId) -> bool {
@@ -334,7 +338,7 @@ impl<
 	fn member_slash(
 		who: &T::AccountId,
 		pool_account: &Self::AccountId,
-		amount: Delegation::Balance,
+		amount: BalanceOf<T>,
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
 		Delegation::delegator_slash(pool_account, who, amount, maybe_reporter)
