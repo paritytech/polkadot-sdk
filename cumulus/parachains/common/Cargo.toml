@@ -39,7 +39,7 @@ xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-feature
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.2" }
 
 # Cumulus
-pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false, version = "8.0.0" }
+pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false, version = "8.0.1" }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false, version = "0.6.0" }
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false, version = "0.6.2" }
 parachain-info = { package = "staging-parachain-info", path = "../pallets/parachain-info", default-features = false, version = "0.6.0" }
