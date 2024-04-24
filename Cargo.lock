@@ -11777,7 +11777,6 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-common",
  "scale-info",
- "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -13018,6 +13017,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-bench",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
@@ -14348,7 +14348,6 @@ dependencies = [
 name = "polkadot-test-runtime"
 version = "1.0.0"
 dependencies = [
- "bitvec",
  "frame-election-provider-support",
  "frame-executive",
  "frame-support",
@@ -14373,16 +14372,12 @@ dependencies = [
  "pallet-vesting",
  "pallet-xcm",
  "parity-scale-codec",
- "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
- "rustc-hex",
  "scale-info",
  "serde",
- "serde_derive",
  "serde_json",
- "smallvec",
  "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -21273,11 +21268,8 @@ version = "1.0.0"
 dependencies = [
  "frame-support",
  "polkadot-primitives",
- "polkadot-runtime-common",
  "smallvec",
- "sp-core",
  "sp-runtime",
- "sp-weights",
 ]
 
 [[package]]

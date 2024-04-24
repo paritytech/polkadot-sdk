@@ -27,6 +27,7 @@ sp-staking = { path = "../../../substrate/primitives/staking", default-features 
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -38,7 +39,6 @@ sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp" }
 sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-aura = { path = "../../../substrate/frame/aura" }
 
 [features]
@@ -59,6 +59,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-authorship/std",
+	"pallet-balances/std",
 	"pallet-session/std",
 	"rand/std",
 	"scale-info/std",
