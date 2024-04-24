@@ -21,7 +21,7 @@ use frame_support::{
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
-use sp_runtime::traits::{BlockNumberProvider, Convert};
+use sp_runtime::traits::Convert;
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
@@ -76,12 +76,8 @@ impl<T: Config> Pallet<T> {
 		Workplan::<T>::insert((sale.region_begin, core_count), &workload);
 
 		// Assign now directly on the relay chain until the next sale boundary.
-		let timeslice = Self::current_timeslice();
+		let timeslice = status.last_committed_timeslice.saturating_add(1);
 		Workplan::<T>::insert((timeslice, core_count), &workload);
-		let rc_begin =
-			<T::Coretime as CoretimeInterface>::RelayChainBlockNumberProvider::current_block_number(
-			);
-		Self::process_core_schedule(timeslice, rc_begin, core_count);
 		Ok(())
 	}
 

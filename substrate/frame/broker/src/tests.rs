@@ -1634,7 +1634,7 @@ fn force_reserve_works() {
 
 		// Start sales.
 		assert_ok!(Broker::do_start_sales(100, 0));
-		advance_to(2);
+		advance_to(1);
 
 		// Force reserve should now work.
 		assert_ok!(Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone()));
@@ -1644,15 +1644,18 @@ fn force_reserve_works() {
 			Event::ReservationMade { index: 0, workload: system_workload.clone() }.into(),
 		);
 		System::assert_has_event(Event::CoreCountRequested { core_count: 1 }.into());
+		assert_eq!(Reservations::<Test>::get(), vec![system_workload.clone()]);
+
+		// Advance to where that timeslice will be committed.
+		advance_to(3);
 		System::assert_has_event(
 			Event::CoreAssigned {
 				core: 0,
-				when: 2,
+				when: 4,
 				assignment: vec![(CoreAssignment::Task(1004), 57600)],
 			}
 			.into(),
 		);
-		assert_eq!(Reservations::<Test>::get(), vec![system_workload.clone()]);
 
 		// It is also in the workplan for the next region.
 		assert_eq!(Workplan::<Test>::get((4, 0)), Some(system_workload.clone()));
@@ -1672,7 +1675,7 @@ fn force_reserve_works() {
 					2,
 					AssignCore {
 						core: 0,
-						begin: 2,
+						begin: 4,
 						assignment: vec![(Task(1004), 57600)],
 						end_hint: None
 					}
