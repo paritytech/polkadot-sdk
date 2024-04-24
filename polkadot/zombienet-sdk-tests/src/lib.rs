@@ -86,7 +86,7 @@ pub async fn spawn_network_malus_backer(
 					node_builder
 						.with_command("malus")
 						.with_subcommand("suggest-garbage-candidate")
-						.with_args(vec!["--no-hardware-benchmarks".into(), "-lMALUS=trace".into()])
+						.with_args(vec!["--no-hardware-benchmarks".into(), "-lMALUS=trace".into(), "--insecure-validator-i-know-what-i-do".into()])
 				})
 		})
 		.with_parachain(|p| {
@@ -149,7 +149,7 @@ pub async fn spawn_network_dispute_valid(
 					node_builder
 						.with_command("malus")
 						.with_subcommand("dispute-ancestor")
-						.with_args(vec!["--no-hardware-benchmarks".into(), "-lMALUS=trace".into()])
+						.with_args(vec!["--no-hardware-benchmarks".into(), "-lMALUS=trace".into(), "--insecure-validator-i-know-what-i-do".into()])
 				})
 		})
 		.with_parachain(|p| {
