@@ -375,6 +375,23 @@ mod bridge_hub_westend_tests {
 	}
 
 	#[test]
+	fn free_relay_extrinsic_works() {
+		// from Westend
+		from_parachain::free_relay_extrinsic_works::<RuntimeTestsAdapter>(
+			collator_session_keys(),
+			slot_durations(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+			BridgeHubWestendChainId::get(),
+			SIBLING_PARACHAIN_ID,
+			Rococo,
+			XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
+			|| (),
+			construct_and_apply_extrinsic,
+		)
+	}
+
+	#[test]
 	pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
 		bridge_hub_test_utils::check_sane_fees_values(
 			"bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs",
@@ -550,6 +567,22 @@ mod bridge_hub_bulletin_tests {
 	fn relayed_incoming_message_works() {
 		// from Bulletin
 		from_grandpa_chain::relayed_incoming_message_works::<RuntimeTestsAdapter>(
+			collator_session_keys(),
+			slot_durations(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			RococoBulletinChainId::get(),
+			SIBLING_PARACHAIN_ID,
+			Rococo,
+			XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
+			|| (),
+			construct_and_apply_extrinsic,
+		)
+	}
+
+	#[test]
+	fn free_relay_extrinsic_works() {
+		// from Bulletin
+		from_grandpa_chain::free_relay_extrinsic_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
