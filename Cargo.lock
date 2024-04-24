@@ -4041,7 +4041,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.5.1"
+version = "0.5.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -9589,7 +9589,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-collator-selection"
-version = "7.0.0"
+version = "7.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10829,7 +10829,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "26.0.1"
+version = "26.0.2"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -11199,7 +11199,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-benchmarks"
-version = "5.0.1"
+version = "5.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -18238,7 +18238,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "5.0.1"
+version = "5.0.0"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -18268,7 +18268,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "5.0.1"
+version = "5.0.0"
 dependencies = [
  "environmental",
  "frame-benchmarking",
