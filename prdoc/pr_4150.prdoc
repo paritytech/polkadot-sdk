@@ -1,4 +1,4 @@
-title: "pallet assets: Add the new status LiveAndNoPrivilege. and new call to revoke privileges"
+title: "pallet assets: Add the new status `LiveAndNoPrivilege` and new call to revoke privileges"
 topic: pallet assets
 
 
@@ -11,10 +11,10 @@ doc:
       `Owner` to revoke all the privileges on the asset. This operation is irrevesible for the
       `Owner`, `ForceOrigin` can always reverse by using `force_asset_status`.
 
-      Storage is backward compatible so the migration consist of updating storage version
+      Storage is backward compatible so the migration consists of updating storage version
       from V1 to V2.
 
-      `Config` trait has a new associated type `DepositDestinationOnRevocation`
+      `Config` trait has a new associated type `DepositDestinationOnRevocation`.
       This type is used for the destination of the deposit when privileges are revoked.
       Set it to `()` to burn them.
 
