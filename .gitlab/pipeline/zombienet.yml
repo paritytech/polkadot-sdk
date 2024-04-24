@@ -4,6 +4,7 @@
     #ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.99"
     ZOMBIENET_IMAGE: "docker.io/paritypr/zombienet:694d8e7a"
     PUSHGATEWAY_URL: "http://zombienet-prometheus-pushgateway.managed-monitoring:9091/metrics/job/zombie-metrics"
+  timeout: 60m
 
 include:
   # substrate tests
