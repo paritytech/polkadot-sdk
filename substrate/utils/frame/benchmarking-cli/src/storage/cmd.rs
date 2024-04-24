@@ -116,6 +116,16 @@ pub struct StorageParams {
 	/// Include child trees in benchmark.
 	#[arg(long)]
 	pub include_child_trees: bool,
+
+	/// Maximum number of keys to read
+	/// (All keys if not define)
+	#[arg(long)]
+	pub keys_limit: Option<usize>,
+
+	/// Seed to use for benchs randomness, the same seed allow to replay
+	/// becnhamrks under the same conditions.
+	#[arg(long)]
+	pub random_seed: Option<u64>,
 }
 
 impl StorageCmd {
@@ -191,8 +201,14 @@ impl StorageCmd {
 		BA: ClientBackend<B>,
 	{
 		let hash = client.usage_info().chain.best_hash;
-		let mut keys: Vec<_> = client.storage_keys(hash, None, None)?.collect();
-		let (mut rng, _) = new_rng(None);
+		let mut keys: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
+			use  sp_core::blake2_256;
+			let first_key = self.params.random_seed.map(|seed| sp_storage::StorageKey(blake2_256(&seed.to_be_bytes()[..]).to_vec()));
+			client.storage_keys(hash, None, first_key.as_ref())?.take(keys_limit).collect()
+		} else {
+			client.storage_keys(hash, None, None)?.collect()
+		};
+		let (mut rng, _) = new_rng(self.params.random_seed);
 		keys.shuffle(&mut rng);
 
 		for i in 0..self.params.warmups {
