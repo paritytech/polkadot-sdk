@@ -153,7 +153,7 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
-	ArithmeticError, DispatchResult, RuntimeDebug, Saturating,
+	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{EraIndex, StakingInterface, StakingUnchecked};
 use sp_std::{convert::TryInto, prelude::*};
@@ -186,6 +186,10 @@ pub mod pallet {
 
 		/// Handler for the unbalanced reduction when slashing a delegator.
 		type OnSlash: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
+
+		/// Fraction of the slash that is rewarded to the caller of pending slash to the agent.
+		#[pallet::constant]
+		type SlashRewardFraction: Get<Perbill>;
 
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -692,8 +696,7 @@ impl<T: Config> Pallet<T> {
 		delegation.update_or_kill(&delegator);
 
 		if let Some(reporter) = maybe_reporter {
-			let reward_payout: BalanceOf<T> =
-				T::CoreStaking::slash_reward_fraction() * actual_slash;
+			let reward_payout: BalanceOf<T> = T::SlashRewardFraction::get() * actual_slash;
 			let (reporter_reward, rest) = credit.split(reward_payout);
 
 			// credit is the amount that we provide to `T::OnSlash`.
