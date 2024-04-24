@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713944366081,
+  "lastUpdate": 1713953818371,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -375,6 +375,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.805114786339908,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Kalankhodzhaev",
+            "username": "kalaninja",
+            "email": "kalansoft@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c594b10a803e218f63c1bd97d2b27454efb4e852",
+          "message": "Remove unnecessary cloning (#4263)\n\nSeems like Externalities already [return a\nvector](https://github.com/paritytech/polkadot-sdk/blob/ffbce2a817ec2e7c8b7ce49f7ed6794584f19667/substrate/primitives/externalities/src/lib.rs#L86),\nso calling `to_vec` on a vector just results in an unneeded copying.\n\nCo-authored-by: Liam Aharon <liam.aharon@hotmail.com>",
+          "timestamp": "2024-04-24T09:30:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c594b10a803e218f63c1bd97d2b27454efb4e852"
+        },
+        "date": 1713953792965,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63549.409999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.8353009554801347,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.856177245070033,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.397069171060004,
             "unit": "seconds"
           }
         ]
