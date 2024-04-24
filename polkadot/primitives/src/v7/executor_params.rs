@@ -209,16 +209,20 @@ impl ExecutorParams {
 		use ExecutorParam::*;
 
 		let mut enc = b"prep".to_vec();
-		for param in &self.0 {
-			if !matches!(
-				param,
-				MaxMemoryPages(..) |
-					StackNativeMax(..) | PrecheckingMaxMemory(..) |
-					PvfExecTimeout(..)
-			) {
-				enc.extend(param.encode())
-			}
-		}
+
+		self.0
+			.iter()
+			.flat_map(|param| match param {
+				MaxMemoryPages(..) => None,
+				StackLogicalMax(..) => Some(param),
+				StackNativeMax(..) => None,
+				PrecheckingMaxMemory(..) => None,
+				PvfPrepTimeout(..) => Some(param),
+				PvfExecTimeout(..) => None,
+				WasmExtBulkMemory => Some(param),
+			})
+			.for_each(|p| enc.extend(p.encode()));
+
 		ExecutorParamsPrepHash(BlakeTwo256::hash(&enc))
 	}
 

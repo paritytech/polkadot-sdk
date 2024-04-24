@@ -583,6 +583,8 @@ async fn artifact_does_not_reprepare_on_non_meaningful_exec_parameter_change() {
 		std::fs::metadata(artifact_path.path()).unwrap()
 	};
 
+	// FS times are not monotonical so we wait 2 secs here to be sure that the creation time of the
+	// second attifact will be different
 	tokio::time::sleep(Duration::from_secs(2)).await;
 
 	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set2).await.unwrap();
