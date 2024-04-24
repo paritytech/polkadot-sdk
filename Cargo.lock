@@ -2222,7 +2222,6 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
- "parity-scale-codec",
  "rococo-westend-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
