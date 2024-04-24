@@ -53,7 +53,7 @@ mod tests;
 
 /// Type that encodes `None` to an empty vec.
 #[derive(Debug, PartialEq)]
-pub struct EncodeNoneToEmpty(Option<[u8; 32]>);
+pub struct EncodeNoneToEmpty(pub Option<[u8; 32]>);
 
 impl Encode for EncodeNoneToEmpty {
 	fn encode(&self) -> Vec<u8> {
