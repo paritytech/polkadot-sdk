@@ -162,7 +162,8 @@ impl<T: Config> Pallet<T> {
 		let controller = Self::bonded(&validator_stash).ok_or_else(|| {
 			Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
-		let ledger = <Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController)?;
+
+		let ledger = Self::ledger(StakingAccount::Controller(controller))?;
 		let page = EraInfo::<T>::get_next_claimable_page(era, &validator_stash, &ledger)
 			.ok_or_else(|| {
 				Error::<T>::AlreadyClaimed
@@ -1718,7 +1719,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	) -> Result<bool, DispatchError> {
 		let ctrl = Self::bonded(&who).ok_or(Error::<T>::NotStash)?;
 		Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into(), num_slashing_spans)
-			.map(|_| !Ledger::<T>::contains_key(&ctrl))
+			.map(|_| !StakingLedger::<T>::is_bonded(StakingAccount::Controller(ctrl)))
 			.map_err(|with_post| with_post.error)
 	}
 
@@ -1826,6 +1827,8 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
+		Self::check_bonded_consistency()?;
+		Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
@@ -1833,6 +1836,82 @@ impl<T: Config> Pallet<T> {
 		Self::check_count()
 	}
 
+	/// Invariants:
+	/// * A controller should not be associated with more than one ledger.
+	/// * A bonded (stash, controller) pair should have only one associated ledger. I.e. if the
+	///   ledger is bonded by stash, the controller account must not bond a different ledger.
+	/// * A bonded (stash, controller) pair must have an associated ledger.
+	/// NOTE: these checks result in warnings only. Once
+	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved, turn warns into check
+	/// failures.
+	fn check_bonded_consistency() -> Result<(), TryRuntimeError> {
+		use sp_std::collections::btree_set::BTreeSet;
+
+		let mut count_controller_double = 0;
+		let mut count_double = 0;
+		let mut count_none = 0;
+		// sanity check to ensure that each controller in Bonded storage is associated with only one
+		// ledger.
+		let mut controllers = BTreeSet::new();
+
+		for (stash, controller) in <Bonded<T>>::iter() {
+			if !controllers.insert(controller.clone()) {
+				count_controller_double += 1;
+			}
+
+			match (<Ledger<T>>::get(&stash), <Ledger<T>>::get(&controller)) {
+				(Some(_), Some(_)) =>
+				// if stash == controller, it means that the ledger has migrated to
+				// post-controller. If no migration happened, we expect that the (stash,
+				// controller) pair has only one associated ledger.
+					if stash != controller {
+						count_double += 1;
+					},
+				(None, None) => {
+					count_none += 1;
+				},
+				_ => {},
+			};
+		}
+
+		if count_controller_double != 0 {
+			log!(
+				warn,
+				"a controller is associated with more than one ledger ({} occurrences)",
+				count_controller_double
+			);
+		};
+
+		if count_double != 0 {
+			log!(warn, "single tuple of (stash, controller) pair bonds more than one ledger ({} occurrences)", count_double);
+		}
+
+		if count_none != 0 {
+			log!(warn, "inconsistent bonded state: (stash, controller) pair missing associated ledger ({} occurrences)", count_none);
+		}
+
+		Ok(())
+	}
+
+	/// Invariants:
+	/// * A bonded ledger should always have an assigned `Payee`.
+	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
+	/// * The stash account in the ledger must match that of the bonded acount.
+	fn check_payees() -> Result<(), TryRuntimeError> {
+		ensure!(
+			(Ledger::<T>::iter().count() == Payee::<T>::iter().count()) &&
+				(Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
+			"number of entries in payee storage items does not match the number of bonded ledgers",
+		);
+
+		Ok(())
+	}
+
+	/// Invariants:
+	/// * Number of voters in `VoterList` match that of the number of Nominators and Validators in
+	/// the system (validator is both voter and target).
+	/// * Number of targets in `TargetList` matches the number of validators in the system.
+	/// * Current validator count is bounded by the election provider's max winners.
 	fn check_count() -> Result<(), TryRuntimeError> {
 		ensure!(
 			<T as Config>::VoterList::count() ==
@@ -1851,6 +1930,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Invariants:
+	/// * `ledger.controller` is not stored in the storage (but populated at retrieval).
+	/// * Stake consistency: ledger.total == ledger.active + sum(ledger.unlocking).
+	/// * The controller keyeing the ledger and the ledger stash matches the state of the `Bonded`
+	/// storage.
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
 			.map(|(_, ctrl)| Self::ensure_ledger_consistent(ctrl))
@@ -1858,8 +1942,10 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Invariants:
+	/// * For each era exposed validator, check if the exposure total is sane (exposure.total  =
+	/// exposure.own + exposure.own).
 	fn check_exposures() -> Result<(), TryRuntimeError> {
-		// a check per validator to ensure the exposure struct is always sane.
 		let era = Self::active_era().unwrap().index;
 		ErasStakers::<T>::iter_prefix_values(era)
 			.map(|expo| {
@@ -1877,6 +1963,10 @@ impl<T: Config> Pallet<T> {
 			.collect::<Result<(), TryRuntimeError>>()
 	}
 
+	/// Invariants:
+	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
+	/// = exposure.own + exposure.own).
+	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
 		use sp_staking::PagedExposureMetadata;
 		use sp_std::collections::btree_map::BTreeMap;
@@ -1941,6 +2031,8 @@ impl<T: Config> Pallet<T> {
 			.collect::<Result<(), TryRuntimeError>>()
 	}
 
+	/// Invariants:
+	/// * Checks that each nominator has its entire stake correctly distributed.
 	fn check_nominators() -> Result<(), TryRuntimeError> {
 		// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
