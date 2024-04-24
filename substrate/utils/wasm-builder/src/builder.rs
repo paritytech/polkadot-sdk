@@ -135,7 +135,7 @@ impl WasmBuilder {
 	///
 	/// This is the same as calling:
 	/// ```no_run
-	/// WasmBuilder::new()
+	/// substrate_wasm_builder::WasmBuilder::new()
 	///    .with_current_project()
 	///    .import_memory()
 	///    .export_heap_base()
@@ -155,10 +155,10 @@ impl WasmBuilder {
 	///
 	/// This is the same as calling:
 	/// ```no_run
-	/// WasmBuilder::new()
+	/// substrate_wasm_builder::WasmBuilder::new()
 	///    .with_current_project()
 	///    .import_memory()
-	///    .export_heap_base()
+	///    .export_heap_base();
 	/// ```
 	pub fn init_with_defaults() -> Self {
 		WasmBuilder::new().with_current_project().import_memory().export_heap_base()
