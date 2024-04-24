@@ -52,10 +52,44 @@ fn when_metadata_check_is_disabled_it_encodes_to_nothing() {
 }
 
 #[docify::export]
-#[test]
-// The test can not be executed, because the wasm builder would
-// fail in this test context.
-#[ignore]
+mod add_metadata_hash_extension {
+	frame_support::construct_runtime! {
+		pub enum Runtime {
+			System: frame_system,
+		}
+	}
+
+	/// The `SignedExtension` to the basic transaction logic.
+	pub type SignedExtra = (
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckTxVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckMortality<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		// Add the `CheckMetadataHash` extension.
+		// The position in this list is not important, so we could also add it to beginning.
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	);
+
+	/// In your runtime this will be your real address type.
+	type Address = ();
+	/// In your runtime this will be your real signature type.
+	type Signature = ();
+
+	/// Unchecked extrinsic type as expected by this runtime.
+	pub type UncheckedExtrinsic =
+		sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+}
+
+// Put here to not have it in the docs as well.
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for add_metadata_hash_extension::Runtime {
+	type Block = Block;
+}
+
+#[docify::export]
 fn enable_metadata_hash_in_wasm_builder() {
 	substrate_wasm_builder::WasmBuilder::init_with_defaults()
 		// Requires the `metadata-hash` feature to be activated.
