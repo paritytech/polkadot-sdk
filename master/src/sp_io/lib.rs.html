@@ -2295,7 +2295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>Storage {
 	<span class="doccomment">/// Returns the data for `key` in the storage or `None` if the key can not be found.
 	</span><span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;bytes::Bytes&gt; {
-		<span class="self">self</span>.storage(key).map(|s| bytes::Bytes::from(s.to_vec()))
+		<span class="self">self</span>.storage(key).map(bytes::Bytes::from)
 	}
 
 	<span class="doccomment">/// Get `key` from storage, placing the value into `value_out` and return the number of
