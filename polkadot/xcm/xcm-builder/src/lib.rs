@@ -35,15 +35,16 @@ pub use asset_conversion::{
 
 mod barriers;
 pub use barriers::{
-	AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain,
-	RespectSuspension, TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
+	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, IsChildSystemParachain,
+	IsParentsOnly, IsSiblingSystemParachain, RespectSuspension, TakeWeightCredit,
+	TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;
 pub use controller::{
-	Controller, ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, QueryController,
+	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
 	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
 };
 
