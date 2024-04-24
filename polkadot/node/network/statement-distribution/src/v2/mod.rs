@@ -827,12 +827,7 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	let sessions: HashSet<_> = state.per_relay_parent.values().map(|r| r.session).collect();
 	state.per_session.retain(|s, _| sessions.contains(s));
 
-	let last_session_index = state
-		.unused_topologies
-		.keys()
-		.max()
-		.map(|session_index| *session_index)
-		.unwrap_or(0);
+	let last_session_index = state.unused_topologies.keys().max().copied();
 	// Do not clean-up the last saved toplogy unless we moved to the next session
 	// This is needed because handle_deactive_leaves, gets also called when
 	// prospective_parachains APIs are not present, so we would actually remove
@@ -840,7 +835,7 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	// prospective_parachains gets enabled
 	state
 		.unused_topologies
-		.retain(|s, _| sessions.contains(s) || last_session_index == *s);
+		.retain(|s, _| sessions.contains(s) || last_session_index == Some(*s));
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
