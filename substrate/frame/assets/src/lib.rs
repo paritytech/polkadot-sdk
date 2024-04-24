@@ -1195,7 +1195,7 @@ pub mod pallet {
 					Err(SetTeamError::AssetStatusLiveAndNoPrivileges) => log::error!(
 						target: LOG_TARGET,
 						"Operation failed because status is `LiveAndNoPrivileges`, but there is
-						a owner so asset cannot be without privileges; qed"
+						an owner so asset cannot be without privileges; qed"
 					),
 				}
 
@@ -1766,7 +1766,7 @@ pub mod pallet {
 
 			let old_metadata = Metadata::<T, I>::get(&id);
 
-			let deposit_amount = asset.deposit + old_metadata.deposit;
+			let deposit_amount = asset.deposit.saturating_add(old_metadata.deposit);
 
 			let fee_imbalance = if let Some(owner) = maybe_owner_origin {
 				let new_metadata_deposit =
@@ -1780,7 +1780,7 @@ pub mod pallet {
 					T::Currency::unreserve(&owner, deposit_amount);
 					let imbalance = T::Currency::withdraw(
 						&owner,
-						deposit_amount + metadata_deposit_diff,
+						deposit_amount.saturating_add(metadata_deposit_diff),
 						WithdrawReasons::FEE,
 						ExistenceRequirement::KeepAlive,
 					)?;
