@@ -161,7 +161,7 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 		match targets {
 			Select::None => Ok(()),
 			Select::All => {
-				let mut errors = Vec::new();
+				let mut errors = Vec::<TryRuntimeError>::new();
 
 				for_tuples!(#(
 					if let Err(err) = Tuple::try_state(n.clone(), targets.clone()) {
