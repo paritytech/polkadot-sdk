@@ -75,9 +75,13 @@ impl<T: Config> Pallet<T> {
 		// Add to workload - grants one region from the next sale boundary.
 		Workplan::<T>::insert((sale.region_begin, core_count), &workload);
 
-		// Assign now directly on the relay chain until the next sale boundary.
+		// Assign now until the next sale boundary unless the next timeslice is already the sale
+		// boundary.
 		let timeslice = status.last_committed_timeslice.saturating_add(1);
-		Workplan::<T>::insert((timeslice, core_count), &workload);
+		if timeslice < sale.region_begin {
+			Workplan::<T>::insert((timeslice, core_count), &workload);
+		}
+
 		Ok(())
 	}
 

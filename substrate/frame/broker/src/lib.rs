@@ -512,8 +512,8 @@ pub mod pallet {
 
 		/// Reserve a core for a workload.
 		///
-		/// The core will be given a reservation, but two sale period boundaries must pass before
-		/// the core is assigned.
+		/// The workload will be given a reservation, but two sale period boundaries must pass
+		/// before the core is actually assigned.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `workload`: The workload which should be permanently placed on a core.
@@ -811,6 +811,9 @@ pub mod pallet {
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `workload`: The workload which should be permanently placed on a core starting
 		///   immediately.
+		///
+		/// This requests an additional core, reserves the workload and then injects the workload
+		/// into the Workplan for the next two sale periods.
 		#[pallet::call_index(20)]
 		pub fn force_reserve(
 			origin: OriginFor<T>,

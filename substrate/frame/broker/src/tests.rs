@@ -1533,10 +1533,8 @@ fn can_reserve_workloads_quickly() {
 			vec![(Task(1004), 57600)],
 			None,
 		);
-		// Mutate the workplan to ensure it's scheduled in the next rotate_sale.
-		Workplan::<Test>::mutate((4, core_index), |workload| {
-			*workload = Some(system_workload.clone())
-		});
+		// Inject into the workplan to ensure it's scheduled in the next rotate_sale.
+		Workplan::<Test>::insert((4, core_index), system_workload.clone());
 
 		// Reservation is added for the workload.
 		System::assert_has_event(
