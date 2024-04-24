@@ -58,7 +58,10 @@ fn when_metadata_check_is_disabled_it_encodes_to_nothing() {
 #[ignore]
 fn enable_metadata_hash_in_wasm_builder() {
 	substrate_wasm_builder::WasmBuilder::init_with_defaults()
-		// TODO
-		// .enable_metadata_hash()
+		// Requires the `metadata-hash` feature to be activated.
+		// You need to pass the main token symbol and its number of decimals.
+		.enable_metadata_hash("TOKEN", 12)
+		// The runtime will be build twice and the second time the `RUNTIME_METADATA_HASH`
+		// environment variable will be set for the `CheckMetadataHash` extension.
 		.build()
 }

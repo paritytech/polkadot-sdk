@@ -30,7 +30,8 @@
 //! `substrate-wasm-builder` to do so:
 #![doc = docify::embed!("src/tests.rs", enable_metadata_hash_in_wasm_builder)]
 //! As generating the metadata hash requires to compile the runtime twice, it is
-//! recommended to only enable the metadata hash generation when doing a build for a release.
+//! recommended to only enable the metadata hash generation when doing a build for a release or when
+//! you want to test this feature.
 
 extern crate alloc;
 
