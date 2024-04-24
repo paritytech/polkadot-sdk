@@ -141,9 +141,7 @@ pub mod v1 {
 
 pub mod v2 {
 	use frame_support::{
-		migrations::VersionedMigration,
-		traits::{GetStorageVersion, UncheckedOnRuntimeUpgrade},
-		weights::Weight,
+		migrations::VersionedMigration, traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 	};
 
 	use super::*;
@@ -174,6 +172,8 @@ pub mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			use frame_support::traits::GetStorageVersion;
+
 			let in_code_version = Pallet::<T, I>::in_code_storage_version();
 			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
 
