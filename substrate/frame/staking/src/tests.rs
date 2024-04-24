@@ -7958,7 +7958,9 @@ mod ledger_recovery {
 }
 
 mod byzantine_threshold_disabling_strategy {
-	use crate::{tests::Test, CurrentEra, DisablingStrategy, UpToLimitDisablingStrategy};
+	use crate::{
+		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy,
+	};
 	use sp_staking::EraIndex;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
@@ -7973,7 +7975,7 @@ mod byzantine_threshold_disabling_strategy {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let initially_disabled = vec![];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
-			CurrentEra::<Test>::put(2);
+			ActiveEra::<Test>::put(ActiveEraInfo { index: 2, start: None });
 
 			let disable_offender =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
