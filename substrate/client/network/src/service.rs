@@ -55,24 +55,26 @@ use crate::{
 	},
 	transport,
 	types::ProtocolName,
-	Multiaddr, NotificationService, PeerId, ReputationChange,
+	NotificationService, ReputationChange,
 };
 
 use codec::DecodeAll;
 use either::Either;
 use futures::{channel::oneshot, prelude::*};
+use libp2p::identity::ed25519;
 #[allow(deprecated)]
 use libp2p::{
 	connection_limits::Exceeded,
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
 	kad::record::Key as KademliaKey,
-	multiaddr,
+	multiaddr::{self, Multiaddr},
 	ping::Failure as PingFailure,
 	swarm::{
 		AddressScore, ConnectionError, ConnectionId, ConnectionLimits, DialError, Executor,
 		ListenError, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent, THandlerErr,
 	},
+	PeerId,
 };
 use log::{debug, error, info, trace, warn};
 use metrics::{Histogram, MetricSources, Metrics};
@@ -269,6 +271,15 @@ where
 		let local_public = local_identity.public();
 		let local_peer_id = local_public.to_peer_id();
 
+		// Convert to libp2p types.
+		let local_identity: ed25519::Keypair = local_identity.into();
+		let local_public: ed25519::PublicKey = local_public.into();
+		let local_peer_id: PeerId = local_peer_id.into();
+		let listen_addresses: Vec<Multiaddr> =
+			network_config.listen_addresses.iter().cloned().map(Into::into).collect();
+		let public_addresses: Vec<Multiaddr> =
+			network_config.public_addresses.iter().cloned().map(Into::into).collect();
+
 		network_config.boot_nodes = network_config
 			.boot_nodes
 			.into_iter()
@@ -294,25 +305,33 @@ where
 
 		// Ensure the listen addresses are consistent with the transport.
 		ensure_addresses_consistent_with_transport(
-			network_config.listen_addresses.iter(),
+			listen_addresses.iter(),
 			&network_config.transport,
 		)?;
 		ensure_addresses_consistent_with_transport(
-			network_config.boot_nodes.iter().map(|x| &x.multiaddr),
+			network_config.boot_nodes.iter().map(|x| &x.multiaddr.into()),
 			&network_config.transport,
 		)?;
 		ensure_addresses_consistent_with_transport(
-			network_config.default_peers_set.reserved_nodes.iter().map(|x| &x.multiaddr),
+			network_config
+				.default_peers_set
+				.reserved_nodes
+				.iter()
+				.map(|x| &x.multiaddr.into()),
 			&network_config.transport,
 		)?;
 		for notification_protocol in &notification_protocols {
 			ensure_addresses_consistent_with_transport(
-				notification_protocol.set_config().reserved_nodes.iter().map(|x| &x.multiaddr),
+				notification_protocol
+					.set_config()
+					.reserved_nodes
+					.iter()
+					.map(|x| &x.multiaddr.into()),
 				&network_config.transport,
 			)?;
 		}
 		ensure_addresses_consistent_with_transport(
-			network_config.public_addresses.iter(),
+			public_addresses.iter(),
 			&network_config.transport,
 		)?;
 
@@ -370,7 +389,7 @@ where
 			};
 
 			transport::build_transport(
-				local_identity.clone(),
+				local_identity.clone().into(),
 				config_mem,
 				network_config.yamux_window_size,
 				yamux_maximum_buffer_size,
@@ -462,7 +481,7 @@ where
 				.find(|o| o.peer_id != bootnode.peer_id)
 			{
 				Err(Error::DuplicateBootnode {
-					address: bootnode.multiaddr.clone(),
+					address: bootnode.multiaddr.clone().into(),
 					first_id: bootnode.peer_id.into(),
 					second_id: other.peer_id.into(),
 				})
@@ -478,7 +497,7 @@ where
 			boot_node_ids
 				.entry(bootnode.peer_id.into())
 				.or_default()
-				.push(bootnode.multiaddr.clone());
+				.push(bootnode.multiaddr.clone().into());
 		}
 
 		let boot_node_ids = Arc::new(boot_node_ids);
@@ -502,11 +521,11 @@ where
 				format!("{} ({})", network_config.client_version, network_config.node_name);
 
 			let discovery_config = {
-				let mut config = DiscoveryConfig::new(local_public.to_peer_id());
+				let mut config = DiscoveryConfig::new(local_peer_id);
 				config.with_permanent_addresses(
 					known_addresses
 						.iter()
-						.map(|(peer, address)| (peer.into(), address.clone()))
+						.map(|(peer, address)| (peer.into(), address.clone().into()))
 						.collect::<Vec<_>>(),
 				);
 				config.discovery_limit(u64::from(network_config.default_peers_set.out_peers) + 15);
@@ -544,7 +563,7 @@ where
 				let result = Behaviour::new(
 					protocol,
 					user_agent,
-					local_public,
+					local_public.into(),
 					discovery_config,
 					request_response_protocols,
 					Arc::clone(&peer_store_handle),
@@ -604,14 +623,14 @@ where
 		};
 
 		// Listen on multiaddresses.
-		for addr in &network_config.listen_addresses {
+		for addr in &listen_addresses {
 			if let Err(err) = Swarm::<Behaviour<B>>::listen_on(&mut swarm, addr.clone()) {
 				warn!(target: "sub-libp2p", "Can't listen on {} because: {:?}", addr, err)
 			}
 		}
 
 		// Add external addresses.
-		for addr in &network_config.public_addresses {
+		for addr in &public_addresses {
 			Swarm::<Behaviour<B>>::add_external_address(
 				&mut swarm,
 				addr.clone(),
@@ -619,15 +638,15 @@ where
 			);
 		}
 
-		let listen_addresses = Arc::new(Mutex::new(HashSet::new()));
+		let listen_addresses_set = Arc::new(Mutex::new(HashSet::new()));
 
 		let service = Arc::new(NetworkService {
 			bandwidth,
 			external_addresses,
-			listen_addresses: listen_addresses.clone(),
+			listen_addresses: listen_addresses_set.clone(),
 			num_connected: num_connected.clone(),
 			local_peer_id,
-			local_identity,
+			local_identity: local_identity.into(),
 			to_worker,
 			notification_protocol_ids,
 			protocol_handles,
@@ -638,7 +657,7 @@ where
 		});
 
 		Ok(NetworkWorker {
-			listen_addresses,
+			listen_addresses: listen_addresses_set,
 			num_connected,
 			network_service: swarm,
 			service,
@@ -1034,7 +1053,7 @@ where
 
 		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(
 			peer.peer_id.into(),
-			peer.multiaddr,
+			peer.multiaddr.into(),
 		));
 		self.sync_protocol_handle.add_reserved_peer(peer.peer_id.into());
 
@@ -1723,8 +1742,8 @@ where
 					{
 						if let DialError::WrongPeerId { obtained, endpoint } = &error {
 							if let ConnectedPoint::Dialer { address, role_override: _ } = endpoint {
-								let address_without_peer_id = parse_addr(address.clone())
-									.map_or_else(|_| address.clone(), |r| r.1);
+								let address_without_peer_id = parse_addr(address.clone().into())
+									.map_or_else(|_| address.clone(), |r| r.1.into());
 
 								// Only report for address of boot node that was added at startup of
 								// the node and not for any address that the node learned of the
