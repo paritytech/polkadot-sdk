@@ -836,7 +836,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										)
 									)
 								);
-								log::error!(target: LOG_TARGET, "Fix logic differences between litep2p and libp2p");
 
 								if let Some(ref metrics) = self.metrics {
 									metrics
