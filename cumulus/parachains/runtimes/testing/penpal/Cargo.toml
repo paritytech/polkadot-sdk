@@ -71,7 +71,7 @@ cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = fals
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.3.0" }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.3.0" }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false, version = "0.3.0" }
-pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "5.0.0" }
+pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "5.0.1" }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.3.0" }
 parachains-common = { path = "../../../common", default-features = false, version = "3.0.0" }
 
