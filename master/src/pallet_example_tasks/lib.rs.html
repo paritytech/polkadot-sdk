@@ -227,6 +227,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -248,6 +282,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>frame_support::dispatch::DispatchResult;
+<span class="kw">use </span>frame_system::offchain::SendTransactionTypes;
+<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
+</span><span class="kw">use </span>frame_system::offchain::SubmitTransaction;
 <span class="comment">// Re-export pallet items so that they can be accessed from the crate namespace.
 </span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
@@ -260,10 +297,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>weights;
 <span class="kw">pub use </span>weights::<span class="kw-2">*</span>;
 
+<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"pallet-example-tasks"</span>;
+
 <span class="attr">#[frame_support::pallet(dev_mode)]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
 	<span class="attr">#[pallet::error]
 	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
@@ -288,9 +329,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
+	<span class="attr">#[pallet::hooks]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+		<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
+		</span><span class="kw">fn </span>offchain_worker(_block_number: BlockNumberFor&lt;T&gt;) {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(key) = Numbers::&lt;T&gt;::iter_keys().next() {
+				<span class="comment">// Create a valid task
+				</span><span class="kw">let </span>task = Task::&lt;T&gt;::AddNumberIntoTotal { i: key };
+				<span class="kw">let </span>runtime_task = &lt;T <span class="kw">as </span>Config&gt;::RuntimeTask::from(task);
+				<span class="kw">let </span>call = frame_system::Call::&lt;T&gt;::do_task { task: runtime_task.into() };
+
+				<span class="comment">// Submit the task as an unsigned transaction
+				</span><span class="kw">let </span>res =
+					SubmitTransaction::&lt;T, frame_system::Call&lt;T&gt;&gt;::submit_unsigned_transaction(
+						call.into(),
+					);
+				<span class="kw">match </span>res {
+					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Submitted the task."</span>),
+					<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Error submitting task: {:?}"</span>, e),
+				}
+			}
+		}
+	}
+
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config: frame_system::Config {
-		<span class="kw">type </span>RuntimeTask: frame_support::traits::Task;
+	</span><span class="kw">pub trait </span>Config:
+		SendTransactionTypes&lt;frame_system::Call&lt;<span class="self">Self</span>&gt;&gt; + frame_system::Config
+	{
+		<span class="kw">type </span>RuntimeTask: frame_support::traits::Task
+			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeTask&gt;
+			+ From&lt;Task&lt;<span class="self">Self</span>&gt;&gt;;
 		<span class="kw">type </span>WeightInfo: WeightInfo;
 	}
 

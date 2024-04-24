@@ -2790,6 +2790,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2639" id="2639">2639</a>
 <a href="#2640" id="2640">2640</a>
 <a href="#2641" id="2641">2641</a>
+<a href="#2642" id="2642">2642</a>
+<a href="#2643" id="2643">2643</a>
+<a href="#2644" id="2644">2644</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5256,6 +5259,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
 	/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+	///
+	/// When submitted as unsigned transactions (for example via an off-chain workder), note
+	/// that the tasks will be executed in a random order.
 	///
 	/// ## Example
 	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/tasks.rs"</span>, tasks_example)]
