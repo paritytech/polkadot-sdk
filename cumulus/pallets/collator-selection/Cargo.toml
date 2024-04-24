@@ -7,7 +7,7 @@ license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
 repository.workspace = true
-version = "10.0.0"
+version = "10.0.1"
 
 [lints]
 workspace = true
@@ -27,7 +27,7 @@ sp-staking = { path = "../../../substrate/primitives/staking", default-features 
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false, version = "29.0.0" }
-pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, version = "29.0.0" }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "29.0.0" }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }

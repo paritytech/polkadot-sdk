@@ -19,7 +19,7 @@ static_assertions = { version = "1.1", optional = true }
 
 # Bridge dependencies
 
-bp-header-chain = { path = "../../primitives/header-chain", default-features = false, version = "0.8.1" }
+bp-header-chain = { path = "../../primitives/header-chain", default-features = false, version = "0.8.2" }
 bp-messages = { path = "../../primitives/messages", default-features = false, version = "0.8.0" }
 bp-parachains = { path = "../../primitives/parachains", default-features = false, version = "0.8.0" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false, version = "0.8.0" }

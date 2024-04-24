@@ -17,7 +17,7 @@ serde = { version = "1.0", default-features = false, features = ["alloc", "deriv
 # Bridge dependencies
 
 bp-runtime = { path = "../runtime", default-features = false, version = "0.8.0" }
-bp-header-chain = { path = "../header-chain", default-features = false, version = "0.8.1" }
+bp-header-chain = { path = "../header-chain", default-features = false, version = "0.8.2" }
 
 # Substrate Dependencies
 
