@@ -215,11 +215,7 @@ impl WasmBuilder {
 	/// - `token_symbol`: The symbol of the main native token of the chain.
 	/// - `decimals`: The number of decimals of the main native token.
 	#[cfg(feature = "metadata-hash")]
-	pub fn enable_metadata_hash(
-		mut self,
-		token_symbol: impl Into<String>,
-		decimals: u8,
-	) -> Self {
+	pub fn enable_metadata_hash(mut self, token_symbol: impl Into<String>, decimals: u8) -> Self {
 		self.enable_metadata_hash =
 			Some(MetadataExtraInfo { token_symbol: token_symbol.into(), decimals });
 
