@@ -22,7 +22,10 @@ use crate::{
 	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
 use codec::{Decode, Encode};
-use frame_support::{assert_err, traits::{fungibles::Mutate, Currency}};
+use frame_support::{
+	assert_err,
+	traits::{fungibles::Mutate, Currency},
+};
 use pallet_contracts::{test_utils::builder::*, Code};
 use pallet_contracts_fixtures::compile_module;
 use pallet_contracts_uapi::ReturnErrorCode;
