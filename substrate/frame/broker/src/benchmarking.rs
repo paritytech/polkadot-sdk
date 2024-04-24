@@ -923,6 +923,34 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn force_reserve() -> Result<(), BenchmarkError> {
+		Configuration::<T>::put(new_config_record::<T>());
+		// Assume Reservations to be almost filled for worst case.
+		let reservation_count = T::MaxReservedCores::get().saturating_sub(1);
+		setup_reservations::<T>(reservation_count.clone());
+
+		// Assume leases to be filled for worst case
+		setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		// Sales must be started.
+		Broker::<T>::do_start_sales(100u32.into(), CoreIndex::try_from(reservation_count).unwrap())
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		advance_to::<T>(T::TimeslicePeriod::get().try_into().ok().unwrap());
+		let schedule = new_schedule();
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, schedule.clone());
+
+		assert_eq!(Reservations::<T>::decode_len().unwrap(), T::MaxReservedCores::get() as usize);
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn swap_leases() -> Result<(), BenchmarkError> {
 		let admin_origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
