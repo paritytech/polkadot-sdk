@@ -9316,7 +9316,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-collator-selection"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10566,7 +10566,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "27.0.0"
+version = "27.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
