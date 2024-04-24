@@ -26,7 +26,6 @@ use crate::RuntimeTarget;
 /// Extra information when generating the `metadata-hash`.
 #[cfg(feature = "metadata-hash")]
 pub(crate) struct MetadataExtraInfo {
-	pub base58_prefix: u16,
 	pub decimals: u8,
 	pub token_symbol: String,
 }
@@ -215,16 +214,14 @@ impl WasmBuilder {
 	///
 	/// - `token_symbol`: The symbol of the main native token of the chain.
 	/// - `decimals`: The number of decimals of the main native token.
-	/// - `base58_prefix`: The `SS58` prefix for addresses of the chain.
 	#[cfg(feature = "metadata-hash")]
 	pub fn enable_metadata_hash(
 		mut self,
 		token_symbol: impl Into<String>,
 		decimals: u8,
-		base58_prefix: u16,
 	) -> Self {
 		self.enable_metadata_hash =
-			Some(MetadataExtraInfo { token_symbol: token_symbol.into(), decimals, base58_prefix });
+			Some(MetadataExtraInfo { token_symbol: token_symbol.into(), decimals });
 
 		self
 	}

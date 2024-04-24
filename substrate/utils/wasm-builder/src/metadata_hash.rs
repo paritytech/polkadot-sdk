@@ -17,7 +17,7 @@
 
 use crate::builder::MetadataExtraInfo;
 use codec::{Decode, Encode};
-use frame_metadata::RuntimeMetadataPrefixed;
+use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use sc_executor::WasmExecutor;
 use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
@@ -92,13 +92,37 @@ pub fn generate_metadata_hash(wasm: &Path, extra_info: MetadataExtraInfo) -> [u8
 	let runtime_version = sp_version::RuntimeVersion::decode(&mut &runtime_version[..])
 		.expect("Invalid `RuntimeVersion` encoding");
 
+	let base58_prefix = extract_ss58_prefix(&metadata);
+
 	let extra_info = ExtraInfo {
 		spec_version: runtime_version.spec_version,
 		spec_name: runtime_version.spec_name.into(),
-		base58_prefix: extra_info.base58_prefix,
+		base58_prefix,
 		decimals: extra_info.decimals,
 		token_symbol: extra_info.token_symbol,
 	};
 
 	generate_metadata_digest(&metadata, extra_info).unwrap().hash()
+}
+
+/// Extract the `SS58` from the constants in the given `metadata`.
+fn extract_ss58_prefix(metadata: &RuntimeMetadata) -> u16 {
+	let RuntimeMetadata::V15(ref metadata) = metadata else {
+		panic!("Metadata version 15 required")
+	};
+
+	let system = metadata
+		.pallets
+		.iter()
+		.find(|p| p.name == "System")
+		.expect("Each FRAME runtime has the `System` pallet; qed");
+
+	system
+		.constants
+		.iter()
+		.find_map(|c| {
+			(c.name == "SS58Prefix")
+				.then(|| u16::decode(&mut &c.value[..]).expect("SS58 is an `u16`; qed"))
+		})
+		.expect("`SS58PREFIX` exists in the `System` constants; qed")
 }

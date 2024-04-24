@@ -23,5 +23,5 @@ fn main() {
 
 #[cfg(feature = "metadata-hash")]
 fn main() {
-	WasmBuilder::init_with_defaults().enable_metadata_hash("WND", 12, 42).build();
+	WasmBuilder::init_with_defaults().enable_metadata_hash("WND", 12).build();
 }
