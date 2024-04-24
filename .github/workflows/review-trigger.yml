@@ -65,9 +65,10 @@ jobs:
           echo "Saving PR number: $PR_NUMBER"
           mkdir -p ./pr
           echo $PR_NUMBER > ./pr/pr_number
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4.3.3
         name: Save PR number
         with:
           name: pr_number
           path: pr/
+          if-no-files-found: error
           retention-days: 5
