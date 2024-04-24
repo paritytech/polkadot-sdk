@@ -596,7 +596,7 @@ impl<T: Config> Pallet<T> {
 			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
 			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
 
-			// Clear offending validators.
+			// Clear disabled validators.
 			<DisabledValidators<T>>::kill();
 		}
 	}
