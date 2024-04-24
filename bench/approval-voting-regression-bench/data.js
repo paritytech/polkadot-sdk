@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713956738558,
+  "lastUpdate": 1713975642569,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -469,6 +469,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.48648768921989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre",
+            "email": "franciscoaguirreperez@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4f3d43a0c4e75caf73c1034a85590f81a9ae3809",
+          "message": "Revert `execute_blob` and `send_blob` (#4266)\n\nRevert \"pallet-xcm: Deprecate `execute` and `send` in favor of\n`execute_blob` and `send_blob` (#3749)\"\n\nThis reverts commit feee773d15d5237765b520b03854d46652181de5.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Javier Bullrich <javier@bullrich.dev>",
+          "timestamp": "2024-04-24T15:49:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4f3d43a0c4e75caf73c1034a85590f81a9ae3809"
+        },
+        "date": 1713975617529,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63541.6,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.8124763528901857,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.321571008640008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.776342704840073,
             "unit": "seconds"
           }
         ]
