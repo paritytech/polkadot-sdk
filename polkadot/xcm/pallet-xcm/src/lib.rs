@@ -1792,68 +1792,51 @@ impl<T: Config> Pallet<T> {
 			fees_handling {:?}, weight_limit: {:?}",
 			origin, dest, beneficiary, assets, transfer_type, fees, weight_limit,
 		);
-		// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
-		let custom_remote_xcm = match beneficiary {
-			Either::Right(custom_xcm) => custom_xcm,
-			Either::Left(beneficiary) => {
-				// max assets is `assets` (+ potentially separately handled fee)
-				let max_assets = assets.len() as u32 +
-					if matches!(&fees, FeesHandling::Batched { .. }) { 0 } else { 1 };
-				// deposit all remaining assets in holding to `beneficiary` location
-				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
-			},
-		};
-		Ok(match transfer_type {
-			TransferType::LocalReserve => {
-				let (local, mut remote) = Self::local_reserve_transfer_programs(
-					origin.clone(),
-					dest.clone(),
-					assets,
-					fees,
-					weight_limit,
-				)?;
-				remote.0.extend(custom_remote_xcm.into_iter());
-				(local, Some(remote))
-			},
-			TransferType::DestinationReserve => {
-				let (local, mut remote) = Self::destination_reserve_transfer_programs(
-					origin.clone(),
-					dest.clone(),
-					assets,
-					fees,
-					weight_limit,
-				)?;
-				remote.0.extend(custom_remote_xcm.into_iter());
-				(local, Some(remote))
-			},
+		match transfer_type {
+			TransferType::LocalReserve => Self::local_reserve_transfer_programs(
+				origin.clone(),
+				dest.clone(),
+				beneficiary,
+				assets,
+				fees,
+				weight_limit,
+			)
+			.map(|(local, remote)| (local, Some(remote))),
+			TransferType::DestinationReserve => Self::destination_reserve_transfer_programs(
+				origin.clone(),
+				dest.clone(),
+				beneficiary,
+				assets,
+				fees,
+				weight_limit,
+			)
+			.map(|(local, remote)| (local, Some(remote))),
 			TransferType::RemoteReserve(reserve) => {
 				let fees = match fees {
 					FeesHandling::Batched { fees } => fees,
 					_ => return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 				};
-				let local = Self::remote_reserve_transfer_program(
+				Self::remote_reserve_transfer_program(
 					origin.clone(),
 					reserve.try_into().map_err(|()| Error::<T>::BadVersion)?,
+					beneficiary,
 					dest.clone(),
 					assets,
 					fees,
 					weight_limit,
-					custom_remote_xcm,
-				)?;
-				(local, None)
+				)
+				.map(|local| (local, None))
 			},
-			TransferType::Teleport => {
-				let (local, mut remote) = Self::teleport_assets_program(
-					origin.clone(),
-					dest.clone(),
-					assets,
-					fees,
-					weight_limit,
-				)?;
-				remote.0.extend(custom_remote_xcm.into_iter());
-				(local, Some(remote))
-			},
-		})
+			TransferType::Teleport => Self::teleport_assets_program(
+				origin.clone(),
+				dest.clone(),
+				beneficiary,
+				assets,
+				fees,
+				weight_limit,
+			)
+			.map(|(local, remote)| (local, Some(remote))),
+		}
 	}
 
 	fn execute_xcm_transfer(
@@ -1968,6 +1951,7 @@ impl<T: Config> Pallet<T> {
 	fn local_reserve_transfer_programs(
 		origin: Location,
 		dest: Location,
+		beneficiary: Either<Location, Xcm<()>>,
 		assets: Vec<Asset>,
 		fees: FeesHandling<T>,
 		weight_limit: WeightLimit,
@@ -1976,6 +1960,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
 
+		// max assets is `assets` (+ potentially separately handled fee)
+		let max_assets =
+			assets.len() as u32 + if matches!(&fees, FeesHandling::Batched { .. }) { 0 } else { 1 };
 		let assets: Assets = assets.into();
 		let context = T::UniversalLocation::get();
 		let mut reanchored_assets = assets.clone();
@@ -1997,6 +1984,16 @@ impl<T: Config> Pallet<T> {
 		]);
 		// handle fees
 		Self::add_fees_to_xcm(dest, fees, weight_limit, &mut local_execute_xcm, &mut xcm_on_dest)?;
+
+		// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
+		let custom_remote_xcm = match beneficiary {
+			Either::Right(custom_xcm) => custom_xcm,
+			Either::Left(beneficiary) => {
+				// deposit all remaining assets in holding to `beneficiary` location
+				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+			},
+		};
+		xcm_on_dest.0.extend(custom_remote_xcm.into_iter());
 
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
@@ -2035,6 +2032,7 @@ impl<T: Config> Pallet<T> {
 	fn destination_reserve_transfer_programs(
 		origin: Location,
 		dest: Location,
+		beneficiary: Either<Location, Xcm<()>>,
 		assets: Vec<Asset>,
 		fees: FeesHandling<T>,
 		weight_limit: WeightLimit,
@@ -2043,6 +2041,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
 
+		// max assets is `assets` (+ potentially separately handled fee)
+		let max_assets =
+			assets.len() as u32 + if matches!(&fees, FeesHandling::Batched { .. }) { 0 } else { 1 };
 		let assets: Assets = assets.into();
 		let context = T::UniversalLocation::get();
 		let mut reanchored_assets = assets.clone();
@@ -2067,6 +2068,16 @@ impl<T: Config> Pallet<T> {
 		// handle fees
 		Self::add_fees_to_xcm(dest, fees, weight_limit, &mut local_execute_xcm, &mut xcm_on_dest)?;
 
+		// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
+		let custom_remote_xcm = match beneficiary {
+			Either::Right(custom_xcm) => custom_xcm,
+			Either::Left(beneficiary) => {
+				// deposit all remaining assets in holding to `beneficiary` location
+				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+			},
+		};
+		xcm_on_dest.0.extend(custom_remote_xcm.into_iter());
+
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
 
@@ -2074,11 +2085,11 @@ impl<T: Config> Pallet<T> {
 	fn remote_reserve_transfer_program(
 		origin: Location,
 		reserve: Location,
+		beneficiary: Either<Location, Xcm<()>>,
 		dest: Location,
 		assets: Vec<Asset>,
 		fees: Asset,
 		weight_limit: WeightLimit,
-		custom_xcm_on_dest: Xcm<()>,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let value = (origin, assets);
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
@@ -2102,6 +2113,14 @@ impl<T: Config> Pallet<T> {
 		// xcm to be executed at dest
 		let mut xcm_on_dest =
 			Xcm(vec![BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() }]);
+		// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
+		let custom_xcm_on_dest = match beneficiary {
+			Either::Right(custom_xcm) => custom_xcm,
+			Either::Left(beneficiary) => {
+				// deposit all remaining assets in holding to `beneficiary` location
+				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+			},
+		};
 		xcm_on_dest.0.extend(custom_xcm_on_dest.into_iter());
 		// xcm to be executed on reserve
 		let xcm_on_reserve = Xcm(vec![
@@ -2174,6 +2193,7 @@ impl<T: Config> Pallet<T> {
 	fn teleport_assets_program(
 		origin: Location,
 		dest: Location,
+		beneficiary: Either<Location, Xcm<()>>,
 		assets: Vec<Asset>,
 		fees: FeesHandling<T>,
 		weight_limit: WeightLimit,
@@ -2182,6 +2202,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
 
+		// max assets is `assets` (+ potentially separately handled fee)
+		let max_assets =
+			assets.len() as u32 + if matches!(&fees, FeesHandling::Batched { .. }) { 0 } else { 1 };
 		let context = T::UniversalLocation::get();
 		let assets: Assets = assets.into();
 		let mut reanchored_assets = assets.clone();
@@ -2230,6 +2253,16 @@ impl<T: Config> Pallet<T> {
 		]);
 		// handle fees
 		Self::add_fees_to_xcm(dest, fees, weight_limit, &mut local_execute_xcm, &mut xcm_on_dest)?;
+
+		// Use custom XCM on remote chain, or just default to depositing everything to beneficiary.
+		let custom_remote_xcm = match beneficiary {
+			Either::Right(custom_xcm) => custom_xcm,
+			Either::Left(beneficiary) => {
+				// deposit all remaining assets in holding to `beneficiary` location
+				Xcm(vec![DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary }])
+			},
+		};
+		xcm_on_dest.0.extend(custom_remote_xcm.into_iter());
 
 		Ok((local_execute_xcm, xcm_on_dest))
 	}
