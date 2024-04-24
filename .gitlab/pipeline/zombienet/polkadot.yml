@@ -45,6 +45,8 @@
       artifacts: true
     - job: build-push-image-polkadot-parachain-debug
       artifacts: true
+    - job: build-disabling-e2e-tests
+      artifacts: true
   extends:
     - .kubernetes-env
     - .zombienet-refs
@@ -304,9 +306,6 @@ zombienet-polkadot-malus-0001-dispute-valid:
 zombienet-polkadot-backing-disabling:
   extends:
     - .zombienet-polkadot-common
-  needs:
-    - job: build-disabling-e2e-tests
-      artifacts: true
   rules:
     - when: manual
   variables:
