@@ -69,13 +69,13 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		delegator: &Self::AccountId,
 		agent: &Self::AccountId,
 		amount: Self::Balance,
+		num_slashing_spans: u32,
 	) -> DispatchResult {
-		// fixme(ank4n): Can this not require slashing spans?
 		Pallet::<T>::release_delegation(
 			RawOrigin::Signed(agent.clone()).into(),
 			delegator.clone(),
 			amount,
-			0,
+			num_slashing_spans,
 		)
 	}
 

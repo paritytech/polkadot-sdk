@@ -517,6 +517,7 @@ pub trait DelegationInterface {
 		delegator: &Self::AccountId,
 		agent: &Self::AccountId,
 		amount: Self::Balance,
+		num_slashing_spans: u32,
 	) -> DispatchResult;
 
 	/// Returns true if there are pending slashes posted to the `Agent` account.
