@@ -20,9 +20,7 @@
 
 use crate::{
 	config::{NetworkConfiguration, ProtocolId},
-	multiaddr::Protocol,
 	peer_store::PeerStoreProvider,
-	Multiaddr,
 };
 
 use array_bytes::bytes2hex;
@@ -42,6 +40,7 @@ use litep2p::{
 		},
 		mdns::{Config as MdnsConfig, MdnsEvent},
 	},
+	types::multiaddr::{Multiaddr, Protocol},
 	PeerId, ProtocolName,
 };
 use parking_lot::RwLock;

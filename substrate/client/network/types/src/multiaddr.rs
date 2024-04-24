@@ -27,6 +27,9 @@ use std::{
 mod protocol;
 pub use protocol::Protocol;
 
+// Re-export the macro under shorter name under `multiaddr`.
+pub use crate::build_multiaddr as multiaddr;
+
 /// [`Multiaddr`] type used in Substrate. Converted to libp2p's `Multiaddr`
 /// or litep2p's `Multiaddr` when passed to the corresponding network backend.
 

@@ -35,17 +35,17 @@ use crate::{
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
 use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
-use litep2p::{
-	crypto::ed25519::Keypair,
-	types::multiaddr::{Multiaddr, Protocol},
-};
+use litep2p::{crypto::ed25519::Keypair, types::multiaddr::Multiaddr as LiteP2pMultiaddr};
 use parking_lot::RwLock;
 
 use sc_network_common::{
 	role::{ObservedRole, Roles},
 	types::ReputationChange,
 };
-use sc_network_types::PeerId;
+use sc_network_types::{
+	multiaddr::{Multiaddr, Protocol},
+	PeerId,
+};
 use sc_utils::mpsc::TracingUnboundedSender;
 
 use std::{
@@ -167,10 +167,10 @@ pub struct Litep2pNetworkService {
 	request_response_protocols: HashMap<ProtocolName, TracingUnboundedSender<OutboundRequest>>,
 
 	/// Listen addresses.
-	listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
+	listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
 
 	/// External addresses.
-	external_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
+	external_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
 }
 
 impl Litep2pNetworkService {
@@ -183,8 +183,8 @@ impl Litep2pNetworkService {
 		peerset_handles: HashMap<ProtocolName, ProtocolControlHandle>,
 		block_announce_protocol: ProtocolName,
 		request_response_protocols: HashMap<ProtocolName, TracingUnboundedSender<OutboundRequest>>,
-		listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
-		external_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
+		listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
+		external_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
 	) -> Self {
 		Self {
 			local_peer_id,
@@ -275,9 +275,7 @@ impl NetworkPeers for Litep2pNetworkService {
 			protocol: self.block_announce_protocol.clone(),
 			peers: peers
 				.into_iter()
-				.map(|peer| {
-					Multiaddr::empty().with(Protocol::P2p(litep2p::PeerId::from(peer).into()))
-				})
+				.map(|peer| Multiaddr::empty().with(Protocol::P2p(peer.into())))
 				.collect(),
 		});
 	}
@@ -419,11 +417,11 @@ impl NetworkEventStream for Litep2pNetworkService {
 
 impl NetworkStateInfo for Litep2pNetworkService {
 	fn external_addresses(&self) -> Vec<Multiaddr> {
-		self.external_addresses.read().iter().cloned().collect()
+		self.external_addresses.read().iter().cloned().map(Into::into).collect()
 	}
 
 	fn listen_addresses(&self) -> Vec<Multiaddr> {
-		self.listen_addresses.read().iter().cloned().collect()
+		self.listen_addresses.read().iter().cloned().map(Into::into).collect()
 	}
 
 	fn local_peer_id(&self) -> PeerId {

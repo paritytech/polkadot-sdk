@@ -38,7 +38,6 @@ use crate::{
 			request_response::{RequestResponseConfig, RequestResponseProtocol},
 		},
 	},
-	multiaddr::{Multiaddr, Protocol},
 	peer_store::PeerStoreProvider,
 	protocol,
 	service::{
@@ -64,7 +63,10 @@ use litep2p::{
 		tcp::config::Config as TcpTransportConfig,
 		websocket::config::Config as WebSocketTransportConfig, Endpoint,
 	},
-	types::ConnectionId,
+	types::{
+		multiaddr::{Multiaddr, Protocol},
+		ConnectionId,
+	},
 	Error as Litep2pError, Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
 use parking_lot::RwLock;
@@ -710,7 +712,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							protocol,
 							peers,
 						} => {
-							let peers = self.add_addresses(peers.into_iter());
+							let peers = self.add_addresses(peers.into_iter().map(Into::into));
 
 							match self.peerset_handles.get(&protocol) {
 								Some(handle) => {
@@ -719,7 +721,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								None => log::warn!(target: LOG_TARGET, "protocol {protocol} doens't exist"),
 							};
 						}
-						NetworkServiceCommand::AddKnownAddress { peer, mut address } => {
+						NetworkServiceCommand::AddKnownAddress { peer, address } => {
+							let mut address: Multiaddr = address.into();
+
 							if !address.iter().any(|protocol| std::matches!(protocol, Protocol::P2p(_))) {
 								address.push(Protocol::P2p(litep2p::PeerId::from(peer).into()));
 							}
@@ -732,7 +736,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						},
 						NetworkServiceCommand::SetReservedPeers { protocol, peers } => {
-							let peers = self.add_addresses(peers.into_iter());
+							let peers = self.add_addresses(peers.into_iter().map(Into::into));
 
 							match self.peerset_handles.get(&protocol) {
 								Some(handle) => {

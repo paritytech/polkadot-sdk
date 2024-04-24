@@ -891,13 +891,13 @@ where
 	H: ExHashT,
 {
 	/// Returns the local external addresses.
-	fn external_addresses(&self) -> Vec<Multiaddr> {
-		self.external_addresses.lock().iter().cloned().collect()
+	fn external_addresses(&self) -> Vec<sc_network_types::multiaddr::Multiaddr> {
+		self.external_addresses.lock().iter().cloned().map(Into::into).collect()
 	}
 
 	/// Returns the listener addresses (without trailing `/p2p/` with our `PeerId`).
-	fn listen_addresses(&self) -> Vec<Multiaddr> {
-		self.listen_addresses.lock().iter().cloned().collect()
+	fn listen_addresses(&self) -> Vec<sc_network_types::multiaddr::Multiaddr> {
+		self.listen_addresses.lock().iter().cloned().map(Into::into).collect()
 	}
 
 	/// Returns the local Peer ID.
@@ -1009,10 +1009,14 @@ where
 		self.sync_protocol_handle.set_reserved_only(reserved_only);
 	}
 
-	fn add_known_address(&self, peer_id: sc_network_types::PeerId, addr: Multiaddr) {
+	fn add_known_address(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		addr: sc_network_types::multiaddr::Multiaddr,
+	) {
 		let _ = self
 			.to_worker
-			.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(peer_id.into(), addr));
+			.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(peer_id.into(), addr.into()));
 	}
 
 	fn report_peer(&self, peer_id: sc_network_types::PeerId, cost_benefit: ReputationChange) {
@@ -1059,16 +1063,16 @@ where
 	fn set_reserved_peers(
 		&self,
 		protocol: ProtocolName,
-		peers: HashSet<Multiaddr>,
+		peers: HashSet<sc_network_types::multiaddr::Multiaddr>,
 	) -> Result<(), String> {
 		let Some(set_id) = self.notification_protocol_ids.get(&protocol) else {
 			return Err(format!("Cannot set reserved peers for unknown protocol: {}", protocol))
 		};
 
+		let peers: HashSet<Multiaddr> = peers.into_iter().map(Into::into).collect();
 		let peers_addrs = self.split_multiaddr_and_peer_id(peers)?;
 
-		let mut peers: HashSet<sc_network_types::PeerId> =
-			HashSet::with_capacity(peers_addrs.len());
+		let mut peers: HashSet<PeerId> = HashSet::with_capacity(peers_addrs.len());
 
 		for (peer_id, addr) in peers_addrs.into_iter() {
 			// Make sure the local peer ID is never added to the PSM.
@@ -1085,8 +1089,7 @@ where
 			}
 		}
 
-		self.protocol_handles[usize::from(*set_id)]
-			.set_reserved_peers(peers.iter().map(|peer| (*peer).into()).collect());
+		self.protocol_handles[usize::from(*set_id)].set_reserved_peers(peers);
 
 		Ok(())
 	}
@@ -1094,7 +1097,7 @@ where
 	fn add_peers_to_reserved_set(
 		&self,
 		protocol: ProtocolName,
-		peers: HashSet<Multiaddr>,
+		peers: HashSet<sc_network_types::multiaddr::Multiaddr>,
 	) -> Result<(), String> {
 		let Some(set_id) = self.notification_protocol_ids.get(&protocol) else {
 			return Err(format!(
@@ -1103,6 +1106,7 @@ where
 			))
 		};
 
+		let peers: HashSet<Multiaddr> = peers.into_iter().map(Into::into).collect();
 		let peers = self.split_multiaddr_and_peer_id(peers)?;
 
 		for (peer_id, addr) in peers.into_iter() {
