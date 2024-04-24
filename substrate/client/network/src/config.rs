@@ -35,10 +35,7 @@ pub use crate::{
 	types::ProtocolName,
 };
 
-pub use libp2p::{
-	build_multiaddr,
-	identity::{self, ed25519, Keypair},
-};
+pub use sc_network_types::{build_multiaddr, ed25519};
 use sc_network_types::{
 	multiaddr::{self, Multiaddr},
 	PeerId,
@@ -345,10 +342,10 @@ impl NodeKeyConfig {
 	///
 	///  * If the secret is configured to be new, it is generated and the corresponding keypair is
 	///    returned.
-	pub fn into_keypair(self) -> io::Result<Keypair> {
+	pub fn into_keypair(self) -> io::Result<ed25519::Keypair> {
 		use NodeKeyConfig::*;
 		match self {
-			Ed25519(Secret::New) => Ok(Keypair::generate_ed25519()),
+			Ed25519(Secret::New) => Ok(ed25519::Keypair::generate()),
 
 			Ed25519(Secret::Input(k)) => Ok(ed25519::Keypair::from(k).into()),
 
@@ -367,8 +364,7 @@ impl NodeKeyConfig {
 				ed25519::SecretKey::generate,
 				|b| b.as_ref().to_vec(),
 			)
-			.map(ed25519::Keypair::from)
-			.map(Keypair::from),
+			.map(ed25519::Keypair::from),
 		}
 	}
 }
