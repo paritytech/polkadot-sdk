@@ -335,21 +335,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -368,12 +353,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::keystore::BeefyKeystore;
-<span class="kw">use </span>codec::{DecodeAll, Encode};
+</span><span class="kw">use </span>codec::DecodeAll;
 <span class="kw">use </span>sp_consensus::Error <span class="kw">as </span>ConsensusError;
 <span class="kw">use </span>sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
-	ValidatorSet, ValidatorSetId, VersionedFinalityProof,
+	BeefySignatureHasher, KnownSignature, ValidatorSet, ValidatorSetId, VersionedFinalityProof,
 };
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
@@ -397,46 +381,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BeefyVersionedFinalityProof&lt;Block&gt;, (ConsensusError, u32)&gt; {
 	<span class="kw">let </span>proof = &lt;BeefyVersionedFinalityProof&lt;Block&gt;&gt;::decode_all(<span class="kw-2">&amp;mut &amp;*</span>encoded)
 		.map_err(|<span class="kw">_</span>| (ConsensusError::InvalidJustification, <span class="number">0</span>))<span class="question-mark">?</span>;
-	verify_with_validator_set::&lt;Block&gt;(target_number, validator_set, <span class="kw-2">&amp;</span>proof).map(|<span class="kw">_</span>| proof)
+	verify_with_validator_set::&lt;Block&gt;(target_number, validator_set, <span class="kw-2">&amp;</span>proof)<span class="question-mark">?</span>;
+	<span class="prelude-val">Ok</span>(proof)
 }
 
 <span class="doccomment">/// Verify the Beefy finality proof against the validator set at the block it was generated.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_with_validator_set&lt;Block: BlockT&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_with_validator_set&lt;<span class="lifetime">'a</span>, Block: BlockT&gt;(
 	target_number: NumberFor&lt;Block&gt;,
-	validator_set: <span class="kw-2">&amp;</span>ValidatorSet&lt;AuthorityId&gt;,
-	proof: <span class="kw-2">&amp;</span>BeefyVersionedFinalityProof&lt;Block&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), (ConsensusError, u32)&gt; {
-	<span class="kw">let </span><span class="kw-2">mut </span>signatures_checked = <span class="number">0u32</span>;
+	validator_set: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ValidatorSet&lt;AuthorityId&gt;,
+	proof: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>BeefyVersionedFinalityProof&lt;Block&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;KnownSignature&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthorityId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Signature&gt;&gt;, (ConsensusError, u32)&gt; {
 	<span class="kw">match </span>proof {
 		VersionedFinalityProof::V1(signed_commitment) =&gt; {
-			<span class="kw">if </span>signed_commitment.signatures.len() != validator_set.len() ||
-				signed_commitment.commitment.validator_set_id != validator_set.id() ||
-				signed_commitment.commitment.block_number != target_number
-			{
-				<span class="kw">return </span><span class="prelude-val">Err</span>((ConsensusError::InvalidJustification, <span class="number">0</span>))
-			}
+			<span class="kw">let </span>signatories = signed_commitment
+				.verify_signatures::&lt;<span class="kw">_</span>, BeefySignatureHasher&gt;(target_number, validator_set)
+				.map_err(|checked_signatures| {
+					(ConsensusError::InvalidJustification, checked_signatures)
+				})<span class="question-mark">?</span>;
 
-			<span class="comment">// Arrangement of signatures in the commitment should be in the same order
-			// as validators for that set.
-			</span><span class="kw">let </span>message = signed_commitment.commitment.encode();
-			<span class="kw">let </span>valid_signatures = validator_set
-				.validators()
-				.into_iter()
-				.zip(signed_commitment.signatures.iter())
-				.filter(|(id, signature)| {
-					signature
-						.as_ref()
-						.map(|sig| {
-							signatures_checked += <span class="number">1</span>;
-							BeefyKeystore::verify(<span class="kw-2">*</span>id, sig, <span class="kw-2">&amp;</span>message[..])
-						})
-						.unwrap_or(<span class="bool-val">false</span>)
-				})
-				.count();
-			<span class="kw">if </span>valid_signatures &gt;= <span class="kw">crate</span>::round::threshold(validator_set.len()) {
-				<span class="prelude-val">Ok</span>(())
+			<span class="kw">if </span>signatories.len() &gt;= <span class="kw">crate</span>::round::threshold(validator_set.len()) {
+				<span class="prelude-val">Ok</span>(signatories)
 			} <span class="kw">else </span>{
-				<span class="prelude-val">Err</span>((ConsensusError::InvalidJustification, signatures_checked))
+				<span class="prelude-val">Err</span>((
+					ConsensusError::InvalidJustification,
+					signed_commitment.signature_count() <span class="kw">as </span>u32,
+				))
 			}
 		},
 	}
@@ -444,6 +413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
+	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>sp_consensus_beefy::{
 		known_payloads, test_utils::Keyring, Commitment, Payload, SignedCommitment,
 		VersionedFinalityProof,
