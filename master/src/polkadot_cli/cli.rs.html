@@ -299,6 +299,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -432,6 +449,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[arg(long, value_name = <span class="string">"PATH"</span>)]
 	</span><span class="kw">pub </span>workers_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
+	<span class="doccomment">/// Override the maximum number of pvf execute workers.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>execute_workers_max_num: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+	<span class="doccomment">/// Override the maximum number of pvf workers that can be spawned in the pvf prepare
+	/// pool for tasks with the priority below critical.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>prepare_workers_soft_max_num: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+	<span class="doccomment">/// Override the absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>prepare_workers_hard_max_num: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 	<span class="doccomment">/// TESTING ONLY: disable the version check between nodes and workers.
 	</span><span class="attr">#[arg(long, hide = <span class="bool-val">true</span>)]
 	</span><span class="kw">pub </span>disable_worker_version_check: bool,

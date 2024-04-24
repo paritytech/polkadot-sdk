@@ -287,6 +287,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -386,6 +389,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						overseer_message_channel_capacity_override: <span class="prelude-val">None</span>,
 						malus_finality_delay: <span class="prelude-val">None</span>,
 						hwbench: <span class="prelude-val">None</span>,
+						execute_workers_max_num: <span class="prelude-val">None</span>,
+						prepare_workers_hard_max_num: <span class="prelude-val">None</span>,
+						prepare_workers_soft_max_num: <span class="prelude-val">None</span>,
 					},
 				)
 				.map_err(|e| e.to_string())<span class="question-mark">?</span>;

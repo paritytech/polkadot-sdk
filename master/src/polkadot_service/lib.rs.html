@@ -1641,6 +1641,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1490" id="1490">1490</a>
 <a href="#1491" id="1491">1491</a>
 <a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2286,6 +2306,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>workers_path: <span class="prelude-ty">Option</span>&lt;std::path::PathBuf&gt;,
 	<span class="doccomment">/// Optional custom names for the prepare and execute workers.
 	</span><span class="kw">pub </span>workers_names: <span class="prelude-ty">Option</span>&lt;(String, String)&gt;,
+	<span class="doccomment">/// An optional number of the maximum number of pvf execute workers.
+	</span><span class="kw">pub </span>execute_workers_max_num: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+	<span class="doccomment">/// An optional maximum number of pvf workers that can be spawned in the pvf prepare pool for
+	/// tasks with the priority below critical.
+	</span><span class="kw">pub </span>prepare_workers_soft_max_num: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+	<span class="doccomment">/// An optional absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	</span><span class="kw">pub </span>prepare_workers_hard_max_num: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 	<span class="kw">pub </span>overseer_gen: OverseerGenerator,
 	<span class="kw">pub </span>overseer_message_channel_capacity_override: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 	<span class="attr">#[allow(dead_code)]
@@ -2381,6 +2408,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		overseer_message_channel_capacity_override,
 		malus_finality_delay: _malus_finality_delay,
 		hwbench,
+		execute_workers_max_num,
+		prepare_workers_soft_max_num,
+		prepare_workers_hard_max_num,
 	}: NewFullParams&lt;OverseerGenerator&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NewFull, Error&gt; {
 	<span class="kw">use </span>polkadot_node_network_protocol::request_response::IncomingRequest;
@@ -2586,6 +2616,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				secure_validator_mode,
 				prep_worker_path,
 				exec_worker_path,
+				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or_else(
+					|| <span class="kw">match </span>config.chain_spec.identify_chain() {
+						<span class="comment">// The intention is to use this logic for gradual increasing from 2 to 4
+						// of this configuration chain by chain untill it reaches production chain.
+						</span>Chain::Polkadot | Chain::Kusama =&gt; <span class="number">2</span>,
+						Chain::Rococo | Chain::Westend | Chain::Unknown =&gt; <span class="number">4</span>,
+					},
+				),
+				pvf_prepare_workers_soft_max_num: prepare_workers_soft_max_num.unwrap_or(<span class="number">1</span>),
+				pvf_prepare_workers_hard_max_num: prepare_workers_hard_max_num.unwrap_or(<span class="number">2</span>),
 			})
 		} <span class="kw">else </span>{
 			<span class="prelude-val">None

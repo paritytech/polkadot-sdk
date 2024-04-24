@@ -1141,6 +1141,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#990" id="990">990</a>
 <a href="#991" id="991">991</a>
 <a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1243,6 +1256,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>prep_worker_path: PathBuf,
 	<span class="doccomment">/// Path to the execution worker binary
 	</span><span class="kw">pub </span>exec_worker_path: PathBuf,
+	<span class="doccomment">/// The maximum number of pvf execution workers.
+	</span><span class="kw">pub </span>pvf_execute_workers_max_num: usize,
+	<span class="doccomment">/// The maximum number of pvf workers that can be spawned in the pvf prepare pool for tasks
+	/// with the priority below critical.
+	</span><span class="kw">pub </span>pvf_prepare_workers_soft_max_num: usize,
+	<span class="doccomment">/// The absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	</span><span class="kw">pub </span>pvf_prepare_workers_hard_max_num: usize,
 }
 
 <span class="doccomment">/// The candidate validation subsystem.
@@ -1367,6 +1387,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		secure_validator_mode,
 		prep_worker_path,
 		exec_worker_path,
+		pvf_execute_workers_max_num,
+		pvf_prepare_workers_soft_max_num,
+		pvf_prepare_workers_hard_max_num,
 	}: Config,
 ) -&gt; SubsystemResult&lt;()&gt; {
 	<span class="kw">let </span>(validation_host, task) = polkadot_node_core_pvf::start(
@@ -1376,6 +1399,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			secure_validator_mode,
 			prep_worker_path,
 			exec_worker_path,
+			pvf_execute_workers_max_num,
+			pvf_prepare_workers_soft_max_num,
+			pvf_prepare_workers_hard_max_num,
 		),
 		pvf_metrics,
 	)
