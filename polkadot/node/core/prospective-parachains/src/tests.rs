@@ -350,12 +350,32 @@ async fn introduce_seconded_candidate(
 		candidate_receipt: candidate,
 		persisted_validation_data: pvd,
 	};
-	let (tx, _) = oneshot::channel();
+	let (tx, rx) = oneshot::channel();
 	virtual_overseer
 		.send(overseer::FromOrchestra::Communication {
 			msg: ProspectiveParachainsMessage::IntroduceSecondedCandidate(req, tx),
 		})
 		.await;
+	assert!(rx.await.unwrap());
+}
+
+async fn introduce_seconded_candidate_failed(
+	virtual_overseer: &mut VirtualOverseer,
+	candidate: CommittedCandidateReceipt,
+	pvd: PersistedValidationData,
+) {
+	let req = IntroduceSecondedCandidateRequest {
+		candidate_para: candidate.descriptor().para_id,
+		candidate_receipt: candidate,
+		persisted_validation_data: pvd,
+	};
+	let (tx, rx) = oneshot::channel();
+	virtual_overseer
+		.send(overseer::FromOrchestra::Communication {
+			msg: ProspectiveParachainsMessage::IntroduceSecondedCandidate(req, tx),
+		})
+		.await;
+	assert!(!rx.await.unwrap());
 }
 
 async fn back_candidate(
@@ -398,8 +418,7 @@ async fn get_hypothetical_membership(
 	candidate_hash: CandidateHash,
 	receipt: CommittedCandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
-	fragment_chain_relay_parent: Hash,
-	expected_membership: bool,
+	expected_membership: Vec<Hash>,
 ) {
 	let hypothetical_candidate = HypotheticalCandidate::Complete {
 		candidate_hash,
@@ -408,7 +427,7 @@ async fn get_hypothetical_membership(
 	};
 	let request = HypotheticalMembershipRequest {
 		candidates: vec![hypothetical_candidate.clone()],
-		fragment_chain_relay_parent: Some(fragment_chain_relay_parent),
+		fragment_chain_relay_parent: None,
 	};
 	let (tx, rx) = oneshot::channel();
 	virtual_overseer
@@ -416,12 +435,14 @@ async fn get_hypothetical_membership(
 			msg: ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx),
 		})
 		.await;
-	let resp = rx.await.unwrap();
-	if expected_membership {
-		assert_eq!(resp, vec![(hypothetical_candidate, vec![fragment_chain_relay_parent])]);
-	} else {
-		assert_eq!(resp, vec![(hypothetical_candidate, vec![])]);
-	}
+	let mut resp = rx.await.unwrap();
+	assert_eq!(resp.len(), 1);
+	let (candidate, membership) = resp.remove(0);
+	assert_eq!(candidate, hypothetical_candidate);
+	assert_eq!(
+		membership.into_iter().collect::<HashSet<_>>(),
+		expected_membership.into_iter().collect::<HashSet<_>>()
+	);
 }
 
 async fn get_pvd(
@@ -1389,18 +1410,42 @@ fn check_backable_query_multiple_candidates() {
 fn check_hypothetical_membership_query() {
 	let test_state = TestState::default();
 	let view = test_harness(|mut virtual_overseer| async move {
-		// Leaf A
-		let leaf_a = TestLeaf {
-			number: 100,
-			hash: Hash::from_low_u64_be(130),
+		// Leaf B
+		let leaf_b = TestLeaf {
+			number: 101,
+			hash: Hash::from_low_u64_be(131),
 			para_data: vec![
 				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
 				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
 			],
 		};
+		// Leaf A
+		let leaf_a = TestLeaf {
+			number: 100,
+			hash: get_parent_hash(leaf_b.hash),
+			para_data: vec![
+				(1.into(), PerParaData::new(98, HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+			],
+		};
 
 		// Activate leaves.
-		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
+		activate_leaf_with_params(
+			&mut virtual_overseer,
+			&leaf_a,
+			&test_state,
+			AsyncBackingParams { allowed_ancestry_len: 3, max_candidate_depth: 1 },
+		)
+		.await;
+		activate_leaf_with_params(
+			&mut virtual_overseer,
+			&leaf_b,
+			&test_state,
+			AsyncBackingParams { allowed_ancestry_len: 3, max_candidate_depth: 1 },
+		)
+		.await;
+
+		// Candidates will be valid on both leaves.
 
 		// Candidate A.
 		let (candidate_a, pvd_a) = make_candidate(
@@ -1411,7 +1456,6 @@ fn check_hypothetical_membership_query() {
 			HeadData(vec![1]),
 			test_state.validation_code_hash,
 		);
-		let candidate_hash_a = candidate_a.hash();
 
 		// Candidate B.
 		let (candidate_b, pvd_b) = make_candidate(
@@ -1422,7 +1466,6 @@ fn check_hypothetical_membership_query() {
 			HeadData(vec![2]),
 			test_state.validation_code_hash,
 		);
-		let candidate_hash_b = candidate_b.hash();
 
 		// Candidate C.
 		let (candidate_c, pvd_c) = make_candidate(
@@ -1433,91 +1476,99 @@ fn check_hypothetical_membership_query() {
 			HeadData(vec![3]),
 			test_state.validation_code_hash,
 		);
-		let candidate_hash_c = candidate_c.hash();
 
-		// Get hypothetical frontier of candidate A before adding it.
-		get_hypothetical_membership(
-			&mut virtual_overseer,
-			candidate_hash_a,
-			candidate_a.clone(),
-			pvd_a.clone(),
-			leaf_a.hash,
-			true,
-		)
-		.await;
+		// Get hypothetical membership of candidates before adding candidate A.
+		// Candidate A can be added directly, candidates B and C are potential candidates.
+		for (candidate, pvd) in [
+			(candidate_a.clone(), pvd_a.clone()),
+			(candidate_b.clone(), pvd_b.clone()),
+			(candidate_c.clone(), pvd_c.clone()),
+		] {
+			get_hypothetical_membership(
+				&mut virtual_overseer,
+				candidate.hash(),
+				candidate,
+				pvd,
+				vec![leaf_a.hash, leaf_b.hash],
+			)
+			.await;
+		}
 
 		// Add candidate A.
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
 			.await;
 
-		// Get frontier of candidate A after adding it.
+		// Get membership of candidates after adding A. C is not a potential candidate because we
+		// may only add one more candidate, which must be a connected candidate.
+		for (candidate, pvd) in
+			[(candidate_a.clone(), pvd_a.clone()), (candidate_b.clone(), pvd_b.clone())]
+		{
+			get_hypothetical_membership(
+				&mut virtual_overseer,
+				candidate.hash(),
+				candidate,
+				pvd,
+				vec![leaf_a.hash, leaf_b.hash],
+			)
+			.await;
+		}
+
 		get_hypothetical_membership(
 			&mut virtual_overseer,
-			candidate_hash_a,
-			candidate_a.clone(),
-			pvd_a.clone(),
-			leaf_a.hash,
-			true,
+			candidate_c.hash(),
+			candidate_c.clone(),
+			pvd_c.clone(),
+			vec![],
 		)
 		.await;
 
-		// Get hypothetical frontier of candidate B before adding it.
-		get_hypothetical_membership(
-			&mut virtual_overseer,
-			candidate_hash_b,
-			candidate_b.clone(),
-			pvd_b.clone(),
-			leaf_a.hash,
-			true,
-		)
-		.await;
+		// Candidate D has invalid relay parent.
+		let (candidate_d, pvd_d) = make_candidate(
+			Hash::from_low_u64_be(200),
+			leaf_a.number,
+			1.into(),
+			HeadData(vec![1]),
+			HeadData(vec![2]),
+			test_state.validation_code_hash,
+		);
+		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_d, pvd_d).await;
 
 		// Add candidate B.
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
 			.await;
 
-		// Get frontier of candidate B after adding it.
-		get_hypothetical_membership(
-			&mut virtual_overseer,
-			candidate_hash_b,
-			candidate_b,
-			pvd_b.clone(),
-			leaf_a.hash,
-			true,
-		)
-		.await;
-
-		// Get hypothetical frontier of candidate C before adding it.
-		get_hypothetical_membership(
-			&mut virtual_overseer,
-			candidate_hash_c,
-			candidate_c.clone(),
-			pvd_c.clone(),
-			leaf_a.hash,
-			true,
-		)
-		.await;
-
-		// Add candidate C.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c.clone())
+		// Get membership of candidates after adding B.
+		for (candidate, pvd) in
+			[(candidate_a.clone(), pvd_a.clone()), (candidate_b.clone(), pvd_b.clone())]
+		{
+			get_hypothetical_membership(
+				&mut virtual_overseer,
+				candidate.hash(),
+				candidate,
+				pvd,
+				vec![leaf_a.hash, leaf_b.hash],
+			)
 			.await;
+		}
 
-		// Get frontier of candidate C after adding it.
 		get_hypothetical_membership(
 			&mut virtual_overseer,
-			candidate_hash_c,
+			candidate_c.hash(),
 			candidate_c.clone(),
 			pvd_c.clone(),
-			leaf_a.hash,
-			true,
+			vec![],
 		)
 		.await;
+
+		// Add candidate C. It will fail because we have enough candidates for the configured depth.
+		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_c, pvd_c).await;
 
 		virtual_overseer
 	});
 
-	assert_eq!(view.active_leaves.len(), 1);
+	assert_eq!(view.active_leaves.len(), 2);
 	assert_eq!(view.candidate_storage.len(), 2);
+	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (2, 2));
 }
 
 #[test]
