@@ -19,7 +19,7 @@
 //! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
 use super::*;
-use sp_staking::{DelegationInterface, OnStakingUpdate};
+use sp_staking::{DelegationInterface, DelegationMigrator, OnStakingUpdate};
 
 impl<T: Config> DelegationInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
@@ -69,13 +69,13 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		delegator: &Self::AccountId,
 		agent: &Self::AccountId,
 		amount: Self::Balance,
+		num_slashing_spans: u32,
 	) -> DispatchResult {
-		// fixme(ank4n): Can this not require slashing spans?
 		Pallet::<T>::release_delegation(
 			RawOrigin::Signed(agent.clone()).into(),
 			delegator.clone(),
 			amount,
-			0,
+			num_slashing_spans,
 		)
 	}
 
@@ -94,6 +94,11 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	) -> sp_runtime::DispatchResult {
 		Pallet::<T>::do_slash(agent.clone(), delegator.clone(), value, maybe_reporter)
 	}
+}
+
+impl<T: Config> DelegationMigrator for Pallet<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
 
 	fn migrate_nominator_to_agent(
 		agent: &Self::AccountId,

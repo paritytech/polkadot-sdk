@@ -517,6 +517,7 @@ pub trait DelegationInterface {
 		delegator: &Self::AccountId,
 		agent: &Self::AccountId,
 		amount: Self::Balance,
+		num_slashing_spans: u32,
 	) -> DispatchResult;
 
 	/// Returns true if there are pending slashes posted to the `Agent` account.
@@ -533,7 +534,25 @@ pub trait DelegationInterface {
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
-	) -> sp_runtime::DispatchResult;
+	) -> DispatchResult;
+}
+
+/// Trait to provide functionality for direct stakers to migrate to delegation agents.
+/// See [`DelegationInterface`] for more details on delegation.
+pub trait DelegationMigrator {
+	/// Balance type used by the staking system.
+	type Balance: Sub<Output = Self::Balance>
+		+ Ord
+		+ PartialEq
+		+ Default
+		+ Copy
+		+ MaxEncodedLen
+		+ FullCodec
+		+ TypeInfo
+		+ Saturating;
+
+	/// AccountId type used by the staking system.
+	type AccountId: Clone + core::fmt::Debug;
 
 	/// Migrate an existing `Nominator` to `Agent` account.
 	///
