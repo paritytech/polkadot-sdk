@@ -140,25 +140,27 @@ pub mod v1 {
 }
 
 pub mod v2 {
-	use frame_support::{migrations::VersionedMigration, weights::Weight};
+	use frame_support::{
+		migrations::VersionedMigration, traits::UncheckedOnRuntimeUpgrade, weights::Weight,
+	};
 
 	use super::*;
 
 	/// Run migration from v1 to v2: basically writes version 2 into storage.
 	pub type MigrateV1ToV2<T, I = ()> = VersionedMigration<
-		1,
-		2,
-		InnerMigrateV1ToV2VersionNotPut<T, I>,
+		1u16,
+		2u16,
+		UncheckedMigrationV1toV2<T, I>,
 		crate::Pallet<T, I>,
 		<T as frame_system::Config>::DbWeight,
 	>;
 
-	/// Inner implementation of the migration.
+	/// Inner implementation of the migration without version check.
 	///
 	/// Warning: This doesn't write the version 2 into storage. Use `MigrateV1ToV2` for that.
-	pub struct InnerMigrateV1ToV2VersionNotPut<T, I = ()>(core::marker::PhantomData<(T, I)>);
+	pub struct UncheckedMigrationV1toV2<T, I = ()>(core::marker::PhantomData<(T, I)>);
 
-	impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for InnerMigrateV1ToV2VersionNotPut<T, I> {
+	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrationV1toV2<T, I> {
 		fn on_runtime_upgrade() -> Weight {
 			Weight::zero()
 		}
