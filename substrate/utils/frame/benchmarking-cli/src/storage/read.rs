@@ -40,9 +40,15 @@ impl StorageCmd {
 		let best_hash = client.usage_info().chain.best_hash;
 
 		info!("Preparing keys from block {}", best_hash);
-		// Load all keys and randomly shuffle them.
-		let mut keys: Vec<_> = client.storage_keys(best_hash, None, None)?.collect();
-		let (mut rng, _) = new_rng(None);
+		// Load keys and randomly shuffle them.
+		let mut keys: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
+			use  sp_core::blake2_256;
+			let first_key = self.params.random_seed.map(|seed| sp_storage::StorageKey(blake2_256(&seed.to_be_bytes()[..]).to_vec()));
+			client.storage_keys(best_hash, None, first_key.as_ref())?.take(keys_limit).collect()
+		} else {
+			client.storage_keys(best_hash, None, None)?.collect()
+		};
+		let (mut rng, _) = new_rng(self.params.random_seed);
 		keys.shuffle(&mut rng);
 
 		let mut child_nodes = Vec::new();
