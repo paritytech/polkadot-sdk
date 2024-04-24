@@ -1002,6 +1002,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#851" id="851">851</a>
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1078,9 +1080,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AccountId, AssetIdForTrustBackedAssets, Signature,
 };
 <span class="kw">use </span>xcm_builder::{
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AsPrefixedGeneralIndex, ConvertedConcreteId,
-	FrameTransactionalProcessor, FungiblesAdapter, LocalMint, TrailingSetTopicAsId,
-	WithUniqueTopic,
+	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, FrameTransactionalProcessor, FungiblesAdapter,
+	LocalMint, TrailingSetTopicAsId, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::traits::JustTry;
 
@@ -1448,6 +1450,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>AllowKnownQueryResponses&lt;PolkadotXcm&gt;,
 	<span class="comment">// Subscriptions for version tracking are OK.
 	</span>AllowSubscriptionsFrom&lt;Everything&gt;,
+	<span class="comment">// HRMP notifications from the relay chain are OK.
+	</span>AllowHrmpNotificationsFromRelayChain,
 )&gt;;
 
 <span class="macro">parameter_types! </span>{
