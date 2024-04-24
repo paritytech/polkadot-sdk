@@ -23,7 +23,7 @@ sp-tracing = { version = "13.0.0", path = "../../../substrate/primitives/tracing
 pallet-balances = { version = "24.0.0", path = "../../../substrate/frame/balances" }
 pallet-message-queue = { version = "27.0.0", path = "../../../substrate/frame/message-queue" }
 cumulus-primitives-core = { version = "0.3.0", path = "../../primitives/core" }
-cumulus-pallet-parachain-system = { version = "0.3.0", path = "../../pallets/parachain-system" }
+cumulus-pallet-parachain-system = { version = "0.3.1", path = "../../pallets/parachain-system" }
 cumulus-primitives-parachain-inherent = { version = "0.3.0", path = "../../primitives/parachain-inherent" }
 cumulus-test-relay-sproof-builder = { version = "0.3.0", path = "../../test/relay-sproof-builder" }
 parachains-common = { version = "3.0.0", path = "../../parachains/common" }

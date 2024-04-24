@@ -53,7 +53,7 @@ bridge-hub-rococo-runtime = { version = "0.2.0", path = "../../../runtimes/bridg
 xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false, version = "0.1.0" }
 cumulus-pallet-dmp-queue = { version = "0.3.0", path = "../../../../pallets/dmp-queue" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.3.0" }
-cumulus-pallet-parachain-system = { version = "0.3.0", path = "../../../../pallets/parachain-system" }
+cumulus-pallet-parachain-system = { version = "0.3.1", path = "../../../../pallets/parachain-system" }
 bp-messages = { version = "0.3.0", path = "../../../../../bridges/primitives/messages" }
 pallet-bridge-messages = { version = "0.3.0", path = "../../../../../bridges/modules/messages" }
 bridge-runtime-common = { version = "0.3.0", path = "../../../../../bridges/bin/runtime-common" }

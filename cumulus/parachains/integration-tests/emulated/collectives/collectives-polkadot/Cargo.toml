@@ -28,7 +28,7 @@ xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", defaul
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "3.0.0" }
 parachains-common = { version = "3.0.0", path = "../../../../common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false, version = "0.3.0" }
-cumulus-pallet-parachain-system = { version = "0.3.0", path = "../../../../../pallets/parachain-system" }
+cumulus-pallet-parachain-system = { version = "0.3.1", path = "../../../../../pallets/parachain-system" }
 collectives-polkadot-runtime = { version = "3.0.0", path = "../../../../runtimes/collectives/collectives-polkadot" }
 
 # Local
