@@ -117,7 +117,7 @@ pub trait Offence<Offender> {
 /// Errors that may happen on offence reports.
 #[derive(PartialEq, sp_runtime::RuntimeDebug)]
 pub enum OffenceError {
-	/// The report has already been sumbmitted.
+	/// The report has already been submitted.
 	DuplicateReport,
 
 	/// Other error has happened.

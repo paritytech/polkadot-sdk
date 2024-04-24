@@ -2,7 +2,7 @@ error[E0277]: the trait bound `<T as frame_support_test::Config>::RuntimeOrigin:
   --> tests/benchmark_ui/invalid_origin.rs:23:1
    |
 23 | #[benchmarks]
-   | ^^^^^^^^^^^^^ the trait `From<{integer}>` is not implemented for `<T as frame_support_test::Config>::RuntimeOrigin`
+   | ^^^^^^^^^^^^^ the trait `From<{integer}>` is not implemented for `<T as frame_support_test::Config>::RuntimeOrigin`, which is required by `{integer}: Into<_>`
    |
    = note: required for `{integer}` to implement `Into<<T as frame_support_test::Config>::RuntimeOrigin>`
    = note: this error originates in the attribute macro `benchmarks` (in Nightly builds, run with -Z macro-backtrace for more info)

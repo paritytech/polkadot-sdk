@@ -283,7 +283,7 @@ pub mod pallet {
 	pub type Members<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
-	/// The prime member that helps determine the default vote behavior in case of absentations.
+	/// The prime member that helps determine the default vote behavior in case of abstentions.
 	#[pallet::storage]
 	pub type Prime<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
 

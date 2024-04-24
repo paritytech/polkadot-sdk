@@ -22,7 +22,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = [
+scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 ] }
 frame-metadata = { version = "16.0.0", default-features = false, features = [
@@ -58,7 +58,7 @@ k256 = { version = "0.13.1", default-features = false, features = ["ecdsa"] }
 environmental = { version = "1.1.4", default-features = false }
 sp-genesis-builder = { path = "../../primitives/genesis-builder", default-features = false }
 serde_json = { features = ["alloc"], workspace = true }
-docify = "0.2.7"
+docify = "0.2.8"
 static_assertions = "1.1.0"
 
 aquamarine = { version = "0.5.0" }

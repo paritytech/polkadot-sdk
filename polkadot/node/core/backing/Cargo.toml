@@ -10,7 +10,7 @@ description = "The Candidate Backing Subsystem. Tracks parachain candidates that
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
@@ -30,7 +30,7 @@ sp-application-crypto = { path = "../../../../substrate/primitives/application-c
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sc-keystore = { path = "../../../../substrate/client/keystore" }
 sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-futures = { version = "0.3.21", features = ["thread-pool"] }
+futures = { version = "0.3.30", features = ["thread-pool"] }
 assert_matches = "1.4.0"
 rstest = "0.18.2"
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }

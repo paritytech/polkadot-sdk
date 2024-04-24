@@ -26,7 +26,7 @@ polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common
 
 # Cumulus
 asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
-parachains-common = { path = "../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../common" }
 people-rococo-runtime = { path = "../../../../../runtimes/people/people-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 rococo-system-emulated-network = { path = "../../../networks/rococo-system" }
