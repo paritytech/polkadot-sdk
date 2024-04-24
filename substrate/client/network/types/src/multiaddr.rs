@@ -63,6 +63,11 @@ impl Multiaddr {
 	pub fn iter(&self) -> Iter<'_> {
 		self.multiaddr.iter().into()
 	}
+
+	/// Return a copy of this [`Multiaddr`]'s byte representation.
+	pub fn to_vec(&self) -> Vec<u8> {
+		self.multiaddr.to_vec()
+	}
 }
 
 impl Display for Multiaddr {
@@ -96,31 +101,53 @@ impl From<Multiaddr> for LiteP2pMultiaddr {
 	}
 }
 
+impl TryFrom<Vec<u8>> for Multiaddr {
+	// TODO: extend `ParseError` variants to cover conversion from bytes.
+	type Error = ParseError;
+
+	fn try_from(v: Vec<u8>) -> Result<Self, ParseError> {
+		let multiaddr = LiteP2pMultiaddr::try_from(v)?;
+		Ok(Self { multiaddr })
+	}
+}
+
 /// Error when parsing a [`Multiaddr`] from string.
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
+	/// Less data provided than indicated by length.
+	#[error("less data than indicated by length")]
+	DataLessThanLen,
 	/// Invalid multiaddress.
 	#[error("invalid multiaddress")]
 	InvalidMultiaddr,
 	/// Invalid protocol specification.
 	#[error("invalid protocol string")]
 	InvalidProtocolString,
-	/// Unknown protocol identifier.
+	/// Unknown protocol string identifier.
 	#[error("unknown protocol '{0}'")]
-	UnknownProtocol(String),
+	UnknownProtocolString(String),
+	/// Unknown protocol numeric id.
+	#[error("unknown protocol id {0}")]
+	UnknownProtocolId(u32),
+	/// Failed to decode unsigned varint.
+	#[error("failed to decode unsigned varint: {0}")]
+	InvalidUvar(Box<dyn std::error::Error + Send + Sync>),
 	/// Other error emitted when parsing into the wrapped type.
-	/// Never generated as of multiaddr-0.17.0.
 	#[error("multiaddr parsing error: {0}")]
-	Other(Box<dyn std::error::Error + Send + Sync>),
+	ParsingError(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl From<LiteP2pError> for ParseError {
 	fn from(error: LiteP2pError) -> Self {
 		match error {
+			LiteP2pError::DataLessThanLen => ParseError::DataLessThanLen,
 			LiteP2pError::InvalidMultiaddr => ParseError::InvalidMultiaddr,
 			LiteP2pError::InvalidProtocolString => ParseError::InvalidProtocolString,
-			LiteP2pError::UnknownProtocolString(s) => ParseError::UnknownProtocol(s),
-			error @ _ => ParseError::Other(Box::new(error)),
+			LiteP2pError::UnknownProtocolString(s) => ParseError::UnknownProtocolString(s),
+			LiteP2pError::UnknownProtocolId(n) => ParseError::UnknownProtocolId(n),
+			LiteP2pError::InvalidUvar(e) => ParseError::InvalidUvar(Box::new(e)),
+			LiteP2pError::ParsingError(e) => ParseError::ParsingError(e),
+			error @ _ => ParseError::ParsingError(Box::new(error)),
 		}
 	}
 }

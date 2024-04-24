@@ -20,8 +20,7 @@
 //! multihash used by litep2p, but it can be switched to other implementation if needed.
 
 use litep2p::types::multihash::{
-	Code as LiteP2pCode, Error as LiteP2pError, Multihash as LiteP2pMultihash,
-	MultihashDigest as LiteP2pDigest,
+	Code as LiteP2pCode, Error as LiteP2pError, Multihash as LiteP2pMultihash, MultihashDigest as _,
 };
 use std::fmt::{self, Debug};
 
