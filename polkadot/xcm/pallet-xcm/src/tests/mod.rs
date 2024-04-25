@@ -1264,18 +1264,18 @@ fn record_xcm_works() {
 		assert_eq!(RecordedXcm::<Test>::get(), None);
 
 		// By default the message won't be recorded.
-		assert_ok!(XcmPallet::execute_blob(
+		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
-			VersionedXcm::from(message.clone()).encode().try_into().unwrap(),
+			Box::new(VersionedXcm::from(message.clone())),
 			BaseXcmWeight::get() * 3,
 		));
 		assert_eq!(RecordedXcm::<Test>::get(), None);
 
 		// We explicitly set the record flag to true so we record the XCM.
 		ShouldRecordXcm::<Test>::put(true);
-		assert_ok!(XcmPallet::execute_blob(
+		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
-			VersionedXcm::from(message.clone()).encode().try_into().unwrap(),
+			Box::new(VersionedXcm::from(message.clone())),
 			BaseXcmWeight::get() * 3,
 		));
 		assert_eq!(RecordedXcm::<Test>::get(), Some(message.into()));
