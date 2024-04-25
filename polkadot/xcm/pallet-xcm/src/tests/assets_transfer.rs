@@ -1550,7 +1550,7 @@ fn local_asset_reserve_and_teleported_fee_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return;
+			return
 		}
 
 		let weight = BaseXcmWeight::get() * 3;
