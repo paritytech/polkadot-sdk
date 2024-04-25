@@ -650,7 +650,7 @@ impl<T: frame_system::Config> pallet_nomination_pools::WeightInfo for WeightInfo
 		Weight::default()
 	}
 
-	fn claim_delegation() -> Weight {
+	fn migrate_delegation() -> Weight {
 		// will be updated by bench bot
 		Weight::default()
 	}
