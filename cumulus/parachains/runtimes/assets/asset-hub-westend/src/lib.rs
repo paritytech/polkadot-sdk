@@ -98,7 +98,10 @@ use xcm::latest::prelude::{
 	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
-use xcm_fee_payment_runtime_api::fees::Error as XcmPaymentApiError;
+use xcm_fee_payment_runtime_api::{
+	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
+};
 
 use crate::xcm_config::ForeignCreatorsSovereignAccountOf;
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -1342,6 +1345,64 @@ impl_runtime_apis! {
 
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
 			PolkadotXcm::query_delivery_fees(destination, message)
+		}
+	}
+
+	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for Runtime {
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			use xcm_builder::InspectMessageQueues;
+			pallet_xcm::ShouldRecordXcm::<Runtime>::put(true);
+			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
+					"Applying extrinsic failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::InvalidExtrinsic
+			})?;
+			let local_xcm = pallet_xcm::RecordedXcm::<Runtime>::get().unwrap_or(Xcm(Vec::new()));
+			let forwarded_messages = xcm_config::XcmRouter::get_messages();
+			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
+			Ok(ExtrinsicDryRunEffects {
+				local_program: VersionedXcm::<()>::V4(local_xcm),
+				forwarded_messages,
+				emitted_events: events,
+				execution_result: result,
+			})
+		}
+
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			let origin_location: Location = origin_location.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Location version conversion failed with error: {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+			let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Xcm version conversion failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let result = XcmExecutor::<XcmConfig>::prepare_and_execute(
+				origin_location,
+				xcm,
+				&mut hash,
+				max_weight,
+				Weight::zero(),
+			);
+			let forwarded_messages = xcm_config::XcmRouter::get_messages();
+			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
+			Ok(XcmDryRunEffects {
+				forwarded_messages,
+				emitted_events: events,
+				execution_result: result,
+			})
 		}
 	}
 

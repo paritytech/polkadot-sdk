@@ -2252,7 +2252,37 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>, weight: Weight) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			todo!()
+			let origin_location: Location = origin_location.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Location version conversion failed with error: {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+			let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Xcm version conversion failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let result = XcmExecutor::<XcmConfig>::prepare_and_execute(
+				origin_location,
+				xcm,
+				&mut hash,
+				max_weight,
+				Weight::zero(),
+			);
+			let forwarded_messages = xcm_config::XcmRouter::get_messages();
+			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
+			Ok(XcmDryRunEffects {
+				forwarded_messages,
+				emitted_events: events,
+				execution_result: result,
+			})
 		}
 	}
 
