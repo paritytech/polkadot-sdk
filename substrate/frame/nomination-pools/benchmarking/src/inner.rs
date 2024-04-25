@@ -265,8 +265,8 @@ frame_benchmarking::benchmarks! {
 	where_clause {
 		where
 			T: pallet_staking::Config,
-			pallet_staking::BalanceOf<T>: From<u128> + Into<u128>,
-			BalanceOf<T>: From<u128> + Into<u128>,
+			pallet_staking::BalanceOf<T>: From<u128>,
+			BalanceOf<T>: Into<u128>,
 	}
 
 	join {
