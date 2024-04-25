@@ -32,3 +32,8 @@ jobs:
           # This is extracted from the triggering event
           pr-number: ${{ inputs.pr-number || github.event.workflow_run.pull_requests[0].number }}
           request-reviewers: true
+      - name: Log payload
+        if: ${{ failure() || runner.debug }}
+        run: echo "::debug::$payload"
+        env:
+          payload: ${{ toJson(github.event) }}
