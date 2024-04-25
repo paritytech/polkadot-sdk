@@ -14,7 +14,7 @@
 // limitations under the License.
 
 mod fellowship_treasury;
-mod foreign_assets_transfers;
+mod hybrid_transfers;
 mod reserve_transfer;
 mod send;
 mod set_xcm_versions;
