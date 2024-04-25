@@ -182,6 +182,7 @@ pub fn make_complex_relayer_delivery_proofs<MB, InnerXcmRuntimeCall>(
 	message_nonce: MessageNonce,
 	message_destination: Junctions,
 	header_number: BlockNumberOf<MessageBridgedChain<MB>>,
+	is_minimal_call: bool,
 ) -> (
 	HeaderOf<MessageBridgedChain<MB>>,
 	GrandpaJustification<HeaderOf<MessageBridgedChain<MB>>>,
@@ -207,7 +208,7 @@ where
 
 	let (header, justification) = make_complex_bridged_grandpa_header_proof::<
 		MessageBridgedChain<MB>,
-	>(state_root, header_number);
+	>(state_root, header_number, is_minimal_call);
 
 	let message_proof = FromBridgedChainMessagesProof {
 		bridged_header_hash: header.hash(),
@@ -254,8 +255,11 @@ where
 		StorageProofSize::Minimal(0),
 	);
 
-	let (header, justification) =
-		make_complex_bridged_grandpa_header_proof::<MB::BridgedChain>(state_root, header_number);
+	let (header, justification) = make_complex_bridged_grandpa_header_proof::<MB::BridgedChain>(
+		state_root,
+		header_number,
+		false,
+	);
 
 	let message_delivery_proof = FromBridgedChainMessagesDeliveryProof {
 		bridged_header_hash: header.hash(),
@@ -270,6 +274,7 @@ where
 pub fn make_complex_bridged_grandpa_header_proof<BridgedChain>(
 	state_root: HashOf<BridgedChain>,
 	header_number: BlockNumberOf<BridgedChain>,
+	is_minimal_call: bool,
 ) -> (HeaderOf<BridgedChain>, GrandpaJustification<HeaderOf<BridgedChain>>)
 where
 	BridgedChain: ChainWithGrandpa,
@@ -283,7 +288,9 @@ where
 	// `submit_finality_proof` call size would be close to maximal expected (and refundable)
 	let extra_bytes_required = maximal_expected_submit_finality_proof_call_size::<BridgedChain>()
 		.saturating_sub(header.encoded_size());
-	header.digest_mut().push(DigestItem::Other(vec![42; extra_bytes_required]));
+	if !is_minimal_call {
+		header.digest_mut().push(DigestItem::Other(vec![42; extra_bytes_required]));
+	}
 
 	let justification = make_default_justification(&header);
 	(header, justification)

@@ -214,6 +214,7 @@ pub fn make_complex_relayer_delivery_proofs<BridgedRelayChain, MB, InnerXcmRunti
 	para_header_number: u32,
 	relay_header_number: u32,
 	bridged_para_id: u32,
+	is_minimal_call: bool,
 ) -> (
 	HeaderOf<BridgedRelayChain>,
 	GrandpaJustification<HeaderOf<BridgedRelayChain>>,
@@ -247,6 +248,7 @@ where
 			para_header_number,
 			relay_header_number,
 			bridged_para_id,
+			is_minimal_call,
 		);
 
 	let message_proof = FromBridgedChainMessagesProof {
@@ -312,6 +314,7 @@ where
 			para_header_number,
 			relay_header_number,
 			bridged_para_id,
+			false,
 		);
 
 	let message_delivery_proof = FromBridgedChainMessagesDeliveryProof {
@@ -336,6 +339,7 @@ pub fn make_complex_bridged_parachain_heads_proof<BridgedRelayChain, MB>(
 	para_header_number: u32,
 	relay_header_number: BlockNumberOf<BridgedRelayChain>,
 	bridged_para_id: u32,
+	is_minimal_call: bool,
 ) -> (
 	HeaderOf<BridgedRelayChain>,
 	GrandpaJustification<HeaderOf<BridgedRelayChain>>,
@@ -365,9 +369,12 @@ where
 		)]);
 	assert_eq!(bridged_para_head.hash(), parachain_heads[0].1);
 
-	let (relay_chain_header, justification) = make_complex_bridged_grandpa_header_proof::<
-		BridgedRelayChain,
-	>(relay_state_root, relay_header_number);
+	let (relay_chain_header, justification) =
+		make_complex_bridged_grandpa_header_proof::<BridgedRelayChain>(
+			relay_state_root,
+			relay_header_number,
+			is_minimal_call,
+		);
 
 	(relay_chain_header, justification, bridged_para_head, parachain_heads, para_heads_proof)
 }

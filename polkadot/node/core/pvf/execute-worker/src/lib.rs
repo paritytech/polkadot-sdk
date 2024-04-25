@@ -16,6 +16,9 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
+#![deny(unused_crate_dependencies)]
+#![warn(missing_docs)]
+
 pub use polkadot_node_core_pvf_common::{
 	error::ExecuteError, executor_interface::execute_artifact,
 };
@@ -36,11 +39,12 @@ use nix::{
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
+	execute::{Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},
 	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		cpu_time_monitor_loop, pipe2_cloexec, run_worker, stringify_panic_payload,
+		cpu_time_monitor_loop, get_total_cpu_usage, pipe2_cloexec, recv_child_response, run_worker,
+		send_result, stringify_errno, stringify_panic_payload,
 		thread::{self, WaitOutcome},
 		PipeFd, WorkerInfo, WorkerKind,
 	},
@@ -93,8 +97,14 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
 	Ok((params, execution_timeout))
 }
 
-fn send_response(stream: &mut UnixStream, response: WorkerResponse) -> io::Result<()> {
-	framed_send_blocking(stream, &response.encode())
+/// Sends an error to the host and returns the original error wrapped in `io::Error`.
+macro_rules! map_and_send_err {
+	($error:expr, $err_constructor:expr, $stream:expr, $worker_info:expr) => {{
+		let err: WorkerError = $err_constructor($error.to_string()).into();
+		let io_err = io::Error::new(io::ErrorKind::Other, err.to_string());
+		let _ = send_result::<WorkerResponse, WorkerError>($stream, Err(err), $worker_info);
+		io_err
+	}};
 }
 
 /// The entrypoint that the spawned execute worker should start with.
@@ -110,8 +120,6 @@ fn send_response(stream: &mut UnixStream, response: WorkerResponse) -> io::Resul
 ///   check is not necessary.
 ///
 /// - `worker_version`: see above
-///
-/// - `security_status`: contains the detected status of security features.
 pub fn worker_entrypoint(
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
@@ -127,13 +135,28 @@ pub fn worker_entrypoint(
 		|mut stream, worker_info, security_status| {
 			let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
 
-			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
+			let Handshake { executor_params } =
+				recv_execute_handshake(&mut stream).map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::HostCommunication,
+						&mut stream,
+						worker_info
+					)
+				})?;
 
 			let executor_params: Arc<ExecutorParams> = Arc::new(executor_params);
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-				let (params, execution_timeout) = recv_request(&mut stream)?;
+				let (params, execution_timeout) = recv_request(&mut stream).map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::HostCommunication,
+						&mut stream,
+						worker_info
+					)
+				})?;
 				gum::debug!(
 					target: LOG_TARGET,
 					?worker_info,
@@ -143,27 +166,34 @@ pub fn worker_entrypoint(
 				);
 
 				// Get the artifact bytes.
-				let compiled_artifact_blob = match std::fs::read(&artifact_path) {
-					Ok(bytes) => bytes,
-					Err(err) => {
-						let response = WorkerResponse::InternalError(
-							InternalValidationError::CouldNotOpenFile(err.to_string()),
-						);
-						send_response(&mut stream, response)?;
-						continue
-					},
-				};
+				let compiled_artifact_blob = std::fs::read(&artifact_path).map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::CouldNotOpenFile,
+						&mut stream,
+						worker_info
+					)
+				})?;
 
-				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec()?;
+				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::CouldNotCreatePipe,
+						&mut stream,
+						worker_info
+					)
+				})?;
 
-				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
-					Ok(usage) => usage,
-					Err(errno) => {
-						let response = internal_error_from_errno("getrusage before", errno);
-						send_response(&mut stream, response)?;
-						continue
-					},
-				};
+				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
+					.map_err(|errno| {
+						let e = stringify_errno("getrusage before", errno);
+						map_and_send_err!(
+							e,
+							InternalValidationError::Kernel,
+							&mut stream,
+							worker_info
+						)
+					})?;
 				let stream_fd = stream.as_raw_fd();
 
 				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
@@ -222,7 +252,7 @@ pub fn worker_entrypoint(
 					"worker: sending result to host: {:?}",
 					result
 				);
-				send_response(&mut stream, result)?;
+				send_result(&mut stream, result, worker_info)?;
 			}
 		},
 	);
@@ -270,7 +300,7 @@ fn handle_clone(
 	worker_info: &WorkerInfo,
 	have_unshare_newuser: bool,
 	usage_before: Usage,
-) -> io::Result<WorkerResponse> {
+) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	use polkadot_node_core_pvf_common::worker::security;
 
 	// SAFETY: new process is spawned within a single threaded process. This invariant
@@ -301,7 +331,8 @@ fn handle_clone(
 			usage_before,
 			execution_timeout,
 		),
-		Err(security::clone::Error::Clone(errno)) => Ok(internal_error_from_errno("clone", errno)),
+		Err(security::clone::Error::Clone(errno)) =>
+			Ok(Err(internal_error_from_errno("clone", errno))),
 	}
 }
 
@@ -316,7 +347,7 @@ fn handle_fork(
 	execute_worker_stack_size: usize,
 	worker_info: &WorkerInfo,
 	usage_before: Usage,
-) -> io::Result<WorkerResponse> {
+) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	// SAFETY: new process is spawned within a single threaded process. This invariant
 	// is enforced by tests.
 	match unsafe { nix::unistd::fork() } {
@@ -338,7 +369,7 @@ fn handle_fork(
 			usage_before,
 			execution_timeout,
 		),
-		Err(errno) => Ok(internal_error_from_errno("fork", errno)),
+		Err(errno) => Ok(Err(internal_error_from_errno("fork", errno))),
 	}
 }
 
@@ -483,11 +514,11 @@ fn handle_parent_process(
 	job_pid: Pid,
 	usage_before: Usage,
 	timeout: Duration,
-) -> io::Result<WorkerResponse> {
+) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	// the read end will wait until all write ends have been closed,
 	// this drop is necessary to avoid deadlock
 	if let Err(errno) = nix::unistd::close(pipe_write_fd) {
-		return Ok(internal_error_from_errno("closing pipe write fd", errno));
+		return Ok(Err(internal_error_from_errno("closing pipe write fd", errno)));
 	};
 
 	// SAFETY: pipe_read_fd is an open and owned file descriptor at this point.
@@ -512,7 +543,7 @@ fn handle_parent_process(
 
 	let usage_after = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 		Ok(usage) => usage,
-		Err(errno) => return Ok(internal_error_from_errno("getrusage after", errno)),
+		Err(errno) => return Ok(Err(internal_error_from_errno("getrusage after", errno))),
 	};
 
 	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
@@ -530,32 +561,25 @@ fn handle_parent_process(
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		return Ok(WorkerResponse::JobTimedOut)
+		return Ok(Err(WorkerError::JobTimedOut))
 	}
 
 	match status {
 		Ok(WaitStatus::Exited(_, exit_status)) => {
 			let mut reader = io::BufReader::new(received_data.as_slice());
-			let result = match recv_child_response(&mut reader) {
-				Ok(result) => result,
-				Err(err) => return Ok(WorkerResponse::JobError(err.to_string())),
-			};
+			let result = recv_child_response(&mut reader, "execute")?;
 
 			match result {
-				Ok(JobResponse::Ok { result_descriptor }) => {
+				Ok(job_response) => {
 					// The exit status should have been zero if no error occurred.
 					if exit_status != 0 {
-						return Ok(WorkerResponse::JobError(format!(
-							"unexpected exit status: {}",
-							exit_status
-						)))
+						return Ok(Err(WorkerError::JobError(JobError::UnexpectedExitStatus(
+							exit_status,
+						))));
 					}
 
-					Ok(WorkerResponse::Ok { result_descriptor, duration: cpu_tv })
+					Ok(Ok(WorkerResponse { job_response, duration: cpu_tv }))
 				},
-				Ok(JobResponse::InvalidCandidate(err)) => Ok(WorkerResponse::InvalidCandidate(err)),
-				Ok(JobResponse::RuntimeConstruction(err)) =>
-					Ok(WorkerResponse::RuntimeConstruction(err)),
 				Err(job_error) => {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -565,9 +589,9 @@ fn handle_parent_process(
 						job_error,
 					);
 					if matches!(job_error, JobError::TimedOut) {
-						Ok(WorkerResponse::JobTimedOut)
+						Ok(Err(WorkerError::JobTimedOut))
 					} else {
-						Ok(WorkerResponse::JobError(job_error.to_string()))
+						Ok(Err(WorkerError::JobError(job_error.into())))
 					}
 				},
 			}
@@ -576,48 +600,19 @@ fn handle_parent_process(
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
-		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) => Ok(WorkerResponse::JobDied {
+		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) => Ok(Err(WorkerError::JobDied {
 			err: format!("received signal: {signal:?}"),
 			job_pid: job_pid.as_raw(),
-		}),
-		Err(errno) => Ok(internal_error_from_errno("waitpid", errno)),
+		})),
+		Err(errno) => Ok(Err(internal_error_from_errno("waitpid", errno))),
 
 		// It is within an attacker's power to send an unexpected exit status. So we cannot treat
 		// this as an internal error (which would make us abstain), but must vote against.
-		Ok(unexpected_wait_status) => Ok(WorkerResponse::JobDied {
+		Ok(unexpected_wait_status) => Ok(Err(WorkerError::JobDied {
 			err: format!("unexpected status from wait: {unexpected_wait_status:?}"),
 			job_pid: job_pid.as_raw(),
-		}),
+		})),
 	}
-}
-
-/// Calculate the total CPU time from the given `usage` structure, returned from
-/// [`nix::sys::resource::getrusage`], and calculates the total CPU time spent, including both user
-/// and system time.
-///
-/// # Arguments
-///
-/// - `rusage`: Contains resource usage information.
-///
-/// # Returns
-///
-/// Returns a `Duration` representing the total CPU time.
-fn get_total_cpu_usage(rusage: Usage) -> Duration {
-	let micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * 1_000_000) +
-		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64) as u64;
-
-	return Duration::from_micros(micros)
-}
-
-/// Get a job response.
-fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<JobResult> {
-	let response_bytes = framed_recv_blocking(received_data)?;
-	JobResult::decode(&mut response_bytes.as_slice()).map_err(|e| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			format!("execute pvf recv_child_response: decode error: {}", e),
-		)
-	})
 }
 
 /// Write a job response to the pipe and exit process after.
@@ -638,15 +633,10 @@ fn send_child_response(pipe_write: &mut PipeFd, response: JobResult) -> ! {
 	}
 }
 
-fn internal_error_from_errno(context: &'static str, errno: Errno) -> WorkerResponse {
-	WorkerResponse::InternalError(InternalValidationError::Kernel(format!(
-		"{}: {}: {}",
-		context,
-		errno,
-		io::Error::last_os_error()
-	)))
+fn internal_error_from_errno(context: &'static str, errno: Errno) -> WorkerError {
+	WorkerError::InternalError(InternalValidationError::Kernel(stringify_errno(context, errno)))
 }
 
 fn job_error_from_errno(context: &'static str, errno: Errno) -> JobResult {
-	Err(JobError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error())))
+	Err(JobError::Kernel(stringify_errno(context, errno)))
 }

@@ -40,10 +40,10 @@ use polkadot_parachain_primitives::primitives::{
 use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, ConvertedConcreteId,
-	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation,
+	EnsureDecodableXcm, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
+	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset, NoChecking,
+	NonFungiblesAdapter, ParentIsPreset, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -176,7 +176,7 @@ parameter_types! {
 parameter_types! {
 	pub const KsmLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(MsgQueue::parachain_id().into())].into();
 }
 
 pub type LocationToAccountId = (
@@ -212,7 +212,7 @@ pub type LocalAssetTransactor = (
 	>,
 );
 
-pub type XcmRouter = super::ParachainXcmRouter<MsgQueue>;
+pub type XcmRouter = EnsureDecodableXcm<super::ParachainXcmRouter<MsgQueue>>;
 pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
 
 parameter_types! {
