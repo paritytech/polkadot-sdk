@@ -1744,9 +1744,11 @@ pub mod pallet {
 	pub type ClaimPermissions<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, ClaimPermission, ValueQuery>;
 
-	/// Current strategy of the pool.
+	/// Records last migration of stake strategy. Stores the migrated strategy type.
+	///
+	/// This is used to ensure that the stake strategy is only migrated once.
 	#[pallet::storage]
-	pub type StakeStrategyType<T: Config> = StorageValue<_, adapter::StakeStrategyType, ValueQuery>;
+	pub type StrategyMigration<T: Config> = StorageValue<_, adapter::StakeStrategyType, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -3621,13 +3623,6 @@ impl<T: Config> Pallet<T> {
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
 		// result of an intentional ED change.
 		let _ = Self::check_ed_imbalance()?;
-
-		// ensure staking strategy is correctly set.
-		assert_eq!(
-			<StakeStrategyType<T>>::get(),
-			T::StakeAdapter::strategy_type(),
-			"Mismatched staking strategy type."
-		);
 
 		Ok(())
 	}

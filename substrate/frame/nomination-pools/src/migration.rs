@@ -120,7 +120,8 @@ pub mod unversioned {
 
 	impl<T: Config> OnRuntimeUpgrade for DelegationStakeMigration<T> {
 		fn on_runtime_upgrade() -> Weight {
-			if StakeStrategyType::<T>::get() == adapter::StakeStrategyType::Transfer {
+			if StrategyMigration::<T>::get() == Some(adapter::StakeStrategyType::Delegate) {
+				log!(info, "Already migrated to Delegate Strategy");
 				return T::DbWeight::get().reads_writes(1, 0)
 			}
 
@@ -142,7 +143,7 @@ pub mod unversioned {
 			);
 
 			// mark migrated to Delegate Strategy.
-			StakeStrategyType::<T>::put(adapter::StakeStrategyType::Delegate);
+			StrategyMigration::<T>::put(adapter::StakeStrategyType::Delegate);
 
 			let count = migrate_count.saturating_add(fail_count);
 
@@ -156,8 +157,8 @@ pub mod unversioned {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			ensure!(
-				StakeStrategyType::<T>::get() == adapter::StakeStrategyType::Transfer,
-				"Already migrated to Delegate Strategy"
+				StrategyMigration::<T>::get().is_none(),
+				"Did not expect strategy migration to be already set."
 			);
 
 			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
@@ -171,7 +172,7 @@ pub mod unversioned {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			ensure!(
-				StakeStrategyType::<T>::get() == adapter::StakeStrategyType::Delegate,
+				StrategyMigration::<T>::get() == Some(adapter::StakeStrategyType::Delegate),
 				"Could not migrated to Delegate Strategy"
 			);
 
