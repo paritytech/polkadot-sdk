@@ -5,7 +5,15 @@
   "bootNodes": [
     "/dns/westend-coretime-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWP93Dzk8T7GWxyWw9jhLcz8Pksokk3R9vL2eEH337bNkT",
     "/dns/westend-coretime-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH",
-    "/dns/boot.metaspan.io/tcp/33019/p2p/12D3KooWCa1uNnEZqiqJY9jkKNQxwSLGPeZ5MjWHhjQMGwga9JMM"
+    "/dns/westend-coretime-collator-node-0.parity-testnet.parity.io/tcp/30335/ws/p2p/12D3KooWP93Dzk8T7GWxyWw9jhLcz8Pksokk3R9vL2eEH337bNkT",
+    "/dns/westend-coretime-collator-node-1.parity-testnet.parity.io/tcp/30335/ws/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH",
+    "/dns/westend-coretime-collator-node-0.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWP93Dzk8T7GWxyWw9jhLcz8Pksokk3R9vL2eEH337bNkT",
+    "/dns/westend-coretime-collator-node-1.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH",
+    "/dns/boot.metaspan.io/tcp/33019/p2p/12D3KooWCa1uNnEZqiqJY9jkKNQxwSLGPeZ5MjWHhjQMGwga9JMM",
+    "/dns/boot-node.helikon.io/tcp/9420/p2p/12D3KooWFBPartM873MNm1AmVK3etUz34cAE9A9rwPztPno2epQ3",
+    "/dns/boot-node.helikon.io/tcp/9422/wss/p2p/12D3KooWFBPartM873MNm1AmVK3etUz34cAE9A9rwPztPno2epQ3",
+    "/dns/coretime-westend-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWHewSFwJueRprNZNfkncdjud9DrGzvP1qfmgPd7VK66gw",
+    "/dns/coretime-westend-boot-ng.dwellir.com/tcp/30356/p2p/12D3KooWHewSFwJueRprNZNfkncdjud9DrGzvP1qfmgPd7VK66gw"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

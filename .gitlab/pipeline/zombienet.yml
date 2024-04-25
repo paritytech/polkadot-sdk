@@ -1,7 +1,8 @@
 .zombienet-refs:
   extends: .build-refs
   variables:
-    ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.98"
+    ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.99"
+    PUSHGATEWAY_URL: "http://zombienet-prometheus-pushgateway.managed-monitoring:9091/metrics/job/zombie-metrics"
 
 include:
   # substrate tests
@@ -11,4 +12,6 @@ include:
   # polkadot tests
   - .gitlab/pipeline/zombienet/polkadot.yml
   # bridges tests
-  - .gitlab/pipeline/zombienet/bridges.yml
+  # TODO: https://github.com/paritytech/parity-bridges-common/pull/2884
+  # commenting until we have a new relatye, compatible with updated fees scheme
+  # - .gitlab/pipeline/zombienet/bridges.yml

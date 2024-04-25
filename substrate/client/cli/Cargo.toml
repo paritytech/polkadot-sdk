@@ -20,7 +20,7 @@ array-bytes = "6.1"
 chrono = "0.4.31"
 clap = { version = "4.5.3", features = ["derive", "string", "wrap_help"] }
 fdlimit = "0.3.0"
-futures = "0.3.21"
+futures = "0.3.30"
 itertools = "0.10.3"
 libp2p-identity = { version = "0.1.3", features = ["ed25519", "peerid"] }
 log = { workspace = true, default-features = true }

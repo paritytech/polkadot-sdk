@@ -26,7 +26,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	vstaging::NodeFeatures, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec,
+	CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec, NodeFeatures,
 	OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;

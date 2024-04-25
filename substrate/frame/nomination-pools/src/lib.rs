@@ -461,19 +461,23 @@ pub enum ClaimPermission {
 	PermissionlessAll,
 }
 
+impl Default for ClaimPermission {
+	fn default() -> Self {
+		Self::PermissionlessWithdraw
+	}
+}
+
 impl ClaimPermission {
+	/// Permissionless compounding of pool rewards is allowed if the current permission is
+	/// `PermissionlessCompound`, or permissionless.
 	fn can_bond_extra(&self) -> bool {
 		matches!(self, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessCompound)
 	}
 
+	/// Permissionless payout claiming is allowed if the current permission is
+	/// `PermissionlessWithdraw`, or permissionless.
 	fn can_claim_payout(&self) -> bool {
 		matches!(self, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessWithdraw)
-	}
-}
-
-impl Default for ClaimPermission {
-	fn default() -> Self {
-		Self::Permissioned
 	}
 }
 
@@ -1653,6 +1657,9 @@ pub mod pallet {
 
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
+
+		/// The origin that can manage pool configurations.
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	/// The sum of funds across all pools.
@@ -2491,7 +2498,7 @@ pub mod pallet {
 		}
 
 		/// Update configurations for the nomination pools. The origin for this call must be
-		/// Root.
+		/// [`Config::AdminOrigin`].
 		///
 		/// # Arguments
 		///
@@ -2512,7 +2519,7 @@ pub mod pallet {
 			max_members_per_pool: ConfigOp<u32>,
 			global_max_commission: ConfigOp<Perbill>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 
 			macro_rules! config_op_exp {
 				($storage:ty, $op:ident) => {
@@ -2630,7 +2637,7 @@ pub mod pallet {
 		///
 		/// In the case of `origin != other`, `origin` can only bond extra pending rewards of
 		/// `other` members assuming set_claim_permission for the given member is
-		/// `PermissionlessAll` or `PermissionlessCompound`.
+		/// `PermissionlessCompound` or `PermissionlessAll`.
 		#[pallet::call_index(14)]
 		#[pallet::weight(
 			T::WeightInfo::bond_extra_transfer()
@@ -2648,15 +2655,10 @@ pub mod pallet {
 		/// Allows a pool member to set a claim permission to allow or disallow permissionless
 		/// bonding and withdrawing.
 		///
-		/// By default, this is `Permissioned`, which implies only the pool member themselves can
-		/// claim their pending rewards. If a pool member wishes so, they can set this to
-		/// `PermissionlessAll` to allow any account to claim their rewards and bond extra to the
-		/// pool.
-		///
 		/// # Arguments
 		///
 		/// * `origin` - Member of a pool.
-		/// * `actor` - Account to claim reward. // improve this
+		/// * `permission` - The permission to be applied.
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn set_claim_permission(
@@ -2666,16 +2668,18 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(PoolMembers::<T>::contains_key(&who), Error::<T>::PoolMemberNotFound);
+
 			ClaimPermissions::<T>::mutate(who, |source| {
 				*source = permission;
 			});
+
 			Ok(())
 		}
 
 		/// `origin` can claim payouts on some pool member `other`'s behalf.
 		///
-		/// Pool member `other` must have a `PermissionlessAll` or `PermissionlessWithdraw` in order
-		/// for this call to be successful.
+		/// Pool member `other` must have a `PermissionlessWithdraw` or `PermissionlessAll` claim
+		/// permission for this call to be successful.
 		#[pallet::call_index(16)]
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout_other(origin: OriginFor<T>, other: T::AccountId) -> DispatchResult {
