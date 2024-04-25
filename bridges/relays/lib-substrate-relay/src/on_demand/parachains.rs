@@ -222,6 +222,7 @@ where
 			proved_relay_block,
 			vec![(para_id, para_hash)],
 			para_proof,
+			false,
 		));
 
 		Ok((proved_parachain_block, calls))
@@ -256,8 +257,11 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 
 	let mut parachains_source =
 		ParachainsSource::<P>::new(source_relay_client.clone(), required_para_header_ref.clone());
-	let mut parachains_target =
-		ParachainsTarget::<P>::new(target_client.clone(), target_transaction_params.clone());
+	let mut parachains_target = ParachainsTarget::<P>::new(
+		source_relay_client.clone(),
+		target_client.clone(),
+		target_transaction_params.clone(),
+	);
 
 	loop {
 		select! {
@@ -392,6 +396,8 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					parachains_source.clone(),
 					parachains_target.clone(),
 					MetricsParams::disabled(),
+					// we do not support free parachain headers relay in on-demand relays
+					false,
 					futures::future::pending(),
 				)
 				.fuse(),
@@ -481,7 +487,7 @@ where
 	let para_header_at_target = best_finalized_peer_header_at_self::<
 		P::TargetChain,
 		P::SourceParachain,
-	>(target.client(), best_target_block_hash)
+	>(target.target_client(), best_target_block_hash)
 	.await;
 	// if there are no parachain heads at the target (`NoParachainHeadAtTarget`), we'll need to
 	// submit at least one. Otherwise the pallet will be treated as uninitialized and messages
@@ -504,7 +510,7 @@ where
 	let relay_header_at_target = best_finalized_peer_header_at_self::<
 		P::TargetChain,
 		P::SourceRelayChain,
-	>(target.client(), best_target_block_hash)
+	>(target.target_client(), best_target_block_hash)
 	.await
 	.map_err(map_target_err)?;
 
