@@ -13,7 +13,7 @@ frame-system = { path = "../system", default-features = false }
 docify = "0.2.8"
 
 [dev-dependencies]
-substrate-wasm-builder = { path = "../../utils/wasm-builder", features = [ "metadata-hash" ] }
+substrate-wasm-builder = { path = "../../utils/wasm-builder", features = ["metadata-hash"] }
 
 [features]
 default = ["std"]

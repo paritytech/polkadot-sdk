@@ -34,7 +34,7 @@ sc-executor = { path = "../../client/executor", optional = true }
 sp-core = { path = "../../primitives/core", optional = true }
 sp-io = { path = "../../primitives/io", optional = true }
 sp-version = { path = "../../primitives/version", optional = true }
-frame-metadata = { version = "16.0.0", features = [ "current" ], optional = true }
+frame-metadata = { version = "16.0.0", features = ["current"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.1.5", optional = true }
 array-bytes = { version = "6.1", optional = true }
 sp-tracing = { path = "../../primitives/tracing", optional = true }
@@ -49,11 +49,12 @@ sp-tracing = { path = "../../primitives/tracing", optional = true }
 # This pulls in quite a lot of dependencies and thus, is disabled by default.
 metadata-hash = [
 	"array-bytes",
+	"codec",
+	"frame-metadata",
 	"merkleized-metadata",
 	"sc-executor",
-	"sp-core", "sp-io",
-	"frame-metadata",
-	"codec",
+	"sp-core",
+	"sp-io",
 	"sp-tracing",
-	"sp-version"
+	"sp-version",
 ]

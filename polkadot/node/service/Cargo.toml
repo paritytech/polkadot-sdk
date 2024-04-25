@@ -191,9 +191,9 @@ full-node = [
 westend-native = ["bitvec", "westend-runtime", "westend-runtime-constants"]
 rococo-native = [
 	"bitvec",
+	"frame-metadata-hash-extension",
 	"rococo-runtime",
 	"rococo-runtime-constants",
-	"frame-metadata-hash-extension"
 ]
 
 runtime-benchmarks = [
