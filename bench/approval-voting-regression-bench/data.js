@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714052047874,
+  "lastUpdate": 1714058658072,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -704,6 +704,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.608732732140043,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c9923cd7feb9e7c6337f0942abd3279468df5559",
+          "message": "rename fragment_tree folder to fragment_chain (#4294)\n\nMakes https://github.com/paritytech/polkadot-sdk/pull/4035 easier to\nreview",
+          "timestamp": "2024-04-25T13:52:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c9923cd7feb9e7c6337f0942abd3279468df5559"
+        },
+        "date": 1714058632489,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63554.06999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.151423785680008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.747454451830055,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.11348499832016,
             "unit": "seconds"
           }
         ]
