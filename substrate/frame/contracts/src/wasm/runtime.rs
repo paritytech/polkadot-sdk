@@ -25,12 +25,8 @@ use crate::{
 };
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::DispatchInfo,
-	ensure,
-	pallet_prelude::DispatchResultWithPostInfo,
-	parameter_types,
-	traits::Get,
-	weights::Weight,
+	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
+	traits::Get, weights::Weight,
 };
 use pallet_contracts_proc_macro::define_env;
 use pallet_contracts_uapi::{CallFlags, ReturnFlags};
