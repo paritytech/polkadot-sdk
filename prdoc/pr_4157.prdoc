@@ -12,18 +12,18 @@ doc:
 
 crates:
   - bp-bridge-hub-kusama
-    major
+    bump: major
   - bp-bridge-hub-polkadot
-    major
+    bump: major
   - bp-bridge-hub-rococo
-    major
+    bump: major
   - bp-bridge-hub-westend
-    major
+    bump: major
   - relay-substrate-client
-    major
+    bump: major
   - finality-relay
-    major
+    bump: major
   - substrate-relay-helper
-    major
+    bump: major
   - parachains-relay
-    major
+    bump: major
