@@ -607,7 +607,7 @@ mod staking_integration {
 				// fund them with ED
 				fund(&delegator, ExistentialDeposit::get());
 				// migrate 1/4th amount into each delegator
-				assert_ok!(DelegatedStaking::claim_delegation(
+				assert_ok!(DelegatedStaking::migrate_delegation(
 					RawOrigin::Signed(200).into(),
 					delegator,
 					delegator_share
@@ -633,7 +633,7 @@ mod staking_integration {
 
 			// cannot use migrate delegator anymore
 			assert_noop!(
-				DelegatedStaking::claim_delegation(RawOrigin::Signed(200).into(), 305, 1),
+				DelegatedStaking::migrate_delegation(RawOrigin::Signed(200).into(), 305, 1),
 				Error::<T>::NotEnoughFunds
 			);
 		});
