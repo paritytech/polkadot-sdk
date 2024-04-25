@@ -3,8 +3,10 @@ use crate::imports::*;
 use polkadot_runtime_common::BlockHashCount;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{MultiSignature, SaturatedConversion};
-use xcm_fee_payment_runtime_api::dry_run::runtime_decl_for_xcm_dry_run_api::XcmDryRunApiV1;
-use xcm_fee_payment_runtime_api::fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1;
+use xcm_fee_payment_runtime_api::{
+	dry_run::runtime_decl_for_xcm_dry_run_api::XcmDryRunApiV1,
+	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+};
 
 type RelayToAssetHubTest = Test<Westend, AssetHubWestend>;
 
@@ -15,9 +17,8 @@ type RelayToAssetHubTest = Test<Westend, AssetHubWestend>;
 fn xcm_dry_run_api_works() {
 	let destination: Location = Parachain(1000).into(); // Asset Hub.
 	let beneficiary_id = AssetHubWestendReceiver::get();
-	let beneficiary: Location =
-		AccountId32 { id: beneficiary_id.clone().into(), network: None } // Test doesn't allow specifying a network here.
-			.into(); // Beneficiary in Asset Hub.
+	let beneficiary: Location = AccountId32 { id: beneficiary_id.clone().into(), network: None } // Test doesn't allow specifying a network here.
+		.into(); // Beneficiary in Asset Hub.
 	let teleport_amount = 1_000_000_000_000; // One WND (12 decimals).
 	let assets: Assets = vec![(Here, teleport_amount).into()].into();
 
@@ -36,11 +37,13 @@ fn xcm_dry_run_api_works() {
 			weight_limit: Unlimited,
 		});
 		let sender = Alice; // Is the same as `WestendSender`.
-		let extrinsic =	construct_extrinsic(sender, call);
+		let extrinsic = construct_extrinsic(sender, call);
 		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
 		let (destination_to_query, messages_to_query) = &result.forwarded_messages[0];
 		remote_message = messages_to_query[0].clone();
-		let delivery_fees = Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone()).unwrap();
+		let delivery_fees =
+			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
+				.unwrap();
 		delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
 		assert_eq!(delivery_fees_amount, 39_700_000_000);
 	});
@@ -51,11 +54,13 @@ fn xcm_dry_run_api_works() {
 		type Runtime = <AssetHubWestend as Chain>::Runtime;
 
 		let weight = Runtime::query_xcm_weight(remote_message.clone()).unwrap();
-		remote_execution_fees = Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::V4(Parent.into())).unwrap();
+		remote_execution_fees =
+			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::V4(Parent.into()))
+				.unwrap();
 	});
 
 	let test_args = TestContext {
-		sender: WestendSender::get(), // Alice.
+		sender: WestendSender::get(),             // Alice.
 		receiver: AssetHubWestendReceiver::get(), // Bob in Asset Hub.
 		args: TestArgs::new_relay(destination, beneficiary_id, teleport_amount),
 	};
@@ -73,8 +78,14 @@ fn xcm_dry_run_api_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	// We now know the exact fees.
-	assert_eq!(sender_balance_after, sender_balance_before - delivery_fees_amount - teleport_amount);
-	assert_eq!(receiver_balance_after, receiver_balance_before + teleport_amount - remote_execution_fees);
+	assert_eq!(
+		sender_balance_after,
+		sender_balance_before - delivery_fees_amount - teleport_amount
+	);
+	assert_eq!(
+		receiver_balance_after,
+		receiver_balance_before + teleport_amount - remote_execution_fees
+	);
 }
 
 fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
@@ -132,5 +143,10 @@ fn construct_extrinsic(
 	let raw_payload = westend_runtime::SignedPayload::new(call, extra).unwrap();
 	let signature = raw_payload.using_encoded(|payload| sender.sign(payload));
 	let (call, extra, _) = raw_payload.deconstruct();
-	westend_runtime::UncheckedExtrinsic::new_signed(call, account_id.into(), MultiSignature::Sr25519(signature), extra)
+	westend_runtime::UncheckedExtrinsic::new_signed(
+		call,
+		account_id.into(),
+		MultiSignature::Sr25519(signature),
+		extra,
+	)
 }

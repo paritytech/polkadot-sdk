@@ -84,8 +84,10 @@ pub use sp_runtime::BuildStorage;
 
 use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use xcm::IntoVersion;
-use xcm::prelude::{VersionedLocation, VersionedXcm, VersionedAssetId, VersionedAssets};
+use xcm::{
+	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	IntoVersion,
+};
 
 // We exclude `Assets` since it's the name of a pallet
 use xcm::latest::prelude::AssetId;

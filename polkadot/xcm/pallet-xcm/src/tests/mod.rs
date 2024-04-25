@@ -20,9 +20,9 @@ pub(crate) mod assets_transfer;
 
 use crate::{
 	mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error,
-	ExecuteControllerWeightInfo, LatestVersionedLocation, Pallet, Queries, QueryStatus, RecordedXcm, ShouldRecordXcm,
-	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
-	WeightInfo,
+	ExecuteControllerWeightInfo, LatestVersionedLocation, Pallet, Queries, QueryStatus,
+	RecordedXcm, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
+	VersionNotifyTargets, WeightInfo,
 };
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok,

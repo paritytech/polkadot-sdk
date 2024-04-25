@@ -16,10 +16,9 @@
 
 //! XCM sender for relay chain.
 
-use parity_scale_codec::Decode;
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
 use primitives::Id as ParaId;
 use runtime_parachains::{
 	configuration::{self, HostConfiguration},
@@ -142,16 +141,17 @@ where
 
 impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
-		dmp::DownwardMessageQueues::<T>::iter().map(|(para_id, messages)| {
-			let decoded_messages: Vec<VersionedXcm<()>> = messages
-				.iter()
-				.map(|downward_message| VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap())
-				.collect();
-			(
-				VersionedLocation::V4(Parachain(para_id.into()).into()),
-				decoded_messages,
-			)
-		}).collect()
+		dmp::DownwardMessageQueues::<T>::iter()
+			.map(|(para_id, messages)| {
+				let decoded_messages: Vec<VersionedXcm<()>> = messages
+					.iter()
+					.map(|downward_message| {
+						VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap()
+					})
+					.collect();
+				(VersionedLocation::V4(Parachain(para_id.into()).into()), decoded_messages)
+			})
+			.collect()
 	}
 }
 
