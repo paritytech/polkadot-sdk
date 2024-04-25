@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714058953171,
+  "lastUpdate": 1714063144420,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -6759,6 +6759,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.014330130940000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "dd5b06e622c6c5c301a1554286ec1f4995c7daca",
+          "message": "[subsystem-benchmarks] Log standart deviation for subsystem-benchmarks (#4285)\n\nShould help us to understand more what's happening between individual\nruns and possibly adjust the number of runs",
+          "timestamp": "2024-04-25T15:06:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd5b06e622c6c5c301a1554286ec1f4995c7daca"
+        },
+        "date": 1714063117874,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013381481233333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011198012880000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16697290975999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022818989179999995,
             "unit": "seconds"
           }
         ]
