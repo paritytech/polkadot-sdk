@@ -134,23 +134,39 @@ pub trait StakeStrategy {
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
 
+	/// Migrate pool account from being a direct nominator to a delegated agent.
+	///
+	/// This is useful for migrating a pool account from [`StakeStrategyType::Transfer`] to
+	/// [`StakeStrategyType::Delegate`].
 	fn migrate_nominator_to_agent(
 		pool_account: &Self::AccountId,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult;
 
+	/// Migrate member balance from pool account to member account.
+	///
+	/// This is useful for a pool account that migrated from [`StakeStrategyType::Transfer`] to
+	/// [`StakeStrategyType::Delegate`]. Its members can then migrate their delegated balance
+	/// back to their account.
+	///
+	/// Internally, the member funds that are locked in the pool account are transferred back and
+	/// locked in the member account.
 	fn migrate_delegation(
 		pool: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
 
+	/// List of validators nominated by the pool account.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn nominations(pool_account: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		Self::CoreStaking::nominations(pool_account)
 	}
 
 	/// Remove the pool account as agent.
+	///
+	/// Useful for migrating pool account from a delegated agent to a direct nominator. Only used
+	/// in tests and benchmarks.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn remove_as_agent(_pool: &Self::AccountId) {
 		// noop by default
@@ -211,6 +227,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 			},
 		}
 	}
+
 	fn member_withdraw(
 		who: &T::AccountId,
 		pool_account: &Self::AccountId,

@@ -555,13 +555,14 @@ impl<T: Config> PoolMember<T> {
 	/// Worst case, iterates over [`TotalUnbondingPools`] member unbonding pools to calculate member
 	/// balance.
 	pub fn total_balance(&self) -> BalanceOf<T> {
-		let maybe_pool = BondedPool::<T>::get(self.pool_id);
-		// this internal function is always called with a valid pool id.
-		if maybe_pool.is_none() {
-			defensive!("pool should exist; qed");
-			return Zero::zero();
-		}
-		let pool = maybe_pool.expect("checked pool is not none; qed");
+		let pool = match BondedPool::<T>::get(self.pool_id) {
+			Some(pool) => pool,
+			None => {
+				// this internal function is always called with a valid pool id.
+				defensive!("pool should exist; qed");
+				return Zero::zero();
+			},
+		};
 
 		let active_balance = pool.points_to_balance(self.active_points());
 
@@ -2241,8 +2242,9 @@ pub mod pallet {
 		///
 		/// - If the target is the depositor, the pool will be destroyed.
 		/// - If the pool has any pending slash, we also try to slash the member before letting them
-		/// withdraw. This calculation can be expensive and is only defensive. In ideal scenario,
-		/// pool slashes must have been already applied via permissionless [`Call::apply_slash`].
+		/// withdraw. This calculation can be expensive and is only defensive. In the ideal
+		/// scenario, pool slashes must have been already applied via permissionless
+		/// [`Call::apply_slash`].
 		#[pallet::call_index(5)]
 		#[pallet::weight(
 			T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)
@@ -2861,7 +2863,7 @@ pub mod pallet {
 			let member_account = T::Lookup::lookup(member_account)?;
 			Self::do_apply_slash(&member_account, Some(who))?;
 
-			// If successful., refund the fees.
+			// If successful, refund the fees.
 			Ok(Pays::No.into())
 		}
 
