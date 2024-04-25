@@ -180,19 +180,23 @@ macro_rules! call_builder(
 );
 
 #[macro_export]
+macro_rules! memory(
+	($($bytes:expr,)*) => {
+		 vec![]
+		    .into_iter()
+		    $(.chain($bytes))*
+		    .collect::<Vec<_>>()
+	};
+);
+
+#[macro_export]
 macro_rules! build_runtime(
-	// ($runtime:ident, $memory:ident: $val:expr) => {
-	// 	$crate::build_runtime!($runtime, _contract, $memory: $val);
-	// };
 	($runtime:ident, $memory:ident: [$($segment:expr,)*]) => {
 		$crate::build_runtime!($runtime, _contract, $memory: [$($segment,)*]);
 	};
-	($runtime:ident, $contract:ident, $memory:ident: [$($segment:expr,)*]) => {
+	($runtime:ident, $contract:ident, $memory:ident: [$($bytes:expr,)*]) => {
 		$crate::build_runtime!($runtime, $contract);
-		let mut $memory = vec![]
-			.into_iter()
-			$(.chain($segment))*
-			.collect::<Vec<_>>();
+		let mut $memory = $crate::memory!($($bytes,)*);
 	};
 	($runtime:ident, $contract:ident) => {
 		let mut setup = CallSetup::<T>::default();
