@@ -51,51 +51,60 @@ fn when_metadata_check_is_disabled_it_encodes_to_nothing() {
 	assert!(ext.additional_signed().unwrap().encode().is_empty());
 }
 
-#[docify::export]
-mod add_metadata_hash_extension {
-	frame_support::construct_runtime! {
-		pub enum Runtime {
-			System: frame_system,
+#[allow(unused)]
+mod docs {
+	use super::*;
+
+	#[docify::export]
+	mod add_metadata_hash_extension {
+		frame_support::construct_runtime! {
+			pub enum Runtime {
+				System: frame_system,
+			}
 		}
+
+		/// The `SignedExtension` to the basic transaction logic.
+		pub type SignedExtra = (
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckTxVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckMortality<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			frame_system::CheckWeight<Runtime>,
+			// Add the `CheckMetadataHash` extension.
+			// The position in this list is not important, so we could also add it to beginning.
+			frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+		);
+
+		/// In your runtime this will be your real address type.
+		type Address = ();
+		/// In your runtime this will be your real signature type.
+		type Signature = ();
+
+		/// Unchecked extrinsic type as expected by this runtime.
+		pub type UncheckedExtrinsic =
+			sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 	}
 
-	/// The `SignedExtension` to the basic transaction logic.
-	pub type SignedExtra = (
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckTxVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckMortality<Runtime>,
-		frame_system::CheckNonce<Runtime>,
-		frame_system::CheckWeight<Runtime>,
-		// Add the `CheckMetadataHash` extension.
-		// The position in this list is not important, so we could also add it to beginning.
-		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-	);
+	// Put here to not have it in the docs as well.
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for add_metadata_hash_extension::Runtime {
+		type Block = Block;
+		type RuntimeEvent = add_metadata_hash_extension::RuntimeEvent;
+		type RuntimeOrigin = add_metadata_hash_extension::RuntimeOrigin;
+		type RuntimeCall = add_metadata_hash_extension::RuntimeCall;
+		type PalletInfo = add_metadata_hash_extension::PalletInfo;
+	}
 
-	/// In your runtime this will be your real address type.
-	type Address = ();
-	/// In your runtime this will be your real signature type.
-	type Signature = ();
-
-	/// Unchecked extrinsic type as expected by this runtime.
-	pub type UncheckedExtrinsic =
-		sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
-}
-
-// Put here to not have it in the docs as well.
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl frame_system::Config for add_metadata_hash_extension::Runtime {
-	type Block = Block;
-}
-
-#[docify::export]
-fn enable_metadata_hash_in_wasm_builder() {
-	substrate_wasm_builder::WasmBuilder::init_with_defaults()
-		// Requires the `metadata-hash` feature to be activated.
-		// You need to pass the main token symbol and its number of decimals.
-		.enable_metadata_hash("TOKEN", 12)
-		// The runtime will be build twice and the second time the `RUNTIME_METADATA_HASH`
-		// environment variable will be set for the `CheckMetadataHash` extension.
-		.build()
+	#[docify::export]
+	fn enable_metadata_hash_in_wasm_builder() {
+		substrate_wasm_builder::WasmBuilder::init_with_defaults()
+			// Requires the `metadata-hash` feature to be activated.
+			// You need to pass the main token symbol and its number of decimals.
+			.enable_metadata_hash("TOKEN", 12)
+			// The runtime will be build twice and the second time the `RUNTIME_METADATA_HASH`
+			// environment variable will be set for the `CheckMetadataHash` extension.
+			.build()
+	}
 }
