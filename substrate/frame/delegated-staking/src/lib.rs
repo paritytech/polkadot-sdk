@@ -72,7 +72,7 @@
 //!   Explained in more detail in the `Migration` section.
 //! - Migrate unclaimed delegated funds from `agent` to delegator. When a nominator migrates to an
 //! agent, the funds are held in a proxy account. This function allows the delegator to claim their
-//! share of the funds from the proxy account. See [`Pallet::claim_delegation`].
+//! share of the funds from the proxy account. See [`Pallet::migrate_delegation`].
 //!
 //! ## Lazy Slashing
 //! One of the reasons why direct nominators on staking pallet cannot scale well is because all
@@ -307,7 +307,7 @@ pub mod pallet {
 		/// This function will create a proxy account to the agent called `proxy_delegator` and
 		/// transfer the directly staked amount by the agent to it. The `proxy_delegator` delegates
 		/// the funds to the origin making origin an `Agent` account. The real `delegator`
-		/// accounts of the origin can later migrate their funds using [Self::claim_delegation] to
+		/// accounts of the origin can later migrate their funds using [Self::migrate_delegation] to
 		/// claim back their share of delegated funds from `proxy_delegator` to self.
 		pub fn migrate_to_agent(
 			origin: OriginFor<T>,
