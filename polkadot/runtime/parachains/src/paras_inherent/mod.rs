@@ -1099,7 +1099,7 @@ fn limit_and_sanitize_disputes<
 }
 
 // Helper function for filtering candidates which don't pass the given predicate. When/if the first
-// candidate which failes the predicate is found, all the other candidates that follow are dropped.
+// candidate which failed the predicate is found, all the other candidates that follow are dropped.
 fn retain_candidates<
 	T: inclusion::Config + paras::Config + inclusion::Config,
 	F: FnMut(ParaId, &mut C) -> bool,
