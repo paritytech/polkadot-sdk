@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714034899980,
+  "lastUpdate": 1714041122373,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -610,6 +610,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.0183881767801024,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "077041788070eddc6f3c1043b9cb6146585b1469",
+          "message": "[XCM] Treat recursion limit error as transient in the MQ (#4202)\n\nChanges:\n- Add new error variant `ProcessMessageError::StackLimitReached` and\ntreat XCM error `ExceedsStackLimit` as such.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2024-04-25T09:01:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/077041788070eddc6f3c1043b9cb6146585b1469"
+        },
+        "date": 1714041097066,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63546.030000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.029960095840012,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9907601420701004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.597790111489985,
             "unit": "seconds"
           }
         ]
