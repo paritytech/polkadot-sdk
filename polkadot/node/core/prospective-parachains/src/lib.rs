@@ -143,7 +143,7 @@ async fn run_iteration<Context>(
 				ProspectiveParachainsMessage::IntroduceSecondedCandidate(request, tx) =>
 					handle_introduce_seconded_candidate(&mut *ctx, view, request, tx).await,
 				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) =>
-					handle_candidate_backed(&mut *ctx, view, para, candidate_hash).await?,
+					handle_candidate_backed(&mut *ctx, view, para, candidate_hash).await,
 				ProspectiveParachainsMessage::GetBackableCandidates(
 					relay_parent,
 					para,
@@ -582,19 +582,16 @@ async fn handle_candidate_backed<Context>(
 	view: &mut View,
 	para: ParaId,
 	candidate_hash: CandidateHash,
-) -> JfyiErrorResult<()> {
-	let storage = match view.candidate_storage.get_mut(&para) {
-		None => {
-			gum::warn!(
-				target: LOG_TARGET,
-				para_id = ?para,
-				?candidate_hash,
-				"Received instruction to back unknown candidate",
-			);
+) {
+	let Some(storage) = view.candidate_storage.get_mut(&para) else {
+		gum::warn!(
+			target: LOG_TARGET,
+			para_id = ?para,
+			?candidate_hash,
+			"Received instruction to back unknown candidate",
+		);
 
-			return Ok(())
-		},
-		Some(storage) => storage,
+		return
 	};
 
 	if !storage.contains(&candidate_hash) {
@@ -605,7 +602,7 @@ async fn handle_candidate_backed<Context>(
 			"Received instruction to back unknown candidate",
 		);
 
-		return Ok(())
+		return
 	}
 
 	if storage.is_backed(&candidate_hash) {
@@ -616,11 +613,10 @@ async fn handle_candidate_backed<Context>(
 			"Received redundant instruction to mark candidate as backed",
 		);
 
-		return Ok(())
+		return
 	}
 
 	storage.mark_backed(&candidate_hash);
-	Ok(())
 }
 
 fn answer_get_backable_candidates(
