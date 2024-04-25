@@ -568,6 +568,7 @@ impl FragmentChain {
 
 		let can_add_as_potential = self.can_add_candidate_as_potential(
 			candidate_storage,
+			&candidate.candidate_hash(),
 			&candidate.relay_parent(),
 			candidate.parent_head_data_hash(),
 			candidate.output_head_data_hash(),
@@ -716,10 +717,12 @@ impl FragmentChain {
 	}
 
 	// Checks if this candidate could be added in the future to this chain.
-	// This assumes that the chain does not already contain this candidate.
+	// This assumes that the chain does not already contain this candidate. It may or may not be
+	// present in the `CandidateStorage`.
 	pub(crate) fn can_add_candidate_as_potential(
 		&self,
 		storage: &CandidateStorage,
+		candidate_hash: &CandidateHash,
 		relay_parent: &Hash,
 		parent_head_hash: Hash,
 		output_head_hash: Option<Hash>,
@@ -733,7 +736,14 @@ impl FragmentChain {
 			return PotentialAddition::None
 		}
 
-		let unconnected = self.find_unconnected_potential_candidates(storage).len();
+		let present_in_storage = storage.contains(candidate_hash);
+
+		let unconnected = self
+			.find_unconnected_potential_candidates(
+				storage,
+				present_in_storage.then_some(candidate_hash),
+			)
+			.len();
 
 		if (self.chain.len() + unconnected) < self.scope.max_depth {
 			PotentialAddition::Anyhow
@@ -752,12 +762,19 @@ impl FragmentChain {
 	// The candidates which are present in `CandidateStorage`, are not part of this chain but could
 	// become part of this chain in the future. Capped at the max depth minus the existing chain
 	// length.
+	// If `ignore_candidate`` is supplied and found in storage, it won't be counted.
 	pub(crate) fn find_unconnected_potential_candidates(
 		&self,
 		storage: &CandidateStorage,
+		ignore_candidate: Option<&CandidateHash>,
 	) -> Vec<CandidateHash> {
 		let mut candidates = vec![];
 		for candidate in storage.candidates() {
+			if let Some(ignore_candidate) = ignore_candidate {
+				if ignore_candidate == &candidate.candidate_hash {
+					continue
+				}
+			}
 			// We stop at max_depth + 1 with the search. There's no point in looping further.
 			if (self.chain.len() + candidates.len()) > self.scope.max_depth {
 				break

@@ -451,6 +451,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 				assert_eq!(
 					chain.can_add_candidate_as_potential(
 						&storage,
+						&candidate_a.hash(),
 						&candidate_a.descriptor.relay_parent,
 						pvd_a.parent_head.hash(),
 						Some(candidate_a.commitments.head_data.hash()),
@@ -461,6 +462,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 				assert_eq!(
 					chain.can_add_candidate_as_potential(
 						&storage,
+						&candidate_a.hash(),
 						&candidate_a.descriptor.relay_parent,
 						pvd_a.parent_head.hash(),
 						Some(candidate_a.commitments.head_data.hash()),
@@ -476,6 +478,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 				assert_eq!(
 					chain.can_add_candidate_as_potential(
 						&storage,
+						&candidate.hash(),
 						&candidate.descriptor.relay_parent,
 						pvd.parent_head.hash(),
 						Some(candidate.commitments.head_data.hash()),
@@ -510,6 +513,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
 					&CandidateStorage::default(),
+					&candidate.hash(),
 					&candidate.descriptor.relay_parent,
 					pvd.parent_head.hash(),
 					Some(candidate.commitments.head_data.hash()),
@@ -531,6 +535,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
 					&storage,
+					&candidate.hash(),
 					&candidate.descriptor.relay_parent,
 					pvd.parent_head.hash(),
 					Some(candidate.commitments.head_data.hash()),
@@ -560,6 +565,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
 					&modified_storage,
+					&candidate.hash(),
 					&candidate.descriptor.relay_parent,
 					pvd.parent_head.hash(),
 					Some(candidate.commitments.head_data.hash()),
@@ -573,14 +579,13 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			.add_candidate(candidate_b.clone(), pvd_b.clone(), CandidateState::Seconded)
 			.unwrap();
 		let chain = FragmentChain::populate(scope.clone(), &modified_storage);
-		for (candidate, pvd) in [
-			(candidate_a.clone(), pvd_a.clone()),
-			(candidate_b.clone(), pvd_b.clone()),
-			(candidate_c.clone(), pvd_c.clone()),
-		] {
+		for (candidate, pvd) in
+			[(candidate_a.clone(), pvd_a.clone()), (candidate_c.clone(), pvd_c.clone())]
+		{
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
 					&modified_storage,
+					&candidate.hash(),
 					&candidate.descriptor.relay_parent,
 					pvd.parent_head.hash(),
 					Some(candidate.commitments.head_data.hash()),
@@ -604,6 +609,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
 					&storage,
+					&candidate.hash(),
 					&candidate.descriptor.relay_parent,
 					pvd.parent_head.hash(),
 					Some(candidate.commitments.head_data.hash()),
@@ -637,6 +643,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 				assert_eq!(
 					chain.can_add_candidate_as_potential(
 						&storage,
+						&candidate.hash(),
 						&candidate.descriptor.relay_parent,
 						pvd.parent_head.hash(),
 						Some(candidate.commitments.head_data.hash()),
@@ -672,6 +679,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		assert_eq!(
 			chain.can_add_candidate_as_potential(
 				&storage,
+				&candidate_a.hash(),
 				&candidate_a.descriptor.relay_parent,
 				pvd_a.parent_head.hash(),
 				Some(candidate_a.commitments.head_data.hash()),
@@ -684,6 +692,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
 					&storage,
+					&candidate.hash(),
 					&candidate.descriptor.relay_parent,
 					pvd.parent_head.hash(),
 					Some(candidate.commitments.head_data.hash()),
@@ -725,6 +734,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		assert_eq!(
 			chain.can_add_candidate_as_potential(
 				&modified_storage,
+				&wrong_candidate_c.hash(),
 				&wrong_candidate_c.descriptor.relay_parent,
 				wrong_pvd_c.parent_head.hash(),
 				Some(wrong_candidate_c.commitments.head_data.hash()),
@@ -768,6 +778,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
 					&modified_storage,
+					&wrong_candidate_c.hash(),
 					&wrong_candidate_c.descriptor.relay_parent,
 					wrong_pvd_c.parent_head.hash(),
 					Some(wrong_candidate_c.commitments.head_data.hash()),
@@ -781,6 +792,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
 					&modified_storage,
+					&candidate_b.hash(),
 					&candidate_b.descriptor.relay_parent,
 					pvd_b.parent_head.hash(),
 					Some(candidate_b.commitments.head_data.hash()),
@@ -823,6 +835,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		assert_eq!(
 			chain.can_add_candidate_as_potential(
 				&modified_storage,
+				&wrong_candidate_c.hash(),
 				&wrong_candidate_c.descriptor.relay_parent,
 				wrong_pvd_c.parent_head.hash(),
 				Some(wrong_candidate_c.commitments.head_data.hash()),
@@ -861,6 +874,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		assert_eq!(
 			chain.can_add_candidate_as_potential(
 				&modified_storage,
+				&wrong_candidate_c.hash(),
 				&wrong_candidate_c.descriptor.relay_parent,
 				wrong_pvd_c.parent_head.hash(),
 				Some(wrong_candidate_c.commitments.head_data.hash()),

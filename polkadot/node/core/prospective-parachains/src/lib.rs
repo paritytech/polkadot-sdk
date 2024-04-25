@@ -343,7 +343,7 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 
 			if let Some(storage) = view.candidate_storage.get(para_id) {
 				let unconnected_potential =
-					fragment_chain.find_unconnected_potential_candidates(storage);
+					fragment_chain.find_unconnected_potential_candidates(storage, None);
 				if !unconnected_potential.is_empty() {
 					gum::trace!(
 						target: LOG_TARGET,
@@ -442,8 +442,6 @@ async fn handle_introduce_seconded_candidate<Context>(
 		persisted_validation_data: pvd,
 	} = request;
 
-	// Add the candidate to storage.
-	// Then attempt to add it to all chains.
 	let Some(storage) = view.candidate_storage.get_mut(&para) else {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -525,6 +523,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 			} else {
 				match chain.can_add_candidate_as_potential(
 					&storage,
+					&candidate_hash,
 					&candidate.descriptor.relay_parent,
 					parent_head_hash,
 					output_head_hash,
