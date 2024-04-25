@@ -130,6 +130,7 @@ jobs:
           asset_content_type: application/wasm
 
   post_to_matrix:
+    environment: release
     runs-on: ubuntu-latest
     needs: publish-release-draft
     strategy:
