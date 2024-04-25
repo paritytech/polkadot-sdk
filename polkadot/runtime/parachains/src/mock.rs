@@ -257,6 +257,8 @@ impl crate::hrmp::Config for Test {
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	// TODO: better testing stuff for more cases
+	type NotificationVersion = ();
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
 

@@ -160,8 +160,11 @@ fn open_channel_works() {
 				proposed_max_capacity: 2,
 				proposed_max_message_size: 8
 			})));
+		// TODO: check dmp notication
 
 		Hrmp::hrmp_accept_open_channel(para_b_origin.into(), para_a).unwrap();
+		// TODO: check dmp notication
+
 		Hrmp::assert_storage_consistency_exhaustive();
 		assert!(System::events().iter().any(|record| record.event ==
 			MockEvent::Hrmp(Event::OpenChannelAccepted { sender: para_a, recipient: para_b })));

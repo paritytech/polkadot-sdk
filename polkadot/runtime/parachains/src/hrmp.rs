@@ -245,6 +245,23 @@ impl fmt::Debug for OutboundHrmpAcceptanceErr {
 	}
 }
 
+/// Trait for determining which version (e.g. XCM version) should be used for a notification to be
+/// sent to the parachain.
+pub trait GetNotificationVersion {
+	// TODO:(remove-todo) - use `xcm::Version = u32` instead of `u32`?
+	fn for_para(para_id: ParaId) -> Option<u32>;
+}
+
+/// `()` implementation returns `None`.
+impl GetNotificationVersion for () {
+	fn for_para(_: ParaId) -> Option<u32> {
+		None
+	}
+}
+
+// TODO: implement adapter for `GetNotificationVersion` + `pallet_xcm::GetVersion(for or
+// safeXcmVersion)`
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -277,6 +294,11 @@ pub mod pallet {
 		/// The default channel size and capacity to use when opening a channel to a system
 		/// parachain.
 		type DefaultChannelSizeAndCapacityWithSystem: Get<(u32, u32)>;
+
+		/// Get the notification version for the destination parachain.
+		/// If a version is not provided, then the default/latest version will be used (as best
+		/// effort).
+		type NotificationVersion: GetNotificationVersion;
 
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
@@ -1499,28 +1521,19 @@ impl<T: Config> Pallet<T> {
 		);
 		HrmpOpenChannelRequestsList::<T>::append(channel_id);
 
-		let notification_bytes = {
-			use parity_scale_codec::Encode as _;
-			use xcm::opaque::{latest::prelude::*, VersionedXcm};
-
-			VersionedXcm::from(Xcm(vec![HrmpNewChannelOpenRequest {
-				sender: u32::from(origin),
-				max_capacity: proposed_max_capacity,
-				max_message_size: proposed_max_message_size,
-			}]))
-			.encode()
-		};
-		if let Err(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			dmp::Pallet::<T>::queue_downward_message(&config, recipient, notification_bytes)
-		{
-			// this should never happen unless the max downward message size is configured to a
-			// jokingly small number.
-			log::error!(
-				target: "runtime::hrmp",
-				"sending 'init_open_channel::notification_bytes' failed."
-			);
-			debug_assert!(false);
-		}
+		Self::send_notification_to_para(
+			"init_open_channel",
+			&config,
+			recipient,
+			Self::versioned_xcm_notification(|| {
+				use xcm::opaque::latest::{prelude::*, Xcm};
+				Xcm(vec![HrmpNewChannelOpenRequest {
+					sender: u32::from(origin),
+					max_capacity: proposed_max_capacity,
+					max_message_size: proposed_max_message_size,
+				}])
+			}),
+		);
 
 		Ok(())
 	}
@@ -1562,23 +1575,15 @@ impl<T: Config> Pallet<T> {
 		HrmpOpenChannelRequests::<T>::insert(&channel_id, channel_req);
 		HrmpAcceptedChannelRequestCount::<T>::insert(&origin, accepted_cnt + 1);
 
-		let notification_bytes = {
-			use parity_scale_codec::Encode as _;
-			use xcm::opaque::{latest::prelude::*, VersionedXcm};
-			let xcm = Xcm(vec![HrmpChannelAccepted { recipient: u32::from(origin) }]);
-			VersionedXcm::from(xcm).encode()
-		};
-		if let Err(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			dmp::Pallet::<T>::queue_downward_message(&config, sender, notification_bytes)
-		{
-			// this should never happen unless the max downward message size is configured to an
-			// jokingly small number.
-			log::error!(
-				target: "runtime::hrmp",
-				"sending 'accept_open_channel::notification_bytes' failed."
-			);
-			debug_assert!(false);
-		}
+		Self::send_notification_to_para(
+			"accept_open_channel",
+			&config,
+			sender,
+			Self::versioned_xcm_notification(|| {
+				use xcm::opaque::latest::{prelude::*, Xcm};
+				Xcm(vec![HrmpChannelAccepted { recipient: u32::from(origin) }])
+			}),
+		);
 
 		Ok(())
 	}
@@ -1633,30 +1638,22 @@ impl<T: Config> Pallet<T> {
 		HrmpCloseChannelRequestsList::<T>::append(channel_id.clone());
 
 		let config = configuration::ActiveConfig::<T>::get();
-		let notification_bytes = {
-			use parity_scale_codec::Encode as _;
-			use xcm::opaque::{latest::prelude::*, VersionedXcm};
-
-			VersionedXcm::from(Xcm(vec![HrmpChannelClosing {
-				initiator: u32::from(origin),
-				sender: u32::from(channel_id.sender),
-				recipient: u32::from(channel_id.recipient),
-			}]))
-			.encode()
-		};
 		let opposite_party =
 			if origin == channel_id.sender { channel_id.recipient } else { channel_id.sender };
-		if let Err(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			dmp::Pallet::<T>::queue_downward_message(&config, opposite_party, notification_bytes)
-		{
-			// this should never happen unless the max downward message size is configured to an
-			// jokingly small number.
-			log::error!(
-				target: "runtime::hrmp",
-				"sending 'close_channel::notification_bytes' failed."
-			);
-			debug_assert!(false);
-		}
+
+		Self::send_notification_to_para(
+			"close_channel",
+			&config,
+			opposite_party,
+			Self::versioned_xcm_notification(|| {
+				use xcm::opaque::latest::{prelude::*, Xcm};
+				Xcm(vec![HrmpChannelClosing {
+					initiator: u32::from(origin),
+					sender: u32::from(channel_id.sender),
+					recipient: u32::from(channel_id.recipient),
+				}])
+			}),
+		);
 
 		Ok(())
 	}
@@ -1872,6 +1869,57 @@ impl<T: Config> Pallet<T> {
 					"duplicates removed implies existence of duplicates"
 				);
 			}
+		}
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	// TODO: externalize XCM stuff from this module, so that runtime can decide what kind of
+	// notification will be provided
+	fn versioned_xcm_notification(
+		mut notification: impl FnMut() -> xcm::opaque::latest::opaque::Xcm,
+	) -> impl FnOnce(&str, ParaId) -> primitives::DownwardMessage {
+		// return closure which can prepare notification
+		move |log_label, dest| {
+			use xcm::{opaque::VersionedXcm, IntoVersion};
+
+			// First check, if we know version for destination parachain.
+			if let Some(version) = T::NotificationVersion::for_para(dest) {
+				match VersionedXcm::from(notification()).into_version(version) {
+					Ok(versioned_xcm) => return versioned_xcm.encode(),
+					Err(_) => log::error!(
+						target: "runtime::hrmp",
+						"versioned_xcm_notification '{log_label}::notification_bytes' unsupported version: {version} for `VersionedXcm`"
+					),
+				}
+			}
+
+			// As a best effort, if we cannot resolve the version, fallback to using the latest
+			// version.
+			VersionedXcm::from(notification()).encode()
+		}
+	}
+
+	fn send_notification_to_para(
+		log_label: &str,
+		config: &HostConfiguration<BlockNumberFor<T>>,
+		dest: ParaId,
+		notification_bytes: impl FnOnce(&str, ParaId) -> primitives::DownwardMessage,
+	) {
+		// prepare notification
+		let notification_bytes = notification_bytes(log_label, dest);
+
+		// try to enqueue
+		if let Err(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
+			dmp::Pallet::<T>::queue_downward_message(&config, dest, notification_bytes)
+		{
+			// this should never happen unless the max downward message size is configured to a
+			// jokingly small number.
+			log::error!(
+				target: "runtime::hrmp",
+				"sending '{log_label}::notification_bytes' failed."
+			);
+			debug_assert!(false);
 		}
 	}
 }
