@@ -162,7 +162,7 @@ pub struct Worker<Client, Block, DhtEventStream> {
 	/// Last known record by key, here we always keep the record with
 	/// the highest creation time and we don't accept records older than
 	/// that.
-	last_known_record: HashMap<KademliaKey, RecordInfo>,
+	last_known_records: HashMap<KademliaKey, RecordInfo>,
 
 	addr_cache: addr_cache::AddrCache,
 
@@ -301,7 +301,7 @@ where
 			role,
 			metrics,
 			phantom: PhantomData,
-			last_known_record: HashMap::new(),
+			last_known_records: HashMap::new(),
 		}
 	}
 
@@ -738,7 +738,7 @@ where
 		new_record: RecordInfo,
 	) -> bool {
 		let current_record_info = self
-			.last_known_record
+			.last_known_records
 			.entry(kademlia_key.clone())
 			.or_insert_with(|| new_record.clone());
 		if new_record.creation_time > current_record_info.creation_time {
@@ -757,7 +757,7 @@ where
 					"Found a newer record for {:?} new record creation time {:?} old record creation time {:?}",
 					authority_id, new_record.creation_time, current_record_info.creation_time
 			);
-			self.last_known_record.insert(kademlia_key, new_record);
+			self.last_known_records.insert(kademlia_key, new_record);
 			true
 		} else if new_record.creation_time == current_record_info.creation_time {
 			// Same record just update in case this is a record from old nods that don't have
@@ -898,7 +898,7 @@ fn sign_record_with_authority_ids(
 				.duration_since(UNIX_EPOCH)
 				.map(|time| time.as_nanos())
 				.unwrap_or_default();
-			debug!(target: LOG_TARGET, "Publish address with creation time{:?}", creation_time);
+			debug!(target: LOG_TARGET, "Publish address with creation time {:?}", creation_time);
 			let creation_time = creation_time.encode();
 			let creation_time_signature = key_store
 				.sr25519_sign(key_types::AUTHORITY_DISCOVERY, key.as_ref(), &creation_time)
