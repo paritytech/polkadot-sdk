@@ -23,11 +23,12 @@ use crate::{
 };
 use frame_support::{
 	assert_ok,
+	assert_err,
 	traits::{tokens::fungibles::Inspect, Currency},
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use sp_runtime::{traits::AccountIdConversion, DispatchError};
+use sp_runtime::{traits::AccountIdConversion};
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
@@ -869,7 +870,7 @@ fn destination_asset_reserve_and_destination_fee_reserve_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return;
+			return
 		}
 
 		let weight = BaseXcmWeight::get() * 2;
@@ -1978,7 +1979,7 @@ fn reserve_transfer_assets_with_teleportable_asset_disallowed() {
 			fee_index as u32,
 			Unlimited,
 		);
-		assert_eq!(res, Err(crate::Error::<Test>::Filtered.into()));
+		assert_err!(res, crate::Error::<Test>::Filtered);
 		// Alice native asset is still same
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 		// Alice USDT balance is still same
@@ -2019,7 +2020,7 @@ fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 			fee_index as u32,
 			Unlimited,
 		);
-		assert_eq!(result, Err(crate::Error::<Test>::Filtered.into()));
+		assert_err!(result, crate::Error::<Test>::Filtered);
 	});
 }
 
