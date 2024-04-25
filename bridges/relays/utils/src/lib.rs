@@ -64,7 +64,6 @@ pub trait BlockNumberBase:
 	+ std::fmt::Display
 	+ std::hash::Hash
 	+ std::ops::Add<Output = Self>
-	+ std::ops::Rem<Output = Self>
 	+ std::ops::Sub<Output = Self>
 	+ num_traits::CheckedSub
 	+ num_traits::Saturating
@@ -87,7 +86,6 @@ impl<T> BlockNumberBase for T where
 		+ std::fmt::Display
 		+ std::hash::Hash
 		+ std::ops::Add<Output = Self>
-		+ std::ops::Rem<Output = Self>
 		+ std::ops::Sub<Output = Self>
 		+ num_traits::CheckedSub
 		+ num_traits::Saturating
