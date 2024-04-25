@@ -16,12 +16,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::keystore::BeefyKeystore;
-use codec::{DecodeAll, Encode};
+use codec::DecodeAll;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
-	SignedCommitment, ValidatorSet, ValidatorSetId, VersionedFinalityProof,
+	BeefySignatureHasher, KnownSignature, SignedCommitment, ValidatorSet, ValidatorSetId,
+	VersionedFinalityProof,
 };
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -54,35 +54,14 @@ pub(crate) fn verify_signed_commitment_with_validator_set<'a, Block: BlockT>(
 	target_number: NumberFor<Block>,
 	validator_set: &'a ValidatorSet<AuthorityId>,
 	signed_commitment: &'a SignedCommitment<NumberFor<Block>, Signature>,
-) -> Result<Vec<(&'a AuthorityId, &'a Signature)>, (ConsensusError, u32)> {
-	if signed_commitment.signatures.len() != validator_set.len() ||
-		signed_commitment.commitment.validator_set_id != validator_set.id() ||
-		signed_commitment.commitment.block_number != target_number
-	{
-		return Err((ConsensusError::InvalidJustification, 0))
-	}
-
-	let message = signed_commitment.commitment.encode();
-	// Arrangement of signatures in the commitment should be in the same order
-	// as validators for that set.
-	let mut signatures_checked = 0u32;
-	let signatories: Vec<_> = validator_set
-		.validators()
-		.into_iter()
-		.zip(signed_commitment.signatures.iter())
-		.filter_map(|(id, maybe_signature)| {
-			let signature = maybe_signature.as_ref()?;
-			signatures_checked += 1;
-			match BeefyKeystore::verify(id, signature, &message[..]) {
-				true => Some((id, signature)),
-				false => None,
-			}
-		})
-		.collect();
+) -> Result<Vec<KnownSignature<&'a AuthorityId, &'a Signature>>, (ConsensusError, u32)> {
+	let signatories = signed_commitment
+		.verify_signatures::<_, BeefySignatureHasher>(target_number, validator_set)
+		.map_err(|checked_signatures| (ConsensusError::InvalidJustification, checked_signatures))?;
 	if signatories.len() >= crate::round::threshold(validator_set.len()) {
 		Ok(signatories)
 	} else {
-		Err((ConsensusError::InvalidJustification, signatures_checked))
+		Err((ConsensusError::InvalidJustification, signed_commitment.signature_count() as u32))
 	}
 }
 
@@ -91,7 +70,7 @@ pub(crate) fn verify_with_validator_set<'a, Block: BlockT>(
 	target_number: NumberFor<Block>,
 	validator_set: &'a ValidatorSet<AuthorityId>,
 	proof: &'a BeefyVersionedFinalityProof<Block>,
-) -> Result<Vec<(&'a AuthorityId, &'a Signature)>, (ConsensusError, u32)> {
+) -> Result<Vec<KnownSignature<&'a AuthorityId, &'a Signature>>, (ConsensusError, u32)> {
 	match proof {
 		VersionedFinalityProof::V1(signed_commitment) =>
 			verify_signed_commitment_with_validator_set::<Block>(
@@ -104,6 +83,7 @@ pub(crate) fn verify_with_validator_set<'a, Block: BlockT>(
 
 #[cfg(test)]
 pub(crate) mod tests {
+	use codec::Encode;
 	use sp_consensus_beefy::{
 		known_payloads, test_utils::Keyring, Commitment, Payload, SignedCommitment,
 		VersionedFinalityProof,

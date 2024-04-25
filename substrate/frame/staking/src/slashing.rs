@@ -609,8 +609,13 @@ pub fn do_slash<T: Config>(
 		};
 
 	let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
+	if value.is_zero() {
+		// nothing to do
+		return
+	}
 
-	if !value.is_zero() {
+	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
+	if !Pallet::<T>::is_virtual_staker(stash) {
 		let (imbalance, missing) = T::Currency::slash(stash, value);
 		slashed_imbalance.subsume(imbalance);
 
@@ -618,17 +623,14 @@ pub fn do_slash<T: Config>(
 			// deduct overslash from the reward payout
 			*reward_payout = reward_payout.saturating_sub(missing);
 		}
-
-		let _ = ledger
-			.update()
-			.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
-
-		// trigger the event
-		<Pallet<T>>::deposit_event(super::Event::<T>::Slashed {
-			staker: stash.clone(),
-			amount: value,
-		});
 	}
+
+	let _ = ledger
+		.update()
+		.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
+
+	// trigger the event
+	<Pallet<T>>::deposit_event(super::Event::<T>::Slashed { staker: stash.clone(), amount: value });
 }
 
 /// Apply a previously-unapplied slash.
