@@ -1243,8 +1243,7 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 /// Controls validator disabling
 pub trait DisablingStrategy<T: Config> {
 	/// Make a disabling decision. Returns the index of the validator to disable or `None` if no new
-	/// validator should be disabled. Note that the returned index might not be the index of the
-	/// offender.
+	/// validator should be disabled.
 	fn decision(
 		offender_stash: &T::AccountId,
 		slash_era: EraIndex,
