@@ -24,6 +24,7 @@ use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use crate::{
 	cli::{bridge::*, chain_schema::*, PrometheusParams},
 	finality::SubstrateFinalitySyncPipeline,
+	HeadersToRelay,
 };
 
 /// Chain headers relaying params.
@@ -33,6 +34,10 @@ pub struct RelayHeadersParams {
 	/// are relayed.
 	#[structopt(long)]
 	only_mandatory_headers: bool,
+	/// If passed, only free headers (mandatory and every Nth header, if configured in runtime)
+	/// are relayed. Overrides `only_mandatory_headers`.
+	#[structopt(long)]
+	only_free_headers: bool,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
 	#[structopt(flatten)]
@@ -43,11 +48,22 @@ pub struct RelayHeadersParams {
 	prometheus_params: PrometheusParams,
 }
 
+impl RelayHeadersParams {
+	fn headers_to_relay(&self) -> HeadersToRelay {
+		match (self.only_mandatory_headers, self.only_free_headers) {
+			(_, true) => HeadersToRelay::Free,
+			(true, false) => HeadersToRelay::Mandatory,
+			_ => HeadersToRelay::All,
+		}
+	}
+}
+
 /// Trait used for relaying headers between 2 chains.
 #[async_trait]
 pub trait HeadersRelayer: RelayToRelayHeadersCliBridge {
 	/// Relay headers.
 	async fn relay_headers(data: RelayHeadersParams) -> anyhow::Result<()> {
+		let headers_to_relay = data.headers_to_relay();
 		let source_client = data.source.into_client::<Self::Source>().await?;
 		let target_client = data.target.into_client::<Self::Target>().await?;
 		let target_transactions_mortality = data.target_sign.target_transactions_mortality;
@@ -67,7 +83,7 @@ pub trait HeadersRelayer: RelayToRelayHeadersCliBridge {
 		crate::finality::run::<Self::Finality>(
 			source_client,
 			target_client,
-			data.only_mandatory_headers,
+			headers_to_relay,
 			target_transactions_params,
 			metrics_params,
 		)
