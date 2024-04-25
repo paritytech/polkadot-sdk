@@ -56,6 +56,10 @@ jobs:
     #   image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: install base utils
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl
       - uses: dtolnay/rust-toolchain@1.77.0
       - name: run zepter
         run: |
