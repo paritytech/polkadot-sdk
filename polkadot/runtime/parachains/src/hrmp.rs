@@ -245,23 +245,6 @@ impl fmt::Debug for OutboundHrmpAcceptanceErr {
 	}
 }
 
-/// Trait for determining which version (e.g. XCM version) should be used for a notification to be
-/// sent to the parachain.
-pub trait GetNotificationVersion {
-	// TODO:(remove-todo) - use `xcm::Version = u32` instead of `u32`?
-	fn for_para(para_id: ParaId) -> Option<u32>;
-}
-
-/// `()` implementation returns `None`.
-impl GetNotificationVersion for () {
-	fn for_para(_: ParaId) -> Option<u32> {
-		None
-	}
-}
-
-// TODO: implement adapter for `GetNotificationVersion` + `pallet_xcm::GetVersion(for or
-// safeXcmVersion)`
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -295,10 +278,8 @@ pub mod pallet {
 		/// parachain.
 		type DefaultChannelSizeAndCapacityWithSystem: Get<(u32, u32)>;
 
-		/// Get the notification version for the destination parachain.
-		/// If a version is not provided, then the default/latest version will be used (as best
-		/// effort).
-		type NotificationVersion: GetNotificationVersion;
+		/// Means of converting an `Xcm` into a `VersionedXcm`.
+		type VersionWrapper: xcm::WrapVersion;
 
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
@@ -1521,11 +1502,11 @@ impl<T: Config> Pallet<T> {
 		);
 		HrmpOpenChannelRequestsList::<T>::append(channel_id);
 
-		Self::send_notification_to_para(
+		Self::send_to_para(
 			"init_open_channel",
 			&config,
 			recipient,
-			Self::versioned_xcm_notification(|| {
+			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
 				Xcm(vec![HrmpNewChannelOpenRequest {
 					sender: u32::from(origin),
@@ -1575,11 +1556,11 @@ impl<T: Config> Pallet<T> {
 		HrmpOpenChannelRequests::<T>::insert(&channel_id, channel_req);
 		HrmpAcceptedChannelRequestCount::<T>::insert(&origin, accepted_cnt + 1);
 
-		Self::send_notification_to_para(
+		Self::send_to_para(
 			"accept_open_channel",
 			&config,
 			sender,
-			Self::versioned_xcm_notification(|| {
+			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
 				Xcm(vec![HrmpChannelAccepted { recipient: u32::from(origin) }])
 			}),
@@ -1641,11 +1622,11 @@ impl<T: Config> Pallet<T> {
 		let opposite_party =
 			if origin == channel_id.sender { channel_id.recipient } else { channel_id.sender };
 
-		Self::send_notification_to_para(
+		Self::send_to_para(
 			"close_channel",
 			&config,
 			opposite_party,
-			Self::versioned_xcm_notification(|| {
+			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
 				Xcm(vec![HrmpChannelClosing {
 					initiator: u32::from(origin),
@@ -1874,40 +1855,42 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	// TODO: externalize XCM stuff from this module, so that runtime can decide what kind of
-	// notification will be provided
-	fn versioned_xcm_notification(
+	/// Wraps HRMP XCM notifications to the most suitable XCM version for the destination para.
+	/// If the XCM version is unknown, the latest XCM version is used as a best effort.
+	fn wrap_notification(
 		mut notification: impl FnMut() -> xcm::opaque::latest::opaque::Xcm,
-	) -> impl FnOnce(&str, ParaId) -> primitives::DownwardMessage {
+	) -> impl FnOnce(ParaId) -> primitives::DownwardMessage {
+		use xcm::{
+			opaque::VersionedXcm,
+			prelude::{Junction, Location},
+			WrapVersion,
+		};
+
 		// return closure which can prepare notification
-		move |log_label, dest| {
-			use xcm::{opaque::VersionedXcm, IntoVersion};
-
-			// First check, if we know version for destination parachain.
-			if let Some(version) = T::NotificationVersion::for_para(dest) {
-				match VersionedXcm::from(notification()).into_version(version) {
-					Ok(versioned_xcm) => return versioned_xcm.encode(),
-					Err(_) => log::error!(
-						target: "runtime::hrmp",
-						"versioned_xcm_notification '{log_label}::notification_bytes' unsupported version: {version} for `VersionedXcm`"
-					),
-				}
-			}
-
-			// As a best effort, if we cannot resolve the version, fallback to using the latest
-			// version.
-			VersionedXcm::from(notification()).encode()
+		move |dest| {
+			// try to wrap notification for destination para
+			T::VersionWrapper::wrap_version(
+				&Location::new(0, [Junction::Parachain(dest.into())]),
+				notification(),
+			)
+			.unwrap_or_else(|_| {
+				// As a best effort, if we cannot resolve the version, fallback to using the latest
+				// version.
+				VersionedXcm::from(notification())
+			})
+			.encode()
 		}
 	}
 
-	fn send_notification_to_para(
+	/// Sends/enqueues notification to the destination parachain.
+	fn send_to_para(
 		log_label: &str,
 		config: &HostConfiguration<BlockNumberFor<T>>,
 		dest: ParaId,
-		notification_bytes: impl FnOnce(&str, ParaId) -> primitives::DownwardMessage,
+		notification_bytes_for: impl FnOnce(ParaId) -> primitives::DownwardMessage,
 	) {
 		// prepare notification
-		let notification_bytes = notification_bytes(log_label, dest);
+		let notification_bytes = notification_bytes_for(dest);
 
 		// try to enqueue
 		if let Err(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =

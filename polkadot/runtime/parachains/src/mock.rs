@@ -258,7 +258,7 @@ impl crate::hrmp::Config for Test {
 	type Currency = pallet_balances::Pallet<Test>;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	// TODO: better testing stuff for more cases
-	type NotificationVersion = ();
+	type VersionWrapper = ();
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
 
