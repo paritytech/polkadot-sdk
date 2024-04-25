@@ -11,19 +11,19 @@ doc:
       concept. Submitting such header is considered a common good deed, so it is free for relayers.
 
 crates:
-  - bp-bridge-hub-kusama
+  - name: bp-bridge-hub-kusama
     bump: major
-  - bp-bridge-hub-polkadot
+  - name: bp-bridge-hub-polkadot
     bump: major
-  - bp-bridge-hub-rococo
+  - name: bp-bridge-hub-rococo
     bump: major
-  - bp-bridge-hub-westend
+  - name: bp-bridge-hub-westend
     bump: major
-  - relay-substrate-client
+  - name: relay-substrate-client
     bump: major
-  - finality-relay
+  - name: finality-relay
     bump: major
-  - substrate-relay-helper
+  - name: substrate-relay-helper
     bump: major
-  - parachains-relay
+  - name: parachains-relay
     bump: major
