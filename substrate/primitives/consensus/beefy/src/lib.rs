@@ -33,7 +33,8 @@
 
 extern crate alloc;
 
-mod commitment;
+// TODO: unpub
+pub mod commitment;
 mod payload;
 
 pub mod mmr;

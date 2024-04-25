@@ -25,6 +25,7 @@ use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
+	commitment::KnownSignature,
 	ecdsa_crypto::{AuthorityId, Signature},
 	BeefyApi, BeefyEquivocationProof, BeefySignatureHasher, ForkEquivocationProof, MmrHashing,
 	MmrRootHash, Payload, PayloadProvider, ValidatorSet, VoteMessage,
@@ -328,7 +329,9 @@ where
 			) {
 				Ok(signatories_refs) => signatories_refs
 					.into_iter()
-					.map(|(id, signature)| (id.clone(), signature.clone()))
+					.map(|KnownSignature { validator_id, signature }| {
+						(validator_id.clone(), signature.clone())
+					})
 					.collect(),
 				Err(_) => {
 					// invalid proof
