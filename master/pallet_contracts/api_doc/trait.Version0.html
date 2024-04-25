@@ -803,10 +803,7 @@ See [<code>frame_support::traits::call_runtime</code>].</p>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../pallet_contracts_uapi/enum.ReturnErrorCode.html" title="enum pallet_contracts_uapi::ReturnErrorCode">ReturnErrorCode</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Execute an XCM program locally, using the contract’s address as the origin.
 See [<code>pallet_contracts_uapi::HostFn::execute_xcm</code>].</p>
 <h5 id="wasm-import-statement-39"><a class="doc-anchor" href="#wasm-import-statement-39">§</a>Wasm Import Statement</h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal0&quot; &quot;xcm_execute&quot; (func ...))
-</code></pre></div><h5 id="unstable"><a class="doc-anchor" href="#unstable">§</a>Unstable</h5>
-<p>This function is unstable and it is a subject to change (or removal) in the future.
-Do not deploy a contract using it to a production chain.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.xcm_send" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#988">source</a><h4 class="code-header">fn <a href="#tymethod.xcm_send" class="fn">xcm_send</a>(
+</code></pre></div></div></details><details class="toggle method-toggle" open><summary><section id="tymethod.xcm_send" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#988">source</a><h4 class="code-header">fn <a href="#tymethod.xcm_send" class="fn">xcm_send</a>(
     dest_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     msg_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     msg_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
@@ -814,10 +811,7 @@ Do not deploy a contract using it to a production chain.</p>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../pallet_contracts_uapi/enum.ReturnErrorCode.html" title="enum pallet_contracts_uapi::ReturnErrorCode">ReturnErrorCode</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Send an XCM program from the contract to the specified destination.
 See [<code>pallet_contracts_uapi::HostFn::send_xcm</code>].</p>
 <h5 id="wasm-import-statement-40"><a class="doc-anchor" href="#wasm-import-statement-40">§</a>Wasm Import Statement</h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal0&quot; &quot;xcm_send&quot; (func ...))
-</code></pre></div><h5 id="unstable-1"><a class="doc-anchor" href="#unstable-1">§</a>Unstable</h5>
-<p>This function is unstable and it is a subject to change (or removal) in the future.
-Do not deploy a contract using it to a production chain.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ecdsa_recover" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#988">source</a><h4 class="code-header">fn <a href="#tymethod.ecdsa_recover" class="fn">ecdsa_recover</a>(
+</code></pre></div></div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ecdsa_recover" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#988">source</a><h4 class="code-header">fn <a href="#tymethod.ecdsa_recover" class="fn">ecdsa_recover</a>(
     signature_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     message_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
@@ -845,14 +839,14 @@ See [<code>pallet_contracts_uapi::HostFn::ecdsa_to_eth_address</code>].</p>
 addition to the calling instance.
 See [<code>pallet_contracts_uapi::HostFn::reentrance_count</code>].</p>
 <h5 id="wasm-import-statement-45"><a class="doc-anchor" href="#wasm-import-statement-45">§</a>Wasm Import Statement</h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal0&quot; &quot;reentrance_count&quot; (func ...))
-</code></pre></div><h5 id="unstable-2"><a class="doc-anchor" href="#unstable-2">§</a>Unstable</h5>
+</code></pre></div><h5 id="unstable"><a class="doc-anchor" href="#unstable">§</a>Unstable</h5>
 <p>This function is unstable and it is a subject to change (or removal) in the future.
 Do not deploy a contract using it to a production chain.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.account_reentrance_count" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#988">source</a><h4 class="code-header">fn <a href="#tymethod.account_reentrance_count" class="fn">account_reentrance_count</a>(account_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Returns the number of times specified contract exists on the call stack. Delegated calls are
 not counted as separate calls.
 See [<code>pallet_contracts_uapi::HostFn::account_reentrance_count</code>].</p>
 <h5 id="wasm-import-statement-46"><a class="doc-anchor" href="#wasm-import-statement-46">§</a>Wasm Import Statement</h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal0&quot; &quot;account_reentrance_count&quot; (func ...))
-</code></pre></div><h5 id="unstable-3"><a class="doc-anchor" href="#unstable-3">§</a>Unstable</h5>
+</code></pre></div><h5 id="unstable-1"><a class="doc-anchor" href="#unstable-1">§</a>Unstable</h5>
 <p>This function is unstable and it is a subject to change (or removal) in the future.
 Do not deploy a contract using it to a production chain.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.instantiation_nonce" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#988">source</a><h4 class="code-header">fn <a href="#tymethod.instantiation_nonce" class="fn">instantiation_nonce</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Returns a nonce that is unique per contract instantiation.

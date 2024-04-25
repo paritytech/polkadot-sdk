@@ -2278,14 +2278,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>ApiVersion(u16);
 <span class="kw">impl </span>Default <span class="kw">for </span>ApiVersion {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>(<span class="number">2</span>)
+		<span class="self">Self</span>(<span class="number">3</span>)
 	}
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>api_version_is_up_to_date() {
 	<span class="macro">assert_eq!</span>(
-		<span class="number">109</span>,
+		<span class="number">111</span>,
 		<span class="kw">crate</span>::wasm::STABLE_API_COUNT,
 		<span class="string">"Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test."
 	</span>);
