@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714041418640,
+  "lastUpdate": 1714052354209,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -6655,6 +6655,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16218449430666662,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ff2b178206f9952c3337638659450c67fd700e7e",
+          "message": "remote-externalities: retry get child keys query (#4280)",
+          "timestamp": "2024-04-25T12:01:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff2b178206f9952c3337638659450c67fd700e7e"
+        },
+        "date": 1714052327458,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01163119069333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022668894840000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16774334200666657,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014125829873333329,
             "unit": "seconds"
           }
         ]
