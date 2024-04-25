@@ -45,12 +45,12 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin,
-	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
-	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
-	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
+	unique_instances::RecreateableInstanceAdapter, AccountId32Aliases,
+	AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily,
+	DescribePalletTerminal, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
+	FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription, InstancesOfClasses,
+	IsConcrete, LocalMint, NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
 	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
@@ -142,19 +142,11 @@ pub type UniquesConvertedConcreteId =
 	assets_common::UniquesConvertedConcreteId<UniquesPalletLocation>;
 
 /// Means for transacting unique assets.
-pub type UniquesTransactor = NonFungiblesAdapter<
-	// Use this non-fungibles implementation:
-	Uniques,
-	// This adapter will handle any non-fungible asset from the uniques pallet.
-	UniquesConvertedConcreteId,
-	// Convert an XCM Location into a local account id:
-	LocationToAccountId,
-	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+pub type UniquesTransactor = RecreateableInstanceAdapter<
 	AccountId,
-	// Does not check teleports.
-	NoChecking,
-	// The account to use for tracking teleports.
-	CheckingAccount,
+	LocationToAccountId,
+	InstancesOfClasses<UniquesConvertedConcreteId>,
+	Uniques,
 >;
 
 /// `AssetId`/`Balance` converter for `ForeignAssets`.
