@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714042263503,
+  "lastUpdate": 1714052647463,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -5333,6 +5333,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.2088572432,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ff2b178206f9952c3337638659450c67fd700e7e",
+          "message": "remote-externalities: retry get child keys query (#4280)",
+          "timestamp": "2024-04-25T12:01:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff2b178206f9952c3337638659450c67fd700e7e"
+        },
+        "date": 1714052621602,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.62672678896667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1571307034333333,
             "unit": "seconds"
           }
         ]
