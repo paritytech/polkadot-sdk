@@ -342,8 +342,8 @@ pub mod pallet {
 			Self::do_release(&who, &delegator, amount, num_slashing_spans)
 		}
 
-		/// Claim delegated funds that are held in `proxy_delegator` to the claiming delegator's
-		/// account. If successful, the specified funds will be delegated directly from `delegator`
+		/// Migrate delegated funds that are held in `proxy_delegator` to the claiming `delegator`'s
+		/// account. If successful, the specified funds will be moved and delegated from `delegator`
 		/// account to the agent.
 		///
 		/// This can be called by `agent` accounts that were previously a direct `Nominator` with
@@ -351,7 +351,7 @@ pub mod pallet {
 		///
 		/// Internally, it moves some delegations from `proxy_delegator` account to `delegator`
 		/// account and reapplying the holds.
-		pub fn claim_delegation(
+		pub fn migrate_delegation(
 			origin: OriginFor<T>,
 			delegator: T::AccountId,
 			amount: BalanceOf<T>,
@@ -374,7 +374,7 @@ pub mod pallet {
 			let balance_remaining = Self::held_balance_of(&proxy_delegator);
 			ensure!(balance_remaining >= amount, Error::<T>::NotEnoughFunds);
 
-			Self::migrate_delegation(&proxy_delegator, &delegator, amount)
+			Self::do_migrate_delegation(&proxy_delegator, &delegator, amount)
 		}
 
 		/// Delegate given `amount` of tokens to an `Agent` account.
@@ -611,7 +611,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Migrates delegation of `amount` from `source` account to `destination` account.
-	fn migrate_delegation(
+	fn do_migrate_delegation(
 		source_delegator: &T::AccountId,
 		destination_delegator: &T::AccountId,
 		amount: BalanceOf<T>,

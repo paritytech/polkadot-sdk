@@ -115,7 +115,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::claim_delegation(
+		Pallet::<T>::migrate_delegation(
 			RawOrigin::Signed(agent.clone()).into(),
 			delegator.clone(),
 			value,
