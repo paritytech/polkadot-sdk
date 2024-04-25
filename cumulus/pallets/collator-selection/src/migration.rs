@@ -40,8 +40,8 @@ pub mod v2 {
 	>;
 
 	/// Migrate to V2.
-	pub struct MigrateToV2<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config + pallet_balances::Config> OnRuntimeUpgrade for MigrateToV2<T> {
+	pub struct MigrationToV2<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config + pallet_balances::Config> OnRuntimeUpgrade for MigrationToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 			if on_chain_version == 1 {
@@ -252,7 +252,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(three), 90);
 
 			// Run migration
-			v2::MigrateToV2::<Test>::on_runtime_upgrade();
+			v2::MigrationToV2::<Test>::on_runtime_upgrade();
 
 			let new_storage_version = StorageVersion::get::<Pallet<Test>>();
 			assert_eq!(new_storage_version, 2);
@@ -306,7 +306,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(two), 90);
 
 			// Run migration
-			v2::MigrateToV2::<Test>::on_runtime_upgrade();
+			v2::MigrationToV2::<Test>::on_runtime_upgrade();
 
 			let new_storage_version = StorageVersion::get::<Pallet<Test>>();
 			assert_eq!(new_storage_version, 2);
