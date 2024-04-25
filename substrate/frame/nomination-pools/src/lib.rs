@@ -1748,7 +1748,8 @@ pub mod pallet {
 	///
 	/// This is used to ensure that the stake strategy is only migrated once.
 	#[pallet::storage]
-	pub type StrategyMigration<T: Config> = StorageValue<_, adapter::StakeStrategyType, OptionQuery>;
+	pub type StrategyMigration<T: Config> =
+		StorageValue<_, adapter::StakeStrategyType, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {

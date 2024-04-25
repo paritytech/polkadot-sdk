@@ -29,13 +29,6 @@ pub enum StakeStrategyType {
 	Delegate,
 }
 
-impl Default for StakeStrategyType {
-	fn default() -> Self {
-		// default to the older strategy before migration.
-		StakeStrategyType::Transfer
-	}
-}
-
 /// An adapter trait that can support multiple staking strategies.
 ///
 /// Depending on which staking strategy we want to use, the staking logic can be slightly
@@ -47,9 +40,7 @@ pub trait StakeStrategy {
 	type CoreStaking: StakingInterface<Balance = Self::Balance, AccountId = Self::AccountId>;
 
 	/// The type of staking strategy.
-	fn strategy_type() -> StakeStrategyType {
-		StakeStrategyType::default()
-	}
+	fn strategy_type() -> StakeStrategyType;
 
 	/// See [`StakingInterface::bonding_duration`].
 	fn bonding_duration() -> EraIndex {
