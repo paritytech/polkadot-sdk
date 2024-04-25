@@ -73,7 +73,8 @@ pub mod pallet {
 			// todo: use custom signature hashing type instead of hardcoded `Keccak256`
 			+ BeefyAuthorityId<sp_runtime::traits::Keccak256>
 			+ MaybeSerializeDeserialize
-			+ MaxEncodedLen;
+			+ MaxEncodedLen
+			+ Ord;
 
 		/// The maximum number of authorities that can be added.
 		#[pallet::constant]

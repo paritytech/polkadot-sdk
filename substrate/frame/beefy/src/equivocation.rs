@@ -170,6 +170,16 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 	where
 		P: KeyOwnerProofSystem<(KeyTypeId, T::BeefyId), Proof = T::KeyOwnerProof>,
 	{
+		let offenders_unique: sp_std::collections::btree_set::BTreeSet<_> =
+			self.proof().offender_ids().iter().cloned().collect();
+		if offenders_unique.len() != self.proof().offender_ids().len() {
+			log::warn!(
+					target: LOG_TARGET,
+					"ignoring equivocation evidence since it contains duplicate offenders."
+			);
+			return None
+		}
+
 		self.proof()
 			.offender_ids()
 			.into_iter()
