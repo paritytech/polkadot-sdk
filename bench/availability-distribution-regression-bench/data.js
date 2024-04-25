@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714052354209,
+  "lastUpdate": 1714058953171,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -6707,6 +6707,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.014125829873333329,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8f5c8f735af9048b83957821db7fb363e89e919f",
+          "message": "Update approval-voting banchmarks base values (#4283)",
+          "timestamp": "2024-04-25T15:04:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8f5c8f735af9048b83957821db7fb363e89e919f"
+        },
+        "date": 1714058927654,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.91333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1680170189266666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011823804346666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022694669880000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014330130940000001,
             "unit": "seconds"
           }
         ]
