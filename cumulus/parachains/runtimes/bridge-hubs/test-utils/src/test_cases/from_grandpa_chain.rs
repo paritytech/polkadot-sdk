@@ -41,6 +41,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
+use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
 use xcm::latest::prelude::*;
@@ -162,7 +163,14 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 					RuntimeHelper::MB,
 					(),
-				>(lane_id, xcm.into(), message_nonce, message_destination, relay_header_number);
+				>(
+					lane_id,
+					xcm.into(),
+					message_nonce,
+					message_destination,
+					relay_header_number,
+					false,
+				);
 
 			let relay_chain_header_hash = relay_chain_header.hash();
 			vec![
@@ -174,6 +182,142 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 					helpers::VerifySubmitGrandpaFinalityProofOutcome::<RuntimeHelper::Runtime, RuntimeHelper::GPI>::expect_best_header_hash(
 						relay_chain_header_hash,
 					),
+				),
+				(
+					BridgeMessagesCall::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::receive_messages_proof {
+						relayer_id_at_bridged_chain,
+						proof: message_proof,
+						messages_count: 1,
+						dispatch_weight: Weight::from_parts(1000000000, 0),
+					}.into(),
+					Box::new((
+						helpers::VerifySubmitMessagesProofOutcome::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::expect_last_delivered_nonce(
+							lane_id,
+							1,
+						),
+						helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime>::expect_relayer_reward(
+							relayer_id_at_this_chain,
+							RewardsAccountParams::new(
+								lane_id,
+								bridged_chain_id,
+								RewardsAccountOwner::ThisChain,
+							),
+						),
+					)),
+				),
+			]
+		},
+	);
+}
+
+/// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
+/// with proofs (finality, message) independently submitted.
+/// Finality proof is submitted for free in this test.
+/// Also verifies relayer transaction signed extensions work as intended.
+pub fn free_relay_extrinsic_works<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	slot_durations: SlotDurations,
+	runtime_para_id: u32,
+	bridged_chain_id: bp_runtime::ChainId,
+	sibling_parachain_id: u32,
+	local_relay_chain_id: NetworkId,
+	lane_id: LaneId,
+	prepare_configuration: impl Fn(),
+	construct_and_apply_extrinsic: fn(
+		sp_keyring::AccountKeyring,
+		RuntimeCallOf<RuntimeHelper::Runtime>,
+	) -> sp_runtime::DispatchOutcome,
+) where
+	RuntimeHelper: WithRemoteGrandpaChainHelper,
+	RuntimeHelper::Runtime: pallet_balances::Config,
+	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
+	RuntimeCallOf<RuntimeHelper::Runtime>: From<BridgeGrandpaCall<RuntimeHelper::Runtime, RuntimeHelper::GPI>>
+		+ From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>: ChainWithGrandpa,
+	<RuntimeHelper::Runtime as BridgeMessagesConfig<RuntimeHelper::MPI>>::SourceHeaderChain:
+		SourceHeaderChain<
+			MessagesProof = FromBridgedChainMessagesProof<
+				HashOf<MessageBridgedChain<RuntimeHelper::MB>>,
+			>,
+		>,
+{
+	// ensure that the runtime allows free header submissions
+	let free_headers_interval = <RuntimeHelper::Runtime as BridgeGrandpaConfig<
+		RuntimeHelper::GPI,
+	>>::FreeHeadersInterval::get()
+	.expect("this test requires runtime, configured to accept headers for free; qed");
+
+	helpers::relayed_incoming_message_works::<
+		RuntimeHelper::Runtime,
+		RuntimeHelper::AllPalletsWithoutSystem,
+		RuntimeHelper::MPI,
+	>(
+		collator_session_key,
+		slot_durations,
+		runtime_para_id,
+		sibling_parachain_id,
+		local_relay_chain_id,
+		construct_and_apply_extrinsic,
+		|relayer_id_at_this_chain,
+		 relayer_id_at_bridged_chain,
+		 message_destination,
+		 message_nonce,
+		 xcm| {
+			prepare_configuration();
+
+			// start with bridged relay chain block#0
+			let initial_block_number = 0;
+			helpers::initialize_bridge_grandpa_pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
+				test_data::initialization_data::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
+					initial_block_number,
+				),
+			);
+
+			// free relay chain header is `0 + free_headers_interval`
+			let relay_header_number = initial_block_number + free_headers_interval;
+
+			// relayer balance shall not change after relay and para header submissions
+			let initial_relayer_balance =
+				pallet_balances::Pallet::<RuntimeHelper::Runtime>::free_balance(
+					relayer_id_at_this_chain.clone(),
+				);
+
+			// initialize the `FreeHeadersRemaining` storage value
+			pallet_bridge_grandpa::Pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>::on_initialize(
+				0u32.into(),
+			);
+
+			// generate bridged relay chain finality, parachain heads and message proofs,
+			// to be submitted by relayer to this chain.
+			let (relay_chain_header, grandpa_justification, message_proof) =
+				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
+					RuntimeHelper::MB,
+					(),
+				>(
+					lane_id,
+					xcm.into(),
+					message_nonce,
+					message_destination,
+					relay_header_number.into(),
+					true,
+				);
+
+			let relay_chain_header_hash = relay_chain_header.hash();
+			vec![
+				(
+					BridgeGrandpaCall::<RuntimeHelper::Runtime, RuntimeHelper::GPI>::submit_finality_proof {
+						finality_target: Box::new(relay_chain_header),
+						justification: grandpa_justification,
+					}.into(),
+					Box::new((
+						helpers::VerifySubmitGrandpaFinalityProofOutcome::<RuntimeHelper::Runtime, RuntimeHelper::GPI>::expect_best_header_hash(
+							relay_chain_header_hash,
+						),
+						helpers::VerifyRelayerBalance::<RuntimeHelper::Runtime>::expect_relayer_balance(
+							relayer_id_at_this_chain.clone(),
+							initial_relayer_balance,
+						),
+					))
 				),
 				(
 					BridgeMessagesCall::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::receive_messages_proof {
@@ -265,7 +409,14 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 					RuntimeHelper::MB,
 					(),
-				>(lane_id, xcm.into(), message_nonce, message_destination, relay_header_number);
+				>(
+					lane_id,
+					xcm.into(),
+					message_nonce,
+					message_destination,
+					relay_header_number,
+					false,
+				);
 
 			let relay_chain_header_hash = relay_chain_header.hash();
 			vec![(
@@ -344,6 +495,7 @@ where
 				1,
 				[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
 				1u32.into(),
+				false,
 			);
 
 		// generate batch call that provides finality for bridged relay and parachains + message
@@ -421,5 +573,111 @@ where
 		);
 
 		compute_extrinsic_fee(batch)
+	})
+}
+
+/// Estimates transaction fee for default message delivery transaction from bridged GRANDPA chain.
+pub fn can_calculate_fee_for_standalone_message_delivery_transaction<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	compute_extrinsic_fee: fn(
+		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
+	) -> u128,
+) -> u128
+where
+	RuntimeHelper: WithRemoteGrandpaChainHelper,
+	RuntimeCallOf<RuntimeHelper::Runtime>:
+		From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>: ChainWithGrandpa,
+	<RuntimeHelper::Runtime as BridgeMessagesConfig<RuntimeHelper::MPI>>::SourceHeaderChain:
+		SourceHeaderChain<
+			MessagesProof = FromBridgedChainMessagesProof<
+				HashOf<MessageBridgedChain<RuntimeHelper::MB>>,
+			>,
+		>,
+{
+	run_test::<RuntimeHelper::Runtime, _>(collator_session_key, 1000, vec![], || {
+		// generate bridged relay chain finality, parachain heads and message proofs,
+		// to be submitted by relayer to this chain.
+		//
+		// we don't care about parameter values here, apart from the XCM message size. But we
+		// do not need to have a large message here, because we're charging for every byte of
+		// the message additionally
+		let (_, _, message_proof) =
+			test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
+				RuntimeHelper::MB,
+				(),
+			>(
+				LaneId::default(),
+				vec![Instruction::<()>::ClearOrigin; 1_024].into(),
+				1,
+				[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
+				1u32.into(),
+				false,
+			);
+
+		let call = test_data::from_grandpa_chain::make_standalone_relayer_delivery_call::<
+			RuntimeHelper::Runtime,
+			RuntimeHelper::GPI,
+			RuntimeHelper::MPI,
+		>(
+			message_proof,
+			helpers::relayer_id_at_bridged_chain::<RuntimeHelper::Runtime, RuntimeHelper::MPI>(),
+		);
+
+		compute_extrinsic_fee(call)
+	})
+}
+
+/// Estimates transaction fee for default message confirmation transaction (batched with required
+/// proofs) from bridged parachain.
+pub fn can_calculate_fee_for_standalone_message_confirmation_transaction<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	compute_extrinsic_fee: fn(
+		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
+	) -> u128,
+) -> u128
+where
+	RuntimeHelper: WithRemoteGrandpaChainHelper,
+	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
+	MessageThisChain<RuntimeHelper::MB>:
+		bp_runtime::Chain<AccountId = AccountIdOf<RuntimeHelper::Runtime>>,
+	RuntimeCallOf<RuntimeHelper::Runtime>:
+		From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>: ChainWithGrandpa,
+	<RuntimeHelper::Runtime as BridgeMessagesConfig<RuntimeHelper::MPI>>::TargetHeaderChain:
+		TargetHeaderChain<
+			XcmAsPlainPayload,
+			AccountIdOf<RuntimeHelper::Runtime>,
+			MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<
+				HashOf<UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>>,
+			>,
+		>,
+{
+	run_test::<RuntimeHelper::Runtime, _>(collator_session_key, 1000, vec![], || {
+		// generate bridged relay chain finality, parachain heads and message proofs,
+		// to be submitted by relayer to this chain.
+		let unrewarded_relayers = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			total_messages: 1,
+			..Default::default()
+		};
+		let (_, _, message_delivery_proof) =
+			test_data::from_grandpa_chain::make_complex_relayer_confirmation_proofs::<
+				RuntimeHelper::MB,
+				(),
+			>(
+				LaneId::default(),
+				1u32.into(),
+				AccountId32::from(Alice.public()).into(),
+				unrewarded_relayers.clone(),
+			);
+
+		let call = test_data::from_grandpa_chain::make_standalone_relayer_confirmation_call::<
+			RuntimeHelper::Runtime,
+			RuntimeHelper::GPI,
+			RuntimeHelper::MPI,
+		>(message_delivery_proof, unrewarded_relayers);
+
+		compute_extrinsic_fee(call)
 	})
 }
