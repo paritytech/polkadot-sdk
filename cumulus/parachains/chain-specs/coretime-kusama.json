@@ -14,7 +14,9 @@
     "/dns/coretime-kusama-boot-ng.dwellir.com/tcp/30358/p2p/12D3KooWSoPisbYQTAj79Dtsxx1qAiEFTouvXCfNJ1A3SQWQzuct",
     "/dns/coretime-kusama-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWSoPisbYQTAj79Dtsxx1qAiEFTouvXCfNJ1A3SQWQzuct",
     "/dns/boot.gatotech.network/tcp/33250/p2p/12D3KooWMpgcWr5pb7em7rWaQV4J6P2kn3YCjCeP1ESMsJPffn1a",
-    "/dns/boot.gatotech.network/tcp/35250/wss/p2p/12D3KooWMpgcWr5pb7em7rWaQV4J6P2kn3YCjCeP1ESMsJPffn1a"
+    "/dns/boot.gatotech.network/tcp/35250/wss/p2p/12D3KooWMpgcWr5pb7em7rWaQV4J6P2kn3YCjCeP1ESMsJPffn1a",
+    "/dns/coretime-kusama-bootnode.turboflakes.io/tcp/30660/p2p/12D3KooWHTr9GLvJEnGYKCu3FHC3DwqBiFg9MQUWsjPCP4YH5xyf",
+    "/dns/coretime-kusama-bootnode.turboflakes.io/tcp/30760/wss/p2p/12D3KooWHTr9GLvJEnGYKCu3FHC3DwqBiFg9MQUWsjPCP4YH5xyf"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
