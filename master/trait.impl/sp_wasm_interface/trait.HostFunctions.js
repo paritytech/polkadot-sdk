@@ -1,5 +1,5 @@
 (function() {var implementors = {
-"cumulus_primitives_proof_size_hostfunction":[["impl HostFunctions for <a class=\"struct\" href=\"cumulus_primitives_proof_size_hostfunction/storage_proof_size/struct.HostFunctions.html\" title=\"struct cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions\">HostFunctions</a>"]],
+"cumulus_primitives_proof_size_hostfunction":[["impl <a class=\"trait\" href=\"sp_wasm_interface/trait.HostFunctions.html\" title=\"trait sp_wasm_interface::HostFunctions\">HostFunctions</a> for <a class=\"struct\" href=\"cumulus_primitives_proof_size_hostfunction/storage_proof_size/struct.HostFunctions.html\" title=\"struct cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions\">HostFunctions</a>"]],
 "cumulus_test_client":[],
 "frame_benchmarking":[["impl HostFunctions for <a class=\"struct\" href=\"frame_benchmarking/benchmarking/struct.HostFunctions.html\" title=\"struct frame_benchmarking::benchmarking::HostFunctions\">HostFunctions</a>"]],
 "node_testing":[],

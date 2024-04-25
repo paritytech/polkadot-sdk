@@ -165,7 +165,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <ul>
 <li><code>weight_limit</code>: The maximum amount of dynamic weight that this call can use.</li>
 </ul>
-<p>Returns the dynamic weight used by this call; is never greater than <code>weight_limit</code>.</p>
+<p>Returns the dynamic weight used by this call; is never greater than <code>weight_limit</code>.
+Should only be called in top-level runtime entry points like <code>on_initialize</code> or <code>on_idle</code>.
+Otherwise, stack depth limit errors may be miss-handled.</p>
 </div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.execute_overweight" class="method"><h4 class="code-header">fn <a href="#method.execute_overweight" class="fn">execute_overweight</a>(
     _weight_limit: <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
     _address: Self::<a class="associatedtype" href="trait.ServiceQueues.html#associatedtype.OverweightMessageAddress" title="type polkadot_sdk_frame::traits::ServiceQueues::OverweightMessageAddress">OverweightMessageAddress</a>

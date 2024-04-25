@@ -349,6 +349,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -453,7 +497,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="string">"XCM message execution error: {error:?}"</span>,
 				);
-				(required, <span class="prelude-val">Err</span>(ProcessMessageError::Unsupported))
+				<span class="kw">let </span>error = <span class="kw">match </span>error {
+					xcm::latest::Error::ExceedsStackLimit =&gt; ProcessMessageError::StackLimitReached,
+					<span class="kw">_ </span>=&gt; ProcessMessageError::Unsupported,
+				};
+
+				(required, <span class="prelude-val">Err</span>(error))
 			},
 		};
 		meter.consume(consumed);
@@ -497,6 +546,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>msg <span class="kw">in </span>msgs {
 			<span class="macro">assert_err!</span>(process_raw(msg), Corrupt);
 		}
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>process_message_exceeds_limits_fails() {
+		<span class="kw">struct </span>MockedExecutor;
+		<span class="kw">impl </span>ExecuteXcm&lt;()&gt; <span class="kw">for </span>MockedExecutor {
+			<span class="kw">type </span>Prepared = xcm_executor::WeighedMessage&lt;()&gt;;
+			<span class="kw">fn </span>prepare(
+				message: xcm::latest::Xcm&lt;()&gt;,
+			) -&gt; core::result::Result&lt;<span class="self">Self</span>::Prepared, xcm::latest::Xcm&lt;()&gt;&gt; {
+				<span class="prelude-val">Ok</span>(xcm_executor::WeighedMessage::new(Weight::zero(), message))
+			}
+			<span class="kw">fn </span>execute(
+				<span class="kw">_</span>: <span class="kw">impl </span>Into&lt;Location&gt;,
+				<span class="kw">_</span>: <span class="self">Self</span>::Prepared,
+				<span class="kw">_</span>: <span class="kw-2">&amp;mut </span>XcmHash,
+				<span class="kw">_</span>: Weight,
+			) -&gt; Outcome {
+				Outcome::Error { error: xcm::latest::Error::ExceedsStackLimit }
+			}
+			<span class="kw">fn </span>charge_fees(_location: <span class="kw">impl </span>Into&lt;Location&gt;, _fees: Assets) -&gt; xcm::latest::Result {
+				<span class="macro">unreachable!</span>()
+			}
+		}
+
+		<span class="kw">type </span>Processor = ProcessXcmMessage&lt;Junction, MockedExecutor, ()&gt;;
+
+		<span class="kw">let </span>xcm = VersionedXcm::V4(xcm::latest::Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
+			xcm::latest::Instruction::&lt;()&gt;::ClearOrigin,
+		]));
+		<span class="macro">assert_err!</span>(
+			Processor::process_message(
+				<span class="kw-2">&amp;</span>xcm.encode(),
+				ORIGIN,
+				<span class="kw-2">&amp;mut </span>WeightMeter::new(),
+				<span class="kw-2">&amp;mut </span>[<span class="number">0</span>; <span class="number">32</span>]
+			),
+			ProcessMessageError::StackLimitReached,
+		);
 	}
 
 	<span class="attr">#[test]
