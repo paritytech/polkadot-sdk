@@ -20,11 +20,11 @@ crates:
     bump: major
   - name: bp-runtime
     bump: major
-  - relay-substrate-client
+  - name: relay-substrate-client
     bump: major
-  - substrate-relay-helper
+  - name: substrate-relay-helper
     bump: major
-  - bridge-hub-rococo-runtime
+  - name: bridge-hub-rococo-runtime
     bump: major
-  - bridge-hub-westend-runtime
+  - name: bridge-hub-westend-runtime
     bump: major
