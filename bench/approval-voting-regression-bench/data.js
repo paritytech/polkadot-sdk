@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714058658072,
+  "lastUpdate": 1714062845988,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -751,6 +751,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.11348499832016,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "dd5b06e622c6c5c301a1554286ec1f4995c7daca",
+          "message": "[subsystem-benchmarks] Log standart deviation for subsystem-benchmarks (#4285)\n\nShould help us to understand more what's happening between individual\nruns and possibly adjust the number of runs",
+          "timestamp": "2024-04-25T15:06:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd5b06e622c6c5c301a1554286ec1f4995c7daca"
+        },
+        "date": 1714062819511,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63551.020000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.851173004009993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.458606011900036,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.498016354730205,
             "unit": "seconds"
           }
         ]
