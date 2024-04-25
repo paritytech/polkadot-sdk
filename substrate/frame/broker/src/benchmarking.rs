@@ -927,7 +927,7 @@ mod benches {
 		Configuration::<T>::put(new_config_record::<T>());
 		// Assume Reservations to be almost filled for worst case.
 		let reservation_count = T::MaxReservedCores::get().saturating_sub(1);
-		setup_reservations::<T>(reservation_count.clone());
+		setup_reservations::<T>(reservation_count);
 
 		// Assume leases to be filled for worst case
 		setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
