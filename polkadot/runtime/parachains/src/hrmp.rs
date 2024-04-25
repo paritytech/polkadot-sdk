@@ -1866,9 +1866,9 @@ impl<T: Config> Pallet<T> {
 			WrapVersion,
 		};
 
-		// return closure which can prepare notification
+		// Return a closure that can prepare notifications.
 		move |dest| {
-			// try to wrap notification for destination para
+			// Attempt to wrap the notification for the destination parachain.
 			T::VersionWrapper::wrap_version(
 				&Location::new(0, [Junction::Parachain(dest.into())]),
 				notification(),
