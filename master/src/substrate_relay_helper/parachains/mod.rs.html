@@ -257,6 +257,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -330,6 +332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at_relay_block: HeaderIdOf&lt;P::SourceRelayChain&gt;,
 		parachains: Vec&lt;(ParaId, ParaHash)&gt;,
 		parachain_heads_proof: ParaHeadsProof,
+		is_free_execution_expected: bool,
 	) -&gt; CallOf&lt;P::TargetChain&gt;;
 }
 
@@ -356,6 +359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at_relay_block: HeaderIdOf&lt;P::SourceRelayChain&gt;,
 		parachains: Vec&lt;(ParaId, ParaHash)&gt;,
 		parachain_heads_proof: ParaHeadsProof,
+		_is_free_execution_expected: bool,
 	) -&gt; CallOf&lt;P::TargetChain&gt; {
 		BridgeParachainsCall::&lt;R, I&gt;::submit_parachain_heads {
 			at_relay_block: (at_relay_block.<span class="number">0</span>, at_relay_block.<span class="number">1</span>),

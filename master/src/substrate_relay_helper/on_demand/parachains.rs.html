@@ -1182,6 +1182,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1031" id="1031">1031</a>
 <a href="#1032" id="1032">1032</a>
 <a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1406,6 +1412,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			proved_relay_block,
 			<span class="macro">vec!</span>[(para_id, para_hash)],
 			para_proof,
+			<span class="bool-val">false</span>,
 		));
 
 		<span class="prelude-val">Ok</span>((proved_parachain_block, calls))
@@ -1440,8 +1447,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span><span class="kw-2">mut </span>parachains_source =
 		ParachainsSource::&lt;P&gt;::new(source_relay_client.clone(), required_para_header_ref.clone());
-	<span class="kw">let </span><span class="kw-2">mut </span>parachains_target =
-		ParachainsTarget::&lt;P&gt;::new(target_client.clone(), target_transaction_params.clone());
+	<span class="kw">let </span><span class="kw-2">mut </span>parachains_target = ParachainsTarget::&lt;P&gt;::new(
+		source_relay_client.clone(),
+		target_client.clone(),
+		target_transaction_params.clone(),
+	);
 
 	<span class="kw">loop </span>{
 		<span class="macro">select! </span>{
@@ -1576,6 +1586,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					parachains_source.clone(),
 					parachains_target.clone(),
 					MetricsParams::disabled(),
+					<span class="comment">// we do not support free parachain headers relay in on-demand relays
+					</span><span class="bool-val">false</span>,
 					futures::future::pending(),
 				)
 				.fuse(),
@@ -1665,7 +1677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>para_header_at_target = best_finalized_peer_header_at_self::&lt;
 		P::TargetChain,
 		P::SourceParachain,
-	&gt;(target.client(), best_target_block_hash)
+	&gt;(target.target_client(), best_target_block_hash)
 	.<span class="kw">await</span>;
 	<span class="comment">// if there are no parachain heads at the target (`NoParachainHeadAtTarget`), we'll need to
 	// submit at least one. Otherwise the pallet will be treated as uninitialized and messages
@@ -1688,7 +1700,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>relay_header_at_target = best_finalized_peer_header_at_self::&lt;
 		P::TargetChain,
 		P::SourceRelayChain,
-	&gt;(target.client(), best_target_block_hash)
+	&gt;(target.target_client(), best_target_block_hash)
 	.<span class="kw">await
 	</span>.map_err(map_target_err)<span class="question-mark">?</span>;
 

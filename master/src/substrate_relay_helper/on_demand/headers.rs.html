@@ -729,7 +729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>num_traits::{One, Saturating, Zero};
 <span class="kw">use </span>sp_runtime::traits::Header;
 
-<span class="kw">use </span>finality_relay::{FinalitySyncParams, TargetClient <span class="kw">as </span>FinalityTargetClient};
+<span class="kw">use </span>finality_relay::{FinalitySyncParams, HeadersToRelay, TargetClient <span class="kw">as </span>FinalityTargetClient};
 <span class="kw">use </span>relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client, Error <span class="kw">as </span>SubstrateError,
 	HeaderIdOf,
@@ -776,7 +776,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		source_client: Client&lt;P::SourceChain&gt;,
 		target_client: Client&lt;P::TargetChain&gt;,
 		target_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
-		only_mandatory_headers: bool,
+		headers_to_relay: HeadersToRelay,
 		metrics_params: <span class="prelude-ty">Option</span>&lt;MetricsParams&gt;,
 	) -&gt; <span class="self">Self
 	</span><span class="kw">where
@@ -795,7 +795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				source_client,
 				target_client,
 				target_transaction_params,
-				only_mandatory_headers,
+				headers_to_relay,
 				required_header_number,
 				metrics_params,
 			)
@@ -892,7 +892,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// and then craft the submit-proof call
 			</span><span class="kw">let </span>call = P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(
-				header, proof, context,
+				header, proof, <span class="bool-val">false</span>, context,
 			);
 
 			<span class="kw">return </span><span class="prelude-val">Ok</span>((header_id, <span class="macro">vec!</span>[call]));
@@ -905,7 +905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	source_client: Client&lt;P::SourceChain&gt;,
 	target_client: Client&lt;P::TargetChain&gt;,
 	target_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
-	only_mandatory_headers: bool,
+	headers_to_relay: HeadersToRelay,
 	required_header_number: RequiredHeaderNumberRef&lt;P::SourceChain&gt;,
 	metrics_params: <span class="prelude-ty">Option</span>&lt;MetricsParams&gt;,
 ) <span class="kw">where
@@ -1047,11 +1047,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">log::info!</span>(
 				target: <span class="string">"bridge"</span>,
 				<span class="string">"[{}] Starting on-demand headers relay task\n\t\
-					Only mandatory headers: {}\n\t\
+					Headers to relay: {:?}\n\t\
 					Tx mortality: {:?} (~{}m)\n\t\
 					Stall timeout: {:?}"</span>,
 				relay_task_name,
-				only_mandatory_headers,
+				headers_to_relay,
 				target_transactions_mortality,
 				stall_timeout.as_secs_f64() / <span class="number">60.0f64</span>,
 				stall_timeout,
@@ -1068,7 +1068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						),
 						recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
 						stall_timeout,
-						only_mandatory_headers,
+						headers_to_relay,
 					},
 					metrics_params.clone().unwrap_or_else(MetricsParams::disabled),
 					futures::future::pending(),

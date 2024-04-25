@@ -282,6 +282,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -340,6 +342,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Chain <span class="kw">for </span>TestChain {
 	<span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Test"</span>;
 	<span class="kw">const </span>BEST_FINALIZED_HEADER_ID_METHOD: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TestMethod"</span>;
+	<span class="kw">const </span>FREE_HEADERS_INTERVAL_METHOD: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TestMethod"</span>;
 	<span class="kw">const </span>AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(<span class="number">0</span>);
 
 	<span class="kw">type </span>SignedBlock = sp_runtime::generic::SignedBlock&lt;
@@ -408,6 +411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Chain <span class="kw">for </span>TestParachain {
 	<span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TestParachain"</span>;
 	<span class="kw">const </span>BEST_FINALIZED_HEADER_ID_METHOD: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TestParachainMethod"</span>;
+	<span class="kw">const </span>FREE_HEADERS_INTERVAL_METHOD: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TestParachainMethod"</span>;
 	<span class="kw">const </span>AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(<span class="number">0</span>);
 
 	<span class="kw">type </span>SignedBlock = sp_runtime::generic::SignedBlock&lt;

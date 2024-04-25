@@ -419,6 +419,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -446,7 +452,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bp_header_chain::justification::{GrandpaJustification, JustificationVerificationContext};
-<span class="kw">use </span>finality_relay::{FinalityPipeline, FinalitySyncPipeline};
+<span class="kw">use </span>finality_relay::{FinalityPipeline, FinalitySyncPipeline, HeadersToRelay};
 <span class="kw">use </span>pallet_bridge_grandpa::{Call <span class="kw">as </span>BridgeGrandpaCall, Config <span class="kw">as </span>BridgeGrandpaConfig};
 <span class="kw">use </span>relay_substrate_client::{
 	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
@@ -536,6 +542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>build_submit_finality_proof_call(
 		header: SyncHeader&lt;HeaderOf&lt;P::SourceChain&gt;&gt;,
 		proof: SubstrateFinalityProof&lt;P&gt;,
+		is_free_execution_expected: bool,
 		context: &lt;&lt;P <span class="kw">as </span>SubstrateFinalityPipeline&gt;::FinalityEngine <span class="kw">as </span>Engine&lt;P::SourceChain&gt;&gt;::FinalityVerificationContext,
 	) -&gt; CallOf&lt;P::TargetChain&gt;;
 }
@@ -563,6 +570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>build_submit_finality_proof_call(
 		header: SyncHeader&lt;HeaderOf&lt;P::SourceChain&gt;&gt;,
 		proof: GrandpaJustification&lt;HeaderOf&lt;P::SourceChain&gt;&gt;,
+		_is_free_execution_expected: bool,
 		_context: JustificationVerificationContext,
 	) -&gt; CallOf&lt;P::TargetChain&gt; {
 		BridgeGrandpaCall::&lt;R, I&gt;::submit_finality_proof {
@@ -597,6 +605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						&lt;<span class="macro-nonterminal">$pipeline </span><span class="kw">as </span><span class="macro-nonterminal">$crate::finality_base::SubstrateFinalityPipeline</span>&gt;::SourceChain
 					&gt;
 				&gt;,
+				_is_free_execution_expected: bool,
 				_context: bp_header_chain::justification::JustificationVerificationContext,
 			) -&gt; relay_substrate_client::CallOf&lt;
 				&lt;<span class="macro-nonterminal">$pipeline </span><span class="kw">as </span><span class="macro-nonterminal">$crate::finality_base::SubstrateFinalityPipeline</span>&gt;::TargetChain
@@ -636,6 +645,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						&lt;<span class="macro-nonterminal">$pipeline </span><span class="kw">as </span><span class="macro-nonterminal">$crate::finality_base::SubstrateFinalityPipeline</span>&gt;::SourceChain
 					&gt;
 				&gt;,
+				is_free_execution_expected: bool,
 				context: bp_header_chain::justification::JustificationVerificationContext,
 			) -&gt; relay_substrate_client::CallOf&lt;
 				&lt;<span class="macro-nonterminal">$pipeline </span><span class="kw">as </span><span class="macro-nonterminal">$crate::finality_base::SubstrateFinalityPipeline</span>&gt;::TargetChain
@@ -644,7 +654,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro-nonterminal">$bridge_grandpa</span>(<span class="macro-nonterminal">$submit_finality_proof </span>{
 						finality_target: Box::new(header.into_inner()),
 						justification: proof,
-						current_set_id: context.authority_set_id
+						current_set_id: context.authority_set_id,
+						is_free_execution_expected,
 					})
 				}
 			}
@@ -656,15 +667,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub async fn </span>run&lt;P: SubstrateFinalitySyncPipeline&gt;(
 	source_client: Client&lt;P::SourceChain&gt;,
 	target_client: Client&lt;P::TargetChain&gt;,
-	only_mandatory_headers: bool,
+	headers_to_relay: HeadersToRelay,
 	transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	metrics_params: MetricsParams,
 ) -&gt; anyhow::Result&lt;()&gt; {
 	<span class="macro">log::info!</span>(
 		target: <span class="string">"bridge"</span>,
-		<span class="string">"Starting {} -&gt; {} finality proof relay"</span>,
+		<span class="string">"Starting {} -&gt; {} finality proof relay: relaying {:?} headers"</span>,
 		P::SourceChain::NAME,
 		P::TargetChain::NAME,
+		headers_to_relay,
 	);
 
 	finality_relay::run(
@@ -681,7 +693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 				relay_utils::STALL_TIMEOUT,
 			),
-			only_mandatory_headers,
+			headers_to_relay,
 		},
 		metrics_params,
 		futures::future::pending(),

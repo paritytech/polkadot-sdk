@@ -278,6 +278,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -301,6 +304,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>relay_substrate_client::{Chain, ChainWithUtilityPallet, UtilityPallet};
 
 <span class="kw">use </span>std::marker::PhantomData;
+
+<span class="comment">// to avoid `finality_relay` dependency in other crates
+</span><span class="kw">pub use </span>finality_relay::HeadersToRelay;
 
 <span class="kw">pub mod </span>cli;
 <span class="kw">pub mod </span>equivocation;

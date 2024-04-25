@@ -847,6 +847,106 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#696" id="696">696</a>
 <a href="#697" id="697">697</a>
 <a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -878,7 +978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>backoff::{backoff::Backoff, ExponentialBackoff};
 <span class="kw">use </span>futures::{future::Fuse, select, Future, FutureExt};
-<span class="kw">use </span>num_traits::Saturating;
+<span class="kw">use </span>num_traits::{Saturating, Zero};
 <span class="kw">use </span>relay_utils::{
 	metrics::MetricsParams, relay_loop::Client <span class="kw">as </span>RelayClient, retry_backoff, FailedClient,
 	HeaderId, MaybeConnectionError, TrackedTransactionStatus, TransactionTracker,
@@ -887,6 +987,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	fmt::Debug,
 	time::{Duration, Instant},
 };
+
+<span class="doccomment">/// Type of headers that we relay.
+</span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq)]
+</span><span class="kw">pub enum </span>HeadersToRelay {
+	<span class="doccomment">/// Relay all headers.
+	</span>All,
+	<span class="doccomment">/// Relay only mandatory headers.
+	</span>Mandatory,
+	<span class="doccomment">/// Relay only free (including mandatory) headers.
+	</span>Free,
+}
 
 <span class="doccomment">/// Finality proof synchronization loop parameters.
 </span><span class="attr">#[derive(Debug, Clone)]
@@ -912,7 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Timeout before we treat our transactions as lost and restart the whole sync process.
 	</span><span class="kw">pub </span>stall_timeout: Duration,
 	<span class="doccomment">/// If true, only mandatory headers are relayed.
-	</span><span class="kw">pub </span>only_mandatory_headers: bool,
+	</span><span class="kw">pub </span>headers_to_relay: HeadersToRelay,
 }
 
 <span class="doccomment">/// Source client used in finality synchronization loop.
@@ -939,11 +1050,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderId&lt;P::Hash, P::Number&gt;, <span class="self">Self</span>::Error&gt;;
 
+	<span class="doccomment">/// Get free source headers submission interval, if it is configured in the
+	/// target runtime.
+	</span><span class="kw">async fn </span>free_source_headers_interval(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;P::Number&gt;, <span class="self">Self</span>::Error&gt;;
+
 	<span class="doccomment">/// Submit header finality proof.
 	</span><span class="kw">async fn </span>submit_finality_proof(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		header: P::Header,
 		proof: P::FinalityProof,
+		is_free_execution_expected: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::TransactionTracker, <span class="self">Self</span>::Error&gt;;
 }
 
@@ -953,10 +1069,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">format!</span>(<span class="string">"{}_to_{}_Sync"</span>, P::SOURCE_NAME, P::TARGET_NAME)
 }
 
-<span class="kw">pub struct </span>SyncInfo&lt;P: FinalitySyncPipeline&gt; {
-	<span class="kw">pub </span>best_number_at_source: P::Number,
-	<span class="kw">pub </span>best_number_at_target: P::Number,
-	<span class="kw">pub </span>is_using_same_fork: bool,
+<span class="doccomment">/// Finality sync information.
+</span><span class="kw">pub struct </span>SyncInfo&lt;P: FinalitySyncPipeline&gt; {
+	<span class="doccomment">/// Best finalized header at the source client.
+	</span><span class="kw">pub </span>best_number_at_source: P::Number,
+	<span class="doccomment">/// Best source header, known to the target client.
+	</span><span class="kw">pub </span>best_number_at_target: P::Number,
+	<span class="doccomment">/// Whether the target client follows the same fork as the source client do.
+	</span><span class="kw">pub </span>is_using_same_fork: bool,
 }
 
 <span class="kw">impl</span>&lt;P: FinalitySyncPipeline&gt; SyncInfo&lt;P&gt; {
@@ -1032,6 +1152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target_client: <span class="kw-2">&amp;</span>TC,
 		header: P::Header,
 		justification: P::FinalityProof,
+		is_free_execution_expected: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TC::Error&gt; {
 		<span class="kw">let </span>header_number = header.number();
 		<span class="macro">log::debug!</span>(
@@ -1042,7 +1163,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			P::TARGET_NAME,
 		);
 
-		<span class="kw">let </span>tracker = target_client.submit_finality_proof(header, justification).<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>tracker = target_client
+			.submit_finality_proof(header, justification, is_free_execution_expected)
+			.<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(Transaction { tracker, header_number })
 	}
 
@@ -1141,6 +1264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub async fn </span>select_header_to_submit(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		info: <span class="kw-2">&amp;</span>SyncInfo&lt;P&gt;,
+		free_headers_interval: <span class="prelude-ty">Option</span>&lt;P::Number&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;JustifiedHeader&lt;P&gt;&gt;, Error&lt;P, SC::Error, TC::Error&gt;&gt; {
 		<span class="comment">// to see that the loop is progressing
 		</span><span class="macro">log::trace!</span>(
@@ -1151,9 +1275,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="comment">// read missing headers
-		</span><span class="kw">let </span>selector = JustifiedHeaderSelector::new::&lt;SC, TC&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.source_client, info).<span class="kw">await</span><span class="question-mark">?</span>;
+		</span><span class="kw">let </span>selector = JustifiedHeaderSelector::new::&lt;SC, TC&gt;(
+			<span class="kw-2">&amp;</span><span class="self">self</span>.source_client,
+			info,
+			<span class="self">self</span>.sync_params.headers_to_relay,
+			free_headers_interval,
+		)
+		.<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="comment">// if we see that the header schedules GRANDPA change, we need to submit it
-		</span><span class="kw">if </span><span class="self">self</span>.sync_params.only_mandatory_headers {
+		</span><span class="kw">if </span><span class="self">self</span>.sync_params.headers_to_relay == HeadersToRelay::Mandatory {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(selector.select_mandatory())
 		}
 
@@ -1161,7 +1291,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// =&gt; even if we have already selected some header and its persistent finality proof,
 		// we may try to select better header by reading non-persistent proofs from the stream
 		</span><span class="self">self</span>.finality_proofs_buf.fill(<span class="kw-2">&amp;mut </span><span class="self">self</span>.finality_proofs_stream);
-		<span class="kw">let </span>maybe_justified_header = selector.select(<span class="kw-2">&amp;</span><span class="self">self</span>.finality_proofs_buf);
+		<span class="kw">let </span>maybe_justified_header = selector.select(
+			info,
+			<span class="self">self</span>.sync_params.headers_to_relay,
+			free_headers_interval,
+			<span class="kw-2">&amp;</span><span class="self">self</span>.finality_proofs_buf,
+		);
 
 		<span class="comment">// remove obsolete 'recent' finality proofs + keep its size under certain limit
 		</span><span class="kw">let </span>oldest_finality_proof_to_keep = maybe_justified_header
@@ -1178,6 +1313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub async fn </span>run_iteration(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		free_headers_interval: <span class="prelude-ty">Option</span>&lt;P::Number&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;
 		<span class="prelude-ty">Option</span>&lt;Transaction&lt;TC::TransactionTracker, P::Number&gt;&gt;,
 		Error&lt;P, SC::Error, TC::Error&gt;,
@@ -1194,12 +1330,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// submit new header if we have something new
-		</span><span class="kw">match </span><span class="self">self</span>.select_header_to_submit(<span class="kw-2">&amp;</span>info).<span class="kw">await</span><span class="question-mark">? </span>{
+		</span><span class="kw">match </span><span class="self">self</span>.select_header_to_submit(<span class="kw-2">&amp;</span>info, free_headers_interval).<span class="kw">await</span><span class="question-mark">? </span>{
 			<span class="prelude-val">Some</span>(header) =&gt; {
-				<span class="kw">let </span>transaction =
-					Transaction::submit(<span class="kw-2">&amp;</span><span class="self">self</span>.target_client, header.header, header.proof)
-						.<span class="kw">await
-						</span>.map_err(Error::Target)<span class="question-mark">?</span>;
+				<span class="kw">let </span>transaction = Transaction::submit(
+					<span class="kw-2">&amp;</span><span class="self">self</span>.target_client,
+					header.header,
+					header.proof,
+					<span class="self">self</span>.sync_params.headers_to_relay == HeadersToRelay::Free,
+				)
+				.<span class="kw">await
+				</span>.map_err(Error::Target)<span class="question-mark">?</span>;
 				<span class="self">self</span>.best_submitted_number = <span class="prelude-val">Some</span>(transaction.header_number);
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(transaction))
 			},
@@ -1227,9 +1367,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>exit_signal = exit_signal.fuse();
 		<span class="macro">futures::pin_mut!</span>(exit_signal, proof_submission_tx_tracker);
 
+		<span class="kw">let </span>free_headers_interval = free_headers_interval(<span class="kw-2">&amp;</span><span class="self">self</span>.target_client).<span class="kw">await</span><span class="question-mark">?</span>;
+
 		<span class="kw">loop </span>{
 			<span class="comment">// run loop iteration
-			</span><span class="kw">let </span>next_tick = <span class="kw">match </span><span class="self">self</span>.run_iteration().<span class="kw">await </span>{
+			</span><span class="kw">let </span>next_tick = <span class="kw">match </span><span class="self">self</span>.run_iteration(free_headers_interval).<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(tx)) =&gt; {
 					proof_submission_tx_tracker
 						.set(tx.track::&lt;P, SC, <span class="kw">_</span>&gt;(<span class="self">self</span>.target_client.clone()).fuse());
@@ -1280,6 +1422,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>finality_loop = <span class="self">Self</span>::new(source_client, target_client, sync_params, metrics_sync);
 		finality_loop.run_until_connection_lost(exit_signal).<span class="kw">await
 	</span>}
+}
+
+<span class="kw">async fn </span>free_headers_interval&lt;P: FinalitySyncPipeline&gt;(
+	target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>TargetClient&lt;P&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;P::Number&gt;, FailedClient&gt; {
+	<span class="kw">match </span>target_client.free_source_headers_interval().<span class="kw">await </span>{
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(free_headers_interval)) <span class="kw">if </span>!free_headers_interval.is_zero() =&gt; {
+			<span class="macro">log::trace!</span>(
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Free headers interval for {} headers at {} is: {:?}"</span>,
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+				free_headers_interval,
+			);
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(free_headers_interval))
+		},
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(_free_headers_interval)) =&gt; {
+			<span class="macro">log::trace!</span>(
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Free headers interval for {} headers at {} is zero. Not submitting any free headers"</span>,
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+			);
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		},
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+			<span class="macro">log::trace!</span>(
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Free headers interval for {} headers at {} is None. Not submitting any free headers"</span>,
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+			);
+
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		},
+		<span class="prelude-val">Err</span>(e) =&gt; {
+			<span class="macro">log::error!</span>(
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Failed to read free headers interval for {} headers at {}: {:?}"</span>,
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+				e,
+			);
+			<span class="prelude-val">Err</span>(FailedClient::Target)
+		},
+	}
 }
 
 <span class="doccomment">/// Run finality proofs synchronization loop.
@@ -1358,7 +1546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			tick: Duration::from_secs(<span class="number">0</span>),
 			recent_finality_proofs_limit: <span class="number">1024</span>,
 			stall_timeout: Duration::from_secs(<span class="number">1</span>),
-			only_mandatory_headers: <span class="bool-val">false</span>,
+			headers_to_relay: HeadersToRelay::All,
 		}
 	}
 
@@ -1442,8 +1630,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">fn </span>run_only_mandatory_headers_mode_test(
-		only_mandatory_headers: bool,
+	<span class="kw">fn </span>run_headers_to_relay_mode_test(
+		headers_to_relay: HeadersToRelay,
 		has_mandatory_headers: bool,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;JustifiedHeader&lt;TestFinalitySyncPipeline&gt;&gt; {
 		<span class="kw">let </span>(exit_sender, <span class="kw">_</span>) = futures::channel::mpsc::unbounded();
@@ -1468,7 +1656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					tick: Duration::from_secs(<span class="number">0</span>),
 					recent_finality_proofs_limit: <span class="number">0</span>,
 					stall_timeout: Duration::from_secs(<span class="number">0</span>),
-					only_mandatory_headers,
+					headers_to_relay,
 				},
 				<span class="prelude-val">None</span>,
 			);
@@ -1477,16 +1665,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				best_number_at_target: <span class="number">5</span>,
 				is_using_same_fork: <span class="bool-val">true</span>,
 			};
-			finality_loop.select_header_to_submit(<span class="kw-2">&amp;</span>info).<span class="kw">await</span>.unwrap()
+			finality_loop.select_header_to_submit(<span class="kw-2">&amp;</span>info, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>.unwrap()
 		})
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>select_header_to_submit_skips_non_mandatory_headers_when_only_mandatory_headers_are_required(
-	) {
-		<span class="macro">assert_eq!</span>(run_only_mandatory_headers_mode_test(<span class="bool-val">true</span>, <span class="bool-val">false</span>), <span class="prelude-val">None</span>);
+	</span><span class="kw">fn </span>select_header_to_submit_may_select_non_mandatory_header() {
+		<span class="macro">assert_eq!</span>(run_headers_to_relay_mode_test(HeadersToRelay::Mandatory, <span class="bool-val">false</span>), <span class="prelude-val">None</span>);
 		<span class="macro">assert_eq!</span>(
-			run_only_mandatory_headers_mode_test(<span class="bool-val">false</span>, <span class="bool-val">false</span>),
+			run_headers_to_relay_mode_test(HeadersToRelay::Free, <span class="bool-val">false</span>),
+			<span class="prelude-val">Some</span>(JustifiedHeader {
+				header: TestSourceHeader(<span class="bool-val">false</span>, <span class="number">10</span>, <span class="number">10</span>),
+				proof: TestFinalityProof(<span class="number">10</span>)
+			}),
+		);
+		<span class="macro">assert_eq!</span>(
+			run_headers_to_relay_mode_test(HeadersToRelay::All, <span class="bool-val">false</span>),
 			<span class="prelude-val">Some</span>(JustifiedHeader {
 				header: TestSourceHeader(<span class="bool-val">false</span>, <span class="number">10</span>, <span class="number">10</span>),
 				proof: TestFinalityProof(<span class="number">10</span>)
@@ -1495,17 +1689,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>select_header_to_submit_selects_mandatory_headers_when_only_mandatory_headers_are_required()
-	{
+	</span><span class="kw">fn </span>select_header_to_submit_may_select_mandatory_header() {
 		<span class="macro">assert_eq!</span>(
-			run_only_mandatory_headers_mode_test(<span class="bool-val">true</span>, <span class="bool-val">true</span>),
+			run_headers_to_relay_mode_test(HeadersToRelay::Mandatory, <span class="bool-val">true</span>),
 			<span class="prelude-val">Some</span>(JustifiedHeader {
 				header: TestSourceHeader(<span class="bool-val">true</span>, <span class="number">8</span>, <span class="number">8</span>),
 				proof: TestFinalityProof(<span class="number">8</span>)
 			}),
 		);
 		<span class="macro">assert_eq!</span>(
-			run_only_mandatory_headers_mode_test(<span class="bool-val">false</span>, <span class="bool-val">true</span>),
+			run_headers_to_relay_mode_test(HeadersToRelay::Free, <span class="bool-val">true</span>),
+			<span class="prelude-val">Some</span>(JustifiedHeader {
+				header: TestSourceHeader(<span class="bool-val">true</span>, <span class="number">8</span>, <span class="number">8</span>),
+				proof: TestFinalityProof(<span class="number">8</span>)
+			}),
+		);
+		<span class="macro">assert_eq!</span>(
+			run_headers_to_relay_mode_test(HeadersToRelay::All, <span class="bool-val">true</span>),
 			<span class="prelude-val">Some</span>(JustifiedHeader {
 				header: TestSourceHeader(<span class="bool-val">true</span>, <span class="number">8</span>, <span class="number">8</span>),
 				proof: TestFinalityProof(<span class="number">8</span>)
@@ -1539,7 +1739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				test_sync_params(),
 				<span class="prelude-val">Some</span>(metrics_sync.clone()),
 			);
-			finality_loop.run_iteration().<span class="kw">await</span>.unwrap()
+			finality_loop.run_iteration(<span class="prelude-val">None</span>).<span class="kw">await</span>.unwrap()
 		});
 
 		<span class="macro">assert!</span>(!metrics_sync.is_using_same_fork());

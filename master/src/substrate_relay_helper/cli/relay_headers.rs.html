@@ -225,6 +225,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -251,6 +267,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	cli::{bridge::<span class="kw-2">*</span>, chain_schema::<span class="kw-2">*</span>, PrometheusParams},
 	finality::SubstrateFinalitySyncPipeline,
+	HeadersToRelay,
 };
 
 <span class="doccomment">/// Chain headers relaying params.
@@ -260,6 +277,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// are relayed.
 	</span><span class="attr">#[structopt(long)]
 	</span>only_mandatory_headers: bool,
+	<span class="doccomment">/// If passed, only free headers (mandatory and every Nth header, if configured in runtime)
+	/// are relayed. Overrides `only_mandatory_headers`.
+	</span><span class="attr">#[structopt(long)]
+	</span>only_free_headers: bool,
 	<span class="attr">#[structopt(flatten)]
 	</span>source: SourceConnectionParams,
 	<span class="attr">#[structopt(flatten)]
@@ -270,11 +291,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>prometheus_params: PrometheusParams,
 }
 
+<span class="kw">impl </span>RelayHeadersParams {
+	<span class="kw">fn </span>headers_to_relay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HeadersToRelay {
+		<span class="kw">match </span>(<span class="self">self</span>.only_mandatory_headers, <span class="self">self</span>.only_free_headers) {
+			(<span class="kw">_</span>, <span class="bool-val">true</span>) =&gt; HeadersToRelay::Free,
+			(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; HeadersToRelay::Mandatory,
+			<span class="kw">_ </span>=&gt; HeadersToRelay::All,
+		}
+	}
+}
+
 <span class="doccomment">/// Trait used for relaying headers between 2 chains.
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>HeadersRelayer: RelayToRelayHeadersCliBridge {
 	<span class="doccomment">/// Relay headers.
 	</span><span class="kw">async fn </span>relay_headers(data: RelayHeadersParams) -&gt; anyhow::Result&lt;()&gt; {
+		<span class="kw">let </span>headers_to_relay = data.headers_to_relay();
 		<span class="kw">let </span>source_client = data.source.into_client::&lt;<span class="self">Self</span>::Source&gt;().<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>target_client = data.target.into_client::&lt;<span class="self">Self</span>::Target&gt;().<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>target_transactions_mortality = data.target_sign.target_transactions_mortality;
@@ -294,7 +326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">crate</span>::finality::run::&lt;<span class="self">Self</span>::Finality&gt;(
 			source_client,
 			target_client,
-			data.only_mandatory_headers,
+			headers_to_relay,
 			target_transactions_params,
 			metrics_params,
 		)

@@ -297,6 +297,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -323,42 +374,53 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
-<span class="kw">use </span>bp_runtime::HeaderIdProvider;
-<span class="kw">use </span>codec::Decode;
+<span class="kw">use </span>bp_parachains::{
+	ImportedParaHeadsKeyProvider, ParaInfo, ParaStoredHeaderData, ParasInfoKeyProvider,
+};
+<span class="kw">use </span>bp_polkadot_core::{
+	parachains::{ParaHash, ParaHeadsProof, ParaId},
+	BlockNumber <span class="kw">as </span>RelayBlockNumber,
+};
+<span class="kw">use </span>bp_runtime::{
+	Chain <span class="kw">as </span>ChainBase, HeaderId, HeaderIdProvider, StorageDoubleMapKeyProvider,
+	StorageMapKeyProvider,
+};
 <span class="kw">use </span>parachains_relay::parachains_loop::TargetClient;
 <span class="kw">use </span>relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, Chain, Client, Error <span class="kw">as </span>SubstrateError, HeaderIdOf,
-	ParachainBase, TransactionEra, TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, BlockNumberOf, Chain, Client, Error <span class="kw">as </span>SubstrateError,
+	HeaderIdOf, ParachainBase, RelayChain, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 <span class="kw">use </span>relay_utils::relay_loop::Client <span class="kw">as </span>RelayClient;
-<span class="kw">use </span>sp_core::{Bytes, Pair};
+<span class="kw">use </span>sp_core::Pair;
 
 <span class="doccomment">/// Substrate client as parachain heads source.
 </span><span class="kw">pub struct </span>ParachainsTarget&lt;P: SubstrateParachainsPipeline&gt; {
-	client: Client&lt;P::TargetChain&gt;,
+	source_client: Client&lt;P::SourceRelayChain&gt;,
+	target_client: Client&lt;P::TargetChain&gt;,
 	transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;P: SubstrateParachainsPipeline&gt; ParachainsTarget&lt;P&gt; {
 	<span class="doccomment">/// Creates new parachains target client.
 	</span><span class="kw">pub fn </span>new(
-		client: Client&lt;P::TargetChain&gt;,
+		source_client: Client&lt;P::SourceRelayChain&gt;,
+		target_client: Client&lt;P::TargetChain&gt;,
 		transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	) -&gt; <span class="self">Self </span>{
-		ParachainsTarget { client, transaction_params }
+		ParachainsTarget { source_client, target_client, transaction_params }
 	}
 
 	<span class="doccomment">/// Returns reference to the underlying RPC client.
-	</span><span class="kw">pub fn </span>client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Client&lt;P::TargetChain&gt; {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.client
+	</span><span class="kw">pub fn </span>target_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Client&lt;P::TargetChain&gt; {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.target_client
 	}
 }
 
 <span class="kw">impl</span>&lt;P: SubstrateParachainsPipeline&gt; Clone <span class="kw">for </span>ParachainsTarget&lt;P&gt; {
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		ParachainsTarget {
-			client: <span class="self">self</span>.client.clone(),
+			source_client: <span class="self">self</span>.source_client.clone(),
+			target_client: <span class="self">self</span>.target_client.clone(),
 			transaction_params: <span class="self">self</span>.transaction_params.clone(),
 		}
 	}
@@ -369,8 +431,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Error = SubstrateError;
 
 	<span class="kw">async fn </span>reconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubstrateError&gt; {
-		<span class="self">self</span>.client.reconnect().<span class="kw">await
-	</span>}
+		<span class="self">self</span>.target_client.reconnect().<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="self">self</span>.source_client.reconnect().<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(())
+	}
 }
 
 <span class="attr">#[async_trait]
@@ -378,11 +442,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>P: SubstrateParachainsPipeline,
 	AccountIdOf&lt;P::TargetChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::TargetChain&gt; <span class="kw">as </span>Pair&gt;::Public&gt;,
+	P::SourceParachain: ChainBase&lt;Hash = ParaHash&gt;,
+	P::SourceRelayChain: ChainBase&lt;BlockNumber = RelayBlockNumber&gt;,
 {
 	<span class="kw">type </span>TransactionTracker = TransactionTracker&lt;P::TargetChain, Client&lt;P::TargetChain&gt;&gt;;
 
 	<span class="kw">async fn </span>best_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;P::TargetChain&gt;, <span class="self">Self</span>::Error&gt; {
-		<span class="kw">let </span>best_header = <span class="self">self</span>.client.best_header().<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>best_header = <span class="self">self</span>.target_client.best_header().<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>best_id = best_header.id();
 
 		<span class="prelude-val">Ok</span>(best_id)
@@ -392,7 +458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at_block: <span class="kw-2">&amp;</span>HeaderIdOf&lt;P::TargetChain&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;P::SourceRelayChain&gt;, <span class="self">Self</span>::Error&gt; {
-		<span class="self">self</span>.client
+		<span class="self">self</span>.target_client
 			.typed_state_call::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;HeaderIdOf&lt;P::SourceRelayChain&gt;&gt;&gt;(
 				P::SourceRelayChain::BEST_FINALIZED_HEADER_ID_METHOD.into(),
 				(),
@@ -403,23 +469,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap_or(<span class="prelude-val">Err</span>(SubstrateError::BridgePalletIsNotInitialized))
 	}
 
+	<span class="kw">async fn </span>free_source_relay_headers_interval(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumberOf&lt;P::SourceRelayChain&gt;&gt;, <span class="self">Self</span>::Error&gt; {
+		<span class="self">self</span>.target_client
+			.typed_state_call(P::SourceRelayChain::FREE_HEADERS_INTERVAL_METHOD.into(), (), <span class="prelude-val">None</span>)
+			.<span class="kw">await
+	</span>}
+
 	<span class="kw">async fn </span>parachain_head(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at_block: HeaderIdOf&lt;P::TargetChain&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;HeaderIdOf&lt;P::SourceParachain&gt;&gt;, <span class="self">Self</span>::Error&gt; {
-		<span class="kw">let </span>encoded_best_finalized_source_para_block = <span class="self">self
-			</span>.client
-			.state_call(
-				P::SourceParachain::BEST_FINALIZED_HEADER_ID_METHOD.into(),
-				Bytes(Vec::new()),
-				<span class="prelude-val">Some</span>(at_block.<span class="number">1</span>),
-			)
-			.<span class="kw">await</span><span class="question-mark">?</span>;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;
+		<span class="prelude-ty">Option</span>&lt;(HeaderIdOf&lt;P::SourceRelayChain&gt;, HeaderIdOf&lt;P::SourceParachain&gt;)&gt;,
+		<span class="self">Self</span>::Error,
+	&gt; {
+		<span class="comment">// read best parachain head from the target bridge-parachains pallet
+		</span><span class="kw">let </span>storage_key = ParasInfoKeyProvider::final_key(
+			P::SourceRelayChain::WITH_CHAIN_BRIDGE_PARACHAINS_PALLET_NAME,
+			<span class="kw-2">&amp;</span>P::SourceParachain::PARACHAIN_ID.into(),
+		);
+		<span class="kw">let </span>storage_value: <span class="prelude-ty">Option</span>&lt;ParaInfo&gt; =
+			<span class="self">self</span>.target_client.storage_value(storage_key, <span class="prelude-val">Some</span>(at_block.hash())).<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>para_info = <span class="kw">match </span>storage_value {
+			<span class="prelude-val">Some</span>(para_info) =&gt; para_info,
+			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+		};
 
-		<span class="prelude-val">Ok</span>(<span class="prelude-ty">Option</span>::&lt;HeaderIdOf&lt;P::SourceParachain&gt;&gt;::decode(
-			<span class="kw-2">&amp;mut &amp;</span>encoded_best_finalized_source_para_block.<span class="number">0</span>[..],
-		)
-		.map_err(SubstrateError::ResponseParseFailed)<span class="question-mark">?</span>)
+		<span class="comment">// now we need to get full header ids. For source relay chain it is simple, because we
+		// are connected
+		</span><span class="kw">let </span>relay_header_id = <span class="self">self
+			</span>.source_client
+			.header_by_number(para_info.best_head_hash.at_relay_block_number)
+			.<span class="kw">await</span><span class="question-mark">?
+			</span>.id();
+
+		<span class="comment">// for parachain, we need to read from the target chain runtime storage
+		</span><span class="kw">let </span>storage_key = ImportedParaHeadsKeyProvider::final_key(
+			P::SourceRelayChain::WITH_CHAIN_BRIDGE_PARACHAINS_PALLET_NAME,
+			<span class="kw-2">&amp;</span>P::SourceParachain::PARACHAIN_ID.into(),
+			<span class="kw-2">&amp;</span>para_info.best_head_hash.head_hash,
+		);
+		<span class="kw">let </span>storage_value: <span class="prelude-ty">Option</span>&lt;ParaStoredHeaderData&gt; =
+			<span class="self">self</span>.target_client.storage_value(storage_key, <span class="prelude-val">Some</span>(at_block.hash())).<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>para_head_number = <span class="kw">match </span>storage_value {
+			<span class="prelude-val">Some</span>(para_head_data) =&gt;
+				para_head_data.decode_parachain_head_data::&lt;P::SourceParachain&gt;()<span class="question-mark">?</span>.number,
+			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+		};
+
+		<span class="kw">let </span>para_head_id = HeaderId(para_head_number, para_info.best_head_hash.head_hash);
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((relay_header_id, para_head_id)))
 	}
 
 	<span class="kw">async fn </span>submit_parachain_head_proof(
@@ -427,14 +527,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at_relay_block: HeaderIdOf&lt;P::SourceRelayChain&gt;,
 		updated_head_hash: ParaHash,
 		proof: ParaHeadsProof,
+		is_free_execution_expected: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::TransactionTracker, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">let </span>transaction_params = <span class="self">self</span>.transaction_params.clone();
 		<span class="kw">let </span>call = P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
 			at_relay_block,
 			<span class="macro">vec!</span>[(ParaId(P::SourceParachain::PARACHAIN_ID), updated_head_hash)],
 			proof,
+			is_free_execution_expected,
 		);
-		<span class="self">self</span>.client
+		<span class="self">self</span>.target_client
 			.submit_and_watch_signed_extrinsic(
 				<span class="kw-2">&amp;</span>transaction_params.signer,
 				<span class="kw">move </span>|best_block_id, transaction_nonce| {

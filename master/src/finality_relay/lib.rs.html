@@ -240,6 +240,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -263,7 +265,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">pub use crate</span>::{
 	base::{FinalityPipeline, SourceClientBase},
-	finality_loop::{metrics_prefix, run, FinalitySyncParams, SourceClient, TargetClient},
+	finality_loop::{
+		metrics_prefix, run, FinalitySyncParams, HeadersToRelay, SourceClient, TargetClient,
+	},
 	finality_proofs::{FinalityProofsBuf, FinalityProofsStream},
 	sync_loop_metrics::SyncLoopMetrics,
 };

@@ -279,6 +279,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -306,9 +323,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>bp_runtime::BlockNumberOf;
 <span class="kw">use </span>finality_relay::TargetClient;
 <span class="kw">use </span>relay_substrate_client::{
-	AccountKeyPairOf, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
+	AccountKeyPairOf, Chain, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
 	TransactionTracker, UnsignedTransaction,
 };
 <span class="kw">use </span>relay_utils::relay_loop::Client <span class="kw">as </span>RelayClient;
@@ -384,10 +402,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>.ok_or(Error::BridgePalletIsNotInitialized)<span class="question-mark">?</span>)
 	}
 
+	<span class="kw">async fn </span>free_source_headers_interval(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumberOf&lt;P::SourceChain&gt;&gt;, <span class="self">Self</span>::Error&gt; {
+		<span class="self">self</span>.client
+			.typed_state_call(
+				P::SourceChain::FREE_HEADERS_INTERVAL_METHOD.into(),
+				(),
+				<span class="prelude-val">Some</span>(<span class="self">self</span>.client.best_header().<span class="kw">await</span><span class="question-mark">?</span>.hash()),
+			)
+			.<span class="kw">await
+	</span>}
+
 	<span class="kw">async fn </span>submit_finality_proof(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		header: SyncHeader&lt;HeaderOf&lt;P::SourceChain&gt;&gt;,
 		<span class="kw-2">mut </span>proof: SubstrateFinalityProof&lt;P&gt;,
+		is_free_execution_expected: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::TransactionTracker, Error&gt; {
 		<span class="comment">// verify and runtime module at target chain may require optimized finality proof
 		</span><span class="kw">let </span>context =
@@ -396,7 +427,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// now we may submit optimized finality proof
 		</span><span class="kw">let </span>mortality = <span class="self">self</span>.transaction_params.mortality;
 		<span class="kw">let </span>call = P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(
-			header, proof, context,
+			header,
+			proof,
+			is_free_execution_expected,
+			context,
 		);
 		<span class="self">self</span>.client
 			.submit_and_watch_signed_extrinsic(

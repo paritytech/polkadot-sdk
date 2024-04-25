@@ -435,6 +435,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
 <a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -483,6 +492,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Keep in mind that this method is normally provided by the other chain, which is
 	/// bridged with this chain.
 	</span><span class="kw">const </span>BEST_FINALIZED_HEADER_ID_METHOD: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
+	<span class="doccomment">/// Name of the runtime API method that is returning interval between source chain
+	/// headers that may be submitted for free to the target chain.
+	///
+	/// Keep in mind that this method is normally provided by the other chain, which is
+	/// bridged with this chain.
+	</span><span class="kw">const </span>FREE_HEADERS_INTERVAL_METHOD: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// Average block interval.
 	///
@@ -512,6 +527,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>RelayChain: Chain {
 	<span class="doccomment">/// Name of the `runtime_parachains::paras` pallet in the runtime of this chain.
 	</span><span class="kw">const </span>PARAS_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
+	<span class="doccomment">/// Name of the `pallet-bridge-parachains`, deployed at the **bridged** chain to sync
+	/// parachains of **this** chain.
+	</span><span class="kw">const </span>WITH_CHAIN_BRIDGE_PARACHAINS_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 }
 
 <span class="doccomment">/// Substrate-based chain that is using direct GRANDPA finality from minimal relay-client point of
