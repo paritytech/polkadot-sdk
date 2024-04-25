@@ -89,6 +89,7 @@ async fn test_disputes_offchain_disabling() -> Result<(), Error> {
 		spawn_network_dispute_valid(Some(get_images_from_env()), get_provider_from_env()).await?;
 
 	println!("🚀🚀🚀 network deployed");
+	sleep(Duration::from_secs(12)).await;
 
 	let honest = network.get_node("honest-0")?;
 	let role = honest.reports("node_roles").await?;
@@ -109,7 +110,7 @@ async fn test_disputes_offchain_disabling() -> Result<(), Error> {
 	let total_disputes = honest.reports(DISPUTES_CONCLUDED_VALID).await? as u64;
 
 	// wait a bit
-	sleep(Duration::from_secs(120)).await;
+	sleep(Duration::from_secs(60)).await;
 
 	let new_total_disputes = honest.reports(DISPUTES_CONCLUDED_VALID).await? as u64;
 
