@@ -1173,6 +1173,7 @@ impl parachains_hrmp::Config for Runtime {
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type VersionWrapper = crate::XcmPallet;
 	type WeightInfo = weights::runtime_parachains_hrmp::WeightInfo<Self>;
 }
 

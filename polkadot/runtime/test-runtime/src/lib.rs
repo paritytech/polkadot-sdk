@@ -567,6 +567,7 @@ impl parachains_hrmp::Config for Runtime {
 	type ChannelManager = frame_system::EnsureRoot<AccountId>;
 	type Currency = Balances;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type VersionWrapper = crate::Xcm;
 	type WeightInfo = parachains_hrmp::TestWeightInfo;
 }
 
