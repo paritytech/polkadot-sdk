@@ -509,6 +509,12 @@ async fn setup_test_and_connect_peers(
 	// Send gossip topology and activate leaf.
 	if send_topology_before_leaf {
 		send_new_topology(overseer, state.make_dummy_topology()).await;
+		// Send cleaning up of a leaf to make sure it does not clear the save topology as well.
+		overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::stop_work(Hash::random()),
+			)))
+			.await;
 		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
 	} else {
 		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
