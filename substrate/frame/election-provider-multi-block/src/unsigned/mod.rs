@@ -113,8 +113,10 @@ pub(crate) mod pallet {
 				claimed_full_score,
 			} = call
 			{
+				sublog!(info, "unsigned", "validate_unsigned OK");
 				Self::validate_inherent(page, solution, partial_score, claimed_full_score)
 			} else {
+				sublog!(info, "unsigned", "validate_unsigned ERROR");
 				InvalidTransaction::Call.into()
 			}
 		}
@@ -228,7 +230,8 @@ impl<T: Config> Pallet<T> {
 		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
 			(Phase::Unsigned(_), Some(page)) => {
 				let (full_score, partial_score, partial_solution) =
-					OffchainWorkerMiner::<T>::fetch_or_mine(page)?;
+					//OffchainWorkerMiner::<T>::fetch_or_mine(page).map_err(|e| {
+					OffchainWorkerMiner::<T>::mine(page)?;
 
 				// submit page only if full score improves the current queued score.
 				if <T::Verifier as Verifier>::ensure_score_improves(full_score) {
@@ -289,7 +292,7 @@ impl<T: Config> Pallet<T> {
 mod tests {
 	use super::*;
 	use crate::{mock::*, PagedTargetSnapshot, PagedVoterSnapshot};
-	use frame_election_provider_support::ElectionProvider;
+	use frame_election_provider_support::{ElectionDataProvider, ElectionProvider};
 	use frame_support::assert_ok;
 
 	#[test]
@@ -298,6 +301,8 @@ mod tests {
 		ext.execute_with(|| {
 			// election predicted at 30.
 			assert_eq!(election_prediction(), 30);
+
+			let desired_targets = <MockStaking as ElectionDataProvider>::desired_targets();
 
 			roll_to_with_ocw(25, Some(pool.clone()));
 
@@ -331,14 +336,15 @@ mod tests {
 			assert!(current_phase().is_unsigned());
 
 			// elect() works as expected.
-			assert_ok!(<MultiPhase as ElectionProvider>::elect(2));
-			assert_ok!(<MultiPhase as ElectionProvider>::elect(1));
-			assert_ok!(<MultiPhase as ElectionProvider>::elect(0));
+			assert!(call_elect().is_ok());
 
 			assert_eq!(current_phase(), Phase::Off);
 
 			// 2nd round election predicted at 60.
 			assert_eq!(election_prediction(), 60);
+
+			roll_to_with_ocw(election_prediction() - 1, Some(pool.clone()));
+			assert!(call_elect().is_ok());
 		})
 	}
 
@@ -383,6 +389,7 @@ mod tests {
 			assert!(PagedTargetSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_some());
 
 			roll_to_with_ocw(election_prediction() - 1, Some(pool.clone()));
+
 			// successful submission events for all 3 pages, as expected.
 			assert_eq!(
 				unsigned_events(),

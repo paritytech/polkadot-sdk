@@ -16,6 +16,13 @@
   "para_id": 2000,
   "codeSubstitutes": {},
   "genesis": {
+    "runtimeGenesis": {
+      "config": {
+        "staking": {
+          "validatorCount": 5,
+        },
+      },
+    },
     "raw": {
       "top": {
         "0x0d715f2646c8f85767b5d2764bb2782604a74d81251e398fd8a0a4d55023bb3f": "0xe8030000",

@@ -462,7 +462,6 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(Some(now)) {
-				// TODO(gpestana): check if there is currently a leader score submission.
 				let _ = <T::Verifier as AsyncVerifier>::start().defensive();
 			};
 
@@ -499,14 +498,11 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 		match result {
 			VerificationResult::Queued => {},
 			VerificationResult::Rejected => {
-				if let Some((_offender, _metadata)) =
-					Submissions::<T>::take_leader_data(round).defensive()
-				{
+				if let Some((_offender, _metadata)) = Submissions::<T>::take_leader_data(round) {
 					// TODO: slash offender
 				} else {
-					// should never happen, defensive
-					// note: should the AsyncVerifier be notified to proceed with next leader in
-					// this case?
+					// no signed submission in storage, signal async verifier to stop and move on.
+					let _ = <T::Verifier as AsyncVerifier>::stop();
 				};
 
 				if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(None) &&

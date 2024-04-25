@@ -11,10 +11,7 @@ mod weights;
 pub mod xcm_config;
 
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use polkadot_runtime_common::{
-	prod_or_fast,
-	xcm_sender::NoPriceForMessageDelivery
-};
+use polkadot_runtime_common::{prod_or_fast, xcm_sender::NoPriceForMessageDelivery};
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -547,7 +544,6 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = ();
 }
 
-
 parameter_types! {
 	//pub SignedPhase: u32 = prod_or_fast!(
 	//	EPOCH_DURATION_IN_SLOTS / 4,
@@ -566,11 +562,11 @@ parameter_types! {
 	pub SignedValidationPhase: BlockNumber = Pages::get();
 	pub Lookhaead: BlockNumber = Pages::get();
 	pub Pages: PageIndex = 3;
-	pub MaxWinnersPerPage: u32 = 4;
+	pub MaxWinnersPerPage: u32 = 5;
 	pub MaxBackersPerWinner: u32 = 16;
 
 	pub VoterSnapshotPerBlock: VoterIndex = 4;
-	pub TargetSnapshotPerBlock: TargetIndex = 8;
+	pub TargetSnapshotPerBlock: TargetIndex = 12;
 	pub ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 
 	pub const SignedMaxSubmissions: u32 = 128;
@@ -677,7 +673,7 @@ impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
 parameter_types! {
 	pub OffchainRepeatInterval: BlockNumber = 10;
 	pub MinerTxPriority: u64 = 0;
-	pub MinerSolutionMaxLength: u32 = 10;
+	pub MinerSolutionMaxLength: u32 = 100;
 	pub MinerSolutionMaxWeight: Weight = Default::default();
 }
 
@@ -694,7 +690,7 @@ impl pallet_epm_unsigned::Config for Runtime {
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, staking_common::OnChainAccuracy>;
+	type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
 	type DataProvider = Staking;
 	type Bounds = ElectionBounds;
 	type MaxBackersPerWinner = MaxBackersPerWinner;

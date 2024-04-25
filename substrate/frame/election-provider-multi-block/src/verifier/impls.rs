@@ -149,7 +149,6 @@ pub(crate) mod pallet {
 			Self::mutate_checked(|| {
 				QueuedValidVariant::<T>::mutate(|v| *v = v.other());
 				QueuedSolutionScore::<T>::put(score);
-				// TODO(gpestana): needs to clear the invalid variant or can we save those writes?
 			})
 		}
 
@@ -165,6 +164,8 @@ pub(crate) mod pallet {
                     .expect("`SupportsOf` is bounded by <Pallet<T> as Verifier>::MaxWinnersPerPage which is ensured by an integrity test; qed.");
 
 				QueuedSolutionBackings::<T>::insert(page, backings);
+
+				LastStoredPage::<T>::set(Some(page));
 
 				// store the new page into the invalid variant storage type.
 				match Self::invalid() {
@@ -267,6 +268,9 @@ pub(crate) mod pallet {
 	#[pallet::storage]
 	pub(crate) type VerificationStatus<T: Config> = StorageValue<_, Status, ValueQuery>;
 
+	#[pallet::storage]
+	pub(crate) type LastStoredPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
@@ -315,20 +319,19 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 	}
 
 	fn next_missing_solution_page() -> Option<PageIndex> {
-		for key in (0..T::Pages::get()).rev() {
-			let exists = match QueuedSolution::<T>::invalid() {
-				SolutionPointer::X => QueuedSolutionX::<T>::contains_key(key as PageIndex),
-				SolutionPointer::Y => QueuedSolutionY::<T>::contains_key(key as PageIndex),
-			};
-			if !exists {
-				return Some(key)
-			}
+		if let Some(last_stored) = LastStoredPage::<T>::get() {
+			// if last page stored is 0, all pages have been processed. Return None in that
+			// case.
+			last_stored.checked_sub(1)
+		} else {
+			// no page stored yet, start from msp.
+			Some(crate::Pallet::<T>::msp())
 		}
-		None
 	}
 
 	fn kill() {
 		QueuedSolution::<T>::kill();
+		LastStoredPage::<T>::set(None);
 		<VerificationStatus<T>>::put(Status::Nothing);
 	}
 
@@ -340,13 +343,25 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 		let maybe_current_score = Self::queued_score();
 		match Self::do_verify_sync(partial_solution, partial_score, page) {
 			Ok(supports) => {
-				sublog!(info, "verifier", "queued sync solution with score {:?}", partial_score);
+				sublog!(
+					info,
+					"verifier",
+					"queued sync solution with score {:?} (page {:?})",
+					partial_score,
+					page
+				);
 				Self::deposit_event(Event::<T>::Verified(page, supports.len() as u32));
 				Self::deposit_event(Event::<T>::Queued(partial_score, maybe_current_score));
 				Ok(supports)
 			},
 			Err(err) => {
-				sublog!(info, "verifier", "sync verification failed with {:?}", err);
+				sublog!(
+					info,
+					"verifier",
+					"sync verification failed with {:?} (page: {:?})",
+					err,
+					page
+				);
 				Self::deposit_event(Event::<T>::VerificationFailed(page, err.clone()));
 				Err(err)
 			},
@@ -400,7 +415,6 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 	fn stop() {
 		sublog!(warn, "verifier", "stop signal received. clearing everything.");
 		// TODO(gpestana): debug asserts
-
 		QueuedSolution::<T>::clear_invalid_and_backings();
 
 		// if a verification is ongoing, signal the solution rejection to the solution data
@@ -494,21 +508,22 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		partial_score: ElectionScore,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
-		let _ = Self::ensure_score_quality(partial_score); // TODO how to ensure partial score quality?
+		let _ = Self::ensure_score_quality(partial_score)?;
 		let supports = Self::feasibility_check(partial_solution, page)?;
 
 		let desired_targets =
 			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
-		ensure!(supports.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
 
-		// TODO(gpestana): this clone is unecessary, imrpove..
-		let score = sp_npos_elections::evaluate_support(
+		// TODO: figure the winer counter for partial solutions.
+		//ensure!(supports.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
+
+		// TODO: implement fn evaluate on `BondedSupports`; remove extra clone.
+		let real_score = sp_npos_elections::evaluate_support(
 			supports.clone().into_iter().map(|(_, backings)| backings),
 		);
-		ensure!(score == partial_score, FeasibilityError::InvalidScore);
+		ensure!(real_score == partial_score, FeasibilityError::InvalidScore);
 
 		// queue valid solution of single page.
-		//QueuedSolution::<T>::set_page_invalid(page, supports.clone());
 		QueuedSolution::<T>::set_page(page, supports.clone());
 
 		Ok(supports)
@@ -524,7 +539,6 @@ impl<T: impls::pallet::Config> Pallet<T> {
 				match (final_score == claimed_score, winner_count == desired_targets) {
 					(true, true) => {
 						QueuedSolution::<T>::finalize_solution(final_score);
-
 						Self::deposit_event(Event::<T>::Queued(
 							final_score,
 							QueuedSolution::<T>::queued_score(),
@@ -633,14 +647,17 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		let desired_targets =
 			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
 
-		ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
+		// TODO: figure out the wrong winner count for partial solutions
+		//ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
 
 		// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
 		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
 		// is ALSO checked, so this conversion can almost never fail.
-		let bounded_supports = supports
-			.try_into_bounded_supports()
-			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
+		let bounded_supports = supports.try_into_bounded_supports().map_err(|e| {
+			sublog!(error, "verifier", "-------- ERROR WINNER COUNT: {:?}", e,);
+
+			FeasibilityError::WrongWinnerCount
+		})?;
 
 		Ok(bounded_supports)
 	}

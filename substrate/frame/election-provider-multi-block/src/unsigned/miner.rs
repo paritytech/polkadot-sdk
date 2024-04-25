@@ -30,7 +30,7 @@ use codec::Encode;
 use frame_election_provider_support::{
 	ElectionProvider, IndexAssignmentOf, NposSolution, NposSolver, PageIndex, Weight,
 };
-use frame_support::{traits::Get, BoundedVec};
+use frame_support::{ensure, traits::Get, BoundedVec};
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized, ElectionResult,
 	ElectionScore, ExtendedBalance, Support,
@@ -50,6 +50,7 @@ pub enum MinerError {
 	Feasibility(FeasibilityError),
 	InvalidPage,
 	SubmissionFailed,
+	NotEnoughTargets,
 }
 
 impl From<sp_npos_elections::Error> for MinerError {
@@ -139,6 +140,12 @@ where
 		// flatten pages of voters and target snapshots.
 		let all_voters: Vec<VoterOf<T>> =
 			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
+
+		sublog!(info, "unsigned::ocw-miner", "all voters: {:?}", all_voters);
+		sublog!(info, "unsigned::ocw-miner", "all targets: {:?}", all_targets);
+
+		// useless to proceed if the solution will not be feasible.
+		ensure!(all_targets.len() >= desired_targets as usize, MinerError::NotEnoughTargets);
 
 		// these closures generate an efficient index mapping of each tvoter -> the snaphot
 		// that they are part of. this needs to be the same indexing fn in the verifier side to
@@ -364,20 +371,6 @@ where
 		let score = sp_npos_elections::evaluate_support(
 			supports.clone().into_iter().map(|(_, backings)| backings),
 		);
-
-		/*
-		use sp_npos_elections::EvaluateSupport;
-		use sp_std::collections::btree_map::BTreeMap;
-
-		let mut total_backings: BTreeMap<T::AccountId, ExtendedBalance> = BTreeMap::new();
-		let all_supports = total_backings
-			.into_iter()
-			.map(|(who, total)| (who, Support { total, ..Default::default() }))
-			.collect::<Vec<_>>();
-
-		Ok((&all_supports).evaluate());
-		*/
-
 		Ok(score)
 	}
 
@@ -628,6 +621,23 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 	pub(crate) const OFFCHAIN_CACHED_SCORE: &'static [u8] =
 		b"parity/multi-block-unsigned-election/score";
 
+	pub fn mine(
+		page: PageIndex,
+	) -> Result<(ElectionScore, ElectionScore, SolutionOf<T>), OffchainMinerError> {
+		let reduce = true;
+		let (solution, _trimming_status) =
+			Miner::<T, T::OffchainSolver>::mine_paged_solution(T::Pages::get(), reduce)?;
+
+		let partial_solution = solution
+			.solution_pages
+			.get(page as usize)
+			.ok_or(OffchainMinerError::PageOutOfBounds)?;
+		let partial_score =
+			Miner::<T, T::OffchainSolver>::compute_partial_score(&partial_solution, page)?;
+
+		Ok((solution.score, partial_score, partial_solution.clone()))
+	}
+
 	pub fn fetch_or_mine(
 		page: PageIndex,
 	) -> Result<(ElectionScore, ElectionScore, SolutionOf<T>), OffchainMinerError> {
@@ -679,6 +689,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		let partial_score =
 			Miner::<T, T::OffchainSolver>::compute_partial_score(&paged_solution, page)?;
 
+		// TODO: not so sure if this makes sense, though.
 		// if it's the last page, clear the storage with data for the current round.
 		if page == EPM::<T>::lsp() {
 			Self::clear_cache();

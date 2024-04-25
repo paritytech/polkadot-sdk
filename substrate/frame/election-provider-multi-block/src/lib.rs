@@ -90,7 +90,7 @@ use scale_info::TypeInfo;
 
 use frame_election_provider_support::{
 	bounds::ElectionBoundsBuilder, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
-	NposSolution, PageIndex, VoterOf, Weight, LockableElectionDataProvider,
+	LockableElectionDataProvider, NposSolution, PageIndex, VoterOf, Weight,
 };
 use frame_support::{
 	defensive, ensure,
@@ -276,7 +276,7 @@ pub mod pallet {
 
 			log!(
 				trace,
-				"[POVLOG] now {:?} - current phase {:?}, next election {:?}, remaining: {:?}",
+				"now {:?} - current phase {:?}, next election {:?}, remaining: {:?}",
 				now,
 				current_phase,
 				next_election,
@@ -400,7 +400,14 @@ impl<T: Config> Snapshot<T> {
 	/// Return the number of desired targets, which is defined by [`T::DataProvider`].
 	fn desired_targets() -> Option<u32> {
 		match T::DataProvider::desired_targets() {
-			Ok(desired) => Some(desired),
+			Ok(desired) => {
+				// TODO: remove and add to the chainspec.
+				if desired.is_zero() {
+					Some(5)
+				} else {
+					Some(desired)
+				}
+			},
 			Err(err) => {
 				defensive!(
 					"error fetching the desired targets from the election data provider {}",
@@ -455,7 +462,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Phase transition helper.
 	pub(crate) fn phase_transition(to: Phase<BlockNumberFor<T>>) {
-		log!(info, "[POVLOG] starting phase {:?}, round {}", to, <Round<T>>::get());
 		Self::deposit_event(Event::PhaseTransitioned {
 			from: <CurrentPhase<T>>::get(),
 			to,
@@ -534,11 +540,11 @@ impl<T: Config> Pallet<T> {
 		let target_snapshot_weight = if !Snapshot::<T>::targets_snapshot_exists() {
 			match Self::create_targets_snapshot() {
 				Ok(target_count) => {
-					log!(info, "[POVLOG] target snapshot created with {} targets", target_count);
+					log!(info, "target snapshot created with {} targets", target_count);
 					Weight::default()
 				},
 				Err(err) => {
-					log!(error, "[POVLOG] error preparing targets snapshot: {:?}", err);
+					log!(error, "error preparing targets snapshot: {:?}", err);
 					Weight::default()
 				},
 			}
@@ -550,7 +556,7 @@ impl<T: Config> Pallet<T> {
 			Ok(voter_count) => {
 				log!(
 					info,
-					"[POVLOG] voter snapshot progressed: page {} with {} voters",
+					"voter snapshot progressed: page {} with {} voters",
 					remaining_pages,
 					voter_count,
 				);
@@ -559,10 +565,18 @@ impl<T: Config> Pallet<T> {
 				Weight::default() // weights
 			},
 			Err(err) => {
-				log!(error, "[POVLOG] error preparing voter snapshot: {:?}", err);
+				log!(error, "error preparing voter snapshot: {:?}", err);
 				Weight::default() // weights
 			},
 		};
+
+		log!(
+			trace,
+			"Snapshot progress {:?} - targets: {:?} | voters: {:?}",
+			remaining_pages,
+			Snapshot::<T>::targets(),
+			Snapshot::<T>::voters(remaining_pages),
+		);
 
 		target_snapshot_weight.saturating_add(voter_snapshot_weight)
 	}
@@ -575,7 +589,20 @@ impl<T: Config> Pallet<T> {
 	fn rotate_round() {
 		<Round<T>>::mutate(|r| r.defensive_saturating_accrue(1));
 		Self::phase_transition(Phase::Off);
+
 		Snapshot::<T>::kill();
+		<T::Verifier as Verifier>::kill();
+	}
+
+	/// Performs all tasks required after an unsuccessful election:
+	///
+	/// 1. Change phase to [`Phase::Off`].
+	/// 2. Clear all snapshot data.
+	fn reset_round() {
+		Self::phase_transition(Phase::Off);
+		Snapshot::<T>::kill();
+
+		<T::Verifier as Verifier>::kill();
 	}
 }
 
@@ -593,12 +620,17 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		T::Verifier::get_queued_solution(remaining)
 			.ok_or(ElectionError::<T>::SupportPageNotAvailable(remaining))
 			.or_else(|err| {
-				log!(error, "election provider failed due to {:?}, trying fallback.", err);
+				log!(
+					error,
+					"elect(): (page {:?}) election provider failed due to {:?}, trying fallback.",
+					remaining,
+					err
+				);
 				T::Fallback::elect(remaining).map_err(|fe| ElectionError::<T>::Fallback(fe))
 			})
 			.map(|supports| {
 				if remaining.is_zero() {
-					log!(info, "provided the last supports page, rotating round.");
+					log!(info, "elect(): provided the last supports page, rotating round.");
 					Self::rotate_round();
 				} else {
 					// Phase::Export is on while the election is calling all pages of `elect`.
@@ -610,10 +642,10 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				supports.into()
 			})
 			.map_err(|err| {
-				log!(error, "fetching election page {} and fallback failed.", remaining);
+				log!(error, "elect(): fetching election page {} and fallback failed.", remaining);
 
 				match ElectionFailure::<T>::get() {
-					ElectionFailureStrategy::Restart => Self::phase_transition(Phase::Off),
+					ElectionFailureStrategy::Restart => Self::reset_round(),
 					ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
 				}
 				err
@@ -816,8 +848,8 @@ mod snapshot {
 		})
 	}
 
-    #[test]
-    fn try_progress_snapshot_works() {
-        // TODO
-    }
+	#[test]
+	fn try_progress_snapshot_works() {
+		// TODO
+	}
 }
