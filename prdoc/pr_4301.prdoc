@@ -3,8 +3,8 @@ title: New runtime api to check if a validator has pending pages of rewards for 
 doc:
   - audience: Node Dev
     description: |
-      Creates a new runtime api to check if era reward is pending for a validator. Era rewards are paged and this api
-      will return true as long as there is one or more pages of reward not claimed.
+      Creates a new runtime api to check if reward for an era is pending for a validator. Era rewards are paged and this
+      api will return true as long as there is one or more pages of era reward which are not claimed.
 
 crates:
 - name: pallet-staking
