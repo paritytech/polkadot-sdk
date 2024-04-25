@@ -68,3 +68,15 @@ jobs:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: run rust features
         run: bash .gitlab/rust-features.sh .
+  check-toml-format:
+    runs-on: arc-runners-polkadot-sdk-default
+    timeout-minutes: 10
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: check toml format
+        run: |
+          taplo format --check --config .config/taplo.toml
+          echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
