@@ -1193,6 +1193,10 @@ impl<T: Config> Pallet<T> {
 	pub fn api_eras_stakers_page_count(era: EraIndex, account: T::AccountId) -> Page {
 		EraInfo::<T>::get_page_count(era, &account)
 	}
+
+	pub fn api_pending_rewards(era: EraIndex, account: T::AccountId) -> bool {
+		EraInfo::<T>::pending_rewards(era, &account)
+	}
 }
 
 impl<T: Config> ElectionDataProvider for Pallet<T> {
