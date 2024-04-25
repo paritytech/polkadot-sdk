@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714035205753,
+  "lastUpdate": 1714041418640,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -6603,6 +6603,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009417726440000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "239a23d9cc712aab8c0a87eab7e558e5a149fd42",
+          "message": "Fix polkadot parachains not producing blocks until next session (#4269)\n\n... a few sessions too late :(, this already happened on polkadot, so as\nof now there are no known relay-chains without async backing enabled in\nruntime, but let's fix it in case someone else wants to repeat our\nsteps.\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/4226\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-04-25T10:11:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/239a23d9cc712aab8c0a87eab7e558e5a149fd42"
+        },
+        "date": 1714041393543,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.91333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012993279913333329,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022350885366666674,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010692841026666676,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16218449430666662,
             "unit": "seconds"
           }
         ]
