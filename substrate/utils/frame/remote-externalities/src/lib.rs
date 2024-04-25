@@ -830,19 +830,22 @@ where
 		child_prefix: StorageKey,
 		at: B::Hash,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		// This is deprecated and will generate a warning which causes the CI to fail.
-		#[allow(warnings)]
-		let child_keys = substrate_rpc_client::ChildStateApi::storage_keys(
-			client,
-			PrefixedStorageKey::new(prefixed_top_key.as_ref().to_vec()),
-			child_prefix,
-			Some(at),
-		)
-		.await
-		.map_err(|e| {
-			error!(target: LOG_TARGET, "Error = {:?}", e);
-			"rpc child_get_keys failed."
-		})?;
+		let retry_strategy =
+			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
+		let get_child_keys_closure = || {
+			#[allow(deprecated)]
+			substrate_rpc_client::ChildStateApi::storage_keys(
+				client,
+				PrefixedStorageKey::new(prefixed_top_key.as_ref().to_vec()),
+				child_prefix.clone(),
+				Some(at),
+			)
+		};
+		let child_keys =
+			Retry::spawn(retry_strategy, get_child_keys_closure).await.map_err(|e| {
+				error!(target: LOG_TARGET, "Error = {:?}", e);
+				"rpc child_get_keys failed."
+			})?;
 
 		debug!(
 			target: LOG_TARGET,
