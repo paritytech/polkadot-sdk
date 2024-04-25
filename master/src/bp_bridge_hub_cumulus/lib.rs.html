@@ -319,6 +319,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -359,6 +362,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::limits;
 <span class="kw">use </span>sp_std::time::Duration;
+
+<span class="doccomment">/// Maximal bridge hub header size.
+</span><span class="kw">pub const </span>MAX_BRIDGE_HUB_HEADER_SIZE: u32 = <span class="number">4_096</span>;
 
 <span class="doccomment">/// Average block interval in Cumulus-based parachains.
 ///

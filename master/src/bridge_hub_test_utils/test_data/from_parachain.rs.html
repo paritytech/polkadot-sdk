@@ -476,6 +476,59 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -637,6 +690,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="doccomment">/// Prepare a call with message proof.
+</span><span class="kw">pub fn </span>make_standalone_relayer_delivery_call&lt;Runtime, MPI, InboundRelayer&gt;(
+	message_proof: FromBridgedChainMessagesProof&lt;ParaHash&gt;,
+	relayer_id_at_bridged_chain: InboundRelayer,
+) -&gt; Runtime::RuntimeCall <span class="kw">where
+	</span>Runtime: pallet_bridge_messages::Config&lt;
+		MPI,
+		InboundPayload = XcmAsPlainPayload,
+		InboundRelayer = InboundRelayer,
+	&gt;,
+	MPI: <span class="lifetime">'static</span>,
+	Runtime::RuntimeCall: From&lt;pallet_bridge_messages::Call::&lt;Runtime, MPI&gt;&gt;,
+	&lt;&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::SourceHeaderChain <span class="kw">as </span>SourceHeaderChain&gt;::MessagesProof:
+		From&lt;FromBridgedChainMessagesProof&lt;ParaHash&gt;&gt;,
+{
+	pallet_bridge_messages::Call::&lt;Runtime, MPI&gt;::receive_messages_proof {
+		relayer_id_at_bridged_chain: relayer_id_at_bridged_chain.into(),
+		proof: message_proof.into(),
+		messages_count: <span class="number">1</span>,
+		dispatch_weight: Weight::from_parts(<span class="number">1000000000</span>, <span class="number">0</span>),
+	}
+	.into()
+}
+
+<span class="doccomment">/// Prepare a call with message delivery proof.
+</span><span class="kw">pub fn </span>make_standalone_relayer_confirmation_call&lt;Runtime, MPI&gt;(
+	message_delivery_proof: FromBridgedChainMessagesDeliveryProof&lt;ParaHash&gt;,
+	relayers_state: UnrewardedRelayersState,
+) -&gt; Runtime::RuntimeCall
+<span class="kw">where
+	</span>Runtime: pallet_bridge_messages::Config&lt;MPI, OutboundPayload = XcmAsPlainPayload&gt;,
+	MPI: <span class="lifetime">'static</span>,
+	Runtime::RuntimeCall: From&lt;pallet_bridge_messages::Call&lt;Runtime, MPI&gt;&gt;,
+	&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::TargetHeaderChain: TargetHeaderChain&lt;
+		XcmAsPlainPayload,
+		Runtime::AccountId,
+		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof&lt;ParaHash&gt;,
+	&gt;,
+{
+	pallet_bridge_messages::Call::&lt;Runtime, MPI&gt;::receive_messages_delivery_proof {
+		proof: message_delivery_proof,
+		relayers_state,
+	}
+	.into()
+}
+
 <span class="doccomment">/// Prepare storage proofs of messages, stored at the source chain.
 </span><span class="kw">pub fn </span>make_complex_relayer_delivery_proofs&lt;BridgedRelayChain, MB, InnerXcmRuntimeCall&gt;(
 	lane_id: LaneId,
@@ -646,6 +745,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	para_header_number: u32,
 	relay_header_number: u32,
 	bridged_para_id: u32,
+	is_minimal_call: bool,
 ) -&gt; (
 	HeaderOf&lt;BridgedRelayChain&gt;,
 	GrandpaJustification&lt;HeaderOf&lt;BridgedRelayChain&gt;&gt;,
@@ -679,6 +779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			para_header_number,
 			relay_header_number,
 			bridged_para_id,
+			is_minimal_call,
 		);
 
 	<span class="kw">let </span>message_proof = FromBridgedChainMessagesProof {
@@ -744,6 +845,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			para_header_number,
 			relay_header_number,
 			bridged_para_id,
+			<span class="bool-val">false</span>,
 		);
 
 	<span class="kw">let </span>message_delivery_proof = FromBridgedChainMessagesDeliveryProof {
@@ -768,6 +870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	para_header_number: u32,
 	relay_header_number: BlockNumberOf&lt;BridgedRelayChain&gt;,
 	bridged_para_id: u32,
+	is_minimal_call: bool,
 ) -&gt; (
 	HeaderOf&lt;BridgedRelayChain&gt;,
 	GrandpaJustification&lt;HeaderOf&lt;BridgedRelayChain&gt;&gt;,
@@ -797,9 +900,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)]);
 	<span class="macro">assert_eq!</span>(bridged_para_head.hash(), parachain_heads[<span class="number">0</span>].<span class="number">1</span>);
 
-	<span class="kw">let </span>(relay_chain_header, justification) = make_complex_bridged_grandpa_header_proof::&lt;
-		BridgedRelayChain,
-	&gt;(relay_state_root, relay_header_number);
+	<span class="kw">let </span>(relay_chain_header, justification) =
+		make_complex_bridged_grandpa_header_proof::&lt;BridgedRelayChain&gt;(
+			relay_state_root,
+			relay_header_number,
+			is_minimal_call,
+		);
 
 	(relay_chain_header, justification, bridged_para_head, parachain_heads, para_heads_proof)
 }

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BestFinalized","CurrentAuthoritySet","FreeMandatoryHeadersRemaining","ImportedHashes","ImportedHashesPointer","ImportedHeaders","InitialHash","PalletOperatingMode","PalletOwner"]};
+window.SIDEBAR_ITEMS = {"struct":["BestFinalized","CurrentAuthoritySet","FreeHeadersRemaining","ImportedHashes","ImportedHashesPointer","ImportedHeaders","InitialHash","PalletOperatingMode","PalletOwner"]};

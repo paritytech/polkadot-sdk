@@ -146,7 +146,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["pallet_beefy_mmr",["",[],["lib.rs"]]],\
 ["pallet_bounties",["",[["migrations",[],["mod.rs","v4.rs"]]],["benchmarking.rs","lib.rs","weights.rs"]]],\
 ["pallet_bridge_beefy",["",[],["lib.rs","utils.rs"]]],\
-["pallet_bridge_grandpa",["",[],["benchmarking.rs","call_ext.rs","lib.rs","storage_types.rs","weights.rs"]]],\
+["pallet_bridge_grandpa",["",[],["benchmarking.rs","call_ext.rs","lib.rs","storage_types.rs","weights.rs","weights_ext.rs"]]],\
 ["pallet_bridge_messages",["",[],["benchmarking.rs","inbound_lane.rs","lib.rs","outbound_lane.rs","weights.rs","weights_ext.rs"]]],\
 ["pallet_bridge_parachains",["",[],["benchmarking.rs","call_ext.rs","lib.rs","weights.rs","weights_ext.rs"]]],\
 ["pallet_bridge_relayers",["",[],["benchmarking.rs","lib.rs","payment_adapter.rs","stake_adapter.rs","weights.rs","weights_ext.rs"]]],\

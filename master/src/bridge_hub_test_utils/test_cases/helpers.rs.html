@@ -498,6 +498,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -690,6 +718,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span><span class="self">self</span>.reward_params,
 		)
 		.is_some());
+	}
+}
+
+<span class="doccomment">/// Verifies that relayer balance is equal to given value.
+</span><span class="kw">pub struct </span>VerifyRelayerBalance&lt;Runtime: pallet_balances::Config&gt; {
+	relayer: Runtime::AccountId,
+	balance: Runtime::Balance,
+}
+
+<span class="kw">impl</span>&lt;Runtime&gt; VerifyRelayerBalance&lt;Runtime&gt;
+<span class="kw">where
+	</span>Runtime: pallet_balances::Config,
+{
+	<span class="doccomment">/// Expect given relayer balance after transaction.
+	</span><span class="kw">pub fn </span>expect_relayer_balance(
+		relayer: Runtime::AccountId,
+		balance: Runtime::Balance,
+	) -&gt; Box&lt;<span class="kw">dyn </span>VerifyTransactionOutcome&gt; {
+		Box::new(<span class="self">Self </span>{ relayer, balance })
+	}
+}
+
+<span class="kw">impl</span>&lt;Runtime&gt; VerifyTransactionOutcome <span class="kw">for </span>VerifyRelayerBalance&lt;Runtime&gt;
+<span class="kw">where
+	</span>Runtime: pallet_balances::Config,
+{
+	<span class="kw">fn </span>verify_outcome(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+		<span class="macro">assert_eq!</span>(pallet_balances::Pallet::&lt;Runtime&gt;::free_balance(<span class="kw-2">&amp;</span><span class="self">self</span>.relayer), <span class="self">self</span>.balance,);
 	}
 }
 

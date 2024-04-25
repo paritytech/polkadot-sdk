@@ -264,6 +264,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -315,7 +317,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_bridge_grandpa::Config&lt;BridgeGrandpaWestendInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>BridgedChain = bp_westend::Westend;
-	<span class="kw">type </span>MaxFreeMandatoryHeadersPerBlock = ConstU32&lt;<span class="number">4</span>&gt;;
+	<span class="kw">type </span>MaxFreeHeadersPerBlock = ConstU32&lt;<span class="number">4</span>&gt;;
+	<span class="kw">type </span>FreeHeadersInterval = ConstU32&lt;<span class="number">5</span>&gt;;
 	<span class="kw">type </span>HeadersToKeep = RelayChainHeadersToKeep;
 	<span class="kw">type </span>WeightInfo = weights::pallet_bridge_grandpa::WeightInfo&lt;Runtime&gt;;
 }
@@ -355,7 +358,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_bridge_grandpa::Config&lt;BridgeGrandpaRococoBulletinInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
-	<span class="kw">type </span>MaxFreeMandatoryHeadersPerBlock = ConstU32&lt;<span class="number">4</span>&gt;;
+	<span class="kw">type </span>MaxFreeHeadersPerBlock = ConstU32&lt;<span class="number">4</span>&gt;;
+	<span class="kw">type </span>FreeHeadersInterval = ConstU32&lt;<span class="number">5</span>&gt;;
 	<span class="kw">type </span>HeadersToKeep = RelayChainHeadersToKeep;
 	<span class="comment">// Technically this is incorrect - we have two pallet instances and ideally we shall
 	// benchmark every instance separately. But the benchmarking engine has a flaw - it

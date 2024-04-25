@@ -246,6 +246,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -265,8 +285,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Expose the auto generated weight files.
 
-</span><span class="kw">use </span>::pallet_bridge_messages::WeightInfoExt <span class="kw">as </span>MessagesWeightInfoExt;
+</span><span class="kw">use </span>::pallet_bridge_grandpa::WeightInfoExt <span class="kw">as </span>GrandpaWeightInfoExt;
+<span class="kw">use </span>::pallet_bridge_messages::WeightInfoExt <span class="kw">as </span>MessagesWeightInfoExt;
 <span class="kw">use </span>::pallet_bridge_parachains::WeightInfoExt <span class="kw">as </span>ParachainsWeightInfoExt;
+<span class="kw">use </span>::pallet_bridge_relayers::WeightInfo <span class="kw">as _</span>;
 
 <span class="kw">pub mod </span>block_weights;
 <span class="kw">pub mod </span>cumulus_pallet_parachain_system;
@@ -303,6 +325,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// import trait from dependency module
 </span><span class="kw">use </span>::pallet_bridge_relayers::WeightInfoExt <span class="kw">as _</span>;
+
+<span class="kw">impl </span>GrandpaWeightInfoExt <span class="kw">for </span>pallet_bridge_grandpa::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt; {
+	<span class="kw">fn </span>submit_finality_proof_overhead_from_runtime() -&gt; Weight {
+		<span class="comment">// our signed extension:
+		// 1) checks whether relayer registration is active from validate/pre_dispatch;
+		// 2) may slash and deregister relayer from post_dispatch
+		// (2) includes (1), so (2) is the worst case
+		</span>pallet_bridge_relayers::WeightInfo::&lt;Runtime&gt;::slash_and_deregister()
+	}
+}
 
 <span class="kw">impl </span>MessagesWeightInfoExt
 	<span class="kw">for </span>pallet_bridge_messages_rococo_to_rococo_bulletin::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt;
@@ -341,6 +373,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>ParachainsWeightInfoExt <span class="kw">for </span>pallet_bridge_parachains::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt; {
 	<span class="kw">fn </span>expected_extra_storage_proof_size() -&gt; u32 {
 		bp_bridge_hub_westend::EXTRA_STORAGE_PROOF_SIZE
+	}
+
+	<span class="kw">fn </span>submit_parachain_heads_overhead_from_runtime() -&gt; Weight {
+		<span class="comment">// our signed extension:
+		// 1) checks whether relayer registration is active from validate/pre_dispatch;
+		// 2) may slash and deregister relayer from post_dispatch
+		// (2) includes (1), so (2) is the worst case
+		</span>pallet_bridge_relayers::WeightInfo::&lt;Runtime&gt;::slash_and_deregister()
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

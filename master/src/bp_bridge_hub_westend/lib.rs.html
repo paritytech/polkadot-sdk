@@ -251,6 +251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -311,6 +312,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Parachain <span class="kw">for </span>BridgeHubWestend {
 	<span class="kw">const </span>PARACHAIN_ID: u32 = BRIDGE_HUB_WESTEND_PARACHAIN_ID;
+	<span class="kw">const </span>MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE;
 }
 
 <span class="kw">impl </span>ChainWithMessages <span class="kw">for </span>BridgeHubWestend {
@@ -346,12 +348,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub const </span>BridgeHubWestendBaseXcmFeeInWnds: u128 = <span class="number">17_756_830_000</span>;
 
 	<span class="doccomment">/// Transaction fee that is paid at the Westend BridgeHub for delivering single inbound message.
-	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
-	</span><span class="kw">pub const </span>BridgeHubWestendBaseDeliveryFeeInWnds: u128 = <span class="number">1_695_489_961_344</span>;
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
+	</span><span class="kw">pub const </span>BridgeHubWestendBaseDeliveryFeeInWnds: u128 = <span class="number">94_211_536_452</span>;
 
 	<span class="doccomment">/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
-	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
-	</span><span class="kw">pub const </span>BridgeHubWestendBaseConfirmationFeeInWnds: u128 = <span class="number">1_618_309_961_344</span>;
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
+	</span><span class="kw">pub const </span>BridgeHubWestendBaseConfirmationFeeInWnds: u128 = <span class="number">17_224_486_452</span>;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

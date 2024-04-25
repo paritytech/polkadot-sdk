@@ -575,35 +575,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -622,7 +593,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>bounded_collections::{ConstU32, WeakBoundedVec};
-<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
 <span class="kw">use </span>frame_support::{assert_ok, weights::Weight};
 <span class="kw">use </span>frame_system::RawOrigin;
@@ -706,21 +676,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>.into();
 		<span class="kw">let </span>versioned_msg = VersionedXcm::from(msg);
 	}: <span class="kw">_</span>&lt;RuntimeOrigin&lt;T&gt;&gt;(send_origin, Box::new(versioned_dest), Box::new(versioned_msg))
-
-	send_blob {
-		<span class="kw">let </span>send_origin =
-			T::SendXcmOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
-		<span class="kw">if </span>T::SendXcmOrigin::try_origin(send_origin.clone()).is_err() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
-		}
-		<span class="kw">let </span>msg = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[ClearOrigin]);
-		<span class="kw">let </span>versioned_dest: VersionedLocation = T::reachable_dest().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
-		)<span class="question-mark">?
-		</span>.into();
-		<span class="kw">let </span>versioned_msg = VersionedXcm::from(msg);
-		<span class="kw">let </span>encoded_versioned_msg = versioned_msg.encode().try_into().unwrap();
-	}: <span class="kw">_</span>&lt;RuntimeOrigin&lt;T&gt;&gt;(send_origin, Box::new(versioned_dest), encoded_versioned_msg)
 
 	teleport_assets {
 		<span class="kw">let </span>(asset, destination) = T::teleportable_asset_and_dest().ok_or(
@@ -868,19 +823,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">let </span>versioned_msg = VersionedXcm::from(msg);
 	}: <span class="kw">_</span>&lt;RuntimeOrigin&lt;T&gt;&gt;(execute_origin, Box::new(versioned_msg), Weight::MAX)
-
-	execute_blob {
-		<span class="kw">let </span>execute_origin =
-			T::ExecuteXcmOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
-		<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::try_origin(execute_origin.clone())
-			.map_err(|<span class="kw">_</span>| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))<span class="question-mark">?</span>;
-		<span class="kw">let </span>msg = Xcm(<span class="macro">vec!</span>[ClearOrigin]);
-		<span class="kw">if </span>!T::XcmExecuteFilter::contains(<span class="kw-2">&amp;</span>(origin_location, msg.clone())) {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
-		}
-		<span class="kw">let </span>versioned_msg = VersionedXcm::from(msg);
-		<span class="kw">let </span>encoded_versioned_msg = versioned_msg.encode().try_into().unwrap();
-	}: <span class="kw">_</span>&lt;RuntimeOrigin&lt;T&gt;&gt;(execute_origin, encoded_versioned_msg, Weight::MAX)
 
 	force_xcm_version {
 		<span class="kw">let </span>loc = T::reachable_dest().ok_or(

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["BridgeRuntimeFilterCall"]};
+window.SIDEBAR_ITEMS = {"struct":["CheckAndBoostBridgeGrandpaTransactions","CheckAndBoostBridgeParachainsTransactions"],"trait":["BridgeRuntimeFilterCall"]};

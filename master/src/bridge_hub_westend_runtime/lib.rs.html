@@ -1332,6 +1332,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1181" id="1181">1181</a>
 <a href="#1182" id="1182">1182</a>
 <a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1366,6 +1394,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>weights;
 <span class="kw">pub mod </span>xcm_config;
 
+<span class="kw">use </span>bridge_runtime_common::extensions::{
+	check_obsolete_extension::{
+		CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
+	},
+	refund_relayer_extension::RefundableParachain,
+};
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
@@ -1391,7 +1425,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, TransformOrigin},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -1836,9 +1870,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! </span>{
 	RuntimeCall, AccountId,
 	<span class="comment">// Grandpa
-	</span>BridgeRococoGrandpa,
+	</span>CheckAndBoostBridgeGrandpaTransactions&lt;
+		Runtime,
+		bridge_to_rococo_config::BridgeGrandpaRococoInstance,
+		bridge_to_rococo_config::PriorityBoostPerRelayHeader,
+		xcm_config::TreasuryAccount,
+	&gt;,
 	<span class="comment">// Parachains
-	</span>BridgeRococoParachains,
+	</span>CheckAndBoostBridgeParachainsTransactions&lt;
+		Runtime,
+		RefundableParachain&lt;
+			bridge_to_rococo_config::BridgeParachainRococoInstance,
+			bp_bridge_hub_rococo::BridgeHubRococo,
+		&gt;,
+		bridge_to_rococo_config::PriorityBoostPerParachainHeader,
+		xcm_config::TreasuryAccount,
+	&gt;,
 	<span class="comment">// Messages
 	</span>BridgeRococoMessages
 }
@@ -2026,6 +2073,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>best_finalized() -&gt; <span class="prelude-ty">Option</span>&lt;HeaderId&lt;bp_rococo::Hash, bp_rococo::BlockNumber&gt;&gt; {
 			BridgeRococoGrandpa::best_finalized()
 		}
+		<span class="kw">fn </span>free_headers_interval() -&gt; <span class="prelude-ty">Option</span>&lt;bp_rococo::BlockNumber&gt; {
+			&lt;Runtime <span class="kw">as </span>pallet_bridge_grandpa::Config&lt;
+				bridge_to_rococo_config::BridgeGrandpaRococoInstance
+			&gt;&gt;::FreeHeadersInterval::get()
+		}
 		<span class="kw">fn </span>synced_headers_grandpa_info(
 		) -&gt; Vec&lt;bp_header_chain::StoredHeaderGrandpaInfo&lt;bp_rococo::Header&gt;&gt; {
 			BridgeRococoGrandpa::synced_headers_grandpa_info()
@@ -2038,6 +2090,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				bp_bridge_hub_rococo::BridgeHubRococo
 			&gt;().unwrap_or(<span class="prelude-val">None</span>)
 		}
+		<span class="kw">fn </span>free_headers_interval() -&gt; <span class="prelude-ty">Option</span>&lt;bp_bridge_hub_rococo::BlockNumber&gt; {
+			<span class="comment">// "free interval" is not currently used for parachains
+			</span><span class="prelude-val">None
+		</span>}
 	}
 
 	<span class="kw">impl </span>bp_bridge_hub_rococo::FromBridgeHubRococoInboundLaneApi&lt;Block&gt; <span class="kw">for </span>Runtime {
