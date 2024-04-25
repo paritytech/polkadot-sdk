@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714041122373,
+  "lastUpdate": 1714052047874,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -657,6 +657,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.597790111489985,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ff2b178206f9952c3337638659450c67fd700e7e",
+          "message": "remote-externalities: retry get child keys query (#4280)",
+          "timestamp": "2024-04-25T12:01:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff2b178206f9952c3337638659450c67fd700e7e"
+        },
+        "date": 1714052022179,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63543.95,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.984516114180022,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6014633912001477,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.608732732140043,
             "unit": "seconds"
           }
         ]
