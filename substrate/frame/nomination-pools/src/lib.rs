@@ -2320,7 +2320,7 @@ pub mod pallet {
 				.min(T::StakeAdapter::transferable_balance(&bonded_pool.bonded_account()));
 
 			// this can fail if the pool uses `DelegateStake` strategy and the member delegation
-			// is not claimed yet. See `Call::claim_delegation()`.
+			// is not claimed yet. See `Call::migrate_delegation()`.
 			T::StakeAdapter::member_withdraw(
 				&member_account,
 				&bonded_pool.bonded_account(),
@@ -2865,15 +2865,15 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Allows a pool member to claim their delegation in their own account.
+		/// Allows a pool member to migrate their delegation from pool account in their own account.
 		///
 		/// This is a permission-less call and refunds any fee if claim is successful.
 		///
 		/// If the pool has migrated to delegation based staking, the staked tokens of pool members
 		/// can be moved and held in their own account. See [`adapter::DelegateStake`]
 		#[pallet::call_index(24)]
-		#[pallet::weight(T::WeightInfo::claim_delegation())]
-		pub fn claim_delegation(
+		#[pallet::weight(T::WeightInfo::migrate_delegation())]
+		pub fn migrate_delegation(
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,
 		) -> DispatchResultWithPostInfo {

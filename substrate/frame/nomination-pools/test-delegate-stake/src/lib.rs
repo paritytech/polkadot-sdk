@@ -967,7 +967,7 @@ fn pool_migration_e2e() {
 		assert_eq!(Balances::total_balance_on_hold(&20), 0);
 
 		// lets claim delegation
-		assert_ok!(Pools::claim_delegation(RuntimeOrigin::signed(10), 20));
+		assert_ok!(Pools::migrate_delegation(RuntimeOrigin::signed(10), 20));
 
 		// tokens moved to 20's account and held there.
 		assert_eq!(Balances::total_balance(&20), pre_claim_balance_20 + 10);

@@ -112,7 +112,7 @@ pub mod unversioned {
 	/// [`adapter::StakeStrategyType::Delegate`].
 	///
 	/// Note: This only migrates the pools, the members are not migrated. They can use the
-	/// permission-less [`Pallet::claim_delegation()`] to migrate their funds.
+	/// permission-less [`Pallet::migrate_delegation()`] to migrate their funds.
 	///
 	/// This migration does not break any existing pool storage item, does not need to happen in any
 	/// sequence and hence can be applied unversioned on a production runtime.

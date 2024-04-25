@@ -23,9 +23,9 @@ use sp_staking::{DelegationInterface, DelegationMigrator};
 /// Useful for determining current staking strategy of a runtime and enforce integrity tests.
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq)]
 pub enum StakeStrategyType {
-	/// The older staking strategy where funds are transferred to pool account and staked.
+	/// Member funds are transferred to pool account and staked.
 	Transfer,
-	/// The newer staking strategy where funds are delegated to pool account and staked.
+	/// Member funds are delegated to pool account and staked.
 	Delegate,
 }
 

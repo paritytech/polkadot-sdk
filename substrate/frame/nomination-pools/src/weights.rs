@@ -75,7 +75,7 @@ pub trait WeightInfo {
 	fn adjust_pool_deposit() -> Weight;
 	fn apply_slash() -> Weight;
 	fn apply_slash_fail() -> Weight;
-	fn claim_delegation() -> Weight;
+	fn migrate_delegation() -> Weight;
 	fn pool_migrate() -> Weight;
 }
 
@@ -679,7 +679,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::default()
 	}
 
-	fn claim_delegation() -> Weight {
+	fn migrate_delegation() -> Weight {
 		// will be updated by bench bot
 		Weight::default()
 	}
@@ -1288,7 +1288,7 @@ impl WeightInfo for () {
 		Weight::default()
 	}
 
-	fn claim_delegation() -> Weight {
+	fn migrate_delegation() -> Weight {
 		// will be updated by bench bot
 		Weight::default()
 	}

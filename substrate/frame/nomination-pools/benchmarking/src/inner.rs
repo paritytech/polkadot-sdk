@@ -987,7 +987,7 @@ frame_benchmarking::benchmarks! {
 		assert!(T::StakeAdapter::total_balance(&pool_account) == deposit_amount);
 	}
 
-	claim_delegation {
+	migrate_delegation {
 		// create a pool.
 		let deposit_amount = Pools::<T>::depositor_min_bond() * 2u32.into();
 		let (depositor, pool_account) = create_pool_account::<T>(0, deposit_amount, None);
@@ -1006,7 +1006,7 @@ frame_benchmarking::benchmarks! {
 
 		whitelist_account!(depositor);
 	}: {
-		let res = Pools::<T>::claim_delegation(RuntimeOrigin::Signed(depositor.clone()).into(), depositor_lookup.clone());
+		let res = Pools::<T>::migrate_delegation(RuntimeOrigin::Signed(depositor.clone()).into(), depositor_lookup.clone());
 		// for transfer stake strategy, apply slash would error, otherwise success.
 		assert!(is_transfer_stake_strategy::<T>() ^ res.is_ok());
 	}
