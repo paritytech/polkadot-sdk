@@ -110,6 +110,7 @@ impl bp_runtime::Chain for TestParachainBase {
 
 impl bp_runtime::Parachain for TestParachainBase {
 	const PARACHAIN_ID: u32 = 1000;
+	const MAX_HEADER_SIZE: u32 = 1_024;
 }
 
 /// Parachain that may be used in tests.
