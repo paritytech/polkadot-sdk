@@ -980,6 +980,7 @@ mod pool_integration {
 
 			// Make sure all data is cleaned up.
 			assert!(!Agents::<T>::contains_key(Pools::create_bonded_account(pool_id)));
+			assert!(!System::account_exists(&Pools::create_bonded_account(pool_id)));
 			assert!(!Delegators::<T>::contains_key(creator));
 			for i in 300..310 {
 				assert!(!Delegators::<T>::contains_key(i));
