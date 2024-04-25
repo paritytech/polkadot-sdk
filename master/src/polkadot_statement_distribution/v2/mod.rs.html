@@ -3597,6 +3597,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3446" id="3446">3446</a>
 <a href="#3447" id="3447">3447</a>
 <a href="#3448" id="3448">3448</a>
+<a href="#3449" id="3449">3449</a>
+<a href="#3450" id="3450">3450</a>
+<a href="#3451" id="3451">3451</a>
+<a href="#3452" id="3452">3452</a>
+<a href="#3453" id="3453">3453</a>
+<a href="#3454" id="3454">3454</a>
+<a href="#3455" id="3455">3455</a>
+<a href="#3456" id="3456">3456</a>
+<a href="#3457" id="3457">3457</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4425,7 +4434,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// clean up sessions based on everything remaining.
 	</span><span class="kw">let </span>sessions: HashSet&lt;<span class="kw">_</span>&gt; = state.per_relay_parent.values().map(|r| r.session).collect();
 	state.per_session.retain(|s, <span class="kw">_</span>| sessions.contains(s));
-	state.unused_topologies.retain(|s, <span class="kw">_</span>| sessions.contains(s));
+
+	<span class="kw">let </span>last_session_index = state.unused_topologies.keys().max().copied();
+	<span class="comment">// Do not clean-up the last saved toplogy unless we moved to the next session
+	// This is needed because handle_deactive_leaves, gets also called when
+	// prospective_parachains APIs are not present, so we would actually remove
+	// the topology without using it because `per_relay_parent` is empty until
+	// prospective_parachains gets enabled
+	</span>state
+		.unused_topologies
+		.retain(|s, <span class="kw">_</span>| sessions.contains(s) || last_session_index == <span class="prelude-val">Some</span>(<span class="kw-2">*</span>s));
 }
 
 <span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]

@@ -1728,6 +1728,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1577" id="1577">1577</a>
 <a href="#1578" id="1578">1578</a>
 <a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2560,19 +2563,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		child_prefix: StorageKey,
 		at: B::Hash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
-		<span class="comment">// This is deprecated and will generate a warning which causes the CI to fail.
-		</span><span class="attr">#[allow(warnings)]
-		</span><span class="kw">let </span>child_keys = substrate_rpc_client::ChildStateApi::storage_keys(
-			client,
-			PrefixedStorageKey::new(prefixed_top_key.as_ref().to_vec()),
-			child_prefix,
-			<span class="prelude-val">Some</span>(at),
-		)
-		.<span class="kw">await
-		</span>.map_err(|e| {
-			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error = {:?}"</span>, e);
-			<span class="string">"rpc child_get_keys failed."
-		</span>})<span class="question-mark">?</span>;
+		<span class="kw">let </span>retry_strategy =
+			FixedInterval::new(<span class="self">Self</span>::KEYS_PAGE_RETRY_INTERVAL).take(<span class="self">Self</span>::MAX_RETRIES);
+		<span class="kw">let </span>get_child_keys_closure = || {
+			<span class="attr">#[allow(deprecated)]
+			</span>substrate_rpc_client::ChildStateApi::storage_keys(
+				client,
+				PrefixedStorageKey::new(prefixed_top_key.as_ref().to_vec()),
+				child_prefix.clone(),
+				<span class="prelude-val">Some</span>(at),
+			)
+		};
+		<span class="kw">let </span>child_keys =
+			Retry::spawn(retry_strategy, get_child_keys_closure).<span class="kw">await</span>.map_err(|e| {
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error = {:?}"</span>, e);
+				<span class="string">"rpc child_get_keys failed."
+			</span>})<span class="question-mark">?</span>;
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,

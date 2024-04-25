@@ -454,6 +454,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -514,7 +519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>always_assert::always;
 <span class="kw">use </span>polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationCodeHash;
-<span class="kw">use </span>polkadot_primitives::ExecutorParamsHash;
+<span class="kw">use </span>polkadot_primitives::ExecutorParamsPrepHash;
 <span class="kw">use </span>std::{
 	collections::HashMap,
 	fs,
@@ -541,22 +546,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	artifact_path
 }
 
-<span class="doccomment">/// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
+<span class="doccomment">/// Identifier of an artifact. Encodes a code hash of the PVF and a hash of preparation-related
+///  executor parameter set.
 </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 </span><span class="kw">pub struct </span>ArtifactId {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) code_hash: ValidationCodeHash,
-	<span class="kw">pub</span>(<span class="kw">crate</span>) executor_params_hash: ExecutorParamsHash,
+	<span class="kw">pub</span>(<span class="kw">crate</span>) executor_params_prep_hash: ExecutorParamsPrepHash,
 }
 
 <span class="kw">impl </span>ArtifactId {
 	<span class="doccomment">/// Creates a new artifact ID with the given hash.
-	</span><span class="kw">pub fn </span>new(code_hash: ValidationCodeHash, executor_params_hash: ExecutorParamsHash) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ code_hash, executor_params_hash }
+	</span><span class="kw">pub fn </span>new(
+		code_hash: ValidationCodeHash,
+		executor_params_prep_hash: ExecutorParamsPrepHash,
+	) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ code_hash, executor_params_prep_hash }
 	}
 
-	<span class="doccomment">/// Returns an artifact ID that corresponds to the PVF with given executor params.
+	<span class="doccomment">/// Returns an artifact ID that corresponds to the PVF with given preparation-related
+	/// executor parameters.
 	</span><span class="kw">pub fn </span>from_pvf_prep_data(pvf: <span class="kw-2">&amp;</span>PvfPrepData) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>::new(pvf.code_hash(), pvf.executor_params().hash())
+		<span class="self">Self</span>::new(pvf.code_hash(), pvf.executor_params().prep_hash())
 	}
 }
 
