@@ -8,8 +8,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  CARGO_NET_GIT_FETCH_WITH_CLI: true
+# env:
+#   CARGO_NET_GIT_FETCH_WITH_CLI: true
 
 jobs:
   set-image:
