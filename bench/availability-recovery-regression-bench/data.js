@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714035505278,
+  "lastUpdate": 1714042263503,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -5291,6 +5291,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.16840501126666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn",
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c26cf3f6f2d2b7f7783703308ece440c338459f8",
+          "message": "Do not re-prepare PVFs if not needed (#4211)\n\nCurrently, PVFs are re-prepared if any execution environment parameter\nchanges. As we've recently seen on Kusama and Polkadot, that may lead to\na severe finality lag because every validator has to re-prepare every\nPVF. That cannot be avoided altogether; however, we could cease\nre-preparing PVFs when a change in the execution environment can't lead\nto a change in the artifact itself. For example, it's clear that\nchanging the execution timeout cannot affect the artifact.\n\nIn this PR, I'm introducing a separate hash for the subset of execution\nenvironment parameters that changes only if a preparation-related\nparameter changes. It introduces some minor code duplication, but\nwithout that, the scope of changes would be much bigger.\n\nTODO:\n- [x] Add a test to ensure the artifact is not re-prepared if\nnon-preparation-related parameter is changed\n- [x] Add a test to ensure the artifact is re-prepared if a\npreparation-related parameter is changed\n- [x] Add comments, warnings, and, possibly, a test to ensure a new\nparameter ever added to the executor environment parameters will be\nevaluated by the author of changes with respect to its artifact\npreparation impact and added to the new hash preimage if needed.\n\nCloses #4132",
+          "timestamp": "2024-04-25T10:16:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c26cf3f6f2d2b7f7783703308ece440c338459f8"
+        },
+        "date": 1714042236656,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.773990656366669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2088572432,
             "unit": "seconds"
           }
         ]
