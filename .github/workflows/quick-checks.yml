@@ -39,7 +39,7 @@ jobs:
   check-dependency-rules:
     runs-on: arc-runners-polkadot-sdk-default
     timeout-minutes: 5
-    needs: [set-image, fmt]
+    needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -51,7 +51,7 @@ jobs:
   check-rust-feature-propagation:
     runs-on: arc-runners-polkadot-sdk-default
     timeout-minutes: 5
-    needs: [set-image, check-dependency-rules]
+    needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -61,7 +61,7 @@ jobs:
   test-rust-features:
     runs-on: arc-runners-polkadot-sdk-default
     timeout-minutes: 5
-    needs: [set-image, check-rust-feature-propagation]
+    needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
