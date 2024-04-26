@@ -237,15 +237,34 @@ include:
     ref: main
     file: /common/forklift.yml
 
-.codecov:
+#
+#
+#
+test-linux-stable-codecov:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .pipeline-stopper-artifacts
   variables:
+    CI_IMAGE: europe-docker.pkg.dev/parity-build/ci-images/ci-unified:bullseye-1.77.0
+    RUST_TOOLCHAIN: stable
     RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
     LLVM_PROFILE_FILE: "target/coverage/cargo-test-${CI_NODE_INDEX}-%p-%m.profraw"
-    CARGO_INCREMENTAL: 0
-  before_script:
+    CARGO_INCREMENTAL: 0      
+  parallel: 2
+  script:
+    # tools
     - rustup component add llvm-tools-preview
-    - mkdir -p target/coverage/result/
-  after_script:
+    - mkdir -p target/coverage/result/  
+    # Place real test call here
+    - >
+      time cargo nextest run -p polkadot \
+        --locked \
+        --release \
+        --no-fail-fast \
+        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
+    # generate and upload reports
     - >
       grcov \
         target/coverage/ \
@@ -257,29 +276,6 @@ include:
     - ls -l target/coverage/result/    
     - codecov upload-process -t ${CODECOV_TOKEN} -f target/coverage/result/lcov --desable-search
   #  
-
-#
-#
-#
-test-linux-stable-codecov:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .pipeline-stopper-artifacts
-    - .codecov
-  variables:
-    CI_IMAGE: europe-docker.pkg.dev/parity-build/ci-images/ci-unified:bullseye-1.77.0
-    RUST_TOOLCHAIN: stable
-  parallel: 2
-  script:
-    - >
-      time cargo nextest run -p polkadot \
-        --locked \
-        --release \
-        --no-fail-fast \
-        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
-  #
 
 
 
