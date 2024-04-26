@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714119435239,
+  "lastUpdate": 1714125250232,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -5501,6 +5501,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.280784673666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c66d8a84687f5d68c0192122aa513b4b340794ca",
+          "message": "Bump bridges relay version + uncomment bridges zombeinet tests (#4289)\n\nTODOs:\n- [x] wait and see if test `1` works;\n- [x] ~think of whether we need remaining tests.~ I think we should keep\nit - will try to revive and update it",
+          "timestamp": "2024-04-26T09:24:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c66d8a84687f5d68c0192122aa513b4b340794ca"
+        },
+        "date": 1714125225170,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21278176526666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.1185213226,
             "unit": "seconds"
           }
         ]
