@@ -18,8 +18,14 @@ ensure_process_file $env_pid $TEST_DIR/westend.env 300
 westend_dir=`cat $TEST_DIR/westend.env`
 echo
 
+run_zndsl ${BASH_SOURCE%/*}/roc-relayer-balance-does-not-change.zndsl $rococo_dir
+run_zndsl ${BASH_SOURCE%/*}/wnd-relayer-balance-does-not-change.zndsl $westend_dir
+
 run_zndsl ${BASH_SOURCE%/*}/roc-reaches-westend.zndsl $westend_dir
 run_zndsl ${BASH_SOURCE%/*}/wnd-reaches-rococo.zndsl $rococo_dir
 
 run_zndsl ${BASH_SOURCE%/*}/wroc-reaches-rococo.zndsl $rococo_dir
 run_zndsl ${BASH_SOURCE%/*}/wwnd-reaches-westend.zndsl $westend_dir
+
+run_zndsl ${BASH_SOURCE%/*}/roc-relayer-balance-does-not-change.zndsl $rococo_dir
+run_zndsl ${BASH_SOURCE%/*}/wnd-relayer-balance-does-not-change.zndsl $westend_dir

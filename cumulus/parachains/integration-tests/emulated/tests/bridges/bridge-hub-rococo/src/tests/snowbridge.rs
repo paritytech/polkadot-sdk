@@ -82,7 +82,7 @@ fn create_agent() {
 
 	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
 	// Construct XCM to create an agent for para 1001
-	let remote_xcm = VersionedXcm::from(Xcm::<()>(vec![
+	let remote_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
@@ -95,10 +95,10 @@ fn create_agent() {
 	// Rococo Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Rococo::execute_with(|| {
-		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
+		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
 			sudo_origin,
 			bx!(destination),
-			remote_xcm.encode().try_into().unwrap(),
+			bx!(remote_xcm),
 		));
 
 		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
@@ -140,7 +140,7 @@ fn create_channel() {
 
 	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
 	// Construct XCM to create an agent for para 1001
-	let create_agent_xcm = VersionedXcm::from(Xcm::<()>(vec![
+	let create_agent_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
@@ -153,7 +153,7 @@ fn create_channel() {
 	let create_channel_call =
 		SnowbridgeControl::Control(ControlCall::CreateChannel { mode: OperatingMode::Normal });
 	// Construct XCM to create a channel for para 1001
-	let create_channel_xcm = VersionedXcm::from(Xcm::<()>(vec![
+	let create_channel_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
@@ -166,16 +166,16 @@ fn create_channel() {
 	// Rococo Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Rococo::execute_with(|| {
-		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
+		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
 			sudo_origin.clone(),
 			bx!(destination.clone()),
-			create_agent_xcm.encode().try_into().unwrap(),
+			bx!(create_agent_xcm),
 		));
 
-		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
+		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
 			sudo_origin,
 			bx!(destination),
-			create_channel_xcm.encode().try_into().unwrap(),
+			bx!(create_channel_xcm),
 		));
 
 		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
@@ -306,8 +306,6 @@ fn send_token_from_ethereum_to_penpal() {
 	// The Weth asset location, identified by the contract address on Ethereum
 	let weth_asset_location: Location =
 		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
-	// Converts the Weth asset location into an asset ID
-	let weth_asset_id: v3::Location = weth_asset_location.try_into().unwrap();
 
 	let origin_location = (Parent, Parent, EthereumNetwork::get()).into();
 
@@ -321,12 +319,12 @@ fn send_token_from_ethereum_to_penpal() {
 	PenpalA::execute_with(|| {
 		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::create(
 			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
-			weth_asset_id,
+			weth_asset_location.clone(),
 			asset_hub_sovereign.into(),
 			1000,
 		));
 
-		assert!(<PenpalA as PenpalAPallet>::ForeignAssets::asset_exists(weth_asset_id));
+		assert!(<PenpalA as PenpalAPallet>::ForeignAssets::asset_exists(weth_asset_location));
 	});
 
 	BridgeHubRococo::execute_with(|| {
@@ -381,10 +379,8 @@ fn send_token_from_ethereum_to_penpal() {
 #[test]
 fn send_weth_asset_from_asset_hub_to_ethereum() {
 	use asset_hub_rococo_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
-	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
-		1,
-		[Parachain(AssetHubRococo::para_id().into())],
-	));
+	let assethub_location = BridgeHubRococo::sibling_location_of(AssetHubRococo::para_id());
+	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(assethub_location);
 
 	AssetHubRococo::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubRococo::force_default_xcm_version(Some(XCM_VERSION));

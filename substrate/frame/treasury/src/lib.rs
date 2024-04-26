@@ -1123,7 +1123,7 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 	}
 }
 
-/// TypedGet implementaion to get the AccountId of the Treasury.
+/// TypedGet implementation to get the AccountId of the Treasury.
 pub struct TreasuryAccountId<R>(PhantomData<R>);
 impl<R> sp_runtime::traits::TypedGet for TreasuryAccountId<R>
 where

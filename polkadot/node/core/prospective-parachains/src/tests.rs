@@ -1797,7 +1797,10 @@ fn persists_pending_availability_candidate() {
 	test_state.availability_cores = test_state
 		.availability_cores
 		.into_iter()
-		.filter(|core| core.para_id().map_or(false, |id| id == para_id))
+		.filter(|core| match core {
+			CoreState::Scheduled(scheduled_core) => scheduled_core.para_id == para_id,
+			_ => false,
+		})
 		.collect();
 	assert_eq!(test_state.availability_cores.len(), 1);
 
@@ -1896,7 +1899,10 @@ fn backwards_compatible() {
 	test_state.availability_cores = test_state
 		.availability_cores
 		.into_iter()
-		.filter(|core| core.para_id().map_or(false, |id| id == para_id))
+		.filter(|core| match core {
+			CoreState::Scheduled(scheduled_core) => scheduled_core.para_id == para_id,
+			_ => false,
+		})
 		.collect();
 	assert_eq!(test_state.availability_cores.len(), 1);
 

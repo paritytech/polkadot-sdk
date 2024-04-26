@@ -27,7 +27,7 @@ use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
 };
 
 use mock::*;
@@ -623,12 +623,8 @@ fn nominating_and_rewards_should_work() {
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11, 21, 31]));
 
-			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(3),
-				1000,
-				RewardDestination::Account(3)
-			));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![11, 21, 41]));
+			// the second nominator is virtual.
+			bond_virtual_nominator(3, 333, 1000, vec![11, 21, 41]);
 
 			// the total reward for era 0
 			let total_payout_0 = current_total_payout_for_duration(reward_time_per_era());
@@ -694,10 +690,12 @@ fn nominating_and_rewards_should_work() {
 			);
 			// Nominator 3: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 21]'s reward. ==>
 			// 2/9 + 3/11
+			assert_eq!(Balances::total_balance(&3), initial_balance);
+			// 333 is the reward destination for 3.
 			assert_eq_error_rate!(
-				Balances::total_balance(&3),
-				initial_balance + (2 * payout_for_11 / 9 + 3 * payout_for_21 / 11),
-				2,
+				Balances::total_balance(&333),
+				2 * payout_for_11 / 9 + 3 * payout_for_21 / 11,
+				2
 			);
 
 			// Validator 11: got 800 / 1800 external stake => 8/18 =? 4/9 => Validator's share = 5/9
@@ -1893,7 +1891,7 @@ fn reap_stash_works() {
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// given
-			assert_eq!(Balances::free_balance(11), 10 * 1000);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 10 * 1000);
 			assert_eq!(Staking::bonded(&11), Some(11));
 
 			assert!(<Ledger<Test>>::contains_key(&11));
@@ -1919,6 +1917,8 @@ fn reap_stash_works() {
 			assert!(!<Bonded<Test>>::contains_key(&11));
 			assert!(!<Validators<Test>>::contains_key(&11));
 			assert!(!<Payee<Test>>::contains_key(&11));
+			// lock is removed.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
 		});
 }
 
@@ -6849,6 +6849,226 @@ mod staking_interface {
 	}
 }
 
+mod staking_unchecked {
+	use sp_staking::{Stake, StakingInterface, StakingUnchecked};
+
+	use super::*;
+
+	#[test]
+	fn virtual_bond_does_not_lock() {
+		ExtBuilder::default().build_and_execute(|| {
+			mock::start_active_era(1);
+			assert_eq!(Balances::free_balance(10), 1);
+			// 10 can bond more than its balance amount since we do not require lock for virtual
+			// bonding.
+			assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&10, 100, &15));
+			// nothing is locked on 10.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &10), 0);
+			// adding more balance does not lock anything as well.
+			assert_ok!(<Staking as StakingInterface>::bond_extra(&10, 1000));
+			// but ledger is updated correctly.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 1100, active: 1100 })
+			);
+
+			// lets try unbonding some amount.
+			assert_ok!(<Staking as StakingInterface>::unbond(&10, 200));
+			assert_eq!(
+				Staking::ledger(10.into()).unwrap(),
+				StakingLedgerInspect {
+					stash: 10,
+					total: 1100,
+					active: 1100 - 200,
+					unlocking: bounded_vec![UnlockChunk { value: 200, era: 1 + 3 }],
+					legacy_claimed_rewards: bounded_vec![],
+				}
+			);
+
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 1100, active: 900 })
+			);
+			// still no locks.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &10), 0);
+
+			mock::start_active_era(2);
+			// cannot withdraw without waiting for unbonding period.
+			assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(10, 0));
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 1100, active: 900 })
+			);
+
+			// in era 4, 10 can withdraw unlocking amount.
+			mock::start_active_era(4);
+			assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(10, 0));
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 900, active: 900 })
+			);
+
+			// unbond all.
+			assert_ok!(<Staking as StakingInterface>::unbond(&10, 900));
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 900, active: 0 })
+			);
+			mock::start_active_era(7);
+			assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(10, 0));
+
+			// ensure withdrawing all amount cleans up storage.
+			assert_eq!(Staking::ledger(10.into()), Err(Error::<Test>::NotStash));
+			assert_eq!(VirtualStakers::<Test>::contains_key(10), false);
+		})
+	}
+
+	#[test]
+	fn virtual_staker_cannot_pay_reward_to_self_account() {
+		ExtBuilder::default().build_and_execute(|| {
+			// cannot set payee to self
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&10, 100, &10),
+				Error::<Test>::RewardDestinationRestricted
+			);
+
+			// to another account works
+			assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&10, 100, &11));
+
+			// cannot set via set_payee as well.
+			assert_noop!(
+				<Staking as StakingInterface>::update_payee(&10, &10),
+				Error::<Test>::RewardDestinationRestricted
+			);
+		});
+	}
+
+	#[test]
+	fn virtual_staker_cannot_bond_again() {
+		ExtBuilder::default().build_and_execute(|| {
+			// 200 virtual bonds
+			bond_virtual_nominator(200, 201, 500, vec![11, 21]);
+
+			// Tries bonding again
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&200, 200, &201),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// And again with a different reward destination.
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&200, 200, &202),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// Direct bond is not allowed as well.
+			assert_noop!(
+				<Staking as StakingInterface>::bond(&200, 200, &202),
+				Error::<Test>::AlreadyBonded
+			);
+		});
+	}
+
+	#[test]
+	fn normal_staker_cannot_virtual_bond() {
+		ExtBuilder::default().build_and_execute(|| {
+			// 101 is a nominator trying to virtual bond
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&101, 200, &102),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// validator 21 tries to virtual bond
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&21, 200, &22),
+				Error::<Test>::AlreadyBonded
+			);
+		});
+	}
+
+	#[test]
+	fn migrate_virtual_staker() {
+		ExtBuilder::default().build_and_execute(|| {
+			// give some balance to 200
+			Balances::make_free_balance_be(&200, 2000);
+
+			// stake
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(200), 1000, RewardDestination::Staked));
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 1000);
+
+			// migrate them to virtual staker
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200);
+			// payee needs to be updated to a non-stash account.
+			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
+
+			// ensure the balance is not locked anymore
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 0);
+
+			// and they are marked as virtual stakers
+			assert_eq!(Pallet::<Test>::is_virtual_staker(&200), true);
+		});
+	}
+
+	#[test]
+	fn virtual_nominators_are_lazily_slashed() {
+		ExtBuilder::default().build_and_execute(|| {
+			mock::start_active_era(1);
+			let slash_percent = Perbill::from_percent(5);
+			let initial_exposure = Staking::eras_stakers(active_era(), &11);
+			// 101 is a nominator for 11
+			assert_eq!(initial_exposure.others.first().unwrap().who, 101);
+			// make 101 a virtual nominator
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+			// set payee different to self.
+			assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+
+			// cache values
+			let nominator_stake = Staking::ledger(101.into()).unwrap().active;
+			let nominator_balance = balances(&101).0;
+			let validator_stake = Staking::ledger(11.into()).unwrap().active;
+			let validator_balance = balances(&11).0;
+			let exposed_stake = initial_exposure.total;
+			let exposed_validator = initial_exposure.own;
+			let exposed_nominator = initial_exposure.others.first().unwrap().value;
+
+			// 11 goes offline
+			on_offence_now(
+				&[OffenceDetails { offender: (11, initial_exposure.clone()), reporters: vec![] }],
+				&[slash_percent],
+			);
+
+			let slash_amount = slash_percent * exposed_stake;
+			let validator_share =
+				Perbill::from_rational(exposed_validator, exposed_stake) * slash_amount;
+			let nominator_share =
+				Perbill::from_rational(exposed_nominator, exposed_stake) * slash_amount;
+
+			// both slash amounts need to be positive for the test to make sense.
+			assert!(validator_share > 0);
+			assert!(nominator_share > 0);
+
+			// both stakes must have been decreased pro-rata.
+			assert_eq!(
+				Staking::ledger(101.into()).unwrap().active,
+				nominator_stake - nominator_share
+			);
+			assert_eq!(
+				Staking::ledger(11.into()).unwrap().active,
+				validator_stake - validator_share
+			);
+
+			// validator balance is slashed as usual
+			assert_eq!(balances(&11).0, validator_balance - validator_share);
+			// Because slashing happened.
+			assert!(is_disabled(11));
+
+			// but virtual nominator's balance is not slashed.
+			assert_eq!(Balances::free_balance(&101), nominator_balance);
+			// but slash is broadcasted to slash observers.
+			assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_share);
+		})
+	}
+}
 mod ledger {
 	use super::*;
 
@@ -7327,7 +7547,6 @@ mod ledger {
 
 mod ledger_recovery {
 	use super::*;
-	use frame_support::traits::InspectLockableCurrency;
 
 	#[test]
 	fn inspect_recovery_ledger_simple_works() {
