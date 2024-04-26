@@ -1393,7 +1393,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "ring 0.1.0",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sp-ark-bls12-381",
  "sp-ark-ed-on-bls12-381-bandersnatch",
  "zeroize",
@@ -2421,9 +2421,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "bytes"
-version = "1.4.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
+checksum = "514de17de45fdb8dc022b1a7975556c53c86f9f0aa5f534b98977b171857c2c9"
 
 [[package]]
 name = "bzip2-sys"
@@ -5073,7 +5073,7 @@ dependencies = [
  "ed25519 2.2.2",
  "rand_core 0.6.4",
  "serde",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "subtle 2.5.0",
  "zeroize",
 ]
@@ -5103,7 +5103,7 @@ dependencies = [
  "hashbrown 0.14.3",
  "hex",
  "rand_core 0.6.4",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "zeroize",
 ]
 
@@ -5483,9 +5483,9 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "2.0.0"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6999dc1837253364c2ebb0704ba97994bd874e8f195d665c50b7548f6ea92764"
+checksum = "658bd65b1cf4c852a3cc96f18a8ce7b5640f6b703f905c7d74532294c2a63984"
 
 [[package]]
 name = "fastrlp"
@@ -7341,7 +7341,7 @@ dependencies = [
  "elliptic-curve",
  "once_cell",
  "serdect",
- "sha2 0.10.7",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -7772,7 +7772,7 @@ dependencies = [
  "multihash 0.17.0",
  "quick-protobuf",
  "rand 0.8.5",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "thiserror",
  "zeroize",
 ]
@@ -7797,7 +7797,7 @@ dependencies = [
  "log",
  "quick-protobuf",
  "rand 0.8.5",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "smallvec",
  "thiserror",
  "uint",
@@ -7855,7 +7855,7 @@ dependencies = [
  "once_cell",
  "quick-protobuf",
  "rand 0.8.5",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "snow",
  "static_assertions",
  "thiserror",
@@ -8190,7 +8190,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/litep2p?branch=master#b142c9eb611fb2fe78d2830266a3675b37299ceb"
+source = "git+https://github.com/paritytech/litep2p?branch=lexnv/update-webrtc-crate#eaec7ceb50d658243509e704a9ee6e792f4ecef7"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -8217,7 +8217,7 @@ dependencies = [
  "ring 0.16.20",
  "rustls 0.20.8",
  "serde",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "simple-dns",
  "smallvec",
  "snow",
@@ -8753,7 +8753,7 @@ dependencies = [
  "core2",
  "digest 0.10.7",
  "multihash-derive 0.8.0",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "unsigned-varint",
 ]
@@ -8770,7 +8770,7 @@ dependencies = [
  "core2",
  "digest 0.10.7",
  "multihash-derive 0.8.0",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "unsigned-varint",
 ]
@@ -8800,7 +8800,7 @@ dependencies = [
  "ripemd",
  "serde",
  "sha1",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "strobe-rs",
 ]
@@ -12554,7 +12554,7 @@ checksum = "56af0a30af74d0445c0bf6d9d051c979b516a1a5af790d251daee76005420a48"
 dependencies = [
  "once_cell",
  "pest",
- "sha2 0.10.7",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -17898,7 +17898,7 @@ dependencies = [
  "merlin",
  "rand_core 0.6.4",
  "serde_bytes",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "subtle 2.5.0",
  "zeroize",
 ]
@@ -17933,9 +17933,9 @@ dependencies = [
 
 [[package]]
 name = "sctp-proto"
-version = "0.1.7"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f64cef148d3295c730c3cb340b0b252a4d570b1c7d4bf0808f88540b0a888bc"
+checksum = "97a4f06d93f32c3d835893e3ba8f953f9e0ccadfed414e95e595dec947fdb075"
 dependencies = [
  "bytes",
  "crc",
@@ -18311,9 +18311,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.7"
+version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "479fb9d862239e610720565ca91403019f2f00410f1864c5aa7479b950a76ed8"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -18571,7 +18571,7 @@ dependencies = [
  "schnorrkel 0.10.2",
  "serde",
  "serde_json",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "siphasher",
  "slab",
@@ -18638,7 +18638,7 @@ dependencies = [
  "rand_core 0.6.4",
  "ring 0.16.20",
  "rustc_version 0.4.0",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "subtle 2.5.0",
 ]
 
@@ -19486,7 +19486,7 @@ dependencies = [
  "byteorder",
  "criterion 0.4.0",
  "digest 0.10.7",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "sp-crypto-hashing-proc-macro",
  "twox-hash",
@@ -19907,7 +19907,7 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sp-api",
  "sp-application-crypto",
  "sp-core",
@@ -20451,17 +20451,17 @@ dependencies = [
 
 [[package]]
 name = "str0m"
-version = "0.2.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee48572247f422dcbe68630c973f8296fbd5157119cd36a3223e48bf83d47727"
+checksum = "6706347e49b13373f7ddfafad47df7583ed52083d6fc8a594eb2c80497ef959d"
 dependencies = [
  "combine",
  "crc",
+ "fastrand 2.0.2",
  "hmac 0.12.1",
  "once_cell",
  "openssl",
  "openssl-sys",
- "rand 0.8.5",
  "sctp-proto",
  "serde",
  "sha-1 0.10.1",
@@ -20604,7 +20604,7 @@ dependencies = [
  "pbkdf2",
  "rustc-hex",
  "schnorrkel 0.11.4",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "zeroize",
 ]
 
@@ -21135,7 +21135,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ef1adac450ad7f4b3c28589471ade84f25f731a7a0fe30d71dfa9f60fd808e5"
 dependencies = [
  "cfg-if",
- "fastrand 2.0.0",
+ "fastrand 2.0.2",
  "redox_syscall 0.4.1",
  "rustix 0.38.21",
  "windows-sys 0.48.0",
@@ -21305,9 +21305,9 @@ checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
 
 [[package]]
 name = "thiserror"
-version = "1.0.50"
+version = "1.0.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9a7210f5c9a7156bb50aa36aed4c95afb51df0df00713949448cf9e97d382d2"
+checksum = "f0126ad08bff79f29fc3ae6a55cc72352056dfff61e3ff8bb7129476d44b23aa"
 dependencies = [
  "thiserror-impl",
 ]
@@ -21334,9 +21334,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.50"
+version = "1.0.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "266b2e40bc00e5a6c09c3584011e08b06f123c00362c92b975ba9843aaaa14b8"
+checksum = "d1cd413b5d558b4c5bf3680e324a6fa5014e7b7c067a51e69dbdf47eb7148b66"
 dependencies = [
  "proc-macro2 1.0.75",
  "quote 1.0.35",
@@ -22306,7 +22306,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "thiserror",
  "zeroize",
@@ -22624,7 +22624,7 @@ dependencies = [
  "log",
  "rustix 0.36.15",
  "serde",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "toml 0.5.11",
  "windows-sys 0.45.0",
  "zstd 0.11.2+zstd.1.5.2",
