@@ -26,7 +26,7 @@ pallet-session = { path = "../../../../../substrate/frame/session", default-feat
 asset-test-utils = { version = "5.0.0", path = "../../assets/test-utils" }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.5.0" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.5.0" }
-pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "7.0.1" }
+pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "7.0.2" }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.5.0" }
 parachains-common = { path = "../../../common", default-features = false, version = "5.0.0" }
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "5.0.0" }

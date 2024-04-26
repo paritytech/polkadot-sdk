@@ -24,7 +24,7 @@ sp-core = { path = "../../../../../substrate/primitives/core", default-features 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.5.0" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.5.0" }
-pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "7.0.1" }
+pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "7.0.2" }
 parachains-common = { path = "../../../common", default-features = false, version = "5.0.0" }
 assets-common = { path = "../common", default-features = false, version = "0.5.0" }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.5.0" }
