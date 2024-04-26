@@ -20,10 +20,11 @@
 
 use std::{
 	error::Error as StdError,
-	net::{IpAddr, SocketAddr, ToSocketAddrs},
+	net::{IpAddr, SocketAddr},
 	str::FromStr,
 };
 
+use forwarded_header_value::ForwardedHeaderValue;
 use hyper::{
 	header::{HeaderName, HeaderValue},
 	Request,
@@ -31,25 +32,9 @@ use hyper::{
 use jsonrpsee::{server::middleware::http::HostFilterLayer, RpcModule};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-static X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
-
-/// Helper to read the ip address of the client `X_FORWARDED_FOR` header.
-pub(crate) fn read_ip_from_proxy<B>(req: &Request<B>) -> Option<IpAddr> {
-	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For
-	//
-	// "X-Forwarded-For" returns a list of ip addresses
-	//
-	// X-Forwarded-For: 203.0.113.195,198.51.100.178
-	if let Some(ips) = req.headers().get(&X_FORWARDED_FOR).and_then(|v| v.to_str().ok()) {
-		if let Some(proxy_ip) = ips.split_once(',').and_then(|(v, _)| IpAddr::from_str(v).ok()) {
-			// NOTE: we assume that ip addr is global
-			// and it may not work with local proxies.
-			return Some(proxy_ip);
-		}
-	}
-
-	None
-}
+const X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
+const X_REAL_IP: HeaderName = HeaderName::from_static("x-real-ip");
+const FORWARDED: HeaderName = HeaderName::from_static("forwarded");
 
 pub(crate) fn host_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<HostFilterLayer> {
 	// If the local_addr failed, fallback to wildcard.
@@ -105,57 +90,100 @@ pub(crate) fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
 	}
 }
 
-pub(crate) fn hosts_to_ip_addrs(
-	hosts: &[String],
-) -> Result<Vec<IpAddr>, Box<dyn StdError + Send + Sync>> {
-	let mut ip_list = Vec::new();
-
-	for host in hosts {
-		// The host may contain a port such as `hostname:8080`
-		// and we don't care about the port to lookup the IP addr.
-		//
-		// to_socket_addr without the port will fail though
-		let host_no_port = if let Some((h, _port)) = host.split_once(":") { h } else { host };
-
-		let sockaddrs = (host_no_port, 0).to_socket_addrs()?;
-
-		for sockaddr in sockaddrs {
-			ip_list.push(sockaddr.ip());
-		}
+/// Extracts the IP addr from the HTTP request.
+///
+/// It is extracted in the following order:
+/// 1. `Forwarded` header.
+/// 2. `X-Forwarded-For` header.
+/// 3. `X-Real-Ip`.
+pub(crate) fn get_proxy_ip(req: &Request<hyper::Body>) -> Option<IpAddr> {
+	if let Some(ip) = req
+		.headers()
+		.get(&FORWARDED)
+		.and_then(|v| v.to_str().ok())
+		.and_then(|v| ForwardedHeaderValue::from_forwarded(v).ok())
+		.and_then(|v| v.remotest_forwarded_for_ip())
+	{
+		return Some(ip);
 	}
 
-	Ok(ip_list)
+	if let Some(ip) = req
+		.headers()
+		.get(&X_FORWARDED_FOR)
+		.and_then(|v| v.to_str().ok())
+		.and_then(|v| ForwardedHeaderValue::from_x_forwarded_for(v).ok())
+		.and_then(|v| v.remotest_forwarded_for_ip())
+	{
+		return Some(ip);
+	}
+
+	if let Some(ip) = req
+		.headers()
+		.get(&X_REAL_IP)
+		.and_then(|v| v.to_str().ok())
+		.and_then(|v| IpAddr::from_str(v).ok())
+	{
+		return Some(ip);
+	}
+
+	None
 }
 
 #[cfg(test)]
 mod tests {
+	use super::*;
 	use hyper::header::HeaderValue;
 
-	use super::*;
-
-	#[test]
-	fn socket_ip_works() {
-		let req = hyper::Request::new(());
-		let ip = read_ip_from_proxy(&req);
-		assert!(ip.is_none())
+	fn request() -> hyper::Request<hyper::Body> {
+		hyper::Request::builder().body(hyper::Body::empty()).unwrap()
 	}
 
 	#[test]
-	fn ip_from_proxy() {
-		let mut req = hyper::Request::new(());
+	fn empty_works() {
+		let req = request();
+		let host = get_proxy_ip(&req);
+		assert!(host.is_none())
+	}
+
+	#[test]
+	fn host_from_x_real_ip() {
+		let mut req = request();
+
+		req.headers_mut().insert(&X_REAL_IP, HeaderValue::from_static("127.0.0.1"));
+		let ip = get_proxy_ip(&req);
+		assert_eq!(Some(IpAddr::from_str("127.0.0.1").unwrap()), ip);
+	}
+
+	#[test]
+	fn ip_from_forwarded_works() {
+		let mut req = request();
+
+		req.headers_mut().insert(
+			&FORWARDED,
+			HeaderValue::from_static("for=192.0.2.60;proto=http;by=203.0.113.43;host=example.com"),
+		);
+		let ip = get_proxy_ip(&req);
+		assert_eq!(Some(IpAddr::from_str("192.0.2.60").unwrap()), ip);
+	}
+
+	#[test]
+	fn ip_from_forwarded_multiple() {
+		let mut req = request();
+
+		req.headers_mut().append(&FORWARDED, HeaderValue::from_static("for=127.0.0.1"));
+		req.headers_mut().append(&FORWARDED, HeaderValue::from_static("for=192.0.2.60"));
+		req.headers_mut().append(&FORWARDED, HeaderValue::from_static("for=192.0.2.61"));
+		let ip = get_proxy_ip(&req);
+		assert_eq!(Some(IpAddr::from_str("127.0.0.1").unwrap()), ip);
+	}
+
+	#[test]
+	fn ip_from_x_forwarded_works() {
+		let mut req = request();
 
 		req.headers_mut()
-			.insert(&X_FORWARDED_FOR, HeaderValue::from_static("203.0.113.195,198.51.100.178"));
-		let ip = read_ip_from_proxy(&req);
-		assert_eq!(Some(IpAddr::from_str("203.0.113.195").unwrap()), ip);
-	}
-
-	#[test]
-	fn ip_from_proxy_faulty() {
-		let mut req = hyper::Request::new(());
-
-		req.headers_mut().insert(&X_FORWARDED_FOR, HeaderValue::from_static("    "));
-		let ip = read_ip_from_proxy(&req);
-		assert!(ip.is_none())
+			.insert(&X_FORWARDED_FOR, HeaderValue::from_static("127.0.0.1,192.0.2.60,0.0.0.1"));
+		let ip = get_proxy_ip(&req);
+		assert_eq!(Some(IpAddr::from_str("127.0.0.1").unwrap()), ip);
 	}
 }

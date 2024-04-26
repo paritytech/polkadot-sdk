@@ -24,7 +24,11 @@ pub mod middleware;
 pub mod utils;
 
 use std::{
-	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
+	convert::Infallible,
+	error::Error as StdError,
+	net::{IpAddr, SocketAddr},
+	num::NonZeroU32,
+	time::Duration,
 };
 
 use hyper::{
@@ -40,10 +44,7 @@ use jsonrpsee::{
 };
 use tokio::net::TcpListener;
 use tower::Service;
-use utils::{
-	build_rpc_api, format_cors, host_filtering, hosts_to_ip_addrs, read_ip_from_proxy,
-	try_into_cors,
-};
+use utils::{build_rpc_api, format_cors, get_proxy_ip, host_filtering, try_into_cors};
 
 pub use jsonrpsee::{
 	core::{
@@ -88,8 +89,10 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub batch_config: BatchRequestConfig,
 	/// Rate limit calls per minute.
 	pub rate_limit: Option<NonZeroU32>,
-	/// Disable rate limit for hosts.
-	pub rate_limit_whitelisted_hosts: &'a [String],
+	/// Disable rate limit for certain ips.
+	pub rate_limit_whitelisted_ips: Vec<IpAddr>,
+	/// Trust proxy headers for rate limiting.
+	pub rate_limit_trust_proxy_headers: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -122,13 +125,13 @@ where
 		tokio_handle,
 		rpc_api,
 		rate_limit,
-		rate_limit_whitelisted_hosts,
+		rate_limit_whitelisted_ips,
+		rate_limit_trust_proxy_headers,
 	} = config;
 
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = host_filtering(cors.is_some(), local_addr);
-	let rate_limit_whitelisted_ip_addrs = hosts_to_ip_addrs(rate_limit_whitelisted_hosts)?;
 
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
@@ -167,20 +170,23 @@ where
 		stop_handle: stop_handle.clone(),
 	};
 
-	let make_service = make_service_fn(move |conn: &AddrStream| {
+	let make_service = make_service_fn(move |addr: &AddrStream| {
 		let cfg = cfg.clone();
-		let peer_ip = conn.remote_addr().ip();
-		let rate_limit_whitelisted_ip_addrs = rate_limit_whitelisted_ip_addrs.clone();
+		let rate_limit_whitelisted_ips = rate_limit_whitelisted_ips.clone();
+		let ip = addr.remote_addr().ip();
 
 		async move {
 			let cfg = cfg.clone();
-			let rate_limit_whitelisted_ip_addrs = rate_limit_whitelisted_ip_addrs.clone();
+			let rate_limit_whitelisted_ips = rate_limit_whitelisted_ips.clone();
 
 			Ok::<_, Infallible>(service_fn(move |req| {
-				let ip =
-					if let Some(proxy_ip) = read_ip_from_proxy(&req) { proxy_ip } else { peer_ip };
+				let remote_ip = if rate_limit_trust_proxy_headers {
+					get_proxy_ip(&req).unwrap_or(ip)
+				} else {
+					ip
+				};
 
-				let rate_limit_cfg = if rate_limit_whitelisted_ip_addrs.iter().any(|ip2| ip2 == &ip)
+				let rate_limit_cfg = if rate_limit_whitelisted_ips.iter().any(|ip| *ip == remote_ip)
 				{
 					None
 				} else {
