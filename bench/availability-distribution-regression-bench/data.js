@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714063144420,
+  "lastUpdate": 1714119124534,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -6811,6 +6811,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022818989179999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Noah Jelich",
+            "username": "njelich",
+            "email": "12912633+njelich@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8f8c49deffe56567ba5cde0e1047de15b660bb0e",
+          "message": "Fix bad links (#4231)\n\nThe solochain template links to parachain template instead of solochain.",
+          "timestamp": "2024-04-26T07:03:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8f8c49deffe56567ba5cde0e1047de15b660bb0e"
+        },
+        "date": 1714119099481,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013599766840000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02285059932000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1678232687333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011406888700000005,
             "unit": "seconds"
           }
         ]
