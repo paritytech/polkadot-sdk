@@ -277,7 +277,7 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 	.map_err(|e| anyhow::format_err!("{}", e))
 }
 
-/// Relay single header. No any check are made to ensure that transaction will succeed.
+/// Relay single header. No checks are made to ensure that transaction will succeed.
 pub async fn relay_single_header<P: SubstrateFinalitySyncPipeline>(
 	source_client: Client<P::SourceChain>,
 	target_client: Client<P::TargetChain>,
