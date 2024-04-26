@@ -90,7 +90,7 @@ fn fee_estimation_for_teleport() {
 			dry_run_effects.forwarded_messages,
 			vec![(
 				VersionedLocation::V4(send_destination.clone()),
-				VersionedXcm::V4(send_message.clone()),
+				vec![VersionedXcm::V4(send_message.clone())],
 			),],
 		);
 
@@ -163,7 +163,8 @@ fn fee_estimation_for_teleport() {
 
 		let mut forwarded_messages_iter = dry_run_effects.forwarded_messages.into_iter();
 
-		let (destination, remote_message) = forwarded_messages_iter.next().unwrap();
+		let (destination, remote_messages) = forwarded_messages_iter.next().unwrap();
+		let remote_message = &remote_messages[0];
 
 		let delivery_fees = runtime_api
 			.query_delivery_fees(H256::zero(), destination.clone(), remote_message.clone())
@@ -253,7 +254,7 @@ fn dry_run_reserve_asset_transfer() {
 			dry_run_effects.forwarded_messages,
 			vec![(
 				VersionedLocation::V4(send_destination.clone()),
-				VersionedXcm::V4(send_message.clone()),
+				vec![VersionedXcm::V4(send_message.clone())],
 			),],
 		);
 
@@ -342,7 +343,7 @@ fn dry_run_xcm() {
 			dry_run_effects.forwarded_messages,
 			vec![(
 				VersionedLocation::V4((Parent, Parachain(2100)).into()),
-				VersionedXcm::V4(
+				vec![VersionedXcm::V4(
 					Xcm::<()>::builder_unsafe()
 						.reserve_asset_deposited((
 							(Parent, Parachain(2000)),
@@ -352,7 +353,7 @@ fn dry_run_xcm() {
 						.buy_execution((Here, 1u128), Unlimited)
 						.deposit_asset(AllCounted(1), [0u8; 32])
 						.build()
-				),
+				)],
 			),]
 		);
 

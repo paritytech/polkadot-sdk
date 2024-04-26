@@ -471,7 +471,7 @@ sp_api::mock_impl_runtime_apis! {
 				.into_iter()
 				.map(|(location, message)| (
 					VersionedLocation::V4(location),
-					VersionedXcm::V4(message)
+					vec![VersionedXcm::V4(message)],
 				)).collect();
 			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {
@@ -511,7 +511,7 @@ sp_api::mock_impl_runtime_apis! {
 				.into_iter()
 				.map(|(location, message)| (
 					VersionedLocation::V4(location),
-					VersionedXcm::V4(message),
+					vec![VersionedXcm::V4(message)],
 				)).collect();
 			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
 			Ok(XcmDryRunEffects {
