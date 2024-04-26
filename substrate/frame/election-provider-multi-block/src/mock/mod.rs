@@ -15,15 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![allow(unused)]
+
 mod staking;
 
 use frame_election_provider_support::{bounds::ElectionBounds, onchain, SequentialPhragmen};
+use sp_npos_elections::ElectionScore;
 pub use staking::*;
 
 use crate::{
 	self as epm,
 	signed::{self as signed_pallet},
-	unsigned::{self as unsigned_pallet},
+	unsigned::{self as unsigned_pallet, miner::OffchainWorkerMiner},
 	verifier::{self as verifier_pallet},
 	Config, *,
 };
@@ -56,6 +59,7 @@ pub type VoterIndex = u32;
 pub type TargetIndex = u16;
 pub type T = Runtime;
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
+pub(crate) type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16, ()>;
 
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
@@ -98,7 +102,7 @@ parameter_types! {
 	pub static UnsignedPhase: BlockNumber = 5;
 	pub static SignedValidationPhase: BlockNumber = Pages::get().into();
 	pub static Lookhaead: BlockNumber = 0;
-	pub static VoterSnapshotPerBlock: VoterIndex = 4;
+	pub static VoterSnapshotPerBlock: VoterIndex = 5;
 	pub static TargetSnapshotPerBlock: TargetIndex = 8;
 	pub static Pages: PageIndex = 3;
 	pub static ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
@@ -122,8 +126,8 @@ impl Config for Runtime {
 
 parameter_types! {
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
-	pub static MaxWinnersPerPage: u32 = 3;
-	pub static MaxBackersPerWinner: u32 = (staking::Targets::get().len() as u32).min(staking::DesiredTargets::get());
+	pub static MaxWinnersPerPage: u32 = 100;
+	pub static MaxBackersPerWinner: u32 = 1000;
 }
 
 impl crate::verifier::Config for Runtime {
@@ -165,7 +169,7 @@ parameter_types! {
 
 impl crate::unsigned::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OffchainSolver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
+	type OffchainSolver = Solver;
 	type OffchainRepeatInterval = OffchainRepeatInterval;
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
@@ -198,7 +202,7 @@ parameter_types! {
 
 impl onchain::Config for Runtime {
 	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16, ()>;
+	type Solver = Solver;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type Bounds = OnChainElectionBounds;
@@ -254,6 +258,21 @@ impl ExtBuilder {
 
 	pub(crate) fn lookahead(self, blocks: BlockNumber) -> Self {
 		Lookhaead::set(blocks);
+		self
+	}
+
+	pub(crate) fn max_winners_per_page(self, max: u32) -> Self {
+		MaxWinnersPerPage::set(max);
+		self
+	}
+
+	pub(crate) fn max_backers_per_winner(self, max: u32) -> Self {
+		MaxBackersPerWinner::set(max);
+		self
+	}
+
+	pub(crate) fn desired_targets(self, desired: u32) -> Self {
+		DesiredTargets::set(desired);
 		self
 	}
 
@@ -342,6 +361,19 @@ pub(crate) fn compute_snapshot_checked() {
 	}
 }
 
+pub(crate) fn mine_and_verify_all() -> Result<(), &'static str> {
+	let msp = crate::Pallet::<T>::msp();
+
+	for page in (0..=msp).rev() {
+		let (_, score, solution) =
+			OffchainWorkerMiner::<T>::mine(page).map_err(|_| "error mining")?;
+		<VerifierPallet as verifier::Verifier>::verify_synchronous(solution, score, page)
+			.map_err(|_| "error verifying paged solution")?;
+	}
+
+	Ok(())
+}
+
 pub(crate) fn roll_to(n: BlockNumber) {
 	for bn in (System::block_number()) + 1..=n {
 		System::set_block_number(bn);
@@ -416,6 +448,10 @@ pub fn current_phase() -> Phase<BlockNumber> {
 	MultiPhase::current_phase()
 }
 
+pub fn current_rount() -> u32 {
+    Pallet::<T>::current_round()
+}
+
 pub fn call_elect() -> Result<(), crate::ElectionError<T>> {
 	for p in (0..=Pallet::<T>::msp()).rev() {
 		<MultiPhase as ElectionProvider>::elect(p)?;
@@ -423,9 +459,17 @@ pub fn call_elect() -> Result<(), crate::ElectionError<T>> {
 	Ok(())
 }
 
+pub fn assert_snapshots() -> Result<(), &'static str> {
+	Snapshot::<T>::ensure()
+}
+
 pub fn clear_snapshot() {
 	let _ = crate::PagedVoterSnapshot::<T>::clear(u32::MAX, None);
 	let _ = crate::PagedTargetSnapshot::<T>::clear(u32::MAX, None);
+}
+
+pub fn balances(who: AccountId) -> (Balance, Balance) {
+	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
 pub(crate) fn unsigned_events() -> Vec<crate::unsigned::Event<T>> {

@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// ohis file is part of Substrate.
 
 // Copyright (C) 2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -176,7 +176,6 @@ pub(crate) mod pallet {
 		}
 
 		/// Computes the score and the winner count of a stored variant solution.
-		/// TODO(gpestana): comments
 		pub(crate) fn compute_current_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// ensures that all the pages are complete;
 			if QueuedSolutionBackings::<T>::iter_keys().count() != T::Pages::get() as usize {
@@ -191,10 +190,9 @@ pub(crate) mod pallet {
 				entry.total = entry.total.saturating_add(total);
 				entry.backers = entry.backers.saturating_add(backers);
 
-				// TODO:: revive
-				//if entry.backers > T::MaxBackersPerWinner::get() {
-				//	return Err(FeasibilityError::TooManyBackings)
-				//}
+				if entry.backers > T::MaxBackersPerWinner::get() {
+					return Err(FeasibilityError::TooManyBackings)
+				}
 			}
 
 			let winners_count = supports.len() as u32;
@@ -509,13 +507,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
 		let _ = Self::ensure_score_quality(partial_score)?;
-		let supports = Self::feasibility_check(partial_solution, page)?;
-
-		let desired_targets =
-			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
-
-		// TODO: figure the winer counter for partial solutions.
-		//ensure!(supports.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
+		let supports = Self::feasibility_check(partial_solution.clone(), page)?;
 
 		// TODO: implement fn evaluate on `BondedSupports`; remove extra clone.
 		let real_score = sp_npos_elections::evaluate_support(
@@ -647,17 +639,16 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		let desired_targets =
 			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
 
-		// TODO: figure out the wrong winner count for partial solutions
-		//ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
+		// supports per page must not be higher than the desired targets, otherwise final solution
+		// will also be higher than desired_targets.
+		ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
 
 		// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
 		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
 		// is ALSO checked, so this conversion can almost never fail.
-		let bounded_supports = supports.try_into_bounded_supports().map_err(|e| {
-			sublog!(error, "verifier", "-------- ERROR WINNER COUNT: {:?}", e,);
-
-			FeasibilityError::WrongWinnerCount
-		})?;
+		let bounded_supports = supports
+			.try_into_bounded_supports()
+			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
 
 		Ok(bounded_supports)
 	}

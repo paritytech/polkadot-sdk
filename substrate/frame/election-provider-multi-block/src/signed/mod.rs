@@ -61,6 +61,7 @@ use frame_support::{
 	RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
+use sp_runtime::{bounded_vec, BoundedVec};
 
 use sp_npos_elections::ElectionScore;
 
@@ -76,19 +77,24 @@ type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Bala
 pub type CreditOf<T> = Credit<AccountIdOf<T>, <T as Config>::Currency>;
 
 /// Metadata of a registered submission.
-#[derive(PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound)]
-pub struct SubmissionMetadata {
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound)]
+#[cfg_attr(test, derive(frame_support::PartialEqNoBound, frame_support::EqNoBound))]
+#[codec(mel_bound(T: Config))]
+#[scale_info(skip_type_params(T))]
+pub struct SubmissionMetadata<T: Config> {
 	/// The score that this submission is proposing.
 	claimed_score: ElectionScore,
-	/// A counter of the pages submitted thus far.
-	pages: PageIndex,
+	/// A bit-wise bounded vec representing the submitted pages thus far.
+	pages: BoundedVec<bool, T::Pages>,
+	/// The amount held for this submission.
+	deposit: BalanceOf<T>,
 }
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use core::marker::PhantomData;
 
-	use crate::verifier::AsyncVerifier;
+	use crate::verifier::{AsyncVerifier, Verifier};
 
 	use super::*;
 	use frame_support::{
@@ -102,7 +108,7 @@ pub mod pallet {
 		WeightInfo,
 	};
 	use sp_npos_elections::ElectionScore;
-	use sp_runtime::{traits::Convert, BoundedVec};
+	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -145,8 +151,7 @@ pub mod pallet {
 	/// A sorted list of the current submissions scores corresponding to pre-solutions submitted in
 	/// the signed phase, keyed by round.
 	///
-	/// The implementor *MUST* ensure the bounded vec of scores is always sorted after mutation. //
-	/// TODO: add try state check.
+	/// The implementor *MUST* ensure the bounded vec of scores is always sorted after mutation.
 	#[pallet::storage]
 	type SortedScores<T: Config> = StorageMap<
 		_,
@@ -169,10 +174,11 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// A double-map from (round, account_id) to a submission metadata of a registered solution.
+	/// A double-map from (`round`, `account_id`) to a submission metadata of a registered
+	/// solution.
 	#[pallet::storage]
 	type SubmissionMetadataStorage<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, T::AccountId, SubmissionMetadata>;
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, T::AccountId, SubmissionMetadata<T>>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -205,11 +211,15 @@ pub mod pallet {
 		SubmissionsQueueFull,
 		/// Submission with a page index higher than the supported.
 		BadPageIndex,
-		/// A a page submission was attempted for a submission that was not previously registered.
+		/// A page submission was attempted for a submission that was not previously registered.
 		SubmissionNotRegistered,
+		/// A submission score is not high enough.
+		SubmissionScoreTooLow,
 	}
 
-	/// TODO: docs
+	/// Wrapper for signed submissions.
+	///
+	/// TODO: docs.
 	pub(crate) struct Submissions<T: Config>(core::marker::PhantomData<T>);
 	impl<T: Config> Submissions<T> {
 		/// Generic mutation helper with checks.
@@ -219,18 +229,25 @@ pub mod pallet {
 			let result = mutate();
 
 			#[cfg(debug_assertions)]
-			{
-				//assert!(Self::sanity_check_round(round).is_ok()); // TODO
-			}
-
+			//assert!(Self::sanity_check_round(round).is_ok()); // TODO
 			result
 		}
 
-		/// TODO: docs
+		/// Try to register a submission commitment.
+		///
+		/// The submission is not accepted if one of these invariants fails:
+		/// - The claimed score is not higher than the minimum expected score.
+		/// - The queue is full and the election score is strictly worse than all the current
+		/// queued solutions.
+		///
+		/// A queued solution may be discarded if the queue is full and the new submission has a
+		/// better score.
+		///
+		/// It must ensure that the metadata queue is sorted by election score.
 		fn try_register(
 			who: &T::AccountId,
 			round: u32,
-			metadata: SubmissionMetadata,
+			metadata: SubmissionMetadata<T>,
 		) -> DispatchResult {
 			Self::mutate_checked(round, || Self::try_register_inner(who, round, metadata))
 		}
@@ -238,10 +255,9 @@ pub mod pallet {
 		fn try_register_inner(
 			who: &T::AccountId,
 			round: u32,
-			metadata: SubmissionMetadata,
+			metadata: SubmissionMetadata<T>,
 		) -> DispatchResult {
 			let mut scores = SortedScores::<T>::get(round);
-
 			scores.iter().try_for_each(|(account, _)| -> DispatchResult {
 				ensure!(account != who, Error::<T>::DuplicateRegister);
 				Ok(())
@@ -249,6 +265,14 @@ pub mod pallet {
 
 			// most likely checked before, but double-checking.
 			debug_assert!(!SubmissionMetadataStorage::<T>::contains_key(round, who));
+
+			// the submission score must be higher than the minimum trusted score. Note that since
+			// there is no queued solution yet, the check is performed against the minimum score
+			// only. TODO: consider rename `ensure_score_improves`.
+			ensure!(
+				<T::Verifier as Verifier>::ensure_score_improves(metadata.claimed_score),
+				Error::<T>::SubmissionScoreTooLow,
+			);
 
 			let pos =
 				match scores.binary_search_by_key(&metadata.claimed_score, |(_, score)| *score) {
@@ -321,7 +345,9 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub(crate) fn take_leader_data(round: u32) -> Option<(T::AccountId, SubmissionMetadata)> {
+		pub(crate) fn take_leader_data(
+			round: u32,
+		) -> Option<(T::AccountId, SubmissionMetadata<T>)> {
 			Self::mutate_checked(round, || {
 				SortedScores::<T>::mutate(round, |scores| scores.pop()).and_then(
 					|(submitter, _score)| {
@@ -353,19 +379,19 @@ pub mod pallet {
 
 	#[cfg(any(test, debug_assertions))]
 	impl<T: Config> Submissions<T> {
-		#[allow(dead_code)]
-		pub(crate) fn metadata(round: u32, who: &T::AccountId) -> Option<SubmissionMetadata> {
+		/// Returns the metadata of a submitter for a given account.
+		pub(crate) fn metadata(round: u32, who: &T::AccountId) -> Option<SubmissionMetadata<T>> {
 			SubmissionMetadataStorage::<T>::get(round, who)
 		}
 
-		#[allow(dead_code)]
+		/// Returns the scores for a given round.
 		pub(crate) fn scores_for(
 			round: u32,
 		) -> BoundedVec<(T::AccountId, ElectionScore), T::MaxSubmissions> {
 			SortedScores::<T>::get(round)
 		}
 
-		#[allow(dead_code)]
+		/// Returns the submission of a submitter for a given round and page.
 		pub(crate) fn submission_for(
 			who: T::AccountId,
 			round: u32,
@@ -378,6 +404,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit a score commitment for a solution in the current round.
+		///
+		/// The scores must be kept sorted in the [`SortedScores`] storage map.
 		#[pallet::call_index(1)]
 		pub fn register(origin: OriginFor<T>, claimed_score: ElectionScore) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -392,13 +420,17 @@ pub mod pallet {
 				Error::<T>::DuplicateRegister
 			);
 
-			let deposit_base = T::DepositBase::convert(
+			let deposit = T::DepositBase::convert(
 				SubmissionMetadataStorage::<T>::iter_key_prefix(round).count(),
 			);
 
-			T::Currency::hold(&HoldReason::ElectionSolutionSubmission.into(), &who, deposit_base)?;
+			T::Currency::hold(&HoldReason::ElectionSolutionSubmission.into(), &who, deposit)?;
 
-			let metadata = SubmissionMetadata { pages: 0, claimed_score };
+			let metadata = SubmissionMetadata {
+				pages: bounded_vec![false, false, false],
+				claimed_score,
+				deposit,
+			};
 
 			let _ = Submissions::<T>::try_register(&who, round, metadata)?;
 
@@ -514,61 +546,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			VerificationResult::DataUnavailable => {
 				// signed pallet did not have the required data.
 			},
-		}
-	}
-}
-
-#[cfg(test)]
-mod signed_tests {
-	use super::*;
-	use crate::{mock::*, Phase};
-	use frame_support::{testing_prelude::*, BoundedVec};
-
-	type MaxSubmissions = <Runtime as Config>::MaxSubmissions;
-
-	mod submissions {
-		use super::*;
-
-		#[test]
-		fn submit_solution_happy_path_works() {
-			ExtBuilder::default().build_and_execute(|| {
-				// TODO: check events
-
-				roll_to_phase(Phase::Signed);
-
-				let current_round = MultiPhase::current_round();
-
-				assert!(Submissions::<Runtime>::metadata(current_round, &10).is_none());
-
-				let claimed_score = ElectionScore::default();
-
-				// register submission
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), claimed_score,));
-
-				// metadata and claimed scores have been stored as expected.
-				assert_eq!(
-					Submissions::<Runtime>::metadata(current_round, &10),
-					Some(SubmissionMetadata { pages: 0, claimed_score })
-				);
-				let expected_scores: BoundedVec<(AccountId, ElectionScore), MaxSubmissions> =
-					bounded_vec![(10, claimed_score)];
-				assert_eq!(Submissions::<Runtime>::scores_for(current_round), expected_scores);
-
-				// submit all pages of a noop solution;
-				let solution = TestNposSolution::default();
-				for page in (0..=MultiPhase::msp()).into_iter().rev() {
-					assert_ok!(SignedPallet::submit_page(
-						RuntimeOrigin::signed(10),
-						page,
-						Some(solution.clone())
-					));
-
-					assert_eq!(
-						Submissions::<Runtime>::submission_for(10, current_round, page),
-						Some(solution.clone())
-					);
-				}
-			})
 		}
 	}
 }

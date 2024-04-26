@@ -655,7 +655,7 @@ impl<T: Config> Pallet<T> {
 			Err(e) => {
 				log!(warn, "electiong provider page failed due to {:?} (page: {})", e, page);
 				// TODO: be resilient here, not all pages need to be submitted successfuly for an
-				// election to be OK.
+				// election to be OK, provided that the election score is good enough.
 				Self::deposit_event(Event::StakingElectionFailed);
 				return
 			},

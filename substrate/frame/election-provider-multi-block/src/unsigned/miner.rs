@@ -22,13 +22,12 @@ use crate::{
 	types::{PageSize, Pagify, SupportsOf, VoterOf},
 	unsigned::{pallet::Config as UnsignedConfig, Call},
 	verifier::FeasibilityError,
-	AssignmentOf, Config, PagedRawSolution, Pallet as EPM, Phase, Snapshot, SolutionAccuracyOf,
-	SolutionOf,
+	AssignmentOf, PagedRawSolution, Pallet as EPM, Snapshot, SolutionAccuracyOf, SolutionOf,
 };
 
 use codec::Encode;
 use frame_election_provider_support::{
-	ElectionProvider, IndexAssignmentOf, NposSolution, NposSolver, PageIndex, Weight,
+	IndexAssignmentOf, NposSolution, NposSolver, PageIndex, Weight,
 };
 use frame_support::{ensure, traits::Get, BoundedVec};
 use sp_npos_elections::{
@@ -114,7 +113,7 @@ where
 	///
 	/// //TODO(doc)
 	pub fn mine_paged_solution(
-		mut pages: PageIndex,
+		pages: PageIndex,
 		do_reduce: bool,
 	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
 		let desired_targets = Snapshot::<T>::desired_targets()
@@ -133,7 +132,7 @@ where
 			.try_into()
 			.expect("range was constructed from the bounded vec bounds; qed.");
 
-		// fetch all pages of the target snapshot and collect them in a bounded vec.
+		// ||fetch all pages of the target snapshot and collect them in a bounded vec.
 		let all_targets = Snapshot::<T>::targets()
 			.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets))?;
 
@@ -158,7 +157,9 @@ where
 			S::solve(desired_targets as usize, all_targets.clone().to_vec(), all_voters.clone())
 				.map_err(|_| MinerError::Solver)?;
 
-		// TODO(gpestana): reduce and trim.
+		if do_reduce {
+			// TODO(gpestana): reduce and trim.
+		}
 
 		// split assignments into `T::Pages pages.
 		let mut paged_assignments: BoundedVec<Vec<AssignmentOf<T>>, T::Pages> =
@@ -232,14 +233,13 @@ where
 		let targets = Snapshot::<T>::targets().ok_or::<MinerError>(SnapshotType::Targets.into())?;
 
 		S::solve(desired_targets as usize, targets.to_vec(), voters.to_vec())
-			.map_err(|e| MinerError::Solver)
+			.map_err(|_| MinerError::Solver)
 			.and_then(|election_result| {
 				Self::prepare_election_result_with_snapshot(
 					election_result,
 					voters,
 					targets,
 					desired_targets,
-					page,
 					reduce,
 				)
 			})
@@ -253,7 +253,6 @@ where
 		voters: BoundedVec<VoterOf<T>, T::VoterSnapshotPerBlock>,
 		targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
 		desired_targets: u32,
-		page: PageIndex,
 		reduce: bool,
 	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
 		// prepare helper closures.
@@ -521,7 +520,7 @@ where
 	///
 	/// This only returns a value between zero and `size.nominators`.
 	pub fn maximum_voter_for_weight(
-		desired_winners: u32,
+		_desired_winners: u32,
 		size: PageSize,
 		max_weight: Weight,
 	) -> u32 {
@@ -533,9 +532,8 @@ where
 		let mut voters = max_voters;
 
 		// helper closures.
-		let weight_with = |active_voters: u32| -> Weight {
-			//T::solution_weight(size.voters, size.targets, active_voters, desired_winners) // TODO
-			Weight::zero()
+		let weight_with = |_active_voters: u32| -> Weight {
+			Weight::zero() // TODO
 		};
 
 		let next_voters = |current_weight: Weight, voters: u32, step: u32| -> Result<u32, ()> {
@@ -638,6 +636,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		Ok((solution.score, partial_score, partial_solution.clone()))
 	}
 
+	#[allow(dead_code)] // TODO: remove
 	pub fn fetch_or_mine(
 		page: PageIndex,
 	) -> Result<(ElectionScore, ElectionScore, SolutionOf<T>), OffchainMinerError> {
@@ -665,7 +664,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 
 				// caches the solution score.
 				score_storage
-					.mutate::<_, (), _>(|_| Ok((solution.score.clone())))
+					.mutate::<_, (), _>(|_| Ok(solution.score.clone()))
 					.map_err(|_| OffchainMinerError::StorageError)?;
 
 				let mut solution_page = Default::default();
@@ -679,7 +678,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 					let cache_id = Self::paged_cache_id(idx as PageIndex)?;
 					let storage = StorageValueRef::persistent(&cache_id);
 					storage
-						.mutate::<_, (), _>(|_| Ok((paged_solution.clone())))
+						.mutate::<_, (), _>(|_| Ok(paged_solution.clone()))
 						.map_err(|_| OffchainMinerError::StorageError)?;
 				}
 
@@ -734,106 +733,5 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 			call.into(),
 		)
 		.map_err(|_| OffchainMinerError::PoolSubmissionFailed)
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::{mock::*, Phase, Snapshot, Verifier};
-	use frame_election_provider_support::SequentialPhragmen;
-	use frame_support::{assert_noop, assert_ok, BoundedVec};
-	use sp_npos_elections::ElectionResult;
-	use sp_runtime::Perbill;
-
-	type OffchainSolver = <T as UnsignedConfig>::OffchainSolver;
-
-	mod indice_encode_decode_solution {
-		use super::*;
-
-		#[test]
-		fn snapshot_idx_based_works() {
-			ExtBuilder::default().build_and_execute(|| {
-				roll_to_phase(Phase::Signed);
-
-				let mut all_voter_pages = vec![];
-				let mut all_target_pages = vec![];
-				let desired_targets = Snapshot::<T>::desired_targets().unwrap();
-
-				for page in (0..Pages::get()).rev() {
-					all_voter_pages.push(Snapshot::<T>::voters(page).unwrap());
-					all_target_pages.push(Snapshot::<T>::targets().unwrap());
-				}
-			})
-		}
-
-		#[test]
-		fn snapshot_stake_sorted_works() {}
-	}
-
-	mod miner {
-		use super::*;
-
-		#[test]
-		fn mine_works() {
-			ExtBuilder::default().build_and_execute(|| {
-				let msp = crate::Pallet::<T>::msp();
-				assert_eq!(msp, 2);
-
-				// no snapshot available, calling mine_paged_solution should fail.
-				assert!(<VerifierPallet as Verifier>::queued_score().is_none());
-				assert!(<VerifierPallet as Verifier>::get_queued_solution(msp).is_none());
-
-				assert_noop!(
-					Miner::<T, OffchainSolver>::mine_paged_solution(0, true),
-					MinerError::SnapshotUnAvailable(SnapshotType::Targets),
-				);
-
-				// create and store snapshot so that the miner can mine solutions.
-				compute_snapshot_checked();
-
-				assert_ok!(Miner::<T, OffchainSolver>::mine_paged_solution(
-					<T as Config>::Pages::get(),
-					true
-				));
-			});
-		}
-	}
-
-	mod offchain_miner {
-		use super::*;
-
-		#[test]
-		fn fetch_or_mine() {
-			let (mut ext, _) = ExtBuilder::default().build_offchainify(1);
-
-			ext.execute_with(|| {
-				let msp = crate::Pallet::<T>::msp();
-				assert_eq!(msp, 2);
-
-				// no snapshot available, calling mine_paged_solution should fail.
-				assert!(<VerifierPallet as Verifier>::queued_score().is_none());
-				assert!(<VerifierPallet as Verifier>::get_queued_solution(msp).is_none());
-
-				assert!(OffchainWorkerMiner::<T>::fetch_or_mine(0).is_err());
-				compute_snapshot_checked();
-
-				let (full_score_2, partial_score_2, _) =
-					OffchainWorkerMiner::<T>::fetch_or_mine(msp).unwrap();
-				let (full_score_1, partial_score_1, _) =
-					OffchainWorkerMiner::<T>::fetch_or_mine(msp - 1).unwrap();
-				let (full_score_0, partial_score_0, _) =
-					OffchainWorkerMiner::<T>::fetch_or_mine(0).unwrap();
-
-				assert!(full_score_2 == full_score_1 && full_score_2 == full_score_0);
-				assert!(
-					full_score_2.sum_stake == full_score_1.sum_stake &&
-						full_score_2.sum_stake == full_score_0.sum_stake
-				);
-			})
-		}
-
-		#[test]
-		fn submit_paged_call_works() {}
 	}
 }

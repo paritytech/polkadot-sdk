@@ -66,6 +66,7 @@ pub const BLOCK_TIME: BlockNumber = 1000;
 
 type Block = frame_system::mocking::MockBlockU32<Runtime>;
 type Extrinsic = testing::TestXt<RuntimeCall, ()>;
+pub(crate) type T = Runtime;
 
 frame_support::construct_runtime!(
 	pub enum Runtime {
@@ -524,10 +525,9 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	pub fn build(&self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
-		let mut storage =
-			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		let mut storage = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
 
-		let _ = pallet_balances::GenesisConfig::<Runtime> {
+		let _ = pallet_balances::GenesisConfig::<T> {
 			balances: self.balances_builder.balances.clone(),
 		}
 		.assimilate_storage(&mut storage);
@@ -549,7 +549,7 @@ impl ExtBuilder {
 			*prev_stake = stake;
 		});
 
-		let _ = pallet_staking::GenesisConfig::<Runtime> {
+		let _ = pallet_staking::GenesisConfig::<T> {
 			stakers: stakers.clone(),
 			validator_count: self.staking_builder.validator_count,
 			minimum_validator_count: self.staking_builder.minimum_validator_count,
@@ -560,7 +560,7 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
-		let _ = pallet_session::GenesisConfig::<Runtime> {
+		let _ = pallet_session::GenesisConfig::<T> {
 			// set the keys for the first session.
 			keys: stakers
 				.into_iter()
@@ -806,8 +806,8 @@ pub fn roll_to_phase(phase: Phase<BlockNumber>, delay: bool) {
 }
 
 pub fn election_prediction() -> BlockNumber {
-	<<Runtime as epm_core_pallet::Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
-		System::block_number()
+	<<T as epm_core_pallet::Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
+		System::block_number(),
 	)
 }
 
@@ -818,7 +818,7 @@ parameter_types! {
 pub(crate) fn try_submit_paged_solution() -> Result<(), ()> {
 	let submit = || {
 		let (paged_solution, _) =
-			Miner::<Runtime, Solver>::mine_paged_solution(Pages::get(), false).unwrap();
+			Miner::<T, Solver>::mine_paged_solution(Pages::get(), false).unwrap();
 		let _ = SignedPallet::register(RuntimeOrigin::signed(10), paged_solution.score).unwrap();
 
 		for (idx, page) in paged_solution.solution_pages.into_iter().enumerate() {
@@ -866,7 +866,7 @@ pub(crate) fn try_submit_solution() -> Result<(), ()> {
 
 		for _ in 0..Pages::get() {
 			let paged_solution =
-				Miner::<Runtime, Solver>::mine_and_prepare_solution_single_page(0, false).unwrap();
+				Miner::<T, Solver>::mine_and_prepare_solution_single_page(0, false).unwrap();
 			let page_score = paged_solution.0.score;
 
 			paged_solutions.push(paged_solution.0.solution_pages[0].clone());
@@ -907,10 +907,7 @@ pub(crate) fn try_submit_solution() -> Result<(), ()> {
 }
 
 pub(crate) fn on_offence_now(
-	offenders: &[OffenceDetails<
-		AccountId,
-		pallet_session::historical::IdentificationTuple<Runtime>,
-	>],
+	offenders: &[OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<T>>],
 	slash_fraction: &[Perbill],
 ) {
 	let now = Staking::active_era().unwrap().index;
@@ -936,9 +933,8 @@ pub(crate) fn add_slash(who: &AccountId) {
 // Slashes enough validators to cross the `Staking::OffendingValidatorsThreshold`.
 pub(crate) fn slash_through_offending_threshold() {
 	let validators = Session::validators();
-	let mut remaining_slashes =
-		<Runtime as pallet_staking::Config>::OffendingValidatorsThreshold::get() *
-			validators.len() as u32;
+	let mut remaining_slashes = <T as pallet_staking::Config>::OffendingValidatorsThreshold::get() *
+		validators.len() as u32;
 
 	for v in validators.into_iter() {
 		if remaining_slashes != 0 {
@@ -973,7 +969,7 @@ pub(crate) fn set_minimum_election_score(
 	todo!()
 }
 
-pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Runtime>> {
+pub(crate) fn staking_events() -> Vec<pallet_staking::Event<T>> {
 	System::events()
 		.into_iter()
 		.map(|r| r.event)
@@ -981,7 +977,7 @@ pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Runtime>> {
 		.collect::<Vec<_>>()
 }
 
-pub(crate) fn epm_events() -> Vec<pallet_election_provider_multi_block::Event<Runtime>> {
+pub(crate) fn epm_events() -> Vec<pallet_election_provider_multi_block::Event<T>> {
 	System::events()
 		.into_iter()
 		.map(|r| r.event)

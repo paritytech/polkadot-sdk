@@ -126,6 +126,10 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 		matches!(self, Phase::Signed)
 	}
 
+	pub(crate) fn is_snapshot(&self) -> bool {
+		matches!(self, Phase::Snapshot(_))
+	}
+
 	/// Returns whether the validation phase is ongoing.
 	pub(crate) fn is_signed_validation_open_at(&self, at: Option<Bn>) -> bool {
 		match at {
@@ -144,6 +148,10 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 
 	pub(crate) fn is_export(&self) -> bool {
 		matches!(self, Phase::Export(_))
+	}
+
+	pub(crate) fn is_off(&self) -> bool {
+		matches!(self, Phase::Off)
 	}
 }
 
