@@ -1318,6 +1318,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1167" id="1167">1167</a>
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2272,6 +2279,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					frame_system::Pallet::&lt;T&gt;::dec_consumers(who);
 				}
 				<span class="kw">if </span>!did_consume &amp;&amp; does_consume {
+					frame_system::Pallet::&lt;T&gt;::inc_consumers(who)<span class="question-mark">?</span>;
+				}
+				<span class="kw">if </span>does_consume &amp;&amp; frame_system::Pallet::&lt;T&gt;::consumers(who) == <span class="number">0 </span>{
+					<span class="comment">// NOTE: This is a failsafe and should not happen for normal accounts. A normal
+					// account should have gotten a consumer ref in `!did_consume &amp;&amp; does_consume`
+					// at some point.
+					</span><span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Defensively bumping a consumer ref."</span>);
 					frame_system::Pallet::&lt;T&gt;::inc_consumers(who)<span class="question-mark">?</span>;
 				}
 				<span class="kw">if </span>did_provide &amp;&amp; !does_provide {
