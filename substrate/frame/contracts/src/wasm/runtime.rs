@@ -952,6 +952,7 @@ pub mod env {
 
 	/// Noop function used to benchmark the time it takes to execute an empty function.
 	#[cfg(feature = "runtime-benchmarks")]
+	#[unstable]
 	fn noop(ctx: _, memory: _) -> Result<(), TrapReason> {
 		Ok(())
 	}

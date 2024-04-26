@@ -706,7 +706,9 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 						.map_err(TrapReason::from)
 						.map_err(#into_host)?
 				};
-				__caller__.data_mut().charge_gas(RuntimeCosts::HostFn)
+
+				// Charge gas for host function execution.
+				__caller__.data_mut().charge_gas(crate::wasm::RuntimeCosts::HostFn)
 						.map_err(TrapReason::from)
 						.map_err(#into_host)?;
 			}
