@@ -496,9 +496,9 @@ pub mod pallet {
 		/// Some assets were issued.
 		Issued { asset_id: T::AssetId, owner: T::AccountId, amount: T::Balance },
 		/// Some assets were deposited (e.g. for transaction fees).
-		Deposit { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// Some assets were withdrawn from the account (e.g. for transaction fees).
-		Withdraw { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// Some assets were transferred.
 		Transferred {
 			asset_id: T::AssetId,

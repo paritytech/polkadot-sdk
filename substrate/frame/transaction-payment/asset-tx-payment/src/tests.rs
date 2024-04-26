@@ -190,7 +190,7 @@ fn transaction_payment_in_asset_possible() {
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
 			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), 0);
 
-			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdraw {
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdrawn {
 				asset_id,
 				who: caller,
 				amount: fee
@@ -207,7 +207,7 @@ fn transaction_payment_in_asset_possible() {
 			// check that the block author gets rewarded
 			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), fee);
 
-			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Deposit {
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Deposited {
 				asset_id,
 				who: BLOCK_AUTHOR,
 				amount: fee
@@ -308,7 +308,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_with_tip);
 
-			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdraw {
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdrawn {
 				asset_id,
 				who: caller,
 				amount: fee_with_tip
@@ -327,7 +327,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			assert_eq!(Assets::balance(asset_id, caller), balance - (final_fee));
 			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), final_fee);
 
-			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Deposit {
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Deposited {
 				asset_id,
 				who: caller,
 				amount: fee_with_tip - final_fee
