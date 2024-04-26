@@ -19,7 +19,10 @@
 use async_trait::async_trait;
 use structopt::StructOpt;
 
-use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
+use relay_utils::{
+	metrics::{GlobalMetrics, StandaloneMetric},
+	UniqueSaturatedInto,
+};
 
 use crate::{
 	cli::{bridge::*, chain_schema::*, PrometheusParams},
@@ -46,6 +49,21 @@ pub struct RelayHeadersParams {
 	target_sign: TargetSigningParams,
 	#[structopt(flatten)]
 	prometheus_params: PrometheusParams,
+}
+
+/// Single header relaying params.
+#[derive(StructOpt)]
+pub struct RelayHeaderParams {
+	#[structopt(flatten)]
+	source: SourceConnectionParams,
+	#[structopt(flatten)]
+	target: TargetConnectionParams,
+	#[structopt(flatten)]
+	target_sign: TargetSigningParams,
+	/// Number of the source chain header that we want to relay. It must have a persistent
+	/// storage proof at the [`Self::source`] node, otherwise the command will fail.
+	#[structopt(long)]
+	number: u128,
 }
 
 impl RelayHeadersParams {
@@ -86,6 +104,25 @@ pub trait HeadersRelayer: RelayToRelayHeadersCliBridge {
 			headers_to_relay,
 			target_transactions_params,
 			metrics_params,
+		)
+		.await
+	}
+
+	/// Relay single header. No checks are made to ensure that transaction will succeed.
+	async fn relay_header(data: RelayHeaderParams) -> anyhow::Result<()> {
+		let source_client = data.source.into_client::<Self::Source>().await?;
+		let target_client = data.target.into_client::<Self::Target>().await?;
+		let target_transactions_mortality = data.target_sign.target_transactions_mortality;
+		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
+
+		crate::finality::relay_single_header::<Self::Finality>(
+			source_client,
+			target_client,
+			crate::TransactionParams {
+				signer: target_sign,
+				mortality: target_transactions_mortality,
+			},
+			data.number.unique_saturated_into(),
 		)
 		.await
 	}
