@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714144589786,
+  "lastUpdate": 1714152199830,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -5649,6 +5649,48 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/paritytech/polkadot-sdk/commit/988e30f102b155ab68d664d62ac5c73da171659a"
         },
         "date": 1714144564602,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.8957000278,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17314057933333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "antiyro",
+            "username": "antiyro",
+            "email": "74653697+antiyro@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2a497d297575947b613fe0f3bbac9273a48fd6b0",
+          "message": "fix(seal): shameless fix on sealing typo (#4304)",
+          "timestamp": "2024-04-26T16:23:58Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2a497d297575947b613fe0f3bbac9273a48fd6b0"
+        },
+        "date": 1714152173863,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
