@@ -23,7 +23,7 @@ mod code;
 mod sandbox;
 use self::{
 	call_builder::CallSetup,
-	code::{body, ImportedFunction, Location, ModuleDefinition, WasmModule},
+	code::{body, ImportedMemory, Location, ModuleDefinition, WasmModule},
 	sandbox::Sandbox,
 };
 use crate::{
@@ -44,7 +44,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_balances;
-use pallet_contracts_uapi::CallFlags;
+use pallet_contracts_uapi::{CallFlags, ReturnErrorCode};
 use sp_runtime::traits::{Bounded, Hash};
 use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, Local, ValueType};
@@ -440,13 +440,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// This constructs a contract that is maximal expensive to instrument.
-	// It creates a maximum number of metering blocks per byte.
-	// The size of the salt influences the runtime because is is hashed in order to
-	// determine the contract address. All code is generated to the `call` function so that
-	// we don't benchmark the actual execution of this code but merely what it takes to load
-	// a code of that size into the sandbox.
-	//
 	// `c`: Size of the code in bytes.
 	// `i`: Size of the input in bytes.
 	// `s`: Size of the salt in bytes.
@@ -480,7 +473,6 @@ mod benchmarks {
 		assert_eq!(T::Currency::balance(&addr), value + Pallet::<T>::min_balance());
 	}
 
-	// Instantiate uses a dummy contract constructor to measure the overhead of the instantiate.
 	// `i`: Size of the input in bytes.
 	// `s`: Size of the salt in bytes.
 	#[benchmark(pov_mode = Measured)]
@@ -793,7 +785,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_minimum_balance(r: Linear<0, API_BENCHMARK_RUNS>) {
+	fn seal_minimum_balance() {
 		let len = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
 		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 		let result;
@@ -1228,14 +1220,14 @@ mod benchmarks {
 		assert_ok!(result);
 	}
 
-	// d: deposit limit
-	// t: value to transfer
-	// c: size of the call data
+	// c: with or without clone flag
+	// t: with or without some value to transfer
+	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(
-		d: Linear<0, { 1 }>,
-		t: Linear<0, { 1 }>,
-		c: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>,
+		t: Linear<0, 1>,
+		c: Linear<0, 1>,
+		i: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>,
 	) {
 		let Contract { account_id: callee, .. } =
 			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
@@ -1245,18 +1237,19 @@ mod benchmarks {
 		let value: BalanceOf<T> = t.into();
 		let value_bytes = value.encode();
 
-		let deposit: BalanceOf<T> = (d * (u32::MAX - 100)).into();
+		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
 		let deposit_bytes = deposit.encode();
 		let deposit_len = deposit_bytes.len() as u32;
 
 		let mut setup = CallSetup::<T>::default();
-		if d > 0 {
-			setup.set_storage_deposit_limit(deposit);
-		}
-		setup.set_data(vec![42; c as usize]);
+		setup.set_storage_deposit_limit(deposit);
+
+		setup.set_data(vec![42; i as usize]);
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+
+		let flags = if c == 1 { CallFlags::CLONE_INPUT } else { CallFlags::empty() };
 
 		let result;
 		#[block]
@@ -1264,16 +1257,16 @@ mod benchmarks {
 			result = BenchEnv::seal2_call(
 				&mut runtime,
 				&mut memory,
-				CallFlags::CLONE_INPUT.bits(), // flags
-				0,                             // callee_ptr
-				0,                             // ref_time_limit
-				0,                             // proof_size_limit
-				callee_len,                    // deposit_ptr
-				callee_len + deposit_len,      // value_ptr
-				0,                             // input_data_ptr
-				0,                             // input_data_len
-				SENTINEL,                      // output_ptr
-				0,                             // output_len_ptr
+				flags.bits(),             // flags
+				0,                        // callee_ptr
+				0,                        // ref_time_limit
+				0,                        // proof_size_limit
+				callee_len,               // deposit_ptr
+				callee_len + deposit_len, // value_ptr
+				0,                        // input_data_ptr
+				0,                        // input_data_len
+				SENTINEL,                 // output_ptr
+				0,                        // output_len_ptr
 			);
 		}
 
@@ -1432,7 +1425,7 @@ mod benchmarks {
 	// `n`: Message input length to verify in bytes.
 	// need some buffer so the code size does not exceed the max code size.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_sr25519_verify_per_byte(n: Linear<0, { T::MaxCodeLen::get() - 255 }>) {
+	fn seal_sr25519_verify(n: Linear<0, { T::MaxCodeLen::get() - 255 }>) {
 		let message = (0..n).zip((32u8..127u8).cycle()).map(|(_, c)| c).collect::<Vec<_>>();
 		let message_len = message.len() as u32;
 
@@ -1458,7 +1451,7 @@ mod benchmarks {
 			);
 		}
 
-		assert_eq!(result.unwrap(), wasm::ReturnErrorCode::Success);
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1486,7 +1479,7 @@ mod benchmarks {
 			);
 		}
 
-		assert_eq!(result.unwrap(), wasm::ReturnErrorCode::Success);
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 	}
 
 	// Only calling the function itself for the list of
