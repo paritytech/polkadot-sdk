@@ -17,7 +17,7 @@
 
 #![deny(missing_docs)]
 
-use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
