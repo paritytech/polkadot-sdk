@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714118808919,
+  "lastUpdate": 1714124648402,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -845,6 +845,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.883378100330038,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e8f7c81db66abb40802c582c22041aa63c78ddff",
+          "message": "[balances] Safeguard against consumer ref underflow (#3865)\n\nThere are some accounts that do not have a consumer ref while having a\nreserve.\nThis adds a fail-safe mechanism to trigger in the case that\n`does_consume` is true, but the assumption of `consumer>0` is not.\n\nThis should prevent those accounts from loosing balance and the TI from\ngetting messed up even more, but is not an \"ideal\" fix. TBH an ideal fix\nis not possible, since on-chain data is in an invalid state.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-04-26T08:16:03Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e8f7c81db66abb40802c582c22041aa63c78ddff"
+        },
+        "date": 1714124623493,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63547.4,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3101875874600886,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.4809040582500455,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.033078273380081,
             "unit": "seconds"
           }
         ]
