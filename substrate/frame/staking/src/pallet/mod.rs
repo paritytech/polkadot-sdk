@@ -871,6 +871,8 @@ pub mod pallet {
 		RewardDestinationRestricted,
 		/// Not enough funds available to withdraw.
 		NotEnoughFunds,
+		/// Operation not allowed for virtual stakers.
+		VirtualStaker,
 	}
 
 	#[pallet::hooks]
@@ -1637,6 +1639,9 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
+			// virtual stakers should not be allowed to be reaped.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStaker);
+
 			let ed = T::Currency::minimum_balance();
 			let reapable = T::Currency::total_balance(&stash) < ed ||
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default() < ed;
@@ -1996,6 +2001,9 @@ pub mod pallet {
 			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+
+			// cannot restore ledger for virtual stakers.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStaker);
 
 			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
 			let stash_balance = T::Currency::free_balance(&stash);

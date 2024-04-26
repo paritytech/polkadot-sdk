@@ -707,6 +707,9 @@ mod pool_integration {
 			assert_eq!(pool_agent.available_to_bond(), 0);
 			assert_eq!(pool_agent.total_unbonded(), 0);
 
+			// reap stash in staking
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(100), pool_agent.key, 0));
+
 			// let a bunch of delegators join this pool
 			for i in 301..350 {
 				fund(&i, 500);
