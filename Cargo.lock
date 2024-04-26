@@ -2153,6 +2153,7 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tuplex",
 ]
 
 [[package]]
@@ -2222,7 +2223,6 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
- "parity-scale-codec",
  "rococo-westend-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
@@ -2312,6 +2312,7 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tuplex",
  "westend-runtime-constants",
 ]
 
@@ -2350,6 +2351,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "static_assertions",
+ "tuplex",
 ]
 
 [[package]]
@@ -13017,6 +13019,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-bench",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
@@ -14347,7 +14350,6 @@ dependencies = [
 name = "polkadot-test-runtime"
 version = "1.0.0"
 dependencies = [
- "bitvec",
  "frame-election-provider-support",
  "frame-executive",
  "frame-support",
@@ -14372,16 +14374,12 @@ dependencies = [
  "pallet-vesting",
  "pallet-xcm",
  "parity-scale-codec",
- "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
- "rustc-hex",
  "scale-info",
  "serde",
- "serde_derive",
  "serde_json",
- "smallvec",
  "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -21272,11 +21270,8 @@ version = "1.0.0"
 dependencies = [
  "frame-support",
  "polkadot-primitives",
- "polkadot-runtime-common",
  "smallvec",
- "sp-core",
  "sp-runtime",
- "sp-weights",
 ]
 
 [[package]]
@@ -22053,6 +22048,12 @@ dependencies = [
  "url",
  "utf-8",
 ]
+
+[[package]]
+name = "tuplex"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "676ac81d5454c4dcf37955d34fa8626ede3490f744b86ca14a7b90168d2a08aa"
 
 [[package]]
 name = "twox-hash"
