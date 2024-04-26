@@ -200,6 +200,11 @@
             "const": "patch",
             "title": "Patch",
             "description": "A bump to the third leftmost non-zero digit of the version number."
+          },
+          {
+            "const": "none",
+            "title": "None",
+            "description": "This change requires no SemVer bump (e.g. change was a test)."
           }
         ]
       },
