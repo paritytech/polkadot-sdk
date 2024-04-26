@@ -44,7 +44,7 @@ pub use v7::{
 	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CollatorId,
 	CollatorSignature, CommittedCandidateReceipt, CompactStatement, ConsensusLog, CoreIndex,
 	CoreState, DisputeState, DisputeStatement, DisputeStatementSet, DownwardMessage, EncodeAs,
-	ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash,
+	ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash, ExecutorParamsPrepHash,
 	ExplicitDisputeStatement, GroupIndex, GroupRotationInfo, Hash, HashT, HeadData, Header,
 	HorizontalMessages, HrmpChannelId, Id, InboundDownwardMessage, InboundHrmpMessage, IndexedVec,
 	InherentData, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet, NodeFeatures,
