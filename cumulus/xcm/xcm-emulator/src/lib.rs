@@ -1225,8 +1225,8 @@ macro_rules! assert_expected_events {
 			let mut event_message: Vec<String> = Vec::new();
 
 			for (index, event) in events.iter().enumerate() {
-				// Have to reset the variable to override a previous partial match
-				meet_conditions = true;
+				// Variable to record current event's meet conditions
+				let mut current_event_meet_conditions = true;
 				match event {
 					$event_pat => {
 						event_received = true;
@@ -1245,8 +1245,11 @@ macro_rules! assert_expected_events {
 									)
 								);
 							}
-							meet_conditions &= $condition;
+							current_event_meet_conditions &= $condition;
 						)*
+
+						// Set the variable to latest matched event's condition evaluation result
+						meet_conditions = current_event_meet_conditions;
 
 						// Set the index where we found a perfect match
 						if event_received && meet_conditions {
