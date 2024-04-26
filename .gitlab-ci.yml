@@ -242,10 +242,10 @@ include:
     RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
     LLVM_PROFILE_FILE: "target/coverage/cargo-test-${CI_NODE_INDEX}-%p-%m.profraw"
     CARGO_INCREMENTAL: 0
-  beore_script:
+  before_script:
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage/result/
-  afret_script:
+  after_script:
     - >
       grcov \
         target/coverage/ \
