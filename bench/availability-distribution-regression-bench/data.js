@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714151901062,
+  "lastUpdate": 1714154118355,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -7175,6 +7175,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.011792149840000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "antiyro",
+            "username": "antiyro",
+            "email": "74653697+antiyro@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2a497d297575947b613fe0f3bbac9273a48fd6b0",
+          "message": "fix(seal): shameless fix on sealing typo (#4304)",
+          "timestamp": "2024-04-26T16:23:58Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2a497d297575947b613fe0f3bbac9273a48fd6b0"
+        },
+        "date": 1714154093018,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011614926000000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02293087921333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013882219959999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16908525746,
             "unit": "seconds"
           }
         ]
