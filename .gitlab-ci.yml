@@ -238,48 +238,14 @@ include:
     file: /common/forklift.yml
 
 .codecov:
-  beore_script:
-    - curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --no-default-keyring --keyring trustedkeys.gpg --import # One-time step  
-    - curl -Os https://cli.codecov.io/latest/linux/codecov
-    - curl -Os https://cli.codecov.io/latest/linux/codecov.SHA256SUM
-    - curl -Os https://cli.codecov.io/latest/linux/codecov.SHA256SUM.sig
-    - gpg --verify codecov.SHA256SUM.sig codecov.SHA256SUM
-    - shasum -a 256 -c codecov.SHA256SUM
-    - chmod +x codecov
-    - cp codecov /usr/local/bin/
-
-#
-#
-#
-test-linux-stable-codecov:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .pipeline-stopper-artifacts
   variables:
-    CI_IMAGE: europe-docker.pkg.dev/parity-build/ci-images/ci-unified:bullseye-1.77.0
-    RUST_TOOLCHAIN: stable
-    CARGO_INCREMENTAL: 0 
-    RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage" 
-    LLVM_PROFILE_FILE: "target/coverage/cargo-test-${CI_NODE_INDEX}-%p-%m.profraw"     
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-  parallel: 2
-  script:
-    # Build all but only execute 'runtime' tests.
-    # - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
-    # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
-    # "upgrade_version_checks_should_work" is currently failing
+    RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
+    LLVM_PROFILE_FILE: "target/coverage/cargo-test-${CI_NODE_INDEX}-%p-%m.profraw"
+    CARGO_INCREMENTAL: 0
+  beore_script:
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage/result/
-    - >
-      time cargo nextest run -p polkadot \
-        --locked \
-        --release \
-        --no-fail-fast \
-        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
-    - du -sh target/coverage
+  afret_script:
     - >
       grcov \
         target/coverage/ \
@@ -290,6 +256,29 @@ test-linux-stable-codecov:
         -o target/coverage/result/
     - ls -l target/coverage/result/    
     - codecov upload-process -t ${CODECOV_TOKEN} -f target/coverage/result/lcov --desable-search
+  #  
+
+#
+#
+#
+test-linux-stable-codecov:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .pipeline-stopper-artifacts
+    - .codecov
+  variables:
+    CI_IMAGE: europe-docker.pkg.dev/parity-build/ci-images/ci-unified:bullseye-1.77.0
+    RUST_TOOLCHAIN: stable
+  parallel: 2
+  script:
+    - >
+      time cargo nextest run -p polkadot \
+        --locked \
+        --release \
+        --no-fail-fast \
+        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
   #
 
 
