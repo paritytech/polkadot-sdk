@@ -160,26 +160,6 @@ where
 }
 
 #[macro_export]
-macro_rules! call_builder(
-	($func: ident, $module:expr) => {
-		$crate::call_builder!($func, _contract, $module);
-	};
-	($func: ident, $contract: ident, $module:expr) => {
-		let mut setup = CallSetup::<T>::new($module);
-		$crate::call_builder!($func, $contract, setup: setup);
-	};
-    ($func:ident, setup: $setup: ident) => {
-		$crate::call_builder!($func, _contract, setup: $setup);
-	};
-    ($func:ident, $contract: ident, setup: $setup: ident) => {
-		let data = $setup.data();
-		let $contract = $setup.contract();
-		let (mut ext, module) = $setup.ext();
-		let $func = CallSetup::<T>::prepare_call(&mut ext, module, data);
-	};
-);
-
-#[macro_export]
 macro_rules! memory(
 	($($bytes:expr,)*) => {
 		 vec![]

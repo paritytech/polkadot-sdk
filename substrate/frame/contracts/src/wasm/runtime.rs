@@ -247,17 +247,16 @@ pub enum RuntimeCosts {
 }
 
 macro_rules! cost_args {
-	// Replace the token with 0.
-	(@replace_token $_in:tt) => { 0 };
-
-	// Transform T:::WeightInfo::name(a, b, c) into T:::WeightInfo::name(0, 0, 0)
+	// cost_args!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_sub(T::WeightInfo::name(0, 0, 0))
+	($name:ident, $( $arg: expr ),+) => {
+		(T::WeightInfo::$name($( $arg ),+).saturating_sub(cost_args!(@call_zero $name, $( $arg ),+)))
+	};
+	// Transform T::WeightInfo::name(a, b, c) into T::WeightInfo::name(0, 0, 0)
 	(@call_zero $name:ident, $( $arg:expr ),*) => {
 		T::WeightInfo::$name($( cost_args!(@replace_token $arg) ),*)
 	};
-
-	($name:ident, $( $arg: expr ),+) => {
-		(T::WeightInfo::$name($( $arg ),+).saturating_sub(cost_args!(@call_zero $name, $( $arg ),+)))
-	}
+	// Replace the token with 0.
+	(@replace_token $_in:tt) => { 0 };
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
