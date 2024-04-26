@@ -161,6 +161,6 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		let _ = Agent::<T>::get(stash)
 			// can't do anything if there is an overflow error. Just raise a defensive error.
 			.and_then(|agent| agent.add_unclaimed_withdraw(amount).defensive())
-			.map(|agent| agent.save());
+			.map(|agent| agent.update());
 	}
 }

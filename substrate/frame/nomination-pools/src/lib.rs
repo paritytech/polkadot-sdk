@@ -2296,6 +2296,7 @@ pub mod pallet {
 				Error::<T>::Defensive(DefensiveError::BondedStashKilledPrematurely)
 			);
 
+
 			if stash_killed {
 				// Maybe an extra consumer left on the pool account, if so, remove it.
 				if frame_system::Pallet::<T>::consumers(&pool_account) == 1 {

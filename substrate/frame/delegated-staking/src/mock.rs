@@ -326,7 +326,7 @@ pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool 
 }
 
 pub(crate) fn get_agent(agent: &AccountId) -> Agent<T> {
-	Agent::<T>::get(agent).expect("delegate should exist")
+	Agent::<T>::get(agent).expect("agent should exist")
 }
 
 parameter_types! {

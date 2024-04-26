@@ -728,7 +728,8 @@ impl<T: Config> Pallet<T> {
 		let actual_slash = credit.peek();
 
 		// remove the applied slashed amount from agent.
-		agent.remove_slash(actual_slash).save();
+		agent.remove_slash(actual_slash).update_or_kill()?;
+
 		delegation.amount =
 			delegation.amount.checked_sub(&actual_slash).ok_or(ArithmeticError::Overflow)?;
 		delegation.update_or_kill(&delegator);

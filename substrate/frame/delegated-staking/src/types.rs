@@ -243,7 +243,7 @@ impl<T: Config> Agent<T> {
 	}
 
 	/// Save self to storage.
-	pub(crate) fn save(self) {
+	pub(crate) fn update(self) {
 		let key = self.key;
 		self.ledger.update(&key)
 	}
