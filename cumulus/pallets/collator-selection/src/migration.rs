@@ -17,7 +17,7 @@
 //! A module that is responsible for migration of storage for Collator Selection.
 
 use super::*;
-use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
+use frame_support::traits::OnRuntimeUpgrade;
 use log;
 
 /// Migrate to v2. Should have been part of <https://github.com/paritytech/polkadot-sdk/pull/1340>.
