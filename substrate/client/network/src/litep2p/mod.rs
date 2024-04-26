@@ -360,6 +360,8 @@ impl Litep2pNetworkBackend {
 				// to the same Protocol::WebRTC variant. This is a limitation of the multiaddr
 				// crate.
 				(Some(Protocol::Udp(_)), Some(Protocol::WebRTC)) => {
+					log::info!(target: LOG_TARGET, "using webrtc protocol {addr:?}");
+
 					webrtc_addresses.push(addr.clone());
 				},
 
