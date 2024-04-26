@@ -55,11 +55,11 @@ pub(crate) fn verify_signed_commitment_with_validator_set<'a, Block: BlockT>(
 	validator_set: &'a ValidatorSet<AuthorityId>,
 	signed_commitment: &'a SignedCommitment<NumberFor<Block>, Signature>,
 ) -> Result<Vec<KnownSignature<&'a AuthorityId, &'a Signature>>, (ConsensusError, u32)> {
-	let signatories = signed_commitment
+	let signatures = signed_commitment
 		.verify_signatures::<_, BeefySignatureHasher>(target_number, validator_set)
 		.map_err(|checked_signatures| (ConsensusError::InvalidJustification, checked_signatures))?;
-	if signatories.len() >= crate::round::threshold(validator_set.len()) {
-		Ok(signatories)
+	if signatures.len() >= crate::round::threshold(validator_set.len()) {
+		Ok(signatures)
 	} else {
 		Err((ConsensusError::InvalidJustification, signed_commitment.signature_count() as u32))
 	}

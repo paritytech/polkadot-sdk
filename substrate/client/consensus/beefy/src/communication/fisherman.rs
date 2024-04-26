@@ -25,10 +25,9 @@ use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
-	commitment::KnownSignature,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, BeefyEquivocationProof, BeefySignatureHasher, ForkEquivocationProof, MmrHashing,
-	MmrRootHash, Payload, PayloadProvider, ValidatorSet, VoteMessage,
+	BeefyApi, BeefyEquivocationProof, BeefySignatureHasher, ForkEquivocationProof, KnownSignature,
+	MmrHashing, MmrRootHash, Payload, PayloadProvider, ValidatorSet, VoteMessage,
 };
 use sp_mmr_primitives::{AncestryProof, MmrApi};
 use sp_runtime::{
@@ -161,7 +160,7 @@ where
 
 		let runtime_api = self.runtime.runtime_api();
 
-		let mut filtered_signatories = Vec::new();
+		let mut filtered_signatures = Vec::new();
 		// generate key ownership proof at that block
 		let key_owner_proofs: Vec<_> = offender_ids
 			.iter()
@@ -179,7 +178,7 @@ where
 							"🥩 Invalid fork vote offender not part of the authority set."
 						);
 						// if signatory is not part of the authority set, we ignore the signatory
-						filtered_signatories.push(id);
+						filtered_signatures.push(id);
 						None
 					},
 					Err(e) => {
@@ -187,7 +186,7 @@ where
 							   "🥩 Failed to generate key ownership proof for {:?}: {:?}", id, e);
 						// if a key ownership proof couldn't be generated for signatory, we ignore
 						// the signatory
-						filtered_signatories.push(id);
+						filtered_signatures.push(id);
 						None
 					},
 				}
@@ -197,11 +196,11 @@ where
 		if key_owner_proofs.len() > 0 {
 			// filter out the signatories that a key ownership proof could not be generated for
 			let proof = ForkEquivocationProof {
-				signatories: proof
-					.signatories
+				signatures: proof
+					.signatures
 					.clone()
 					.into_iter()
-					.filter(|(id, _)| !filtered_signatories.contains(&id))
+					.filter(|signature| !filtered_signatures.contains(&&signature.validator_id))
 					.collect(),
 				..proof
 			};
@@ -262,7 +261,10 @@ where
 		if number > self.backend.blockchain().info().best_number {
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
-				signatories: vec![(vote.id, vote.signature)],
+				signatures: vec![KnownSignature {
+					validator_id: vote.id,
+					signature: vote.signature,
+				}],
 				canonical_header: None,
 				ancestry_proof: None,
 			};
@@ -276,7 +278,10 @@ where
 				);
 				let proof = ForkEquivocationProof {
 					commitment: vote.commitment,
-					signatories: vec![(vote.id, vote.signature)],
+					signatures: vec![KnownSignature {
+						validator_id: vote.id,
+						signature: vote.signature,
+					}],
 					canonical_header: Some(canonical_hhp.header),
 					ancestry_proof,
 				};
@@ -321,28 +326,24 @@ where
 			};
 
 		// let finality_proof = BeefyVersionedFinalityProof::<B>::V1(signed_commitment);
-		let signatories: Vec<_> =
+		let signatures: Vec<_> =
 			match crate::justification::verify_signed_commitment_with_validator_set::<B>(
 				commitment.block_number,
 				&validator_set,
 				&signed_commitment,
 			) {
-				Ok(signatories_refs) => signatories_refs
-					.into_iter()
-					.map(|KnownSignature { validator_id, signature }| {
-						(validator_id.clone(), signature.clone())
-					})
-					.collect(),
+				Ok(signatures_refs) =>
+					signatures_refs.into_iter().map(|signature| signature.to_owned()).collect(),
 				Err(_) => {
 					// invalid proof
 					return Ok(())
 				},
 			};
 
-		if signatories.len() > 0 {
+		if signatures.len() > 0 {
 			let proof = ForkEquivocationProof {
 				commitment: signed_commitment.commitment,
-				signatories,
+				signatures,
 				canonical_header,
 				ancestry_proof,
 			};

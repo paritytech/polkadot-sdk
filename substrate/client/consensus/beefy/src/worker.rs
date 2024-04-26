@@ -1075,7 +1075,7 @@ pub(crate) mod tests {
 			generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote,
 			generate_vote_equivocation_proof, Keyring,
 		},
-		ConsensusLog, ForkEquivocationProof, Payload, SignedCommitment,
+		ConsensusLog, ForkEquivocationProof, KnownSignature, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
 	use std::marker::PhantomData;
@@ -1759,9 +1759,12 @@ pub(crate) mod tests {
 		};
 
 		// only Bob and Charlie sign
-		let signatories = &[Keyring::Bob, Keyring::Charlie]
+		let signatures = &[Keyring::Bob, Keyring::Charlie]
 			.into_iter()
-			.map(|k| (k.public(), k.sign(&commitment.encode())))
+			.map(|k| KnownSignature {
+				validator_id: k.public(),
+				signature: k.sign(&commitment.encode()),
+			})
 			.collect::<Vec<_>>();
 
 		// test over all permutations of header and ancestry proof being submitted (proof should
@@ -1773,7 +1776,7 @@ pub(crate) mod tests {
 		] {
 			let proof = ForkEquivocationProof {
 				commitment: commitment.clone(),
-				signatories: signatories.clone(),
+				signatures: signatures.clone(),
 				canonical_header,
 				ancestry_proof,
 			};
@@ -1796,7 +1799,7 @@ pub(crate) mod tests {
 		// test that Alice does not submit invalid proof
 		let proofless_proof = ForkEquivocationProof {
 			commitment: commitment.clone(),
-			signatories: signatories.clone(),
+			signatures: signatures.clone(),
 			canonical_header: None,
 			ancestry_proof: None,
 		};

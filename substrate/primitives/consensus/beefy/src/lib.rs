@@ -33,8 +33,7 @@
 
 extern crate alloc;
 
-// TODO: unpub
-pub mod commitment;
+mod commitment;
 mod payload;
 
 pub mod mmr;
@@ -363,7 +362,7 @@ pub struct ForkEquivocationProof<Id: RuntimeAppPublic, Header: HeaderT, Hash> {
 	/// the chain where this proof is submitted.
 	pub commitment: Commitment<Header::Number>,
 	/// Signatures on this block
-	pub signatories: Vec<(Id, Id::Signature)>,
+	pub signatures: Vec<KnownSignature<Id, Id::Signature>>,
 	/// Canonical header at the same height as `commitment.block_number`.
 	pub canonical_header: Option<Header>,
 	/// Ancestry proof showing that the current best mmr root descends from another mmr root at
@@ -443,9 +442,13 @@ impl<Id: RuntimeAppPublic, Header: HeaderT, Hash: HashOutput>
 			return false;
 		}
 
-		return self.signatories.iter().all(|(authority_id, signature)| {
+		return self.signatures.iter().all(|signature| {
 			// TODO: refactor check_commitment_signature to take a slice of signatories
-			check_commitment_signature(&self.commitment, authority_id, signature)
+			check_commitment_signature(
+				&self.commitment,
+				&signature.validator_id,
+				&signature.signature,
+			)
 		})
 	}
 }
@@ -454,7 +457,7 @@ impl<Id: RuntimeAppPublic, Header: HeaderT, Hash: HashOutput>
 	BeefyEquivocationProof<Id, Header::Number> for ForkEquivocationProof<Id, Header, Hash>
 {
 	fn offender_ids(&self) -> Vec<&Id> {
-		self.signatories.iter().map(|(id, _)| id).collect()
+		self.signatures.iter().map(|signature| &signature.validator_id).collect()
 	}
 
 	fn round_number(&self) -> &Header::Number {

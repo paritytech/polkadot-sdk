@@ -19,7 +19,7 @@
 use crate::ecdsa_bls_crypto;
 use crate::{
 	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, ForkEquivocationProof,
-	Payload, ValidatorSetId, VoteEquivocationProof, VoteMessage,
+	KnownSignature, Payload, ValidatorSetId, VoteEquivocationProof, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
@@ -166,10 +166,11 @@ pub fn generate_fork_equivocation_proof_vote<Header: HeaderT, Hash>(
 	ancestry_proof: Option<AncestryProof<Hash>>,
 ) -> ForkEquivocationProof<ecdsa_crypto::Public, Header, Hash> {
 	let signed_vote = signed_vote::<Header::Number>(vote.0, vote.1, vote.2, vote.3);
-	let signatories = vec![(signed_vote.id, signed_vote.signature)];
+	let signatures =
+		vec![KnownSignature { validator_id: signed_vote.id, signature: signed_vote.signature }];
 	ForkEquivocationProof {
 		commitment: signed_vote.commitment,
-		signatories,
+		signatures,
 		canonical_header,
 		ancestry_proof,
 	}
@@ -182,9 +183,12 @@ pub fn generate_fork_equivocation_proof_sc<Header: HeaderT, Hash>(
 	canonical_header: Option<Header>,
 	ancestry_proof: Option<AncestryProof<Hash>>,
 ) -> ForkEquivocationProof<ecdsa_crypto::Public, Header, Hash> {
-	let signatories = keyrings
+	let signatures = keyrings
 		.into_iter()
-		.map(|k| (k.public(), k.sign(&commitment.encode())))
+		.map(|k| KnownSignature {
+			validator_id: k.public(),
+			signature: k.sign(&commitment.encode()),
+		})
 		.collect::<Vec<_>>();
-	ForkEquivocationProof { commitment, signatories, canonical_header, ancestry_proof }
+	ForkEquivocationProof { commitment, signatures, canonical_header, ancestry_proof }
 }

@@ -25,7 +25,7 @@ use sp_runtime::traits::Hash;
 use crate::{BeefyAuthorityId, Payload, ValidatorSet, ValidatorSetId};
 
 /// A commitment signature, accompanied by the id of the validator that it belongs to.
-#[derive(Debug)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct KnownSignature<TAuthorityId, TSignature> {
 	/// The signing validator.
 	pub validator_id: TAuthorityId,
@@ -163,7 +163,7 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 		// Arrangement of signatures in the commitment should be in the same order
 		// as validators for that set.
 		let encoded_commitment = self.commitment.encode();
-		let signatories: Vec<_> = validator_set
+		let signatures: Vec<_> = validator_set
 			.validators()
 			.into_iter()
 			.zip(self.signatures.iter())
@@ -176,7 +176,7 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 			})
 			.collect();
 
-		Ok(signatories)
+		Ok(signatures)
 	}
 }
 
