@@ -61,7 +61,7 @@ use litep2p::{
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
 	transport::{
-		tcp::config::Config as TcpTransportConfig,
+		tcp::config::Config as TcpTransportConfig, webrtc::config::Config as WebRtcTransportConfig,
 		websocket::config::Config as WebSocketTransportConfig, Endpoint,
 	},
 	types::ConnectionId,
@@ -322,58 +322,69 @@ impl Litep2pNetworkBackend {
 			yamux_config
 		};
 
-		let (tcp, websocket): (Vec<Option<_>>, Vec<Option<_>>) = config
-			.network_config
-			.listen_addresses
-			.iter()
-			.filter_map(|address| {
-				let mut iter = address.iter();
+		let listen_addr_len = config.network_config.listen_addresses.len();
+		let mut tcp_addresses = Vec::with_capacity(listen_addr_len);
+		let mut websocket_addresses = Vec::with_capacity(listen_addr_len);
+		let mut webrtc_addresses = Vec::with_capacity(listen_addr_len);
 
-				match iter.next() {
-					Some(Protocol::Ip4(_) | Protocol::Ip6(_)) => {},
-					protocol => {
-						log::error!(
-							target: LOG_TARGET,
-							"unknown protocol {protocol:?}, ignoring {address:?}",
-						);
+		for addr in &config.network_config.listen_addresses {
+			let mut iter = addr.iter();
 
-						return None
-					},
-				}
+			let ip_version = iter.next();
+			let Some(Protocol::Ip4(_) | Protocol::Ip6(_)) = ip_version else {
+				log::error!(
+					target: LOG_TARGET,
+					"unknown protocol {ip_version:?}, ignoring {addr:?}",
+				);
+				continue;
+			};
 
-				match iter.next() {
-					Some(Protocol::Tcp(_)) => match iter.next() {
-						Some(Protocol::Ws(_) | Protocol::Wss(_)) =>
-							Some((None, Some(address.clone()))),
-						Some(Protocol::P2p(_)) | None => Some((Some(address.clone()), None)),
-						protocol => {
-							log::error!(
-								target: LOG_TARGET,
-								"unknown protocol {protocol:?}, ignoring {address:?}",
-							);
-							None
-						},
-					},
-					protocol => {
-						log::error!(
-							target: LOG_TARGET,
-							"unknown protocol {protocol:?}, ignoring {address:?}",
-						);
-						None
-					},
-				}
-			})
-			.unzip();
+			let transport_layer = iter.next();
+			let protocol_type = iter.next();
+
+			match (&transport_layer, &protocol_type) {
+				// Plain TCP address.
+				(Some(Protocol::Tcp(_)), Some(Protocol::P2p(_)) | None) => {
+					tcp_addresses.push(addr.clone());
+				},
+
+				// Websocket address.
+				(Some(Protocol::Tcp(_)), Some(Protocol::Ws(_) | Protocol::Wss(_))) => {
+					websocket_addresses.push(addr.clone());
+				},
+
+				// WebRTC.
+				//
+				// Note: we should accept only the latest webrtc-direct protocol here.
+				// However, the multiaddr crate deduces both deprecated webrtc and webrtc-direct
+				// to the same Protocol::WebRTC variant. This is a limitation of the multiaddr
+				// crate.
+				(Some(Protocol::Udp(_)), Some(Protocol::WebRTC)) => {
+					webrtc_addresses.push(addr.clone());
+				},
+
+				_ => {
+					log::error!(
+						target: LOG_TARGET,
+						"unknown transport layer {transport_layer:?} and protocol type {protocol_type:?}, ignoring {addr:?}",
+					);
+				},
+			};
+		}
 
 		config_builder
 			.with_websocket(WebSocketTransportConfig {
-				listen_addresses: websocket.into_iter().flatten().collect(),
+				listen_addresses: tcp_addresses,
 				yamux_config: yamux_config.clone(),
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
-				listen_addresses: tcp.into_iter().flatten().collect(),
+				listen_addresses: websocket_addresses,
 				yamux_config,
+				..Default::default()
+			})
+			.with_webrtc(WebRtcTransportConfig {
+				listen_addresses: webrtc_addresses,
 				..Default::default()
 			})
 	}
