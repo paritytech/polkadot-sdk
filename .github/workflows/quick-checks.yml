@@ -49,7 +49,8 @@ jobs:
           cd substrate/
           ../.gitlab/ensure-deps.sh
   check-rust-feature-propagation:
-    runs-on: arc-runners-polkadot-sdk-default
+    # runs-on: arc-runners-polkadot-sdk-default
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -59,7 +60,8 @@ jobs:
       - name: run zepter
         run: zepter run check
   test-rust-features:
-    runs-on: arc-runners-polkadot-sdk-default
+    # runs-on: arc-runners-polkadot-sdk-default
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [set-image]
     container:
