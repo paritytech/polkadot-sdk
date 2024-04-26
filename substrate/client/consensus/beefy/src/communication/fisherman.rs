@@ -173,7 +173,7 @@ where
 				) {
 					Ok(Some(proof)) => Some(Ok(proof)),
 					Ok(None) => {
-						debug!(
+						warn!(
 							target: LOG_TARGET,
 							"🥩 Invalid fork vote offender not part of the authority set."
 						);
@@ -182,7 +182,7 @@ where
 						None
 					},
 					Err(e) => {
-						debug!(target: LOG_TARGET,
+						warn!(target: LOG_TARGET,
 							   "🥩 Failed to generate key ownership proof for {:?}: {:?}", id, e);
 						// if a key ownership proof couldn't be generated for signatory, we ignore
 						// the signatory
