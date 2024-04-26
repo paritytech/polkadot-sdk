@@ -251,7 +251,7 @@ fn transaction_payment_in_asset_possible() {
 			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdraw {
 				asset_id,
 				who: caller,
-				amount: fee_in_asset
+				amount: fee_in_asset,
 			}));
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
@@ -447,7 +447,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdraw {
 				asset_id,
 				who: caller,
-				amount: fee_in_asset
+				amount: fee_in_asset,
 			}));
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
@@ -471,7 +471,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Deposit {
 				asset_id,
 				who: caller,
-				amount: expected_token_refund
+				amount: expected_token_refund,
 			}));
 		});
 }
