@@ -6403,6 +6403,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-sudo",
  "pallet-timestamp",
+ "pallet-transaction-payment",
  "parachains-common",
  "parity-scale-codec",
  "scale-info",

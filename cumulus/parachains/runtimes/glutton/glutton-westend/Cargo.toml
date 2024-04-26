@@ -39,6 +39,7 @@ sp-std = { path = "../../../../../substrate/primitives/std", default-features = 
 sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false }
 sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false }
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
+pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
