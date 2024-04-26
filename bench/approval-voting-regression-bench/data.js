@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714062845988,
+  "lastUpdate": 1714118808919,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -798,6 +798,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.498016354730205,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Noah Jelich",
+            "username": "njelich",
+            "email": "12912633+njelich@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8f8c49deffe56567ba5cde0e1047de15b660bb0e",
+          "message": "Fix bad links (#4231)\n\nThe solochain template links to parachain template instead of solochain.",
+          "timestamp": "2024-04-26T07:03:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8f8c49deffe56567ba5cde0e1047de15b660bb0e"
+        },
+        "date": 1714118784396,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52936.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63544.170000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.083771634440125,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.072660863429943,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.883378100330038,
             "unit": "seconds"
           }
         ]
