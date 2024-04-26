@@ -7,7 +7,7 @@ license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
 repository.workspace = true
-version = "9.0.1"
+version = "9.0.2"
 
 [lints]
 workspace = true
