@@ -108,7 +108,7 @@ pub trait HeadersRelayer: RelayToRelayHeadersCliBridge {
 		.await
 	}
 
-	/// Relay single header. No any check are made to ensure that transaction will succeed.
+	/// Relay single header. No checks are made to ensure that transaction will succeed.
 	async fn relay_header(data: RelayHeaderParams) -> anyhow::Result<()> {
 		let source_client = data.source.into_client::<Self::Source>().await?;
 		let target_client = data.target.into_client::<Self::Target>().await?;
