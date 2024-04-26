@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714151732913,
+  "lastUpdate": 1714153825608,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -1080,6 +1080,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.9219918873501807,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "antiyro",
+            "username": "antiyro",
+            "email": "74653697+antiyro@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2a497d297575947b613fe0f3bbac9273a48fd6b0",
+          "message": "fix(seal): shameless fix on sealing typo (#4304)",
+          "timestamp": "2024-04-26T16:23:58Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2a497d297575947b613fe0f3bbac9273a48fd6b0"
+        },
+        "date": 1714153799713,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63554.759999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.3914274698899955,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.932334918190048,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1972823707301616,
             "unit": "seconds"
           }
         ]
