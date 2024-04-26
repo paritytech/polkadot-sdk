@@ -144,6 +144,8 @@ impl HostError for TrapReason {}
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
+	/// Base Weight of calling a host function.
+	HostFn,
 	/// Weight charged for copying data from the sandbox.
 	CopyFromContract(u32),
 	/// Weight charged for copying data to the sandbox.
@@ -270,6 +272,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 	fn weight(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
+			HostFn => cost_args!(noop_host_fn, 1),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CopyToContract(len) => cost_args!(seal_input, len),
 			Caller => T::WeightInfo::seal_caller(),

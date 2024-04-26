@@ -54,7 +54,7 @@ pub trait WeightInfo {
 	fn upload_code_determinism_relaxed(c: u32, ) -> Weight;
 	fn remove_code() -> Weight;
 	fn set_code() -> Weight;
-	fn call_noop_host_fn(r: u32, ) -> Weight;
+	fn noop_host_fn(r: u32, ) -> Weight;
 	fn seal_caller() -> Weight;
 	fn seal_is_contract() -> Weight;
 	fn seal_code_hash() -> Weight;
@@ -521,7 +521,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
 	/// The range of component `r` is `[0, 1600]`.
-	fn call_noop_host_fn(r: u32, ) -> Weight {
+	fn noop_host_fn(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1455,7 +1455,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 	/// The range of component `r` is `[0, 1600]`.
-	fn call_noop_host_fn(r: u32, ) -> Weight {
+	fn noop_host_fn(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

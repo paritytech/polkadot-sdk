@@ -706,6 +706,9 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 						.map_err(TrapReason::from)
 						.map_err(#into_host)?
 				};
+				__caller__.data_mut().charge_gas(RuntimeCosts::HostFn)
+						.map_err(TrapReason::from)
+						.map_err(#into_host)?;
 			}
 		} else {
 			quote! { }
