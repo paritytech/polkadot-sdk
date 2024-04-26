@@ -557,7 +557,6 @@ parameter_types! {
 impl parachains_dmp::Config for Runtime {}
 
 parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
 	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (51200, 500);
 }
 

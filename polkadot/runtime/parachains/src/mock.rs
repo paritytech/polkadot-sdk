@@ -247,7 +247,6 @@ impl crate::paras::Config for Test {
 impl crate::dmp::Config for Test {}
 
 parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
 	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);
 }
 
