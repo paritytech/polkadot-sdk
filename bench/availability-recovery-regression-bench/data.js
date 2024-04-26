@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714063457714,
+  "lastUpdate": 1714119435239,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -5459,6 +5459,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.008727292366666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Noah Jelich",
+            "username": "njelich",
+            "email": "12912633+njelich@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8f8c49deffe56567ba5cde0e1047de15b660bb0e",
+          "message": "Fix bad links (#4231)\n\nThe solochain template links to parachain template instead of solochain.",
+          "timestamp": "2024-04-26T07:03:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8f8c49deffe56567ba5cde0e1047de15b660bb0e"
+        },
+        "date": 1714119409310,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.23025869936666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.280784673666664,
             "unit": "seconds"
           }
         ]
