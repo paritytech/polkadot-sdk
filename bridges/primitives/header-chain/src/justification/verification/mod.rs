@@ -45,7 +45,7 @@ type SignedPrecommit<Header> = finality_grandpa::SignedPrecommit<
 >;
 
 /// Votes ancestries with useful methods.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct AncestryChain<Header: HeaderT> {
 	/// We expect all forks in the ancestry chain to be descendants of base.
 	base: HeaderId<Header::Hash, Header::Number>,
@@ -168,7 +168,7 @@ pub enum PrecommitError {
 }
 
 /// The context needed for validating GRANDPA finality proofs.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct JustificationVerificationContext {
 	/// The authority set used to verify the justification.
 	pub voter_set: VoterSet<AuthorityId>,

@@ -35,7 +35,7 @@ use crate::{
 use sp_core::RuntimeDebug;
 
 /// Generic header digest.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Digest {
 	/// A list of logs in the digest.

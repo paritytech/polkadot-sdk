@@ -147,7 +147,7 @@ pub enum Renouncing {
 }
 
 /// An active voter.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, TypeInfo)]
 pub struct Voter<AccountId, Balance> {
 	/// The members being backed.
 	pub votes: Vec<AccountId>,
@@ -166,7 +166,7 @@ impl<AccountId, Balance: Default> Default for Voter<AccountId, Balance> {
 }
 
 /// A holder of a seat as either a member or a runner-up.
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, TypeInfo)]
 pub struct SeatHolder<AccountId, Balance> {
 	/// The holder.
 	pub who: AccountId,

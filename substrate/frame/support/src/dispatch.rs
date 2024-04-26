@@ -234,7 +234,7 @@ impl<'a> OneOrMany<DispatchClass> for &'a [DispatchClass] {
 }
 
 /// A bundle of static information collected from the `#[pallet::weight]` attributes.
-#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct DispatchInfo {
 	/// Weight of this transaction.
 	pub weight: Weight,
@@ -279,7 +279,7 @@ pub fn extract_actual_pays_fee(result: &DispatchResultWithPostInfo, info: &Dispa
 
 /// Weight information that is only available post dispatch.
 /// NOTE: This can only be used to reduce the weight or fee, not increase it.
-#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct PostDispatchInfo {
 	/// Actual weight consumed by a call or `None` which stands for the worst case static weight.
 	pub actual_weight: Option<Weight>,

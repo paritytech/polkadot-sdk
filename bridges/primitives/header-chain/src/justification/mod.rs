@@ -43,7 +43,7 @@ use sp_std::prelude::*;
 ///
 /// This particular proof is used to prove that headers on a bridged chain
 /// (so not our chain) have been finalized correctly.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, Debug)]
 pub struct GrandpaJustification<Header: HeaderT> {
 	/// The round (voting period) this justification is valid for.
 	pub round: u64,

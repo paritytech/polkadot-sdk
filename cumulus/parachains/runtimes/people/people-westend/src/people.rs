@@ -83,14 +83,7 @@ pub enum IdentityField {
 
 /// Information concerning the identity of the controller of an account.
 #[derive(
-	CloneNoBound,
-	Encode,
-	Decode,
-	EqNoBound,
-	MaxEncodedLen,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
+	CloneNoBound, Encode, Decode, EqNoBound, MaxEncodedLen, PartialEqNoBound, Debug, TypeInfo,
 )]
 #[codec(mel_bound())]
 pub struct IdentityInfo {

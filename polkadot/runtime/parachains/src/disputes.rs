@@ -604,7 +604,7 @@ impl<T: Config> From<VoteImportError> for Error<T> {
 }
 
 /// A transport statement bit change for a single validator.
-#[derive(RuntimeDebug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct ImportUndo {
 	/// The validator index to which to associate the statement import.
 	validator_index: ValidatorIndex,

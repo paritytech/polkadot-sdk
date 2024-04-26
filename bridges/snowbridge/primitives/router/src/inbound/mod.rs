@@ -28,7 +28,7 @@ pub enum VersionedMessage {
 
 /// For V1, the ethereum side sends messages which are transcoded into XCM. These messages are
 /// self-contained, in that they can be transcoded using only information in the message.
-#[derive(Clone, Encode, Decode, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, Debug)]
 pub struct MessageV1 {
 	/// EIP-155 chain id of the origin Ethereum network
 	pub chain_id: u64,

@@ -17,10 +17,10 @@
 
 use sp_debug_derive::RuntimeDebug;
 
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 struct Unnamed(u64, String);
 
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 struct Named {
 	a: u64,
 	b: String,

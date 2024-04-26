@@ -5,7 +5,7 @@ use sp_core::U256;
 use sp_runtime::{FixedU128, RuntimeDebug};
 use sp_std::prelude::*;
 
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub struct PricingParameters<Balance> {
 	/// ETH/DOT exchange rate
 	pub exchange_rate: FixedU128,
@@ -17,7 +17,7 @@ pub struct PricingParameters<Balance> {
 	pub multiplier: FixedU128,
 }
 
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub struct Rewards<Balance> {
 	/// Local reward in DOT
 	pub local: Balance,
@@ -25,7 +25,7 @@ pub struct Rewards<Balance> {
 	pub remote: U256,
 }
 
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct InvalidPricingParameters;
 
 impl<Balance> PricingParameters<Balance>
@@ -53,7 +53,7 @@ where
 }
 
 /// Holder for fixed point number implemented in <https://github.com/PaulRBerg/prb-math>
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct UD60x18(U256);
 

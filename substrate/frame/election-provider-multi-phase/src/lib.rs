@@ -403,7 +403,7 @@ impl Default for ElectionCompute {
 ///
 /// Such a solution should never become effective in anyway before being checked by the
 /// `Pallet::feasibility_check`.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, PartialOrd, Ord, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, PartialOrd, Ord, TypeInfo)]
 pub struct RawSolution<S> {
 	/// the solution itself.
 	pub solution: S,
@@ -422,14 +422,7 @@ impl<C: Default> Default for RawSolution<C> {
 
 /// A checked solution, ready to be enacted.
 #[derive(
-	PartialEqNoBound,
-	EqNoBound,
-	Clone,
-	Encode,
-	Decode,
-	RuntimeDebug,
-	DefaultNoBound,
-	scale_info::TypeInfo,
+	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, Debug, DefaultNoBound, scale_info::TypeInfo,
 )]
 #[scale_info(skip_type_params(AccountId, MaxWinners))]
 pub struct ReadySolution<AccountId, MaxWinners>
@@ -454,7 +447,7 @@ where
 /// [`ElectionDataProvider`] and are kept around until the round is finished.
 ///
 /// These are stored together because they are often accessed together.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct RoundSnapshot<AccountId, DataProvider> {
 	/// All of the voters.

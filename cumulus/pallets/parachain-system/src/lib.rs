@@ -1664,7 +1664,7 @@ pub trait OnSystemEvent {
 }
 
 /// Holds the most recent relay-parent state root and block number of the current parachain block.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct RelayChainState {
 	/// Current relay chain height.
 	pub number: relay_chain::BlockNumber,

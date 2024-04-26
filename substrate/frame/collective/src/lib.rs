@@ -156,7 +156,7 @@ impl<AccountId, I> GetBacking for RawOrigin<AccountId, I> {
 }
 
 /// Info for keeping track of a motion being voted on.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
 pub struct Votes<AccountId, BlockNumber> {
 	/// The proposal's unique index.
 	index: ProposalIndex,

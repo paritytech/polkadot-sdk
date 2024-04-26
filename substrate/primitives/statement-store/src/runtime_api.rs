@@ -28,7 +28,7 @@ use sp_runtime_interface::{pass_by::PassByEnum, runtime_interface};
 use sp_externalities::ExternalitiesExt;
 
 /// Information concerning a valid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct ValidStatement {
 	/// Max statement count for this account, as calculated by the runtime.
 	pub max_count: u32,

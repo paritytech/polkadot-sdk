@@ -117,7 +117,7 @@ pub type BountyIndex = u32;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// A bounty proposal.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct Bounty<AccountId, Balance, BlockNumber> {
 	/// The account proposing it.
 	proposer: AccountId,

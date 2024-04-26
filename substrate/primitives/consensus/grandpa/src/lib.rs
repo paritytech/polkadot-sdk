@@ -135,7 +135,7 @@ pub struct GrandpaJustification<Header: HeaderT> {
 }
 
 /// A scheduled change of authority set.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ScheduledChange<N> {
 	/// The new authorities after the change, along with their respective weights.

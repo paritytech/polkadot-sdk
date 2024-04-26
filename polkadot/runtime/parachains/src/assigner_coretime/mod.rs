@@ -45,7 +45,7 @@ use sp_std::prelude::*;
 pub use pallet::*;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
-#[derive(RuntimeDebug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 pub struct PartsOf57600(u16);
 
 impl PartsOf57600 {

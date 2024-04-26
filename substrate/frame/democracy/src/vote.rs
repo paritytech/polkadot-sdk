@@ -28,7 +28,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 /// A number of lock periods, plus a vote, one way or the other.
-#[derive(Copy, Clone, Eq, PartialEq, Default, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Debug)]
 pub struct Vote {
 	pub aye: bool,
 	pub conviction: Conviction,
@@ -124,7 +124,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub struct PriorLock<BlockNumber, Balance>(BlockNumber, Balance);

@@ -81,14 +81,7 @@ pub type Votes = u32;
 
 /// Aggregated votes for an ongoing poll by members of the ranked collective.
 #[derive(
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	Encode,
-	Decode,
-	MaxEncodedLen,
+	CloneNoBound, PartialEqNoBound, EqNoBound, Debug, TypeInfo, Encode, Decode, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T, I, M))]
 #[codec(mel_bound())]
@@ -173,7 +166,7 @@ impl<T: Config<I>, I: 'static, M: GetMaxVoters<Class = ClassOf<T, I>>>
 }
 
 /// Record needed for every member.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct MemberRecord {
 	/// The rank of the member.
 	rank: Rank,

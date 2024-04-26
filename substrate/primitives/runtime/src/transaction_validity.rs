@@ -251,7 +251,7 @@ pub enum TransactionSource {
 }
 
 /// Information concerning a valid transaction.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct ValidTransaction {
 	/// Priority of the transaction.
 	///
@@ -329,7 +329,7 @@ impl ValidTransaction {
 ///
 /// Allows to easily construct `ValidTransaction` and most importantly takes care of
 /// prefixing `requires` and `provides` tags to avoid conflicts.
-#[derive(Default, Clone, RuntimeDebug)]
+#[derive(Default, Clone, Debug)]
 pub struct ValidTransactionBuilder {
 	prefix: Option<&'static str>,
 	validity: ValidTransaction,

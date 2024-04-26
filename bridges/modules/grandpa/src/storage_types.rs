@@ -39,7 +39,7 @@ impl<T: Config<I>, I: 'static> Get<u32> for StoredAuthorityListLimit<T, I> {
 }
 
 /// A bounded GRANDPA Authority List and ID.
-#[derive(CloneNoBound, Decode, Encode, Eq, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound)]
+#[derive(CloneNoBound, Decode, Encode, Eq, TypeInfo, MaxEncodedLen, Debug)]
 #[scale_info(skip_type_params(T, I))]
 pub struct StoredAuthoritySet<T: Config<I>, I: 'static> {
 	/// List of GRANDPA authorities for the current round.

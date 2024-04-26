@@ -54,7 +54,7 @@ pub type AuthorityIndex = u32;
 
 /// Like [`Mixnode`], but encoded size is bounded.
 #[derive(
-	Clone, Decode, Encode, MaxEncodedLen, PartialEq, TypeInfo, RuntimeDebug, Serialize, Deserialize,
+	Clone, Decode, Encode, MaxEncodedLen, PartialEq, TypeInfo, Debug, Serialize, Deserialize,
 )]
 pub struct BoundedMixnode<ExternalAddresses> {
 	/// Key-exchange public key for the mixnode.
@@ -123,7 +123,7 @@ pub type BoundedMixnodeFor<T> = BoundedMixnode<
 
 /// A mixnode registration. A registration transaction is formed from one of these plus an
 /// [`AuthoritySignature`].
-#[derive(Clone, Decode, Encode, PartialEq, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Decode, Encode, PartialEq, TypeInfo, Debug)]
 pub struct Registration<BlockNumber, BoundedMixnode> {
 	/// Block number at the time of creation. When a registration transaction fails to make it on
 	/// to the chain for whatever reason, we send out another one. We want this one to have a

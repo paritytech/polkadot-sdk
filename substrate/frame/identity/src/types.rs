@@ -253,9 +253,7 @@ pub trait IdentityInformationProvider:
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
 /// backwards compatible way through a specialized `Decode` impl.
-#[derive(
-	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
-)]
+#[derive(CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, Debug, TypeInfo)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(MaxJudgements))]
 pub struct Registration<
@@ -302,7 +300,7 @@ impl<
 }
 
 /// Information concerning a registrar.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub struct RegistrarInfo<
 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,

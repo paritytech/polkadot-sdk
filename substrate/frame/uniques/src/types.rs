@@ -37,7 +37,7 @@ pub(super) type ItemDetailsFor<T, I> =
 pub(super) type ItemPrice<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct CollectionDetails<AccountId, DepositBalance> {
 	/// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
 	pub(super) owner: AccountId,
@@ -63,7 +63,7 @@ pub struct CollectionDetails<AccountId, DepositBalance> {
 }
 
 /// Witness data for the destroy transactions.
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct DestroyWitness {
 	/// The total number of outstanding items of this collection.
 	#[codec(compact)]
@@ -87,7 +87,7 @@ impl<AccountId, DepositBalance> CollectionDetails<AccountId, DepositBalance> {
 }
 
 /// Information concerning the ownership of a single unique item.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct ItemDetails<AccountId, DepositBalance> {
 	/// The owner of this item.
 	pub(super) owner: AccountId,
@@ -100,7 +100,7 @@ pub struct ItemDetails<AccountId, DepositBalance> {
 	pub(super) deposit: DepositBalance,
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, Default, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(StringLimit))]
 #[codec(mel_bound(DepositBalance: MaxEncodedLen))]
 pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
@@ -116,7 +116,7 @@ pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
 	pub(super) is_frozen: bool,
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, Default, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(StringLimit))]
 #[codec(mel_bound(DepositBalance: MaxEncodedLen))]
 pub struct ItemMetadata<DepositBalance, StringLimit: Get<u32>> {

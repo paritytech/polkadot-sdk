@@ -37,7 +37,7 @@ use sp_std::prelude::*;
 /// It has been extended to include `events` at the end of the struct while not bumping the
 /// `ContractsApi` version. Therefore when SCALE decoding a `ContractResult` its trailing data
 /// should be ignored to avoid any potential compatibility issues.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub struct ContractResult<R, Balance, EventRecord> {
 	/// How much weight was consumed during execution.
 	pub gas_consumed: Weight,
@@ -108,7 +108,7 @@ pub enum ContractAccessError {
 }
 
 /// Output of a contract call or instantiation which ran to completion.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct ExecReturnValue {
 	/// Flags passed along by `seal_return`. Empty when `seal_return` was never called.
 	pub flags: ReturnFlags,
@@ -124,7 +124,7 @@ impl ExecReturnValue {
 }
 
 /// The result of a successful contract instantiation.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct InstantiateReturnValue<AccountId> {
 	/// The output of the called constructor.
 	pub result: ExecReturnValue,
@@ -133,7 +133,7 @@ pub struct InstantiateReturnValue<AccountId> {
 }
 
 /// The result of successfully uploading a contract.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub struct CodeUploadReturnValue<CodeHash, Balance> {
 	/// The key under which the new code is stored.
 	pub code_hash: CodeHash,

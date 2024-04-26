@@ -53,7 +53,7 @@ pub mod constants {
 ///
 /// NOTE: This is currently only measured in computational time, and will probably
 /// be updated all together once proof size is accounted for.
-#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct RuntimeDbWeight {
 	pub read: u64,
 	pub write: u64,

@@ -64,7 +64,7 @@ pub const NO_INSTANCE_ID: ChainId = [0, 0, 0, 0];
 
 /// Generic header Id.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Default,
 	Clone,
 	Encode,

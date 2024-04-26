@@ -100,7 +100,7 @@ pub enum Wish {
 pub type Evidence<T, I> = BoundedVec<u8, <T as Config<I>>::EvidenceSize>;
 
 /// The status of the pallet instance.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub struct ParamsType<Balance, BlockNumber, const RANKS: usize> {
 	/// The amounts to be paid when a member of a given rank (-1) is active.
 	active_salary: [Balance; RANKS],
@@ -129,7 +129,7 @@ impl<Balance: Default + Copy, BlockNumber: Default + Copy, const RANKS: usize> D
 }
 
 /// The status of a single member.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub struct MemberStatus<BlockNumber> {
 	/// Are they currently active?
 	is_active: bool,

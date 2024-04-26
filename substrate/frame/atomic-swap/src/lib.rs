@@ -61,7 +61,7 @@ use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
 /// Pending atomic swap operation.
-#[derive(Clone, Eq, PartialEq, RuntimeDebugNoBound, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 #[codec(mel_bound())]
 pub struct PendingSwap<T: Config> {
@@ -96,7 +96,7 @@ pub trait SwapAction<AccountId, T: Config> {
 }
 
 /// A swap action that only allows transferring balances.
-#[derive(Clone, RuntimeDebug, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(C))]
 #[codec(mel_bound())]
 pub struct BalanceSwapAction<AccountId, C: ReservableCurrency<AccountId>> {

@@ -26,14 +26,14 @@ use frame_support::{
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq)]
 struct SeatHolder<AccountId, Balance> {
 	who: AccountId,
 	stake: Balance,
 	deposit: Balance,
 }
 
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq)]
 struct Voter<AccountId, Balance> {
 	votes: Vec<AccountId>,
 	stake: Balance,

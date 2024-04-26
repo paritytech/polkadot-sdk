@@ -32,7 +32,7 @@ pub type PropIndex = u32;
 pub type ReferendumIndex = u32;
 
 /// Info regarding an ongoing referendum.
-#[derive(Encode, MaxEncodedLen, Decode, Default, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, MaxEncodedLen, Decode, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct Tally<Balance> {
 	/// The number of aye votes, expressed in terms of post-conviction lock-vote.
 	pub ayes: Balance,
@@ -43,9 +43,7 @@ pub struct Tally<Balance> {
 }
 
 /// Amount of votes and capital placed in delegation for an account.
-#[derive(
-	Encode, MaxEncodedLen, Decode, Default, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo,
-)]
+#[derive(Encode, MaxEncodedLen, Decode, Default, Copy, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct Delegations<Balance> {
 	/// The number of votes (this is post-conviction).
 	pub votes: Balance,
@@ -168,7 +166,7 @@ impl<
 }
 
 /// Info regarding an ongoing referendum.
-#[derive(Encode, MaxEncodedLen, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, MaxEncodedLen, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct ReferendumStatus<BlockNumber, Proposal, Balance> {
 	/// When voting on this referendum will end.
 	pub end: BlockNumber,

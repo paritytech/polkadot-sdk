@@ -52,7 +52,7 @@ use parity_util_mem::MallocSizeOf;
 	Ord,
 	PartialEq,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub struct ParaId(pub u32);
@@ -68,9 +68,7 @@ impl From<u32> for ParaId {
 /// This is an equivalent of the `polkadot_parachain_primitives::HeadData`.
 ///
 /// The parachain head means (at least in Cumulus) a SCALE-encoded parachain header.
-#[derive(
-	PartialEq, Eq, Clone, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo, Default,
-)]
+#[derive(PartialEq, Eq, Clone, PartialOrd, Ord, Encode, Decode, Debug, TypeInfo, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash, MallocSizeOf))]
 pub struct ParaHead(pub Vec<u8>);
 
@@ -88,7 +86,7 @@ pub type ParaHash = crate::Hash;
 pub type ParaHasher = crate::Hasher;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, Debug, TypeInfo)]
 pub struct ParaHeadsProof {
 	/// Unverified storage proof of finalized parachain heads.
 	pub storage_proof: RawStorageProof,

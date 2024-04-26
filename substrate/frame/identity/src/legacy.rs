@@ -65,14 +65,7 @@ impl TypeInfo for IdentityField {
 /// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
 /// fields in a backwards compatible way through a specialized `Decode` impl.
 #[derive(
-	CloneNoBound,
-	Encode,
-	Decode,
-	EqNoBound,
-	MaxEncodedLen,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
+	CloneNoBound, Encode, Decode, EqNoBound, MaxEncodedLen, PartialEqNoBound, Debug, TypeInfo,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(FieldLimit))]

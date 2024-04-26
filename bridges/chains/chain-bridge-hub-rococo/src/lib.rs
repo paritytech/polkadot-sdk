@@ -29,7 +29,7 @@ use frame_support::dispatch::DispatchClass;
 use sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug};
 
 /// BridgeHubRococo parachain.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct BridgeHubRococo;
 
 impl Chain for BridgeHubRococo {

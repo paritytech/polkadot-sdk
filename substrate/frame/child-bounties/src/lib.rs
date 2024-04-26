@@ -83,7 +83,7 @@ type BountyIndex = pallet_bounties::BountyIndex;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// A child bounty proposal.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ChildBounty<AccountId, Balance, BlockNumber> {
 	/// The parent of this child-bounty.
 	parent_bounty: BountyIndex,

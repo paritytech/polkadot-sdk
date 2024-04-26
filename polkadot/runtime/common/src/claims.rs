@@ -107,7 +107,7 @@ impl Default for StatementKind {
 /// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
 ///
 /// This gets serialized to the 0x-prefixed hex representation.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug, TypeInfo)]
 pub struct EthereumAddress([u8; 20]);
 
 impl Serialize for EthereumAddress {

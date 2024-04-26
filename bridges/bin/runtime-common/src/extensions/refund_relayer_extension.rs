@@ -419,14 +419,7 @@ pub trait RefundSignedExtension:
 /// Adapter that allow implementing `sp_runtime::traits::SignedExtension` for any
 /// `RefundSignedExtension`.
 #[derive(
-	DefaultNoBound,
-	CloneNoBound,
-	Decode,
-	Encode,
-	EqNoBound,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
+	DefaultNoBound, CloneNoBound, Decode, Encode, EqNoBound, PartialEqNoBound, Debug, TypeInfo,
 )]
 pub struct RefundSignedExtensionAdapter<T: RefundSignedExtension>(T);
 
@@ -561,14 +554,7 @@ where
 ///
 /// Extension does not refund transaction tip due to security reasons.
 #[derive(
-	DefaultNoBound,
-	CloneNoBound,
-	Decode,
-	Encode,
-	EqNoBound,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
+	DefaultNoBound, CloneNoBound, Decode, Encode, EqNoBound, PartialEqNoBound, Debug, TypeInfo,
 )]
 #[scale_info(skip_type_params(Runtime, Para, Msgs, Refund, Priority, Id))]
 pub struct RefundBridgedParachainMessages<Runtime, Para, Msgs, Refund, Priority, Id>(
@@ -723,14 +709,7 @@ where
 ///
 /// Extension does not refund transaction tip due to security reasons.
 #[derive(
-	DefaultNoBound,
-	CloneNoBound,
-	Decode,
-	Encode,
-	EqNoBound,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
+	DefaultNoBound, CloneNoBound, Decode, Encode, EqNoBound, PartialEqNoBound, Debug, TypeInfo,
 )]
 #[scale_info(skip_type_params(Runtime, GrandpaInstance, Msgs, Refund, Priority, Id))]
 pub struct RefundBridgedGrandpaMessages<Runtime, GrandpaInstance, Msgs, Refund, Priority, Id>(
@@ -856,14 +835,7 @@ where
 /// Transaction extension that refunds a relayer for standalone messages delivery and confirmation
 /// transactions. Finality transactions are not refunded.
 #[derive(
-	DefaultNoBound,
-	CloneNoBound,
-	Decode,
-	Encode,
-	EqNoBound,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
+	DefaultNoBound, CloneNoBound, Decode, Encode, EqNoBound, PartialEqNoBound, Debug, TypeInfo,
 )]
 #[scale_info(skip_type_params(Runtime, GrandpaInstance, Msgs, Refund, Priority, Id))]
 pub struct RefundBridgedMessages<Runtime, Msgs, Refund, Priority, Id>(

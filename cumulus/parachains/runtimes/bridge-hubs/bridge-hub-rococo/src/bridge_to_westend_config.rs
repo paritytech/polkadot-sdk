@@ -167,7 +167,7 @@ pub type ToBridgeHubWestendMaximalOutboundPayloadSize =
 	messages::source::FromThisChainMaximalOutboundPayloadSize<WithBridgeHubWestendMessageBridge>;
 
 /// BridgeHubWestend chain from message lane point of view.
-#[derive(RuntimeDebug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct BridgeHubWestend;
 
 impl UnderlyingChainProvider for BridgeHubWestend {

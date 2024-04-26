@@ -276,7 +276,7 @@ mod v1 {
 	}
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 /// Fee for delivering message
 pub struct Fee<Balance>

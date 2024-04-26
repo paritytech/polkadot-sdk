@@ -37,7 +37,7 @@ use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
 use sp_std::{marker::PhantomData, prelude::*};
 
 /// Best known parachain head hash.
-#[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, Debug, TypeInfo)]
 pub struct BestParaHeadHash {
 	/// Number of relay block where this head has been read.
 	///
@@ -53,7 +53,7 @@ pub struct BestParaHeadHash {
 }
 
 /// Best known parachain head as it is stored in the runtime storage.
-#[derive(Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, PartialEq, Debug, TypeInfo)]
 pub struct ParaInfo {
 	/// Best known parachain head hash.
 	pub best_head_hash: BestParaHeadHash,
@@ -102,7 +102,7 @@ impl StorageDoubleMapKeyProvider for ImportedParaHeadsKeyProvider {
 ///
 /// We do not know exact structure of the parachain head, so we always store encoded version
 /// of the `bp_runtime::StoredHeaderData`. It is only decoded when we talk about specific parachain.
-#[derive(Clone, Decode, Encode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, Encode, PartialEq, Debug, TypeInfo)]
 pub struct ParaStoredHeaderData(pub Vec<u8>);
 
 impl ParaStoredHeaderData {

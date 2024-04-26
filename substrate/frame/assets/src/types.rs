@@ -48,7 +48,7 @@ pub(super) enum AssetStatus {
 	Destroying,
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	/// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
 	pub(super) owner: AccountId,
@@ -78,7 +78,7 @@ pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 }
 
 /// Data concerning an approval.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, Default, MaxEncodedLen, TypeInfo)]
 pub struct Approval<Balance, DepositBalance> {
 	/// The amount of funds approved for the balance transfer from the owner to some delegated
 	/// target.
@@ -172,7 +172,7 @@ impl AccountStatus {
 	}
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
 	/// The balance.
 	pub(super) balance: Balance,
@@ -184,7 +184,7 @@ pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
 	pub(super) extra: Extra,
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Default, Debug, MaxEncodedLen, TypeInfo)]
 pub struct AssetMetadata<DepositBalance, BoundedString> {
 	/// The balance deposited for this metadata.
 	///

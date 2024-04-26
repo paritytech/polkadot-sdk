@@ -78,7 +78,7 @@ impl<Block: BlockT> fmt::Display for BlockId<Block> {
 }
 
 /// Abstraction over a substrate block.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -123,7 +123,7 @@ where
 }
 
 /// Abstraction over a substrate block and justification.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

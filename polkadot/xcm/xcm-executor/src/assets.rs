@@ -29,7 +29,7 @@ use xcm::latest::{
 };
 
 /// Map of non-wildcard fungible and non-fungible assets held in the holding register.
-#[derive(Default, Clone, RuntimeDebug, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct AssetsInHolding {
 	/// The fungible assets.
 	pub fungible: BTreeMap<AssetId, u128>,

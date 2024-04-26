@@ -375,7 +375,7 @@ impl OutboundChannelDetails {
 	}
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub struct QueueConfigData {
 	/// The number of pages which must be in the queue for the other side to be told to suspend
 	/// their sending.

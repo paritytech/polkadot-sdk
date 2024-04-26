@@ -228,7 +228,7 @@ pub struct BalancingConfig {
 pub type CandidatePtr<A> = Rc<RefCell<Candidate<A>>>;
 
 /// A candidate entity for the election.
-#[derive(RuntimeDebug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Candidate<AccountId> {
 	/// Identifier.
 	who: AccountId,
@@ -412,7 +412,7 @@ impl<AccountId: IdentifierT> Voter<AccountId> {
 }
 
 /// Final result of the election.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct ElectionResult<AccountId, P: PerThing> {
 	/// Just winners zipped with their approval stake. Note that the approval stake is merely the
 	/// sub of their received stake and could be used for very basic sorting and approval voting.
@@ -429,7 +429,7 @@ pub struct ElectionResult<AccountId, P: PerThing> {
 ///
 /// This, at the current version, resembles the `Exposure` defined in the Staking pallet, yet they
 /// do not necessarily have to be the same.
-#[derive(RuntimeDebug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Support<AccountId> {
 	/// Total support.

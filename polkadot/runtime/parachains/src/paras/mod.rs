@@ -289,7 +289,7 @@ impl<N: Ord + Copy + PartialEq> ParaPastCodeMeta<N> {
 }
 
 /// Arguments for initializing a para.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, Serialize, Deserialize)]
 pub struct ParaGenesisArgs {
 	/// The initial head data to use.
 	pub genesis_head: HeadData,

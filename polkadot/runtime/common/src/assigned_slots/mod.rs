@@ -53,7 +53,7 @@ pub enum SlotLeasePeriodStart {
 }
 
 /// Information about a temporary parachain slot.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, MaxEncodedLen, Debug, TypeInfo)]
 pub struct ParachainTemporarySlot<AccountId, LeasePeriod> {
 	/// Manager account of the para.
 	pub manager: AccountId,

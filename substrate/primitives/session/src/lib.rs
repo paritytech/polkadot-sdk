@@ -39,7 +39,7 @@ pub use runtime_api::*;
 pub type ValidatorCount = u32;
 
 /// Proof of membership of a specific key in a given session.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, Debug, scale_info::TypeInfo)]
 pub struct MembershipProof {
 	/// The session index on which the specific key is a member.
 	pub session: SessionIndex,

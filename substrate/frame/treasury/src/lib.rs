@@ -142,7 +142,7 @@ pub type ProposalIndex = u32;
 
 /// A spending proposal.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo)]
 pub struct Proposal<AccountId, Balance> {
 	/// The account proposing it.
 	proposer: AccountId,
@@ -168,7 +168,7 @@ pub enum PaymentState<Id> {
 
 /// Info regarding an approved treasury spend.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo)]
 pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
 	// The kind of asset to be spent.
 	asset_kind: AssetKind,

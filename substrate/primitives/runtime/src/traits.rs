@@ -176,7 +176,7 @@ where
 }
 
 /// An error type that indicates that the origin is invalid.
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode, Debug)]
 pub struct BadOrigin;
 
 impl From<BadOrigin> for &'static str {
@@ -186,7 +186,7 @@ impl From<BadOrigin> for &'static str {
 }
 
 /// An error that indicates that a lookup failed.
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode, Debug)]
 pub struct LookupError;
 
 impl From<LookupError> for &'static str {
@@ -1023,7 +1023,7 @@ impl<T> HashOutput for T where
 }
 
 /// Blake2-256 Hash implementation.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BlakeTwo256;
 
@@ -1050,7 +1050,7 @@ impl Hash for BlakeTwo256 {
 }
 
 /// Keccak-256 Hash implementation.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Keccak256;
 

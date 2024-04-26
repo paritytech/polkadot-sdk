@@ -24,7 +24,7 @@ use sp_std::vec::Vec;
 pub(crate) const LOG: &str = "runtime::dmp-queue-export-xcms";
 
 /// The old `PageIndexData` struct.
-#[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, Debug, TypeInfo)]
 pub struct PageIndexData {
 	/// The lowest used page index.
 	pub begin_used: PageCounter,

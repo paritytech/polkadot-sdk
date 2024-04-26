@@ -8,7 +8,7 @@ use sp_std::prelude::*;
 
 use crate::types::{BeaconHeader, SyncAggregate, SyncCommittee};
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, Debug, TypeInfo)]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Serialize, serde::Deserialize),
@@ -23,9 +23,7 @@ pub struct CheckpointUpdate<const COMMITTEE_SIZE: usize> {
 	pub block_roots_branch: Vec<H256>,
 }
 
-#[derive(
-	Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
-)]
+#[derive(Default, Encode, Decode, CloneNoBound, PartialEqNoBound, Debug, TypeInfo)]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Deserialize),
@@ -53,9 +51,7 @@ pub struct Update<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize>
 	pub block_roots_branch: Vec<H256>,
 }
 
-#[derive(
-	Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
-)]
+#[derive(Default, Encode, Decode, CloneNoBound, PartialEqNoBound, Debug, TypeInfo)]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Deserialize),

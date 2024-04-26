@@ -107,7 +107,7 @@ pub use sp_storage as storage;
 pub use sp_std;
 
 /// Hex-serialized shim for `Vec<u8>`.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Hash, PartialOrd, Ord))]
 pub struct Bytes(#[cfg_attr(feature = "serde", serde(with = "bytes"))] pub Vec<u8>);
 
@@ -166,17 +166,7 @@ impl sp_std::ops::Deref for OpaqueMetadata {
 
 /// Simple blob to hold a `PeerId` without committing to its format.
 #[derive(
-	Default,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	RuntimeDebug,
-	PassByInner,
-	TypeInfo,
+	Default, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, PassByInner, TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct OpaquePeerId(pub Vec<u8>);
