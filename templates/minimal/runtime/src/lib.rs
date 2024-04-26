@@ -58,7 +58,7 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-// The signed extensions that are added to the runtime.
+/// The signed extensions that are added to the runtime.
 type SignedExtra = (
 	// Checks that the sender is not the zero address.
 	frame_system::CheckNonZeroSender<Runtime>,
@@ -136,21 +136,21 @@ impl frame_system::Config for Runtime {
 }
 
 // Implements the types required for the balances pallet.
-#[derive_impl(pallet_balances::config_preludes::SolochainDefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
 }
 
 // Implements the types required for the sudo pallet.
-#[derive_impl(pallet_sudo::config_preludes::SolochainDefaultConfig)]
+#[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig)]
 impl pallet_sudo::Config for Runtime {}
 
 // Implements the types required for the sudo pallet.
-#[derive_impl(pallet_timestamp::config_preludes::SolochainDefaultConfig)]
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Runtime {}
 
 // Implements the types required for the transaction payment pallet.
-#[derive_impl(pallet_transaction_payment::config_preludes::SolochainDefaultConfig)]
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	// Setting fee as independent of the weight of the extrinsic for demo purposes
