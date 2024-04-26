@@ -93,7 +93,7 @@ fn deposit_from_set_types_works() {
 		System::assert_has_event(RuntimeEvent::Assets(crate::Event::Deposited {
 			asset_id: asset1,
 			who: account2,
-			amount: 50
+			amount: 50,
 		}));
 
 		assert_eq!(imb.peek(), 50);
@@ -345,7 +345,7 @@ fn withdraw_from_set_types_works() {
 		System::assert_has_event(RuntimeEvent::Assets(crate::Event::Withdrawn {
 			asset_id: asset1,
 			who: account2,
-			amount: 50
+			amount: 50,
 		}));
 
 		assert_eq!(imb.peek(), 50);
