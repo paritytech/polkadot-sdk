@@ -15,39 +15,67 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
+	configuration::TestAuthorities,
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
 	mock::{
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
 		prospective_parachains::MockProspectiveParachains,
-		runtime_api::MockRuntimeApi,
+		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
 	usage::BenchmarkUsage,
+	NODE_UNDER_TEST,
 };
 use colored::Colorize;
+use itertools::Itertools;
 use polkadot_node_metrics::metrics::Metrics;
-use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
+use polkadot_node_network_protocol::{
+	grid_topology::{SessionGridTopology, TopologyPeerInfo},
+	request_response::{IncomingRequest, ReqProtocolNames},
+	view, View,
+};
 use polkadot_node_primitives::{SignedFullStatementWithPVD, Statement};
-use polkadot_node_subsystem::messages::{AllMessages, StatementDistributionMessage};
+use polkadot_node_subsystem::messages::{
+	network_bridge_event::NewGossipTopology, AllMessages, NetworkBridgeEvent,
+	StatementDistributionMessage,
+};
 use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
-use polkadot_primitives::{Block, Hash, SigningContext, ValidatorIndex, ValidatorPair};
+use polkadot_primitives::{
+	AuthorityDiscoveryId, Block, Hash, SigningContext, ValidatorId, ValidatorIndex,
+};
 use polkadot_statement_distribution::StatementDistributionSubsystem;
 use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
 use sc_network::request_responses::ProtocolConfig;
+use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use sp_core::Pair;
-use std::{sync::Arc, time::Instant};
+use sp_keystore::{Keystore, KeystorePtr};
+use sp_runtime::RuntimeAppPublic;
+use std::{
+	sync::{atomic::Ordering, Arc},
+	time::{Duration, Instant},
+};
 pub use test_state::TestState;
+use tokio::time::sleep;
 
 mod test_state;
 
-const LOG_TARGET: &str = "subsystem-bench::availability";
+const LOG_TARGET: &str = "subsystem-bench::statement";
+
+pub fn make_keystore() -> KeystorePtr {
+	let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
+	Keystore::sr25519_generate_new(&*keystore, ValidatorId::ID, Some("//Node0"))
+		.expect("Insert key into keystore");
+	Keystore::sr25519_generate_new(&*keystore, AuthorityDiscoveryId::ID, Some("//Node0"))
+		.expect("Insert key into keystore");
+	keystore
+}
 
 fn build_overseer(
 	state: &TestState,
@@ -68,6 +96,7 @@ fn build_overseer(
 		Default::default(),
 		Default::default(),
 		0,
+		MockRuntimeApiCoreState::Scheduled,
 	);
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
@@ -80,8 +109,9 @@ fn build_overseer(
 		Block,
 		sc_network::NetworkWorker<Block, Hash>,
 	>(&ReqProtocolNames::new(GENESIS_HASH, None));
+	let keystore = make_keystore();
 	let subsystem = StatementDistributionSubsystem::new(
-		Arc::new(LocalKeystore::in_memory()),
+		keystore.clone(),
 		statement_req_receiver,
 		candidate_req_receiver,
 		Metrics::try_register(&dependencies.registry).unwrap(),
@@ -106,8 +136,12 @@ pub fn prepare_test(
 	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	let dependencies = TestEnvironmentDependencies::default();
-	let (network, network_interface, network_receiver) =
-		new_network(&state.config, &dependencies, &state.test_authorities, vec![]);
+	let (network, network_interface, network_receiver) = new_network(
+		&state.config,
+		&dependencies,
+		&state.test_authorities,
+		vec![Arc::new(state.clone())],
+	);
 	let network_bridge_tx = MockNetworkBridgeTx::new(
 		network.clone(),
 		network_interface.subsystem_sender(),
@@ -131,6 +165,52 @@ pub fn prepare_test(
 	)
 }
 
+pub fn generate_peer_view_change(block_hash: Hash, peer_id: PeerId) -> AllMessages {
+	let network = NetworkBridgeEvent::PeerViewChange(peer_id, View::new([block_hash], 0));
+
+	AllMessages::StatementDistribution(StatementDistributionMessage::NetworkBridgeUpdate(network))
+}
+
+pub fn generate_new_session_topology(
+	test_authorities: &TestAuthorities,
+	test_node: ValidatorIndex,
+) -> Vec<AllMessages> {
+	let topology = generate_topology(test_authorities);
+
+	let event = NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+		session: 0,
+		topology,
+		local_index: Some(test_node),
+	});
+	vec![AllMessages::StatementDistribution(StatementDistributionMessage::NetworkBridgeUpdate(
+		event,
+	))]
+}
+
+/// Generates a topology to be used for this benchmark.
+pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopology {
+	let keyrings = test_authorities
+		.validator_authority_id
+		.clone()
+		.into_iter()
+		.zip(test_authorities.peer_ids.clone())
+		.collect_vec();
+
+	let topology = keyrings
+		.clone()
+		.into_iter()
+		.enumerate()
+		.map(|(index, (discovery_id, peer_id))| TopologyPeerInfo {
+			peer_ids: vec![peer_id],
+			validator_index: ValidatorIndex(index as u32),
+			discovery_id,
+		})
+		.collect_vec();
+	let shuffled = (0..keyrings.len()).collect_vec();
+
+	SessionGridTopology::new(shuffled, topology)
+}
+
 pub async fn benchmark_statement_distribution(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
@@ -141,38 +221,101 @@ pub async fn benchmark_statement_distribution(
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
-	let pair = ValidatorPair::generate().0;
+	// First create the initialization messages that make sure that then node under
+	// tests receives notifications about the topology used and the connected peers.
+	let mut initialization_messages =
+		env.network().generate_statement_distribution_peer_connected();
+	initialization_messages.extend(generate_new_session_topology(
+		&state.test_authorities,
+		ValidatorIndex(NODE_UNDER_TEST),
+	));
+	for message in initialization_messages {
+		env.send_message(message).await;
+	}
+	let pair = state.validator_pairs.get(NODE_UNDER_TEST as usize).unwrap();
 
 	let test_start = Instant::now();
 	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
-		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num, config.num_blocks);
+		gum::info!(target: LOG_TARGET, "Current block {}/{} {}", block_num, config.num_blocks, block_info.hash);
 		env.metrics().set_current_block(block_num);
 		env.import_block(block_info.clone()).await;
 
-		let receipts = state
+		for update in env
+			.network()
+			.generate_statement_distribution_peer_view_change(view![block_info.hash])
+		{
+			env.send_message(update).await;
+		}
+
+		let receipt = state
 			.commited_candidate_receipts
 			.get(&block_info.hash)
 			.expect("Pregenerated")
 			.clone();
+		let candidate_hash = receipt.hash();
+		let statement = Statement::Seconded(receipt.clone());
+		let context = SigningContext { parent_hash: block_info.hash, session_index: 0 };
+		let payload = statement.to_compact().signing_payload(&context);
+		let signature = pair.sign(&payload[..]);
+		let message = AllMessages::StatementDistribution(StatementDistributionMessage::Share(
+			block_info.hash,
+			SignedFullStatementWithPVD::new(
+				statement.supply_pvd(state.persisted_validation_data.clone()),
+				ValidatorIndex(0),
+				signature,
+				&context,
+				&pair.public(),
+			)
+			.unwrap(),
+		));
+		env.send_message(message).await;
 
-		for receipt in receipts {
-			let statement = Statement::Seconded(receipt);
-			let context = SigningContext { parent_hash: block_info.parent_hash, session_index: 0 };
-			let payload = statement.to_compact().signing_payload(&context);
-			let signature = pair.sign(&payload[..]);
-			let message = AllMessages::StatementDistribution(StatementDistributionMessage::Share(
-				block_info.hash,
-				SignedFullStatementWithPVD::new(
-					statement.supply_pvd(state.persisted_validation_data.clone()),
-					ValidatorIndex(0),
-					signature,
-					&context,
-					&pair.public(),
-				)
-				.unwrap(),
-			));
-			env.send_message(message).await;
+		loop {
+			let seconded_count = state
+				.seconded_count
+				.get(&candidate_hash)
+				.expect("Pregenerated")
+				.load(Ordering::SeqCst);
+			gum::info!(target: LOG_TARGET, seconded_count = ?seconded_count);
+			if seconded_count < 4 {
+				sleep(Duration::from_millis(50)).await;
+			} else {
+				break;
+			}
+		}
+
+		loop {
+			let statements_count = state
+				.statements_count
+				.get(&candidate_hash)
+				.expect("Pregenerated")
+				.load(Ordering::SeqCst);
+			gum::info!(target: LOG_TARGET, statements_count = ?statements_count);
+			if statements_count < 9 {
+				sleep(Duration::from_millis(50)).await;
+			} else {
+				break;
+			}
+		}
+
+		let message = AllMessages::StatementDistribution(StatementDistributionMessage::Backed(
+			candidate_hash,
+		));
+		env.send_message(message).await;
+
+		loop {
+			let known_count = state
+				.known_count
+				.get(&candidate_hash)
+				.expect("Pregenerated")
+				.load(Ordering::SeqCst);
+			gum::info!(target: LOG_TARGET, known_count = ?known_count);
+			if known_count < 16 {
+				sleep(Duration::from_millis(50)).await;
+			} else {
+				break;
+			}
 		}
 	}
 

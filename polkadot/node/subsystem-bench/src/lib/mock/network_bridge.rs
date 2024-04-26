@@ -27,7 +27,10 @@ use polkadot_node_subsystem::{
 	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::{
-	messages::{ApprovalDistributionMessage, BitfieldDistributionMessage, NetworkBridgeEvent},
+	messages::{
+		ApprovalDistributionMessage, BitfieldDistributionMessage, NetworkBridgeEvent,
+		StatementDistributionMessage,
+	},
 	OverseerSignal,
 };
 use sc_network::{request_responses::ProtocolConfig, RequestFailure};
@@ -141,7 +144,7 @@ impl MockNetworkBridgeTx {
 								.expect("Should not fail");
 						}
 					},
-					_ => unimplemented!("Unexpected network bridge message"),
+					message => unimplemented!("Unexpected network bridge message {:?}", message),
 				},
 			}
 		}
@@ -173,6 +176,13 @@ impl MockNetworkBridgeRx {
 								) => {
 									ctx.send_message(
 										ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V3(msg)))
+									).await;
+								}
+								Versioned::V3(
+									polkadot_node_network_protocol::v3::ValidationProtocol::StatementDistribution(msg)
+								) => {
+									ctx.send_message(
+										StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V3(msg)))
 									).await;
 								}
 								_ => {

@@ -14,24 +14,40 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::configuration::{TestAuthorities, TestConfiguration};
+use crate::{
+	configuration::{TestAuthorities, TestConfiguration},
+	network::{HandleNetworkMessage, NetworkMessage},
+};
 use colored::Colorize;
+use futures::SinkExt;
 use itertools::Itertools;
+use polkadot_node_network_protocol::{
+	v3::{BackedCandidateAcknowledgement, StatementDistributionMessage, ValidationProtocol},
+	Versioned,
+};
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	BlockNumber, CandidateReceipt, CommittedCandidateReceipt, Hash, HeadData, Header,
-	PersistedValidationData,
+	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CompactStatement,
+	Hash, HeadData, Header, PersistedValidationData, SignedStatement, SigningContext,
+	ValidatorIndex, ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{dummy_committed_candidate_receipt, dummy_hash};
-use sp_core::H256;
-use std::{collections::HashMap, sync::Arc};
+use sp_core::{Pair, H256};
+use std::{
+	collections::HashMap,
+	sync::{
+		atomic::{AtomicBool, AtomicU32, Ordering},
+		Arc,
+	},
+};
 
 const LOG_TARGET: &str = "subsystem-bench::statement::test_state";
 
+#[derive(Clone)]
 pub struct TestState {
 	// Full test config
 	pub config: TestConfiguration,
@@ -42,11 +58,18 @@ pub struct TestState {
 	// Map from generated candidate receipts
 	pub candidate_receipts: HashMap<H256, Vec<CandidateReceipt>>,
 	// Map from generated commited candidate receipts
-	pub commited_candidate_receipts: HashMap<H256, Vec<CommittedCandidateReceipt>>,
+	pub commited_candidate_receipts: HashMap<H256, CommittedCandidateReceipt>,
 	// TODO
 	pub persisted_validation_data: PersistedValidationData,
 	// Relay chain block headers
 	pub block_headers: HashMap<H256, Header>,
+	// TODO
+	pub validator_pairs: Vec<ValidatorPair>,
+	// TODO
+	pub seconded_tracker: HashMap<CandidateHash, HashMap<u32, Arc<AtomicBool>>>,
+	pub seconded_count: HashMap<CandidateHash, Arc<AtomicU32>>,
+	pub statements_count: HashMap<CandidateHash, Arc<AtomicU32>>,
+	pub known_count: HashMap<CandidateHash, Arc<AtomicU32>>,
 }
 
 impl TestState {
@@ -64,6 +87,11 @@ impl TestState {
 				relay_parent_storage_root: Default::default(),
 			},
 			block_headers: Default::default(),
+			validator_pairs: Default::default(),
+			seconded_tracker: Default::default(),
+			seconded_count: Default::default(),
+			statements_count: Default::default(),
+			known_count: Default::default(),
 		};
 
 		// For each unique pov we create a candidate receipt.
@@ -117,46 +145,146 @@ impl TestState {
 			})
 			.collect::<HashMap<_, _>>();
 
-		// Generate all candidates
-		let candidates_count = config.n_cores * config.num_blocks;
-		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", candidates_count).bright_blue());
-		let candidates = (0..candidates_count)
-			.map(|index| {
-				let pov_size =
-					pov_sizes.get(index % pov_sizes.len()).expect("This is a cycle; qed");
-				let candidate_index =
-					*pov_size_to_candidate.get(&pov_size).expect("pov_size always exists; qed");
-				let mut candidate_receipt =
-					commited_candidate_receipt_templates[candidate_index].clone();
+		for (index, info) in test_state.block_infos.iter().enumerate() {
+			let pov_size = pov_sizes.get(index % pov_sizes.len()).expect("This is a cycle; qed");
+			let candidate_index =
+				*pov_size_to_candidate.get(pov_size).expect("pov_size always exists; qed");
+			let mut receipt = commited_candidate_receipt_templates[candidate_index].clone();
+			receipt.descriptor.relay_parent = info.hash;
+			gum::debug!(target: LOG_TARGET, candidate_hash = ?receipt.hash(), "new candidate");
 
-				// Make it unique.
-				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
+			let descriptor = receipt.descriptor.clone();
+			let commitments_hash = receipt.commitments.hash();
+			let candidate_hash = receipt.hash();
+			test_state.commited_candidate_receipts.insert(info.hash, receipt);
+			test_state
+				.candidate_receipts
+				.insert(info.hash, vec![CandidateReceipt { descriptor, commitments_hash }]);
 
-				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
-
-				candidate_receipt
-			})
-			.collect::<Vec<_>>();
-
-		for info in test_state.block_infos.iter() {
-			for _ in 0..config.n_cores {
-				let receipt = candidates
-					.get(config.num_blocks * config.n_cores % candidates.len())
-					.expect("Cycle");
-				test_state
-					.commited_candidate_receipts
-					.entry(info.hash)
-					.or_default()
-					.push(receipt.clone());
-				test_state.candidate_receipts.entry(info.hash).or_default().push(
-					CandidateReceipt {
-						descriptor: receipt.descriptor.clone(),
-						commitments_hash: receipt.commitments.hash(),
-					},
-				);
-			}
+			test_state.seconded_tracker.insert(
+				candidate_hash,
+				HashMap::from_iter(
+					(1..=config.max_validators_per_core)
+						.map(|index| (index as u32, Arc::new(AtomicBool::new(false)))),
+				),
+			);
+			test_state.seconded_count.insert(candidate_hash, Arc::new(AtomicU32::new(1))); // one seconded in node under test
+			test_state.statements_count.insert(candidate_hash, Arc::new(AtomicU32::new(0)));
+			test_state.known_count.insert(candidate_hash, Arc::new(AtomicU32::new(0)));
 		}
 
+		test_state.validator_pairs = test_state
+			.test_authorities
+			.key_seeds
+			.iter()
+			.map(|seed| ValidatorPair::from_string_with_seed(seed, None).unwrap().0)
+			.collect();
+
 		test_state
+	}
+}
+
+impl HandleNetworkMessage for TestState {
+	fn handle(
+		&self,
+		message: NetworkMessage,
+		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
+	) -> Option<NetworkMessage> {
+		match message {
+			NetworkMessage::MessageFromNode(
+				authority_id,
+				Versioned::V3(ValidationProtocol::StatementDistribution(
+					StatementDistributionMessage::Statement(relay_parent, statement),
+				)),
+			) => {
+				let index = self
+					.test_authorities
+					.validator_authority_id
+					.iter()
+					.position(|v| v == &authority_id)
+					.expect("Should exist") as u32;
+				let candidate_hash = *statement.unchecked_payload().candidate_hash();
+				self.statements_count
+					.get(&candidate_hash)
+					.expect("Pregenerated")
+					.as_ref()
+					.fetch_add(1, Ordering::SeqCst);
+
+				let known = self
+					.seconded_tracker
+					.get(&candidate_hash)
+					.expect("Pregenerated")
+					.get(&index)
+					.expect("Pregenerated")
+					.as_ref();
+
+				if known.load(Ordering::SeqCst) {
+					return None
+				} else {
+					known.store(true, Ordering::SeqCst);
+				}
+				let statement = CompactStatement::Seconded(candidate_hash);
+				let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+				let payload = statement.signing_payload(&context);
+				let pair = self.validator_pairs.get(index as usize).expect("Must exist");
+				let signature = pair.sign(&payload[..]);
+				let statement = SignedStatement::new(
+					statement,
+					ValidatorIndex(index),
+					signature,
+					&context,
+					&pair.public(),
+				)
+				.unwrap();
+				let unchecked = statement.as_unchecked().clone();
+
+				node_sender
+					.start_send_unpin(NetworkMessage::MessageFromPeer(
+						*self.test_authorities.peer_ids.get(index as usize).expect("Must exist"),
+						Versioned::V3(ValidationProtocol::StatementDistribution(
+							StatementDistributionMessage::Statement(relay_parent, unchecked),
+						)),
+					))
+					.unwrap();
+				self.seconded_count
+					.get(&candidate_hash)
+					.expect("Pregenerated")
+					.as_ref()
+					.fetch_add(1, Ordering::SeqCst);
+				None
+			},
+			NetworkMessage::MessageFromNode(
+				authority_id,
+				Versioned::V3(ValidationProtocol::StatementDistribution(
+					StatementDistributionMessage::BackedCandidateManifest(manifest),
+				)),
+			) => {
+				let index = self
+					.test_authorities
+					.validator_authority_id
+					.iter()
+					.position(|v| v == &authority_id)
+					.expect("Should exist");
+				let ack = BackedCandidateAcknowledgement {
+					candidate_hash: manifest.candidate_hash,
+					statement_knowledge: manifest.statement_knowledge,
+				};
+				node_sender
+					.start_send_unpin(NetworkMessage::MessageFromPeer(
+						*self.test_authorities.peer_ids.get(index).expect("Must exist"),
+						Versioned::V3(ValidationProtocol::StatementDistribution(
+							StatementDistributionMessage::BackedCandidateKnown(ack),
+						)),
+					))
+					.unwrap();
+				self.known_count
+					.get(&manifest.candidate_hash)
+					.expect("Pregenerated")
+					.as_ref()
+					.fetch_add(1, Ordering::SeqCst);
+				None
+			},
+			_ => Some(message),
+		}
 	}
 }

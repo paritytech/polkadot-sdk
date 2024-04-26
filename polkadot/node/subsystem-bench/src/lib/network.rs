@@ -53,10 +53,11 @@ use itertools::Itertools;
 use net_protocol::{
 	peer_set::{ProtocolVersion, ValidationVersion},
 	request_response::{Recipient, Requests, ResponseSender},
-	ObservedRole, VersionedValidationProtocol,
+	ObservedRole, VersionedValidationProtocol, View,
 };
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{self as net_protocol, Versioned};
+use polkadot_node_subsystem::messages::StatementDistributionMessage;
 use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, NetworkBridgeEvent};
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, CounterVec, Opts, PrometheusError, Registry,
@@ -437,6 +438,7 @@ pub struct EmulatedPeerHandle {
 	/// Send actions to be performed by the peer.
 	actions_tx: UnboundedSender<NetworkMessage>,
 	peer_id: PeerId,
+	authority_id: AuthorityDiscoveryId,
 }
 
 impl EmulatedPeerHandle {
@@ -613,6 +615,7 @@ async fn emulated_peer_loop(
 }
 
 /// Creates a new peer emulator task and returns a handle to it.
+#[allow(clippy::too_many_arguments)]
 pub fn new_peer(
 	bandwidth: usize,
 	spawn_task_handle: SpawnTaskHandle,
@@ -621,6 +624,7 @@ pub fn new_peer(
 	to_network_interface: UnboundedSender<NetworkMessage>,
 	latency_ms: usize,
 	peer_id: PeerId,
+	authority_id: AuthorityDiscoveryId,
 ) -> EmulatedPeerHandle {
 	let (messages_tx, messages_rx) = mpsc::unbounded::<NetworkMessage>();
 	let (actions_tx, actions_rx) = mpsc::unbounded::<NetworkMessage>();
@@ -649,7 +653,7 @@ pub fn new_peer(
 		.boxed(),
 	);
 
-	EmulatedPeerHandle { messages_tx, actions_tx, peer_id }
+	EmulatedPeerHandle { messages_tx, actions_tx, peer_id, authority_id }
 }
 
 /// Book keeping of sent and received bytes.
@@ -714,6 +718,18 @@ impl Peer {
 			Peer::Disconnected(ref emulator) => emulator,
 		}
 	}
+
+	pub fn authority_id(&self) -> AuthorityDiscoveryId {
+		match self {
+			Peer::Connected(handle) | Peer::Disconnected(handle) => handle.authority_id.clone(),
+		}
+	}
+
+	pub fn peer_id(&self) -> PeerId {
+		match self {
+			Peer::Connected(handle) | Peer::Disconnected(handle) => handle.peer_id,
+		}
+	}
 }
 
 /// A ha emulated network implementation.
@@ -728,8 +744,41 @@ pub struct NetworkEmulatorHandle {
 }
 
 impl NetworkEmulatorHandle {
+	pub fn generate_statement_distribution_peer_view_change(&self, view: View) -> Vec<AllMessages> {
+		self.peers
+			.iter()
+			.filter(|peer| peer.is_connected())
+			.map(|peer| {
+				AllMessages::StatementDistribution(
+					StatementDistributionMessage::NetworkBridgeUpdate(
+						NetworkBridgeEvent::PeerViewChange(peer.peer_id(), view.clone()),
+					),
+				)
+			})
+			.collect_vec()
+	}
 	/// Generates peer_connected messages for all peers in `test_authorities`
-	pub fn generate_peer_connected(&self) -> Vec<AllMessages> {
+	pub fn generate_statement_distribution_peer_connected(&self) -> Vec<AllMessages> {
+		self.peers
+			.iter()
+			.filter(|peer| peer.is_connected())
+			.map(|peer| {
+				let network = NetworkBridgeEvent::PeerConnected(
+					peer.handle().peer_id,
+					ObservedRole::Authority,
+					ValidationVersion::V3.into(),
+					Some(vec![peer.authority_id()].into_iter().collect()),
+				);
+
+				AllMessages::StatementDistribution(
+					StatementDistributionMessage::NetworkBridgeUpdate(network),
+				)
+			})
+			.collect_vec()
+	}
+
+	/// Generates peer_connected messages for all peers in `test_authorities`
+	pub fn generate_approval_distribution_peer_connected(&self) -> Vec<AllMessages> {
 		self.peers
 			.iter()
 			.filter(|peer| peer.is_connected())
@@ -772,7 +821,7 @@ pub fn new_network(
 	let (stats, mut peers): (_, Vec<_>) = (0..n_peers)
 		.zip(authorities.validator_authority_id.clone())
 		.map(|(peer_index, authority_id)| {
-			validator_authority_id_mapping.insert(authority_id, peer_index);
+			validator_authority_id_mapping.insert(authority_id.clone(), peer_index);
 			let stats = Arc::new(PeerEmulatorStats::new(peer_index, metrics.clone()));
 			(
 				stats.clone(),
@@ -784,6 +833,7 @@ pub fn new_network(
 					to_network_interface.clone(),
 					random_latency(config.latency.as_ref()),
 					*authorities.peer_ids.get(peer_index).unwrap(),
+					authority_id,
 				)),
 			)
 		})

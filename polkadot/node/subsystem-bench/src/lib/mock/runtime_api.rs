@@ -27,7 +27,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
 	AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, GroupRotationInfo,
-	IndexedVec, NodeFeatures, OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
+	IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex, SessionInfo,
+	ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
@@ -49,11 +50,20 @@ pub struct RuntimeApiState {
 	session_index: SessionIndex,
 }
 
+#[derive(Clone)]
+pub enum MockRuntimeApiCoreState {
+	Occupied,
+	Scheduled,
+	#[allow(dead_code)]
+	Free,
+}
+
 /// A mocked `runtime-api` subsystem.
 #[derive(Clone)]
 pub struct MockRuntimeApi {
 	state: RuntimeApiState,
 	config: TestConfiguration,
+	core_state: MockRuntimeApiCoreState,
 }
 
 impl MockRuntimeApi {
@@ -64,6 +74,7 @@ impl MockRuntimeApi {
 		included_candidates: HashMap<H256, Vec<CandidateEvent>>,
 		babe_epoch: Option<BabeEpoch>,
 		session_index: SessionIndex,
+		core_state: MockRuntimeApiCoreState,
 	) -> MockRuntimeApi {
 		Self {
 			state: RuntimeApiState {
@@ -74,6 +85,7 @@ impl MockRuntimeApi {
 				session_index,
 			},
 			config,
+			core_state,
 		}
 	}
 
@@ -198,16 +210,26 @@ impl MockRuntimeApi {
 									// Ensure test breaks if badly configured.
 									assert!(index < validator_group_count);
 
-									CoreState::Occupied(OccupiedCore {
-										next_up_on_available: None,
-										occupied_since: 0,
-										time_out_at: 0,
-										next_up_on_time_out: None,
-										availability: BitVec::default(),
-										group_responsible: GroupIndex(index as u32),
-										candidate_hash: candidate_receipt.hash(),
-										candidate_descriptor: candidate_receipt.descriptor.clone(),
-									})
+									use MockRuntimeApiCoreState::*;
+									match self.core_state {
+										Occupied => CoreState::Occupied(OccupiedCore {
+											next_up_on_available: None,
+											occupied_since: 0,
+											time_out_at: 0,
+											next_up_on_time_out: None,
+											availability: BitVec::default(),
+											group_responsible: GroupIndex(index as u32),
+											candidate_hash: candidate_receipt.hash(),
+											candidate_descriptor: candidate_receipt
+												.descriptor
+												.clone(),
+										}),
+										Scheduled => CoreState::Scheduled(ScheduledCore {
+											para_id: (index + 1).into(),
+											collator: None,
+										}),
+										Free => todo!(),
+									}
 								})
 								.collect::<Vec<_>>();
 
