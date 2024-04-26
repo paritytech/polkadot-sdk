@@ -1199,6 +1199,55 @@ mod pool_integration {
 			assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, 0);
 			// reporter gets 10% of total staked as reward.
 			assert_eq!(Balances::free_balance(slash_reporter), 100 + total_staked/10);
+
+			// try dissolving pool.
+			assert_ok!(Pools::set_state(
+				RawOrigin::Signed(creator).into(),
+				pool_id,
+				PoolState::Destroying
+			));
+			assert_ok!(Pools::chill(RawOrigin::Signed(creator).into(), pool_id));
+
+			// unbond all members by the creator/admin
+			for i in 300..306 {
+				assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), i, 100));
+			}
+
+			start_era(14);
+			// withdraw all members by the creator/admin
+			for i in 300..306 {
+				assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into(), i, 0));
+			}
+
+			// unbond creator
+			assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), creator, creator_stake));
+
+			start_era(15);
+			System::reset_events();
+
+			// Withdraw self
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into(), creator, 0));
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					PoolsEvent::Withdrawn {
+						member: creator,
+						pool_id,
+						balance: creator_stake,
+						points: creator_stake,
+					},
+					PoolsEvent::MemberRemoved { pool_id, member: creator },
+					PoolsEvent::Destroyed { pool_id },
+				]
+			);
+
+			// Make sure all data is cleaned up.
+			assert!(!Agents::<T>::contains_key(Pools::create_bonded_account(pool_id)));
+			assert!(!System::account_exists(&Pools::create_bonded_account(pool_id)));
+			assert!(!Delegators::<T>::contains_key(creator));
+			for i in 300..306 {
+				assert!(!Delegators::<T>::contains_key(i));
+			}
 		});
 	}
 
