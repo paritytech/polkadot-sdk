@@ -2231,9 +2231,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2080" id="2080">2080</a>
 <a href="#2081" id="2081">2081</a>
 <a href="#2082" id="2082">2082</a>
-<a href="#2083" id="2083">2083</a>
-<a href="#2084" id="2084">2084</a>
-<a href="#2085" id="2085">2085</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2283,10 +2280,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>impls::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
+	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 <span class="comment">// The speculative number of spans are used as an input of the weight annotation of
@@ -2303,7 +2301,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="doccomment">/// The in-code storage version.
-	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">14</span>);
+	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">15</span>);
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -2453,10 +2451,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxExposurePageSize: Get&lt;u32&gt;;
 
-		<span class="doccomment">/// The fraction of the validator set that is safe to be offending.
-		/// After the threshold is reached a new era will be forced.
-		</span><span class="kw">type </span>OffendingValidatorsThreshold: Get&lt;Perbill&gt;;
-
 		<span class="doccomment">/// Something that provides a best-effort sorted list of voters aka electing nominators,
 		/// used for NPoS election.
 		///
@@ -2513,6 +2507,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// WARNING: this only reports slashing and withdraw events for the time being.
 		</span><span class="kw">type </span>EventListeners: sp_staking::OnStakingUpdate&lt;<span class="self">Self</span>::AccountId, BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
+
+		<span class="comment">// `DisablingStragegy` controls how validators are disabled
+		</span><span class="kw">type </span>DisablingStrategy: DisablingStrategy&lt;<span class="self">Self</span>&gt;;
 
 		<span class="doccomment">/// Some parameters of the benchmarking.
 		</span><span class="kw">type </span>BenchmarkingConfig: BenchmarkingConfig;
@@ -2890,19 +2887,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::getter(<span class="kw">fn </span>current_planned_session)]
 	</span><span class="kw">pub type </span>CurrentPlannedSession&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, SessionIndex, ValueQuery&gt;;
 
-	<span class="doccomment">/// Indices of validators that have offended in the active era and whether they are currently
-	/// disabled.
+	<span class="doccomment">/// Indices of validators that have offended in the active era. The offenders are disabled for a
+	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
+	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
+	/// implicitly means that the implementor also controls the max number of disabled validators.
 	///
-	/// This value should be a superset of disabled validators since not all offences lead to the
-	/// validator being disabled (if there was no slash). This is needed to track the percentage of
-	/// validators that have offended in the current era, ensuring a new era is forced if
-	/// `OffendingValidatorsThreshold` is reached. The vec is always kept sorted so that we can find
-	/// whether a given validator has previously offended using binary search. It gets cleared when
-	/// the era ends.
+	/// The vec is always kept sorted so that we can find whether a given validator has previously
+	/// offended using binary search.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::unbounded]
-	#[pallet::getter(<span class="kw">fn </span>offending_validators)]
-	</span><span class="kw">pub type </span>OffendingValidators&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;(u32, bool)&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>DisabledValidators&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u32&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators

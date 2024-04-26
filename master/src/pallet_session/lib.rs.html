@@ -1712,7 +1712,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Validators::&lt;T&gt;::put(<span class="kw-2">&amp;</span>validators);
 
 		<span class="kw">if </span>changed {
-			<span class="comment">// reset disabled validators
+			<span class="comment">// reset disabled validators if active set was changed
 			</span>&lt;DisabledValidators&lt;T&gt;&gt;::take();
 		}
 

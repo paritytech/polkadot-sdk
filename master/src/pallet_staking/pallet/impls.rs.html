@@ -2449,9 +2449,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2298" id="2298">2298</a>
 <a href="#2299" id="2299">2299</a>
 <a href="#2300" id="2300">2300</a>
-<a href="#2301" id="2301">2301</a>
-<a href="#2302" id="2302">2302</a>
-<a href="#2303" id="2303">2303</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2497,7 +2494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{<span class="self">self</span>, Controller, Stash},
 	StakingInterface,
@@ -2959,10 +2956,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// disable all offending validators that have been disabled for the whole era
-		</span><span class="kw">for </span>(index, disabled) <span class="kw">in </span>&lt;OffendingValidators&lt;T&gt;&gt;::get() {
-			<span class="kw">if </span>disabled {
-				T::SessionInterface::disable_validator(index);
-			}
+		</span><span class="kw">for </span>index <span class="kw">in </span>&lt;DisabledValidators&lt;T&gt;&gt;::get() {
+			T::SessionInterface::disable_validator(index);
 		}
 	}
 
@@ -3052,8 +3047,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>&lt;ErasValidatorReward&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>active_era.index, validator_payout);
 			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
 
-			<span class="comment">// Clear offending validators.
-			</span>&lt;OffendingValidators&lt;T&gt;&gt;::kill();
+			<span class="comment">// Clear disabled validators.
+			</span>&lt;DisabledValidators&lt;T&gt;&gt;::kill();
 		}
 	}
 
@@ -3320,14 +3315,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">log!</span>(info, <span class="string">"Setting force era mode {:?}."</span>, mode);
 		ForceEra::&lt;T&gt;::put(mode);
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::ForceEra { mode });
-	}
-
-	<span class="doccomment">/// Ensures that at the end of the current session there will be a new era.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_new_era() {
-		<span class="kw">match </span>ForceEra::&lt;T&gt;::get() {
-			Forcing::ForceAlways | Forcing::ForceNew =&gt; (),
-			<span class="kw">_ </span>=&gt; <span class="self">Self</span>::set_force_era(Forcing::ForceNew),
-		}
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
@@ -3901,7 +3888,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		&gt;],
 		slash_fraction: <span class="kw-2">&amp;</span>[Perbill],
 		slash_session: SessionIndex,
-		disable_strategy: DisableStrategy,
 	) -&gt; Weight {
 		<span class="kw">let </span>reward_proportion = SlashRewardFraction::&lt;T&gt;::get();
 		<span class="kw">let </span><span class="kw-2">mut </span>consumed_weight = Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>);
@@ -3966,7 +3952,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				window_start,
 				now: active_era,
 				reward_proportion,
-				disable_strategy,
 			});
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::SlashReported {
@@ -4440,7 +4425,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::check_nominators()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_exposures()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_paged_exposures()<span class="question-mark">?</span>;
-		<span class="self">Self</span>::check_count()
+		<span class="self">Self</span>::check_count()<span class="question-mark">?</span>;
+		<span class="self">Self</span>::ensure_disabled_validators_sorted()
 	}
 
 	<span class="doccomment">/// Invariants:
@@ -4752,6 +4738,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
 		<span class="macro">ensure!</span>(real_total == ledger.total, <span class="string">"ledger.total corrupt"</span>);
 
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="kw">fn </span>ensure_disabled_validators_sorted() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+		<span class="macro">ensure!</span>(
+			DisabledValidators::&lt;T&gt;::get().windows(<span class="number">2</span>).all(|pair| pair[<span class="number">0</span>] &lt;= pair[<span class="number">1</span>]),
+			<span class="string">"DisabledValidators is not sorted"
+		</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 }

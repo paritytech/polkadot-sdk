@@ -1349,7 +1349,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1198" id="1198">1198</a>
 <a href="#1199" id="1199">1199</a>
 <a href="#1200" id="1200">1200</a>
-<a href="#1201" id="1201">1201</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1665,7 +1664,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>RewardCurve: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>PiecewiseLinear&lt;<span class="lifetime">'static</span>&gt; = <span class="kw-2">&amp;</span>REWARD_CURVE;
 	<span class="kw">pub const </span>MaxExposurePageSize: u32 = <span class="number">64</span>;
 	<span class="kw">pub const </span>MaxNominators: u32 = <span class="number">256</span>;
-	<span class="kw">pub </span>storage OffendingValidatorsThreshold: Perbill = Perbill::from_percent(<span class="number">17</span>);
 	<span class="kw">pub const </span>MaxAuthorities: u32 = <span class="number">100_000</span>;
 	<span class="kw">pub const </span>OnChainMaxWinners: u32 = u32::MAX;
 	<span class="comment">// Unbounded number of election targets and voters.
@@ -1701,7 +1699,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>SessionInterface = <span class="self">Self</span>;
 	<span class="kw">type </span>EraPayout = pallet_staking::ConvertCurve&lt;RewardCurve&gt;;
 	<span class="kw">type </span>MaxExposurePageSize = MaxExposurePageSize;
-	<span class="kw">type </span>OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	<span class="kw">type </span>NextNewSession = Session;
 	<span class="kw">type </span>ElectionProvider = onchain::OnChainExecution&lt;OnChainSeqPhragmen&gt;;
 	<span class="kw">type </span>GenesisElectionProvider = onchain::OnChainExecution&lt;OnChainSeqPhragmen&gt;;
@@ -1716,6 +1713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	<span class="kw">type </span>EventListeners = ();
 	<span class="kw">type </span>WeightInfo = ();
+	<span class="kw">type </span>DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 <span class="macro">parameter_types! </span>{

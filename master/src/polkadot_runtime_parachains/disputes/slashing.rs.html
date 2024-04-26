@@ -868,15 +868,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
 <a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -943,7 +934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	KeyTypeId, Perbill,
 };
 <span class="kw">use </span>sp_session::{GetSessionNumber, GetValidatorCount};
-<span class="kw">use </span>sp_staking::offence::{DisableStrategy, Kind, Offence, OffenceError, ReportOffence};
+<span class="kw">use </span>sp_staking::offence::{Kind, Offence, OffenceError, ReportOffence};
 <span class="kw">use </span>sp_std::{
 	collections::{btree_map::Entry, btree_set::BTreeSet},
 	prelude::<span class="kw-2">*</span>,
@@ -1011,15 +1002,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>time_slot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::TimeSlot {
 		<span class="self">self</span>.time_slot.clone()
-	}
-
-	<span class="kw">fn </span>disable_strategy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DisableStrategy {
-		<span class="kw">match </span><span class="self">self</span>.kind {
-			SlashingOffenceKind::ForInvalid =&gt; DisableStrategy::Always,
-			<span class="comment">// in the future we might change it based on number of disputes initiated:
-			// &lt;https://github.com/paritytech/polkadot/issues/5946&gt;
-			</span>SlashingOffenceKind::AgainstValid =&gt; DisableStrategy::Never,
-		}
 	}
 
 	<span class="kw">fn </span>slash_fraction(<span class="kw-2">&amp;</span><span class="self">self</span>, _offenders: u32) -&gt; Perbill {

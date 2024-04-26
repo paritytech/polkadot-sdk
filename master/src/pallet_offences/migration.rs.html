@@ -331,11 +331,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -361,7 +356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::Weight,
 	Twox64Concat,
 };
-<span class="kw">use </span>sp_staking::offence::{DisableStrategy, OnOffenceHandler};
+<span class="kw">use </span>sp_staking::offence::OnOffenceHandler;
 <span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
@@ -444,12 +439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>deferred = &lt;DeferredOffences&lt;T&gt;&gt;::take();
 	<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"have {} deferred offences, applying."</span>, deferred.len());
 	<span class="kw">for </span>(offences, perbill, session) <span class="kw">in </span>deferred.iter() {
-		<span class="kw">let </span>consumed = T::OnOffenceHandler::on_offence(
-			offences,
-			perbill,
-			<span class="kw-2">*</span>session,
-			DisableStrategy::WhenSlashed,
-		);
+		<span class="kw">let </span>consumed = T::OnOffenceHandler::on_offence(offences, perbill, <span class="kw-2">*</span>session);
 		weight = weight.saturating_add(consumed);
 	}
 

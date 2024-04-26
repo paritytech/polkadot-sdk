@@ -578,104 +578,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
-<a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -701,7 +603,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::{assert_err, assert_noop, assert_ok};
 <span class="kw">use </span>mock::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_core::Get;
-<span class="kw">use </span>sp_npos_elections::{to_supports, StakedAssignment};
 <span class="kw">use </span>sp_runtime::Perbill;
 
 <span class="kw">use </span><span class="kw">crate</span>::mock::RuntimeOrigin;
@@ -805,75 +706,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[test]
-</span><span class="doccomment">/// Replicates the Kusama incident of 8th Dec 2022 and its resolution through the governance
+</span><span class="doccomment">/// Inspired by the Kusama incident of 8th Dec 2022 and its resolution through the governance
 /// fallback.
 ///
-/// After enough slashes exceeded the `Staking::OffendingValidatorsThreshold`, the staking pallet
-/// set `Forcing::ForceNew`. When a new session starts, staking will start to force a new era and
-/// calls &lt;EPM as election_provider&gt;::elect(). If at this point EPM and the staking miners did not
-/// have enough time to queue a new solution (snapshot + solution submission), the election request
-/// fails. If there is no election fallback mechanism in place, EPM enters in emergency mode.
-/// Recovery: Once EPM is in emergency mode, subsequent calls to `elect()` will fail until a new
-/// solution is added to EPM's `QueuedSolution` queue. This can be achieved through
-/// `Call::set_emergency_election_result` or `Call::governance_fallback` dispatchables. Once a new
-/// solution is added to the queue, EPM phase transitions to `Phase::Off` and the election flow
-/// restarts. Note that in this test case, the emergency throttling is disabled.
-</span><span class="kw">fn </span>enters_emergency_phase_after_forcing_before_elect() {
+/// Mass slash of validators shouldn't disable more than 1/3 of them (the byzantine threshold). Also
+/// no new era should be forced which could lead to EPM entering emergency mode.
+</span><span class="kw">fn </span>mass_slash_doesnt_enter_emergency_phase() {
 	<span class="kw">let </span>epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
-	<span class="kw">let </span>(ext, pool_state, <span class="kw">_</span>) = ExtBuilder::default().epm(epm_builder).build_offchainify();
+	<span class="kw">let </span>staking_builder = StakingExtBuilder::default().validator_count(<span class="number">7</span>);
+	<span class="kw">let </span>(<span class="kw-2">mut </span>ext, <span class="kw">_</span>, <span class="kw">_</span>) = ExtBuilder::default()
+		.epm(epm_builder)
+		.staking(staking_builder)
+		.build_offchainify();
 
-	execute_with(ext, || {
-		<span class="macro">log!</span>(
-			trace,
-			<span class="string">"current validators (staking): {:?}"</span>,
-			&lt;Runtime <span class="kw">as </span>pallet_staking::SessionInterface&lt;AccountId&gt;&gt;::validators()
+	ext.execute_with(|| {
+		<span class="macro">assert_eq!</span>(pallet_staking::ForceEra::&lt;Runtime&gt;::get(), pallet_staking::Forcing::NotForcing);
+
+		<span class="kw">let </span>active_set_size_before_slash = Session::validators().len();
+
+		<span class="comment">// Slash more than 1/3 of the active validators
+		</span><span class="kw">let </span><span class="kw-2">mut </span>slashed = slash_half_the_active_set();
+
+		<span class="kw">let </span>active_set_size_after_slash = Session::validators().len();
+
+		<span class="comment">// active set should stay the same before and after the slash
+		</span><span class="macro">assert_eq!</span>(active_set_size_before_slash, active_set_size_after_slash);
+
+		<span class="comment">// Slashed validators are disabled up to a limit
+		</span>slashed.truncate(
+			pallet_staking::UpToLimitDisablingStrategy::&lt;SLASHING_DISABLING_FACTOR&gt;::disable_limit(
+				active_set_size_after_slash,
+			),
 		);
-		<span class="kw">let </span>session_validators_before = Session::validators();
 
-		roll_to_epm_off();
-		<span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_off());
+		<span class="comment">// Find the indices of the disabled validators
+		</span><span class="kw">let </span>active_set = Session::validators();
+		<span class="kw">let </span>expected_disabled = slashed
+			.into_iter()
+			.map(|d| active_set.iter().position(|a| <span class="kw-2">*</span>a == d).unwrap() <span class="kw">as </span>u32)
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="macro">assert_eq!</span>(pallet_staking::ForceEra::&lt;Runtime&gt;::get(), pallet_staking::Forcing::NotForcing);
-		<span class="comment">// slashes so that staking goes into `Forcing::ForceNew`.
-		</span>slash_through_offending_threshold();
-
-		<span class="macro">assert_eq!</span>(pallet_staking::ForceEra::&lt;Runtime&gt;::get(), pallet_staking::Forcing::ForceNew);
-
-		advance_session_delayed_solution(pool_state.clone());
-		<span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_emergency());
-		log_current_time();
-
-		<span class="kw">let </span>era_before_delayed_next = Staking::current_era();
-		<span class="comment">// try to advance 2 eras.
-		</span><span class="macro">assert!</span>(start_next_active_era_delayed_solution(pool_state.clone()).is_ok());
-		<span class="macro">assert_eq!</span>(Staking::current_era(), era_before_delayed_next);
-		<span class="macro">assert!</span>(start_next_active_era(pool_state).is_err());
-		<span class="macro">assert_eq!</span>(Staking::current_era(), era_before_delayed_next);
-
-		<span class="comment">// EPM is still in emergency phase.
-		</span><span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_emergency());
-
-		<span class="comment">// session validator set remains the same.
-		</span><span class="macro">assert_eq!</span>(Session::validators(), session_validators_before);
-
-		<span class="comment">// performs recovery through the set emergency result.
-		</span><span class="kw">let </span>supports = to_supports(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[
-			StakedAssignment { who: <span class="number">21</span>, distribution: <span class="macro">vec!</span>[(<span class="number">21</span>, <span class="number">10</span>)] },
-			StakedAssignment { who: <span class="number">31</span>, distribution: <span class="macro">vec!</span>[(<span class="number">21</span>, <span class="number">10</span>), (<span class="number">31</span>, <span class="number">10</span>)] },
-			StakedAssignment { who: <span class="number">41</span>, distribution: <span class="macro">vec!</span>[(<span class="number">41</span>, <span class="number">10</span>)] },
-		]);
-		<span class="macro">assert!</span>(ElectionProviderMultiPhase::set_emergency_election_result(
-			RuntimeOrigin::root(),
-			supports
-		)
-		.is_ok());
-
-		<span class="comment">// EPM can now roll to signed phase to proceed with elections. The validator set is the
-		// expected (ie. set through `set_emergency_election_result`).
-		</span>roll_to_epm_signed();
-		<span class="comment">//assert!(ElectionProviderMultiPhase::current_phase().is_signed());
-		</span><span class="macro">assert_eq!</span>(Session::validators(), <span class="macro">vec!</span>[<span class="number">21</span>, <span class="number">31</span>, <span class="number">41</span>]);
-		<span class="macro">assert_eq!</span>(Staking::current_era(), era_before_delayed_next.map(|e| e + <span class="number">1</span>));
+		<span class="macro">assert_eq!</span>(Session::disabled_validators(), expected_disabled);
 	});
 }
 
@@ -931,77 +805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[test]
-</span><span class="doccomment">/// Slashed validator sets intentions in the same era of slashing.
-///
-/// When validators are slashed, they are chilled and removed from the current `VoterList`. Thus,
-/// the slashed validator should not be considered in the next validator set. However, if the
-/// slashed validator sets its intention to validate again in the same era when it was slashed and
-/// chilled, the validator may not be removed from the active validator set across eras, provided
-/// it would selected in the subsequent era if there was no slash. Nominators of the slashed
-/// validator will also be slashed and chilled, as expected, but the nomination intentions will
-/// remain after the validator re-set the intention to be validating again.
-///
-/// This behaviour is due to removing implicit chill upon slash
-/// &lt;https://github.com/paritytech/substrate/pull/12420&gt;.
-///
-/// Related to &lt;https://github.com/paritytech/substrate/issues/13714&gt;.
-</span><span class="kw">fn </span>set_validation_intention_after_chilled() {
-	<span class="kw">use </span>frame_election_provider_support::SortedListProvider;
-	<span class="kw">use </span>pallet_staking::{Event, Forcing, Nominators};
-
-	<span class="kw">let </span>(ext, pool_state, <span class="kw">_</span>) = ExtBuilder::default()
-		.epm(EpmExtBuilder::default())
-		.staking(StakingExtBuilder::default())
-		.build_offchainify();
-
-	execute_with(ext, || {
-		<span class="macro">assert_eq!</span>(active_era(), <span class="number">0</span>);
-		<span class="comment">// validator is part of the validator set.
-		</span><span class="macro">assert!</span>(Session::validators().contains(<span class="kw-2">&amp;</span><span class="number">41</span>));
-		<span class="macro">assert!</span>(&lt;Runtime <span class="kw">as </span>pallet_staking::Config&gt;::VoterList::contains(<span class="kw-2">&amp;</span><span class="number">41</span>));
-
-		<span class="comment">// nominate validator 81.
-		</span><span class="macro">assert_ok!</span>(Staking::nominate(RuntimeOrigin::signed(<span class="number">21</span>), <span class="macro">vec!</span>[<span class="number">41</span>]));
-		<span class="macro">assert_eq!</span>(Nominators::&lt;Runtime&gt;::get(<span class="number">21</span>).unwrap().targets, <span class="macro">vec!</span>[<span class="number">41</span>]);
-
-		<span class="comment">// validator is slashed. it is removed from the `VoterList` through chilling but in the
-		// current era, the validator is still part of the active validator set.
-		</span>add_slash(<span class="kw-2">&amp;</span><span class="number">41</span>);
-		<span class="macro">assert!</span>(Session::validators().contains(<span class="kw-2">&amp;</span><span class="number">41</span>));
-		<span class="macro">assert!</span>(!&lt;Runtime <span class="kw">as </span>pallet_staking::Config&gt;::VoterList::contains(<span class="kw-2">&amp;</span><span class="number">41</span>));
-		<span class="macro">assert_eq!</span>(
-			staking_events(),
-			[
-				Event::Chilled { stash: <span class="number">41 </span>},
-				Event::ForceEra { mode: Forcing::ForceNew },
-				Event::SlashReported {
-					validator: <span class="number">41</span>,
-					slash_era: <span class="number">0</span>,
-					fraction: Perbill::from_percent(<span class="number">10</span>)
-				}
-			],
-		);
-
-		<span class="comment">// after the nominator is slashed and chilled, the nominations remain.
-		</span><span class="macro">assert_eq!</span>(Nominators::&lt;Runtime&gt;::get(<span class="number">21</span>).unwrap().targets, <span class="macro">vec!</span>[<span class="number">41</span>]);
-
-		<span class="comment">// validator sets intention to stake again in the same era it was chilled.
-		</span><span class="macro">assert_ok!</span>(Staking::validate(RuntimeOrigin::signed(<span class="number">41</span>), Default::default()));
-
-		<span class="comment">// progress era and check that the slashed validator is still part of the validator
-		// set.
-		</span><span class="macro">assert!</span>(start_next_active_era(pool_state).is_ok());
-		<span class="macro">assert_eq!</span>(active_era(), <span class="number">1</span>);
-		<span class="macro">assert!</span>(Session::validators().contains(<span class="kw-2">&amp;</span><span class="number">41</span>));
-		<span class="macro">assert!</span>(&lt;Runtime <span class="kw">as </span>pallet_staking::Config&gt;::VoterList::contains(<span class="kw-2">&amp;</span><span class="number">41</span>));
-
-		<span class="comment">// nominations are still active as before the slash.
-		</span><span class="macro">assert_eq!</span>(Nominators::&lt;Runtime&gt;::get(<span class="number">21</span>).unwrap().targets, <span class="macro">vec!</span>[<span class="number">41</span>]);
-	})
-}
-
-<span class="attr">#[test]
-</span><span class="doccomment">/// Active ledger balance may fall below ED if account chills before unbonding.
+</span><span class="doccomment">/// Active ledger balance may fall below ED if account chills before unbounding.
 ///
 /// Unbonding call fails if the remaining ledger's stash balance falls below the existential
 /// deposit. However, if the stash is chilled before unbonding, the ledger's active balance may

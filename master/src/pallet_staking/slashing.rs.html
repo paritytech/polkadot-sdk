@@ -984,36 +984,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#833" id="833">833</a>
 <a href="#834" id="834">834</a>
 <a href="#835" id="835">835</a>
-<a href="#836" id="836">836</a>
-<a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
-<a href="#857" id="857">857</a>
-<a href="#858" id="858">858</a>
-<a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
-<a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1066,21 +1036,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Based on research at &lt;https://research.web3.foundation/en/latest/polkadot/slashing/npos.html&gt;
 
 </span><span class="kw">use crate</span>::{
-	BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, NominatorSlashInEra,
-	OffendingValidators, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
+	BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure, NegativeImbalanceOf,
+	NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
 	ValidatorSlashInEra,
 };
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
 	ensure,
-	traits::{Currency, Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
+	traits::{Currency, Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug,
 };
-<span class="kw">use </span>sp_staking::{offence::DisableStrategy, EraIndex};
+<span class="kw">use </span>sp_staking::EraIndex;
 <span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// The proportion of the slashing reward to be paid out on the first slashing detection.
@@ -1236,8 +1206,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The maximum percentage of a slash that ever gets paid out.
 	/// This is f_inf in the paper.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) reward_proportion: Perbill,
-	<span class="doccomment">/// When to disable offenders.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) disable_strategy: DisableStrategy,
 }
 
 <span class="doccomment">/// Computes a slash of a validator and nominators. It returns an unapplied
@@ -1296,18 +1264,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>target_span = spans.compare_and_update_span_slash(params.slash_era, own_slash);
 
 		<span class="kw">if </span>target_span == <span class="prelude-val">Some</span>(spans.span_index()) {
-			<span class="comment">// misbehavior occurred within the current slashing span - take appropriate
-			// actions.
-
-			// chill the validator - it misbehaved in the current span and should
-			// not continue in the next election. also end the slashing span.
+			<span class="comment">// misbehavior occurred within the current slashing span - end current span.
+			// Check &lt;https://github.com/paritytech/polkadot-sdk/issues/2650&gt; for details.
 			</span>spans.end_span(params.now);
-			&lt;Pallet&lt;T&gt;&gt;::chill_stash(params.stash);
 		}
 	}
 
-	<span class="kw">let </span>disable_when_slashed = params.disable_strategy != DisableStrategy::Never;
-	add_offending_validator::&lt;T&gt;(params.stash, disable_when_slashed);
+	add_offending_validator::&lt;T&gt;(<span class="kw-2">&amp;</span>params);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>nominators_slashed = Vec::new();
 	reward_payout += slash_nominators::&lt;T&gt;(params.clone(), prior_slash_p, <span class="kw-2">&amp;mut </span>nominators_slashed);
@@ -1336,54 +1299,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	<span class="kw">if </span>spans.era_span(params.slash_era).map(|s| s.index) == <span class="prelude-val">Some</span>(spans.span_index()) {
-		spans.end_span(params.now);
-		&lt;Pallet&lt;T&gt;&gt;::chill_stash(params.stash);
+		<span class="comment">// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
+		</span>spans.end_span(params.now);
 	}
 
-	<span class="kw">let </span>disable_without_slash = params.disable_strategy == DisableStrategy::Always;
-	add_offending_validator::&lt;T&gt;(params.stash, disable_without_slash);
+	add_offending_validator::&lt;T&gt;(<span class="kw-2">&amp;</span>params);
 }
 
-<span class="doccomment">/// Add the given validator to the offenders list and optionally disable it.
-/// If after adding the validator `OffendingValidatorsThreshold` is reached
-/// a new era will be forced.
-</span><span class="kw">fn </span>add_offending_validator&lt;T: Config&gt;(stash: <span class="kw-2">&amp;</span>T::AccountId, disable: bool) {
-	OffendingValidators::&lt;T&gt;::mutate(|offending| {
-		<span class="kw">let </span>validators = T::SessionInterface::validators();
-		<span class="kw">let </span>validator_index = <span class="kw">match </span>validators.iter().position(|i| i == stash) {
-			<span class="prelude-val">Some</span>(index) =&gt; index,
-			<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
-		};
-
-		<span class="kw">let </span>validator_index_u32 = validator_index <span class="kw">as </span>u32;
-
-		<span class="kw">match </span>offending.binary_search_by_key(<span class="kw-2">&amp;</span>validator_index_u32, |(index, <span class="kw">_</span>)| <span class="kw-2">*</span>index) {
-			<span class="comment">// this is a new offending validator
-			</span><span class="prelude-val">Err</span>(index) =&gt; {
-				offending.insert(index, (validator_index_u32, disable));
-
-				<span class="kw">let </span>offending_threshold =
-					T::OffendingValidatorsThreshold::get() * validators.len() <span class="kw">as </span>u32;
-
-				<span class="kw">if </span>offending.len() &gt;= offending_threshold <span class="kw">as </span>usize {
-					<span class="comment">// force a new era, to select a new validator set
-					</span>&lt;Pallet&lt;T&gt;&gt;::ensure_new_era()
-				}
-
-				<span class="kw">if </span>disable {
-					T::SessionInterface::disable_validator(validator_index_u32);
-				}
-			},
-			<span class="prelude-val">Ok</span>(index) =&gt; {
-				<span class="kw">if </span>disable &amp;&amp; !offending[index].<span class="number">1 </span>{
-					<span class="comment">// the validator had previously offended without being disabled,
-					// let's make sure we disable it now
-					</span>offending[index].<span class="number">1 </span>= <span class="bool-val">true</span>;
-					T::SessionInterface::disable_validator(validator_index_u32);
-				}
-			},
+<span class="doccomment">/// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
+/// validators provided by [`make_disabling_decision`].
+</span><span class="kw">fn </span>add_offending_validator&lt;T: Config&gt;(params: <span class="kw-2">&amp;</span>SlashParams&lt;T&gt;) {
+	DisabledValidators::&lt;T&gt;::mutate(|disabled| {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(offender) =
+			T::DisablingStrategy::decision(params.stash, params.slash_era, <span class="kw-2">&amp;</span>disabled)
+		{
+			<span class="comment">// Add the validator to `DisabledValidators` and disable it. Do nothing if it is
+			// already disabled.
+			</span><span class="kw">if let </span><span class="prelude-val">Err</span>(index) = disabled.binary_search_by_key(<span class="kw-2">&amp;</span>offender, |index| <span class="kw-2">*</span>index) {
+				disabled.insert(index, offender);
+				T::SessionInterface::disable_validator(offender);
+			}
 		}
 	});
+
+	<span class="comment">// `DisabledValidators` should be kept sorted
+	</span><span class="macro">debug_assert!</span>(DisabledValidators::&lt;T&gt;::get().windows(<span class="number">2</span>).all(|pair| pair[<span class="number">0</span>] &lt; pair[<span class="number">1</span>]));
 }
 
 <span class="doccomment">/// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.

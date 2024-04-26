@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DisableStrategy","OffenceError"],"struct":["OffenceDetails"],"trait":["Offence","OffenceReportSystem","OnOffenceHandler","ReportOffence"],"type":["Kind","OffenceCount"]};
+window.SIDEBAR_ITEMS = {"enum":["OffenceError"],"struct":["OffenceDetails"],"trait":["Offence","OffenceReportSystem","OnOffenceHandler","ReportOffence"],"type":["Kind","OffenceCount"]};

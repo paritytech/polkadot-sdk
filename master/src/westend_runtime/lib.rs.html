@@ -2769,7 +2769,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2618" id="2618">2618</a>
 <a href="#2619" id="2619">2619</a>
 <a href="#2620" id="2620">2620</a>
-<a href="#2621" id="2621">2621</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3385,7 +3384,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
 	// of nominators.
 	</span><span class="kw">pub const </span>MaxNominators: u32 = <span class="number">64</span>;
-	<span class="kw">pub const </span>OffendingValidatorsThreshold: Perbill = Perbill::from_percent(<span class="number">17</span>);
 	<span class="kw">pub const </span>MaxNominations: u32 = &lt;NposCompactSolution16 <span class="kw">as </span>frame_election_provider_support::NposSolution&gt;::LIMIT <span class="kw">as </span>u32;
 	<span class="kw">pub const </span>MaxControllersInDeprecationBatch: u32 = <span class="number">751</span>;
 }
@@ -3406,7 +3404,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>SessionInterface = <span class="self">Self</span>;
 	<span class="kw">type </span>EraPayout = pallet_staking::ConvertCurve&lt;RewardCurve&gt;;
 	<span class="kw">type </span>MaxExposurePageSize = MaxExposurePageSize;
-	<span class="kw">type </span>OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	<span class="kw">type </span>NextNewSession = Session;
 	<span class="kw">type </span>ElectionProvider = ElectionProviderMultiPhase;
 	<span class="kw">type </span>GenesisElectionProvider = onchain::OnChainExecution&lt;OnChainSeqPhragmen&gt;;
@@ -3419,6 +3416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	<span class="kw">type </span>EventListeners = NominationPools;
 	<span class="kw">type </span>WeightInfo = weights::pallet_staking::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 <span class="kw">impl </span>pallet_fast_unstake::Config <span class="kw">for </span>Runtime {
@@ -4421,7 +4419,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
-	</span><span class="kw">pub type </span>Unreleased = ();
+	</span><span class="kw">pub type </span>Unreleased = (pallet_staking::migrations::v15::MigrateV14ToV15&lt;Runtime&gt;,);
 }
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
