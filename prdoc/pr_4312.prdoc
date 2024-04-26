@@ -12,8 +12,8 @@ doc:
 
 crates:
   - name: pallet-assets
-    bump: patch
+    bump: minor
   - name: pallet-asset-tx-payment
-    bump: patch
+    bump: minor
   - name: pallet-asset-conversion-tx-payment
-    bump: patch
+    bump: minor
