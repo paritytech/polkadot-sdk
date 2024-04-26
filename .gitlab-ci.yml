@@ -238,30 +238,15 @@ include:
     file: /common/forklift.yml
 
 .codecov:
-  stage: test
-  timeout: 3h
-  extends:
-    - .docker-env
-    - .common-refs
-  variables:
-    # For codecov it's sufficient to run the fuzz tests only once.
-    QUICKCHECK_TESTS: 1
-    RUSTDOCFLAGS: "-Cpanic=abort"
-  script:
-    - rustup component add llvm-tools-preview
-    - date
-    - CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='cargo-test-%p-%m.profraw' time cargo nextest run
-      --workspace
-      --locked
-      --no-fail-fast
-      --partition count:1/5
-      --features try-runtime,experimental > /dev/null || echo "some errors"
-    - mkdir -p target/coverage
-    - date
-    - grcov . --binary-path ./target/release/deps/ -s . -t lcov --branch --ignore-not-existing --ignore '../*' --ignore "/*" -o target/coverage/tests.lcov
-    # - codecov --token "${CODECOV_TOKEN}" --file target/coverage/tests.lcov
-  after_script:
-    - date
+  beore_script:
+    - curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --no-default-keyring --keyring trustedkeys.gpg --import # One-time step  
+    - curl -Os https://cli.codecov.io/latest/linux/codecov
+    - curl -Os https://cli.codecov.io/latest/linux/codecov.SHA256SUM
+    - curl -Os https://cli.codecov.io/latest/linux/codecov.SHA256SUM.sig
+    - gpg --verify codecov.SHA256SUM.sig codecov.SHA256SUM
+    - shasum -a 256 -c codecov.SHA256SUM
+    - chmod +x codecov
+    - cp codecov /usr/local/bin/
 
 #
 #
@@ -304,6 +289,7 @@ test-linux-stable-codecov:
         --branch \
         -o target/coverage/result/
     - ls -l target/coverage/result/    
+    - codecov upload-process -t ${CODECOV_TOKEN} -f target/coverage/result/
   #
 
 
