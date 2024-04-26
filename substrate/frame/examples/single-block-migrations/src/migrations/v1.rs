@@ -184,7 +184,7 @@ mod test {
 			// value.
 			assert_eq!(
 				weight,
-				<MockRuntime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+				<MockRuntime as frame_system::Config>::DbWeight::get().reads_writes(1, 2)
 			);
 
 			// After the migration, the new value should be set as the `current` value.
