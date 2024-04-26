@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["RelayHeadersParams"],"trait":["HeadersRelayer"]};
+window.SIDEBAR_ITEMS = {"struct":["RelayHeaderParams","RelayHeadersParams"],"trait":["HeadersRelayer"]};

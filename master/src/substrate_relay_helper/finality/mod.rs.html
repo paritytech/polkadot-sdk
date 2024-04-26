@@ -425,6 +425,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -452,13 +485,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bp_header_chain::justification::{GrandpaJustification, JustificationVerificationContext};
-<span class="kw">use </span>finality_relay::{FinalityPipeline, FinalitySyncPipeline, HeadersToRelay};
+<span class="kw">use </span>finality_relay::{
+	FinalityPipeline, FinalitySyncPipeline, HeadersToRelay, SourceClient, TargetClient,
+};
 <span class="kw">use </span>pallet_bridge_grandpa::{Call <span class="kw">as </span>BridgeGrandpaCall, Config <span class="kw">as </span>BridgeGrandpaConfig};
 <span class="kw">use </span>relay_substrate_client::{
 	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
 	ChainWithTransactions, Client, HashOf, HeaderOf, SyncHeader,
 };
-<span class="kw">use </span>relay_utils::metrics::MetricsParams;
+<span class="kw">use </span>relay_utils::{metrics::MetricsParams, TrackedTransactionStatus, TransactionTracker};
 <span class="kw">use </span>sp_core::Pair;
 <span class="kw">use </span>std::{fmt::Debug, marker::PhantomData};
 
@@ -700,6 +735,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 	.<span class="kw">await
 	</span>.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, e))
+}
+
+<span class="doccomment">/// Relay single header. No checks are made to ensure that transaction will succeed.
+</span><span class="kw">pub async fn </span>relay_single_header&lt;P: SubstrateFinalitySyncPipeline&gt;(
+	source_client: Client&lt;P::SourceChain&gt;,
+	target_client: Client&lt;P::TargetChain&gt;,
+	transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
+	header_number: BlockNumberOf&lt;P::SourceChain&gt;,
+) -&gt; anyhow::Result&lt;()&gt; {
+	<span class="kw">let </span>finality_source = SubstrateFinalitySource::&lt;P&gt;::new(source_client, <span class="prelude-val">None</span>);
+	<span class="kw">let </span>(header, proof) = finality_source.header_and_finality_proof(header_number).<span class="kw">await</span><span class="question-mark">?</span>;
+	<span class="kw">let </span><span class="prelude-val">Some</span>(proof) = proof <span class="kw">else </span>{
+		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
+			<span class="string">"Unable to submit {} header #{} to {}: no finality proof"</span>,
+			P::SourceChain::NAME,
+			header_number,
+			P::TargetChain::NAME,
+		));
+	};
+
+	<span class="kw">let </span>finality_target = SubstrateFinalityTarget::&lt;P&gt;::new(target_client, transaction_params);
+	<span class="kw">let </span>tx_tracker = finality_target.submit_finality_proof(header, proof, <span class="bool-val">false</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+	<span class="kw">match </span>tx_tracker.wait().<span class="kw">await </span>{
+		TrackedTransactionStatus::Finalized(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(()),
+		TrackedTransactionStatus::Lost =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
+			<span class="string">"Transaction with {} header #{} is considered lost at {}"</span>,
+			P::SourceChain::NAME,
+			header_number,
+			P::TargetChain::NAME,
+		)),
+	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
