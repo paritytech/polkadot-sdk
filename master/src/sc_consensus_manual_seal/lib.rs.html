@@ -1040,7 +1040,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BasicQueue::new(ManualSealVerifier, block_import, <span class="prelude-val">None</span>, spawner, registry)
 }
 
-<span class="doccomment">/// Params required to start the instant sealing authorship task.
+<span class="doccomment">/// Params required to start the manual sealing authorship task.
 </span><span class="kw">pub struct </span>ManualSealParams&lt;B: BlockT, BI, E, C: ProvideRuntimeApi&lt;B&gt;, TP, SC, CS, CIDP, P&gt; {
 	<span class="doccomment">/// Block import instance.
 	</span><span class="kw">pub </span>block_import: BI,
@@ -1068,7 +1068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>create_inherent_data_providers: CIDP,
 }
 
-<span class="doccomment">/// Params required to start the manual sealing authorship task.
+<span class="doccomment">/// Params required to start the instant sealing authorship task.
 </span><span class="kw">pub struct </span>InstantSealParams&lt;B: BlockT, BI, E, C: ProvideRuntimeApi&lt;B&gt;, TP, SC, CIDP, P&gt; {
 	<span class="doccomment">/// Block import instance for well. importing blocks.
 	</span><span class="kw">pub </span>block_import: BI,
