@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714144329211,
+  "lastUpdate": 1714151901062,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -7093,6 +7093,58 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/paritytech/polkadot-sdk/commit/988e30f102b155ab68d664d62ac5c73da171659a"
         },
         "date": 1714144303833,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666662,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15768924471999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00924715232666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02198413662,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011792149840000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "antiyro",
+            "username": "antiyro",
+            "email": "74653697+antiyro@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2a497d297575947b613fe0f3bbac9273a48fd6b0",
+          "message": "fix(seal): shameless fix on sealing typo (#4304)",
+          "timestamp": "2024-04-26T16:23:58Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2a497d297575947b613fe0f3bbac9273a48fd6b0"
+        },
+        "date": 1714151874483,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
