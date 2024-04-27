@@ -396,7 +396,8 @@ pub mod pallet {
 			};
 			ensure!(adjusted_lease_period_at_end <= first_period, Error::<T>::EndTooFarInFuture);
 
-			// Can't start a crowdloan for a lease period that already passed.
+			// Validate the starting period for a crowdloan. 
+			// A crowdloan cannot be initiated for a lease period that has already begun or is in the past.
 			if let Some((current_lease_period, _)) = T::Auctioneer::lease_period_index(now) {
 				ensure!(first_period > current_lease_period, Error::<T>::FirstPeriodInPast);
 			}
