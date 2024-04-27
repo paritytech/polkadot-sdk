@@ -27,7 +27,6 @@ use beefy_primitives::{
 };
 use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
-	migrations::MultiStepMigrator,
 	traits::FromContains,
 };
 use pallet_nis::WithMaximumOf;
@@ -97,8 +96,9 @@ use sp_core::{ConstU128, ConstU8, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, ConstU32, ConvertInto, Extrinsic as ExtrinsicT,
-		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto,
+		Extrinsic as ExtrinsicT, IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion,
+		Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill, RuntimeDebug,
@@ -215,8 +215,8 @@ impl frame_system::Config for Runtime {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type OnSetCode = ();
-	type SingleBlockMigrations = SingleBlockMigration;
-	type MultiBlockMigrator = MultiStepMigrator;
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
 	type PreInherents = ();
 	type PostInherents = ();
 	type PostTransactions = ();
