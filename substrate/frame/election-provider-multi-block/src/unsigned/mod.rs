@@ -25,8 +25,36 @@
 //! - The score of the computed solution is better than the minimum score defined by the verifier
 //! pallet and the current election score stored by the [`crate::signed::Pallet`].
 //!
-//! ## Sync off-chain worker
-
+//! During the unsigned phase, multiple block builders will collaborate to submit the full
+//! solution, one page per block.
+//!
+//! ## Sync/Async off-chain worker
+//!
+//! The unsigned phase relies on a mix of sync and async checks to ensure that the paged unsigned
+//! submissions (and final solution) are correct, namely:
+//!
+//! - Synchronous checks: each block builder will compute the *full* election solution. However,
+//!   only one page
+//! is verified through the [Verifier::verify_synchronous] and submitted through the
+//! [`Call::submit_page_unsigned`] callable as an inherent.
+//! - Asynchronous checks: once all pages are submitted, the [`Call::submit_page_unsigned`] will
+//!   call [`verifier::AsyncVerifier::force_finalize_verification`] to ensure that the full solution
+//! submitted by all the block builders is good.
+//!
+//! In sum, each submitted page is verified using the synchronous verification implemented by the
+//! verifier pallet (i.e. [`verifier::Verifier::verify_synchronous`]). The pages are submitted by
+//! order from [`crate::Pallet::msp`] down to [`crate::Pallet::lsp`]. After successfully submitting
+//! the last page, the [`verifier::AsyncVerifier::force_finalize_verification`], which will perform
+//! the last feasibility checks over the full stored solution.
+//!
+//! At each block of the unsigned phase, the block builder running the node with the off-chain
+//! worker enabled will compute a solution based on the round's snapshot. The solution is pagified
+//! and stored in the local cache.
+//!
+//! The off-chain miner will *always* compute a new solution regardless of whether there
+//! is a queued solution for the current era. The solution will be added to the storage through the
+//! inherent [`Call::submit_page_unsigned`] only if the computed (total) solution score is strictly
+//! better than the current queued solution.
 pub mod miner;
 #[cfg(test)]
 mod tests;
@@ -180,7 +208,7 @@ pub(crate) mod pallet {
 			// if this is the last page, request an async verification finalization which will work
 			// on the queued paged solutions.
 			if page == EPM::<T>::lsp() {
-				<T::Verifier as verifier::AsyncVerifier>::force_finalize_async_verification(
+				<T::Verifier as verifier::AsyncVerifier>::force_finalize_verification(
 					claimed_full_score,
 				)
 				.expect(error_message);
@@ -197,9 +225,15 @@ pub(crate) mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// The off-chain worker implementation
+		///
+		/// The off-chain worker for this pallet will run IFF:
+		///
+		/// - It can obtain the off-chain worker lock;
+		/// - The current block is part of the unsigned phase;
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
-			// get lock for the unsigned phase.
+
 			let mut lock =
 				StorageLock::<BlockAndTime<frame_system::Pallet<T>>>::with_block_deadline(
 					miner::OffchainWorkerMiner::<T>::OFFCHAIN_LOCK,
@@ -227,7 +261,7 @@ pub(crate) mod pallet {
 		}
 
 		fn integrity_test() {
-			// TODO(gpestana)
+			// TODO
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -238,14 +272,25 @@ pub(crate) mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Perform the off-chain worker workload.
+	///
+	/// If the current block is part of the unsigned phase and there are missing solution pages:
+	///
+	/// 1. Compute or restore a mined solution;
+	/// 2. Pagify the solution;
+	/// 3. Calculate the partial score for the page to submit;
+	/// 4. Verify if the *total* solution is strictly better than the current queued solution or
+	///    better than the minimum score, of no queued solution exists.
+	/// 5. Submits the paged solution as an inherent through the [`Call::submit_page_unsigned`]
+	///    callable.
 	pub fn do_sync_offchain_worker(_now: BlockNumberFor<T>) -> Result<(), OffchainMinerError> {
 		let missing_solution_page = <T::Verifier as Verifier>::next_missing_solution_page();
 
 		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
 			(Phase::Unsigned(_), Some(page)) => {
 				let (full_score, partial_score, partial_solution) =
-					//OffchainWorkerMiner::<T>::fetch_or_mine(page).map_err(|e| {
-					OffchainWorkerMiner::<T>::mine(page)?;
+					//OffchainWorkerMiner::<T>::fetch_or_mine(page)?;
+				    OffchainWorkerMiner::<T>::mine(page)?;
 
 				// submit page only if full score improves the current queued score.
 				if <T::Verifier as Verifier>::ensure_score_improves(full_score) {
@@ -275,6 +320,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Ihnerent pre-dispatch checks.
 	pub(crate) fn pre_dispatch_checks(
 		page: PageIndex,
 		claimed_full_score: &ElectionScore,
@@ -283,7 +329,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(crate::Pallet::<T>::current_phase().is_unsigned(), ());
 		ensure!(page <= crate::Pallet::<T>::msp(), ());
 
-		// full solution check.
+		// full solution score check.
 		ensure!(<T::Verifier as Verifier>::ensure_score_improves(*claimed_full_score), ());
 
 		Ok(())

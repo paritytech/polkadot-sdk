@@ -431,9 +431,8 @@ pub trait ElectionProvider {
 		Zero::zero()
 	}
 
-	// TODO(gpestana): needed?
 	/// checked call to `Self::DataProvider::desired_targets()` ensuring the value never exceeds
-	/// [`Self::MaxWinners`].
+	/// [`Self::MaxWinnersPerPage`].
 	fn desired_targets_checked() -> data_provider::Result<u32> {
 		Self::DataProvider::desired_targets().and_then(|desired_targets| {
 			if desired_targets <= Self::MaxWinnersPerPage::get() {

@@ -398,9 +398,7 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 	type SolutionDataProvider = T::SolutionDataProvider;
 
-	fn force_finalize_async_verification(
-		claimed_score: ElectionScore,
-	) -> Result<(), FeasibilityError> {
+	fn force_finalize_verification(claimed_score: ElectionScore) -> Result<(), FeasibilityError> {
 		Self::finalize_async_verification(claimed_score)
 	}
 

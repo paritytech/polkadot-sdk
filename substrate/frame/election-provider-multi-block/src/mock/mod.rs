@@ -478,6 +478,13 @@ pub fn balances(who: AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
+pub fn mine(page: PageIndex) -> Result<(ElectionScore, SolutionOf<T>), ()> {
+	let (_, partial_score, partial_solution) =
+		OffchainWorkerMiner::<T>::mine(page).map_err(|_| ())?;
+
+	Ok((partial_score, partial_solution))
+}
+
 // Pallet events filters.
 
 pub(crate) fn unsigned_events() -> Vec<crate::unsigned::Event<T>> {

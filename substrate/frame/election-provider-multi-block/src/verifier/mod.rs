@@ -229,9 +229,7 @@ pub trait AsyncVerifier: Verifier {
 	type SolutionDataProvider: SolutionDataProvider;
 
 	/// Forces finalizing the async verification.
-	fn force_finalize_async_verification(
-		claimed_score: ElectionScore,
-	) -> Result<(), FeasibilityError>;
+	fn force_finalize_verification(claimed_score: ElectionScore) -> Result<(), FeasibilityError>;
 
 	/// Returns the status of the current verification.
 	fn status() -> Status;

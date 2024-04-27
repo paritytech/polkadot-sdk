@@ -26,6 +26,20 @@ mod solution {
 	fn variant_flipping_works() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			assert!(QueuedSolution::<T>::valid() != QueuedSolution::<T>::invalid());
+
+			let valid_before = QueuedSolution::<T>::valid();
+			let invalid_before = valid_before.other();
+
+			let mock_score = ElectionScore { minimal_stake: 10, ..Default::default() };
+
+			// queue solution and flip variant.
+			QueuedSolution::<T>::finalize_solution(mock_score);
+
+			// solution has been queued
+			assert_eq!(QueuedSolution::<T>::queued_score().unwrap(), mock_score);
+			// variant has flipped.
+			assert_eq!(QueuedSolution::<T>::valid(), invalid_before);
+			assert_eq!(QueuedSolution::<T>::invalid(), valid_before);
 		})
 	}
 }
@@ -46,10 +60,12 @@ mod sync_verifier {
 			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
 			assert!(<VerifierPallet as Verifier>::get_queued_solution(0).is_none());
 
-			//assert_ok!(
-			//	<VerifierPallet as Verifier>::verify_synchronous(mine_solution(),
-			// ElectionScore::default(), 0)
-			//);
+			compute_snapshot_checked();
+			assert!(assert_snapshots().is_ok());
+
+			let (score, solution_page) = mine(0).unwrap();
+
+			assert_ok!(<VerifierPallet as Verifier>::verify_synchronous(solution_page, score, 0));
 		})
 	}
 

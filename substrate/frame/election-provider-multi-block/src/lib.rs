@@ -74,11 +74,17 @@
 //!
 //! ## Election Phases
 //!
+//! This pallet manages the election phases which signal to the other sub-pallets which actions to
+//! take at a given block. The election phases are the following:
+//!
 //! ```text
-//! // ----------      ----------   --------------   -----------
-//! //            |  |            |                |             |
-//! //    Snapshot Signed  SignedValidation    Unsigned       elect()
+//! //   -----------     -----------  --------------  ------------  --------
+//! //  |            |  |            |               |             |        |
+//! // Off    Snapshot Signed  SignedValidation   Unsigned       elect()   Export
 //! ```
+//!
+//! Each phase duration depends on the estimate block number election, which can be fetched from
+//! [`pallet::Config::DataProvider`].
 //!
 //! > to-finish
 
@@ -482,14 +488,14 @@ impl<T: Config> Pallet<T> {
 	/// Return the most significant page of the snapshot.
 	///
 	/// Based on the contract with `ElectionDataProvider`, tis is the first page to be filled.
-	fn msp() -> PageIndex {
+	pub fn msp() -> PageIndex {
 		T::Pages::get().checked_sub(1).defensive_unwrap_or_default()
 	}
 
 	/// Return the least significant page of the snapshot.
 	///
 	/// Based on the contract with `ElectionDataProvider`, tis is the last page to be filled.
-	fn lsp() -> PageIndex {
+	pub fn lsp() -> PageIndex {
 		Zero::zero()
 	}
 
