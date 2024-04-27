@@ -899,12 +899,7 @@ fn quote_price_exact_tokens_for_tokens_matches_execution() {
 		let amount = 1;
 		let quoted_price = 49;
 		assert_eq!(
-			AssetConversion::quote_price_exact_tokens_for_tokens(
-				&token_2,
-				&token_1,
-				amount,
-				true,
-			),
+			AssetConversion::quote_price_exact_tokens_for_tokens(&token_2, &token_1, amount, true,),
 			Some(quoted_price)
 		);
 
@@ -956,12 +951,7 @@ fn quote_price_tokens_for_exact_tokens_matches_execution() {
 		let amount = 49;
 		let quoted_price = 1;
 		assert_eq!(
-			AssetConversion::quote_price_tokens_for_exact_tokens(
-				&token_2,
-				&token_1,
-				amount,
-				true,
-			),
+			AssetConversion::quote_price_tokens_for_exact_tokens(&token_2, &token_1, amount, true,),
 			Some(quoted_price)
 		);
 
@@ -2247,8 +2237,7 @@ fn swap_credit_returns_change() {
 			AssetConversion::get_amount_in(&expected_credit_out.peek(), &liquidity1, &liquidity2)
 				.unwrap();
 
-		let credit_in =
-			NativeAndAssets::issue(&token_1, amount_in_max + expected_change.peek());
+		let credit_in = NativeAndAssets::issue(&token_1, amount_in_max + expected_change.peek());
 		assert_ok!(
 			<AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
 				vec![token_1.clone(), token_2.clone()],

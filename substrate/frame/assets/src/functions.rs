@@ -341,7 +341,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Returns a deposit or a consumer reference, destroying an asset-account.
 	/// Non-zero balance accounts refunded and destroyed only if `allow_burn` is true.
-	pub(super) fn do_refund(id: &T::AssetId, who: T::AccountId, allow_burn: bool) -> DispatchResult {
+	pub(super) fn do_refund(
+		id: &T::AssetId,
+		who: T::AccountId,
+		allow_burn: bool,
+	) -> DispatchResult {
 		use AssetStatus::*;
 		use ExistenceReason::*;
 		let mut account = Account::<T, I>::get(id, &who).ok_or(Error::<T, I>::NoDeposit)?;
@@ -930,8 +934,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					approved.amount.checked_sub(&amount).ok_or(Error::<T, I>::Unapproved)?;
 
 				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
-				owner_died =
-					Self::transfer_and_die(&id, owner, destination, amount, None, f)?.1;
+				owner_died = Self::transfer_and_die(&id, owner, destination, amount, None, f)?.1;
 
 				if remaining.is_zero() {
 					T::Currency::unreserve(owner, approved.deposit);
@@ -1013,9 +1016,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Returns all the non-zero balances for all assets of the given `account`.
 	pub fn account_balances(account: T::AccountId) -> Vec<(T::AssetId, T::Balance)> {
 		Asset::<T, I>::iter_keys()
-			.filter_map(|id| {
-				Self::maybe_balance(&id, account.clone()).map(|balance| (id, balance))
-			})
+			.filter_map(|id| Self::maybe_balance(&id, account.clone()).map(|balance| (id, balance)))
 			.collect::<Vec<_>>()
 	}
 

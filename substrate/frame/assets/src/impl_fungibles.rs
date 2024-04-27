@@ -87,7 +87,11 @@ impl<T: Config<I>, I: 'static> fungibles::Mutate<<T as SystemConfig>::AccountId>
 		beneficiary: &<T as SystemConfig>::AccountId,
 		amount: Self::Balance,
 	) {
-		Self::deposit_event(Event::Issued { asset_id: asset_id.clone(), owner: beneficiary.clone(), amount })
+		Self::deposit_event(Event::Issued {
+			asset_id: asset_id.clone(),
+			owner: beneficiary.clone(),
+			amount,
+		})
 	}
 
 	fn done_burn_from(
@@ -95,7 +99,11 @@ impl<T: Config<I>, I: 'static> fungibles::Mutate<<T as SystemConfig>::AccountId>
 		target: &<T as SystemConfig>::AccountId,
 		balance: Self::Balance,
 	) {
-		Self::deposit_event(Event::Burned { asset_id: asset_id.clone(), owner: target.clone(), balance });
+		Self::deposit_event(Event::Burned {
+			asset_id: asset_id.clone(),
+			owner: target.clone(),
+			balance,
+		});
 	}
 
 	fn done_transfer(
