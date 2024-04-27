@@ -12,8 +12,13 @@ workspace = true
 
 [dependencies]
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = [
+	"derive",
+	"max-encoded-len",
+] }
+scale-info = { version = "2.11.1", default-features = false, features = [
+	"derive",
+] }
 log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
 serde = { workspace = true }
@@ -346,6 +351,7 @@ try-runtime = [
 
 # Enable the metadata hash generation in the wasm builder.
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+disable-runtime-api = []
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []

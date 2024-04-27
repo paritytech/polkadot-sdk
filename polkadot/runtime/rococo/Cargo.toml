@@ -11,8 +11,13 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = [
+	"derive",
+	"max-encoded-len",
+] }
+scale-info = { version = "2.11.1", default-features = false, features = [
+	"derive",
+] }
 log = { workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
@@ -80,7 +85,9 @@ pallet-scheduler = { path = "../../../substrate/frame/scheduler", default-featur
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 pallet-society = { path = "../../../substrate/frame/society", default-features = false }
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["tuples-96"] }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, features = [
+	"tuples-96",
+] }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
@@ -328,6 +335,7 @@ try-runtime = [
 
 # Enable the metadata hash generation in the wasm builder.
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+disable-runtime-api = []
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = ["rococo-runtime-constants/fast-runtime"]

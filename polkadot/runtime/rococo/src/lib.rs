@@ -27,6 +27,7 @@ use beefy_primitives::{
 };
 use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
+	migrations::MultiStepMigrator,
 	traits::FromContains,
 };
 use pallet_nis::WithMaximumOf;
@@ -167,6 +168,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 1_012_000,
 	impl_version: 0,
+	#[cfg(not(feature = "disable-runtime-api"))]
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
 	state_version: 1,
@@ -203,6 +205,21 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Hashing = BlakeTwo256;
+	type Lookup = AccountIdLookup<AccountId, ()>;
+	type RuntimeTask = RuntimeTask;
+	type PalletInfo = PalletInfo;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type OnSetCode = ();
+	type SingleBlockMigrations = SingleBlockMigration;
+	type MultiBlockMigrator = MultiStepMigrator;
+	type PreInherents = ();
+	type PostInherents = ();
+	type PostTransactions = ();
 	type BaseCallFilter = EverythingBut<IsIdentityCall>;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
@@ -899,19 +916,19 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
-					RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
+					| RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions { .. } |
-					RuntimeCall::Crowdloan { .. } |
-					RuntimeCall::Registrar { .. } |
-					RuntimeCall::Multisig(..) |
-					RuntimeCall::Slots { .. }
+				RuntimeCall::Auctions { .. }
+					| RuntimeCall::Crowdloan { .. }
+					| RuntimeCall::Registrar { .. }
+					| RuntimeCall::Multisig(..)
+					| RuntimeCall::Slots { .. }
 			),
 			ProxyType::Society => matches!(c, RuntimeCall::Society(..)),
 			ProxyType::OnDemandOrdering => matches!(c, RuntimeCall::OnDemandAssignmentProvider(..)),
@@ -1755,6 +1772,7 @@ mod benches {
 	);
 }
 
+#[cfg(not(feature = "disable-runtime-api"))]
 sp_api::impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
