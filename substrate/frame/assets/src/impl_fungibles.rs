@@ -334,8 +334,8 @@ impl<T: Config<I>, I: 'static> fungibles::Refund<T::AccountId> for Pallet<T, I> 
 	}
 	fn refund(id: Self::AssetId, who: T::AccountId) -> DispatchResult {
 		match Self::deposit_held(id.clone(), who.clone()) {
-			Some((d, _)) if d == who => Self::do_refund(id, who, false),
-			Some(..) => Self::do_refund_other(id, &who, None),
+			Some((d, _)) if d == who => Self::do_refund(&id, who, false),
+			Some(..) => Self::do_refund_other(&id, &who, None),
 			None => Err(Error::<T, I>::NoDeposit.into()),
 		}
 	}
