@@ -55,7 +55,7 @@ fn instantiate_test_contract(name: &str) -> AccountId {
 	// Funds contract account with some balance and assets.
 	ParaA::execute_with(|| {
 		parachain::Balances::make_free_balance_be(&contract_addr, INITIAL_BALANCE);
-		parachain::Assets::mint_into(0u32.into(), &contract_addr, INITIAL_BALANCE).unwrap();
+		parachain::Assets::mint_into(&0u128, &contract_addr, INITIAL_BALANCE).unwrap();
 	});
 	Relay::execute_with(|| {
 		let sovereign_account = parachain_account_sovereign_account_id(1u32, contract_addr.clone());
