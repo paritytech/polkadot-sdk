@@ -72,20 +72,13 @@ pub fn era_payout(
 	total_stakable: Balance,
 	max_annual_inflation: Perquintill,
 	period_fraction: Perquintill,
-	auctioned_slots: u64,
+	ideal_stake: Perquintill,
 ) -> (Balance, Balance) {
 	use pallet_staking_reward_fn::compute_inflation;
 	use sp_runtime::traits::Saturating;
 
 	let min_annual_inflation = Perquintill::from_rational(25u64, 1000u64);
 	let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
-
-	// 30% reserved for up to 60 slots.
-	let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 200u64);
-
-	// Therefore the ideal amount at stake (as a percentage of total issuance) is 75% less the
-	// amount that we expect to be taken up with auctions.
-	let ideal_stake = Perquintill::from_percent(75).saturating_sub(auction_proportion);
 
 	let stake = Perquintill::from_rational(total_staked, total_stakable);
 	let falloff = Perquintill::from_percent(5);
@@ -104,6 +97,17 @@ pub fn era_payout(
 		// treasury amount with: `rest = rest.min(cap_rest);`
 	}
 	(staking_payout, rest)
+}
+
+pub fn ideal_stake_rate(auctioned_slots: u64) -> Perquintill {
+	use sp_runtime::traits::Saturating;
+
+	// 30% reserved for up to 60 slots.
+	let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 200u64);
+
+	// Therefore the ideal amount at stake (as a percentage of total issuance) is 75% less the
+	// amount that we expect to be taken up with auctions.
+	Perquintill::from_percent(75).saturating_sub(auction_proportion)
 }
 
 /// Versioned locatable asset type which contains both an XCM `location` and `asset_id` to identify
@@ -444,12 +448,36 @@ mod tests {
 	#[test]
 	fn era_payout_should_give_sensible_results() {
 		assert_eq!(
-			era_payout(75, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
+			era_payout(
+				75,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				ideal_stake_rate(0),
+			),
 			(10, 0)
 		);
 		assert_eq!(
-			era_payout(80, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
+			era_payout(
+				80,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				ideal_stake_rate(0),
+			),
 			(6, 4)
 		);
+	}
+
+	#[test]
+	fn ideal_stake_rate_is_sensible() {
+		// maximum ideal stake rate is 75 if no parachains exist.
+		assert_eq!(ideal_stake_rate(0), Perquintill::from_percent(75),);
+
+		// minimum ideal stake rate is 45 if u64::Max parachains exist.
+		assert_eq!(ideal_stake_rate(u64::MAX), Perquintill::from_percent(45),);
+
+		// in between
+		assert_eq!(ideal_stake_rate(30), Perquintill::from_percent(60),);
 	}
 }

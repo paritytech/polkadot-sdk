@@ -902,6 +902,13 @@ pub trait EraPayout<Balance> {
 		total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> (Balance, Balance);
+
+	/// Ideal staking rate of the system.
+	///
+	/// In general, if the staking rate is higher than ideal, staking rewards would reduce.
+	///
+	/// Returns none if era payout does not depend on stake rate.
+	fn ideal_stake_rate(auctioned_slots: u64) -> Option<Perquintill>;
 }
 
 impl<Balance: Default> EraPayout<Balance> for () {
@@ -911,6 +918,10 @@ impl<Balance: Default> EraPayout<Balance> for () {
 		_era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		(Default::default(), Default::default())
+	}
+
+	fn ideal_stake_rate(_auctioned_slots: u64) -> Option<Perquintill> {
+		None
 	}
 }
 
@@ -936,6 +947,10 @@ where
 		);
 		let rest = max_payout.saturating_sub(validator_payout);
 		(validator_payout, rest)
+	}
+
+	fn ideal_stake_rate(_auctioned_slots: u64) -> Option<Perquintill> {
+		None
 	}
 }
 
