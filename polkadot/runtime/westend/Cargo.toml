@@ -12,8 +12,13 @@ workspace = true
 
 [dependencies]
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = [
+	"derive",
+	"max-encoded-len",
+] }
+scale-info = { version = "2.11.1", default-features = false, features = [
+	"derive",
+] }
 log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
 serde = { workspace = true }
@@ -45,7 +50,10 @@ sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", def
 
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["experimental", "tuples-96"] }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, features = [
+	"experimental",
+	"tuples-96",
+] }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
 westend-runtime-constants = { package = "westend-runtime-constants", path = "constants", default-features = false }
@@ -336,6 +344,8 @@ try-runtime = [
 	"runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+disable-runtime-api = []
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []
