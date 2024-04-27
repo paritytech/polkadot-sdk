@@ -15,23 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Verifier sub-pallet
-//!
-//! This pallet implements the NPoS solution verification logic. It supports both synchronous and
-//! asynchronous verification of paged solutions. Moreover, it also manages and ultimately stores
-//! the best correct solution in a round, which can be requested by the election provider at the
-//! time of the election.
-//!
-//! The paged solution data to be verified is retrieved through [`T::SolutionDataProvider`].
-//!
-//! ## Per-page and per-solution checks
-//!
-//! > TODO
-//!
-//! ## Queued solutions
-//!
-//! > TODO
-
 // TODO(gpestana): clean up imports.
 use frame_election_provider_support::{NposSolution, PageIndex, TryIntoBoundedSupports};
 use frame_support::{
@@ -104,6 +87,29 @@ pub(crate) mod pallet {
 	}
 
 	/// A wrapper type of the storage items related to the queued solution.
+	///
+	/// It manages the following storage types:
+	///
+	/// - [`QueuedSolutionX`]: variant X of the queued solution.
+	/// - [`QueuedSolutionY`]: variant Y of the queued solution.
+	/// - [`QueuedValidVariant`]: pointer to which variant is the currently valid.
+	/// - [`QueuedSolutionScore`]: the soltution score of the current valid variant.
+	/// - [`QueuedSolutionBackings`].
+	///
+	/// Note that, as an async verification is progressing, the paged solution is kept in the
+	/// invalid variant storage. A solution is considered valid only when all the single page and
+	/// full solution checks have been perform based on the stored [`QueuedSolutionBackings`]. for
+	/// the corresponding in-verification solution. After the solution verification is successful,
+	/// the election score can be calculated and stored.
+	///
+	/// ### Invariants
+	///
+	/// - [`QueuedSolutionScore`] must be always the correct queued score of a variant corresponding
+	/// to the [`QueuedValidVariant`].
+	/// - [`QueuedSolution`] must always be [`Config::SolutionImprovementThreshold`] better than
+	/// [`MininumScore`].
+	/// - The [`QueuedSolutionBackings`] are always the backings corresponding to the *invalid*
+	/// variant.
 	pub struct QueuedSolution<T: Config>(sp_std::marker::PhantomData<T>);
 
 	impl<T: Config> QueuedSolution<T> {
@@ -115,6 +121,8 @@ pub(crate) mod pallet {
 		}
 
 		/// Clear all relevant data of an invalid solution.
+		///
+		/// This should be called when a solution being verified is deemed infeasible.
 		pub(crate) fn clear_invalid_and_backings() {
 			let _ = match Self::invalid() {
 				SolutionPointer::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
@@ -136,7 +144,8 @@ pub(crate) mod pallet {
 
 		/// Finalize a correct solution.
 		///
-		/// It should be called at the end of the verification process of a valid solution.
+		/// It should be called at the end of the verification process of a valid solution to update
+		/// the queued solution score and flip the invalid variant.
 		pub(crate) fn finalize_solution(score: ElectionScore) {
 			sublog!(
 				info,
@@ -149,6 +158,7 @@ pub(crate) mod pallet {
 			Self::mutate_checked(|| {
 				QueuedValidVariant::<T>::mutate(|v| *v = v.other());
 				QueuedSolutionScore::<T>::put(score);
+				// TODO: should clear the invalid backings too?
 			})
 		}
 
@@ -165,6 +175,7 @@ pub(crate) mod pallet {
 
 				QueuedSolutionBackings::<T>::insert(page, backings);
 
+				// update the last stored page.
 				LastStoredPage::<T>::set(Some(page));
 
 				// store the new page into the invalid variant storage type.
@@ -203,10 +214,12 @@ pub(crate) mod pallet {
 			Ok((score, winners_count))
 		}
 
+		/// Returns the current queued score, if any.
 		pub(crate) fn queued_score() -> Option<ElectionScore> {
 			QueuedSolutionScore::<T>::get()
 		}
 
+		/// Returns the current *valid* paged queued solution, if any.
 		pub(crate) fn get_queued_solution(page: PageIndex) -> Option<SupportsOf<Pallet<T>>> {
 			match Self::valid() {
 				SolutionPointer::X => QueuedSolutionX::<T>::get(page),
@@ -214,10 +227,12 @@ pub(crate) mod pallet {
 			}
 		}
 
+		/// Returns the pointer for the valid solution storage.
 		pub(crate) fn valid() -> SolutionPointer {
 			QueuedValidVariant::<T>::get()
 		}
 
+		/// Returns the pointer for the invalid solution storage.
 		pub(crate) fn invalid() -> SolutionPointer {
 			Self::valid().other()
 		}
@@ -242,7 +257,11 @@ pub(crate) mod pallet {
 	pub type QueuedSolutionY<T: Config> =
 		StorageMap<_, Twox64Concat, PageIndex, SupportsOf<Pallet<T>>>;
 
-	// TODO
+	/// The `(amount, count)` of backings, keyed by page.
+	///
+	/// This is stored to facilitate the `MaxBackersPerWinner` check at the end of an async
+	/// verification. Once the solution is valid (i.e. verified), the solution backings are not
+	/// useful anymore and can be cleared.
 	#[pallet::storage]
 	type QueuedSolutionBackings<T: Config> = StorageMap<
 		_,
@@ -251,6 +270,7 @@ pub(crate) mod pallet {
 		BoundedVec<(T::AccountId, PartialBackings), T::MaxWinnersPerPage>,
 	>;
 
+	/// The score of the current valid solution.
 	#[pallet::storage]
 	type QueuedSolutionScore<T: Config> = StorageValue<_, ElectionScore>;
 
@@ -266,6 +286,7 @@ pub(crate) mod pallet {
 	#[pallet::storage]
 	pub(crate) type VerificationStatus<T: Config> = StorageValue<_, Status, ValueQuery>;
 
+	// TODO: this may be a hack.
 	#[pallet::storage]
 	pub(crate) type LastStoredPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
 
@@ -447,8 +468,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 
 				Self::deposit_event(Event::<T>::SolutionDataUnavailable(current_page));
 
-				// TODO(gpestana): benchmarks.
-				return Zero::zero()
+				return Default::default()
 			}
 
 			let page_solution = maybe_page_solution.expect("page solution checked to exist; qed.");
@@ -497,8 +517,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			};
 		}
 
-		// TODO(gpestana): benchmarks.
-		Zero::zero()
+		Default::default()
 	}
 
 	fn do_verify_sync(
@@ -566,7 +585,14 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Do the full feasibility check:
+	/// Perform a feasibility check for a paged solution.
+	///
+	/// - Ensure that the solution edges match the snapshot edges;
+	/// - Ensure that [`T::MaxBackersPerWinner`] is respected;
+	/// - Ensure that the number of winners is less of equal than `DesiredTargets`.
+	///
+	/// Note that these checks are performed over a single page, not the full solution. The
+	/// [`Self::finalize_async_verification`] performs the remaining full solution checks.
 	pub(crate) fn feasibility_check(
 		partial_solution: SolutionOf<T>,
 		page: PageIndex,

@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::mock::*;
+use crate::{mock::*, verifier::impls::pallet::*};
+use frame_support::assert_ok;
+use sp_npos_elections::ElectionScore;
 
-mod solution_queued {
-	use crate::verifier::impls::pallet::*;
-
+mod solution {
 	use super::*;
 
 	#[test]
@@ -30,7 +30,9 @@ mod solution_queued {
 	}
 }
 
-mod verifier {
+mod feasibility_check {}
+
+mod sync_verifier {
 	use super::*;
 	use crate::{
 		verifier::{impls::pallet::QueuedSolution, SolutionPointer},
@@ -44,8 +46,10 @@ mod verifier {
 			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
 			assert!(<VerifierPallet as Verifier>::get_queued_solution(0).is_none());
 
-			//assert_ok!(<VerifierPallet as Verifier>::verify_synchronous(mine_solution(),
-			// ElectionScore::default(), 0));
+			//assert_ok!(
+			//	<VerifierPallet as Verifier>::verify_synchronous(mine_solution(),
+			// ElectionScore::default(), 0)
+			//);
 		})
 	}
 
@@ -76,13 +80,4 @@ mod verifier {
 	}
 }
 
-mod feasibility_check {
-	//use super::*;
-
-	#[test]
-	fn something() {
-		//ExtBuilder::verifier().execute_with(|| {
-		//	assert!(true);
-		//})
-	}
-}
+mod async_verifier {}

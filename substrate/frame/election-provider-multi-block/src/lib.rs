@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Multi-phase, multi-block election provider pallet.
+//! # Multi-phase, multi-block election provider pallet
 //!
 //! This pallet manages the NPoS election across its different phases, with the ability to accept
 //! both on-chain and off-chain solutions. The off-chain solutions may be submitted as a signed or
@@ -35,7 +35,7 @@
 //! pallets. Its "child" pallets can not depend on the `core` pallet and iteract with it through
 //! trait interfaces:
 //!
-//!```ignore
+//!```text
 //! 	pallet-core
 //! 		|
 //! 		|
@@ -50,7 +50,7 @@
 //! functionality to the core pallet:
 //! - The [`verifier`] pallet provides an implementation of the [`verifier::Verifier`] trait, which
 //!   exposes the functionality to verify NPoS solutions in a multi-block context. In addition, it
-//!   implements [`verifier::VerifierAsync`] which verifies multi-paged solution asynchronously.
+//!   implements [`verifier::AsyncVerifier`] which verifies multi-paged solution asynchronously.
 //! - The [`signed`] pallet implements the signed phase, where off-chain entities commit to and
 //!   submit their election solutions. This pallet implements the
 //!   [`verifier::SolutionDataProvider`], which is used by the [`verifier`] pallet to fetch solution
@@ -65,7 +65,7 @@
 //! core pallet and each sub-pallets, it is crucial the the pallets are ordered correctly in the
 //! construct runtime. The ordering must be the following:
 //!
-//! ```ignore
+//! ```text
 //! 1. pallet-core
 //! 2. pallet-verifier
 //! 3. pallet-signed
@@ -74,7 +74,7 @@
 //!
 //! ## Election Phases
 //!
-//! ```ignore
+//! ```text
 //! // ----------      ----------   --------------   -----------
 //! //            |  |            |                |             |
 //! //    Snapshot Signed  SignedValidation    Unsigned       elect()
@@ -437,7 +437,7 @@ impl<T: Config> Snapshot<T> {
 		debug_assert_eq!(<CurrentPhase<T>>::get(), Phase::Off);
 	}
 
-    #[allow(dead_code)]
+	#[allow(dead_code)]
 	#[cfg(any(test, debug_assertions))]
 	pub(crate) fn ensure() -> Result<(), &'static str> {
 		let pages = T::Pages::get();

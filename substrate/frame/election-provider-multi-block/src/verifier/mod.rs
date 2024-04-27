@@ -15,6 +15,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Verifier sub-pallet
+//!
+//! This pallet implements the NPoS solution verification logic. It supports both synchronous and
+//! asynchronous verification of paged solutions. Moreover, it manages and ultimately stores
+//! the best correct solution in a round, which can be requested by the election provider at the
+//! time of the election.
+//!
+//! The paged solution data to be verified async is retrieved through the
+//! [`Config::SolutionDataProvider`] implementor which most likely is the signed pallet.
+//!
+//! ## Feasibility check
+//!
+//! The goal of the feasibility of a solution is to ensure that a provided
+//! [`crate::Config::Solution`] is correct based on the voter and target snapshots of a given round
+//! kept by the parent pallet. The correctness of a solution is defined as:
+//!
+//! - The edges of a solution (voter -> targets) match the expected by the current snapshot. This
+//! check can be performed at the page level.
+//! - The total number of winners in the solution is sufficient. This check can only be performed
+//!   when the full paged solution is available;;
+//! - The election score is higher than the expected minimum score. This check can only be performed
+//!   when the full paged solution is available;;
+//! - All of the bounds of the election are respected, namely:
+//!  * [`Verifier::MaxBackersPerWinner`] - which set the total max of voters are backing a target,
+//!  per election. This check can only be performed when the full paged solution is available;
+//!  * [`Verifier::MaxWinnersPerPage`] - which ensure that a paged solution has a bound on the
+//!  number of targets. This check can be performed at the page level.
+//!
+//! Some checks can be performed at the page level (e.g. correct edges check) while others can only
+//! be performed when the full solution is available.
+//!
+//! ## Sync and Async verification modes
+//!
+//! 1. Single-page, synchronous verification. This mode is used when a single page needs to be
+//!    verified on the fly, e.g. unsigned submission.
+//! 2. Multi-page, asynchronous verification. This mode is used in the context of the multi-paged
+//!    signed solutions.
+//!
+//! The [`crate::verifier::Verifier`] and [`crate::verifier::AsyncVerifier`] traits define the
+//! interface of each of the verification modes and this pallet implements both traits.
+//!
+//! ## Queued solution
+//!
+//! Once a solution has been succefully verified, it is stored in a queue. This pallet implements
+//! the [`SolutionDataProvider`] trait which allows the parent pallet to request a correct
+//! solution for the current round.
+
 mod impls;
 #[cfg(test)]
 mod tests;
@@ -62,6 +109,10 @@ impl From<sp_npos_elections::Error> for FeasibilityError {
 	}
 }
 
+/// The status of this pallet.
+///
+/// This pallet is either processing an async verification or doing nothing. A single page
+/// verification can only be done while the pallet has status [`Status::Nothing`].
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, RuntimeDebug)]
 pub enum Status {
 	/// A paged solution is ongoing and the next page to be verified is indicated in the inner
@@ -77,8 +128,8 @@ impl Default for Status {
 	}
 }
 
+/// Pointer to the current valid solution of `QueuedSolution`.
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, Debug, PartialEq)]
-
 pub enum SolutionPointer {
 	X,
 	Y,
@@ -99,8 +150,8 @@ impl SolutionPointer {
 	}
 }
 
-/// A type that represents a partial backing of a winner. It does not contain the
-/// [`sp_npos_election::Supports`] normally associated with a list of backings.
+/// A type that represents a *partial* backing of a winner. It does not contain the
+/// supports normally associated with a list of backings.
 #[derive(Debug, Default, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
 pub struct PartialBackings {
 	/// Total backing of a particular winner.
@@ -222,6 +273,6 @@ pub trait SolutionDataProvider {
 	fn get_score() -> Option<ElectionScore>;
 
 	/// Hook to report back the results of the verification of the current candidate solution that
-	/// is being exposed via [`get_page`] and [`get_score`].
+	/// is being exposed via [`Self::get_paged_solution`] and [`Self::get_score`].
 	fn report_result(result: VerificationResult);
 }

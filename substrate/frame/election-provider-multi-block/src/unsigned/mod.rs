@@ -15,6 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Unsigned sub-pallet
+//!
+//! The main goal of this sub-pallet is to manage the unsigned phase submissions by an off-chain
+//! worker. It implements the `offchain_worker` hook which will compute and store
+//! in the off-chain cache a paged solution and try to submit it if:
+//!
+//! - Current phase is [`crate::Phase::Unsigned`];
+//! - The score of the computed solution is better than the minimum score defined by the verifier
+//! pallet and the current election score stored by the [`crate::signed::Pallet`].
+//!
+//! ## Sync off-chain worker
+
 pub mod miner;
 #[cfg(test)]
 mod tests;
@@ -197,7 +209,10 @@ pub(crate) mod pallet {
 			if crate::Pallet::<T>::current_phase().is_unsigned() {
 				match lock.try_lock() {
 					Ok(_guard) => {
-						let _ = Self::do_synchronized_offchain_worker(now);
+						let _ = Self::do_sync_offchain_worker(now).map_err(|e| {
+							sublog!(debug, "unsigned", "offchain worker error.");
+							e
+						});
 					},
 					Err(deadline) => {
 						sublog!(
@@ -223,9 +238,7 @@ pub(crate) mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn do_synchronized_offchain_worker(
-		_now: BlockNumberFor<T>,
-	) -> Result<(), OffchainMinerError> {
+	pub fn do_sync_offchain_worker(_now: BlockNumberFor<T>) -> Result<(), OffchainMinerError> {
 		let missing_solution_page = <T::Verifier as Verifier>::next_missing_solution_page();
 
 		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
@@ -250,6 +263,11 @@ impl<T: Config> Pallet<T> {
 						full_score
 					);
 				}
+			},
+			(Phase::Export(_), _) | (Phase::Unsigned(_), None) => {
+				// Unsigned phase is over or unsigned solution is no more required, clear the
+				// cache.
+				OffchainWorkerMiner::<T>::clear_cache();
 			},
 			_ => (), // nothing to do here.
 		}

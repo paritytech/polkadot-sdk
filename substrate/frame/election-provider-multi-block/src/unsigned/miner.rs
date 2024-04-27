@@ -107,9 +107,9 @@ where
 	/// This always trims the solution to match a few parameters:
 	///
 	/// 1. [`crate::verifier::Config::MaxBackersPerWinner`]
-	/// 2. [`crate::unsigned::Config::MinerMaxLength`]
+	/// 2. [`crate::unsigned::Config::MaxLength`]
 	///
-	/// 3. [`crate::unsigned::Config::MinerMaxWeight`]
+	/// 3. [`crate::unsigned::Config::MaxWeight`]
 	///
 	/// //TODO(doc)
 	pub fn mine_paged_solution(
@@ -244,7 +244,8 @@ where
 				)
 			})
 	}
-	/// Convert a raw solution from [`sp_npos_elections::ElectionResult`] to [`RawSolution`], which
+	/// Convert a raw solution from [`sp_npos_elections::ElectionResult`] to
+	/// [`crate::types::PagedRawSolution`], which
 	/// is ready to be submitted to the chain.
 	///
 	/// May reduce the solution based on the `reduce` bool.
@@ -590,7 +591,7 @@ where
 	}
 }
 
-/// Errors associated with the [`OffchainWorkerMiner`].
+/// Errors associated with the off-chain worker miner.
 #[derive(
 	frame_support::DebugNoBound, frame_support::EqNoBound, frame_support::PartialEqNoBound,
 )]
@@ -688,16 +689,10 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		let partial_score =
 			Miner::<T, T::OffchainSolver>::compute_partial_score(&paged_solution, page)?;
 
-		// TODO: not so sure if this makes sense, though.
-		// if it's the last page, clear the storage with data for the current round.
-		if page == EPM::<T>::lsp() {
-			Self::clear_cache();
-		}
-
 		Ok((full_score, partial_score, paged_solution))
 	}
 
-	fn clear_cache() {
+	pub(crate) fn clear_cache() {
 		let mut score_storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SCORE);
 		score_storage.clear();
 
@@ -708,6 +703,8 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 
 			page_storage.clear();
 		}
+
+		sublog!(debug, "unsigned", "offchain miner cache cleared.");
 	}
 
 	fn paged_cache_id(page: PageIndex) -> Result<Vec<u8>, OffchainMinerError> {

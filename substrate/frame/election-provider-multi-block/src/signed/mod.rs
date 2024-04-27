@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The signed phase of the multi-block election system.
+//! # Signed sub-pallet
 //!
 //! The main goal of the signed sub-pallet is to keep and manage a list of sorted score commitments
 //! and correponding paged solutions at the [`crate::Phase::Signed`].
 //!
-//! Accounts may submit up to [`T::MaxSubmissions`] score commitments per election round and this
-//! pallet ensures that the scores are stored under the map [`SortedScores`] are sorted and keyed
+//! Accounts may submit up to [`Config::MaxSubmissions`] score commitments per election round and
+//! this pallet ensures that the scores are stored under the map `SortedScores` are sorted and keyed
 //! by the correct round number.
 //!
 //! Each submitter must hold a deposit per submission that is calculated based on the number of
@@ -37,8 +37,8 @@
 //! 2. Any queued score that was not evaluated, the hold deposit is returned.
 //! 3. Any invalid solution results in a 100% slash of the hold submission deposit.
 //!
-//! Once the [`crate::Phase::Validation`] phase starts, the async verifier is notified to start
-//! verifying the best queued solution.
+//! Once the [`crate::Phase::SignedValidation`] phase starts, the async verifier is notified to
+//! start verifying the best queued solution.
 //!
 //! TODO:
 //! - Be more efficient with cleaning up the submission storage by e.g. expose an extrinsic that
@@ -451,7 +451,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit a score commitment for a solution in the current round.
 		///
-		/// The scores must be kept sorted in the [`SortedScores`] storage map.
+		/// The scores must be kept sorted in the `SortedScores` storage map.
 		#[pallet::call_index(1)]
 		pub fn register(origin: OriginFor<T>, claimed_score: ElectionScore) -> DispatchResult {
 			let who = ensure_signed(origin)?;
