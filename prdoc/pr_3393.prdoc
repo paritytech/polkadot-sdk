@@ -12,3 +12,4 @@ crates:
   - name: pallet-core-fellowship
   - name: pallet-ranked-collective
   - name: pallet-salary
+  
