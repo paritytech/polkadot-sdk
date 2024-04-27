@@ -223,8 +223,8 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	let sender_balance_before = test.sender.balance;
 	let sender_rocs_before = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			roc_at_westend_parachains.clone().try_into().unwrap(),
+		<ForeignAssets as Inspect<_>>::balance(
+			&roc_at_westend_parachains.clone().try_into().unwrap(),
 			&sender,
 		)
 	});
@@ -247,8 +247,8 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	let sender_balance_after = test.sender.balance;
 	let sender_rocs_after = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			roc_at_westend_parachains.clone().try_into().unwrap(),
+		<ForeignAssets as Inspect<_>>::balance(
+			&roc_at_westend_parachains.clone().try_into().unwrap(),
 			&sender,
 		)
 	});
@@ -387,8 +387,8 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	let receiver_native_before = test.receiver.balance;
 	let receiver_rocs_before = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			roc_at_westend_parachains.clone().try_into().unwrap(),
+		<ForeignAssets as Inspect<_>>::balance(
+			&roc_at_westend_parachains.clone().try_into().unwrap(),
 			&receiver,
 		)
 	});
@@ -411,8 +411,8 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	let receiver_native_after = test.receiver.balance;
 	let receiver_rocs_after = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			roc_at_westend_parachains.try_into().unwrap(),
+		<ForeignAssets as Inspect<_>>::balance(
+			&roc_at_westend_parachains.try_into().unwrap(),
 			&receiver,
 		)
 	});
@@ -547,8 +547,8 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		<AssetHubWestend as Chain>::account_data_of(sov_of_sender_on_ah.clone()).free;
 	let rocs_in_sender_reserve_on_ah_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(&
-			roc_at_westend_parachains.clone().try_into().unwrap(),
+		<Assets as Inspect<_>>::balance(
+			&roc_at_westend_parachains.clone().try_into().unwrap(),
 			&sov_of_sender_on_ah,
 		)
 	});
@@ -556,8 +556,8 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		<AssetHubWestend as Chain>::account_data_of(sov_of_receiver_on_ah.clone()).free;
 	let rocs_in_receiver_reserve_on_ah_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(&
-			roc_at_westend_parachains.clone().try_into().unwrap(),
+		<Assets as Inspect<_>>::balance(
+			&roc_at_westend_parachains.clone().try_into().unwrap(),
 			&sov_of_receiver_on_ah,
 		)
 	});
@@ -588,8 +588,8 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	});
 	let rocs_in_sender_reserve_on_ah_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(&
-			roc_at_westend_parachains.clone().try_into().unwrap(),
+		<Assets as Inspect<_>>::balance(
+			&roc_at_westend_parachains.clone().try_into().unwrap(),
 			&sov_of_sender_on_ah,
 		)
 	});
@@ -597,8 +597,8 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		<AssetHubWestend as Chain>::account_data_of(sov_of_sender_on_ah).free;
 	let rocs_in_receiver_reserve_on_ah_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(&
-			roc_at_westend_parachains.clone().try_into().unwrap(),
+		<Assets as Inspect<_>>::balance(
+			&roc_at_westend_parachains.clone().try_into().unwrap(),
 			&sov_of_receiver_on_ah,
 		)
 	});
@@ -683,7 +683,7 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 	});
 	let receiver_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &receiver)
+		<ForeignAssets as Inspect<_>>::balance(&relay_native_asset_location, &receiver)
 	});
 
 	fn relay_assertions(t: RelayToParaThroughAHTest) {
@@ -796,7 +796,7 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 	});
 	let receiver_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &receiver)
+		<ForeignAssets as Inspect<_>>::balance(&relay_native_asset_location, &receiver)
 	});
 
 	// Sender's balance is reduced by amount sent plus delivery fees

@@ -583,7 +583,7 @@ fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u12
 		));
 
 		assert!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::asset_exists(
-			weth_asset_location.clone().try_into().unwrap(),
+			&weth_asset_location.clone().try_into().unwrap(),
 		));
 	});
 

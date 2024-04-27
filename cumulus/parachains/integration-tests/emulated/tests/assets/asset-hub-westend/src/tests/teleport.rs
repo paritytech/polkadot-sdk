@@ -493,8 +493,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	let mut penpal_to_ah = ParaToSystemParaTest::new(penpal_to_ah_test_args);
 	let penpal_sender_balance_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			system_para_native_asset_location.clone(),
+		<ForeignAssets as Inspect<_>>::balance(
+			&system_para_native_asset_location.clone(),
 			&PenpalASender::get(),
 		)
 	});
@@ -507,8 +507,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	});
 	let ah_receiver_assets_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(&
-			foreign_asset_at_asset_hub_westend.clone().try_into().unwrap(),
+		<Assets as Inspect<_>>::balance(
+			&foreign_asset_at_asset_hub_westend.clone().try_into().unwrap(),
 			&AssetHubWestendReceiver::get(),
 		)
 	});
@@ -520,8 +520,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let penpal_sender_balance_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			system_para_native_asset_location.clone(),
+		<ForeignAssets as Inspect<_>>::balance(
+			&system_para_native_asset_location.clone(),
 			&PenpalASender::get(),
 		)
 	});
@@ -534,8 +534,8 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	});
 	let ah_receiver_assets_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(&
-			foreign_asset_at_asset_hub_westend.clone().try_into().unwrap(),
+		<Assets as Inspect<_>>::balance(
+			&foreign_asset_at_asset_hub_westend.clone().try_into().unwrap(),
 			&AssetHubWestendReceiver::get(),
 		)
 	});
@@ -600,16 +600,16 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	let ah_sender_balance_before = ah_to_penpal.sender.balance;
 	let penpal_receiver_balance_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			system_para_native_asset_location.clone(),
+		<ForeignAssets as Inspect<_>>::balance(
+			&system_para_native_asset_location.clone(),
 			&PenpalAReceiver::get(),
 		)
 	});
 
 	let ah_sender_assets_before = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			foreign_asset_at_asset_hub_westend.clone().try_into().unwrap(),
+		<ForeignAssets as Inspect<_>>::balance(
+			&foreign_asset_at_asset_hub_westend.clone().try_into().unwrap(),
 			&AssetHubWestendSender::get(),
 		)
 	});
@@ -626,16 +626,16 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	let ah_sender_balance_after = ah_to_penpal.sender.balance;
 	let penpal_receiver_balance_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			system_para_native_asset_location,
+		<ForeignAssets as Inspect<_>>::balance(
+			&system_para_native_asset_location,
 			&PenpalAReceiver::get(),
 		)
 	});
 
 	let ah_sender_assets_after = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(&
-			foreign_asset_at_asset_hub_westend.clone().try_into().unwrap(),
+		<ForeignAssets as Inspect<_>>::balance(
+			&foreign_asset_at_asset_hub_westend.clone().try_into().unwrap(),
 			&AssetHubWestendSender::get(),
 		)
 	});
