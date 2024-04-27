@@ -684,7 +684,7 @@ macro_rules! impl_assets_helpers_for_system_parachain {
 							]
 						);
 
-						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(id.clone().into()));
+						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(&id));
 					});
 				}
 			}
@@ -717,7 +717,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 								min_balance,
 							)
 						);
-						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(id.clone()));
+						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(&id));
 						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
 						$crate::impls::assert_expected_events!(
 							Self,
@@ -819,7 +819,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 								min_balance,
 							)
 						);
-						assert!(<Self as [<$chain ParaPallet>]>::ForeignAssets::asset_exists(id.clone()));
+						assert!(<Self as [<$chain ParaPallet>]>::ForeignAssets::asset_exists(&id));
 						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
 						$crate::impls::assert_expected_events!(
 							Self,

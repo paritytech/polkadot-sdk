@@ -325,7 +325,7 @@ fn send_token_from_ethereum_to_penpal() {
 			1000,
 		));
 
-		assert!(<PenpalA as PenpalAPallet>::ForeignAssets::asset_exists(weth_asset_location));
+		assert!(<PenpalA as PenpalAPallet>::ForeignAssets::asset_exists(&weth_asset_location));
 	});
 
 	BridgeHubRococo::execute_with(|| {

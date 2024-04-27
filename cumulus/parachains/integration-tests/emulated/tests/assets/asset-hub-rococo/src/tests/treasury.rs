@@ -38,7 +38,7 @@ fn spend_roc_on_asset_hub() {
 	let treasury_spend_balance = 1_000 * GRAND;
 
 	let init_alice_balance = AssetHubRococo::execute_with(|| {
-		<<AssetHubRococo as AssetHubRococoPallet>::Balances as Inspect<_>>::balance(
+		<<AssetHubRococo as AssetHubRococoPallet>::Balances as Inspect<_>>::balance(&
 			&AssetHubRococo::account_id_of(ALICE),
 		)
 	});
@@ -197,9 +197,9 @@ fn create_and_claim_treasury_spend_in_usdt() {
 			true,
 			SPEND_AMOUNT / 2
 		));
-		assert_ok!(<Assets as Mutate<_>>::mint_into(ASSET_ID, &treasury_account, SPEND_AMOUNT * 4));
+		assert_ok!(<Assets as Mutate<_>>::mint_into(&ASSET_ID, &treasury_account, SPEND_AMOUNT * 4));
 		// beneficiary has zero balance.
-		assert_eq!(<Assets as FungiblesInspect<_>>::balance(ASSET_ID, &alice,), 0u128,);
+		assert_eq!(<Assets as FungiblesInspect<_>>::balance(&ASSET_ID, &alice,), 0u128,);
 	});
 
 	Rococo::execute_with(|| {
@@ -251,7 +251,7 @@ fn create_and_claim_treasury_spend_in_usdt() {
 			]
 		);
 		// beneficiary received the assets from the treasury.
-		assert_eq!(<Assets as FungiblesInspect<_>>::balance(ASSET_ID, &alice,), SPEND_AMOUNT,);
+		assert_eq!(<Assets as FungiblesInspect<_>>::balance(&ASSET_ID, &alice,), SPEND_AMOUNT,);
 	});
 
 	Rococo::execute_with(|| {

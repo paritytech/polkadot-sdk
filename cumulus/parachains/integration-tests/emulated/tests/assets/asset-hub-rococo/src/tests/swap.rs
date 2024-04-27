@@ -38,7 +38,7 @@ fn swap_locally_on_chain_using_local_assets() {
 			AssetHubRococoSender::get().into(),
 			1000,
 		));
-		assert!(<AssetHubRococo as AssetHubRococoPallet>::Assets::asset_exists(ASSET_ID));
+		assert!(<AssetHubRococo as AssetHubRococoPallet>::Assets::asset_exists(&ASSET_ID));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
@@ -243,7 +243,7 @@ fn cannot_create_pool_from_pool_assets() {
 			pool_owner_account_id.clone().into(),
 			1000,
 		));
-		assert!(<AssetHubRococo as AssetHubRococoPallet>::PoolAssets::asset_exists(ASSET_ID));
+		assert!(<AssetHubRococo as AssetHubRococoPallet>::PoolAssets::asset_exists(&ASSET_ID));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::PoolAssets::mint(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(pool_owner_account_id),
@@ -290,7 +290,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 			AssetHubRococoSender::get().into(),
 			ASSET_MIN_BALANCE,
 		));
-		assert!(<AssetHubRococo as AssetHubRococoPallet>::Assets::asset_exists(ASSET_ID));
+		assert!(<AssetHubRococo as AssetHubRococoPallet>::Assets::asset_exists(&ASSET_ID));
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),

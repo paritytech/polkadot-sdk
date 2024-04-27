@@ -110,7 +110,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
 		);
 
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		assert!(ForeignAssets::asset_exists(foreign_asset_at_asset_hub));
+		assert!(ForeignAssets::asset_exists(&foreign_asset_at_asset_hub));
 	});
 }
 

@@ -169,7 +169,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 		<AssetHubRococo as Chain>::account_data_of(AssetHubRococoSender::get()).free;
 	let receiver_rocs_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(roc_at_asset_hub_westend, &AssetHubWestendReceiver::get())
+		<Assets as Inspect<_>>::balance(&roc_at_asset_hub_westend, &AssetHubWestendReceiver::get())
 	});
 
 	let amount = ASSET_HUB_ROCOCO_ED * 1_000_000;
@@ -199,7 +199,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 		<AssetHubRococo as Chain>::account_data_of(AssetHubRococoSender::get()).free;
 	let receiver_rocs_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(roc_at_asset_hub_westend, &AssetHubWestendReceiver::get())
+		<Assets as Inspect<_>>::balance(&roc_at_asset_hub_westend, &AssetHubWestendReceiver::get())
 	});
 	let rocs_in_reserve_on_ahr_after =
 		<AssetHubRococo as Chain>::account_data_of(sov_ahw_on_ahr.clone()).free;
@@ -238,7 +238,7 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	assert_eq!(wnds_in_reserve_on_ahw_before, prefund_amount);
 	let sender_wnds_before = AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(wnd_at_asset_hub_rococo, &AssetHubRococoSender::get())
+		<Assets as Inspect<_>>::balance(&wnd_at_asset_hub_rococo, &AssetHubRococoSender::get())
 	});
 	assert_eq!(sender_wnds_before, prefund_amount);
 	let receiver_wnds_before =
@@ -275,7 +275,7 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 
 	let sender_wnds_after = AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(wnd_at_asset_hub_rococo, &AssetHubRococoSender::get())
+		<Assets as Inspect<_>>::balance(&wnd_at_asset_hub_rococo, &AssetHubRococoSender::get())
 	});
 	let receiver_wnds_after =
 		<AssetHubWestend as Chain>::account_data_of(AssetHubWestendReceiver::get()).free;
@@ -324,14 +324,14 @@ fn send_rocs_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_westend() 
 		<AssetHubRococo as Chain>::account_data_of(sov_ahw_on_ahr.clone()).free;
 	let sender_rocs_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
+		<ForeignAssets as Inspect<_>>::balance(&
 			roc_at_rococo_parachains.clone(),
 			&PenpalASender::get(),
 		)
 	});
 	let receiver_rocs_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(
+		<Assets as Inspect<_>>::balance(&
 			roc_at_asset_hub_westend.clone().try_into().unwrap(),
 			&AssetHubWestendReceiver::get(),
 		)
@@ -361,11 +361,11 @@ fn send_rocs_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_westend() 
 
 	let sender_rocs_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_rococo_parachains, &PenpalASender::get())
+		<ForeignAssets as Inspect<_>>::balance(&roc_at_rococo_parachains, &PenpalASender::get())
 	});
 	let receiver_rocs_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(
+		<Assets as Inspect<_>>::balance(&
 			roc_at_asset_hub_westend.try_into().unwrap(),
 			&AssetHubWestendReceiver::get(),
 		)

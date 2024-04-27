@@ -490,7 +490,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	let mut penpal_to_ah = ParaToSystemParaTest::new(penpal_to_ah_test_args);
 	let penpal_sender_balance_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
+		<ForeignAssets as Inspect<_>>::balance(&
 			system_para_native_asset_location.clone(),
 			&PenpalASender::get(),
 		)
@@ -500,11 +500,11 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let penpal_sender_assets_before = PenpalA::execute_with(|| {
 		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalASender::get())
+		<Assets as Inspect<_>>::balance(&asset_id_on_penpal, &PenpalASender::get())
 	});
 	let ah_receiver_assets_before = AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(
+		<Assets as Inspect<_>>::balance(&
 			foreign_asset_at_asset_hub_rococo.clone().try_into().unwrap(),
 			&AssetHubRococoReceiver::get(),
 		)
@@ -517,7 +517,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let penpal_sender_balance_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
+		<ForeignAssets as Inspect<_>>::balance(&
 			system_para_native_asset_location.clone(),
 			&PenpalASender::get(),
 		)
@@ -527,11 +527,11 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let penpal_sender_assets_after = PenpalA::execute_with(|| {
 		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalASender::get())
+		<Assets as Inspect<_>>::balance(&asset_id_on_penpal, &PenpalASender::get())
 	});
 	let ah_receiver_assets_after = AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(
+		<Assets as Inspect<_>>::balance(&
 			foreign_asset_at_asset_hub_rococo.clone().try_into().unwrap(),
 			&AssetHubRococoReceiver::get(),
 		)
@@ -597,7 +597,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	let ah_sender_balance_before = ah_to_penpal.sender.balance;
 	let penpal_receiver_balance_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
+		<ForeignAssets as Inspect<_>>::balance(&
 			system_para_native_asset_location.clone(),
 			&PenpalAReceiver::get(),
 		)
@@ -605,14 +605,14 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let ah_sender_assets_before = AssetHubRococo::execute_with(|| {
 		type ForeignAssets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
+		<ForeignAssets as Inspect<_>>::balance(&
 			foreign_asset_at_asset_hub_rococo.clone().try_into().unwrap(),
 			&AssetHubRococoSender::get(),
 		)
 	});
 	let penpal_receiver_assets_before = PenpalA::execute_with(|| {
 		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalAReceiver::get())
+		<Assets as Inspect<_>>::balance(&asset_id_on_penpal, &PenpalAReceiver::get())
 	});
 
 	ah_to_penpal.set_assertion::<AssetHubRococo>(ah_to_penpal_foreign_assets_sender_assertions);
@@ -623,7 +623,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	let ah_sender_balance_after = ah_to_penpal.sender.balance;
 	let penpal_receiver_balance_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
+		<ForeignAssets as Inspect<_>>::balance(&
 			system_para_native_asset_location,
 			&PenpalAReceiver::get(),
 		)
@@ -631,14 +631,14 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 
 	let ah_sender_assets_after = AssetHubRococo::execute_with(|| {
 		type ForeignAssets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
+		<ForeignAssets as Inspect<_>>::balance(&
 			foreign_asset_at_asset_hub_rococo.try_into().unwrap(),
 			&AssetHubRococoSender::get(),
 		)
 	});
 	let penpal_receiver_assets_after = PenpalA::execute_with(|| {
 		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalAReceiver::get())
+		<Assets as Inspect<_>>::balance(&asset_id_on_penpal, &PenpalAReceiver::get())
 	});
 
 	// Sender's balance is reduced

@@ -54,9 +54,9 @@ fn create_and_claim_treasury_spend() {
 			true,
 			SPEND_AMOUNT / 2
 		));
-		assert_ok!(<Assets as Mutate<_>>::mint_into(ASSET_ID, &treasury_account, SPEND_AMOUNT * 4));
+		assert_ok!(<Assets as Mutate<_>>::mint_into(&ASSET_ID, &treasury_account, SPEND_AMOUNT * 4));
 		// beneficiary has zero balance.
-		assert_eq!(<Assets as Inspect<_>>::balance(ASSET_ID, &alice,), 0u128,);
+		assert_eq!(<Assets as Inspect<_>>::balance(&ASSET_ID, &alice,), 0u128,);
 	});
 
 	CollectivesWestend::execute_with(|| {
@@ -109,7 +109,7 @@ fn create_and_claim_treasury_spend() {
 			]
 		);
 		// beneficiary received the assets from the treasury.
-		assert_eq!(<Assets as Inspect<_>>::balance(ASSET_ID, &alice,), SPEND_AMOUNT,);
+		assert_eq!(<Assets as Inspect<_>>::balance(&ASSET_ID, &alice,), SPEND_AMOUNT,);
 	});
 
 	CollectivesWestend::execute_with(|| {
