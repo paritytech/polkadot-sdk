@@ -54,35 +54,35 @@ where
 	type AssetId = AssetId;
 	type Balance = MinimumBalance::Type;
 
-	fn total_issuance(asset: Self::AssetId) -> Self::Balance {
+	fn total_issuance(asset: &Self::AssetId) -> Self::Balance {
 		TestAssetOf::get()
 			.get(&(Instance::get(), asset.encode()))
 			.and_then(|data| Decode::decode(&mut &data[..]).ok())
 			.unwrap_or_default()
 	}
 
-	fn active_issuance(asset: Self::AssetId) -> Self::Balance {
+	fn active_issuance(asset: &Self::AssetId) -> Self::Balance {
 		Self::total_issuance(asset)
 	}
 
 	/// The minimum balance any single account may have.
-	fn minimum_balance(_asset: Self::AssetId) -> Self::Balance {
+	fn minimum_balance(_asset: &Self::AssetId) -> Self::Balance {
 		MinimumBalance::get()
 	}
 
-	fn total_balance(asset: Self::AssetId, who: &AccountId) -> Self::Balance {
+	fn total_balance(asset: &Self::AssetId, who: &AccountId) -> Self::Balance {
 		TestBalanceOf::get()
 			.get(&(Instance::get(), asset.encode(), who.encode()))
 			.and_then(|data| Decode::decode(&mut &data[..]).ok())
 			.unwrap_or_default()
 	}
 
-	fn balance(asset: Self::AssetId, who: &AccountId) -> Self::Balance {
+	fn balance(asset: &Self::AssetId, who: &AccountId) -> Self::Balance {
 		Self::total_balance(asset, who)
 	}
 
 	fn reducible_balance(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		_preservation: Preservation,
 		_force: Fortitude,
@@ -91,7 +91,7 @@ where
 	}
 
 	fn can_deposit(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 		_provenance: Provenance,
@@ -106,7 +106,7 @@ where
 	}
 
 	fn can_withdraw(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> WithdrawConsequence<Self::Balance> {
@@ -120,7 +120,7 @@ where
 		WithdrawConsequence::Success
 	}
 
-	fn asset_exists(asset: Self::AssetId) -> bool {
+	fn asset_exists(asset: &Self::AssetId) -> bool {
 		TestAssetOf::get().contains_key(&(Instance::get(), asset.encode()))
 	}
 }
@@ -139,7 +139,7 @@ where
 	fn handle_dust(_dust: Dust<AccountId, Self>) {}
 
 	fn write_balance(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> Result<Option<Self::Balance>, DispatchError> {
@@ -159,7 +159,7 @@ where
 		Ok(maybe_dust)
 	}
 
-	fn set_total_issuance(asset: Self::AssetId, amount: Self::Balance) {
+	fn set_total_issuance(asset: &Self::AssetId, amount: Self::Balance) {
 		let mut ta = TestAssetOf::get();
 		ta.insert((Instance::get(), asset.encode()), amount.encode());
 		TestAssetOf::set(ta);
