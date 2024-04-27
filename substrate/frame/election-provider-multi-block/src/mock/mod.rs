@@ -235,6 +235,7 @@ pub struct ExtBuilder {
 	with_verifier: bool,
 }
 
+// TODO(gpestana): separate ext builder into separate builders for each pallet.
 impl ExtBuilder {
 	pub(crate) fn pages(self, pages: u32) -> Self {
 		Pages::set(pages);
@@ -273,6 +274,11 @@ impl ExtBuilder {
 
 	pub(crate) fn desired_targets(self, desired: u32) -> Self {
 		DesiredTargets::set(desired);
+		self
+	}
+
+	pub(crate) fn signed_max_submissions(self, max: u32) -> Self {
+		MaxSubmissions::set(max);
 		self
 	}
 
@@ -448,8 +454,8 @@ pub fn current_phase() -> Phase<BlockNumber> {
 	MultiPhase::current_phase()
 }
 
-pub fn current_rount() -> u32 {
-    Pallet::<T>::current_round()
+pub fn current_round() -> u32 {
+	Pallet::<T>::current_round()
 }
 
 pub fn call_elect() -> Result<(), crate::ElectionError<T>> {
@@ -472,6 +478,8 @@ pub fn balances(who: AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
+// Pallet events filters.
+
 pub(crate) fn unsigned_events() -> Vec<crate::unsigned::Event<T>> {
 	System::events()
 		.into_iter()
@@ -479,5 +487,24 @@ pub(crate) fn unsigned_events() -> Vec<crate::unsigned::Event<T>> {
 		.filter_map(
 			|e| if let RuntimeEvent::UnsignedPallet(inner) = e { Some(inner) } else { None },
 		)
+		.collect()
+}
+
+pub(crate) fn signed_events() -> Vec<crate::signed::Event<T>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::SignedPallet(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
+// TODO fix or use macro.
+pub(crate) fn filter_events(
+	types: Vec<RuntimeEvent>,
+) -> Vec<impl std::cmp::PartialEq + std::fmt::Debug> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if types.contains(&e) { Some(e) } else { None })
 		.collect()
 }
