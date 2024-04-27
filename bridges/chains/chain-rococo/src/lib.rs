@@ -67,6 +67,8 @@ pub const PARAS_PALLET_NAME: &str = "Paras";
 
 /// Name of the With-Rococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_ROCOCO_GRANDPA_PALLET_NAME: &str = "BridgeRococoGrandpa";
+/// Name of the With-Rococo parachains pallet instance that is deployed at bridged chains.
+pub const WITH_ROCOCO_BRIDGE_PARACHAINS_PALLET_NAME: &str = "BridgeRococoParachains";
 
 /// Maximal size of encoded `bp_parachains::ParaStoredHeaderData` structure among all Rococo
 /// parachains.
