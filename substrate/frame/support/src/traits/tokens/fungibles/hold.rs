@@ -39,7 +39,6 @@ use sp_runtime::{DispatchError, DispatchResult, Saturating, TokenError};
 
 use super::*;
 
-// TODO
 /// Trait for inspecting a fungible asset whose accounts support partitioning and slashing.
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	/// An identifier for a hold. Used for disambiguating different holds so that
