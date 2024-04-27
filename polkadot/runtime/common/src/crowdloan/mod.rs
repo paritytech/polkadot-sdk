@@ -398,7 +398,7 @@ pub mod pallet {
 
 			// Can't start a crowdloan for a lease period that already passed.
 			if let Some((current_lease_period, _)) = T::Auctioneer::lease_period_index(now) {
-				ensure!(first_period >= current_lease_period, Error::<T>::FirstPeriodInPast);
+				ensure!(first_period > current_lease_period, Error::<T>::FirstPeriodInPast);
 			}
 
 			// There should not be an existing fund.
