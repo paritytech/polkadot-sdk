@@ -63,14 +63,14 @@ fn migrate_pool_account_id_with_native() {
 		));
 
 		// assert user's balance.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &user), 10000 + ed);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &user), 1000 - 10);
-		assert_eq!(PoolAssets::balance(lp_token, &user), 216);
+		assert_eq!(NativeAndAssets::balance(&token_1, &user), 10000 + ed);
+		assert_eq!(NativeAndAssets::balance(&token_2, &user), 1000 - 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &user), 216);
 
 		// record total issuances before migration.
-		let total_issuance_token1 = NativeAndAssets::total_issuance(token_1.clone());
-		let total_issuance_token2 = NativeAndAssets::total_issuance(token_2.clone());
-		let total_issuance_lp_token = PoolAssets::total_issuance(lp_token);
+		let total_issuance_token1 = NativeAndAssets::total_issuance(&token_1);
+		let total_issuance_token2 = NativeAndAssets::total_issuance(&token_2);
+		let total_issuance_lp_token = PoolAssets::total_issuance(&lp_token);
 
 		let pool_account = PoolLocator::address(&pool_id).unwrap();
 		let (prior_pool_account, new_pool_account) =
@@ -78,9 +78,9 @@ fn migrate_pool_account_id_with_native() {
 		assert_eq!(pool_account, prior_pool_account);
 
 		// assert pool's balances before migration.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &prior_pool_account), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &prior_pool_account), 10);
-		assert_eq!(PoolAssets::balance(lp_token, &prior_pool_account), 100);
+		assert_eq!(NativeAndAssets::balance(&token_1, &prior_pool_account), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &prior_pool_account), 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &prior_pool_account), 100);
 
 		// migrate.
 		assert_ok!(AssetConversionOps::migrate_to_new_account(
@@ -90,24 +90,24 @@ fn migrate_pool_account_id_with_native() {
 		));
 
 		// assert user's balance has not changed.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &user), 10000 + ed);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &user), 1000 - 10);
-		assert_eq!(PoolAssets::balance(lp_token, &user), 216);
+		assert_eq!(NativeAndAssets::balance(&token_1, &user), 10000 + ed);
+		assert_eq!(NativeAndAssets::balance(&token_2, &user), 1000 - 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &user), 216);
 
 		// assert pool's balance on new account id is same as on prior account id.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &new_pool_account), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &new_pool_account), 10);
-		assert_eq!(PoolAssets::balance(lp_token, &new_pool_account), 100);
+		assert_eq!(NativeAndAssets::balance(&token_1, &new_pool_account), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &new_pool_account), 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &new_pool_account), 100);
 
 		// assert pool's balance on prior account id is zero.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &prior_pool_account), 0);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &prior_pool_account), 0);
-		assert_eq!(PoolAssets::balance(lp_token, &prior_pool_account), 0);
+		assert_eq!(NativeAndAssets::balance(&token_1, &prior_pool_account), 0);
+		assert_eq!(NativeAndAssets::balance(&token_2, &prior_pool_account), 0);
+		assert_eq!(PoolAssets::balance(&lp_token, &prior_pool_account), 0);
 
 		// assert total issuance has not changed.
-		assert_eq!(total_issuance_token1, NativeAndAssets::total_issuance(token_1));
-		assert_eq!(total_issuance_token2, NativeAndAssets::total_issuance(token_2));
-		assert_eq!(total_issuance_lp_token, PoolAssets::total_issuance(lp_token));
+		assert_eq!(total_issuance_token1, NativeAndAssets::total_issuance(&token_1));
+		assert_eq!(total_issuance_token2, NativeAndAssets::total_issuance(&token_2));
+		assert_eq!(total_issuance_lp_token, PoolAssets::total_issuance(&lp_token));
 	});
 }
 
@@ -147,14 +147,14 @@ fn migrate_pool_account_id_with_insufficient_assets() {
 		));
 
 		// assert user's balance.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &user), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &user), 1000 - 10);
-		assert_eq!(PoolAssets::balance(lp_token, &user), 216);
+		assert_eq!(NativeAndAssets::balance(&token_1, &user), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &user), 1000 - 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &user), 216);
 
 		// record total issuances before migration.
-		let total_issuance_token1 = NativeAndAssets::total_issuance(token_1.clone());
-		let total_issuance_token2 = NativeAndAssets::total_issuance(token_2.clone());
-		let total_issuance_lp_token = PoolAssets::total_issuance(lp_token);
+		let total_issuance_token1 = NativeAndAssets::total_issuance(&token_1);
+		let total_issuance_token2 = NativeAndAssets::total_issuance(&token_2);
+		let total_issuance_lp_token = PoolAssets::total_issuance(&lp_token);
 
 		let pool_account = PoolLocator::address(&pool_id).unwrap();
 		let (prior_pool_account, new_pool_account) =
@@ -162,9 +162,9 @@ fn migrate_pool_account_id_with_insufficient_assets() {
 		assert_eq!(pool_account, prior_pool_account);
 
 		// assert pool's balances before migration.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &prior_pool_account), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &prior_pool_account), 10);
-		assert_eq!(PoolAssets::balance(lp_token, &prior_pool_account), 100);
+		assert_eq!(NativeAndAssets::balance(&token_1, &prior_pool_account), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &prior_pool_account), 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &prior_pool_account), 100);
 
 		// migrate.
 		assert_ok!(AssetConversionOps::migrate_to_new_account(
@@ -174,24 +174,24 @@ fn migrate_pool_account_id_with_insufficient_assets() {
 		));
 
 		// assert user's balance has not changed.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &user), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &user), 1000 - 10);
-		assert_eq!(PoolAssets::balance(lp_token, &user), 216);
+		assert_eq!(NativeAndAssets::balance(&token_1, &user), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &user), 1000 - 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &user), 216);
 
 		// assert pool's balance on new account id is same as on prior account id.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &new_pool_account), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &new_pool_account), 10);
-		assert_eq!(PoolAssets::balance(lp_token, &new_pool_account), 100);
+		assert_eq!(NativeAndAssets::balance(&token_1, &new_pool_account), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &new_pool_account), 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &new_pool_account), 100);
 
 		// assert pool's balance on prior account id is zero.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &prior_pool_account), 0);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &prior_pool_account), 0);
-		assert_eq!(PoolAssets::balance(lp_token, &prior_pool_account), 0);
+		assert_eq!(NativeAndAssets::balance(&token_1, &prior_pool_account), 0);
+		assert_eq!(NativeAndAssets::balance(&token_2, &prior_pool_account), 0);
+		assert_eq!(PoolAssets::balance(&lp_token, &prior_pool_account), 0);
 
 		// assert total issuance has not changed.
-		assert_eq!(total_issuance_token1, NativeAndAssets::total_issuance(token_1));
-		assert_eq!(total_issuance_token2, NativeAndAssets::total_issuance(token_2));
-		assert_eq!(total_issuance_lp_token, PoolAssets::total_issuance(lp_token));
+		assert_eq!(total_issuance_token1, NativeAndAssets::total_issuance(&token_1));
+		assert_eq!(total_issuance_token2, NativeAndAssets::total_issuance(&token_2));
+		assert_eq!(total_issuance_lp_token, PoolAssets::total_issuance(&lp_token));
 	});
 }
 
@@ -231,14 +231,14 @@ fn migrate_pool_account_id_with_sufficient_assets() {
 		));
 
 		// assert user's balance.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &user), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &user), 1000 - 10);
-		assert_eq!(PoolAssets::balance(lp_token, &user), 216);
+		assert_eq!(NativeAndAssets::balance(&token_1, &user), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &user), 1000 - 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &user), 216);
 
 		// record total issuances before migration.
-		let total_issuance_token1 = NativeAndAssets::total_issuance(token_1.clone());
-		let total_issuance_token2 = NativeAndAssets::total_issuance(token_2.clone());
-		let total_issuance_lp_token = PoolAssets::total_issuance(lp_token);
+		let total_issuance_token1 = NativeAndAssets::total_issuance(&token_1);
+		let total_issuance_token2 = NativeAndAssets::total_issuance(&token_2);
+		let total_issuance_lp_token = PoolAssets::total_issuance(&lp_token);
 
 		let pool_account = PoolLocator::address(&pool_id).unwrap();
 		let (prior_pool_account, new_pool_account) =
@@ -246,9 +246,9 @@ fn migrate_pool_account_id_with_sufficient_assets() {
 		assert_eq!(pool_account, prior_pool_account);
 
 		// assert pool's balances before migration.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &prior_pool_account), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &prior_pool_account), 10);
-		assert_eq!(PoolAssets::balance(lp_token, &prior_pool_account), 100);
+		assert_eq!(NativeAndAssets::balance(&token_1, &prior_pool_account), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &prior_pool_account), 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &prior_pool_account), 100);
 
 		// migrate.
 		assert_ok!(AssetConversionOps::migrate_to_new_account(
@@ -258,24 +258,24 @@ fn migrate_pool_account_id_with_sufficient_assets() {
 		));
 
 		// assert user's balance has not changed.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &user), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &user), 1000 - 10);
-		assert_eq!(PoolAssets::balance(lp_token, &user), 216);
+		assert_eq!(NativeAndAssets::balance(&token_1, &user), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &user), 1000 - 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &user), 216);
 
 		// assert pool's balance on new account id is same as on prior account id.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &new_pool_account), 10000);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &new_pool_account), 10);
-		assert_eq!(PoolAssets::balance(lp_token, &new_pool_account), 100);
+		assert_eq!(NativeAndAssets::balance(&token_1, &new_pool_account), 10000);
+		assert_eq!(NativeAndAssets::balance(&token_2, &new_pool_account), 10);
+		assert_eq!(PoolAssets::balance(&lp_token, &new_pool_account), 100);
 
 		// assert pool's balance on prior account id is zero.
-		assert_eq!(NativeAndAssets::balance(token_1.clone(), &prior_pool_account), 0);
-		assert_eq!(NativeAndAssets::balance(token_2.clone(), &prior_pool_account), 0);
-		assert_eq!(PoolAssets::balance(lp_token, &prior_pool_account), 0);
+		assert_eq!(NativeAndAssets::balance(&token_1, &prior_pool_account), 0);
+		assert_eq!(NativeAndAssets::balance(&token_2, &prior_pool_account), 0);
+		assert_eq!(PoolAssets::balance(&lp_token, &prior_pool_account), 0);
 
 		// assert total issuance has not changed.
-		assert_eq!(total_issuance_token1, NativeAndAssets::total_issuance(token_1));
-		assert_eq!(total_issuance_token2, NativeAndAssets::total_issuance(token_2));
-		assert_eq!(total_issuance_lp_token, PoolAssets::total_issuance(lp_token));
+		assert_eq!(total_issuance_token1, NativeAndAssets::total_issuance(&token_1));
+		assert_eq!(total_issuance_token2, NativeAndAssets::total_issuance(&token_2));
+		assert_eq!(total_issuance_lp_token, PoolAssets::total_issuance(&lp_token));
 	});
 }
 
