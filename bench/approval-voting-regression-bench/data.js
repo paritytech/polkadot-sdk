@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714313497317,
+  "lastUpdate": 1714323538526,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -1174,6 +1174,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.6498849975701217,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Squirrel",
+            "username": "gilescope",
+            "email": "gilescope@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "954150f3b5fdb7d07d1ed01b138e2025245bb227",
+          "message": "remove unnessisary use statements due to 2021 core prelude (#4183)\n\nSome traits are already included in the 2021 prelude and so shouldn't be\nneeded to use explicitly:\n\nuse `convert::TryFrom`, `convert::TryInto`, and `iter::FromIterator` are\nremoved.\n\n( https://doc.rust-lang.org/core/prelude/rust_2021/ )\n\nNo breaking changes or change of functionality, so I think no PR doc is\nneeded in this case.\n\n(Motivation: Removes some references to `sp-std`)",
+          "timestamp": "2024-04-28T15:29:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/954150f3b5fdb7d07d1ed01b138e2025245bb227"
+        },
+        "date": 1714323513319,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63547.02999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.573588295469973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.191013673789955,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.359205705610195,
             "unit": "seconds"
           }
         ]
