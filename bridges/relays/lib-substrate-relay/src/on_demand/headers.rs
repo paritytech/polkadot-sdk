@@ -28,7 +28,7 @@ use futures::{select, FutureExt};
 use num_traits::{One, Saturating, Zero};
 use sp_runtime::traits::Header;
 
-use finality_relay::{FinalitySyncParams, TargetClient as FinalityTargetClient};
+use finality_relay::{FinalitySyncParams, HeadersToRelay, TargetClient as FinalityTargetClient};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client, Error as SubstrateError,
 	HeaderIdOf,
@@ -75,7 +75,7 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandHeadersRelay<P> {
 		source_client: Client<P::SourceChain>,
 		target_client: Client<P::TargetChain>,
 		target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
-		only_mandatory_headers: bool,
+		headers_to_relay: HeadersToRelay,
 		metrics_params: Option<MetricsParams>,
 	) -> Self
 	where
@@ -94,7 +94,7 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandHeadersRelay<P> {
 				source_client,
 				target_client,
 				target_transaction_params,
-				only_mandatory_headers,
+				headers_to_relay,
 				required_header_number,
 				metrics_params,
 			)
@@ -191,7 +191,7 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetCh
 
 			// and then craft the submit-proof call
 			let call = P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(
-				header, proof, context,
+				header, proof, false, context,
 			);
 
 			return Ok((header_id, vec![call]));
@@ -204,7 +204,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 	source_client: Client<P::SourceChain>,
 	target_client: Client<P::TargetChain>,
 	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
-	only_mandatory_headers: bool,
+	headers_to_relay: HeadersToRelay,
 	required_header_number: RequiredHeaderNumberRef<P::SourceChain>,
 	metrics_params: Option<MetricsParams>,
 ) where
@@ -346,11 +346,11 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 			log::info!(
 				target: "bridge",
 				"[{}] Starting on-demand headers relay task\n\t\
-					Only mandatory headers: {}\n\t\
+					Headers to relay: {:?}\n\t\
 					Tx mortality: {:?} (~{}m)\n\t\
 					Stall timeout: {:?}",
 				relay_task_name,
-				only_mandatory_headers,
+				headers_to_relay,
 				target_transactions_mortality,
 				stall_timeout.as_secs_f64() / 60.0f64,
 				stall_timeout,
@@ -367,7 +367,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 						),
 						recent_finality_proofs_limit: RECENT_FINALITY_PROOFS_LIMIT,
 						stall_timeout,
-						only_mandatory_headers,
+						headers_to_relay,
 					},
 					metrics_params.clone().unwrap_or_else(MetricsParams::disabled),
 					futures::future::pending(),

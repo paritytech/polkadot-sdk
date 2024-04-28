@@ -522,7 +522,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		stake: Stake<BalanceOf<T>>,
 	) {
 		#[cfg(any(test, feature = "try-runtime))]"))]
-		assert_eq!(T::Staking::stake(who).unwrap(), stake);
+		debug_assert!(T::Staking::stake(who).unwrap() == stake, "input stake mismatches expected.");
 
 		match T::Staking::status(who) {
 			Ok(StakerStatus::Nominator(nominations)) => {

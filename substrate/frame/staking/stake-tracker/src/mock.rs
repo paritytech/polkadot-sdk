@@ -21,7 +21,7 @@ use crate::{self as pallet_stake_tracker, *};
 
 use frame_election_provider_support::{ScoreProvider, VoteWeight};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use sp_runtime::BuildStorage;
+use sp_runtime::{BuildStorage, DispatchResult, Perbill};
 use sp_staking::{Stake, StakingInterface};
 
 pub(crate) type AccountId = u64;
@@ -234,6 +234,14 @@ impl StakingInterface for StakingMock {
 	}
 
 	fn unbond(_stash: &Self::AccountId, _value: Self::Balance) -> sp_runtime::DispatchResult {
+		unreachable!();
+	}
+
+	fn update_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
+		unreachable!();
+	}
+
+	fn slash_reward_fraction() -> Perbill {
 		unreachable!();
 	}
 
