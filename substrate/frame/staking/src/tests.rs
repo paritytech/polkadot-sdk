@@ -7979,11 +7979,9 @@ mod stake_tracker {
 				&[slash_percent],
 			);
 
-			// 11 has been chilled but it is still part of the targets list and it is in `Idle`
-			// state. It's current approvals reflects the fact that it is chilled (no self-stake)
-			// and the slash.
+			// note: upon slashing, validators are not chilled.
 			assert!(<TargetBagsList as SortedListProvider<A>>::contains(&11));
-			assert_eq!(Staking::status(&11), Ok(StakerStatus::Idle));
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
 			// and its balance has been updated based on the slash applied + chilling.
 			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
 

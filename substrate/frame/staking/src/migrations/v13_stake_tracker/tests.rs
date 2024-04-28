@@ -128,6 +128,14 @@ fn mb_migration_target_list_chilled_validator_works() {
 }
 
 #[test]
+fn mb_migration_target_list_dangling_validators_works() {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		// TODO
+	})
+}
+
+
+#[test]
 fn mb_migration_target_list_bench_works() {
 	ExtBuilder::default()
 		.has_stakers(false)
