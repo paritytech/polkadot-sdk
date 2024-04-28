@@ -26,6 +26,6 @@ parameter_types! {
 parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
 	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = RelayNetwork::get().into();
 	pub UnitWeightCost: u64 = 1_000;
 }
