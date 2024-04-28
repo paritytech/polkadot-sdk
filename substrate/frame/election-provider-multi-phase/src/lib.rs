@@ -616,6 +616,12 @@ pub mod pallet {
 			MaxWinners = Self::MaxWinners,
 		>;
 
+		/// Maximum number of whitelisted accounts.
+		///
+		/// The value returned by this getter should be lower or the same as `SignedMaxSubmissions`.
+		#[pallet::constant]
+		type SignedWhitelistMax: Get<u32>;
+
 		/// Maximum number of signed submissions that can be queued.
 		///
 		/// It is best to avoid adjusting this during an election, as it impacts downstream data
@@ -641,6 +647,10 @@ pub mod pallet {
 		/// Base reward for a signed solution
 		#[pallet::constant]
 		type SignedRewardBase: Get<BalanceOf<Self>>;
+
+		/// Fixed deposit for a signed solution.
+		#[pallet::constant]
+		type SignedDepositWhitelist: Get<BalanceOf<Self>>;
 
 		/// Per-byte deposit for a signed solution.
 		#[pallet::constant]
@@ -873,6 +883,9 @@ pub mod pallet {
 			// `SignedMaxSubmissions` is a red flag that the developer does not understand how to
 			// configure this pallet.
 			assert!(T::SignedMaxSubmissions::get() >= T::SignedMaxRefunds::get());
+
+			// idem.
+			assert!(T::SignedMaxSubmissions::get() >= T::SignedWhitelistMax::get());
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -1031,7 +1044,7 @@ pub mod pallet {
 			);
 
 			// create the submission
-			let deposit = Self::deposit_for(&raw_solution, size);
+			let deposit = Self::deposit_for(&who, &raw_solution, size);
 			let call_fee = {
 				let call = Call::submit { raw_solution: raw_solution.clone() };
 				T::EstimateCallFee::estimate_call_fee(&call, None::<Weight>.into())
@@ -1330,6 +1343,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SignedSubmissionsMap<T: Config> =
 		StorageMap<_, Twox64Concat, u32, SignedSubmissionOf<T>, OptionQuery>;
+
+	/// Whitelisted accounts for signed submission.
+	///
+	/// List of accounts which submitted the last `T::SignedWhitelistCount`
+	/// *accepted* solutions.
+	#[pallet::storage]
+	pub type SignedWhitelist<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, T::SignedWhitelistMax>, ValueQuery>;
 
 	// `SignedSubmissions` items end here.
 

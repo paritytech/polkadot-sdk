@@ -289,9 +289,11 @@ parameter_types! {
 	pub static SignedMaxSubmissions: u32 = 5;
 	pub static SignedMaxRefunds: u32 = 1;
 	// for tests only. if `EnableVariableDepositBase` is true, the deposit base will be calculated
-	// by `Multiphase::DepositBase`. Otherwise the deposit base is `SignedFixedDeposit`.
+	// by `Multiphase::DepositBase`. Otherwise the deposit base is `SignedDepositFixed`.
 	pub static EnableVariableDepositBase: bool = false;
-	pub static SignedFixedDeposit: Balance = 5;
+	pub static SignedWhitelistMax: u32 = 2;
+	pub static SignedDepositWhitelist: Balance = 5;
+	pub static SignedDepositFixed: Balance = 5;
 	pub static SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
 	pub static SignedDepositByte: Balance = 0;
 	pub static SignedDepositWeight: Balance = 0;
@@ -399,7 +401,9 @@ impl crate::Config for Runtime {
 	type BetterSignedThreshold = BetterSignedThreshold;
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MinerTxPriority;
+	type SignedWhitelistMax = SignedWhitelistMax;
 	type SignedRewardBase = SignedRewardBase;
+	type SignedDepositWhitelist = SignedDepositWhitelist;
 	type SignedDepositBase = Self;
 	type SignedDepositByte = ();
 	type SignedDepositWeight = ();
@@ -423,12 +427,12 @@ impl crate::Config for Runtime {
 
 impl Convert<usize, BalanceOf<Runtime>> for Runtime {
 	/// returns the geometric increase deposit fee if `EnableVariableDepositBase` is set, otherwise
-	/// the fee is `SignedFixedDeposit`.
+	/// the fee is `SignedDepositFixed`.
 	fn convert(queue_len: usize) -> Balance {
 		if !EnableVariableDepositBase::get() {
-			SignedFixedDeposit::get()
+			SignedDepositFixed::get()
 		} else {
-			GeometricDepositBase::<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>::convert(queue_len)
+			GeometricDepositBase::<Balance, SignedDepositFixed, SignedDepositIncreaseFactor>::convert(queue_len)
 		}
 	}
 }
@@ -569,16 +573,21 @@ impl ExtBuilder {
 		<SignedMaxSubmissions>::set(count);
 		self
 	}
+	pub fn signed_whitelist(self, max: u32, base: Balance) -> Self {
+		SignedWhitelistMax::set(max);
+		SignedDepositWhitelist::set(base);
+		self
+	}
 	pub fn signed_base_deposit(self, base: u64, variable: bool, increase: Percent) -> Self {
-		<EnableVariableDepositBase>::set(variable);
-		<SignedFixedDeposit>::set(base);
-		<SignedDepositIncreaseFactor>::set(increase);
+		EnableVariableDepositBase::set(variable);
+		SignedDepositFixed::set(base);
+		SignedDepositIncreaseFactor::set(increase);
 		self
 	}
 	pub fn signed_deposit(self, base: u64, byte: u64, weight: u64) -> Self {
-		<SignedFixedDeposit>::set(base);
-		<SignedDepositByte>::set(byte);
-		<SignedDepositWeight>::set(weight);
+		SignedDepositFixed::set(base);
+		SignedDepositByte::set(byte);
+		SignedDepositWeight::set(weight);
 		self
 	}
 	pub fn signed_weight(self, weight: Weight) -> Self {
@@ -645,4 +654,15 @@ impl ExtBuilder {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+pub(crate) fn whitelist(who: AccountId) {
+	SignedWhitelist::<Runtime>::mutate(|w| {
+		w.force_push(who.clone());
+	})
+}
+
+pub(crate) fn is_whitelisted(who: &AccountId) -> bool {
+	let whitelist = SignedWhitelist::<Runtime>::get();
+	whitelist.contains(who)
 }

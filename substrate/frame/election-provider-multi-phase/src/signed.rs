@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
-	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
+	SignedWhitelist, SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
 use codec::{Decode, Encode, HasCompact};
 use frame_election_provider_support::NposSolution;
@@ -509,6 +509,11 @@ impl<T: Config> Pallet<T> {
 		let positive_imbalance =
 			T::Currency::deposit_creating(who, reward.saturating_add(call_fee));
 		T::RewardHandler::on_unbalanced(positive_imbalance);
+
+		// register submitter as whitelisted for the next round(s).
+		SignedWhitelist::<T>::mutate(|w| {
+			w.force_push(who.clone());
+		})
 	}
 
 	/// Helper function for the case where a solution is accepted in the rejected phase.
@@ -543,7 +548,11 @@ impl<T: Config> Pallet<T> {
 	/// 1. base deposit, fixed for all submissions.
 	/// 2. a per-byte deposit, for renting the state usage.
 	/// 3. a per-weight deposit, for the potential weight usage in an upcoming on_initialize
-	pub fn deposit_for(
+	///
+	/// If `who` is whitelisted, the required deposit is independent of the number of solutions in
+	/// the queue.
+	pub(crate) fn deposit_for(
+		who: &T::AccountId,
 		raw_solution: &RawSolution<SolutionOf<T::MinerConfig>>,
 		size: SolutionOrSnapshotSize,
 	) -> BalanceOf<T> {
@@ -555,9 +564,15 @@ impl<T: Config> Pallet<T> {
 		let weight_deposit = T::SignedDepositWeight::get()
 			.saturating_mul(feasibility_weight.ref_time().saturated_into());
 
-		T::SignedDepositBase::convert(Self::signed_submissions().len())
-			.saturating_add(len_deposit)
-			.saturating_add(weight_deposit)
+		let base_deposit = if SignedWhitelist::<T>::get().contains(who) {
+			T::SignedDepositWhitelist::get()
+		} else {
+			T::SignedDepositBase::convert(Self::signed_submissions().len())
+				.saturating_add(len_deposit)
+				.saturating_add(weight_deposit)
+		};
+
+		base_deposit.saturating_add(len_deposit).saturating_add(weight_deposit)
 	}
 }
 
@@ -890,6 +905,36 @@ mod tests {
 
 				check_progressive_base_fee(&progression_40);
 			});
+	}
+
+	#[test]
+	fn whitelisted_deposit_fee_works() {
+		ExtBuilder::default().signed_whitelist(2, 10).build_and_execute(|| {
+			assert_eq!(SignedWhitelistMax::get(), 2);
+
+			// 1 is not whitelisted, so pays the deposit calculated with `T::SignedDepositBase`
+			// qith queue length 0.
+			assert!(!is_whitelisted(&1));
+			assert_eq!(
+				Pallet::<Runtime>::deposit_for(&1, &Default::default(), Default::default()),
+				Runtime::convert(0),
+			);
+
+			// 1 is whitelisted now, so it pays the `T::SignedDepositWhitelist`.
+			whitelist(1);
+			assert!(is_whitelisted(&1));
+			assert_eq!(
+				Pallet::<Runtime>::deposit_for(&1, &Default::default(), Default::default()),
+				SignedDepositWhitelist::get(),
+			);
+		})
+	}
+
+	#[test]
+	fn whitelisted_deposit_fee_works_e2e() {
+		ExtBuilder::default().build_and_execute(|| {
+			// TODO
+		})
 	}
 
 	#[test]
