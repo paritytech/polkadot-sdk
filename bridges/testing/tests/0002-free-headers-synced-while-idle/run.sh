@@ -22,7 +22,7 @@ echo
 # which is expected to be 60 seconds for the test environment.
 echo -e "Sleeping 90s before starting relayer ...\n"
 sleep 90
-${BASH_SOURCE%/*}/../../environments/rococo-westend/start_relayer.sh $rococo_dir $westend_dir relayer_pid
+${BASH_SOURCE%/*}/../../environments/rococo-westend/start_relayer.sh $rococo_dir $westend_dir finality_relayer_pid parachains_relayer_pid messages_relayer_pid
 
 run_zndsl ${BASH_SOURCE%/*}/rococo-to-westend.zndsl $westend_dir
 run_zndsl ${BASH_SOURCE%/*}/westend-to-rococo.zndsl $rococo_dir

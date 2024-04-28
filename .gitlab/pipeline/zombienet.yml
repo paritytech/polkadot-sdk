@@ -12,6 +12,4 @@ include:
   # polkadot tests
   - .gitlab/pipeline/zombienet/polkadot.yml
   # bridges tests
-  # TODO: https://github.com/paritytech/parity-bridges-common/pull/2884
-  # commenting until we have a new relatye, compatible with updated fees scheme
-  # - .gitlab/pipeline/zombienet/bridges.yml
+  - .gitlab/pipeline/zombienet/bridges.yml
