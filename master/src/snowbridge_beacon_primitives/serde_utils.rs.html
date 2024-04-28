@@ -288,7 +288,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// helper to deserialize arbitrary arrays like [T; N]
 </span><span class="kw">pub mod </span>arrays {
-	<span class="kw">use </span>std::{convert::TryInto, marker::PhantomData};
+	<span class="kw">use </span>std::marker::PhantomData;
 
 	<span class="kw">use </span>serde::{
 		de::{SeqAccess, Visitor},

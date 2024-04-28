@@ -296,7 +296,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Helper types to work with Ethereum's Merkle Patricia Trie nodes
 
 </span><span class="kw">use </span>ethereum_types::H256;
-<span class="kw">use </span>sp_std::{convert::TryFrom, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub trait </span>Node {
 	<span class="kw">fn </span>contains_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: H256) -&gt; bool;

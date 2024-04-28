@@ -993,10 +993,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
 <a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1018,11 +1014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
-</span><span class="kw">use </span>core::{
-	cmp,
-	convert::{TryFrom, TryInto},
-	mem::size_of,
-};
+</span><span class="kw">use </span>core::{cmp, mem::size_of};
 <span class="kw">use </span>sp_runtime::traits::{Bounded, Hash, StaticLookup};
 
 <span class="kw">use </span>frame_benchmarking::{account, v2::<span class="kw-2">*</span>, BenchmarkError};
