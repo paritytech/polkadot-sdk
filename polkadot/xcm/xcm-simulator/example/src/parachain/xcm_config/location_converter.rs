@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::parachain::{constants::RelayNetwork, AccountId};
-use xcm_builder::{HashedDescription, DescribeFamily, DescribeAllTerminal, AccountId32Aliases};
+use xcm_builder::{AccountId32Aliases, DescribeAllTerminal, DescribeFamily, HashedDescription};
 
 type LocationToAccountId = (
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,

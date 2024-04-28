@@ -25,10 +25,10 @@ pub mod weigher;
 
 use crate::parachain::{MsgQueue, PolkadotXcm, RuntimeCall};
 use frame_support::traits::{Everything, Nothing};
-use xcm_builder::{FixedRateOfFungible, FrameTransactionalProcessor};
+use xcm_builder::{EnsureDecodableXcm, FixedRateOfFungible, FrameTransactionalProcessor};
 
 // Generated from `decl_test_network!`
-pub type XcmRouter = crate::ParachainXcmRouter<MsgQueue>;
+pub type XcmRouter = EnsureDecodableXcm<crate::ParachainXcmRouter<MsgQueue>>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
