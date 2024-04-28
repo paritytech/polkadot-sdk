@@ -2,7 +2,7 @@
 
 use crate::standards::OpaqueBlock as Block;
 use futures::FutureExt;
-use omni_node_common::RuntimeApi;
+use omni_node_common::fake_runtime::RuntimeApi;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;

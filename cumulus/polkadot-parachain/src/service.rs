@@ -78,9 +78,7 @@ type HostFunctions = (
 );
 
 type ParachainClient<RuntimeApi> = TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
-
 type ParachainBackend = TFullBackend<Block>;
-
 type ParachainBlockImport<RuntimeApi> =
 	TParachainBlockImport<Block, Arc<ParachainClient<RuntimeApi>>, ParachainBackend>;
 

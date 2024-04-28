@@ -17,7 +17,7 @@
 
 use crate::standards::OpaqueBlock;
 use futures::FutureExt;
-use omni_node_common::RuntimeApi;
+use omni_node_common::fake_runtime::RuntimeApi;
 use sc_client_api::backend::Backend;
 use sc_executor::WasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};

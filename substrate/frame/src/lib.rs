@@ -238,6 +238,9 @@ pub mod runtime {
 		/// The hashing type used in the runtime.
 		pub type Hashing = traits::BlakeTwo256;
 
+		/// The concrete output of the [`Hashing`].
+		pub type Hash = <Hashing as sp_runtime::traits::Hash>::Output;
+
 		/// TODO: Ideally we want the hashing type to be equal to SysConfig::Hashing?
 		type HeaderInner = generic::Header<BlockNumber, Hashing>;
 
