@@ -22,7 +22,9 @@
     "/dns/coretime-kusama.bootnodes.polkadotters.com/tcp/30371/p2p/12D3KooWHy7TAuK6EoVij2tfaeh3KkaEJxhTmumbEom3HfRnSEsp",
     "/dns/coretime-kusama.bootnodes.polkadotters.com/tcp/30373/wss/p2p/12D3KooWHy7TAuK6EoVij2tfaeh3KkaEJxhTmumbEom3HfRnSEsp",
     "/dns/boot-node.helikon.io/tcp/7420/p2p/12D3KooWK4eKFpYftyuLdBdXrkdJXHKt7KZcNLb92Ufkvo17B9T2",
-    "/dns/boot-node.helikon.io/tcp/7422/wss/p2p/12D3KooWK4eKFpYftyuLdBdXrkdJXHKt7KZcNLb92Ufkvo17B9T2"
+    "/dns/boot-node.helikon.io/tcp/7422/wss/p2p/12D3KooWK4eKFpYftyuLdBdXrkdJXHKt7KZcNLb92Ufkvo17B9T2",
+    "/dns/coretime-kusama-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWFzW9AgxNfkVNCepVByS7URDCRDAA5p3XzBLVptqZvWoL",
+    "/dns/coretime-kusama-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWFzW9AgxNfkVNCepVByS7URDCRDAA5p3XzBLVptqZvWoL"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
