@@ -38,10 +38,10 @@
 //! * The [`Config::VoterList`] keeps a sorted list of voters, sorted by bonded stake.
 //! * The [`Config::TargetList`] sorting must be *always* kept up to date, even in the event of new
 //! nomination updates, nominator/validator slashes and rewards. This pallet *must* ensure that the
-//! scores of the targets  and voters are always up to date and thus, that the targets and voters in
+//! scores of the targets and voters are always up to date and thus, that the targets and voters in
 //! the lists are sorted by score at all time.
 //!
-//! Note that from the POV of this pallet, all events will result in one or multiple updates to
+//! Note that from the POV of this pallet, staking actions may result in one or multiple updates to
 //! [`Config::VoterList`] and/or [`Config::TargetList`] state. If a set of staking updates require
 //! too much weight to execute (e.g. at nominator's rewards payout or at slashes), the event emitter
 //! should handle that in some way (e.g. buffering events and implementing a multi-block event
