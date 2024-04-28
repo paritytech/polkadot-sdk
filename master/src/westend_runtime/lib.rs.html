@@ -2769,6 +2769,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2618" id="2618">2618</a>
 <a href="#2619" id="2619">2619</a>
 <a href="#2620" id="2620">2620</a>
+<a href="#2621" id="2621">2621</a>
+<a href="#2622" id="2622">2622</a>
+<a href="#2623" id="2623">2623</a>
+<a href="#2624" id="2624">2624</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -5020,6 +5024,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -&gt; sp_staking::Page {
 			Staking::api_eras_stakers_page_count(era, account)
+		}
+
+		<span class="kw">fn </span>pending_rewards(era: sp_staking::EraIndex, account: AccountId) -&gt; bool {
+			Staking::api_pending_rewards(era, account)
 		}
 	}
 

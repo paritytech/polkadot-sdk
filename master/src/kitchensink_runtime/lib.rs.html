@@ -3449,6 +3449,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3298" id="3298">3298</a>
 <a href="#3299" id="3299">3299</a>
 <a href="#3300" id="3300">3300</a>
+<a href="#3301" id="3301">3301</a>
+<a href="#3302" id="3302">3302</a>
+<a href="#3303" id="3303">3303</a>
+<a href="#3304" id="3304">3304</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -6241,6 +6245,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -&gt; sp_staking::Page {
 			Staking::api_eras_stakers_page_count(era, account)
+		}
+
+		<span class="kw">fn </span>pending_rewards(era: sp_staking::EraIndex, account: AccountId) -&gt; bool {
+			Staking::api_pending_rewards(era, account)
 		}
 	}
 

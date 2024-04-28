@@ -185,6 +185,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -217,8 +220,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Returns the nominations quota for a nominator with a given balance.
 		</span><span class="kw">fn </span>nominations_quota(balance: Balance) -&gt; u32;
 
-		<span class="doccomment">/// Returns the page count of exposures for a validator in a given era.
+		<span class="doccomment">/// Returns the page count of exposures for a validator `account` in a given era.
 		</span><span class="kw">fn </span>eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -&gt; sp_staking::Page;
+
+		<span class="doccomment">/// Returns true if validator `account` has pages to be claimed for the given era.
+		</span><span class="kw">fn </span>pending_rewards(era: sp_staking::EraIndex, account: AccountId) -&gt; bool;
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
