@@ -528,8 +528,6 @@ fn inexistent_account_works() {
 #[test]
 fn propose_bounty_works() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
-
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
@@ -562,8 +560,6 @@ fn propose_bounty_works() {
 #[test]
 fn propose_bounty_validation_works() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
-
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
@@ -591,7 +587,6 @@ fn propose_bounty_validation_works() {
 #[test]
 fn close_bounty_works() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_noop!(Bounties::close_bounty(RuntimeOrigin::root(), 0), Error::<Test>::InvalidIndex);
 
@@ -616,7 +611,6 @@ fn close_bounty_works() {
 #[test]
 fn approve_bounty_works() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_noop!(
 			Bounties::approve_bounty(RuntimeOrigin::root(), 0),
@@ -677,7 +671,6 @@ fn approve_bounty_works() {
 #[test]
 fn assign_curator_works() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_noop!(
@@ -689,7 +682,6 @@ fn assign_curator_works() {
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		assert_noop!(
@@ -747,13 +739,11 @@ fn assign_curator_works() {
 #[test]
 fn unassign_curator_works() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		let fee = 4;
@@ -800,14 +790,12 @@ fn unassign_curator_works() {
 #[test]
 fn award_and_claim_bounty_works() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 10);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		let fee = 4;
@@ -838,7 +826,6 @@ fn award_and_claim_bounty_works() {
 
 		assert_noop!(Bounties::claim_bounty(RuntimeOrigin::signed(1), 0), Error::<Test>::Premature);
 
-		System::set_block_number(5);
 		go_to_block(5);
 
 		assert_ok!(Balances::transfer_allow_death(
@@ -867,14 +854,12 @@ fn award_and_claim_bounty_works() {
 #[test]
 fn claim_handles_high_fee() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 30);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 49));
@@ -882,7 +867,6 @@ fn claim_handles_high_fee() {
 
 		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(4), 0, 3));
 
-		System::set_block_number(5);
 		go_to_block(5);
 
 		// make fee > balance
@@ -908,15 +892,12 @@ fn claim_handles_high_fee() {
 #[test]
 fn cancel_and_refund() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
-
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		assert_ok!(Balances::transfer_allow_death(
@@ -951,13 +932,11 @@ fn cancel_and_refund() {
 #[test]
 fn award_and_cancel() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 0, 10));
@@ -994,13 +973,11 @@ fn award_and_cancel() {
 #[test]
 fn expire_and_unassign() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 1, 10));
@@ -1009,7 +986,6 @@ fn expire_and_unassign() {
 		assert_eq!(Balances::free_balance(1), 93);
 		assert_eq!(Balances::reserved_balance(1), 5);
 
-		System::set_block_number(22);
 		go_to_block(22);
 
 		assert_noop!(
@@ -1017,7 +993,6 @@ fn expire_and_unassign() {
 			Error::<Test>::Premature
 		);
 
-		System::set_block_number(23);
 		go_to_block(23);
 
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(0), 0));
@@ -1042,7 +1017,6 @@ fn expire_and_unassign() {
 #[test]
 fn extend_expiry() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 10);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
@@ -1054,7 +1028,6 @@ fn extend_expiry() {
 			Error::<Test>::UnexpectedStatus
 		);
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 10));
@@ -1063,7 +1036,6 @@ fn extend_expiry() {
 		assert_eq!(Balances::free_balance(4), 5);
 		assert_eq!(Balances::reserved_balance(4), 5);
 
-		System::set_block_number(10);
 		go_to_block(10);
 
 		assert_noop!(
@@ -1098,7 +1070,6 @@ fn extend_expiry() {
 			}
 		);
 
-		System::set_block_number(25);
 		go_to_block(25);
 
 		assert_noop!(
@@ -1178,12 +1149,10 @@ fn genesis_funding_works() {
 #[test]
 fn unassign_curator_self() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 1, 10));
@@ -1192,7 +1161,6 @@ fn unassign_curator_self() {
 		assert_eq!(Balances::free_balance(1), 93);
 		assert_eq!(Balances::reserved_balance(1), 5);
 
-		System::set_block_number(8);
 		go_to_block(8);
 
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(1), 0));
@@ -1225,7 +1193,6 @@ fn accept_curator_handles_different_deposit_calculations() {
 		let value = 88;
 		let fee = 42;
 
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&user, 100);
 		// Allow for a larger spend limit:
@@ -1233,7 +1200,6 @@ fn accept_curator_handles_different_deposit_calculations() {
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), value, b"12345".to_vec()));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_index));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_index, user, fee));
@@ -1255,7 +1221,6 @@ fn accept_curator_handles_different_deposit_calculations() {
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), value, b"12345".to_vec()));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_index));
 
-		System::set_block_number(4);
 		go_to_block(4);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_index, user, fee));
@@ -1281,7 +1246,6 @@ fn accept_curator_handles_different_deposit_calculations() {
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), value, b"12345".to_vec()));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_index));
 
-		System::set_block_number(6);
 		go_to_block(6);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_index, user, fee));
@@ -1299,7 +1263,6 @@ fn approve_bounty_works_second_instance() {
 		// Set burn to 0 to make tracking funds easier.
 		Burn::set(Permill::from_percent(0));
 
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&Treasury1::account_id(), 201);
 		assert_eq!(Balances::free_balance(&Treasury::account_id()), 101);
@@ -1322,8 +1285,6 @@ fn approve_bounty_works_second_instance() {
 #[test]
 fn approve_bounty_insufficient_spend_limit_errors() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
-
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
@@ -1340,8 +1301,6 @@ fn approve_bounty_insufficient_spend_limit_errors() {
 #[test]
 fn approve_bounty_instance1_insufficient_spend_limit_errors() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
-
 		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
 		assert_eq!(Treasury1::pot(), 100);
 
@@ -1358,7 +1317,6 @@ fn approve_bounty_instance1_insufficient_spend_limit_errors() {
 #[test]
 fn propose_curator_insufficient_spend_limit_errors() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		// Temporarily set a larger spend limit;
@@ -1366,7 +1324,6 @@ fn propose_curator_insufficient_spend_limit_errors() {
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 51, b"12345".to_vec()));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		go_to_block(2);
 
 		SpendLimit::set(50);
@@ -1381,7 +1338,6 @@ fn propose_curator_insufficient_spend_limit_errors() {
 #[test]
 fn propose_curator_instance1_insufficient_spend_limit_errors() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		// Temporarily set a larger spend limit;
@@ -1389,7 +1345,6 @@ fn propose_curator_instance1_insufficient_spend_limit_errors() {
 		assert_ok!(Bounties1::propose_bounty(RuntimeOrigin::signed(0), 11, b"12345".to_vec()));
 		assert_ok!(Bounties1::approve_bounty(RuntimeOrigin::root(), 0));
 
-		System::set_block_number(2);
 		<Treasury1 as OnInitialize<u64>>::on_initialize(2);
 
 		SpendLimit1::set(10);

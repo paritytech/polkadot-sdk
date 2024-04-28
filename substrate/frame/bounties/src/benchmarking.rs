@@ -25,12 +25,16 @@ use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_runtime::traits::Bounded;
+use sp_runtime::traits::{BlockNumberProvider, Bounded};
 
 use crate::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;
 
 const SEED: u32 = 0;
+
+fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T>) {
+	<T as pallet_treasury::Config<I>>::BlockNumberProvider::set_block_number(n);
+}
 
 // Create bounties that are approved for use in `on_initialize`.
 fn create_approved_bounties<T: Config<I>, I: 'static>(n: u32) -> Result<(), BenchmarkError> {
@@ -124,7 +128,7 @@ benchmarks_instance_pallet! {
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
 		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		frame_system::Pallet::<T>::set_block_number(T::BountyUpdatePeriod::get() + 2u32.into());
+		set_block_number::<T, I>(T::BountyUpdatePeriod::get() + 2u32.into());
 		let caller = whitelisted_caller();
 	}: _(RawOrigin::Signed(caller), bounty_id)
 
@@ -163,7 +167,7 @@ benchmarks_instance_pallet! {
 		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
 		Bounties::<T, I>::award_bounty(RawOrigin::Signed(curator.clone()).into(), bounty_id, beneficiary)?;
 
-		frame_system::Pallet::<T>::set_block_number(T::BountyDepositPayoutDelay::get() + 1u32.into());
+		set_block_number::<T, I>(T::BountyDepositPayoutDelay::get() + 1u32.into());
 		ensure!(T::Currency::free_balance(&beneficiary_account).is_zero(), "Beneficiary already has balance");
 
 	}: _(RawOrigin::Signed(curator), bounty_id)
