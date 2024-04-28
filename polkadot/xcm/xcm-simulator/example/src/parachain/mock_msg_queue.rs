@@ -78,8 +78,19 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Get the Parachain Id.
+		pub fn parachain_id() -> ParaId {
+			ParachainId::<T>::get()
+		}
+
+		/// Set the Parachain Id.
 		pub fn set_para_id(para_id: ParaId) {
 			ParachainId::<T>::put(para_id);
+		}
+
+		/// Get the queue of receieved DMP messages.
+		pub fn received_dmp() -> Vec<Xcm<T::RuntimeCall>> {
+			ReceivedDmp::<T>::get()
 		}
 
 		fn handle_xcmp_message(
