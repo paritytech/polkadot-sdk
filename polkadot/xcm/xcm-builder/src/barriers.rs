@@ -399,6 +399,41 @@ impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
 	}
 }
 
+/// Allows execution for the Relay Chain origin (represented as `Location::parent()`) if it is just
+/// a straight `HrmpNewChannelOpenRequest`, `HrmpChannelAccepted`, or `HrmpChannelClosing`
+/// instruction.
+///
+/// Note: This barrier fulfills safety recommendations for the mentioned instructions - see their
+/// documentation.
+pub struct AllowHrmpNotificationsFromRelayChain;
+impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		log::trace!(
+			target: "xcm::barriers",
+			"AllowHrmpNotificationsFromRelayChain origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
+			origin, instructions, _max_weight, _properties,
+		);
+		// accept only the Relay Chain
+		ensure!(matches!(origin.unpack(), (1, [])), ProcessMessageError::Unsupported);
+		// accept only HRMP notifications and nothing else
+		instructions
+			.matcher()
+			.assert_remaining_insts(1)?
+			.match_next_inst(|inst| match inst {
+				HrmpNewChannelOpenRequest { .. } |
+				HrmpChannelAccepted { .. } |
+				HrmpChannelClosing { .. } => Ok(()),
+				_ => Err(ProcessMessageError::BadFormat),
+			})?;
+		Ok(())
+	}
+}
+
 /// Deny executing the XCM if it matches any of the Deny filter regardless of anything else.
 /// If it passes the Deny, and matches one of the Allow cases then it is let through.
 pub struct DenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
