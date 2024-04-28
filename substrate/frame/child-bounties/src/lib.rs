@@ -528,7 +528,7 @@ pub mod pallet {
 									let (parent_curator, update_due) =
 										Self::ensure_bounty_active(parent_bounty_id)?;
 									if sender == parent_curator ||
-										update_due < Self::local_block_number()
+										update_due < Self::treasury_block_number()
 									{
 										// Slash the child-bounty curator if
 										// + the call is made by the parent bounty curator.
@@ -607,7 +607,7 @@ pub mod pallet {
 						child_bounty.status = ChildBountyStatus::PendingPayout {
 							curator: signer,
 							beneficiary: beneficiary.clone(),
-							unlock_at: Self::local_block_number() +
+							unlock_at: Self::treasury_block_number() +
 								T::BountyDepositPayoutDelay::get(),
 						};
 						Ok(())
@@ -669,7 +669,7 @@ pub mod pallet {
 						// Ensure block number is elapsed for processing the
 						// claim.
 						ensure!(
-							Self::local_block_number() >= *unlock_at,
+							Self::treasury_block_number() >= *unlock_at,
 							BountiesError::<T>::Premature,
 						);
 
@@ -777,11 +777,10 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Get the block number used for this pallet.
+	/// Get the block number used in the treasury pallet.
 	///
-	/// This comes from the Treasury pallet which may be configured to use the relay chain on a
-	/// parachain.
-	pub fn local_block_number() -> BlockNumberFor<T> {
+	/// It may be configured to use the relay chain block number on a parachain.
+	pub fn treasury_block_number() -> BlockNumberFor<T> {
 		<T as pallet_treasury::Config>::BlockNumberProvider::current_block_number()
 	}
 

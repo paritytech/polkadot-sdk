@@ -487,7 +487,7 @@ pub mod pallet {
 								// If the sender is not the curator, and the curator is inactive,
 								// slash the curator.
 								if sender != *curator {
-									let block_number = Self::local_block_number();
+									let block_number = Self::treasury_block_number();
 									if *update_due < block_number {
 										slash_curator(curator, &mut bounty.curator_deposit);
 									// Continue to change bounty status below...
@@ -551,7 +551,8 @@ pub mod pallet {
 						T::Currency::reserve(curator, deposit)?;
 						bounty.curator_deposit = deposit;
 
-						let update_due = Self::local_block_number() + T::BountyUpdatePeriod::get();
+						let update_due =
+							Self::treasury_block_number() + T::BountyUpdatePeriod::get();
 						bounty.status =
 							BountyStatus::Active { curator: curator.clone(), update_due };
 
@@ -605,7 +606,7 @@ pub mod pallet {
 				bounty.status = BountyStatus::PendingPayout {
 					curator: signer,
 					beneficiary: beneficiary.clone(),
-					unlock_at: Self::local_block_number() + T::BountyDepositPayoutDelay::get(),
+					unlock_at: Self::treasury_block_number() + T::BountyDepositPayoutDelay::get(),
 				};
 
 				Ok(())
@@ -636,7 +637,7 @@ pub mod pallet {
 				if let BountyStatus::PendingPayout { curator, beneficiary, unlock_at } =
 					bounty.status
 				{
-					ensure!(Self::local_block_number() >= unlock_at, Error::<T, I>::Premature);
+					ensure!(Self::treasury_block_number() >= unlock_at, Error::<T, I>::Premature);
 					let bounty_account = Self::bounty_account_id(bounty_id);
 					let balance = T::Currency::free_balance(&bounty_account);
 					let fee = bounty.fee.min(balance); // just to be safe
@@ -789,8 +790,9 @@ pub mod pallet {
 				match bounty.status {
 					BountyStatus::Active { ref curator, ref mut update_due } => {
 						ensure!(*curator == signer, Error::<T, I>::RequireCurator);
-						*update_due = (Self::local_block_number() + T::BountyUpdatePeriod::get())
-							.max(*update_due);
+						*update_due = (Self::treasury_block_number() +
+							T::BountyUpdatePeriod::get())
+						.max(*update_due);
 					},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 				}
@@ -805,11 +807,10 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	/// Get the block number used for this pallet.
+	/// Get the block number used in the treasury pallet.
 	///
-	/// This comes from the Treasury pallet which may be configured to use the relay chain on a
-	/// parachain.
-	pub fn local_block_number() -> BlockNumberFor<T> {
+	/// It may be configured to use the relay chain block number on a parachain.
+	pub fn treasury_block_number() -> BlockNumberFor<T> {
 		<T as pallet_treasury::Config<I>>::BlockNumberProvider::current_block_number()
 	}
 
