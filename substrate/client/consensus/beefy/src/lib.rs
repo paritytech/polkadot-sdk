@@ -68,6 +68,7 @@ pub mod justification;
 
 use crate::{
 	communication::gossip::GossipValidator,
+	fisherman::Fisherman,
 	justification::BeefyVersionedFinalityProof,
 	keystore::BeefyKeystore,
 	metrics::VoterMetrics,
@@ -79,6 +80,7 @@ pub use communication::beefy_protocol_name::{
 };
 use sp_runtime::generic::OpaqueDigestItemId;
 
+mod fisherman;
 #[cfg(test)]
 mod tests;
 
@@ -304,14 +306,16 @@ where
 		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
 		is_authority: bool,
 	) -> BeefyWorker<B, BE, P, R, S, N> {
+		let key_store = Arc::new(self.key_store);
 		BeefyWorker {
-			backend: self.backend,
-			runtime: self.runtime,
-			key_store: self.key_store,
-			metrics: self.metrics,
-			persisted_state: self.persisted_state,
+			backend: self.backend.clone(),
+			runtime: self.runtime.clone(),
+			key_store: key_store.clone(),
 			payload_provider,
 			sync,
+			fisherman: Arc::new(Fisherman::new(self.backend, self.runtime, key_store)),
+			metrics: self.metrics,
+			persisted_state: self.persisted_state,
 			comms,
 			links,
 			pending_justifications,
