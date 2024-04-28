@@ -172,8 +172,7 @@ impl pallet_xcm::Config for Runtime {
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 construct_runtime!(
-	pub enum Runtime
-	{
+	pub struct Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
 		MsgQueue: mock_msg_queue,

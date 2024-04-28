@@ -41,11 +41,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	#[pallet::getter(fn parachain_id)]
 	pub(super) type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn received_dmp)]
 	/// A queue of received DMP messages
 	pub(super) type ReceivedDmp<T: Config> = StorageValue<_, Vec<Xcm<T::RuntimeCall>>, ValueQuery>;
 
