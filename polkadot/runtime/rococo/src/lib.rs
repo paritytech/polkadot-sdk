@@ -1058,6 +1058,7 @@ impl parachains_scheduler::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
 impl coretime::Config for Runtime {
@@ -1067,6 +1068,7 @@ impl coretime::Config for Runtime {
 	type BrokerId = BrokerId;
 	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
 	type SendXcm = crate::xcm_config::XcmRouter;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 parameter_types! {
