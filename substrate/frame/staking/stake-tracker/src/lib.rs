@@ -521,7 +521,10 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		prev_stake: Option<Stake<BalanceOf<T>>>,
 		stake: Stake<BalanceOf<T>>,
 	) {
-		match T::Staking::stake(who).and(T::Staking::status(who)) {
+		#[cfg(any(test, feature = "try-runtime))]"))]
+		assert_eq!(T::Staking::stake(who).unwrap(), stake);
+
+		match T::Staking::status(who) {
 			Ok(StakerStatus::Nominator(nominations)) => {
 				let voter_weight = Self::weight_of(stake.active);
 
