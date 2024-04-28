@@ -20,6 +20,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
+use sp_arithmetic::Perquintill;
 
 sp_api::decl_runtime_apis! {
 	pub trait StakingApi<Balance, AccountId>
@@ -32,5 +33,12 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns the page count of exposures for a validator in a given era.
 		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page;
+
+		/// Ideal staking rate of the system.
+		///
+		/// In general, if the staking rate is higher than ideal, staking rewards would reduce.
+		///
+		/// Returns none if era payout does not depend on stake rate.
+		fn ideal_staking_rate() -> Option<Perquintill>;
 	}
 }
