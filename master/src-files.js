@@ -523,7 +523,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["xcm_fuzzer",["",[],["fuzz.rs","parachain.rs","relay_chain.rs"]]],\
 ["xcm_procedural",["",[],["builder_pattern.rs","lib.rs","v2.rs","v3.rs","v4.rs","weight_info.rs"]]],\
 ["xcm_simulator",["",[],["lib.rs"]]],\
-["xcm_simulator_example",["",[],["lib.rs","parachain.rs","relay_chain.rs"]]],\
+["xcm_simulator_example",["",[["parachain",[["xcm_config",[],["asset_transactor.rs","barrier.rs","constants.rs","location_converter.rs","mod.rs","origin_converter.rs","reserve.rs","teleporter.rs","weigher.rs"]]],["mock_msg_queue.rs","mod.rs"]],["relay_chain",[["xcm_config",[],["asset_transactor.rs","barrier.rs","constants.rs","location_converter.rs","mod.rs","origin_converter.rs","weigher.rs"]]],["mod.rs"]]],["lib.rs"]]],\
 ["zombienet_backchannel",["",[],["errors.rs","lib.rs"]]]\
 ]'));
 createSrcSidebar();
