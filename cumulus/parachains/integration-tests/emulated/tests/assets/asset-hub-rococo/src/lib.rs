@@ -70,7 +70,9 @@ mod imports {
 		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 	};
-	pub use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
+	pub use rococo_runtime::xcm_config::{
+		UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
+	};
 
 	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
@@ -83,6 +85,7 @@ mod imports {
 	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Rococo>;
 	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubRococo>;
+	pub type RelayToParaThroughAHTest = Test<Rococo, PenpalA, AssetHubRococo>;
 }
 
 #[cfg(test)]

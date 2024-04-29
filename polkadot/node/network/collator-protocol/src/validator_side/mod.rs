@@ -20,9 +20,7 @@ use futures::{
 use futures_timer::Delay;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
-	convert::TryInto,
 	future::Future,
-	iter::FromIterator,
 	time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
@@ -953,6 +951,7 @@ enum AdvertisementError {
 	/// parent.
 	ProtocolMisuse,
 	/// Advertisement is invalid.
+	#[allow(dead_code)]
 	Invalid(InsertAdvertisementError),
 }
 

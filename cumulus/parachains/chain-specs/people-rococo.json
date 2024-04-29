@@ -4,8 +4,10 @@
   "chainType": "Live",
   "bootNodes": [
     "/dns/rococo-people-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWDZg5jMYhKXTu6RU491V5sxsFnP4oaEmZJEUfcRkYzps5",
-    "/dns/rococo-people-collator-node-0.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWDZg5jMYhKXTu6RU491V5sxsFnP4oaEmZJEUfcRkYzps5",
     "/dns/rococo-people-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWGGR5i6qQqfo7iDNp7vjDRKPWuDk53idGV6nFLwS12X5H",
+    "/dns/rococo-people-collator-node-0.parity-testnet.parity.io/tcp/30335/ws/p2p/12D3KooWDZg5jMYhKXTu6RU491V5sxsFnP4oaEmZJEUfcRkYzps5",
+    "/dns/rococo-people-collator-node-1.parity-testnet.parity.io/tcp/30335/ws/p2p/12D3KooWGGR5i6qQqfo7iDNp7vjDRKPWuDk53idGV6nFLwS12X5H",
+    "/dns/rococo-people-collator-node-0.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWDZg5jMYhKXTu6RU491V5sxsFnP4oaEmZJEUfcRkYzps5",
     "/dns/rococo-people-collator-node-1.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWGGR5i6qQqfo7iDNp7vjDRKPWuDk53idGV6nFLwS12X5H"
   ],
   "telemetryEndpoints": null,

@@ -32,7 +32,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
+	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 
@@ -47,10 +47,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
+	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -67,7 +68,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(14);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -217,10 +218,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
 
-		/// The fraction of the validator set that is safe to be offending.
-		/// After the threshold is reached a new era will be forced.
-		type OffendingValidatorsThreshold: Get<Perbill>;
-
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
 		/// used for NPoS election.
 		///
@@ -277,6 +274,9 @@ pub mod pallet {
 		///
 		/// WARNING: this only reports slashing and withdraw events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
+
+		// `DisablingStragegy` controls how validators are disabled
+		type DisablingStrategy: DisablingStrategy<Self>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -378,6 +378,15 @@ pub mod pallet {
 	#[pallet::getter(fn nominators)]
 	pub type Nominators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
+
+	/// Stakers whose funds are managed by other pallets.
+	///
+	/// This pallet does not apply any locks on them, therefore they are only virtually bonded. They
+	/// are expected to be keyless accounts and hence should not be allowed to mutate their ledger
+	/// directly via this pallet. Instead, these accounts are managed by other pallets and accessed
+	/// via low level apis. We keep track of them to do minimal integrity checks.
+	#[pallet::storage]
+	pub type VirtualStakers<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	/// The maximum nominator count before we stop allowing new validators to join.
 	///
@@ -645,19 +654,16 @@ pub mod pallet {
 	#[pallet::getter(fn current_planned_session)]
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
-	/// Indices of validators that have offended in the active era and whether they are currently
-	/// disabled.
+	/// Indices of validators that have offended in the active era. The offenders are disabled for a
+	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
+	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
+	/// implicitly means that the implementor also controls the max number of disabled validators.
 	///
-	/// This value should be a superset of disabled validators since not all offences lead to the
-	/// validator being disabled (if there was no slash). This is needed to track the percentage of
-	/// validators that have offended in the current era, ensuring a new era is forced if
-	/// `OffendingValidatorsThreshold` is reached. The vec is always kept sorted so that we can find
-	/// whether a given validator has previously offended using binary search. It gets cleared when
-	/// the era ends.
+	/// The vec is always kept sorted so that we can find whether a given validator has previously
+	/// offended using binary search.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	#[pallet::getter(fn offending_validators)]
-	pub type OffendingValidators<T: Config> = StorageValue<_, Vec<(u32, bool)>, ValueQuery>;
+	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -858,6 +864,10 @@ pub mod pallet {
 		ControllerDeprecated,
 		/// Cannot reset a ledger.
 		CannotRestoreLedger,
+		/// Provided reward destination is not allowed.
+		RewardDestinationRestricted,
+		/// Not enough funds available to withdraw.
+		NotEnoughFunds,
 	}
 
 	#[pallet::hooks]
@@ -985,29 +995,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
-
-			let stash_balance = T::Currency::free_balance(&stash);
-			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
-				let extra = extra.min(max_additional);
-				ledger.total += extra;
-				ledger.active += extra;
-				// Last check: the new active amount of ledger must be more than ED.
-				ensure!(
-					ledger.active >= T::Currency::minimum_balance(),
-					Error::<T>::InsufficientBond
-				);
-
-				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-				ledger.update()?;
-				// update this staker in the sorted list, if they exist in it.
-				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
-				}
-
-				Self::deposit_event(Event::<T>::Bonded { stash, amount: extra });
-			}
-			Ok(())
+			Self::do_bond_extra(&stash, max_additional)
 		}
 
 		/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond
