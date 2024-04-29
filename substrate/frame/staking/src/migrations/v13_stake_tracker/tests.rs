@@ -134,7 +134,6 @@ fn mb_migration_target_list_dangling_validators_works() {
 	})
 }
 
-
 #[test]
 fn mb_migration_target_list_bench_works() {
 	ExtBuilder::default()

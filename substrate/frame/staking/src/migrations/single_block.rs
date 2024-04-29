@@ -17,7 +17,10 @@
 //! Single-block storage migrations for the Staking pallet. The changelog for this is maintained at
 //! [CHANGELOG.md](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/staking/CHANGELOG.md).
 
-use crate::{log, slashing, Config, EraIndex, Nominators, Pallet, UnappliedSlashes, Validators, UpToLimitDisablingStrategy, DisabledValidators, SessionInterface};
+use crate::{
+	log, slashing, Config, DisabledValidators, EraIndex, Nominators, Pallet, SessionInterface,
+	UnappliedSlashes, UpToLimitDisablingStrategy, Validators,
+};
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	migrations::VersionedMigration,
@@ -27,6 +30,7 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;

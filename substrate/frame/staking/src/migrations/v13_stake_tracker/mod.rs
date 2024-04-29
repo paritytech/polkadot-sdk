@@ -29,6 +29,7 @@ use frame_support::{
 };
 use sp_runtime::traits::CheckedAdd;
 use sp_staking::StakingInterface;
+use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
