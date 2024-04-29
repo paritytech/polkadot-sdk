@@ -613,9 +613,8 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let mut setup = CallSetup::<T>::new(WasmModule::noop(r));
-		let data = setup.data();
 		let (mut ext, module) = setup.ext();
-		let func = CallSetup::<T>::prepare_call(&mut ext, module, data);
+		let func = CallSetup::<T>::prepare_call(&mut ext, module, vec![]);
 		#[block]
 		{
 			func.call();
