@@ -7259,8 +7259,33 @@ mod staking_unchecked {
 			// nominator is a virtual staker and cannot be reaped.
 			assert_noop!(
 				Staking::reap_stash(RuntimeOrigin::signed(10), 101, u32::MAX),
-				Error::<Test>::VirtualStaker
+				Error::<Test>::VirtualStakerNotAllowed
 			);
+		})
+	}
+
+	#[test]
+	fn restore_ledger_not_allowed_for_virtual_stakers() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+			// 333 is corrupted
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// migrate to virtual staker.
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&333);
+
+			// recover the ledger won't work for virtual staker
+			assert_noop!(
+				Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None),
+				Error::<Test>::VirtualStakerNotAllowed
+			);
+
+			// migrate 333 back to normal staker
+			<VirtualStakers<Test>>::remove(333);
+
+			// try restore again
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
 		})
 	}
 }
