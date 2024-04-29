@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714380509221,
+  "lastUpdate": 1714411517076,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -1315,6 +1315,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.977357872389947,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ankan",
+            "username": "Ank4n",
+            "email": "10196091+Ank4n@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0031d49d1ec083c62a4e2b5bf594b7f45f84ab0d",
+          "message": "[Staking] Not allow reap stash for virtual stakers (#4311)\n\nRelated to https://github.com/paritytech/polkadot-sdk/pull/3905.\n\nSince virtual stakers does not have a real balance, they should not be\nallowed to be reaped.\n\nThe proper reaping for agents slashed will be done in a separate PR.",
+          "timestamp": "2024-04-29T15:55:45Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0031d49d1ec083c62a4e2b5bf594b7f45f84ab0d"
+        },
+        "date": 1714411492071,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63557.02999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.464848092050062,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.8619582053599455,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.511399431040174,
             "unit": "seconds"
           }
         ]
