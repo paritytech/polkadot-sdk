@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714380810346,
+  "lastUpdate": 1714411833173,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -7435,6 +7435,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16797939999333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ankan",
+            "username": "Ank4n",
+            "email": "10196091+Ank4n@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0031d49d1ec083c62a4e2b5bf594b7f45f84ab0d",
+          "message": "[Staking] Not allow reap stash for virtual stakers (#4311)\n\nRelated to https://github.com/paritytech/polkadot-sdk/pull/3905.\n\nSince virtual stakers does not have a real balance, they should not be\nallowed to be reaped.\n\nThe proper reaping for agents slashed will be done in a separate PR.",
+          "timestamp": "2024-04-29T15:55:45Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0031d49d1ec083c62a4e2b5bf594b7f45f84ab0d"
+        },
+        "date": 1714411799341,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.886666666658,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011127700433333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16806507518666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013304694239999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02273404818,
             "unit": "seconds"
           }
         ]
