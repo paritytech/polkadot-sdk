@@ -199,6 +199,7 @@ pub mod pallet {
 			+ Debug
 			+ TypeInfo
 			+ MaxEncodedLen;
+
 		// A Hook thaet announces when a poll changes status
 		type OnPollStatusChange: OnPollStatusChange<
 			Self::Tally,
@@ -505,12 +506,10 @@ pub mod pallet {
 				in_queue: false,
 				alarm: Self::set_alarm(nudge_call, now.saturating_add(T::UndecidingTimeout::get())),
 			};
-			ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
-			let (status, track) = Self::as_ongoing(index)
-				.expect("has been added to ReferendumInfoFor as ongoing; qed");
+			ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status.clone()));
 			T::OnPollStatusChange::on_poll_status_change(
 				index,
-				&PollStatus::Ongoing(status, track),
+				&PollStatus::Ongoing(status.tally, track),
 			);
 
 			Self::deposit_event(Event::<T, I>::Submitted { index, track, proposal });
@@ -1257,6 +1256,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		} else {
 			Self::ensure_no_alarm(&mut status)
 		};
+
+		T::OnPollStatusChange::on_poll_status_change(
+			index,
+			&PollStatus::Ongoing(status.clone().tally, status.clone().track),
+		);
 		(ReferendumInfo::Ongoing(status), dirty_alarm || dirty, branch)
 	}
 
