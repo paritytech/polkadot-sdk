@@ -7208,7 +7208,14 @@ mod staking_unchecked {
 
 	#[test]
 	fn virtual_stakers_cannot_be_reaped() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default()
+			// we need enough validators such that disables are allowed.
+			.validator_count(7)
+			.set_status(41, StakerStatus::Validator)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(201, StakerStatus::Validator)
+			.set_status(202, StakerStatus::Validator)
+			.build_and_execute(|| {
 			// make 101 only nominate 11.
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
 
