@@ -104,7 +104,7 @@ use sp_runtime::{
 	PerThing, Perbill, Permill, RuntimeDebug, SaturatedConversion,
 };
 use sp_staking::{
-	offence::{DisableStrategy, Kind, Offence, ReportOffence},
+	offence::{Kind, Offence, ReportOffence},
 	SessionIndex,
 };
 use sp_std::prelude::*;
@@ -845,10 +845,6 @@ impl<Offender: Clone> Offence<Offender> for UnresponsivenessOffence<Offender> {
 
 	fn time_slot(&self) -> Self::TimeSlot {
 		self.session_index
-	}
-
-	fn disable_strategy(&self) -> DisableStrategy {
-		DisableStrategy::Never
 	}
 
 	fn slash_fraction(&self, offenders: u32) -> Perbill {
