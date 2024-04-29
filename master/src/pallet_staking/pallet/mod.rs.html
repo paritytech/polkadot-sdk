@@ -2231,6 +2231,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2080" id="2080">2080</a>
 <a href="#2081" id="2081">2081</a>
 <a href="#2082" id="2082">2082</a>
+<a href="#2083" id="2083">2083</a>
+<a href="#2084" id="2084">2084</a>
+<a href="#2085" id="2085">2085</a>
+<a href="#2086" id="2086">2086</a>
+<a href="#2087" id="2087">2087</a>
+<a href="#2088" id="2088">2088</a>
+<a href="#2089" id="2089">2089</a>
+<a href="#2090" id="2090">2090</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3101,6 +3109,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>RewardDestinationRestricted,
 		<span class="doccomment">/// Not enough funds available to withdraw.
 		</span>NotEnoughFunds,
+		<span class="doccomment">/// Operation not allowed for virtual stakers.
+		</span>VirtualStakerNotAllowed,
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -3867,6 +3877,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let _ </span>= ensure_signed(origin)<span class="question-mark">?</span>;
 
+			<span class="comment">// virtual stakers should not be allowed to be reaped.
+			</span><span class="macro">ensure!</span>(!<span class="self">Self</span>::is_virtual_staker(<span class="kw-2">&amp;</span>stash), Error::&lt;T&gt;::VirtualStakerNotAllowed);
+
 			<span class="kw">let </span>ed = T::Currency::minimum_balance();
 			<span class="kw">let </span>reapable = T::Currency::total_balance(<span class="kw-2">&amp;</span>stash) &lt; ed ||
 				<span class="self">Self</span>::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default() &lt; ed;
@@ -4226,6 +4239,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			maybe_unlocking: <span class="prelude-ty">Option</span>&lt;BoundedVec&lt;UnlockChunk&lt;BalanceOf&lt;T&gt;&gt;, T::MaxUnlockingChunks&gt;&gt;,
 		) -&gt; DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+
+			<span class="comment">// cannot restore ledger for virtual stakers.
+			</span><span class="macro">ensure!</span>(!<span class="self">Self</span>::is_virtual_staker(<span class="kw-2">&amp;</span>stash), Error::&lt;T&gt;::VirtualStakerNotAllowed);
 
 			<span class="kw">let </span>current_lock = T::Currency::balance_locked(<span class="kw">crate</span>::STAKING_ID, <span class="kw-2">&amp;</span>stash);
 			<span class="kw">let </span>stash_balance = T::Currency::free_balance(<span class="kw-2">&amp;</span>stash);

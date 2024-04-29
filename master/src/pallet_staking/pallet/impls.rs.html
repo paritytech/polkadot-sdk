@@ -2453,6 +2453,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2302" id="2302">2302</a>
 <a href="#2303" id="2303">2303</a>
 <a href="#2304" id="2304">2304</a>
+<a href="#2305" id="2305">2305</a>
+<a href="#2306" id="2306">2306</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2542,10 +2544,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		StakingLedger::&lt;T&gt;::paired_account(Stash(stash.clone()))
 	}
 
-	<span class="doccomment">/// Inspects and returns the corruption state of a ledger and bond, if any.
+	<span class="doccomment">/// Inspects and returns the corruption state of a ledger and direct bond, if any.
 	///
 	/// Note: all operations in this method access directly the `Bonded` and `Ledger` storage maps
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
+	/// It is also meant to check state for direct bonds and may not work as expected for virtual
+	/// bonds.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>inspect_bond_state(
 		stash: <span class="kw-2">&amp;</span>T::AccountId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;LedgerIntegrityState, Error&lt;T&gt;&gt; {
