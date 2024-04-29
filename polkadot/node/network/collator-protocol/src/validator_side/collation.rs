@@ -121,6 +121,17 @@ impl PendingCollation {
 	}
 }
 
+/// An identifier for a fetched collation that was blocked from being seconded because we don't have
+/// access to the parent's HeadData. Can be retried once the candidate outputting this head data is
+/// seconded.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct BlockedCollationId {
+	/// Para id.
+	pub para_id: ParaId,
+	/// Hash of the parent head data.
+	pub parent_head_data_hash: Hash,
+}
+
 /// Performs a sanity check between advertised and fetched collations.
 ///
 /// Since the persisted validation data is constructed using the advertised
