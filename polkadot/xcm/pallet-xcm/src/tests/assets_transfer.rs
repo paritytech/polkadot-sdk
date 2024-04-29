@@ -22,13 +22,12 @@ use crate::{
 	DispatchResult, OriginFor,
 };
 use frame_support::{
-	assert_ok,
-	assert_err,
+	assert_err, assert_ok,
 	traits::{tokens::fungibles::Inspect, Currency},
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use sp_runtime::{traits::AccountIdConversion};
+use sp_runtime::traits::AccountIdConversion;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
