@@ -161,6 +161,13 @@ impl ResourceUsage {
 		for (resource_name, values) in by_name {
 			let total = values.iter().map(|v| v.total).sum::<f64>() / values.len() as f64;
 			let per_block = values.iter().map(|v| v.per_block).sum::<f64>() / values.len() as f64;
+			let per_block_sd =
+				standard_deviation(&values.iter().map(|v| v.per_block).collect::<Vec<f64>>());
+			println!(
+				"[{}] standart_deviation {:.2}%",
+				resource_name,
+				per_block_sd / per_block * 100.0
+			);
 			average.push(Self { resource_name, total, per_block });
 		}
 		average
@@ -178,4 +185,12 @@ pub struct ChartItem {
 	pub name: String,
 	pub unit: String,
 	pub value: f64,
+}
+
+fn standard_deviation(values: &[f64]) -> f64 {
+	let n = values.len() as f64;
+	let mean = values.iter().sum::<f64>() / n;
+	let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0);
+
+	variance.sqrt()
 }
