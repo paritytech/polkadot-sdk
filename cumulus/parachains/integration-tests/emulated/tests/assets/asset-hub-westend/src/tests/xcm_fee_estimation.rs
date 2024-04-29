@@ -190,7 +190,7 @@ fn multi_hop_works() {
 		let result = Runtime::dry_run_xcm(
 			sender_as_seen_by_relay.clone().into(),
 			xcm_program,
-			weight.clone(),
+			weight,
 		).unwrap();
 		let (destination_to_query, messages_to_query) = &result.forwarded_messages[0];
 		// There's actually two messages here.
