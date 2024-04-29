@@ -265,7 +265,7 @@ fn queueing_works() {
 }
 
 #[test]
-fn op_poll_status_change_works() {
+fn on_poll_status_change_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// #1: submit
 		assert_ok!(Referenda::submit(
