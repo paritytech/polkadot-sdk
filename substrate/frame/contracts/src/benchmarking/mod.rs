@@ -864,7 +864,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = BenchEnv::seal0_input(&mut runtime, &mut memory, 4, 0)
+			result = BenchEnv::seal0_input(&mut runtime, &mut memory, 4, 0);
 		}
 		assert_ok!(result);
 		assert_eq!(&memory[4..], &vec![42u8; n as usize]);
@@ -877,7 +877,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = BenchEnv::seal0_seal_return(&mut runtime, &mut memory, 0, 0, n)
+			result = BenchEnv::seal0_seal_return(&mut runtime, &mut memory, 0, 0, n);
 		}
 
 		assert!(matches!(
