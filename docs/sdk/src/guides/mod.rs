@@ -23,3 +23,6 @@ pub mod cumulus_enabled_parachain;
 /// How to make a given runtime XCM-enabled, capable of sending messages (`Transact`) between itself
 /// and the relay chain to which it is connected.
 pub mod xcm_enabled_parachain;
+
+/// Parachain guides
+pub mod parachains;
