@@ -51,9 +51,11 @@ use std::{
 
 #[derive(Debug)]
 pub(crate) enum Event {
+	#[allow(dead_code)]
 	EventStream(TracingUnboundedSender<NetworkEvent>),
 	WriteNotification(PeerId, Vec<u8>),
 	Report(PeerId, ReputationChange),
+	#[allow(dead_code)]
 	Announce(Hash),
 }
 

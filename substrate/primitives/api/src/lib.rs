@@ -77,7 +77,6 @@ extern crate self as sp_api;
 pub mod __private {
 	#[cfg(feature = "std")]
 	mod std_imports {
-		pub use hash_db::Hasher;
 		pub use sp_core::traits::CallContext;
 		pub use sp_externalities::{Extension, Extensions};
 		pub use sp_runtime::StateVersion;
@@ -85,6 +84,7 @@ pub mod __private {
 			Backend as StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,
 			TrieBackendBuilder,
 		};
+		pub use trie_db::node_db::Hasher;
 	}
 	#[cfg(feature = "std")]
 	pub use std_imports::*;
@@ -124,6 +124,8 @@ use sp_runtime::{traits::Block as BlockT, ExtrinsicInclusionMode};
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
 use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
+#[cfg(feature = "std")]
+use sp_trie::DBLocation;
 use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
@@ -517,7 +519,7 @@ pub use sp_api_proc_macro::mock_impl_runtime_apis;
 
 /// A type that records all accessed trie nodes and generates a proof out of it.
 #[cfg(feature = "std")]
-pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>>;
+pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>, DBLocation>;
 
 #[cfg(feature = "std")]
 pub type StorageChanges<Block> = sp_state_machine::StorageChanges<HashingFor<Block>>;

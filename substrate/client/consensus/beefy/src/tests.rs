@@ -45,8 +45,7 @@ use sc_consensus::{
 };
 use sc_network::{config::RequestResponseConfig, ProtocolName};
 use sc_network_test::{
-	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient,
-	PeersFullClient, TestNetFactory,
+	Block, FullPeerConfig, PassThroughVerifier, Peer, PeersClient, PeersFullClient, TestNetFactory,
 };
 use sc_utils::notification::NotificationReceiver;
 use serde::{Deserialize, Serialize};
@@ -83,12 +82,8 @@ const GOOD_MMR_ROOT: MmrRootHash = MmrRootHash::repeat_byte(0xbf);
 const BAD_MMR_ROOT: MmrRootHash = MmrRootHash::repeat_byte(0x42);
 const ALTERNATE_BAD_MMR_ROOT: MmrRootHash = MmrRootHash::repeat_byte(0x13);
 
-type BeefyBlockImport = crate::BeefyBlockImport<
-	Block,
-	substrate_test_runtime_client::Backend,
-	TestApi,
-	BlockImportAdapter<PeersClient>,
->;
+type BeefyBlockImport =
+	crate::BeefyBlockImport<Block, substrate_test_runtime_client::Backend, TestApi, PeersClient>;
 
 pub(crate) type BeefyValidatorSet = ValidatorSet<AuthorityId>;
 pub(crate) type BeefyPeer = Peer<PeerData, BeefyBlockImport>;
@@ -207,15 +202,11 @@ impl TestNetFactory for BeefyTestNet {
 	fn make_block_import(
 		&self,
 		client: PeersClient,
-	) -> (
-		BlockImportAdapter<Self::BlockImport>,
-		Option<BoxJustificationImport<Block>>,
-		Self::PeerData,
-	) {
+	) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Self::PeerData) {
 		let keys = &[BeefyKeyring::Alice, BeefyKeyring::Bob];
 		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
 		let api = Arc::new(TestApi::new(self.beefy_genesis, &validator_set, GOOD_MMR_ROOT));
-		let inner = BlockImportAdapter::new(client.clone());
+		let inner = client.clone();
 		let (block_import, voter_links, rpc_links) =
 			beefy_block_import_and_links(inner, client.as_backend(), api, None);
 		let peer_data = PeerData {
@@ -223,7 +214,7 @@ impl TestNetFactory for BeefyTestNet {
 			beefy_voter_links: Mutex::new(Some(voter_links)),
 			..Default::default()
 		};
-		(BlockImportAdapter::new(block_import), None, peer_data)
+		(block_import, None, peer_data)
 	}
 
 	fn peer(&mut self, i: usize) -> &mut BeefyPeer {
