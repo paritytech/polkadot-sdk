@@ -275,6 +275,7 @@ test-linux-stable-codecov:
         -o target/coverage/result/
     - ls -l target/coverage/result/    
     - codecov upload-process -t ${CODECOV_TOKEN} -f target/coverage/result/lcov --desable-search
+    - codecov get-report-results
   #  
 
 
