@@ -268,7 +268,7 @@ impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
-		match VERSION_WRAPPER.with(|r| r.borrow().get(dest).map_or(None, |v| v.clone())) {
+		match VERSION_WRAPPER.with(|r| r.borrow().get(dest).map_or(None, |v| *v)) {
 			Some(v) => xcm.into().into_version(v),
 			None => return Err(()),
 		}
@@ -277,11 +277,7 @@ impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
 impl TestUsesOnlyStoredVersionWrapper {
 	pub fn set_version(location: Location, version: Option<XcmVersion>) {
 		VERSION_WRAPPER.with(|r| {
-			let _ = r
-				.borrow_mut()
-				.entry(location)
-				.and_modify(|v| *v = version.clone())
-				.or_insert(version);
+			let _ = r.borrow_mut().entry(location).and_modify(|v| *v = version).or_insert(version);
 		});
 	}
 }

@@ -1030,13 +1030,13 @@ fn hrmp_notifications_works() {
 
 		// for para_a -> `None`, means we will use latest.
 		TestUsesOnlyStoredVersionWrapper::set_version(
-			Location::new(0, [Junction::Parachain(para_a.clone().into())]),
+			Location::new(0, [Junction::Parachain(para_a.into())]),
 			None,
 		);
 		// for para_b -> `Some(latest - 1)`, means we will use latest-1 XCM version.
 		let previous_version = XCM_VERSION - 1;
 		TestUsesOnlyStoredVersionWrapper::set_version(
-			Location::new(0, [Junction::Parachain(para_b.clone().into())]),
+			Location::new(0, [Junction::Parachain(para_b.into())]),
 			Some(previous_version),
 		);
 
