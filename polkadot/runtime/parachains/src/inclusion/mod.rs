@@ -245,7 +245,7 @@ pub enum AggregateMessageOrigin {
 /// Identifies a UMP queue inside the `MessageQueue` pallet.
 ///
 /// It is written in verbose form since future variants like `Here` and `Bridged` are already
-/// forseeable.
+/// foreseeable.
 #[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum UmpQueueId {
 	/// The message originated from this parachain.

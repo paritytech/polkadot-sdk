@@ -86,7 +86,7 @@ where
 	BasicQueue::new(ManualSealVerifier, block_import, None, spawner, registry)
 }
 
-/// Params required to start the instant sealing authorship task.
+/// Params required to start the manual sealing authorship task.
 pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CS, CIDP, P> {
 	/// Block import instance.
 	pub block_import: BI,
@@ -114,7 +114,7 @@ pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, C
 	pub create_inherent_data_providers: CIDP,
 }
 
-/// Params required to start the manual sealing authorship task.
+/// Params required to start the instant sealing authorship task.
 pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CIDP, P> {
 	/// Block import instance for well. importing blocks.
 	pub block_import: BI,
