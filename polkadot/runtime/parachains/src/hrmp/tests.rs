@@ -23,7 +23,7 @@ use crate::{
 	mock::{
 		deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance,
 		Dmp, Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent, RuntimeOrigin,
-		System, Test,
+		System, Test, TestUsesOnlyStoredVersionWrapper,
 	},
 	shared,
 };
@@ -1007,9 +1007,12 @@ fn establish_channel_with_system_with_invalid_args() {
 
 #[test]
 fn hrmp_notifications_works() {
-	use xcm::opaque::{
-		latest::{prelude::*, Xcm},
-		VersionedXcm,
+	use xcm::{
+		opaque::{
+			latest::{prelude::*, Xcm},
+			VersionedXcm,
+		},
+		IntoVersion,
 	};
 
 	let para_a = 2001.into();
@@ -1022,6 +1025,20 @@ fn hrmp_notifications_works() {
 		register_parachain(para_a);
 		register_parachain(para_b);
 		run_to_block(5, Some(vec![4, 5]));
+
+		// set XCM versions for wrapper
+
+		// for para_a -> `None`, means we will use latest.
+		TestUsesOnlyStoredVersionWrapper::set_version(
+			Location::new(0, [Junction::Parachain(para_a.clone().into())]),
+			None,
+		);
+		// for para_b -> `Some(latest - 1)`, means we will use latest-1 XCM version.
+		let previous_version = XCM_VERSION - 1;
+		TestUsesOnlyStoredVersionWrapper::set_version(
+			Location::new(0, [Junction::Parachain(para_b.clone().into())]),
+			Some(previous_version),
+		);
 
 		let assert_notification_for = |sent_at, para_id, expected| {
 			assert_eq!(
@@ -1044,6 +1061,8 @@ fn hrmp_notifications_works() {
 				max_capacity: 2,
 				max_message_size: 8,
 			}]))
+			.into_version(previous_version)
+			.expect("compatible")
 			.encode(),
 		);
 		assert_notification_for(
@@ -1069,6 +1088,8 @@ fn hrmp_notifications_works() {
 			5,
 			para_b,
 			VersionedXcm::from(Xcm(vec![HrmpChannelAccepted { recipient: u32::from(para_a) }]))
+				.into_version(previous_version)
+				.expect("compatible")
 				.encode(),
 		);
 		assert_notification_for(
@@ -1104,6 +1125,8 @@ fn hrmp_notifications_works() {
 				sender: u32::from(para_a),
 				recipient: u32::from(para_b),
 			}]))
+			.into_version(previous_version)
+			.expect("compatible")
 			.encode(),
 		);
 		assert_notification_for(
