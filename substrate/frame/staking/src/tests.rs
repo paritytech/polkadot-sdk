@@ -7216,59 +7216,62 @@ mod staking_unchecked {
 			.set_status(201, StakerStatus::Validator)
 			.set_status(202, StakerStatus::Validator)
 			.build_and_execute(|| {
-			// make 101 only nominate 11.
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
+				// make 101 only nominate 11.
+				assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
 
-			mock::start_active_era(1);
+				mock::start_active_era(1);
 
-			// slash all stake.
-			let slash_percent = Perbill::from_percent(100);
-			let initial_exposure = Staking::eras_stakers(active_era(), &11);
-			// 101 is a nominator for 11
-			assert_eq!(initial_exposure.others.first().unwrap().who, 101);
-			// make 101 a virtual nominator
-			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
-			// set payee different to self.
-			assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+				// slash all stake.
+				let slash_percent = Perbill::from_percent(100);
+				let initial_exposure = Staking::eras_stakers(active_era(), &11);
+				// 101 is a nominator for 11
+				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
+				// make 101 a virtual nominator
+				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+				// set payee different to self.
+				assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
 
-			// cache values
-			let validator_balance = Balances::free_balance(&11);
-			let validator_stake = Staking::ledger(11.into()).unwrap().total;
-			let nominator_balance = Balances::free_balance(&101);
-			let nominator_stake = Staking::ledger(101.into()).unwrap().total;
+				// cache values
+				let validator_balance = Balances::free_balance(&11);
+				let validator_stake = Staking::ledger(11.into()).unwrap().total;
+				let nominator_balance = Balances::free_balance(&101);
+				let nominator_stake = Staking::ledger(101.into()).unwrap().total;
 
-			// 11 goes offline
-			on_offence_now(
-				&[OffenceDetails { offender: (11, initial_exposure.clone()), reporters: vec![] }],
-				&[slash_percent],
-			);
+				// 11 goes offline
+				on_offence_now(
+					&[OffenceDetails {
+						offender: (11, initial_exposure.clone()),
+						reporters: vec![],
+					}],
+					&[slash_percent],
+				);
 
-			// both stakes must have been decreased to 0.
-			assert_eq!(Staking::ledger(101.into()).unwrap().active, 0);
-			assert_eq!(Staking::ledger(11.into()).unwrap().active, 0);
+				// both stakes must have been decreased to 0.
+				assert_eq!(Staking::ledger(101.into()).unwrap().active, 0);
+				assert_eq!(Staking::ledger(11.into()).unwrap().active, 0);
 
-			// all validator stake is slashed
-			assert_eq_error_rate!(
-				validator_balance - validator_stake,
-				Balances::free_balance(&11),
-				1
-			);
-			// Because slashing happened.
-			assert!(is_disabled(11));
+				// all validator stake is slashed
+				assert_eq_error_rate!(
+					validator_balance - validator_stake,
+					Balances::free_balance(&11),
+					1
+				);
+				// Because slashing happened.
+				assert!(is_disabled(11));
 
-			// Virtual nominator's balance is not slashed.
-			assert_eq!(Balances::free_balance(&101), nominator_balance);
-			// Slash is broadcasted to slash observers.
-			assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_stake);
+				// Virtual nominator's balance is not slashed.
+				assert_eq!(Balances::free_balance(&101), nominator_balance);
+				// Slash is broadcasted to slash observers.
+				assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_stake);
 
-			// validator can be reaped.
-			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, u32::MAX));
-			// nominator is a virtual staker and cannot be reaped.
-			assert_noop!(
-				Staking::reap_stash(RuntimeOrigin::signed(10), 101, u32::MAX),
-				Error::<Test>::VirtualStakerNotAllowed
-			);
-		})
+				// validator can be reaped.
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, u32::MAX));
+				// nominator is a virtual staker and cannot be reaped.
+				assert_noop!(
+					Staking::reap_stash(RuntimeOrigin::signed(10), 101, u32::MAX),
+					Error::<Test>::VirtualStakerNotAllowed
+				);
+			})
 	}
 
 	#[test]
