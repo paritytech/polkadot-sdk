@@ -952,6 +952,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-asset-conversion",
+ "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
@@ -4055,6 +4056,7 @@ dependencies = [
  "sp-trie",
  "sp-version",
  "staging-xcm",
+ "staging-xcm-builder",
  "trie-db",
  "trie-standardmap",
 ]
@@ -12324,6 +12326,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]

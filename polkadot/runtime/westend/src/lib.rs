@@ -2252,6 +2252,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>, weight: Weight) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			use xcm_builder::InspectMessageQueues;
 			let origin_location: Location = origin_location.try_into().map_err(|error| {
 				log::error!(
 					target: "xcm::XcmDryRunApi::dry_run_xcm",
@@ -2269,11 +2270,11 @@ sp_api::impl_runtime_apis! {
 				XcmDryRunApiError::VersionedConversionFailed
 			})?;
 			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-			let result = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			let result = xcm_executor::XcmExecutor::<xcm_config::XcmConfig>::prepare_and_execute(
 				origin_location,
 				xcm,
 				&mut hash,
-				max_weight,
+				weight,
 				Weight::zero(),
 			);
 			let forwarded_messages = xcm_config::XcmRouter::get_messages();

@@ -115,7 +115,7 @@ impl pallet_assets::Config for TestRuntime {
 }
 
 thread_local! {
-	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
+	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = const { RefCell::new(Vec::new()) };
 }
 
 pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {

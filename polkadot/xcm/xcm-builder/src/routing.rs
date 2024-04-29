@@ -146,6 +146,7 @@ impl EnsureDelivery for Tuple {
 }
 
 /// Inspects messages in queues.
+/// Meant to be used in runtime APIs, not in runtimes.
 pub trait InspectMessageQueues {
 	/// Get queued messages and their destinations.
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>;

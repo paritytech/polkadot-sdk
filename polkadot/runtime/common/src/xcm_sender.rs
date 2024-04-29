@@ -146,7 +146,9 @@ impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P
 				let decoded_messages: Vec<VersionedXcm<()>> = messages
 					.iter()
 					.map(|downward_message| {
-						VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap()
+						let message = VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap();
+						log::trace!(target: "xcm::DownwardMessageQueues::get_messages", "Message: {:?}, sent at: {:?}", message, downward_message.sent_at);
+						message
 					})
 					.collect();
 				(VersionedLocation::V4(Parachain(para_id.into()).into()), decoded_messages)

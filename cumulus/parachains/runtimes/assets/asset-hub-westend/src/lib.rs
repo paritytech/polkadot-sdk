@@ -1351,6 +1351,8 @@ impl_runtime_apis! {
 	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for Runtime {
 		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_builder::InspectMessageQueues;
+			use xcm::prelude::*;
+
 			pallet_xcm::ShouldRecordXcm::<Runtime>::put(true);
 			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
 				log::error!(
@@ -1371,7 +1373,10 @@ impl_runtime_apis! {
 			})
 		}
 
-		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+		fn dry_run_xcm(origin_location: VersionedLocation, program: VersionedXcm<RuntimeCall>, weight: Weight) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			use xcm_builder::InspectMessageQueues;
+			use xcm::prelude::*;
+
 			let origin_location: Location = origin_location.try_into().map_err(|error| {
 				log::error!(
 					target: "xcm::XcmDryRunApi::dry_run_xcm",
@@ -1380,7 +1385,7 @@ impl_runtime_apis! {
 				);
 				XcmDryRunApiError::VersionedConversionFailed
 			})?;
-			let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
+			let program: Xcm<RuntimeCall> = program.try_into().map_err(|error| {
 				log::error!(
 					target: "xcm::XcmDryRunApi::dry_run_xcm",
 					"Xcm version conversion failed with error {:?}",
@@ -1388,12 +1393,12 @@ impl_runtime_apis! {
 				);
 				XcmDryRunApiError::VersionedConversionFailed
 			})?;
-			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-			let result = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			let mut hash = program.using_encoded(sp_core::hashing::blake2_256);
+			let result = xcm_executor::XcmExecutor::<xcm_config::XcmConfig>::prepare_and_execute(
 				origin_location,
-				xcm,
+				program,
 				&mut hash,
-				max_weight,
+				weight,
 				Weight::zero(),
 			);
 			let forwarded_messages = xcm_config::XcmRouter::get_messages();
