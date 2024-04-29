@@ -185,10 +185,6 @@ pub enum RuntimeCosts {
 	Now,
 	/// Weight of calling `seal_weight_to_fee`.
 	WeightToFee,
-	/// Weight of calling `seal_input` without the weight of copying the input.
-	InputBase,
-	/// Weight of calling `seal_return` for the given output size.
-	Return(u32),
 	/// Weight of calling `seal_terminate`.
 	Terminate,
 	/// Weight of calling `seal_random`. It includes the weight for copying the subject.
@@ -214,13 +210,13 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_delegate_call` for the given input size.
 	DelegateCallBase,
 	/// Weight of the transfer performed during a call.
-	CallSurchargeTransfer,
+	CallTransferSurcharge,
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
 	/// Weight of calling `seal_instantiate` for the given input length and salt.
 	InstantiateBase { input_data_len: u32, salt_len: u32 },
 	/// Weight of the transfer performed during an instantiate.
-	InstantiateSurchargeTransfer,
+	InstantiateTransferSurcharge,
 	/// Weight of calling `seal_hash_sha_256` for the given input size.
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
@@ -244,9 +240,9 @@ pub enum RuntimeCosts {
 	/// Weight of calling `ecdsa_to_eth_address`
 	EcdsaToEthAddress,
 	/// Weight of calling `reentrance_count`
-	ReentrantCount,
+	ReentranceCount,
 	/// Weight of calling `account_reentrance_count`
-	AccountEntranceCount,
+	AccountReentranceCount,
 	/// Weight of calling `instantiation_nonce`
 	InstantiationNonce,
 	/// Weight of calling `lock_delegate_dependency`
@@ -280,8 +276,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
+			CopyToContract(len) => T::WeightInfo::seal_input(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
-			CopyToContract(len) => cost_args!(seal_input, len),
 			Caller => T::WeightInfo::seal_caller(),
 			IsContract => T::WeightInfo::seal_is_contract(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
@@ -296,8 +292,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			Now => T::WeightInfo::seal_now(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
-			InputBase => T::WeightInfo::seal_input(0),
-			Return(len) => T::WeightInfo::seal_return(len),
 			Terminate => T::WeightInfo::seal_terminate(),
 			Random => T::WeightInfo::seal_random(),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
@@ -312,11 +306,11 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
-			CallSurchargeTransfer => cost_args!(seal_call, 1, 0, 0),
+			CallTransferSurcharge => cost_args!(seal_call, 1, 0, 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, 1, len),
 			InstantiateBase { input_data_len, salt_len } =>
 				T::WeightInfo::seal_instantiate(0, input_data_len, salt_len),
-			InstantiateSurchargeTransfer => cost_args!(seal_instantiate, 1, 0, 0),
+			InstantiateTransferSurcharge => cost_args!(seal_instantiate, 1, 0, 0),
 			HashSha256(len) => T::WeightInfo::seal_hash_sha2_256(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
 			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
@@ -326,8 +320,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			ChainExtension(weight) | CallRuntime(weight) | CallXcmExecute(weight) => weight,
 			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
-			ReentrantCount => T::WeightInfo::seal_reentrance_count(),
-			AccountEntranceCount => T::WeightInfo::seal_account_reentrance_count(),
+			ReentranceCount => T::WeightInfo::seal_reentrance_count(),
+			AccountReentranceCount => T::WeightInfo::seal_account_reentrance_count(),
 			InstantiationNonce => T::WeightInfo::seal_instantiation_nonce(),
 			LockDelegateDependency => T::WeightInfo::lock_delegate_dependency(),
 			UnlockDelegateDependency => T::WeightInfo::unlock_delegate_dependency(),
@@ -862,7 +856,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 				let value: BalanceOf<<E as Ext>::T> =
 					self.read_sandbox_memory_as(memory, value_ptr)?;
 				if value > 0u32.into() {
-					self.charge_gas(RuntimeCosts::CallSurchargeTransfer)?;
+					self.charge_gas(RuntimeCosts::CallTransferSurcharge)?;
 				}
 				self.ext.call(
 					weight,
@@ -930,7 +924,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		};
 		let value: BalanceOf<<E as Ext>::T> = self.read_sandbox_memory_as(memory, value_ptr)?;
 		if value > 0u32.into() {
-			self.charge_gas(RuntimeCosts::InstantiateSurchargeTransfer)?;
+			self.charge_gas(RuntimeCosts::InstantiateTransferSurcharge)?;
 		}
 		let code_hash: CodeHash<<E as Ext>::T> =
 			self.read_sandbox_memory_as(memory, code_hash_ptr)?;
@@ -1415,7 +1409,6 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::input`].
 	#[prefixed_alias]
 	fn input(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
-		ctx.charge_gas(RuntimeCosts::InputBase)?;
 		if let Some(input) = ctx.input_data.take() {
 			ctx.write_sandbox_output(memory, out_ptr, out_len_ptr, &input, false, |len| {
 				Some(RuntimeCosts::CopyToContract(len))
@@ -1436,7 +1429,7 @@ pub mod env {
 		data_ptr: u32,
 		data_len: u32,
 	) -> Result<(), TrapReason> {
-		ctx.charge_gas(RuntimeCosts::Return(data_len))?;
+		ctx.charge_gas(RuntimeCosts::CopyFromContract(data_len))?;
 		Err(TrapReason::Return(ReturnData {
 			flags,
 			data: ctx.read_sandbox_memory(memory, data_ptr, data_len)?,
@@ -2278,7 +2271,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::reentrance_count`].
 	#[unstable]
 	fn reentrance_count(ctx: _, memory: _) -> Result<u32, TrapReason> {
-		ctx.charge_gas(RuntimeCosts::ReentrantCount)?;
+		ctx.charge_gas(RuntimeCosts::ReentranceCount)?;
 		Ok(ctx.ext.reentrance_count())
 	}
 
@@ -2287,7 +2280,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::account_reentrance_count`].
 	#[unstable]
 	fn account_reentrance_count(ctx: _, memory: _, account_ptr: u32) -> Result<u32, TrapReason> {
-		ctx.charge_gas(RuntimeCosts::AccountEntranceCount)?;
+		ctx.charge_gas(RuntimeCosts::AccountReentranceCount)?;
 		let account_id: <<E as Ext>::T as frame_system::Config>::AccountId =
 			ctx.read_sandbox_memory_as(memory, account_ptr)?;
 		Ok(ctx.ext.account_reentrance_count(&account_id))
