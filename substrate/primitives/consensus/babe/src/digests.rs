@@ -69,7 +69,7 @@ pub struct SecondaryVRFPreDigest {
 /// A BABE pre-runtime digest. This contains all data required to validate a
 /// block and for the BABE runtime module. Slots can be assigned to a primary
 /// (VRF based) and to a secondary (slot number based).
-#[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum PreDigest {
 	/// A primary VRF-based slot assignment.
 	#[codec(index = 1)]
@@ -138,9 +138,7 @@ pub struct NextEpochDescriptor {
 
 /// Information about the next epoch config, if changed. This is broadcast in the first
 /// block of the epoch, and applies using the same rules as `NextEpochDescriptor`.
-#[derive(
-	Decode, Encode, PartialEq, Eq, Clone, RuntimeDebug, MaxEncodedLen, scale_info::TypeInfo,
-)]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, MaxEncodedLen, scale_info::TypeInfo)]
 pub enum NextConfigDescriptor {
 	/// Version 1.
 	#[codec(index = 1)]

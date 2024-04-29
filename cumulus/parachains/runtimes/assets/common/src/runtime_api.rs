@@ -21,7 +21,7 @@ use sp_runtime::RuntimeDebug;
 use {sp_std::vec::Vec, xcm::latest::Asset};
 
 /// The possible errors that can happen querying the storage of assets.
-#[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(Eq, PartialEq, Encode, Decode, Debug, scale_info::TypeInfo)]
 pub enum FungiblesAccessError {
 	/// `Location` to `AssetId`/`ClassId` conversion failed.
 	AssetIdConversionFailed,

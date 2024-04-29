@@ -134,7 +134,7 @@ impl<Header: HeaderT> AncestryChain<Header> {
 }
 
 /// Justification verification error.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub enum Error {
 	/// Could not convert `AuthorityList` to `VoterSet`.
 	InvalidAuthorityList,
@@ -152,7 +152,7 @@ pub enum Error {
 }
 
 /// Justification verification error.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub enum PrecommitError {
 	/// Justification contains redundant votes.
 	RedundantAuthorityVote,

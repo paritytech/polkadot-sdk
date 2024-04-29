@@ -37,7 +37,7 @@ pub struct ValidStatement {
 }
 
 /// An reason for an invalid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 pub enum InvalidStatement {
 	/// Failed proof validation.
 	BadProof,
@@ -50,7 +50,7 @@ pub enum InvalidStatement {
 /// The source of the statement.
 ///
 /// Depending on the source we might apply different validation schemes.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub enum StatementSource {
 	/// Statement is coming from the on-chain worker.
 	Chain,

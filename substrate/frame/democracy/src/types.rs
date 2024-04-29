@@ -181,7 +181,7 @@ pub struct ReferendumStatus<BlockNumber, Proposal, Balance> {
 }
 
 /// Info regarding a referendum, present or past.
-#[derive(Encode, MaxEncodedLen, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, MaxEncodedLen, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum ReferendumInfo<BlockNumber, Proposal, Balance> {
 	/// Referendum is happening, the arg is the block number at which it will end.
 	Ongoing(ReferendumStatus<BlockNumber, Proposal, Balance>),
@@ -212,7 +212,7 @@ pub enum UnvoteScope {
 }
 
 /// Identifies an owner of a metadata.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum MetadataOwner {
 	/// External proposal.
 	External,

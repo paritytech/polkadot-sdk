@@ -35,7 +35,7 @@ use sp_core::RuntimeDebug;
 use sp_std::prelude::*;
 
 /// Something to identify a block.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 pub enum BlockId<Block: BlockT> {
 	/// Identify by block header hash.
 	Hash(Block::Hash),

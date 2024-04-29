@@ -98,7 +98,7 @@ pub struct ChildBounty<AccountId, Balance, BlockNumber> {
 }
 
 /// The status of a child-bounty.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum ChildBountyStatus<AccountId, BlockNumber> {
 	/// The child-bounty is added and waiting for curator assignment.
 	Added,

@@ -40,7 +40,7 @@ use sp_std::cmp::Ordering;
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
-#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq)]
+#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, Debug, Eq)]
 pub enum NativeOrWithId<AssetId>
 where
 	AssetId: Ord,

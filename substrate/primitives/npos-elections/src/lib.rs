@@ -110,7 +110,7 @@ pub use reduce::reduce;
 pub use traits::{IdentifierT, PerThing128};
 
 /// The errors that might occur in this crate and `frame-election-provider-solution-type`.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum Error {
 	/// While going from solution indices to ratio, the weight of all the edges has gone above the
 	/// total.

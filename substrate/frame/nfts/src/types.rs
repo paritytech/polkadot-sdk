@@ -233,7 +233,7 @@ pub struct ItemMetadataDeposit<DepositBalance, AccountId> {
 }
 
 /// Specifies whether the tokens will be sent or received.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum PriceDirection {
 	/// Tokens will be sent.
 	Send,
@@ -253,7 +253,7 @@ pub struct PriceWithDirection<Amount> {
 /// Support for up to 64 user-enabled features on a collection.
 #[bitflags]
 #[repr(u64)]
-#[derive(Copy, Clone, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum CollectionSetting {
 	/// Items in this collection are transferable.
 	TransferableItems,
@@ -291,7 +291,7 @@ impl_codec_bitflags!(CollectionSettings, u64, CollectionSetting);
 /// Mint type. Can the NFT be create by anyone, or only the creator of the collection,
 /// or only by wallets that already hold an NFT from a certain collection?
 /// The ownership of a privately minted NFT is still publicly visible.
-#[derive(Clone, Copy, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Copy, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum MintType<CollectionId> {
 	/// Only an `Issuer` could mint items.
 	Issuer,
@@ -329,9 +329,7 @@ impl<Price, BlockNumber, CollectionId> Default for MintSettings<Price, BlockNumb
 }
 
 /// Attribute namespaces for non-fungible tokens.
-#[derive(
-	Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
-)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 pub enum AttributeNamespace<AccountId> {
 	/// An attribute was set by the pallet.
 	Pallet,
@@ -351,7 +349,7 @@ pub struct CancelAttributesApprovalWitness {
 }
 
 /// A list of possible pallet-level attributes.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum PalletAttributes<CollectionId> {
 	/// Marks an item as being used in order to claim another item.
 	UsedToClaim(CollectionId),
@@ -388,7 +386,7 @@ impl<Price, BlockNumber, CollectionId> CollectionConfig<Price, BlockNumber, Coll
 /// Support for up to 64 user-enabled features on an item.
 #[bitflags]
 #[repr(u64)]
-#[derive(Copy, Clone, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum ItemSetting {
 	/// This item is transferable.
 	Transferable,
@@ -447,7 +445,7 @@ impl ItemConfig {
 /// Support for up to 64 system-enabled features on a collection.
 #[bitflags]
 #[repr(u64)]
-#[derive(Copy, Clone, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum PalletFeature {
 	/// Enable/disable trading operations.
 	Trading,
@@ -479,7 +477,7 @@ impl_codec_bitflags!(PalletFeatures, u64, PalletFeature);
 /// Support for up to 8 different roles for collections.
 #[bitflags]
 #[repr(u8)]
-#[derive(Copy, Clone, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum CollectionRole {
 	/// Can mint items.
 	Issuer,

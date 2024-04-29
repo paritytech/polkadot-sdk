@@ -12,7 +12,7 @@ use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, TypeInfo, RuntimeDebug, PalletError)]
+#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, TypeInfo, Debug, PalletError)]
 pub enum BlsError {
 	InvalidSignature,
 	InvalidPublicKey,

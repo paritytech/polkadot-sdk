@@ -15,7 +15,7 @@ pub trait Verifier {
 	fn verify(event: &Log, proof: &Proof) -> Result<(), VerificationError>;
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, PalletError, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, PalletError, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum VerificationError {
 	/// Execution header is missing
@@ -43,7 +43,7 @@ pub struct Message {
 
 const MAX_TOPICS: usize = 4;
 
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub enum LogValidationError {
 	TooManyTopics,
 }

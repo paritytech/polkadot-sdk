@@ -117,7 +117,7 @@ impl ReceiveMessagesDeliveryProofInfo {
 
 /// Info about a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call
 /// which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub enum CallInfo {
 	/// Messages delivery call info.
 	ReceiveMessagesProof(ReceiveMessagesProofInfo),

@@ -178,7 +178,7 @@ pub struct ParaPastCodeMeta<N> {
 /// If the para is in a "transition state", it is expected that the parachain is
 /// queued in the `ActionsQueue` to transition it into a stable state. Its lifecycle
 /// state will be used to determine the state transition to apply to the para.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
 pub enum ParaLifecycle {
 	/// Para is new and is onboarding as an on-demand or lease holding Parachain.
 	Onboarding,
@@ -301,7 +301,7 @@ pub struct ParaGenesisArgs {
 }
 
 /// Distinguishes between lease holding Parachain and Parathread (on-demand parachain)
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum ParaKind {
 	Parathread,
 	Parachain,
@@ -425,7 +425,7 @@ impl<BlockNumber> PvfCheckCause<BlockNumber> {
 }
 
 /// Specifies what was the outcome of a PVF pre-checking vote.
-#[derive(Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo)]
 enum PvfCheckOutcome {
 	Accepted,
 	Rejected,

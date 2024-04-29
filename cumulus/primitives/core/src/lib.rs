@@ -54,7 +54,7 @@ pub type InboundHrmpMessage = polkadot_primitives::InboundHrmpMessage<relay_chai
 pub type OutboundHrmpMessage = polkadot_primitives::OutboundHrmpMessage<ParaId>;
 
 /// Error description of a message send failure.
-#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug, Encode, Decode)]
 pub enum MessageSendError {
 	/// The dispatch queue is full.
 	QueueFull,
@@ -174,7 +174,7 @@ impl XcmpMessageSource for () {
 }
 
 /// The "quality of service" considerations for message sending.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug)]
+#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug)]
 pub enum ServiceQuality {
 	/// Ensure that this message is dispatched in the same relative order as any other messages
 	/// that were also sent with `Ordered`. This only guarantees message ordering on the dispatch
@@ -244,7 +244,7 @@ impl<B: BlockT> ParachainBlockData<B> {
 pub const CUMULUS_CONSENSUS_ID: ConsensusEngineId = *b"CMLS";
 
 /// Consensus header digests for Cumulus parachains.
-#[derive(Clone, RuntimeDebug, Decode, Encode, PartialEq)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
 pub enum CumulusDigestItem {
 	/// A digest item indicating the relay-parent a parachain block was built against.
 	#[codec(index = 0)]

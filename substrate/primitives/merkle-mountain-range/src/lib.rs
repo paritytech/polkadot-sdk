@@ -175,7 +175,7 @@ impl EncodableOpaqueLeaf {
 ///
 /// [DataOrHash::hash] method calculates the hash of this element in its compact form,
 /// so should be used instead of hashing the encoded form (which will always be non-compact).
-#[derive(RuntimeDebug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DataOrHash<H: traits::Hash, L> {
 	/// Arbitrary data in its full form.
 	Data(L),
@@ -363,7 +363,7 @@ pub struct Proof<Hash> {
 
 /// Merkle Mountain Range operation error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-#[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
 pub enum Error {
 	/// Error during translation of a block number into a leaf index.
 	#[cfg_attr(feature = "std", error("Error performing numeric op"))]

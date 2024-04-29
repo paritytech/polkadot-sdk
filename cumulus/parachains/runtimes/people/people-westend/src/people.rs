@@ -67,7 +67,7 @@ impl pallet_identity::Config for Runtime {
 /// in the `IdentityInfo` struct.
 #[bitflags]
 #[repr(u64)]
-#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum IdentityField {
 	Display,
 	Legal,

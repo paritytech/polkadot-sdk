@@ -156,7 +156,7 @@ pub struct Proposal<AccountId, Balance> {
 
 /// The state of the payment claim.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo)]
 pub enum PaymentState<Id> {
 	/// Pending claim.
 	Pending,

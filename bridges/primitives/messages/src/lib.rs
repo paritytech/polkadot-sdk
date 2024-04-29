@@ -76,7 +76,7 @@ where
 	Copy,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	Serialize,
@@ -308,7 +308,7 @@ impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
 }
 
 /// Result of single message receival.
-#[derive(RuntimeDebug, Encode, Decode, PartialEq, Eq, Clone, TypeInfo)]
+#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone, TypeInfo)]
 pub enum ReceptionResult<DispatchLevelResult> {
 	/// Message has been received and dispatched. Note that we don't care whether dispatch has
 	/// been successful or not - in both case message falls into this category.
@@ -474,7 +474,7 @@ pub enum BridgeMessagesCall<AccountId, MessagesProof, MessagesDeliveryProof> {
 }
 
 /// Error that happens during message verification.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, PalletError, TypeInfo)]
 pub enum VerificationError {
 	/// The message proof is empty.
 	EmptyMessageProof,

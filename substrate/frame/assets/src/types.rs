@@ -37,7 +37,7 @@ pub(super) type ExistenceReasonOf<T, I> =
 
 /// AssetStatus holds the current state of the asset. It could either be Live and available for use,
 /// or in a Destroying state.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub(super) enum AssetStatus {
 	/// The asset is active and able to be used.
 	Live,
@@ -94,7 +94,7 @@ fn ensure_bool_decodes_to_consumer_or_sufficient() {
 }
 
 /// The reason for an account's existence within an asset class.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub enum ExistenceReason<Balance, AccountId> {
 	/// A consumer reference was used to create this account.
 	#[codec(index = 0)]
@@ -152,7 +152,7 @@ fn ensure_bool_decodes_to_liquid_or_frozen() {
 }
 
 /// The status of an asset account.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub enum AccountStatus {
 	/// Asset account can receive and transfer the assets.
 	Liquid,
@@ -264,7 +264,7 @@ impl From<TransferFlags> for DebitFlags {
 }
 
 /// Possible errors when converting between external and asset balances.
-#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug, Encode, Decode)]
 pub enum ConversionError {
 	/// The external minimum balance must not be zero.
 	MinBalanceZero,

@@ -342,7 +342,7 @@ pub struct CompactBeaconState {
 }
 
 /// VersionedExecutionPayloadHeader
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, Debug, TypeInfo)]
 #[cfg_attr(
 	feature = "std",
 	derive(Serialize, Deserialize),
@@ -545,7 +545,7 @@ mod tests {
 }
 
 /// Operating modes for beacon client
-#[derive(Encode, Decode, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Debug, TypeInfo)]
 pub enum Mode {
 	Active,
 	Blocked,

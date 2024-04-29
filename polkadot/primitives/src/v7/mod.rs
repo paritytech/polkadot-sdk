@@ -1065,7 +1065,7 @@ pub struct ScheduledCore {
 }
 
 /// The state of a particular availability core.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum CoreState<H = Hash, N = BlockNumber> {
 	/// The core is currently occupied.
@@ -1108,7 +1108,7 @@ impl<N> CoreState<N> {
 }
 
 /// An assumption being made about the state of an occupied core.
-#[derive(Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Copy, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq, Eq, Hash))]
 pub enum OccupiedCoreAssumption {
 	/// The candidate occupying the core was made available and included to free the core.
@@ -1123,7 +1123,7 @@ pub enum OccupiedCoreAssumption {
 }
 
 /// An even concerning a candidate.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum CandidateEvent<H = Hash> {
 	/// This candidate receipt was backed in the most recent block.
@@ -1290,7 +1290,7 @@ pub struct AbridgedHrmpChannel {
 }
 
 /// A possible upgrade restriction that prevents a parachain from performing an upgrade.
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub enum UpgradeRestriction {
 	/// There is an upgrade restriction and there are no details about its specifics nor how long
 	/// it could last.
@@ -1303,7 +1303,7 @@ pub enum UpgradeRestriction {
 ///
 /// This data type appears in the last step of the upgrade process. After the parachain observes it
 /// and reacts to it the upgrade process concludes.
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub enum UpgradeGoAhead {
 	/// Abort the upgrade process. There is something wrong with the validation code previously
 	/// submitted by the parachain. This variant can also be used to prevent upgrades by the
@@ -1372,7 +1372,7 @@ impl From<ConsensusLog> for runtime_primitives::DigestItem {
 /// A statement about a candidate, to be used within the dispute resolution process.
 ///
 /// Statements are either in favor of the candidate's validity or against it.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo)]
 pub enum DisputeStatement {
 	/// A valid statement, of the given kind.
 	#[codec(index = 0)]
@@ -1466,7 +1466,7 @@ impl DisputeStatement {
 }
 
 /// Different kinds of statements of validity on  a candidate.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo)]
 pub enum ValidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1502,7 +1502,7 @@ impl ValidDisputeStatementKind {
 }
 
 /// Different kinds of statements of invalidity on a candidate.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Debug, TypeInfo)]
 pub enum InvalidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1610,7 +1610,7 @@ pub struct InherentData<HDR: HeaderT = Header> {
 
 /// An either implicit or explicit attestation to the validity of a parachain
 /// candidate.
-#[derive(Clone, Eq, PartialEq, Decode, Encode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Decode, Encode, Debug, TypeInfo)]
 pub enum ValidityAttestation {
 	/// Implicit validity attestation by issuing.
 	/// This corresponds to issuance of a `Candidate` statement.
@@ -1672,7 +1672,7 @@ const BACKING_STATEMENT_MAGIC: [u8; 4] = *b"BKNG";
 
 /// Statements that can be made about parachain candidates. These are the
 /// actual values that are signed.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub enum CompactStatement {
 	/// Proposal of a parachain candidate.

@@ -38,7 +38,7 @@ pub type RegistrarIndex = u32;
 /// than 32-bytes then it will be truncated when encoding.
 ///
 /// Can also be `None`.
-#[derive(Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Debug, MaxEncodedLen)]
 pub enum Data {
 	/// No data here.
 	None,
@@ -189,7 +189,7 @@ impl Default for Data {
 ///
 /// NOTE: Registrars may pay little attention to some fields. Registrars may want to make clear
 /// which fields their attestation is relevant for by off-chain means.
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub enum Judgement<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq>
 {
 	/// The default value; no opinion is held.

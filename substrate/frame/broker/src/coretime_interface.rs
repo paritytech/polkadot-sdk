@@ -35,9 +35,7 @@ pub type TaskId = u32;
 pub type PartsOf57600 = u16;
 
 /// An element to which a core can be assigned.
-#[derive(
-	Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, TypeInfo, MaxEncodedLen)]
 pub enum CoreAssignment {
 	/// Core need not be used for anything.
 	Idle,

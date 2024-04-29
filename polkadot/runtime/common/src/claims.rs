@@ -72,9 +72,7 @@ impl WeightInfo for TestWeightInfo {
 }
 
 /// The kind of statement an account needs to make for a claim to be valid.
-#[derive(
-	Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo, Serialize, Deserialize,
-)]
+#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, Serialize, Deserialize)]
 pub enum StatementKind {
 	/// Statement required to be made by non-SAFT holders.
 	Regular,

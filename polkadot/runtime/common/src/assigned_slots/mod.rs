@@ -46,7 +46,7 @@ use sp_std::prelude::*;
 const LOG_TARGET: &str = "runtime::assigned_slots";
 
 /// Lease period an assigned slot should start from (current, or next one).
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo)]
 pub enum SlotLeasePeriodStart {
 	Current,
 	Next,

@@ -153,7 +153,7 @@ impl Size for PreComputedSize {
 }
 
 /// Era of specific transaction.
-#[derive(RuntimeDebug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TransactionEra<BlockNumber, BlockHash> {
 	/// Transaction is immortal.
 	Immortal,
@@ -333,7 +333,7 @@ pub trait OperatingMode: Send + Copy + Debug + FullCodec {
 	Copy,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	Serialize,

@@ -26,7 +26,7 @@ struct Named {
 	b: String,
 }
 
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 enum EnumLongName<A> {
 	A,
 	B(A, String),

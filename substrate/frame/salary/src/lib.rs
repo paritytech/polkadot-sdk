@@ -64,7 +64,7 @@ pub struct StatusType<CycleIndex, BlockNumber, Balance> {
 }
 
 /// The state of a specific payment claim.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub enum ClaimState<Balance, Id> {
 	/// No claim recorded.
 	Nothing,

@@ -79,7 +79,7 @@ impl OutboundBandwidthLimits {
 }
 
 /// The error type for updating bandwidth used by a segment.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum BandwidthUpdateError {
 	/// Too many messages submitted to HRMP channel.
 	HrmpMessagesOverflow {

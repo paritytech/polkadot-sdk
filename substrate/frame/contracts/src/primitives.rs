@@ -97,7 +97,7 @@ pub type CodeUploadResult<CodeHash, Balance> =
 pub type GetStorageResult = Result<Option<Vec<u8>>, ContractAccessError>;
 
 /// The possible errors that can happen querying the storage of a contract.
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum ContractAccessError {
 	/// The given address doesn't point to a contract.
 	DoesntExist,
@@ -142,7 +142,7 @@ pub struct CodeUploadReturnValue<CodeHash, Balance> {
 }
 
 /// Reference to an existing code hash or a new wasm module.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum Code<Hash> {
 	/// A wasm module as raw bytes.
 	Upload(Vec<u8>),
@@ -151,9 +151,7 @@ pub enum Code<Hash> {
 }
 
 /// The amount of balance that was either charged or refunded in order to pay for storage.
-#[derive(
-	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo,
-)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum StorageDeposit<Balance> {
 	/// The transaction reduced storage consumption.
 	///

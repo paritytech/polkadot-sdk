@@ -108,9 +108,7 @@ pub fn era_payout(
 
 /// Versioned locatable asset type which contains both an XCM `location` and `asset_id` to identify
 /// an asset which exists on some chain.
-#[derive(
-	Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 pub enum VersionedLocatableAsset {
 	#[codec(index = 3)]
 	V3 { location: xcm::v3::Location, asset_id: xcm::v3::AssetId },

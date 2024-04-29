@@ -7,7 +7,7 @@ pub use v1::{AgentExecuteCommand, Command, Initializer, Message, OperatingMode, 
 
 /// Enqueued outbound messages need to be versioned to prevent data corruption
 /// or loss after forkless runtime upgrades
-#[derive(Encode, Decode, TypeInfo, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum VersionedQueuedMessage {
 	V1(QueuedMessage),
@@ -335,7 +335,7 @@ pub trait SendMessageFeeProvider {
 }
 
 /// Reasons why sending to Ethereum could not be initiated
-#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, PalletError, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, Debug, PalletError, TypeInfo)]
 pub enum SendError {
 	/// Message is too large to be safely executed on Ethereum
 	MessageTooLarge,

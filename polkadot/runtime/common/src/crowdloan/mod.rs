@@ -128,7 +128,7 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum LastContribution<BlockNumber> {
 	Never,
 	PreEnding(u32),

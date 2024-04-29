@@ -27,7 +27,7 @@ use sp_weights::{Weight, WeightMeter};
 
 /// Errors that can happen when attempting to process a message with
 /// [`ProcessMessage::process_message()`].
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
 pub enum ProcessMessageError {
 	/// The message data format is unknown (e.g. unrecognised header)
 	BadFormat,
@@ -68,7 +68,7 @@ pub trait ProcessMessage {
 
 /// Errors that can happen when attempting to execute an overweight message with
 /// [`ServiceQueues::execute_overweight()`].
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum ExecuteOverweightError {
 	/// The referenced message was not found.
 	NotFound,

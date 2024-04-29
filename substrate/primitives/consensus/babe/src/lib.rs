@@ -219,7 +219,7 @@ impl BabeConfiguration {
 }
 
 /// Types of allowed slots.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Debug, MaxEncodedLen, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum AllowedSlots {
 	/// Only allow primary slots.

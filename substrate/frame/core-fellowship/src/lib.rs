@@ -85,7 +85,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 /// The desired outcome for which evidence is presented.
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub enum Wish {
 	/// Member wishes only to retain their current rank.
 	Retention,

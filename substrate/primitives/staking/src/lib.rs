@@ -62,7 +62,7 @@ impl<AccountId> From<AccountId> for StakingAccount<AccountId> {
 }
 
 /// Representation of the status of a staker.
-#[derive(RuntimeDebug, TypeInfo)]
+#[derive(Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone))]
 pub enum StakerStatus<AccountId> {
 	/// Chilling.

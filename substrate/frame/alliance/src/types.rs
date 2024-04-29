@@ -39,17 +39,7 @@ impl Multihash {
 
 /// The version of the CID.
 #[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	RuntimeDebug,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
 pub enum Version {
 	/// CID version 0.

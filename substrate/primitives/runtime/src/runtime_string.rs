@@ -20,7 +20,7 @@ use sp_core::RuntimeDebug;
 use sp_std::vec::Vec;
 
 /// A string that wraps a `&'static str` in the runtime and `String`/`Vec<u8>` on decode.
-#[derive(Eq, RuntimeDebug, Clone)]
+#[derive(Eq, Debug, Clone)]
 pub enum RuntimeString {
 	/// The borrowed mode that wraps a `&'static str`.
 	Borrowed(&'static str),

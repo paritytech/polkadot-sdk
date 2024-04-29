@@ -104,7 +104,7 @@ pub struct Root;
 
 /// State parameter that constitutes a meter that is in its nested state.
 /// Its value indicates whether the nested meter has its own limit.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(DefaultNoBound, Debug)]
 pub enum Nested {
 	#[default]
 	DerivedLimit,
@@ -223,7 +223,7 @@ impl Diff {
 /// The state of a contract.
 ///
 /// In case of termination the beneficiary is indicated.
-#[derive(RuntimeDebugNoBound, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ContractState<T: Config> {
 	Alive,
 	Terminated { beneficiary: AccountIdOf<T> },
@@ -246,7 +246,7 @@ struct Charge<T: Config> {
 }
 
 /// Records the storage changes of a storage meter.
-#[derive(RuntimeDebugNoBound)]
+#[derive(Debug)]
 enum Contribution<T: Config> {
 	/// The contract the meter belongs to is alive and accumulates changes using a [`Diff`].
 	Alive(Diff),

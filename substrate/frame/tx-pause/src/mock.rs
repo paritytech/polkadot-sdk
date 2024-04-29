@@ -100,7 +100,7 @@ impl pallet_utility::Config for Test {
 	PartialOrd,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]

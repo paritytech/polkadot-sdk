@@ -148,7 +148,7 @@ pub struct PreDispatchData<AccountId> {
 }
 
 /// Type of the call that the extension recognizes.
-#[derive(RuntimeDebugNoBound, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum CallInfo {
 	/// Relay chain finality + parachain finality + message delivery/confirmation calls.
 	AllFinalityAndMsgs(
@@ -218,7 +218,7 @@ impl CallInfo {
 }
 
 /// The actions on relayer account that need to be performed because of his actions.
-#[derive(RuntimeDebug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum RelayerAccountAction<AccountId, Reward> {
 	/// Do nothing with relayer account.
 	None,

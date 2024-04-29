@@ -57,7 +57,7 @@ pub trait OffchainStorage: Clone + Send + Sync {
 }
 
 /// A type of supported crypto.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, RuntimeDebug, PassByEnum)]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Debug, PassByEnum)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
 pub enum StorageKind {
@@ -105,7 +105,7 @@ impl From<HttpRequestId> for u32 {
 }
 
 /// An error enum returned by some http methods.
-#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, Encode, Decode, PassByEnum)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode, PassByEnum)]
 #[repr(C)]
 pub enum HttpError {
 	/// The requested action couldn't been completed within a deadline.
@@ -136,7 +136,7 @@ impl From<HttpError> for u32 {
 }
 
 /// Status of the HTTP request
-#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, Encode, Decode, PassByCodec)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode, PassByCodec)]
 pub enum HttpRequestStatus {
 	/// Deadline was reached while we waited for this request to finish.
 	///

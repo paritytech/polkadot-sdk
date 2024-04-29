@@ -145,7 +145,7 @@ pub struct ScheduledChange<N> {
 }
 
 /// An consensus log item for GRANDPA.
-#[derive(Decode, Encode, PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum ConsensusLog<N: Codec> {
 	/// Schedule an authority set change.

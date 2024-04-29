@@ -42,7 +42,7 @@ pub type CoreMaskBitCount = u32;
 pub type SignedCoreMaskBitCount = i32;
 
 /// Whether a core assignment is revokable or not.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Finality {
 	/// The region remains with the same owner allowing the assignment to be altered.
 	Provisional,
@@ -128,7 +128,7 @@ pub struct InstaPoolHistoryRecord<Balance> {
 pub type InstaPoolHistoryRecordOf<T> = InstaPoolHistoryRecord<BalanceOf<T>>;
 
 /// How much of a core has been assigned or, if completely assigned, the workload itself.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum CompletionStatus {
 	/// The core is not fully assigned; the inner is the parts which have.
 	Partial(CoreMask),

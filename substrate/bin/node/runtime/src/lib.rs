@@ -368,7 +368,7 @@ parameter_types! {
 	PartialOrd,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]

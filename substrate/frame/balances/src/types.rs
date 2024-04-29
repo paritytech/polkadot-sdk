@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{RuntimeDebug, Saturating};
 
 /// Simplified reasons for withdrawing balance.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo)]
 pub enum Reasons {
 	/// Paying system transaction fees.
 	Fee = 0,
@@ -154,7 +154,7 @@ impl<T: Config<I>, I: 'static> Drop for DustCleaner<T, I> {
 }
 
 /// Whether something should be interpreted as an increase or a decrease.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo)]
 pub enum AdjustmentDirection {
 	/// Increase the amount.
 	Increase,

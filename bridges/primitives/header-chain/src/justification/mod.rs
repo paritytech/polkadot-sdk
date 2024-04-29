@@ -108,7 +108,7 @@ impl<H: HeaderT> crate::FinalityProof<H::Hash, H::Number> for GrandpaJustificati
 }
 
 /// Justification verification error.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub enum Error {
 	/// Failed to decode justification.
 	JustificationDecode,
