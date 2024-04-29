@@ -699,20 +699,18 @@ impl FragmentChain {
 	// This is the relay parent of the last candidate in the chain.
 	// The value returned may not be valid if we want to add a candidate pending availability, which
 	// may have a relay parent which is out of scope. Special handling is needed in that case.
-	fn earliest_relay_parent(&self) -> RelayChainBlockInfo {
+	// `None` is returned if the candidate's relay parent info cannot be found.
+	fn earliest_relay_parent(&self) -> Option<RelayChainBlockInfo> {
 		if let Some(last_candidate) = self.chain.last() {
-			self.scope
-				.ancestor(&last_candidate.relay_parent())
-				.or_else(|| {
-					// if the relay-parent is out of scope _and_ it is in the chain,
-					// it must be a candidate pending availability.
-					self.scope
-						.get_pending_availability(&last_candidate.candidate_hash)
-						.map(|c| c.relay_parent.clone())
-				})
-				.expect("All nodes in chain are either pending availability or within scope; qed")
+			self.scope.ancestor(&last_candidate.relay_parent()).or_else(|| {
+				// if the relay-parent is out of scope _and_ it is in the chain,
+				// it must be a candidate pending availability.
+				self.scope
+					.get_pending_availability(&last_candidate.candidate_hash)
+					.map(|c| c.relay_parent.clone())
+			})
 		} else {
-			self.scope.earliest_relay_parent()
+			Some(self.scope.earliest_relay_parent())
 		}
 	}
 
@@ -840,7 +838,7 @@ impl FragmentChain {
 			return false;
 		}
 
-		let earliest_rp = self.earliest_relay_parent();
+		let Some(earliest_rp) = self.earliest_relay_parent() else { return false };
 
 		let Some(relay_parent) = self.scope.ancestor(relay_parent) else { return false };
 
@@ -861,7 +859,7 @@ impl FragmentChain {
 		} else {
 			ConstraintModifications::identity()
 		};
-		let mut earliest_rp = self.earliest_relay_parent();
+		let Some(mut earliest_rp) = self.earliest_relay_parent() else { return };
 
 		loop {
 			if self.chain.len() > self.scope.max_depth {

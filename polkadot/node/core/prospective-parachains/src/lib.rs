@@ -230,20 +230,17 @@ async fn handle_active_leaves_update<Context>(
 
 			let backing_state = fetch_backing_state(&mut *ctx, hash, para).await?;
 
-			let (constraints, pending_availability) = match backing_state {
-				Some(c) => c,
-				None => {
-					// This indicates a runtime conflict of some kind.
+			let Some((constraints, pending_availability)) = backing_state else {
+				// This indicates a runtime conflict of some kind.
 
-					gum::debug!(
-						target: LOG_TARGET,
-						para_id = ?para,
-						relay_parent = ?hash,
-						"Failed to get inclusion backing state."
-					);
+				gum::debug!(
+					target: LOG_TARGET,
+					para_id = ?para,
+					relay_parent = ?hash,
+					"Failed to get inclusion backing state."
+				);
 
-					continue
-				},
+				continue
 			};
 
 			all_pending_availability.extend(pending_availability.iter().map(|c| c.candidate_hash));
