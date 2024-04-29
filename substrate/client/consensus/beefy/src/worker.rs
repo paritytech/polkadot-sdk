@@ -41,7 +41,7 @@ use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, Commitment, EquivocationProof, PayloadProvider, ValidatorSet, VersionedFinalityProof,
+	BeefyApi, Commitment, DoubleVotingProof, PayloadProvider, ValidatorSet, VersionedFinalityProof,
 	VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
@@ -591,9 +591,9 @@ where
 				}
 				metric_inc!(self.metrics, beefy_good_votes_processed);
 			},
-			VoteImportResult::Equivocation(proof) => {
+			VoteImportResult::DoubleVoting(proof) => {
 				metric_inc!(self.metrics, beefy_equivocation_votes);
-				self.report_equivocation(proof)?;
+				self.report_double_voting(proof)?;
 			},
 			VoteImportResult::Invalid => metric_inc!(self.metrics, beefy_invalid_votes),
 			VoteImportResult::Stale => metric_inc!(self.metrics, beefy_stale_votes),
@@ -943,12 +943,12 @@ where
 	}
 
 	/// Report the given equivocation to the BEEFY runtime module.
-	fn report_equivocation(
+	fn report_double_voting(
 		&self,
-		proof: EquivocationProof<NumberFor<B>, AuthorityId, Signature>,
+		proof: DoubleVotingProof<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
 		let rounds = self.persisted_state.voting_oracle.active_rounds()?;
-		self.fisherman.report_equivocation(proof, rounds)
+		self.fisherman.report_double_voting(proof, rounds)
 	}
 }
 
@@ -1561,7 +1561,7 @@ pub(crate) mod tests {
 		);
 		{
 			// expect voter (Alice) to successfully report it
-			assert_eq!(worker.report_equivocation(good_proof.clone()), Ok(()));
+			assert_eq!(worker.report_double_voting(good_proof.clone()), Ok(()));
 			// verify Alice reports Bob equivocation to runtime
 			let reported = api_alice.reported_equivocations.as_ref().unwrap().lock();
 			assert_eq!(reported.len(), 1);
@@ -1573,7 +1573,7 @@ pub(crate) mod tests {
 		let mut bad_proof = good_proof.clone();
 		bad_proof.first.id = Keyring::Charlie.public();
 		// bad proofs are simply ignored
-		assert_eq!(worker.report_equivocation(bad_proof), Ok(()));
+		assert_eq!(worker.report_double_voting(bad_proof), Ok(()));
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 
@@ -1582,7 +1582,7 @@ pub(crate) mod tests {
 		old_proof.first.commitment.validator_set_id = 0;
 		old_proof.second.commitment.validator_set_id = 0;
 		// old proofs are simply ignored
-		assert_eq!(worker.report_equivocation(old_proof), Ok(()));
+		assert_eq!(worker.report_double_voting(old_proof), Ok(()));
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 
@@ -1592,7 +1592,7 @@ pub(crate) mod tests {
 			(block_num, payload2.clone(), set_id, &Keyring::Alice),
 		);
 		// equivocations done by 'self' are simply ignored (not reported)
-		assert_eq!(worker.report_equivocation(self_proof), Ok(()));
+		assert_eq!(worker.report_double_voting(self_proof), Ok(()));
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 	}

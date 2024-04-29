@@ -24,7 +24,7 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
 	check_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, BeefySignatureHasher, EquivocationProof, OpaqueKeyOwnershipProof, ValidatorSetId,
+	BeefyApi, BeefySignatureHasher, DoubleVotingProof, OpaqueKeyOwnershipProof, ValidatorSetId,
 };
 use sp_runtime::{
 	generic::BlockId,
@@ -117,9 +117,9 @@ where
 	/// extrinsic to report the equivocation. In particular, the session membership
 	/// proof must be generated at the block at which the given set was active which
 	/// isn't necessarily the best block if there are pending authority set changes.
-	pub fn report_equivocation(
+	pub fn report_double_voting(
 		&self,
-		proof: EquivocationProof<NumberFor<B>, AuthorityId, Signature>,
+		proof: DoubleVotingProof<NumberFor<B>, AuthorityId, Signature>,
 		active_rounds: &Rounds<B>,
 	) -> Result<(), Error> {
 		let (validators, validator_set_id) =
