@@ -200,7 +200,7 @@ pub mod pallet {
 			+ TypeInfo
 			+ MaxEncodedLen;
 
-		// A Hook thaet announces when a poll changes status
+		/// Subscribers to notify when the referenda poll status changes.
 		type OnPollStatusChange: OnPollStatusChange<
 			Self::Tally,
 			BlockNumberFor<Self>,

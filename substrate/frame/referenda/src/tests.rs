@@ -67,9 +67,6 @@ fn basic_happy_path_works() {
 		run_to(13);
 		// #10: Proposal should be executed.
 		assert_eq!(Balances::free_balance(&42), 1);
-
-		assert_eq!(StatusChangeConsumer::count_for(PollStatusChangeType::Ongoing), 4);
-		assert_eq!(StatusChangeConsumer::count_for(PollStatusChangeType::Completed), 1);
 	});
 }
 
@@ -264,6 +261,40 @@ fn queueing_works() {
 		// The final one has since timed out.
 		run_to(22);
 		assert_eq!(timed_out_since(3), 22);
+	});
+}
+
+#[test]
+fn op_poll_status_change_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// #1: submit
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			set_balance_proposal_bounded(1),
+			DispatchTime::At(10),
+		));
+		assert_eq!(StatusChangeConsumer::count_for(PollStatusChangeType::Ongoing), 1);
+
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		// poll changes to ongoing
+		assert_eq!(StatusChangeConsumer::count_for(PollStatusChangeType::Ongoing), 2);
+
+		run_to(5);
+		// vote should now be deciding.
+		assert_eq!(StatusChangeConsumer::count_for(PollStatusChangeType::Ongoing), 3);
+
+		run_to(6);
+		// #6: Lots of ayes. Should now be confirming.
+		set_tally(0, 100, 0);
+
+		run_to(7);
+		assert_eq!(StatusChangeConsumer::count_for(PollStatusChangeType::Ongoing), 4);
+
+		run_to(9);
+		// #8: Should be confirmed & ended.
+		assert_eq!(approved_since(0), 9);
+		assert_eq!(StatusChangeConsumer::count_for(PollStatusChangeType::Completed), 1);
 	});
 }
 
