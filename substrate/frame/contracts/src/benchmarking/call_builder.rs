@@ -181,7 +181,8 @@ macro_rules! build_runtime(
 	($runtime:ident, $contract:ident) => {
 		let mut setup = CallSetup::<T>::default();
 		let $contract = setup.contract();
+		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		let mut $runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut $runtime = crate::wasm::Runtime::new(&mut ext, input);
 	};
 );

@@ -541,8 +541,6 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 	let dummy_impls = expand_functions(def, ExpandMode::MockImpl);
 	let bench_impls = expand_functions(def, ExpandMode::BenchImpl);
 
-	std::fs::write("/tmp/impls.rs", format!("{}", impls)).unwrap();
-
 	quote! {
 		impl<'a, E: Ext> crate::wasm::Environment<crate::wasm::runtime::Runtime<'a, E>> for Env
 		{
