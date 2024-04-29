@@ -182,6 +182,13 @@ impl<C> PreparedMessage for WeighedMessage<C> {
 	}
 }
 
+#[cfg(any(test, feature = "std"))]
+impl<C> WeighedMessage<C> {
+	pub fn new(weight: Weight, message: Xcm<C>) -> Self {
+		Self(weight, message)
+	}
+}
+
 impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Config> {
 	type Prepared = WeighedMessage<Config::RuntimeCall>;
 	fn prepare(
