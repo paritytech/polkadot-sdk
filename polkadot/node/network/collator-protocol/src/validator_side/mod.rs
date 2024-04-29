@@ -1881,9 +1881,7 @@ async fn kick_off_seconding<Context>(
 			&collation_event.pending_collation,
 			&candidate_receipt,
 			&pvd,
-			maybe_parent_head
-				.map(|head| maybe_parent_head_hash.map(|hash| (head, hash)))
-				.flatten(),
+			maybe_parent_head.and_then(|head| maybe_parent_head_hash.map(|hash| (head, hash))),
 		)?;
 
 		ctx.send_message(CandidateBackingMessage::Second(
