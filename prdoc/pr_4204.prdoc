@@ -11,13 +11,13 @@ doc:
       and also for recording the state difference for testing, debugging, and other purposes.
 
       Example:
+
       ```rust
-      let _guard = StateDiffGuardBuilder::default()
-        .must_change(StoragePrefix{
-          pallet_name: b"Balances",
-          storage_name: b"TotalIssuance",
-        })
-        .build();
+          let _guard = StateDiffGuard::builder()
+            .must_change(GuardSubject::Prefix(SomeMap::<T>::storage_info().first().unwrap().clone()))
+            .must_not_change(GuardSubject::Prefix(SomeDoubleMap::<T>::storage_info().first().unwrap().clone()))
+            .can_not_change(GuardSubject::AnythingElse)
+            .build();
 
       // do something that may change the storage
 
