@@ -1,5 +1,5 @@
-## Sum CPU requirements on a network with 500 validators 100 cores
-## and 5 validators per core.
+## Estimate CPU requirements on a network with 500 validators 100 cores
+## and 5 backing validators per core.
 TestConfiguration:
 # Approval voting best case scenario
 - objective: !ApprovalVoting
