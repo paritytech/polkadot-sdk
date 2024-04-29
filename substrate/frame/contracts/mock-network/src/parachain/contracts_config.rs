@@ -14,10 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
+use super::{Balances, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason};
 use crate::{
 	parachain,
-	parachain::RuntimeHoldReason,
 	primitives::{Balance, CENTS},
 };
 use frame_support::{

@@ -43,7 +43,7 @@ pub use barriers::{
 
 mod controller;
 pub use controller::{
-	Controller, ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, QueryController,
+	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
 	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
 };
 
