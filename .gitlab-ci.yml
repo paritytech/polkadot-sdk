@@ -270,11 +270,11 @@ test-linux-stable-codecov:
         target/coverage/ \
         --binary-path ./target/release/ \
         -s . \
-        -t lcov,cobertura \
+        -t lcov \
         --branch \
-        -o target/coverage/result/
+        -o target/coverage/result/report-${CI_NODE_INDEX}.lcov
     - ls -l target/coverage/result/    
-    - codecov upload-process -t ${CODECOV_TOKEN} -f target/coverage/result/lcov --desable-search
+    - codecov upload-process -t ${CODECOV_TOKEN} -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --desable-search
     - codecov get-report-results
   #  
 
