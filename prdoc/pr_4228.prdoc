@@ -22,6 +22,6 @@ doc:
 
 crates:
   - name: frame-support
-    bump: minor
+    bump: major
   - name: pallet-referenda
-    bump: minor
+    bump: major
