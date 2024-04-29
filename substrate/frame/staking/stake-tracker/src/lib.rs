@@ -23,19 +23,28 @@
 //! ## Overview
 //!
 //! The stake-tracker pallet listens to staking events through implementing the [`OnStakingUpdate`]
-//! trait and, based on those events, ensures that the score of nodes in the lists
-//! [`Config::VoterList`] and [`Config::TargetList`] are kept up to date with the staker's bonds
-//! and nominations in the system. In addition, the pallet also ensures that both the
-//! [`Config::TargetList`] and [`Config::VoterList`] are *strictly sorted* by
-//! [`SortedListProvider::Score`].
+//! trait. Based on those events, maintais a *strictly* sorted list of target lists based on their
+//! approval voting power.
+//!
+//! For the voter list, the [`crate::SortingMode`] defines the type of sortition of the list,
+//! namely:
+//!
+//! - [`crate::SortingMode::Lazy`]: will skip the score update in the voter list.
+//! - [`crate::SortingMode::Strict`]: will ensure that the score updates are kept sorted
+//! for the corresponding list. In this case, the [`Config::VoterList`] is *strictly*
+//! sorted* by [`SortedListProvider::Score`] (note: from the time the sorting mode is strict).
 //!
 //! ## Goals
 //!
-//! The [`OnStakingUpdate`] implementation aims to achieve the following goals:
+//! Note: these goals are assuming the both target list and sorted lists have
+//! [`crate::SortingMode::Strict`] set.
 //!
-//! * The [`Config::TargetList`] keeps a sorted list of validators, sorted by approvals
+//! The [`OnStakingUpdate`] implementation (in strict mode) aims to achieve the following goals:
+//!
+//! * The [`Config::TargetList`] keeps a sorted list of validators, *strictly* sorted by approvals
 //! (which include self-vote and nominations' stake).
-//! * The [`Config::VoterList`] keeps a sorted list of voters, sorted by bonded stake.
+//! * The [`Config::VoterList`] keeps a list of voters, *stricly* sorted by bonded stake if it has
+//! [`crate::SortingMode::strict`] mode enabled, otherwise the list is kept lazily sorted.
 //! * The [`Config::TargetList`] sorting must be *always* kept up to date, even in the event of new
 //! nomination updates, nominator/validator slashes and rewards. This pallet *must* ensure that the
 //! scores of the targets and voters are always up to date and thus, that the targets and voters in
@@ -49,13 +58,14 @@
 //!
 //! ## Staker status and list invariants
 //!
-//! There are a few invariants that depend on the staker's (nominator or validator) state, as
-//! exposed by the [`Config::Staking`] interface:
+//! Note: these goals are assuming the both target list and sorted lists have
+//! [`crate::SortingMode::Strict`] set.
 //!
 //! * A [`sp_staking::StakerStatus::Nominator`] is part of the voter list and its self-stake is the
-//! voter list's score. In addition, the voters' scores are up to date with the current stake
-//! returned by [`T::Staking::stake`].
-//! * A [`sp_staking::StakerStatus::Validator`] is part of both voter and target list. And its
+//! voter list's score. In addition, if the `VoterList` is in strict mode, the voters' scores are up
+//! to date with the current stake returned by [`T::Staking::stake`].
+//! * A [`sp_staking::StakerStatus::Validator`] is part of both voter and target list. In addition,
+//! if the `TargetList` is in strict mode, its
 //! approvals score (nominations + self-stake) is kept up to date as the target list's score.
 //! * A [`sp_staking::StakerStatus::Idle`] may have a target list's score while other stakers
 //!   nominate the idle validator.
@@ -81,6 +91,7 @@ pub use pallet::*;
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	defensive,
+	pallet_prelude::*,
 	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
 };
 use sp_runtime::traits::Zero;
@@ -131,11 +142,32 @@ impl<Balance: PartialOrd + DefensiveSaturating> StakeImbalance<Balance> {
 	}
 }
 
+/// Defines the sorting mode of sorted list providers.
+///
+/// Strict: all score update events will be autimatically reflected in the sorted list.
+/// Lazy: no score update events will be automatically reflected in the sorted list.
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum SortingMode {
+	Strict,
+	Lazy,
+}
+
+impl Default for SortingMode {
+	fn default() -> Self {
+		Self::Strict
+	}
+}
+
+impl SortingMode {
+	fn is_lazy_mode(&self) -> bool {
+		matches!(self, Self::Lazy)
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::*;
 	use frame_election_provider_support::{ExtendedBalance, VoteWeight};
-	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::BlockNumberFor;
 
 	/// The current storage version.
@@ -165,6 +197,9 @@ pub mod pallet {
 			Score = <Self::Staking as StakingInterface>::Balance,
 		>;
 	}
+
+	#[pallet::storage]
+	pub type VoterListMode<T> = StorageValue<_, SortingMode, ValueQuery>;
 
 	#[pallet::event]
 	pub enum Event<T: Config> {}
@@ -358,10 +393,15 @@ impl<T: Config> Pallet<T> {
 				let active_stake = T::Staking::stake(&voter)
 					.map(|s| Self::weight_of(s.active))
 					.expect("active voter has bonded stake; qed.");
-				frame_support::ensure!(
-					active_stake == score,
-					"voter score must be the same as its active stake"
-				);
+
+				// if the voter list is in lazy mode, we don't expect the stake of the voter to
+				// match the score in the list at all times.
+				if !VoterListMode::<T>::get().is_lazy_mode() {
+					frame_support::ensure!(
+						active_stake == score,
+						"voter score must be the same as its active stake"
+					);
+				}
 
 				for nomination in nominations {
 					if let Some(stake) = approvals_map.get_mut(&nomination) {
@@ -443,6 +483,8 @@ impl<T: Config> Pallet<T> {
 
 		log!(trace, "try-state: calculated approvals map: {:?}", approvals_map);
 
+		// if the target list is in lazy mode, we don't expect the stake approvals of the target
+		// to be correct at all times.
 		// compare calculated approvals per target with target list state.
 		for (target, calculated_stake) in approvals_map.iter() {
 			let stake_in_list = T::TargetList::get_score(target).expect("target must exist; qed.");
@@ -499,6 +541,12 @@ impl<T: Config> Pallet<T> {
 	///  leverage the [`SortedListProvider::in_position`] to verify if the target is in the
 	/// correct  position in the list (bag or otherwise), given its score.
 	pub fn do_try_state_voter_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
+		// if the voter list is in lazy mode, we don't expect the nodes to be sorted at all times.
+		// skip checks.
+		if !VoterListMode::<T>::get().is_lazy_mode() {
+			return Ok(())
+		}
+
 		for t in T::VoterList::iter() {
 			frame_support::ensure!(
 				T::VoterList::in_position(&t).expect("voter exists"),
@@ -521,11 +569,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		prev_stake: Option<Stake<BalanceOf<T>>>,
 		stake: Stake<BalanceOf<T>>,
 	) {
-		#[cfg(any(test, feature = "try-runtime))]"))]
-		debug_assert!(T::Staking::stake(who).unwrap() == stake, "input stake mismatches expected.");
-
 		match T::Staking::status(who) {
 			Ok(StakerStatus::Nominator(nominations)) => {
+				// if voters are in lazy mode, return without updating the stake.
+				if VoterListMode::<T>::get().is_lazy_mode() {
+					return
+				}
+
 				let voter_weight = Self::weight_of(stake.active);
 
 				let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
