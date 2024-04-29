@@ -68,8 +68,8 @@ fn basic_happy_path_works() {
 		// #10: Proposal should be executed.
 		assert_eq!(Balances::free_balance(&42), 1);
 
-		assert_eq!(CountPollStatusChanges::count_for(PollStatusChangeType::Ongoing), 4);
-		assert_eq!(CountPollStatusChanges::count_for(PollStatusChangeType::Completed), 1);
+		assert_eq!(StatusChangeConsumer::count_for(PollStatusChangeType::Ongoing), 4);
+		assert_eq!(StatusChangeConsumer::count_for(PollStatusChangeType::Completed), 1);
 	});
 }
 

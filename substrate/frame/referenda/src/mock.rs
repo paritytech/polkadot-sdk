@@ -64,7 +64,7 @@ pub enum PollStatusChangeType {
 }
 
 #[frame_support::storage_alias]
-type CounterForListNodes<T: crate::Config<I>, I: 'static> = StorageMap<
+type StatusChangeCounterStorage<T: crate::Config<I>, I: 'static> = StorageMap<
 	crate::Pallet<T, I>,
 	frame_support::pallet_prelude::Blake2_128Concat,
 	PollStatusChangeType,
@@ -72,14 +72,14 @@ type CounterForListNodes<T: crate::Config<I>, I: 'static> = StorageMap<
 	frame_support::pallet_prelude::ValueQuery,
 >;
 
-pub struct CountPollStatusChanges;
-impl CountPollStatusChanges {
+pub struct StatusChangeConsumer;
+impl StatusChangeConsumer {
 	pub(crate) fn count_for(t: PollStatusChangeType) -> u32 {
-		CounterForListNodes::<Test, ()>::get(t)
+		StatusChangeCounterStorage::<Test, ()>::get(t)
 	}
 }
 
-impl OnPollStatusChange<Tally, u64, u8, u32> for CountPollStatusChanges {
+impl OnPollStatusChange<Tally, u64, u8, u32> for StatusChangeConsumer {
 	fn on_poll_status_change(_: u32, poll_status: &PollStatus<Tally, u64, u8>) {
 		let t = match poll_status {
 			PollStatus::None => PollStatusChangeType::None,
@@ -87,8 +87,8 @@ impl OnPollStatusChange<Tally, u64, u8, u32> for CountPollStatusChanges {
 			PollStatus::Completed(..) => PollStatusChangeType::Completed,
 		};
 
-		let count = CounterForListNodes::<Test, ()>::get(t.clone());
-		CounterForListNodes::<Test, ()>::insert(t, count + 1);
+		let count = StatusChangeCounterStorage::<Test, ()>::get(t.clone());
+		StatusChangeCounterStorage::<Test, ()>::insert(t, count + 1);
 	}
 }
 
@@ -240,7 +240,7 @@ impl Config for Test {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;
-	type OnPollStatusChange = CountPollStatusChanges;
+	type OnPollStatusChange = StatusChangeConsumer;
 }
 pub struct ExtBuilder {}
 
