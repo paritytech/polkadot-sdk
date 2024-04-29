@@ -52,6 +52,8 @@ use std::{
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
 use tokio_retry::{strategy::FixedInterval, Retry};
 
+pub use sp_core::twox_128;
+
 type KeyValue = (StorageKey, StorageData);
 type TopKeyValues = Vec<KeyValue>;
 type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
