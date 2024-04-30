@@ -455,8 +455,9 @@ sp_api::mock_impl_runtime_apis! {
 
 	impl XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for RuntimeApi {
 		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			use xcm_executor::RecordXcm;
 			// We want to record the XCM that's executed, so we can return it.
-			pallet_xcm::set_record_xcm(true);
+			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(true);
 			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
 				log::error!(
 					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
@@ -466,7 +467,7 @@ sp_api::mock_impl_runtime_apis! {
 				XcmDryRunApiError::InvalidExtrinsic
 			})?;
 			// Nothing gets committed to storage in runtime APIs, so there's no harm in leaving the flag as true.
-			let local_xcm = pallet_xcm::recorded_xcm();
+			let local_xcm = pallet_xcm::Pallet::<TestRuntime>::recorded_xcm();
 			let forwarded_xcms = sent_xcm()
 				.into_iter()
 				.map(|(location, message)| (
@@ -482,7 +483,7 @@ sp_api::mock_impl_runtime_apis! {
 			})
 		}
 
-		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>, max_weight: Weight) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			let origin_location: Location = origin_location.try_into().map_err(|error| {
 				log::error!(
 					target: "xcm::XcmDryRunApi::dry_run_xcm",
@@ -504,7 +505,7 @@ sp_api::mock_impl_runtime_apis! {
 				origin_location,
 				xcm,
 				&mut hash,
-				max_weight,
+				Weight::MAX, // Max limit available for execution.
 				Weight::zero(),
 			);
 			let forwarded_xcms = sent_xcm()
