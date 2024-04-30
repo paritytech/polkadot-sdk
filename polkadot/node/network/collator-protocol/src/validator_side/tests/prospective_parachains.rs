@@ -23,6 +23,7 @@ use polkadot_primitives::{
 	AsyncBackingParams, BlockNumber, CandidateCommitments, CommittedCandidateReceipt, Header,
 	SigningContext, ValidatorId,
 };
+use rstest::rstest;
 
 const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
 	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
@@ -259,6 +260,48 @@ async fn assert_collation_seconded(
 				}
 			);
 		},
+	}
+}
+
+/// Assert that the next message is a persisted validation data request and respond with the
+/// supplied PVD.
+async fn assert_persisted_validation_data(
+	virtual_overseer: &mut VirtualOverseer,
+	version: CollationVersion,
+	expected_relay_parent: Hash,
+	expected_para_id: ParaId,
+	expected_parent_head_data_hash: Option<Hash>,
+	pvd: Option<PersistedValidationData>,
+) {
+	// Depending on relay parent mode pvd will be either requested
+	// from the Runtime API or Prospective Parachains.
+	let msg = overseer_recv(virtual_overseer).await;
+	match version {
+		CollationVersion::V1 => assert_matches!(
+			msg,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				hash,
+				RuntimeApiRequest::PersistedValidationData(para_id, assumption, tx),
+			)) => {
+				assert_eq!(expected_relay_parent, hash);
+				assert_eq!(expected_para_id, para_id);
+				assert_eq!(OccupiedCoreAssumption::Free, assumption);
+				tx.send(Ok(pvd)).unwrap();
+			}
+		),
+		CollationVersion::V2 => assert_matches!(
+			msg,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
+			) => {
+				assert_eq!(expected_relay_parent, request.candidate_relay_parent);
+				assert_eq!(expected_para_id, request.para_id);
+				if let Some(expected_parent_head_data_hash) = expected_parent_head_data_hash {
+					assert_eq!(expected_parent_head_data_hash, request.parent_head_data.hash());
+				}
+				tx.send(pvd).unwrap();
+			}
+		),
 	}
 }
 
@@ -941,6 +984,307 @@ fn advertisement_spam_protection() {
 				assert_eq!(rep.value, COST_UNEXPECTED_MESSAGE.cost_or_benefit());
 			}
 		);
+
+		virtual_overseer
+	});
+}
+
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
+	let test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		// Grandparent of head `a`.
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 2;
+
+		// Grandparent of head `b`.
+		// Group rotation frequency is 1 by default, at `c` we're assigned
+		// to the first para.
+		let head_c = Hash::from_low_u64_be(130);
+
+		// Activated leaf is `b`, but the collation will be based on `c`.
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Candidate A transitions from head data 0 to 1.
+		// Candidate B transitions from head data 1 to 2.
+
+		// Candidate B is advertised and fetched before candidate A.
+
+		let mut candidate_b = dummy_candidate_receipt_bad_sig(head_c, Some(Default::default()));
+		candidate_b.descriptor.para_id = test_state.chain_ids[0];
+		candidate_b.descriptor.para_head = HeadData(vec![2]).hash();
+		candidate_b.descriptor.persisted_validation_data_hash =
+			PersistedValidationData::<Hash, BlockNumber> {
+				parent_head: HeadData(vec![1]),
+				relay_parent_number: 5,
+				max_pov_size: 1024,
+				relay_parent_storage_root: Default::default(),
+			}
+			.hash();
+		let candidate_b_commitments = CandidateCommitments {
+			head_data: HeadData(vec![2]),
+			horizontal_messages: Default::default(),
+			upward_messages: Default::default(),
+			new_validation_code: None,
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		};
+		candidate_b.commitments_hash = candidate_b_commitments.hash();
+
+		let candidate_b_hash = candidate_b.hash();
+
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			head_c,
+			Some((candidate_b_hash, HeadData(vec![1]).hash())),
+		)
+		.await;
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_b_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				assert_eq!(request.parent_head_data_hash, HeadData(vec![1]).hash());
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_c,
+			test_state.chain_ids[0],
+			Some(candidate_b_hash),
+		)
+		.await;
+
+		response_channel
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(
+					candidate_b.clone(),
+					PoV { block_data: BlockData(vec![1]) },
+				)
+				.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		// Persisted validation data of candidate B is not found.
+		assert_persisted_validation_data(
+			&mut virtual_overseer,
+			CollationVersion::V2,
+			head_c,
+			test_state.chain_ids[0],
+			Some(HeadData(vec![1]).hash()),
+			None,
+		)
+		.await;
+
+		// Now advertise, fetch and validate candidate A, which is the parent of B.
+
+		let mut candidate_a = dummy_candidate_receipt_bad_sig(head_c, Some(Default::default()));
+		candidate_a.descriptor.para_id = test_state.chain_ids[0];
+		candidate_a.descriptor.para_head = HeadData(vec![1]).hash();
+		candidate_a.descriptor.persisted_validation_data_hash =
+			PersistedValidationData::<Hash, BlockNumber> {
+				parent_head: HeadData(vec![0]),
+				relay_parent_number: 5,
+				max_pov_size: 1024,
+				relay_parent_storage_root: Default::default(),
+			}
+			.hash();
+		let candidate_a_commitments = CandidateCommitments {
+			head_data: HeadData(vec![1]),
+			horizontal_messages: Default::default(),
+			upward_messages: Default::default(),
+			new_validation_code: None,
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		};
+		candidate_a.commitments_hash = candidate_a_commitments.hash();
+
+		let candidate_a_hash = candidate_a.hash();
+
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			head_c,
+			Some((candidate_a_hash, HeadData(vec![0]).hash())),
+		)
+		.await;
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_a_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				assert_eq!(request.parent_head_data_hash, HeadData(vec![0]).hash());
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_c,
+			test_state.chain_ids[0],
+			Some(candidate_a_hash),
+		)
+		.await;
+
+		response_channel
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(
+					candidate_a.clone(),
+					PoV { block_data: BlockData(vec![2]) },
+				)
+				.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		assert_persisted_validation_data(
+			&mut virtual_overseer,
+			CollationVersion::V2,
+			head_c,
+			test_state.chain_ids[0],
+			Some(HeadData(vec![0]).hash()),
+			Some(PersistedValidationData::<Hash, BlockNumber> {
+				parent_head: HeadData(vec![0]),
+				relay_parent_number: 5,
+				max_pov_size: 1024,
+				relay_parent_storage_root: Default::default(),
+			}),
+		)
+		.await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(CandidateBackingMessage::Second(
+				relay_parent,
+				candidate_receipt,
+				received_pvd,
+				incoming_pov,
+			)) => {
+				assert_eq!(head_c, relay_parent);
+				assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id);
+				assert_eq!(PoV { block_data: BlockData(vec![2]) }, incoming_pov);
+				assert_eq!(PersistedValidationData::<Hash, BlockNumber> {
+					parent_head: HeadData(vec![0]),
+					relay_parent_number: 5,
+					max_pov_size: 1024,
+					relay_parent_storage_root: Default::default(),
+				}, received_pvd);
+				candidate_receipt
+			}
+		);
+
+		// If candidate A is valid, proceed with seconding B.
+		if valid_parent {
+			send_seconded_statement(
+				&mut virtual_overseer,
+				keystore.clone(),
+				&CommittedCandidateReceipt {
+					descriptor: candidate_a.descriptor,
+					commitments: candidate_a_commitments,
+				},
+			)
+			.await;
+
+			assert_collation_seconded(&mut virtual_overseer, head_c, peer_a, CollationVersion::V2)
+				.await;
+
+			// Now that candidate A has been seconded, candidate B can be seconded as well.
+
+			assert_persisted_validation_data(
+				&mut virtual_overseer,
+				CollationVersion::V2,
+				head_c,
+				test_state.chain_ids[0],
+				Some(HeadData(vec![1]).hash()),
+				Some(PersistedValidationData::<Hash, BlockNumber> {
+					parent_head: HeadData(vec![1]),
+					relay_parent_number: 5,
+					max_pov_size: 1024,
+					relay_parent_storage_root: Default::default(),
+				}),
+			)
+			.await;
+
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::CandidateBacking(CandidateBackingMessage::Second(
+					relay_parent,
+					candidate_receipt,
+					received_pvd,
+					incoming_pov,
+				)) => {
+					assert_eq!(head_c, relay_parent);
+					assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id);
+					assert_eq!(PoV { block_data: BlockData(vec![1]) }, incoming_pov);
+					assert_eq!(PersistedValidationData::<Hash, BlockNumber> {
+						parent_head: HeadData(vec![1]),
+						relay_parent_number: 5,
+						max_pov_size: 1024,
+						relay_parent_storage_root: Default::default(),
+					}, received_pvd);
+					candidate_receipt
+				}
+			);
+
+			send_seconded_statement(
+				&mut virtual_overseer,
+				keystore.clone(),
+				&CommittedCandidateReceipt {
+					descriptor: candidate_b.descriptor,
+					commitments: candidate_b_commitments,
+				},
+			)
+			.await;
+
+			assert_collation_seconded(&mut virtual_overseer, head_c, peer_a, CollationVersion::V2)
+				.await;
+		} else {
+			// If candidate A is invalid, B won't be seconded.
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::Invalid(head_c, candidate_a),
+			)
+			.await;
+
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(
+					NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer, rep)),
+				) => {
+					assert_eq!(peer, peer_a);
+					assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
+				}
+			);
+		}
+
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
 
 		virtual_overseer
 	});
