@@ -12,4 +12,3 @@ crates:
   bump: minor
 - name: frame-system
   bump: patch
-g
