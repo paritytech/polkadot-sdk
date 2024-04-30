@@ -26,8 +26,8 @@
 
 use polkadot_cli::{
 	service::{
-		AuxStore, Error, ExtendedOverseerGenArgs,
-		Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
+		AuxStore, Error, ExtendedOverseerGenArgs, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
@@ -89,11 +89,10 @@ where
 								);
 								Requests::AttestedCandidateV2(new_outgoing_request)
 							}));
-
-						}
+						},
 						_ => {
 							new_requests.push(request);
-						}
+						},
 					}
 				}
 

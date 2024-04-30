@@ -136,7 +136,6 @@ impl Metrics {
 			metrics.max_parallel_requests_reached.inc();
 		}
 	}
-
 }
 
 impl metrics::Metrics for Metrics {
