@@ -56,7 +56,7 @@ fn teleport_relay_system_para_works() {
 		let sender = Alice; // Is the same as `WestendSender`.
 		let extrinsic = construct_extrinsic_westend(sender, call);
 		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
-		let (destination_to_query, messages_to_query) = &result.forwarded_messages[0];
+		let (destination_to_query, messages_to_query) = &result.forwarded_xcms[0];
 		remote_message = messages_to_query[0].clone();
 		let delivery_fees =
 			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
@@ -155,7 +155,7 @@ fn multi_hop_works() {
 		let sender = Alice; // Same as `PenpalASender`.
 		let extrinsic = construct_extrinsic_penpal(sender, call);
 		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
-		let (destination_to_query, messages_to_query) = &result.forwarded_messages[0];
+		let (destination_to_query, messages_to_query) = &result.forwarded_xcms[0];
 		remote_message = messages_to_query[0].clone();
 		let delivery_fees =
 			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
@@ -185,7 +185,7 @@ fn multi_hop_works() {
 		let result =
 			Runtime::dry_run_xcm(sender_as_seen_by_relay.clone().into(), xcm_program)
 				.unwrap();
-		let (destination_to_query, messages_to_query) = &result.forwarded_messages[0];
+		let (destination_to_query, messages_to_query) = &result.forwarded_xcms[0];
 		// There's actually two messages here.
 		// One created when the message we sent from PenpalA arrived and was executed.
 		// The second one when we dry-run the xcm.

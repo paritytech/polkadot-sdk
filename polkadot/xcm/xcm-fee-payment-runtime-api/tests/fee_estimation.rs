@@ -68,7 +68,7 @@ fn fee_estimation_for_teleport() {
 			runtime_api.dry_run_extrinsic(H256::zero(), extrinsic).unwrap().unwrap();
 
 		assert_eq!(
-			dry_run_effects.local_program,
+			dry_run_effects.local_xcm,
 			VersionedXcm::V4(
 				Xcm::builder_unsafe()
 					.withdraw_asset((Parent, 20u128))
@@ -87,7 +87,7 @@ fn fee_estimation_for_teleport() {
 			.deposit_asset(AllCounted(2), [0u8; 32])
 			.build();
 		assert_eq!(
-			dry_run_effects.forwarded_messages,
+			dry_run_effects.forwarded_xcms,
 			vec![(
 				VersionedLocation::V4(send_destination.clone()),
 				vec![VersionedXcm::V4(send_message.clone())],
@@ -142,12 +142,12 @@ fn fee_estimation_for_teleport() {
 		// Weighing the local program is not relevant for extrinsics that already
 		// take this weight into account.
 		// In this case, we really only care about delivery fees.
-		let local_program = dry_run_effects.local_program;
+		let local_xcm = dry_run_effects.local_xcm;
 
 		// We get a double result since the actual call returns a result and the runtime api returns
 		// results.
 		let weight = runtime_api
-			.query_xcm_weight(H256::zero(), local_program.clone())
+			.query_xcm_weight(H256::zero(), local_xcm.clone())
 			.unwrap()
 			.unwrap();
 		assert_eq!(weight, Weight::from_parts(400, 40));
@@ -161,9 +161,9 @@ fn fee_estimation_for_teleport() {
 			.unwrap();
 		assert_eq!(execution_fees, 440);
 
-		let mut forwarded_messages_iter = dry_run_effects.forwarded_messages.into_iter();
+		let mut forwarded_xcms_iter = dry_run_effects.forwarded_xcms.into_iter();
 
-		let (destination, remote_messages) = forwarded_messages_iter.next().unwrap();
+		let (destination, remote_messages) = forwarded_xcms_iter.next().unwrap();
 		let remote_message = &remote_messages[0];
 
 		let delivery_fees = runtime_api
@@ -232,7 +232,7 @@ fn dry_run_reserve_asset_transfer() {
 			runtime_api.dry_run_extrinsic(H256::zero(), extrinsic).unwrap().unwrap();
 
 		assert_eq!(
-			dry_run_effects.local_program,
+			dry_run_effects.local_xcm,
 			VersionedXcm::V4(
 				Xcm::builder_unsafe()
 					.withdraw_asset((Parent, 100u128))
@@ -251,7 +251,7 @@ fn dry_run_reserve_asset_transfer() {
 			.deposit_asset(AllCounted(1), [0u8; 32])
 			.build();
 		assert_eq!(
-			dry_run_effects.forwarded_messages,
+			dry_run_effects.forwarded_xcms,
 			vec![(
 				VersionedLocation::V4(send_destination.clone()),
 				vec![VersionedXcm::V4(send_message.clone())],
@@ -339,7 +339,7 @@ fn dry_run_xcm() {
 			.unwrap()
 			.unwrap();
 		assert_eq!(
-			dry_run_effects.forwarded_messages,
+			dry_run_effects.forwarded_xcms,
 			vec![(
 				VersionedLocation::V4((Parent, Parachain(2100)).into()),
 				vec![VersionedXcm::V4(

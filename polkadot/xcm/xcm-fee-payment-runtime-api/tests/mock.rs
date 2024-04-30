@@ -467,7 +467,7 @@ sp_api::mock_impl_runtime_apis! {
 			})?;
 			// Nothing gets committed to storage in runtime APIs, so there's no harm in leaving the flag as true.
 			let local_xcm = pallet_xcm::recorded_xcm();
-			let forwarded_messages = sent_xcm()
+			let forwarded_xcms = sent_xcm()
 				.into_iter()
 				.map(|(location, message)| (
 					VersionedLocation::V4(location),
@@ -475,8 +475,8 @@ sp_api::mock_impl_runtime_apis! {
 				)).collect();
 			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {
-				local_program: VersionedXcm::<()>::V4(local_xcm),
-				forwarded_messages,
+				local_xcm: VersionedXcm::<()>::V4(local_xcm),
+				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,
 			})
@@ -507,7 +507,7 @@ sp_api::mock_impl_runtime_apis! {
 				max_weight,
 				Weight::zero(),
 			);
-			let forwarded_messages = sent_xcm()
+			let forwarded_xcms = sent_xcm()
 				.into_iter()
 				.map(|(location, message)| (
 					VersionedLocation::V4(location),
@@ -515,7 +515,7 @@ sp_api::mock_impl_runtime_apis! {
 				)).collect();
 			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
 			Ok(XcmDryRunEffects {
-				forwarded_messages,
+				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,
 			})

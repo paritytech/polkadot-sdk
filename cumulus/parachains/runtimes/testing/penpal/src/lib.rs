@@ -890,11 +890,11 @@ impl_runtime_apis! {
 				XcmDryRunApiError::InvalidExtrinsic
 			})?;
 			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
-			let forwarded_messages = xcm_config::XcmRouter::get_messages();
+			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {
-				local_program: VersionedXcm::<()>::V4(local_xcm),
-				forwarded_messages,
+				local_xcm: VersionedXcm::<()>::V4(local_xcm),
+				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,
 			})
@@ -928,10 +928,10 @@ impl_runtime_apis! {
 				Weight::MAX, // Max limit.
 				Weight::zero(),
 			);
-			let forwarded_messages = xcm_config::XcmRouter::get_messages();
+			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
 			Ok(XcmDryRunEffects {
-				forwarded_messages,
+				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,
 			})
