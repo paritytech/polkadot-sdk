@@ -74,10 +74,10 @@ mod inbound_lane;
 mod outbound_lane;
 mod weights_ext;
 
-pub mod weights;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+pub mod migration;
+pub mod weights;
 
 #[cfg(test)]
 mod mock;
@@ -177,6 +177,7 @@ pub mod pallet {
 		>>::MessagesDeliveryProof;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	impl<T: Config<I>, I: 'static> OwnedBridgeModule<T> for Pallet<T, I> {

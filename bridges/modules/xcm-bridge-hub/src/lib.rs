@@ -27,6 +27,7 @@ pub use exporter::PalletAsHaulBlobExporter;
 pub use pallet::*;
 
 mod exporter;
+pub mod migration;
 mod mock;
 
 /// The target that will be used when publishing logs related to this pallet.
@@ -70,6 +71,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::hooks]

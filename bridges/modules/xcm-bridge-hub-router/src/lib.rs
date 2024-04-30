@@ -44,6 +44,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 pub mod benchmarking;
+pub mod migration;
 pub mod weights;
 
 mod mock;
@@ -107,6 +108,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::hooks]

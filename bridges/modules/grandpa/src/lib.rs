@@ -56,6 +56,8 @@ mod call_ext;
 mod mock;
 mod storage_types;
 
+pub mod migration;
+
 /// Module, containing weights for this pallet.
 pub mod weights;
 pub mod weights_ext;
@@ -145,6 +147,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::hooks]

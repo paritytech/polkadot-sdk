@@ -37,6 +37,7 @@ pub use weights::WeightInfo;
 pub use weights_ext::WeightInfoExt;
 
 pub mod benchmarking;
+pub mod migration;
 
 mod mock;
 mod payment_adapter;
@@ -73,6 +74,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::call]

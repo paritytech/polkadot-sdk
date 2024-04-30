@@ -46,6 +46,7 @@ use codec::Encode;
 pub use call_ext::*;
 pub use pallet::*;
 
+pub mod migration;
 pub mod weights;
 pub mod weights_ext;
 
@@ -314,6 +315,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	impl<T: Config<I>, I: 'static> OwnedBridgeModule<T> for Pallet<T, I> {
