@@ -2440,35 +2440,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2289" id="2289">2289</a>
 <a href="#2290" id="2290">2290</a>
 <a href="#2291" id="2291">2291</a>
-<a href="#2292" id="2292">2292</a>
-<a href="#2293" id="2293">2293</a>
-<a href="#2294" id="2294">2294</a>
-<a href="#2295" id="2295">2295</a>
-<a href="#2296" id="2296">2296</a>
-<a href="#2297" id="2297">2297</a>
-<a href="#2298" id="2298">2298</a>
-<a href="#2299" id="2299">2299</a>
-<a href="#2300" id="2300">2300</a>
-<a href="#2301" id="2301">2301</a>
-<a href="#2302" id="2302">2302</a>
-<a href="#2303" id="2303">2303</a>
-<a href="#2304" id="2304">2304</a>
-<a href="#2305" id="2305">2305</a>
-<a href="#2306" id="2306">2306</a>
-<a href="#2307" id="2307">2307</a>
-<a href="#2308" id="2308">2308</a>
-<a href="#2309" id="2309">2309</a>
-<a href="#2310" id="2310">2310</a>
-<a href="#2311" id="2311">2311</a>
-<a href="#2312" id="2312">2312</a>
-<a href="#2313" id="2313">2313</a>
-<a href="#2314" id="2314">2314</a>
-<a href="#2315" id="2315">2315</a>
-<a href="#2316" id="2316">2316</a>
-<a href="#2317" id="2317">2317</a>
-<a href="#2318" id="2318">2318</a>
-<a href="#2319" id="2319">2319</a>
-<a href="#2320" id="2320">2320</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2496,12 +2467,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
-	dispatch::DispatchInfo,
-	ensure,
-	pallet_prelude::{DispatchResult, DispatchResultWithPostInfo},
-	parameter_types,
-	traits::Get,
-	weights::Weight,
+	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
+	traits::Get, weights::Weight,
 };
 <span class="kw">use </span>pallet_contracts_proc_macro::define_env;
 <span class="kw">use </span>pallet_contracts_uapi::{CallFlags, ReturnFlags};
@@ -2512,7 +2479,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_std::{fmt, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
-<span class="kw">use </span>xcm::VersionedXcm;
 
 <span class="kw">type </span>CallOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall;
 
@@ -2848,29 +2814,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>already_charged(<span class="kw">_</span>: u32) -&gt; <span class="prelude-ty">Option</span>&lt;RuntimeCosts&gt; {
 	<span class="prelude-val">None
 </span>}
-
-<span class="doccomment">/// Ensure that the XCM program is executable, by checking that it does not contain any [`Transact`]
-/// instruction with a call that is not allowed by the CallFilter.
-</span><span class="kw">fn </span>ensure_executable&lt;T: Config&gt;(message: <span class="kw-2">&amp;</span>VersionedXcm&lt;CallOf&lt;T&gt;&gt;) -&gt; DispatchResult {
-	<span class="kw">use </span>frame_support::traits::Contains;
-	<span class="kw">use </span>xcm::prelude::{Transact, Xcm};
-
-	<span class="kw">let </span><span class="kw-2">mut </span>message: Xcm&lt;CallOf&lt;T&gt;&gt; =
-		message.clone().try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::XCMDecodeFailed)<span class="question-mark">?</span>;
-
-	message.iter_mut().try_for_each(|inst| -&gt; DispatchResult {
-		<span class="kw">let </span>Transact { <span class="kw-2">ref mut </span>call, .. } = inst <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(()) };
-		<span class="kw">let </span>call = call.ensure_decoded().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::XCMDecodeFailed)<span class="question-mark">?</span>;
-
-		<span class="kw">if </span>!&lt;T <span class="kw">as </span>Config&gt;::CallFilter::contains(call) {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(frame_system::Error::&lt;T&gt;::CallFiltered.into())
-		}
-
-		<span class="prelude-val">Ok</span>(())
-	})<span class="question-mark">?</span>;
-
-	<span class="prelude-val">Ok</span>(())
-}
 
 <span class="doccomment">/// Can only be used for one call.
 </span><span class="kw">pub struct </span>Runtime&lt;<span class="lifetime">'a</span>, E: Ext + <span class="lifetime">'a</span>&gt; {
@@ -4588,7 +4531,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))<span class="question-mark">?</span>;
 		<span class="kw">let </span>message: VersionedXcm&lt;CallOf&lt;E::T&gt;&gt; =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)<span class="question-mark">?</span>;
-		ensure_executable::&lt;E::T&gt;(<span class="kw-2">&amp;</span>message)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>execute_weight =
 			&lt;&lt;E::T <span class="kw">as </span>Config&gt;::Xcm <span class="kw">as </span>ExecuteController&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::WeightInfo::execute();
