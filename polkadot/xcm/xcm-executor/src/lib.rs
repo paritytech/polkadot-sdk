@@ -33,8 +33,8 @@ use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
 	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
-	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds,
-	WeightTrader, XcmAssetTransfers,
+	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+	XcmAssetTransfers,
 };
 
 pub use traits::RecordXcm;

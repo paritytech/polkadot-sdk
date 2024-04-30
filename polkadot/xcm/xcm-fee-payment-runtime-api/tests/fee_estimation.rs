@@ -146,10 +146,8 @@ fn fee_estimation_for_teleport() {
 
 		// We get a double result since the actual call returns a result and the runtime api returns
 		// results.
-		let weight = runtime_api
-			.query_xcm_weight(H256::zero(), local_xcm.clone())
-			.unwrap()
-			.unwrap();
+		let weight =
+			runtime_api.query_xcm_weight(H256::zero(), local_xcm.clone()).unwrap().unwrap();
 		assert_eq!(weight, Weight::from_parts(400, 40));
 		let execution_fees = runtime_api
 			.query_weight_to_asset_fee(

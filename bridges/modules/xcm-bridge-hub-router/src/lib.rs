@@ -652,18 +652,25 @@ mod tests {
 			));
 			assert_eq!(
 				XcmBridgeHubRouter::get_messages(),
-				vec![
-					(
-						VersionedLocation::V4((Parent, Parachain(1002)).into()),
-						vec![VersionedXcm::V4(Xcm::builder()
+				vec![(
+					VersionedLocation::V4((Parent, Parachain(1002)).into()),
+					vec![VersionedXcm::V4(
+						Xcm::builder()
 							.withdraw_asset((Parent, 1_002_000))
 							.buy_execution((Parent, 1_002_000), Unlimited)
-							.set_appendix(Xcm::builder_unsafe().deposit_asset(AllCounted(1), (Parent, Parachain(1000))).build())
-							.export_message(Kusama, Parachain(1000), Xcm::builder_unsafe().clear_origin().build())
+							.set_appendix(
+								Xcm::builder_unsafe()
+									.deposit_asset(AllCounted(1), (Parent, Parachain(1000)))
+									.build()
+							)
+							.export_message(
+								Kusama,
+								Parachain(1000),
+								Xcm::builder_unsafe().clear_origin().build()
+							)
 							.build()
-						)],
-					),
-				],
+					)],
+				),],
 			);
 		});
 	}

@@ -18,17 +18,17 @@
 
 use crate as pallet_xcm_bridge_hub_router;
 
-use sp_std::cell::RefCell;
-use codec::Encode;
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
+use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{Contains, Equals},
 };
 use frame_system::EnsureRoot;
 use sp_runtime::{traits::ConstU128, BuildStorage};
+use sp_std::cell::RefCell;
 use xcm::prelude::*;
-use xcm_builder::{NetworkExportTable, NetworkExportTableItem, InspectMessageQueues};
+use xcm_builder::{InspectMessageQueues, NetworkExportTable, NetworkExportTableItem};
 
 pub type AccountId = u64;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -133,12 +133,18 @@ impl SendXcm for TestToBridgeHubSender {
 
 impl InspectMessageQueues for TestToBridgeHubSender {
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
-		SENT_XCM.with(|q| (*q.borrow()).clone().iter().map(|(location, message)| {
-			(
-				VersionedLocation::V4(location.clone()),
-				vec![VersionedXcm::V4(message.clone())],
-			)
-		}).collect())
+		SENT_XCM.with(|q| {
+			(*q.borrow())
+				.clone()
+				.iter()
+				.map(|(location, message)| {
+					(
+						VersionedLocation::V4(location.clone()),
+						vec![VersionedXcm::V4(message.clone())],
+					)
+				})
+				.collect()
+		})
 	}
 }
 

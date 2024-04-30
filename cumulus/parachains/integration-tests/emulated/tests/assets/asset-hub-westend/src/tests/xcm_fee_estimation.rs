@@ -183,8 +183,7 @@ fn multi_hop_works() {
 
 		// Now we get the delivery fees to the final destination.
 		let result =
-			Runtime::dry_run_xcm(sender_as_seen_by_relay.clone().into(), xcm_program)
-				.unwrap();
+			Runtime::dry_run_xcm(sender_as_seen_by_relay.clone().into(), xcm_program).unwrap();
 		let (destination_to_query, messages_to_query) = &result.forwarded_xcms[0];
 		// There's actually two messages here.
 		// One created when the message we sent from PenpalA arrived and was executed.
