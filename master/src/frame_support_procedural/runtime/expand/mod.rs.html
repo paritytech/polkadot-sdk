@@ -564,7 +564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">"frame-support"</span>)<span class="question-mark">?</span>;
 	<span class="kw">let </span>attr = <span class="kw">if </span>legacy_ordering { <span class="macro">quote!</span>((legacy_ordering)) } <span class="kw">else </span>{ <span class="macro">quote!</span>() };
 	<span class="kw">let </span><span class="kw-2">mut </span>expansion = <span class="macro">quote::quote!</span>(
-		<span class="attr">#[frame_support::runtime #attr]
+		<span class="attr">#[#frame_support::runtime #attr]
 		</span>#input
 	);
 	<span class="kw">for </span>pallet <span class="kw">in </span>definition.pallet_decls.iter() {
@@ -574,7 +574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		expansion = <span class="macro">quote::quote!</span>(
 			#<span class="macro">frame_support::__private::tt_call! </span>{
 				<span class="kw">macro </span>= [{ #pallet_path::tt_default_parts_v2 }]
-				frame_support = [{ #frame_support }]
+				your_tt_return = [{ #frame_support::__private::tt_return }]
 				~~&gt; #<span class="macro">frame_support::match_and_insert! </span>{
 					target = [{ #expansion }]
 					pattern = [{ #pallet_name = #pallet_path #pallet_instance  }]

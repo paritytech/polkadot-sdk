@@ -958,6 +958,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#807" id="807">807</a>
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1493,6 +1495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>pallet_declaration <span class="kw">in </span>pallet_declarations {
 		<span class="kw">let </span>type_name = <span class="kw-2">&amp;</span>pallet_declaration.name;
 		<span class="kw">let </span>pallet = <span class="kw-2">&amp;</span>pallet_declaration.path;
+		<span class="kw">let </span>docs = <span class="kw-2">&amp;</span>pallet_declaration.docs;
 		<span class="kw">let </span><span class="kw-2">mut </span>generics = <span class="macro">vec!</span>[<span class="macro">quote!</span>(#runtime)];
 		generics.extend(pallet_declaration.instance.iter().map(|name| <span class="macro">quote!</span>(#pallet::#name)));
 		<span class="kw">let </span><span class="kw-2">mut </span>attrs = Vec::new();
@@ -1501,6 +1504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			attrs.extend(TokenStream2::from_str(<span class="kw-2">&amp;</span>feat).expect(<span class="string">"was parsed successfully; qed"</span>));
 		}
 		<span class="kw">let </span>type_decl = <span class="macro">quote!</span>(
+			#( <span class="attr">#[doc = #docs] </span>)*
 			#(#attrs)*
 			<span class="kw">pub type </span>#type_name = #pallet::Pallet &lt;#(#generics),<span class="kw-2">*</span>&gt;;
 		);

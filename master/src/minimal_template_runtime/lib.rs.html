@@ -403,6 +403,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -420,6 +471,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+</span><span class="doccomment">//! A minimal runtime that includes the template [`pallet`](`pallet_minimal_template`).
+
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="comment">// Make the WASM binary available.
@@ -429,6 +482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame::{
 	deps::frame_support::{
 		genesis_builder_helper::{build_state, get_preset},
+		runtime,
 		weights::{FixedFee, NoFee},
 	},
 	prelude::<span class="kw-2">*</span>,
@@ -441,7 +495,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 };
 
-<span class="attr">#[runtime_version]
+<span class="doccomment">/// The runtime version.
+</span><span class="attr">#[runtime_version]
 </span><span class="kw">pub const </span>VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">"minimal-template-runtime"</span>),
 	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">"minimal-template-runtime"</span>),
@@ -459,62 +514,109 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-<span class="kw">type </span>SignedExtra = (
-	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
-	frame_system::CheckSpecVersion&lt;Runtime&gt;,
-	frame_system::CheckTxVersion&lt;Runtime&gt;,
-	frame_system::CheckGenesis&lt;Runtime&gt;,
-	frame_system::CheckEra&lt;Runtime&gt;,
-	frame_system::CheckNonce&lt;Runtime&gt;,
-	frame_system::CheckWeight&lt;Runtime&gt;,
-	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
+<span class="doccomment">/// The signed extensions that are added to the runtime.
+</span><span class="kw">type </span>SignedExtra = (
+	<span class="comment">// Checks that the sender is not the zero address.
+	</span>frame_system::CheckNonZeroSender&lt;Runtime&gt;,
+	<span class="comment">// Checks that the runtime version is correct.
+	</span>frame_system::CheckSpecVersion&lt;Runtime&gt;,
+	<span class="comment">// Checks that the transaction version is correct.
+	</span>frame_system::CheckTxVersion&lt;Runtime&gt;,
+	<span class="comment">// Checks that the genesis hash is correct.
+	</span>frame_system::CheckGenesis&lt;Runtime&gt;,
+	<span class="comment">// Checks that the era is valid.
+	</span>frame_system::CheckEra&lt;Runtime&gt;,
+	<span class="comment">// Checks that the nonce is valid.
+	</span>frame_system::CheckNonce&lt;Runtime&gt;,
+	<span class="comment">// Checks that the weight is valid.
+	</span>frame_system::CheckWeight&lt;Runtime&gt;,
+	<span class="comment">// Ensures that the sender has enough funds to pay for the transaction
+	// and deducts the fee from the sender's account.
+	</span>pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
 );
 
-<span class="macro">construct_runtime!</span>(
-	<span class="kw">pub enum </span>Runtime {
-		System: frame_system,
-		Timestamp: pallet_timestamp,
+<span class="comment">// Composes the runtime by adding all the used pallets and deriving necessary types.
+</span><span class="attr">#[runtime]
+</span><span class="kw">mod </span>runtime {
+	<span class="doccomment">/// The main runtime type.
+	</span><span class="attr">#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	</span><span class="kw">pub struct </span>Runtime;
 
-		Balances: pallet_balances,
-		Sudo: pallet_sudo,
-		TransactionPayment: pallet_transaction_payment,
+	<span class="doccomment">/// Mandatory system pallet that should always be included in a FRAME runtime.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">0</span>)]
+	</span><span class="kw">pub type </span>System = frame_system;
 
-		<span class="comment">// our local pallet
-		</span>Template: pallet_minimal_template,
-	}
-);
+	<span class="doccomment">/// Provides a way for consensus systems to set and check the onchain time.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">1</span>)]
+	</span><span class="kw">pub type </span>Timestamp = pallet_timestamp;
+
+	<span class="doccomment">/// Provides the ability to keep track of balances.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">2</span>)]
+	</span><span class="kw">pub type </span>Balances = pallet_balances;
+
+	<span class="doccomment">/// Provides a way to execute privileged functions.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">3</span>)]
+	</span><span class="kw">pub type </span>Sudo = pallet_sudo;
+
+	<span class="doccomment">/// Provides the ability to charge for extrinsic execution.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">4</span>)]
+	</span><span class="kw">pub type </span>TransactionPayment = pallet_transaction_payment;
+
+	<span class="doccomment">/// A minimal pallet template.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">5</span>)]
+	</span><span class="kw">pub type </span>Template = pallet_minimal_template;
+}
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>Version: RuntimeVersion = VERSION;
 }
 
-<span class="attr">#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
+<span class="doccomment">/// Implements the types required for the system pallet.
+</span><span class="attr">#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 </span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>Block = Block;
 	<span class="kw">type </span>Version = Version;
-	<span class="kw">type </span>BlockHashCount = ConstU32&lt;<span class="number">1024</span>&gt;;
-	<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;&lt;Runtime <span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
+	<span class="comment">// Use the account data from the balances pallet
+	</span><span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;&lt;Runtime <span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
 }
 
-<span class="attr">#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+<span class="comment">// Implements the types required for the balances pallet.
+</span><span class="attr">#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 </span><span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>AccountStore = System;
 }
 
-<span class="attr">#[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig)]
+<span class="comment">// Implements the types required for the sudo pallet.
+</span><span class="attr">#[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig)]
 </span><span class="kw">impl </span>pallet_sudo::Config <span class="kw">for </span>Runtime {}
 
-<span class="attr">#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+<span class="comment">// Implements the types required for the sudo pallet.
+</span><span class="attr">#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 </span><span class="kw">impl </span>pallet_timestamp::Config <span class="kw">for </span>Runtime {}
 
-<span class="attr">#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
+<span class="comment">// Implements the types required for the transaction payment pallet.
+</span><span class="attr">#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 </span><span class="kw">impl </span>pallet_transaction_payment::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>OnChargeTransaction = pallet_transaction_payment::FungibleAdapter&lt;Balances, ()&gt;;
-	<span class="kw">type </span>WeightToFee = NoFee&lt;&lt;<span class="self">Self </span><span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
-	<span class="kw">type </span>LengthToFee = FixedFee&lt;<span class="number">1</span>, &lt;<span class="self">Self </span><span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
+	<span class="comment">// Setting fee as independent of the weight of the extrinsic for demo purposes
+	</span><span class="kw">type </span>WeightToFee = NoFee&lt;&lt;<span class="self">Self </span><span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
+	<span class="comment">// Setting fee as fixed for any length of the call data for demo purposes
+	</span><span class="kw">type </span>LengthToFee = FixedFee&lt;<span class="number">1</span>, &lt;<span class="self">Self </span><span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
 }
 
-<span class="kw">impl </span>pallet_minimal_template::Config <span class="kw">for </span>Runtime {}
+<span class="comment">// Implements the types required for the template pallet.
+</span><span class="kw">impl </span>pallet_minimal_template::Config <span class="kw">for </span>Runtime {}
 
 <span class="kw">type </span>Block = frame::runtime::types_common::BlockOf&lt;Runtime, SignedExtra&gt;;
 <span class="kw">type </span>Header = HeaderFor&lt;Runtime&gt;;

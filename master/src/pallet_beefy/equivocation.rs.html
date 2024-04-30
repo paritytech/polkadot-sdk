@@ -476,7 +476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::traits::{Get, KeyOwnerProofSystem};
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>log::{error, info};
-<span class="kw">use </span>sp_consensus_beefy::{EquivocationProof, ValidatorSetId, KEY_TYPE <span class="kw">as </span>BEEFY_KEY_TYPE};
+<span class="kw">use </span>sp_consensus_beefy::{DoubleVotingProof, ValidatorSetId, KEY_TYPE <span class="kw">as </span>BEEFY_KEY_TYPE};
 <span class="kw">use </span>sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -561,7 +561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Equivocation evidence convenience alias.
 </span><span class="kw">pub type </span>EquivocationEvidenceFor&lt;T&gt; = (
-	EquivocationProof&lt;
+	DoubleVotingProof&lt;
 		BlockNumberFor&lt;T&gt;,
 		&lt;T <span class="kw">as </span>Config&gt;::BeefyId,
 		&lt;&lt;T <span class="kw">as </span>Config&gt;::BeefyId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature,

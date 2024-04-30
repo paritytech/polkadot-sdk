@@ -372,6 +372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -440,7 +441,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">quote! </span>{
 		#( #query_call_part_macros )*
 
-		<span class="attr">#[derive(
+		<span class="doccomment">/// The aggregated runtime call type.
+		</span><span class="attr">#[derive(
 			Clone, PartialEq, Eq,
 			#scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode,

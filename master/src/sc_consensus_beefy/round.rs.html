@@ -681,7 +681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>log::{debug, info};
 <span class="kw">use </span>sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
-	Commitment, EquivocationProof, SignedCommitment, ValidatorSet, ValidatorSetId, VoteMessage,
+	Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet, ValidatorSetId, VoteMessage,
 };
 <span class="kw">use </span>sp_runtime::traits::{Block, NumberFor};
 <span class="kw">use </span>std::collections::BTreeMap;
@@ -720,7 +720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>VoteImportResult&lt;B: Block&gt; {
 	<span class="prelude-val">Ok</span>,
 	RoundConcluded(SignedCommitment&lt;NumberFor&lt;B&gt;, Signature&gt;),
-	Equivocation(EquivocationProof&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;),
+	DoubleVoting(DoubleVotingProof&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;),
 	Invalid,
 	Stale,
 }
@@ -812,7 +812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="string">"🥩 detected equivocated vote: 1st: {:?}, 2nd: {:?}"</span>, previous_vote, vote
 				);
-				<span class="kw">return </span>VoteImportResult::Equivocation(EquivocationProof {
+				<span class="kw">return </span>VoteImportResult::DoubleVoting(DoubleVotingProof {
 					first: previous_vote.clone(),
 					second: vote,
 				})
@@ -866,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_network_test::Block;
 
 	<span class="kw">use </span>sp_consensus_beefy::{
-		known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, EquivocationProof, Payload,
+		known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, DoubleVotingProof, Payload,
 		SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
@@ -1153,7 +1153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>alice_vote2 = alice_vote1.clone();
 		alice_vote2.commitment = commitment2;
 
-		<span class="kw">let </span>expected_result = VoteImportResult::Equivocation(EquivocationProof {
+		<span class="kw">let </span>expected_result = VoteImportResult::DoubleVoting(DoubleVotingProof {
 			first: alice_vote1.clone(),
 			second: alice_vote2.clone(),
 		});

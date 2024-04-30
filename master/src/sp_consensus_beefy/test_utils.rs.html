@@ -324,7 +324,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::ecdsa_bls_crypto;
 <span class="kw">use crate</span>::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, EquivocationProof, Payload,
+	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof, Payload,
 	ValidatorSetId, VoteMessage,
 };
 <span class="kw">use </span>sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
@@ -446,7 +446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>generate_equivocation_proof(
 	vote1: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;),
 	vote2: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;),
-) -&gt; EquivocationProof&lt;u64, ecdsa_crypto::Public, ecdsa_crypto::Signature&gt; {
+) -&gt; DoubleVotingProof&lt;u64, ecdsa_crypto::Public, ecdsa_crypto::Signature&gt; {
 	<span class="kw">let </span>signed_vote = |block_number: u64,
 	                   payload: Payload,
 	                   validator_set_id: ValidatorSetId,
@@ -457,7 +457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">let </span>first = signed_vote(vote1.<span class="number">0</span>, vote1.<span class="number">1</span>, vote1.<span class="number">2</span>, vote1.<span class="number">3</span>);
 	<span class="kw">let </span>second = signed_vote(vote2.<span class="number">0</span>, vote2.<span class="number">1</span>, vote2.<span class="number">2</span>, vote2.<span class="number">3</span>);
-	EquivocationProof { first, second }
+	DoubleVotingProof { first, second }
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

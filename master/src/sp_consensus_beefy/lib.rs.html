@@ -1016,14 +1016,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// BEEFY happens when a voter votes on the same round/block for different payloads.
 /// Proving is achieved by collecting the signed commitments of conflicting votes.
 </span><span class="attr">#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
-</span><span class="kw">pub struct </span>EquivocationProof&lt;Number, Id, Signature&gt; {
+</span><span class="kw">pub struct </span>DoubleVotingProof&lt;Number, Id, Signature&gt; {
 	<span class="doccomment">/// The first vote in the equivocation.
 	</span><span class="kw">pub </span>first: VoteMessage&lt;Number, Id, Signature&gt;,
 	<span class="doccomment">/// The second vote in the equivocation.
 	</span><span class="kw">pub </span>second: VoteMessage&lt;Number, Id, Signature&gt;,
 }
 
-<span class="kw">impl</span>&lt;Number, Id, Signature&gt; EquivocationProof&lt;Number, Id, Signature&gt; {
+<span class="kw">impl</span>&lt;Number, Id, Signature&gt; DoubleVotingProof&lt;Number, Id, Signature&gt; {
 	<span class="doccomment">/// Returns the authority id of the equivocator.
 	</span><span class="kw">pub fn </span>offender_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Id {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.first.id
@@ -1057,7 +1057,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Verifies the equivocation proof by making sure that both votes target
 /// different blocks and that its signatures are valid.
 </span><span class="kw">pub fn </span>check_equivocation_proof&lt;Number, Id, MsgHash&gt;(
-	report: <span class="kw-2">&amp;</span>EquivocationProof&lt;Number, Id, &lt;Id <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
+	report: <span class="kw-2">&amp;</span>DoubleVotingProof&lt;Number, Id, &lt;Id <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
 ) -&gt; bool
 <span class="kw">where
 	</span>Id: BeefyAuthorityId&lt;MsgHash&gt; + PartialEq,
@@ -1147,7 +1147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// hardcoded to return `None`). Only useful in an offchain context.
 		</span><span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
 			equivocation_proof:
-				EquivocationProof&lt;NumberFor&lt;Block&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
+				DoubleVotingProof&lt;NumberFor&lt;Block&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt;;
 

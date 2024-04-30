@@ -115,6 +115,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["kitchensink_runtime",["",[],["assets_api.rs","constants.rs","impls.rs","lib.rs","voter_bags.rs"]]],\
 ["malus",["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_finalized_candidates.rs","dispute_valid_candidates.rs","mod.rs","suggest_garbage_candidate.rs","support_disabled.rs"]]],["interceptor.rs","malus.rs","shared.rs"]]],\
 ["messages_relay",["",[],["lib.rs","message_lane.rs","message_lane_loop.rs","message_race_delivery.rs","message_race_limits.rs","message_race_loop.rs","message_race_receiving.rs","message_race_strategy.rs","metrics.rs"]]],\
+["minimal_template",["",[],["lib.rs"]]],\
 ["minimal_template_node",["",[],["chain_spec.rs","cli.rs","lib.rs","rpc.rs","service.rs"]]],\
 ["minimal_template_runtime",["",[],["lib.rs"]]],\
 ["mmr_gadget",["",[],["aux_schema.rs","lib.rs","offchain_mmr.rs"]]],\
@@ -351,7 +352,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["sc_consensus_aura",["",[],["import_queue.rs","lib.rs","standalone.rs"]]],\
 ["sc_consensus_babe",["",[],["authorship.rs","aux_schema.rs","lib.rs","migration.rs","verification.rs"]]],\
 ["sc_consensus_babe_rpc",["",[],["lib.rs"]]],\
-["sc_consensus_beefy",["",[["communication",[["request_response",[],["incoming_requests_handler.rs","mod.rs","outgoing_requests_engine.rs"]]],["gossip.rs","mod.rs","notification.rs","peers.rs"]]],["aux_schema.rs","error.rs","import.rs","justification.rs","keystore.rs","lib.rs","metrics.rs","round.rs","worker.rs"]]],\
+["sc_consensus_beefy",["",[["communication",[["request_response",[],["incoming_requests_handler.rs","mod.rs","outgoing_requests_engine.rs"]]],["gossip.rs","mod.rs","notification.rs","peers.rs"]]],["aux_schema.rs","error.rs","fisherman.rs","import.rs","justification.rs","keystore.rs","lib.rs","metrics.rs","round.rs","worker.rs"]]],\
 ["sc_consensus_beefy_rpc",["",[],["lib.rs","notification.rs"]]],\
 ["sc_consensus_epochs",["",[],["lib.rs","migration.rs"]]],\
 ["sc_consensus_grandpa",["",[["communication",[],["gossip.rs","mod.rs","periodic.rs"]]],["authorities.rs","aux_schema.rs","environment.rs","finality_proof.rs","import.rs","justification.rs","lib.rs","notification.rs","observer.rs","until_imported.rs","voting_rule.rs","warp_proof.rs"]]],\

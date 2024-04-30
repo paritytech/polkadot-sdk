@@ -723,7 +723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>sp_consensus_beefy::{
-	AuthorityIndex, BeefyAuthorityId, ConsensusLog, EquivocationProof, OnNewValidatorSet,
+	AuthorityIndex, BeefyAuthorityId, ConsensusLog, DoubleVotingProof, OnNewValidatorSet,
 	ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 
@@ -892,7 +892,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>report_equivocation(
 			origin: OriginFor&lt;T&gt;,
 			equivocation_proof: Box&lt;
-				EquivocationProof&lt;
+				DoubleVotingProof&lt;
 					BlockNumberFor&lt;T&gt;,
 					T::BeefyId,
 					&lt;T::BeefyId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature,
@@ -927,7 +927,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>report_equivocation_unsigned(
 			origin: OriginFor&lt;T&gt;,
 			equivocation_proof: Box&lt;
-				EquivocationProof&lt;
+				DoubleVotingProof&lt;
 					BlockNumberFor&lt;T&gt;,
 					T::BeefyId,
 					&lt;T::BeefyId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature,
@@ -1050,7 +1050,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// an unsigned extrinsic with a call to `report_equivocation_unsigned` and
 	/// will push the transaction to the pool. Only useful in an offchain context.
 	</span><span class="kw">pub fn </span>submit_unsigned_equivocation_report(
-		equivocation_proof: EquivocationProof&lt;
+		equivocation_proof: DoubleVotingProof&lt;
 			BlockNumberFor&lt;T&gt;,
 			T::BeefyId,
 			&lt;T::BeefyId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature,

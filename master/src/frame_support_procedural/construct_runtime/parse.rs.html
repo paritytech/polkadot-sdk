@@ -935,6 +935,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#784" id="784">784</a>
 <a href="#785" id="785">785</a>
 <a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1542,6 +1545,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>pallet_parts: Vec&lt;PalletPart&gt;,
 	<span class="doccomment">/// Expressions specified inside of a #[cfg] attribute.
 	</span><span class="kw">pub </span>cfg_pattern: Vec&lt;cfg_expr::Expression&gt;,
+	<span class="doccomment">/// The doc literals
+	</span><span class="kw">pub </span>docs: Vec&lt;syn::Expr&gt;,
 }
 
 <span class="kw">impl </span>Pallet {
@@ -1711,6 +1716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				instance: pallet.instance,
 				cfg_pattern,
 				pallet_parts,
+				docs: <span class="macro">vec!</span>[],
 			})
 		})
 		.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;

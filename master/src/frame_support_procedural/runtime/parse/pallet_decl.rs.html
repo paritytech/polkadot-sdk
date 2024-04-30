@@ -209,6 +209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -232,13 +233,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The declaration of a pallet.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>PalletDeclaration {
-	<span class="doccomment">/// The name of the pallet, e.g.`System` in `System: frame_system`.
+	<span class="doccomment">/// The name of the pallet, e.g.`System` in `pub type System = frame_system`.
 	</span><span class="kw">pub </span>name: Ident,
 	<span class="doccomment">/// Optional attributes tagged right above a pallet declaration.
 	</span><span class="kw">pub </span>attrs: Vec&lt;Attribute&gt;,
-	<span class="doccomment">/// The path of the pallet, e.g. `frame_system` in `System: frame_system`.
+	<span class="doccomment">/// The path of the pallet, e.g. `frame_system` in `pub type System = frame_system`.
 	</span><span class="kw">pub </span>path: syn::Path,
-	<span class="doccomment">/// The instance of the pallet, e.g. `Instance1` in `Council: pallet_collective::&lt;Instance1&gt;`.
+	<span class="doccomment">/// The instance of the pallet, e.g. `Instance1` in `pub type Council =
+	/// pallet_collective&lt;Instance1&gt;`.
 	</span><span class="kw">pub </span>instance: <span class="prelude-ty">Option</span>&lt;Ident&gt;,
 }
 

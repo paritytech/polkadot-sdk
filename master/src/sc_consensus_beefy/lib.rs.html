@@ -888,6 +888,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -933,11 +936,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_blockchain::{Backend <span class="kw">as </span>BlockchainBackend, HeaderBackend};
 <span class="kw">use </span>sp_consensus::{Error <span class="kw">as </span>ConsensusError, SyncOracle};
 <span class="kw">use </span>sp_consensus_beefy::{
-	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
+	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, PayloadProvider, ValidatorSet,
 	BEEFY_ENGINE_ID,
 };
 <span class="kw">use </span>sp_keystore::KeystorePtr;
-<span class="kw">use </span>sp_mmr_primitives::MmrApi;
 <span class="kw">use </span>sp_runtime::traits::{Block, Header <span class="kw">as </span>HeaderT, NumberFor, Zero};
 <span class="kw">use </span>std::{
 	collections::{BTreeMap, VecDeque},
@@ -959,6 +961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use crate</span>::{
 	communication::gossip::GossipValidator,
+	fisherman::Fisherman,
 	justification::BeefyVersionedFinalityProof,
 	keystore::BeefyKeystore,
 	metrics::VoterMetrics,
@@ -970,6 +973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_runtime::generic::OpaqueDigestItemId;
 
+<span class="kw">mod </span>fisherman;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
@@ -1195,14 +1199,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pending_justifications: BTreeMap&lt;NumberFor&lt;B&gt;, BeefyVersionedFinalityProof&lt;B&gt;&gt;,
 		is_authority: bool,
 	) -&gt; BeefyWorker&lt;B, BE, P, R, S, N&gt; {
+		<span class="kw">let </span>key_store = Arc::new(<span class="self">self</span>.key_store);
 		BeefyWorker {
-			backend: <span class="self">self</span>.backend,
-			runtime: <span class="self">self</span>.runtime,
-			key_store: <span class="self">self</span>.key_store,
-			metrics: <span class="self">self</span>.metrics,
-			persisted_state: <span class="self">self</span>.persisted_state,
+			backend: <span class="self">self</span>.backend.clone(),
+			runtime: <span class="self">self</span>.runtime.clone(),
+			key_store: key_store.clone(),
 			payload_provider,
 			sync,
+			fisherman: Arc::new(Fisherman::new(<span class="self">self</span>.backend, <span class="self">self</span>.runtime, key_store)),
+			metrics: <span class="self">self</span>.metrics,
+			persisted_state: <span class="self">self</span>.persisted_state,
 			comms,
 			links,
 			pending_justifications,
@@ -1377,7 +1383,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C: Client&lt;B, BE&gt; + BlockBackend&lt;B&gt;,
 	P: PayloadProvider&lt;B&gt; + Clone,
 	R: ProvideRuntimeApi&lt;B&gt;,
-	R::Api: BeefyApi&lt;B, AuthorityId&gt; + MmrApi&lt;B, MmrRootHash, NumberFor&lt;B&gt;&gt;,
+	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
 	N: GossipNetwork&lt;B&gt; + NetworkRequest + Send + Sync + <span class="lifetime">'static</span>,
 	S: GossipSyncing&lt;B&gt; + SyncOracle + <span class="lifetime">'static</span>,
 {
