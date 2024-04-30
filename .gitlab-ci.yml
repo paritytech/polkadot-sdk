@@ -256,6 +256,7 @@ coverage-result:
   needs:
     - codecov-test-linux-stable
   script:
+    - !reference [.codecov-cli, script]  
     - codecovcli create-report-results
     - codecovcli get-report-results
 
@@ -270,6 +271,7 @@ codecov-start:
     - .common-refs
     - .pipeline-stopper-artifacts
   script:
+    - !reference [.codecov-cli, script]    
     - codecovcli create-commit
     - codecovcli create-report
 
@@ -292,6 +294,7 @@ codecov-test-linux-stable:
     CARGO_INCREMENTAL: 0      
   parallel: 2
   script:
+    - !reference [.codecov-cli, script]    
     # tools
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage/result/  
