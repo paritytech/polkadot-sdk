@@ -6796,6 +6796,113 @@ fn test_validator_exposure_is_backward_compatible_with_non_paged_rewards_payout(
 	});
 }
 
+#[test]
+fn test_runtime_api_pending_rewards() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN
+		let err_weight = <Test as Config>::WeightInfo::payout_stakers_alive_staked(0);
+		let stake = 100;
+
+		// validator with non-paged exposure, rewards marked in legacy claimed rewards.
+		let validator_one = 301;
+		// validator with non-paged exposure, rewards marked in paged claimed rewards.
+		let validator_two = 302;
+		// validator with paged exposure.
+		let validator_three = 303;
+
+		// Set staker
+		for v in validator_one..=validator_three {
+			let _ = Balances::make_free_balance_be(&v, stake);
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(v), stake, RewardDestination::Staked));
+		}
+
+		// Add reward points
+		let reward = EraRewardPoints::<AccountId> {
+			total: 1,
+			individual: vec![(validator_one, 1), (validator_two, 1), (validator_three, 1)]
+				.into_iter()
+				.collect(),
+		};
+		ErasRewardPoints::<Test>::insert(0, reward);
+
+		// build exposure
+		let mut individual_exposures: Vec<IndividualExposure<AccountId, Balance>> = vec![];
+		for i in 0..=MaxExposurePageSize::get() {
+			individual_exposures.push(IndividualExposure { who: i.into(), value: stake });
+		}
+		let exposure = Exposure::<AccountId, Balance> {
+			total: stake * (MaxExposurePageSize::get() as Balance + 2),
+			own: stake,
+			others: individual_exposures,
+		};
+
+		// add non-paged exposure for one and two.
+		<ErasStakers<Test>>::insert(0, validator_one, exposure.clone());
+		<ErasStakers<Test>>::insert(0, validator_two, exposure.clone());
+		// add paged exposure for third validator
+		EraInfo::<Test>::set_exposure(0, &validator_three, exposure);
+
+		// add some reward to be distributed
+		ErasValidatorReward::<Test>::insert(0, 1000);
+
+		// mark rewards claimed for validator_one in legacy claimed rewards
+		<Ledger<Test>>::insert(
+			validator_one,
+			StakingLedgerInspect {
+				stash: validator_one,
+				total: stake,
+				active: stake,
+				unlocking: Default::default(),
+				legacy_claimed_rewards: bounded_vec![0],
+			},
+		);
+
+		// SCENARIO ONE: rewards already marked claimed in legacy storage.
+		// runtime api should return false for pending rewards for validator_one.
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
+		// and if we try to pay, we get an error.
+		assert_noop!(
+			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0),
+			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+		);
+
+		// SCENARIO TWO: non-paged exposure
+		// validator two has not claimed rewards, so pending rewards is true.
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
+		// and payout works
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+		// now pending rewards is false.
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
+		// and payout fails
+		assert_noop!(
+			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0),
+			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+		);
+
+		// SCENARIO THREE: validator with paged exposure (two pages).
+		// validator three has not claimed rewards, so pending rewards is true.
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
+		// and payout works
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
+		// validator three has two pages of exposure, so pending rewards is still true.
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
+		// payout again
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
+		// now pending rewards is false.
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
+		// and payout fails
+		assert_noop!(
+			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0),
+			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+		);
+
+		// for eras with no exposure, pending rewards is false.
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
+	});
+}
+
 mod staking_interface {
 	use frame_support::storage::with_storage_layer;
 	use sp_staking::StakingInterface;
@@ -7097,6 +7204,99 @@ mod staking_unchecked {
 				// but slash is broadcasted to slash observers.
 				assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_share);
 			})
+	}
+
+	#[test]
+	fn virtual_stakers_cannot_be_reaped() {
+		ExtBuilder::default()
+			// we need enough validators such that disables are allowed.
+			.validator_count(7)
+			.set_status(41, StakerStatus::Validator)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(201, StakerStatus::Validator)
+			.set_status(202, StakerStatus::Validator)
+			.build_and_execute(|| {
+				// make 101 only nominate 11.
+				assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
+
+				mock::start_active_era(1);
+
+				// slash all stake.
+				let slash_percent = Perbill::from_percent(100);
+				let initial_exposure = Staking::eras_stakers(active_era(), &11);
+				// 101 is a nominator for 11
+				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
+				// make 101 a virtual nominator
+				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+				// set payee different to self.
+				assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+
+				// cache values
+				let validator_balance = Balances::free_balance(&11);
+				let validator_stake = Staking::ledger(11.into()).unwrap().total;
+				let nominator_balance = Balances::free_balance(&101);
+				let nominator_stake = Staking::ledger(101.into()).unwrap().total;
+
+				// 11 goes offline
+				on_offence_now(
+					&[OffenceDetails {
+						offender: (11, initial_exposure.clone()),
+						reporters: vec![],
+					}],
+					&[slash_percent],
+				);
+
+				// both stakes must have been decreased to 0.
+				assert_eq!(Staking::ledger(101.into()).unwrap().active, 0);
+				assert_eq!(Staking::ledger(11.into()).unwrap().active, 0);
+
+				// all validator stake is slashed
+				assert_eq_error_rate!(
+					validator_balance - validator_stake,
+					Balances::free_balance(&11),
+					1
+				);
+				// Because slashing happened.
+				assert!(is_disabled(11));
+
+				// Virtual nominator's balance is not slashed.
+				assert_eq!(Balances::free_balance(&101), nominator_balance);
+				// Slash is broadcasted to slash observers.
+				assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_stake);
+
+				// validator can be reaped.
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, u32::MAX));
+				// nominator is a virtual staker and cannot be reaped.
+				assert_noop!(
+					Staking::reap_stash(RuntimeOrigin::signed(10), 101, u32::MAX),
+					Error::<Test>::VirtualStakerNotAllowed
+				);
+			})
+	}
+
+	#[test]
+	fn restore_ledger_not_allowed_for_virtual_stakers() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+			// 333 is corrupted
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// migrate to virtual staker.
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&333);
+
+			// recover the ledger won't work for virtual staker
+			assert_noop!(
+				Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None),
+				Error::<Test>::VirtualStakerNotAllowed
+			);
+
+			// migrate 333 back to normal staker
+			<VirtualStakers<Test>>::remove(333);
+
+			// try restore again
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+		})
 	}
 }
 mod ledger {
