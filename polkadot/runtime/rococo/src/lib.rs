@@ -154,6 +154,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
 	state_version: 1,
+	extrinsic_state_version: 0,
 };
 
 /// The BABE epoch configuration at genesis.
@@ -1182,6 +1183,7 @@ impl pallet_mmr::Config for Runtime {
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
 	type WeightInfo = ();
 	type LeafData = pallet_beefy_mmr::Pallet<Runtime>;
+	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
 }
 
 parameter_types! {
