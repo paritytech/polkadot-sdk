@@ -84,7 +84,6 @@ pub mod curve;
 pub mod generic;
 pub mod legacy;
 mod multiaddress;
-pub mod nonce;
 pub mod offchain;
 pub mod runtime_logger;
 mod runtime_string;
@@ -92,6 +91,7 @@ mod runtime_string;
 pub mod testing;
 pub mod traits;
 pub mod transaction_validity;
+pub mod type_with_default;
 
 pub use crate::runtime_string::*;
 
