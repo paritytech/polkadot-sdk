@@ -772,7 +772,7 @@ pub mod pallet {
 	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
 	/// implementation in the XCM executor configuration.
 	#[pallet::storage]
-	pub type ShouldRecordXcm<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub(crate) type ShouldRecordXcm<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// If [`ShouldRecordXcm`] is set to true, then the last XCM program executed locally
 	/// will be stored here.
@@ -781,7 +781,7 @@ pub mod pallet {
 	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
 	/// implementation in the XCM executor configuration.
 	#[pallet::storage]
-	pub type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
+	pub(crate) type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -3129,6 +3129,14 @@ impl<T: Config> CheckSuspension for Pallet<T> {
 impl<T: Config> xcm_executor::traits::RecordXcm for Pallet<T> {
 	fn should_record() -> bool {
 		ShouldRecordXcm::<T>::get()
+	}
+
+	fn set_record_xcm(enabled: bool) {
+		ShouldRecordXcm::<T>::put(enabled);
+	}
+
+	fn recorded_xcm() -> Xcm<()> {
+		RecordedXcm::<T>::get().unwrap_or(Xcm::default())
 	}
 
 	fn record(xcm: Xcm<()>) {

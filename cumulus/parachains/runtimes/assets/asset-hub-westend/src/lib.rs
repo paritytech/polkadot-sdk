@@ -1351,9 +1351,10 @@ impl_runtime_apis! {
 	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for Runtime {
 		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_builder::InspectMessageQueues;
+			use xcm_executor::RecordXcm;
 			use xcm::prelude::*;
 
-			pallet_xcm::ShouldRecordXcm::<Runtime>::put(true);
+			pallet_xcm::Pallet::<Runtime>::set_record_xcm(true);
 			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
 				log::error!(
 					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
@@ -1362,7 +1363,7 @@ impl_runtime_apis! {
 				);
 				XcmDryRunApiError::InvalidExtrinsic
 			})?;
-			let local_xcm = pallet_xcm::RecordedXcm::<Runtime>::get().unwrap_or(Xcm(Vec::new()));
+			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
 			let forwarded_messages = xcm_config::XcmRouter::get_messages();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {

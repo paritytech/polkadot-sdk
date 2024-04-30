@@ -22,6 +22,10 @@ use xcm::latest::Xcm;
 pub trait RecordXcm {
 	/// Whether or not we should record incoming XCMs.
 	fn should_record() -> bool;
+	/// Enable or disable recording.
+	fn set_record_xcm(enabled: bool);
+	/// Get recorded XCM.
+	fn recorded_xcm() -> Xcm<()>;
 	/// Record `xcm`.
 	fn record(xcm: Xcm<()>);
 }
@@ -29,6 +33,12 @@ pub trait RecordXcm {
 impl RecordXcm for () {
 	fn should_record() -> bool {
 		false
+	}
+
+	fn set_record_xcm(_: bool) {}
+
+	fn recorded_xcm() -> Xcm<()> {
+		Xcm::default()
 	}
 
 	fn record(_: Xcm<()>) {}
