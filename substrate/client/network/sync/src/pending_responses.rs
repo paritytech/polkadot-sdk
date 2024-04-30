@@ -42,14 +42,14 @@ type ResponseResult =
 pub(crate) type ResponseFuture = BoxFuture<'static, ResponseResult>;
 
 /// An event we receive once a pending response future resolves.
-pub(crate) struct ResponseEvent {
+pub struct ResponseEvent {
 	pub peer_id: PeerId,
 	pub key: StrategyKey,
 	pub response: ResponseResult,
 }
 
 /// Stream taking care of polling pending responses.
-pub(crate) struct PendingResponses {
+pub struct PendingResponses {
 	/// Pending responses
 	pending_responses: StreamMap<(PeerId, StrategyKey), BoxStream<'static, ResponseResult>>,
 	/// Waker to implement never terminating stream

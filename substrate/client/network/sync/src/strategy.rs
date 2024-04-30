@@ -25,7 +25,7 @@
 pub mod chain_sync;
 mod disconnected_peers;
 pub mod polkadot;
-mod state;
+pub mod state;
 pub mod state_sync;
 pub mod warp;
 
