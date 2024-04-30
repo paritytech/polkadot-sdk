@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714431101116,
+  "lastUpdate": 1714458868799,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -1409,6 +1409,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.7899848660101525,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "31dc8bb1de9a73c57863c4698ea23559ef729f67",
+          "message": "Improvements in minimal template (#4119)\n\nThis PR makes a few improvements in the docs for the minimal template.\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-04-30T05:39:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/31dc8bb1de9a73c57863c4698ea23559ef729f67"
+        },
+        "date": 1714458844257,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63543.29,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.010989594540124,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3309497785101003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.4801723087899985,
             "unit": "seconds"
           }
         ]
