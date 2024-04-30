@@ -240,7 +240,7 @@ include:
 .codecov-cli:
   script: 
     - curl -s -o codecovcli https://cli.codecov.io/latest/linux/codecov
-    - sudo chmod +x codecovcli
+    - chmod +x codecovcli
     - mv codecovcli /usr/local/bin/codecovcli
     - codecovcli --version
 
