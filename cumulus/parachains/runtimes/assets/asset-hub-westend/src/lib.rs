@@ -315,6 +315,11 @@ pub type NativeAndAssets = fungible::UnionOf<
 	AccountId,
 >;
 
+pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
+	AssetConversionPalletId,
+	(xcm::v3::Location, xcm::v3::Location),
+>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
@@ -322,8 +327,12 @@ impl pallet_asset_conversion::Config for Runtime {
 	type AssetKind = xcm::v3::Location;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
-	type PoolLocator =
-		pallet_asset_conversion::WithFirstAsset<WestendLocationV3, AccountId, Self::AssetKind>;
+	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
+		WestendLocationV3,
+		AccountId,
+		Self::AssetKind,
+		PoolIdToAccountId,
+	>;
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
@@ -342,6 +351,18 @@ impl pallet_asset_conversion::Config for Runtime {
 		xcm_config::TrustBackedAssetsPalletIndex,
 		xcm::v3::Location,
 	>;
+}
+
+impl pallet_asset_conversion_ops::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PriorAccountIdConverter = pallet_asset_conversion::AccountIdConverterNoSeed<
+		<Runtime as pallet_asset_conversion::Config>::PoolId,
+	>;
+	type AssetsRefund = <Runtime as pallet_asset_conversion::Config>::Assets;
+	type PoolAssetsRefund = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type PoolAssetsTeam = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type DepositAsset = Balances;
+	type WeightInfo = weights::pallet_asset_conversion_ops::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -906,6 +927,10 @@ construct_runtime!(
 		NftFractionalization: pallet_nft_fractionalization = 54,
 		PoolAssets: pallet_assets::<Instance3> = 55,
 		AssetConversion: pallet_asset_conversion = 56,
+
+		// TODO: the pallet instance should be removed once all pools have migrated
+		// to the new account IDs.
+		AssetConversionMigration: pallet_asset_conversion_ops = 200,
 	}
 );
 
@@ -938,7 +963,7 @@ pub type Migrations = (
 	// v9420
 	pallet_nfts::migration::v1::MigrateToV1<Runtime>,
 	// unreleased
-	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	// unreleased
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	// unreleased
@@ -1085,6 +1110,7 @@ mod benches {
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToRococo]
+		[pallet_asset_conversion_ops, AssetConversionMigration]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
@@ -1584,27 +1610,23 @@ impl_runtime_apis! {
 				fn worst_case_holding(depositable_count: u32) -> xcm::v4::Assets {
 					// A mix of fungible, non-fungible, and concrete assets.
 					let holding_non_fungibles = MaxAssetsIntoHolding::get() / 2 - depositable_count;
-					let holding_fungibles = holding_non_fungibles - 1;
+					let holding_fungibles = holding_non_fungibles - 2; // -2 for two `iter::once` bellow
 					let fungibles_amount: u128 = 100;
-					let mut assets = (0..holding_fungibles)
+					(0..holding_fungibles)
 						.map(|i| {
 							Asset {
 								id: AssetId(GeneralIndex(i as u128).into()),
-								fun: Fungible(fungibles_amount * i as u128),
+								fun: Fungible(fungibles_amount * (i + 1) as u128), // non-zero amount
 							}
 						})
 						.chain(core::iter::once(Asset { id: AssetId(Here.into()), fun: Fungible(u128::MAX) }))
+						.chain(core::iter::once(Asset { id: AssetId(WestendLocation::get()), fun: Fungible(1_000_000 * UNITS) }))
 						.chain((0..holding_non_fungibles).map(|i| Asset {
 							id: AssetId(GeneralIndex(i as u128).into()),
 							fun: NonFungible(asset_instance_from(i)),
 						}))
-						.collect::<Vec<_>>();
-
-					assets.push(Asset {
-						id: AssetId(WestendLocation::get()),
-						fun: Fungible(1_000_000 * UNITS),
-					});
-					assets.into()
+						.collect::<Vec<_>>()
+						.into()
 				}
 			}
 
