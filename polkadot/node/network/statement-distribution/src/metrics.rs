@@ -31,7 +31,6 @@ struct MetricsInner {
 	network_bridge_update: prometheus::HistogramVec,
 	statements_unexpected: prometheus::CounterVec<prometheus::U64>,
 	created_message_size: prometheus::Gauge<prometheus::U64>,
-	statements_unexpected: prometheus::CounterVec<prometheus::U64>,
 	// V1+
 	active_leaves_update: prometheus::Histogram,
 	share: prometheus::Histogram,
