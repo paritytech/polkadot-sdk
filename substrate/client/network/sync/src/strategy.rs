@@ -20,7 +20,7 @@
 //! and specific syncing algorithms.
 
 pub mod chain_sync;
-pub(crate) mod state;
+pub mod state;
 pub mod state_sync;
 pub mod warp;
 
