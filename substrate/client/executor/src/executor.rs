@@ -566,7 +566,9 @@ where
 
 /// A generic `CodeExecutor` implementation that uses a delegate to determine wasm code equivalence
 /// and dispatch to native code when possible, falling back on `WasmExecutor` when not.
-#[deprecated(note = "Native execution will be deprecated, please replace with `WasmExecutor`")]
+#[deprecated(
+	note = "Native execution will be deprecated, please replace with `WasmExecutor`. Will be removed at end of 2024."
+)]
 pub struct NativeElseWasmExecutor<D: NativeExecutionDispatch> {
 	/// Native runtime version info.
 	native_version: NativeVersion,

@@ -263,7 +263,7 @@ where
 }
 
 /// Creates a [`NativeElseWasmExecutor`] according to [`Configuration`].
-#[deprecated(note = "Please switch to `new_wasm_executor`.")]
+#[deprecated(note = "Please switch to `new_wasm_executor`. Will be removed at end of 2024.")]
 #[allow(deprecated)]
 pub fn new_native_or_wasm_executor<D: NativeExecutionDispatch>(
 	config: &Configuration,
