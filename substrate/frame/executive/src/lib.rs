@@ -779,15 +779,13 @@ where
 
 		// We use the dedicated `is_inherent` check here, since just relying on `Mandatory` dispatch
 		// class does not capture optional inherents.
-		let is_inherent = System::is_inherent(&uxt);
+		if !<frame_system::Pallet<System>>::inherents_applied() && !System::is_inherent(&uxt) {
+			Self::inherents_applied();
+		}
 
 		// Verify that the signature is good.
 		let xt = uxt.check(&Default::default())?;
 		let dispatch_info = xt.get_dispatch_info();
-
-		if !is_inherent && !<frame_system::Pallet<System>>::inherents_applied() {
-			Self::inherents_applied();
-		}
 
 		// We don't need to make sure to `note_extrinsic` only after we know it's going to be
 		// executed to prevent it from leaking in storage since at this point, it will either

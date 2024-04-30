@@ -120,6 +120,7 @@ pub fn expand_outer_inherent(
 					}
 				}
 
+				let mut inherents = vec![];
 				for xt in block.extrinsics() {
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
@@ -129,10 +130,10 @@ pub fn expand_outer_inherent(
 
 					let mut is_inherent = false;
 
+					let call = <#unchecked_extrinsic as ExtrinsicCall>::call(xt);
 					#(
 						#pallet_attrs
 						{
-							let call = <#unchecked_extrinsic as ExtrinsicCall>::call(xt);
 							if let Some(call) = IsSubType::<_>::is_sub_type(&call) {
 								if #pallet_names::is_inherent(call) {
 									is_inherent = true;
@@ -149,10 +150,18 @@ pub fn expand_outer_inherent(
 						}
 					)*
 
-					// Inherents are before any other extrinsics.
-					// No module marked it as inherent thus it is not.
-					if !is_inherent {
-						break
+
+					// If there is no pallet apart from System, the true branch will be unreachable.
+					#[allow(unreachable_code)]
+					match is_inherent {
+						true => {
+							inherents.push(call);
+						}
+						false => {
+							// Inherents are before any other extrinsics.
+							// No module marked it as inherent thus it is not.
+							break
+						}
 					}
 				}
 
@@ -160,23 +169,12 @@ pub fn expand_outer_inherent(
 					#pallet_attrs
 					match #pallet_names::is_inherent_required(self) {
 						Ok(Some(e)) => {
-							let found = block.extrinsics().iter().any(|xt| {
-								let is_signed = #scrate::sp_runtime::traits::Extrinsic::is_signed(xt)
-									.unwrap_or(false);
-
-								if !is_signed {
-									let call = <
-										#unchecked_extrinsic as ExtrinsicCall
-									>::call(xt);
-									if let Some(call) = IsSubType::<_>::is_sub_type(&call) {
-										#pallet_names::is_inherent(&call)
-									} else {
-										false
-									}
-								} else {
-									// Signed extrinsics are not inherents.
-									false
+							let found = inherents.iter().any(|call| {
+								if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+									return #pallet_names::is_inherent(&call);
 								}
+
+								false
 							});
 
 							if !found {
@@ -214,10 +212,10 @@ pub fn expand_outer_inherent(
 					return false
 				}
 
+				let call = <#unchecked_extrinsic as ExtrinsicCall>::call(ext);
 				#(
 					#pallet_attrs
 					{
-						let call = <#unchecked_extrinsic as ExtrinsicCall>::call(ext);
 						if let Some(call) = IsSubType::<_>::is_sub_type(&call) {
 							if <#pallet_names as ProvideInherent>::is_inherent(&call) {
 								return true;
