@@ -7627,6 +7627,18 @@ mod stake_tracker {
 	type A = AccountId;
 
 	#[test]
+	fn validator_turns_nominator() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
+
+			// 11 and 21 are both Validators.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(11), vec![21]));
+
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Nominator(vec![21])));
+		});
+	}
+
+	#[test]
 	fn add_remove_nomination_works() {
 		// Test case: a new nomination affects the stake behind the target in the target list and
 		// the sorting of the target list is also updated. Chilling the nomination will update the

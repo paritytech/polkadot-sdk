@@ -1081,8 +1081,8 @@ impl<T: Config> Pallet<T> {
 		// target list may contain chilled validators and dangling (i.e. unbonded) targets, filter
 		// those.
 		let mut targets_iter = T::TargetList::iter().filter(|t| match Self::status(&t) {
-			Ok(StakerStatus::Idle) | Err(_) => false,
-			Ok(_) => true,
+			Ok(StakerStatus::Idle) | Ok(StakerStatus::Nominator(_)) | Err(_) => false,
+			Ok(StakerStatus::Validator) => true,
 		});
 
 		while all_targets.len() < final_predicted_len as usize &&
@@ -2188,8 +2188,7 @@ impl<T: Config> Pallet<T> {
 		);
 		ensure!(
 			<T as Config>::TargetList::iter()
-				.filter(|t| Self::status(&t) != Ok(StakerStatus::Idle))
-				.filter(|t| !Self::status(&t).is_err())
+				.filter(|t| Self::status(&t) == Ok(StakerStatus::Validator))
 				.count() as u32 == Validators::<T>::count(),
 			"wrong external count (TargetList.count != Validators.count)"
 		);
