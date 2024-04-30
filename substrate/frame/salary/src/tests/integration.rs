@@ -24,7 +24,7 @@ use frame_support::{
 	traits::{ConstU64, EitherOf, MapSuccess, PollStatus, Polling},
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric, TallyOf, Votes};
-use sp_core::{ConstU16, ConstU32, Get};
+use sp_core::{ConstU16, Get};
 use sp_runtime::{
 	traits::{Convert, ReduceBy, ReplaceWithDefault},
 	BuildStorage, DispatchError,
