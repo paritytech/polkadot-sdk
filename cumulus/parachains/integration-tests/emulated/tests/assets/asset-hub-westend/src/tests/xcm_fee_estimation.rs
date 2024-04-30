@@ -17,9 +17,8 @@
 
 use crate::imports::*;
 
-use polkadot_runtime_common::BlockHashCount;
 use sp_keyring::AccountKeyring::Alice;
-use sp_runtime::{MultiSignature, SaturatedConversion, generic};
+use sp_runtime::{MultiSignature, generic};
 use xcm_fee_payment_runtime_api::{
 	dry_run::runtime_decl_for_xcm_dry_run_api::XcmDryRunApiV1,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
@@ -42,7 +41,7 @@ fn teleport_relay_system_para_works() {
 	// We get them from the Westend closure.
 	let mut delivery_fees_amount = 0;
 	let mut remote_message = VersionedXcm::V4(Xcm(Vec::new()));
-	<Westend as TestExt>::execute_with(|| {
+	<Westend as TestExt>::new_ext().execute_with(|| {
 		type Runtime = <Westend as Chain>::Runtime;
 		type RuntimeCall = <Westend as Chain>::RuntimeCall;
 
@@ -54,8 +53,7 @@ fn teleport_relay_system_para_works() {
 			weight_limit: Unlimited,
 		});
 		let sender = Alice; // Is the same as `WestendSender`.
-		let extra = construct_westend_extra(sender);
-		let extrinsic = construct_extrinsic_westend(sender, call, extra);
+		let extrinsic = construct_extrinsic_westend(sender, call);
 		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
 		let (destination_to_query, messages_to_query) = &result.forwarded_messages[0];
 		remote_message = messages_to_query[0].clone();
@@ -153,8 +151,7 @@ fn multi_hop_works() {
 			weight_limit: Unlimited,
 		});
 		let sender = Alice; // Same as `PenpalASender`.
-		let extra = construct_penpal_extra(sender);
-		let extrinsic = construct_extrinsic_penpal(sender, call, extra);
+		let extrinsic = construct_extrinsic_penpal(sender, call);
 		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
 		let (destination_to_query, messages_to_query) = &result.forwarded_messages[0];
 		remote_message = messages_to_query[0].clone();
@@ -311,72 +308,22 @@ fn transfer_assets_para_to_para(test: ParaToParaThroughRelayTest) -> DispatchRes
 }
 
 // Constructs the SignedExtra component of an extrinsic for the Westend runtime.
-fn construct_westend_extra(sender: sp_keyring::AccountKeyring) -> westend_runtime::SignedExtra {
+fn construct_extrinsic_westend(sender: sp_keyring::AccountKeyring, call: westend_runtime::RuntimeCall) -> westend_runtime::UncheckedExtrinsic {
 	type Runtime = <Westend as Chain>::Runtime;
 	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
-	// take the biggest period possible.
-	let period =
-		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
-	let current_block = <Westend as Chain>::System::block_number()
-		.saturated_into::<u64>()
-		// The `System::block_number` is initialized with `n+1`,
-		// so the actual block number is `n`.
-		.saturating_sub(1);
 	let tip = 0;
 	let extra: westend_runtime::SignedExtra = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
-		frame_system::CheckMortality::<Runtime>::from(sp_runtime::generic::Era::mortal(
-			period,
-			current_block,
-		)),
+		frame_system::CheckMortality::<Runtime>::from(sp_runtime::generic::Era::immortal()),
 		frame_system::CheckNonce::<Runtime>::from(
 			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 	);
-	extra
-}
-
-// Constructs the SignedExtra component of an extrinsic for the Westend runtime.
-fn construct_penpal_extra(sender: sp_keyring::AccountKeyring) -> penpal_runtime::SignedExtra {
-	type Runtime = <PenpalA as Chain>::Runtime;
-	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
-	// take the biggest period possible.
-	let period =
-		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
-	let current_block = <PenpalA as Chain>::System::block_number()
-		.saturated_into::<u64>()
-		// The `System::block_number` is initialized with `n+1`,
-		// so the actual block number is `n`.
-		.saturating_sub(1);
-	let tip = 0;
-	let extra: penpal_runtime::SignedExtra = (
-		frame_system::CheckNonZeroSender::<Runtime>::new(),
-		frame_system::CheckSpecVersion::<Runtime>::new(),
-		frame_system::CheckTxVersion::<Runtime>::new(),
-		frame_system::CheckGenesis::<Runtime>::new(),
-		frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
-		),
-		frame_system::CheckWeight::<Runtime>::new(),
-		pallet_asset_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
-	);
-	extra
-}
-
-/// Constructs an extrinsic for the Westend runtime.
-fn construct_extrinsic_westend(
-	sender: sp_keyring::AccountKeyring,
-	call: westend_runtime::RuntimeCall,
-	extra: westend_runtime::SignedExtra,
-) -> westend_runtime::UncheckedExtrinsic {
-	type Runtime = <Westend as Chain>::Runtime;
-	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
 	let raw_payload = westend_runtime::SignedPayload::new(call, extra).unwrap();
 	let signature = raw_payload.using_encoded(|payload| sender.sign(payload));
 	let (call, extra, _) = raw_payload.deconstruct();
@@ -388,15 +335,24 @@ fn construct_extrinsic_westend(
 	)
 }
 
-/// Constructs an extrinsic for the Penpal runtime.
-fn construct_extrinsic_penpal(
-	sender: sp_keyring::AccountKeyring,
-	call: penpal_runtime::RuntimeCall,
-	extra: penpal_runtime::SignedExtra,
-) -> penpal_runtime::UncheckedExtrinsic {
+// Constructs the SignedExtra component of an extrinsic for the Westend runtime.
+fn construct_extrinsic_penpal(sender: sp_keyring::AccountKeyring, call: penpal_runtime::RuntimeCall) -> penpal_runtime::UncheckedExtrinsic {
 	type Runtime = <PenpalA as Chain>::Runtime;
-	type SignedPayload = generic::SignedPayload::<penpal_runtime::RuntimeCall, penpal_runtime::SignedExtra>;
 	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
+	let tip = 0;
+	let extra: penpal_runtime::SignedExtra = (
+		frame_system::CheckNonZeroSender::<Runtime>::new(),
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckTxVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckEra::<Runtime>::from(generic::Era::immortal()),
+		frame_system::CheckNonce::<Runtime>::from(
+			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+		),
+		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_asset_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+	);
+	type SignedPayload = generic::SignedPayload::<penpal_runtime::RuntimeCall, penpal_runtime::SignedExtra>;
 	let raw_payload = SignedPayload::new(call, extra).unwrap();
 	let signature = raw_payload.using_encoded(|payload| sender.sign(payload));
 	let (call, extra, _) = raw_payload.deconstruct();
