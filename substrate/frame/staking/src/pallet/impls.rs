@@ -43,7 +43,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
@@ -87,10 +87,12 @@ impl<T: Config> Pallet<T> {
 		StakingLedger::<T>::paired_account(Stash(stash.clone()))
 	}
 
-	/// Inspects and returns the corruption state of a ledger and bond, if any.
+	/// Inspects and returns the corruption state of a ledger and direct bond, if any.
 	///
 	/// Note: all operations in this method access directly the `Bonded` and `Ledger` storage maps
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
+	/// It is also meant to check state for direct bonds and may not work as expected for virtual
+	/// bonds.
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
@@ -505,10 +507,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// disable all offending validators that have been disabled for the whole era
-		for (index, disabled) in <OffendingValidators<T>>::get() {
-			if disabled {
-				T::SessionInterface::disable_validator(index);
-			}
+		for index in <DisabledValidators<T>>::get() {
+			T::SessionInterface::disable_validator(index);
 		}
 	}
 
@@ -598,8 +598,8 @@ impl<T: Config> Pallet<T> {
 			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
 			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
 
-			// Clear offending validators.
-			<OffendingValidators<T>>::kill();
+			// Clear disabled validators.
+			<DisabledValidators<T>>::kill();
 		}
 	}
 
@@ -866,14 +866,6 @@ impl<T: Config> Pallet<T> {
 		log!(info, "Setting force era mode {:?}.", mode);
 		ForceEra::<T>::put(mode);
 		Self::deposit_event(Event::<T>::ForceEra { mode });
-	}
-
-	/// Ensures that at the end of the current session there will be a new era.
-	pub(crate) fn ensure_new_era() {
-		match ForceEra::<T>::get() {
-			Forcing::ForceAlways | Forcing::ForceNew => (),
-			_ => Self::set_force_era(Forcing::ForceNew),
-		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1193,6 +1185,10 @@ impl<T: Config> Pallet<T> {
 	pub fn api_eras_stakers_page_count(era: EraIndex, account: T::AccountId) -> Page {
 		EraInfo::<T>::get_page_count(era, &account)
 	}
+
+	pub fn api_pending_rewards(era: EraIndex, account: T::AccountId) -> bool {
+		EraInfo::<T>::pending_rewards(era, &account)
+	}
 }
 
 impl<T: Config> ElectionDataProvider for Pallet<T> {
@@ -1447,7 +1443,6 @@ where
 		>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
-		disable_strategy: DisableStrategy,
 	) -> Weight {
 		let reward_proportion = SlashRewardFraction::<T>::get();
 		let mut consumed_weight = Weight::from_parts(0, 0);
@@ -1512,7 +1507,6 @@ where
 				window_start,
 				now: active_era,
 				reward_proportion,
-				disable_strategy,
 			});
 
 			Self::deposit_event(Event::<T>::SlashReported {
@@ -1986,7 +1980,8 @@ impl<T: Config> Pallet<T> {
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
-		Self::check_count()
+		Self::check_count()?;
+		Self::ensure_disabled_validators_sorted()
 	}
 
 	/// Invariants:
@@ -2298,6 +2293,14 @@ impl<T: Config> Pallet<T> {
 			ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
 		ensure!(real_total == ledger.total, "ledger.total corrupt");
 
+		Ok(())
+	}
+
+	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
+		ensure!(
+			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] <= pair[1]),
+			"DisabledValidators is not sorted"
+		);
 		Ok(())
 	}
 }
