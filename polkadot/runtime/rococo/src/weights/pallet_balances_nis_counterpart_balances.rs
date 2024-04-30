@@ -172,11 +172,11 @@ impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn burn_allow_death() -> Weight {
-		// TODO
+		// FAIL-CI
 		Weight::zero()
 	}
 	fn burn_keep_alive() -> Weight {
-		// TODO
+		// FAIL-CI
 		Weight::zero()
 	}
 }

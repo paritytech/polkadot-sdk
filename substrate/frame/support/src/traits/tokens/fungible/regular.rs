@@ -254,9 +254,12 @@ where
 		Ok(actual)
 	}
 
-	/// Decrease the balance of `who` by at least `amount`, possibly slightly more in the case of
-	/// minimum-balance requirements, burning the tokens. If that isn't possible then an `Err` is
-	/// returned and nothing is changed. If successful, the amount of tokens reduced is returned.
+	/// Attempt to decrease the balance of `who`, burning the tokens.
+	/// The actual amount burned is derived from the `amount`, `preservation`, `precision` and `force`,
+	/// and might end up being more, less or equal to the `amount` specified.
+	///
+	/// If the burn isn't possible then an `Err` is returned and nothing is changed.
+	/// If successful, the amount of tokens reduced is returned.
 	fn burn_from(
 		who: &AccountId,
 		amount: Self::Balance,

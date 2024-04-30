@@ -681,7 +681,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			if who.is_empty() {
-				return Ok(Pays::Yes.into());
+				return Ok(Pays::Yes.into())
 			}
 			let mut upgrade_count = 0;
 			for i in &who {
