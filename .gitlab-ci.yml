@@ -239,7 +239,7 @@ include:
 
 .codecov-cli:
   script: 
-    - curl -os codecovcli https://cli.codecov.io/latest/linux/codecov
+    - curl -s -o codecovcli https://cli.codecov.io/latest/linux/codecov
     - sudo chmod +x codecovcli
     - mv codecovcli /usr/local/bin/codecovcli
     - codecovcli --version
