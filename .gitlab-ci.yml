@@ -247,7 +247,7 @@ include:
 #
 #
 #
-coverage-result:
+.coverage-result:
   stage: test
   extends:
     - .docker-env
@@ -263,7 +263,7 @@ coverage-result:
 #
 #
 #  
-codecov-start:
+.codecov-start:
   stage: test
   when: manual
   extends:
@@ -280,8 +280,8 @@ codecov-start:
 #
 codecov-test-linux-stable:
   stage: test
-  needs:
-    - codecov-start
+  #needs:
+  #  - codecov-start
   extends:
     - .docker-env
     - .common-refs
@@ -315,7 +315,7 @@ codecov-test-linux-stable:
         --branch \
         -o target/coverage/result/report-${CI_NODE_INDEX}.lcov
     - ls -l target/coverage/result/    
-    - codecovcli do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA}
+    - codecovcli upload-process -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN}
   #  
 
 
