@@ -139,3 +139,37 @@ impl EnsureDelivery for Tuple {
 		(None, None)
 	}
 }
+
+/// A wrapper router that attempts to *encode* and *decode* passed XCM `message` to ensure that the
+/// receiving side will be able to decode, at least with the same XCM version.
+///
+/// This is designed to be at the top-level of any routers which do the real delivery. While other
+/// routers can manipulate the `message`, we cannot access the final XCM due to the generic
+/// `Inner::Ticket`. Therefore, this router aims to validate at least the passed `message`.
+///
+/// NOTE: For use in mock runtimes which don't have the DMP/UMP/HRMP XCM validations.
+pub struct EnsureDecodableXcm<Inner>(sp_std::marker::PhantomData<Inner>);
+impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
+	type Ticket = Inner::Ticket;
+
+	fn validate(
+		destination: &mut Option<Location>,
+		message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		if let Some(msg) = message {
+			let versioned_xcm = VersionedXcm::<()>::from(msg.clone());
+			if versioned_xcm.validate_xcm_nesting().is_err() {
+				log::error!(
+					target: "xcm::validate_xcm_nesting",
+					"EnsureDecodableXcm validate_xcm_nesting error for \nversioned_xcm: {versioned_xcm:?}\nbased on xcm: {msg:?}"
+				);
+				return Err(SendError::Transport("EnsureDecodableXcm validate_xcm_nesting error"))
+			}
+		}
+		Inner::validate(destination, message)
+	}
+
+	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		Inner::deliver(ticket)
+	}
+}

@@ -18,10 +18,7 @@
 
 use super::{traits::Reanchorable, Junction, Junctions};
 use crate::{v3::MultiLocation as OldLocation, VersionedLocation};
-use core::{
-	convert::{TryFrom, TryInto},
-	result,
-};
+use core::result;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -530,6 +527,13 @@ impl<Interior: Into<Junctions>> From<AncestorThen<Interior>> for Location {
 	}
 }
 
+impl From<[u8; 32]> for Location {
+	fn from(bytes: [u8; 32]) -> Self {
+		let junction: Junction = bytes.into();
+		junction.into()
+	}
+}
+
 xcm_procedural::impl_conversion_functions_for_location_v4!();
 
 #[cfg(test)]
@@ -716,7 +720,6 @@ mod tests {
 	#[test]
 	fn conversion_from_other_types_works() {
 		use crate::v3;
-		use core::convert::TryInto;
 
 		fn takes_location<Arg: Into<Location>>(_arg: Arg) {}
 

@@ -17,7 +17,7 @@
 //! Code that allows `NamedReservableCurrency` to be used as a `StakeAndSlash`
 //! mechanism of the relayers pallet.
 
-use bp_relayers::{PayRewardFromAccount, RewardsAccountParams, StakeAndSlash};
+use bp_relayers::{ExplicitOrAccountParams, PayRewardFromAccount, StakeAndSlash};
 use codec::Codec;
 use frame_support::traits::{tokens::BalanceStatus, NamedReservableCurrency};
 use sp_runtime::{traits::Get, DispatchError, DispatchResult};
@@ -55,11 +55,14 @@ where
 
 	fn repatriate_reserved(
 		relayer: &AccountId,
-		beneficiary: RewardsAccountParams,
+		beneficiary: ExplicitOrAccountParams<AccountId>,
 		amount: Currency::Balance,
 	) -> Result<Currency::Balance, DispatchError> {
-		let beneficiary_account =
-			PayRewardFromAccount::<(), AccountId>::rewards_account(beneficiary);
+		let beneficiary_account = match beneficiary {
+			ExplicitOrAccountParams::Explicit(account) => account,
+			ExplicitOrAccountParams::Params(params) =>
+				PayRewardFromAccount::<(), AccountId>::rewards_account(params),
+		};
 		Currency::repatriate_reserved_named(
 			&ReserveId::get(),
 			relayer,
@@ -134,7 +137,11 @@ mod tests {
 			Balances::mint_into(&beneficiary_account, expected_balance).unwrap();
 
 			assert_eq!(
-				TestStakeAndSlash::repatriate_reserved(&1, beneficiary, test_stake()),
+				TestStakeAndSlash::repatriate_reserved(
+					&1,
+					ExplicitOrAccountParams::Params(beneficiary),
+					test_stake()
+				),
 				Ok(test_stake())
 			);
 			assert_eq!(Balances::free_balance(1), 0);
@@ -146,7 +153,11 @@ mod tests {
 			Balances::mint_into(&2, test_stake() * 2).unwrap();
 			TestStakeAndSlash::reserve(&2, test_stake() / 3).unwrap();
 			assert_eq!(
-				TestStakeAndSlash::repatriate_reserved(&2, beneficiary, test_stake()),
+				TestStakeAndSlash::repatriate_reserved(
+					&2,
+					ExplicitOrAccountParams::Params(beneficiary),
+					test_stake()
+				),
 				Ok(test_stake() - test_stake() / 3)
 			);
 			assert_eq!(Balances::free_balance(2), test_stake() * 2 - test_stake() / 3);
@@ -158,7 +169,11 @@ mod tests {
 			Balances::mint_into(&3, test_stake() * 2).unwrap();
 			TestStakeAndSlash::reserve(&3, test_stake()).unwrap();
 			assert_eq!(
-				TestStakeAndSlash::repatriate_reserved(&3, beneficiary, test_stake()),
+				TestStakeAndSlash::repatriate_reserved(
+					&3,
+					ExplicitOrAccountParams::Params(beneficiary),
+					test_stake()
+				),
 				Ok(0)
 			);
 			assert_eq!(Balances::free_balance(3), test_stake());
@@ -176,7 +191,12 @@ mod tests {
 
 			Balances::mint_into(&3, test_stake() * 2).unwrap();
 			TestStakeAndSlash::reserve(&3, test_stake()).unwrap();
-			assert!(TestStakeAndSlash::repatriate_reserved(&3, beneficiary, test_stake()).is_err());
+			assert!(TestStakeAndSlash::repatriate_reserved(
+				&3,
+				ExplicitOrAccountParams::Params(beneficiary),
+				test_stake()
+			)
+			.is_err());
 			assert_eq!(Balances::free_balance(3), test_stake());
 			assert_eq!(Balances::reserved_balance(3), test_stake());
 			assert_eq!(Balances::free_balance(beneficiary_account), 0);

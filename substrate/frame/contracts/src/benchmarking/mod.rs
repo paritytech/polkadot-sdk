@@ -18,9 +18,11 @@
 //! Benchmarks for the contracts pallet
 #![cfg(feature = "runtime-benchmarks")]
 
+mod call_builder;
 mod code;
 mod sandbox;
 use self::{
+	call_builder::CallSetup,
 	code::{
 		body::{self, DynInstr::*},
 		DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition, WasmModule,
@@ -30,7 +32,7 @@ use self::{
 use crate::{
 	exec::Key,
 	migration::{
-		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, MigrationStep,
+		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, v16, MigrationStep,
 	},
 	Pallet as Contracts, *,
 };
@@ -40,7 +42,7 @@ use frame_support::{
 	self,
 	pallet_prelude::StorageVersion,
 	traits::{fungible::InspectHold, Currency},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
 use pallet_balances;
@@ -63,6 +65,7 @@ const API_BENCHMARK_RUNS: u32 = 1600;
 const INSTR_BENCHMARK_RUNS: u32 = 5000;
 
 /// An instantiated and deployed contract.
+#[derive(Clone)]
 struct Contract<T: Config> {
 	caller: T::AccountId,
 	account_id: T::AccountId,
@@ -198,7 +201,7 @@ mod benchmarks {
 	fn on_process_deletion_queue_batch() {
 		#[block]
 		{
-			ContractInfo::<T>::process_deletion_queue_batch(Weight::MAX);
+			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
 	}
 
@@ -213,7 +216,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ContractInfo::<T>::process_deletion_queue_batch(Weight::MAX);
+			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
 
 		Ok(())
@@ -226,7 +229,7 @@ mod benchmarks {
 		let mut m = v09::Migration::<T>::default();
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -244,7 +247,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 
 		Ok(())
@@ -259,7 +262,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -276,7 +279,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -291,7 +294,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 		Ok(())
 	}
@@ -307,7 +310,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -322,9 +325,29 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 
+		Ok(())
+	}
+
+	// This benchmarks the v16 migration step (Remove ED from base_deposit).
+	#[benchmark(pov_mode = Measured)]
+	fn v16_migration_step() -> Result<(), BenchmarkError> {
+		let contract =
+			<Contract<T>>::with_caller(whitelisted_caller(), WasmModule::dummy(), vec![])?;
+
+		let info = contract.info()?;
+		let base_deposit = v16::store_old_contract_info::<T>(contract.account_id.clone(), &info);
+		let mut m = v16::Migration::<T>::default();
+
+		#[block]
+		{
+			m.step(&mut WeightMeter::new());
+		}
+		let ed = Pallet::<T>::min_balance();
+		let info = v16::ContractInfoOf::<T>::get(&contract.account_id).unwrap();
+		assert_eq!(info.storage_base_deposit, base_deposit - ed);
 		Ok(())
 	}
 
@@ -332,10 +355,10 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn migration_noop() {
 		let version = LATEST_MIGRATION_VERSION;
-		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
+		StorageVersion::new(version).put::<Pallet<T>>();
 		#[block]
 		{
-			Migration::<T>::migrate(Weight::MAX);
+			Migration::<T>::migrate(&mut WeightMeter::new());
 		}
 		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
 	}
@@ -358,7 +381,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn on_runtime_upgrade_noop() {
 		let latest_version = LATEST_MIGRATION_VERSION;
-		assert_eq!(StorageVersion::get::<Pallet<T>>(), latest_version);
+		StorageVersion::new(latest_version).put::<Pallet<T>>();
 		#[block]
 		{
 			<Migration<T, false> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade();
@@ -598,17 +621,19 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::new(WasmModule::getter("seal0", "seal_caller", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+	fn seal_caller(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal0", "seal_caller", r));
 
-		Ok(())
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_is_contract(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_is_contract(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let accounts = (0..r).map(|n| account::<T::AccountId>("account", n, 0)).collect::<Vec<_>>();
 		let account_len = accounts.get(0).map(|i| i.encode().len()).unwrap_or(0);
 		let accounts_bytes = accounts.iter().flat_map(|a| a.encode()).collect::<Vec<_>>();
@@ -631,21 +656,23 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let info = instance.info()?;
+		call_builder!(func, instance, code);
+		let info = instance.info().unwrap();
 		// every account would be a contract (worst case)
 		for acc in accounts.iter() {
 			<ContractInfoOf<T>>::insert(acc, info.clone());
 		}
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
 
-		Ok(())
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_code_hash(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_code_hash(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let accounts = (0..r).map(|n| account::<T::AccountId>("account", n, 0)).collect::<Vec<_>>();
 		let account_len = accounts.get(0).map(|i| i.encode().len()).unwrap_or(0);
 		let accounts_bytes = accounts.iter().flat_map(|a| a.encode()).collect::<Vec<_>>();
@@ -676,30 +703,35 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let info = instance.info()?;
+		call_builder!(func, instance, code);
+		let info = instance.info().unwrap();
 		// every account would be a contract (worst case)
 		for acc in accounts.iter() {
 			<ContractInfoOf<T>>::insert(acc, info.clone());
 		}
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_own_code_hash(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::getter("seal0", "seal_own_code_hash", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_own_code_hash(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal0", "seal_own_code_hash", r));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_origin(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_caller_is_origin(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -711,15 +743,18 @@ mod benchmarks {
 			call_body: Some(body::repeated(r, &[Instruction::Call(0), Instruction::Drop])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_root(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_caller_is_root(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -731,81 +766,104 @@ mod benchmarks {
 			call_body: Some(body::repeated(r, &[Instruction::Call(0), Instruction::Drop])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Root;
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_origin(Origin::Root);
+		call_builder!(func, setup: setup);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_address(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::new(WasmModule::getter("seal0", "seal_address", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_address(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal0", "seal_address", r));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_gas_left(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::new(WasmModule::getter("seal1", "gas_left", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_gas_left(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal1", "gas_left", r));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_balance(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::new(WasmModule::getter("seal0", "seal_balance", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_balance(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal0", "seal_balance", r));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_value_transferred(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::getter("seal0", "seal_value_transferred", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_value_transferred(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal0", "seal_value_transferred", r));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_minimum_balance(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::getter("seal0", "seal_minimum_balance", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_minimum_balance(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal0", "seal_minimum_balance", r));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_block_number(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::getter("seal0", "seal_block_number", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_block_number(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal0", "seal_block_number", r));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_now(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::new(WasmModule::getter("seal0", "seal_now", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_now(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal0", "seal_now", r));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_weight_to_fee(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_weight_to_fee(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let pages = code::max_pages::<T>();
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
@@ -831,15 +889,18 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_input(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_input(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -859,11 +920,15 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -903,7 +968,7 @@ mod benchmarks {
 	// as precise as with other APIs. Because this function can only be called once per
 	// contract it cannot be used as an attack vector.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_return(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
+	fn seal_return(r: Linear<0, 1>) {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -923,17 +988,18 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_return_per_byte(
-		n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
+	fn seal_return_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -951,11 +1017,14 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// The same argument as for `seal_return` is true here.
@@ -1060,7 +1129,7 @@ mod benchmarks {
 	// number (< 1 KB). Therefore we are not overcharging too much in case a smaller subject is
 	// used.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_random(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_random(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let pages = code::max_pages::<T>();
 		let subject_len = T::Schedule::get().limits.subject_len;
 		assert!(subject_len < 1024);
@@ -1088,17 +1157,21 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Overhead of calling the function without any topic.
 	// We benchmark for the worst case (largest event).
 	#[benchmark(pov_mode = Measured)]
-	fn seal_deposit_event(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_deposit_event(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -1119,11 +1192,15 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Benchmark the overhead that topics generate.
@@ -1133,7 +1210,7 @@ mod benchmarks {
 	fn seal_deposit_event_per_topic_and_byte(
 		t: Linear<0, { T::Schedule::get().limits.event_topics }>,
 		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
-	) -> Result<(), BenchmarkError> {
+	) {
 		let topics = (0..t).map(|i| T::Hashing::hash_of(&i)).collect::<Vec<_>>().encode();
 		let topics_len = topics.len();
 		let code = WasmModule::<T>::from(ModuleDefinition {
@@ -1155,11 +1232,15 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Benchmark debug_message call with zero input data.
@@ -1186,23 +1267,16 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		let mut setup = CallSetup::<T>::new(code);
+		setup.enable_debug_message();
+		call_builder!(func, setup: setup);
 
+		let res;
 		#[block]
 		{
-			<Contracts<T>>::bare_call(
-				instance.caller,
-				instance.account_id,
-				0u32.into(),
-				Weight::MAX,
-				None,
-				vec![],
-				DebugInfo::UnsafeDebug,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result?;
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1246,22 +1320,17 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		let mut setup = CallSetup::<T>::new(code);
+		setup.enable_debug_message();
+		call_builder!(func, setup: setup);
+
+		let res;
 		#[block]
 		{
-			<Contracts<T>>::bare_call(
-				instance.caller,
-				instance.account_id,
-				0u32.into(),
-				Weight::MAX,
-				None,
-				vec![],
-				DebugInfo::UnsafeDebug,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result?;
+			res = func.call();
 		}
+		assert_eq!(res.did_revert(), false);
+		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 		Ok(())
 	}
 
@@ -1309,7 +1378,8 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		for key in keys {
 			info.write(
@@ -1320,9 +1390,13 @@ mod benchmarks {
 			)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1352,7 +1426,7 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		info.write(
 			&Key::<T>::try_from_var(key).map_err(|_| "Key has wrong length")?,
@@ -1361,9 +1435,13 @@ mod benchmarks {
 			false,
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1394,7 +1472,7 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		info.write(
 			&Key::<T>::try_from_var(key).map_err(|_| "Key has wrong length")?,
@@ -1403,9 +1481,13 @@ mod benchmarks {
 			false,
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1444,7 +1526,7 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		for key in keys {
 			info.write(
@@ -1456,9 +1538,13 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1486,7 +1572,7 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		info.write(
 			&Key::<T>::try_from_var(key).map_err(|_| "Key has wrong length")?,
@@ -1495,9 +1581,13 @@ mod benchmarks {
 			false,
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1542,7 +1632,7 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		for key in keys {
 			info.write(
@@ -1554,9 +1644,13 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1592,7 +1686,7 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		info.write(
 			&Key::<T>::try_from_var(key).map_err(|_| "Key has wrong length")?,
@@ -1602,9 +1696,14 @@ mod benchmarks {
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
+
 		Ok(())
 	}
 
@@ -1642,7 +1741,7 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		for key in keys {
 			info.write(
@@ -1654,9 +1753,13 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1684,7 +1787,7 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		info.write(
 			&Key::<T>::try_from_var(key).map_err(|_| "Key has wrong length")?,
@@ -1694,9 +1797,13 @@ mod benchmarks {
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1740,7 +1847,7 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		for key in keys {
 			info.write(
@@ -1752,9 +1859,13 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 		}
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1790,7 +1901,7 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		call_builder!(func, instance, code);
 		let info = instance.info()?;
 		info.write(
 			&Key::<T>::try_from_var(key).map_err(|_| "Key has wrong length")?,
@@ -1800,9 +1911,13 @@ mod benchmarks {
 		)
 		.map_err(|_| "Failed to write to storage during setup.")?;
 		<ContractInfoOf<T>>::insert(&instance.account_id, info);
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1842,14 +1957,20 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		instance.set_balance(value * (r + 1).into());
-		let origin = RawOrigin::Signed(instance.caller.clone());
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_balance(value * (r + 1).into());
+		call_builder!(func, setup: setup);
+
 		for account in &accounts {
 			assert_eq!(T::Currency::total_balance(account), 0u32.into());
 		}
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 
 		for account in &accounts {
 			assert_eq!(T::Currency::total_balance(account), value);
@@ -1923,17 +2044,16 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(
-			origin,
-			instance.addr,
-			0u32.into(),
-			Weight::MAX,
-			Some(BalanceOf::<T>::from(u32::MAX.into()).into()),
-			vec![],
-		);
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_storage_deposit_limit(BalanceOf::<T>::from(u32::MAX.into()));
+		call_builder!(func, setup: setup);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -1984,11 +2104,14 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let callee = instance.addr.clone();
-		let origin = RawOrigin::Signed(instance.caller);
-		#[extrinsic_call]
-		call(origin, callee, 0u32.into(), Weight::MAX, None, vec![]);
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2037,11 +2160,16 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		let bytes = vec![42; c as usize];
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, bytes);
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_data(vec![42; c as usize]);
+		call_builder!(func, setup: setup);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2133,10 +2261,9 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		instance.set_balance((value + Pallet::<T>::min_balance()) * (r + 1).into());
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		let callee = instance.addr.clone();
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_balance((value + Pallet::<T>::min_balance()) * (r + 1).into());
+		call_builder!(func, instance, setup: setup);
 		let addresses = hashes
 			.iter()
 			.map(|hash| Contracts::<T>::contract_address(&instance.account_id, hash, &[], &[]))
@@ -2147,8 +2274,13 @@ mod benchmarks {
 				return Err("Expected that contract does not exist at this point.".into());
 			}
 		}
-		#[extrinsic_call]
-		call(origin, callee, 0u32.into(), Weight::MAX, None, vec![]);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		for addr in &addresses {
 			ContractInfoOf::<T>::get(&addr).ok_or("Contract should have been instantiated")?;
 		}
@@ -2217,106 +2349,121 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		instance.set_balance(value + (Pallet::<T>::min_balance() * 2u32.into()));
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_balance(value + (Pallet::<T>::min_balance() * 2u32.into()));
+		call_builder!(func,  setup: setup);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_sha2_256(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::new(WasmModule::hasher("seal_hash_sha2_256", r, 0), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_hash_sha2_256(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::hasher("seal_hash_sha2_256", r, 0));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_sha2_256_per_byte(
-		n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::new(WasmModule::hasher("seal_hash_sha2_256", 1, n), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_hash_sha2_256_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
+		call_builder!(func, WasmModule::hasher("seal_hash_sha2_256", 1, n));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_keccak_256(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::hasher("seal_hash_keccak_256", r, 0), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_hash_keccak_256(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::hasher("seal_hash_keccak_256", r, 0));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_keccak_256_per_byte(
-		n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::hasher("seal_hash_keccak_256", 1, n), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_hash_keccak_256_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
+		call_builder!(func, WasmModule::hasher("seal_hash_keccak_256", 1, n));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_256(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::hasher("seal_hash_blake2_256", r, 0), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_hash_blake2_256(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::hasher("seal_hash_blake2_256", r, 0));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_256_per_byte(
-		n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::hasher("seal_hash_blake2_256", 1, n), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_hash_blake2_256_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
+		call_builder!(func, WasmModule::hasher("seal_hash_blake2_256", 1, n));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_128(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::hasher("seal_hash_blake2_128", r, 0), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_hash_blake2_128(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::hasher("seal_hash_blake2_128", r, 0));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_128_per_byte(
-		n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::new(WasmModule::hasher("seal_hash_blake2_128", 1, n), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_hash_blake2_128_per_byte(n: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
+		call_builder!(func, WasmModule::hasher("seal_hash_blake2_128", 1, n));
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// `n`: Message input length to verify in bytes.
@@ -2359,10 +2506,14 @@ mod benchmarks {
 			..Default::default()
 		});
 
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2415,10 +2566,14 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2464,10 +2619,14 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2503,10 +2662,14 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2543,10 +2706,14 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2584,10 +2751,14 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2641,10 +2812,14 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
@@ -2697,15 +2872,19 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 		Ok(())
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiation_nonce(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_instantiation_nonce(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -2717,11 +2896,14 @@ mod benchmarks {
 			call_body: Some(body::repeated(r, &[Instruction::Call(0), Instruction::Drop])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+		call_builder!(func, code);
+
+		let res;
+		#[block]
+		{
+			res = func.call();
+		}
+		assert_eq!(res.did_revert(), false);
 	}
 
 	// We load `i64` values from random linear memory locations and store the loaded
@@ -2776,7 +2958,8 @@ mod benchmarks {
 	#[benchmark(extra, pov_mode = Ignored)]
 	fn print_schedule() -> Result<(), BenchmarkError> {
 		let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
-		let (weight_per_key, key_budget) = ContractInfo::<T>::deletion_budget(max_weight);
+		let (weight_per_key, key_budget) =
+			ContractInfo::<T>::deletion_budget(&mut WeightMeter::with_limit(max_weight));
 		let schedule = T::Schedule::get();
 		log::info!(target: LOG_TARGET, "
 		{schedule:#?}

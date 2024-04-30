@@ -17,10 +17,7 @@
 use codec::{Codec, Decode};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
-use cumulus_client_consensus_aura::collators::{
-	basic::{self as basic_aura, Params as BasicAuraParams},
-	lookahead::{self as aura, Params as AuraParams},
-};
+use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
 use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
@@ -51,7 +48,7 @@ use sc_consensus::{
 	BlockImportParams, ImportQueue,
 };
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::{config::FullNetworkConfiguration, NetworkBlock};
+use sc_network::{config::FullNetworkConfiguration, service::traits::NetworkBackend, NetworkBlock};
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
@@ -191,7 +188,7 @@ where
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_node_impl<RuntimeApi, RB, BIQ, SC>(
+async fn start_node_impl<RuntimeApi, RB, BIQ, SC, Net>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -244,6 +241,7 @@ where
 		Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		Arc<ParachainBackend>,
 	) -> Result<(), sc_service::Error>,
+	Net: NetworkBackend<Block, Hash>,
 {
 	let parachain_config = prepare_node_config(parachain_config);
 
@@ -269,7 +267,7 @@ where
 	let prometheus_registry = parachain_config.prometheus_registry().cloned();
 	let transaction_pool = params.transaction_pool.clone();
 	let import_queue_service = params.import_queue.service();
-	let net_config = FullNetworkConfiguration::new(&parachain_config.network);
+	let net_config = FullNetworkConfiguration::<_, _, Net>::new(&parachain_config.network);
 
 	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 		build_network(BuildNetworkParams {
@@ -423,14 +421,14 @@ pub fn build_aura_import_queue(
 }
 
 /// Start a rococo parachain node.
-pub async fn start_rococo_parachain_node(
+pub async fn start_rococo_parachain_node<Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
-	start_node_impl::<FakeRuntimeApi, _, _, _>(
+	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -492,14 +490,14 @@ fn build_contracts_rpc_extensions(
 }
 
 /// Start a polkadot-shell parachain node.
-pub async fn start_shell_node(
+pub async fn start_shell_node<Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
-	start_node_impl::<FakeRuntimeApi, _, _, _>(
+	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -686,96 +684,17 @@ where
 	Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
 }
 
-/// Start an aura powered parachain node. Some system chains use this.
-pub async fn start_generic_aura_node(
-	parachain_config: Configuration,
-	polkadot_config: Configuration,
-	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
-	start_node_impl::<FakeRuntimeApi, _, _, _>(
-		parachain_config,
-		polkadot_config,
-		collator_options,
-		CollatorSybilResistance::Resistant, // Aura
-		para_id,
-		build_parachain_rpc_extensions::<FakeRuntimeApi>,
-		build_relay_to_aura_import_queue::<_, AuraId>,
-		|client,
-		 block_import,
-		 prometheus_registry,
-		 telemetry,
-		 task_manager,
-		 relay_chain_interface,
-		 transaction_pool,
-		 sync_oracle,
-		 keystore,
-		 relay_chain_slot_duration,
-		 para_id,
-		 collator_key,
-		 overseer_handle,
-		 announce_block,
-		 _backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				task_manager.spawn_handle(),
-				client.clone(),
-				transaction_pool,
-				prometheus_registry,
-				telemetry.clone(),
-			);
-			let proposer = Proposer::new(proposer_factory);
-
-			let collator_service = CollatorService::new(
-				client.clone(),
-				Arc::new(task_manager.spawn_handle()),
-				announce_block,
-				client.clone(),
-			);
-
-			let params = BasicAuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-				block_import,
-				para_client: client,
-				relay_client: relay_chain_interface,
-				sync_oracle,
-				keystore,
-				collator_key,
-				para_id,
-				overseer_handle,
-				slot_duration,
-				relay_chain_slot_duration,
-				proposer,
-				collator_service,
-				// Very limited proposal time.
-				authoring_duration: Duration::from_millis(500),
-				collation_request_receiver: None,
-			};
-
-			let fut =
-				basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params);
-			task_manager.spawn_essential_handle().spawn("aura", None, fut);
-
-			Ok(())
-		},
-		hwbench,
-	)
-	.await
-}
-
 /// Uses the lookahead collator to support async backing.
 ///
 /// Start an aura powered parachain node. Some system chains use this.
-pub async fn start_generic_aura_lookahead_node(
+pub async fn start_generic_aura_lookahead_node<Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
-	start_node_impl::<FakeRuntimeApi, _, _, _>(
+	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -792,155 +711,14 @@ pub async fn start_generic_aura_lookahead_node(
 /// Start a shell node which should later transition into an Aura powered parachain node. Asset Hub
 /// uses this because at genesis, Asset Hub was on the `shell` runtime which didn't have Aura and
 /// needs to sync and upgrade before it can run `AuraApi` functions.
-pub async fn start_asset_hub_node<RuntimeApi, AuraId: AppCrypto + Send + Codec + Sync>(
-	parachain_config: Configuration,
-	polkadot_config: Configuration,
-	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
-where
-	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-		+ sp_api::Metadata<Block>
-		+ sp_session::SessionKeys<Block>
-		+ sp_api::ApiExt<Block>
-		+ sp_offchain::OffchainWorkerApi<Block>
-		+ sp_block_builder::BlockBuilder<Block>
-		+ cumulus_primitives_core::CollectCollationInfo<Block>
-		+ sp_consensus_aura::AuraApi<Block, <<AuraId as AppCrypto>::Pair as Pair>::Public>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
-		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
-{
-	start_node_impl::<RuntimeApi, _, _, _>(
-		parachain_config,
-		polkadot_config,
-		collator_options,
-		CollatorSybilResistance::Resistant, // Aura
-		para_id,
-		build_parachain_rpc_extensions::<RuntimeApi>,
-		build_relay_to_aura_import_queue::<_, AuraId>,
-		|client,
-		 block_import,
-		 prometheus_registry,
-		 telemetry,
-		 task_manager,
-		 relay_chain_interface,
-		 transaction_pool,
-		 sync_oracle,
-		 keystore,
-		 relay_chain_slot_duration,
-		 para_id,
-		 collator_key,
-		 overseer_handle,
-		 announce_block,
-		 _backend| {
-			let relay_chain_interface2 = relay_chain_interface.clone();
-
-			let collator_service = CollatorService::new(
-				client.clone(),
-				Arc::new(task_manager.spawn_handle()),
-				announce_block,
-				client.clone(),
-			);
-
-			let spawner = task_manager.spawn_handle();
-
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				spawner,
-				client.clone(),
-				transaction_pool,
-				prometheus_registry,
-				telemetry.clone(),
-			);
-
-			let collation_future = Box::pin(async move {
-				// Start collating with the `shell` runtime while waiting for an upgrade to an Aura
-				// compatible runtime.
-				let mut request_stream = cumulus_client_collator::relay_chain_driven::init(
-					collator_key.clone(),
-					para_id,
-					overseer_handle.clone(),
-				)
-				.await;
-				while let Some(request) = request_stream.next().await {
-					let pvd = request.persisted_validation_data().clone();
-					let last_head_hash =
-						match <Block as BlockT>::Header::decode(&mut &pvd.parent_head.0[..]) {
-							Ok(header) => header.hash(),
-							Err(e) => {
-								log::error!("Could not decode the head data: {e}");
-								request.complete(None);
-								continue
-							},
-						};
-
-					// Check if we have upgraded to an Aura compatible runtime and transition if
-					// necessary.
-					if client
-						.runtime_api()
-						.has_api::<dyn AuraApi<Block, AuraId>>(last_head_hash)
-						.unwrap_or(false)
-					{
-						// Respond to this request before transitioning to Aura.
-						request.complete(None);
-						break
-					}
-				}
-
-				// Move to Aura consensus.
-				let slot_duration = match cumulus_client_consensus_aura::slot_duration(&*client) {
-					Ok(d) => d,
-					Err(e) => {
-						log::error!("Could not get Aura slot duration: {e}");
-						return
-					},
-				};
-
-				let proposer = Proposer::new(proposer_factory);
-
-				let params = BasicAuraParams {
-					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-					block_import,
-					para_client: client,
-					relay_client: relay_chain_interface2,
-					sync_oracle,
-					keystore,
-					collator_key,
-					para_id,
-					overseer_handle,
-					slot_duration,
-					relay_chain_slot_duration,
-					proposer,
-					collator_service,
-					// Very limited proposal time.
-					authoring_duration: Duration::from_millis(500),
-					collation_request_receiver: Some(request_stream),
-				};
-
-				basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params)
-					.await
-			});
-
-			let spawner = task_manager.spawn_essential_handle();
-			spawner.spawn_essential("cumulus-asset-hub-collator", None, collation_future);
-
-			Ok(())
-		},
-		hwbench,
-	)
-	.await
-}
-
-/// Start a shell node which should later transition into an Aura powered parachain node. Asset Hub
-/// uses this because at genesis, Asset Hub was on the `shell` runtime which didn't have Aura and
-/// needs to sync and upgrade before it can run `AuraApi` functions.
 ///
 /// Uses the lookahead collator to support async backing.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-pub async fn start_asset_hub_lookahead_node<RuntimeApi, AuraId: AppCrypto + Send + Codec + Sync>(
+pub async fn start_asset_hub_lookahead_node<
+	RuntimeApi,
+	AuraId: AppCrypto + Send + Codec + Sync,
+	Net,
+>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -962,8 +740,9 @@ where
 		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>,
 	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
+	Net: NetworkBackend<Block, Hash>,
 {
-	start_node_impl::<RuntimeApi, _, _, _>(
+	start_node_impl::<RuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -1213,14 +992,14 @@ fn start_lookahead_aura_consensus(
 /// Start an aura powered parachain node which uses the lookahead collator to support async backing.
 /// This node is basic in the sense that its runtime api doesn't include common contents such as
 /// transaction payment. Used for aura glutton.
-pub async fn start_basic_lookahead_node(
+pub async fn start_basic_lookahead_node<Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
-	start_node_impl::<FakeRuntimeApi, _, _, _>(
+	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -1235,14 +1014,14 @@ pub async fn start_basic_lookahead_node(
 }
 
 /// Start a parachain node for Rococo Contracts.
-pub async fn start_contracts_rococo_node(
+pub async fn start_contracts_rococo_node<Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
-	start_node_impl::<FakeRuntimeApi, _, _, _>(
+	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,

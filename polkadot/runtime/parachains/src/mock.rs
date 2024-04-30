@@ -248,6 +248,7 @@ impl crate::dmp::Config for Test {}
 
 parameter_types! {
 	pub const FirstMessageFactorPercent: u64 = 100;
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);
 }
 
 impl crate::hrmp::Config for Test {
@@ -255,6 +256,7 @@ impl crate::hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
+	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
 
@@ -385,6 +387,7 @@ impl assigner_coretime::Config for Test {}
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 impl coretime::Config for Test {
@@ -394,6 +397,7 @@ impl coretime::Config for Test {
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 pub struct DummyXcmSender;
