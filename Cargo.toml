@@ -646,3 +646,6 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch."https://github.com/paritytech/litep2p"]
+litep2p = { git = "https://github.com/paritytech//litep2p", branch = "lenxv/expose-peer-records" }

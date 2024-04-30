@@ -697,9 +697,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.pending_put_values.insert(query_id, (key, Instant::now()));
 						}
 
-						NetworkServiceCommand::PutValueTo { record, peers, update_local_storage: _ } => {
+						NetworkServiceCommand::PutValueTo { record, peers, update_local_storage} => {
 							let kademlia_key = record.key.to_vec().into();
-							let query_id = self.discovery.put_value_to_peers(record, peers).await;
+							let query_id = self.discovery.put_value_to_peers(record, peers, update_local_storage).await;
 							self.pending_put_values.insert(query_id, (kademlia_key, Instant::now()));
 						}
 
@@ -802,40 +802,62 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.peerstore_handle.add_known_peer(peer.into());
 						}
 					}
-					Some(DiscoveryEvent::GetRecordSuccess { query_id, record }) => {
+					Some(DiscoveryEvent::GetRecordSuccess { query_id, records }) => {
 						match self.pending_get_values.remove(&query_id) {
 							None => log::warn!(
 								target: LOG_TARGET,
 								"`GET_VALUE` succeeded for a non-existent query",
 							),
-							Some((_key, started)) => {
+							Some((key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
-									record.record.key,
+									key,
 								);
-
-								self.event_streams.send(
-									Event::Dht(
-										DhtEvent::ValueFound(
+								let received_records = match records {
+									litep2p::protocol::libp2p::kademlia::RecordsType::LocalStore(record) => {
+										vec![
 											PeerRecord {
 												record: Record {
-													key: record.record.key.to_vec().into(),
-													value: record.record.value,
-													publisher: record.record.publisher.map(|peer_id| {
+													key: record.key.to_vec().into(),
+													value: record.value,
+													publisher: record.publisher.map(|peer_id| {
 														let peer_id: sc_network_types::PeerId = peer_id.into();
 														peer_id.into()
 													}),
-													expires: record.record.expires,
+													expires: record.expires,
 												},
-												peer: record.peer.map(|peer_id| {
+												peer: None,
+											}
+										]
+									},
+									litep2p::protocol::libp2p::kademlia::RecordsType::Network(records) => records.into_iter().map(|record| {
+										let peer_id: sc_network_types::PeerId = record.peer.into();
+
+										PeerRecord {
+											record: Record {
+												key: record.record.key.to_vec().into(),
+												value: record.record.value,
+												publisher: record.record.publisher.map(|peer_id| {
 													let peer_id: sc_network_types::PeerId = peer_id.into();
 													peer_id.into()
 												}),
-											}
+												expires: record.record.expires,
+											},
+										peer: Some(peer_id.into()),
+										}
+									}).collect::<Vec<_>>(),
+								};
+
+								for record in received_records {
+									self.event_streams.send(
+										Event::Dht(
+											DhtEvent::ValueFound(
+												record
+											)
 										)
-									)
-								);
+									);
+								}
 
 								if let Some(ref metrics) = self.metrics {
 									metrics
