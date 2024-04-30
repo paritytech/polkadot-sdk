@@ -182,6 +182,13 @@ impl<C> PreparedMessage for WeighedMessage<C> {
 	}
 }
 
+#[cfg(any(test, feature = "std"))]
+impl<C> WeighedMessage<C> {
+	pub fn new(weight: Weight, message: Xcm<C>) -> Self {
+		Self(weight, message)
+	}
+}
+
 impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Config> {
 	type Prepared = WeighedMessage<Config::RuntimeCall>;
 	fn prepare(
@@ -347,6 +354,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		msg: Xcm<()>,
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
+		log::trace!(
+			target: "xcm::send", "Sending msg: {msg:?}, to destination: {dest:?}, (reason: {reason:?})"
+		);
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
 		self.take_fee(fee, reason)?;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)

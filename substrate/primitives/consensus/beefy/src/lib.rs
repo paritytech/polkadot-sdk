@@ -43,7 +43,7 @@ pub mod witness;
 #[cfg(feature = "std")]
 pub mod test_utils;
 
-pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
+pub use commitment::{Commitment, KnownSignature, SignedCommitment, VersionedFinalityProof};
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
 
 use alloc::vec::Vec;

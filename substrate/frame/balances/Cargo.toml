@@ -28,6 +28,7 @@ docify = "0.2.8"
 
 [dev-dependencies]
 pallet-transaction-payment = { path = "../transaction-payment" }
+frame-support = { path = "../support", features = ["experimental"] }
 sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io" }
 paste = "1.0.12"

@@ -116,6 +116,39 @@ impl WasmBuilder {
 		WasmBuilderSelectProject { _ignore: () }
 	}
 
+	/// Build the WASM binary using the recommended default values.
+	///
+	/// This is the same as calling:
+	/// ```no_run
+	/// substrate_wasm_builder::WasmBuilder::new()
+	///    .with_current_project()
+	///    .import_memory()
+	///    .export_heap_base()
+	///    .build();
+	/// ```
+	pub fn build_using_defaults() {
+		WasmBuilder::new()
+			.with_current_project()
+			.import_memory()
+			.export_heap_base()
+			.build();
+	}
+
+	/// Init the wasm builder with the recommended default values.
+	///
+	/// In contrast to [`Self::build_using_defaults`] it does not build the WASM binary directly.
+	///
+	/// This is the same as calling:
+	/// ```no_run
+	/// substrate_wasm_builder::WasmBuilder::new()
+	///    .with_current_project()
+	///    .import_memory()
+	///    .export_heap_base();
+	/// ```
+	pub fn init_with_defaults() -> Self {
+		WasmBuilder::new().with_current_project().import_memory().export_heap_base()
+	}
+
 	/// Enable exporting `__heap_base` as global variable in the WASM binary.
 	///
 	/// This adds `-Clink-arg=--export=__heap_base` to `RUST_FLAGS`.

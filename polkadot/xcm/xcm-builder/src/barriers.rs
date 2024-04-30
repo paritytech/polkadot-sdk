@@ -322,6 +322,29 @@ impl<ParaId: IsSystem + From<u32>> Contains<Location> for IsChildSystemParachain
 	}
 }
 
+/// Matches if the given location is a system-level sibling parachain.
+pub struct IsSiblingSystemParachain<ParaId, SelfParaId>(PhantomData<(ParaId, SelfParaId)>);
+impl<ParaId: IsSystem + From<u32> + Eq, SelfParaId: Get<ParaId>> Contains<Location>
+	for IsSiblingSystemParachain<ParaId, SelfParaId>
+{
+	fn contains(l: &Location) -> bool {
+		matches!(
+			l.unpack(),
+			(1, [Junction::Parachain(id)])
+				if SelfParaId::get() != ParaId::from(*id) && ParaId::from(*id).is_system(),
+		)
+	}
+}
+
+/// Matches if the given location contains only the specified amount of parents and no interior
+/// junctions.
+pub struct IsParentsOnly<Count>(PhantomData<Count>);
+impl<Count: Get<u8>> Contains<Location> for IsParentsOnly<Count> {
+	fn contains(t: &Location) -> bool {
+		t.contains_parents_only(Count::get())
+	}
+}
+
 /// Allows only messages if the generic `ResponseHandler` expects them via `expecting_response`.
 pub struct AllowKnownQueryResponses<ResponseHandler>(PhantomData<ResponseHandler>);
 impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<ResponseHandler> {
@@ -370,6 +393,41 @@ impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
 			.assert_remaining_insts(1)?
 			.match_next_inst(|inst| match inst {
 				SubscribeVersion { .. } | UnsubscribeVersion => Ok(()),
+				_ => Err(ProcessMessageError::BadFormat),
+			})?;
+		Ok(())
+	}
+}
+
+/// Allows execution for the Relay Chain origin (represented as `Location::parent()`) if it is just
+/// a straight `HrmpNewChannelOpenRequest`, `HrmpChannelAccepted`, or `HrmpChannelClosing`
+/// instruction.
+///
+/// Note: This barrier fulfills safety recommendations for the mentioned instructions - see their
+/// documentation.
+pub struct AllowHrmpNotificationsFromRelayChain;
+impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		log::trace!(
+			target: "xcm::barriers",
+			"AllowHrmpNotificationsFromRelayChain origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
+			origin, instructions, _max_weight, _properties,
+		);
+		// accept only the Relay Chain
+		ensure!(matches!(origin.unpack(), (1, [])), ProcessMessageError::Unsupported);
+		// accept only HRMP notifications and nothing else
+		instructions
+			.matcher()
+			.assert_remaining_insts(1)?
+			.match_next_inst(|inst| match inst {
+				HrmpNewChannelOpenRequest { .. } |
+				HrmpChannelAccepted { .. } |
+				HrmpChannelClosing { .. } => Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
