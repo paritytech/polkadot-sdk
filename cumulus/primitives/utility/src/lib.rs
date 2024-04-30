@@ -34,8 +34,8 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use sp_std::{marker::PhantomData, prelude::*};
-use xcm::{latest::prelude::*, WrapVersion, VersionedLocation, VersionedXcm};
-use xcm_builder::{TakeRevenue, InspectMessageQueues};
+use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion};
+use xcm_builder::{InspectMessageQueues, TakeRevenue};
 use xcm_executor::{
 	traits::{MatchesFungibles, TransactAsset, WeightTrader},
 	AssetsInHolding,
@@ -93,7 +93,9 @@ where
 	}
 }
 
-impl<T: UpwardMessageSender + InspectMessageQueues, W, P> InspectMessageQueues for ParentAsUmp<T, W, P> {
+impl<T: UpwardMessageSender + InspectMessageQueues, W, P> InspectMessageQueues
+	for ParentAsUmp<T, W, P>
+{
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		T::get_messages()
 	}

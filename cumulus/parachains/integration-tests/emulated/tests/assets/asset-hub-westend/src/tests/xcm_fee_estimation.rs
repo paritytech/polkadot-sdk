@@ -13,12 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests to ensure correct XCM fee estimation between Asset Hub Westend and the Westend relay chain.
+//! Tests to ensure correct XCM fee estimation between Asset Hub Westend and the Westend relay
+//! chain.
 
 use crate::imports::*;
 
 use sp_keyring::AccountKeyring::Alice;
-use sp_runtime::{MultiSignature, generic};
+use sp_runtime::{generic, MultiSignature};
 use xcm_fee_payment_runtime_api::{
 	dry_run::runtime_decl_for_xcm_dry_run_api::XcmDryRunApiV1,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
@@ -133,8 +134,9 @@ fn multi_hop_works() {
 	let beneficiary_id = PenpalBReceiver::get();
 	let beneficiary: Location = AccountId32 {
 		id: beneficiary_id.clone().into(),
-		network: None // Test doesn't allow specifying a network here.
-	}.into();
+		network: None, // Test doesn't allow specifying a network here.
+	}
+	.into();
 
 	// We get them from the PenpalA closure.
 	let mut delivery_fees_amount = 0;
@@ -155,10 +157,9 @@ fn multi_hop_works() {
 		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
 		let (destination_to_query, messages_to_query) = &result.forwarded_messages[0];
 		remote_message = messages_to_query[0].clone();
-		let delivery_fees =	Runtime::query_delivery_fees(
-			destination_to_query.clone(),
-			remote_message.clone()
-		).unwrap();
+		let delivery_fees =
+			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
+				.unwrap();
 		delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
 		assert_eq!(delivery_fees_amount, 31_180_000_000);
 	});
@@ -173,22 +174,17 @@ fn multi_hop_works() {
 
 		// First we get the execution fees.
 		let weight = Runtime::query_xcm_weight(remote_message.clone()).unwrap();
-		intermediate_execution_fees = Runtime::query_weight_to_asset_fee(
-			weight,
-			VersionedAssetId::V4(Here.into()),
-		).unwrap();
+		intermediate_execution_fees =
+			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::V4(Here.into())).unwrap();
 
 		// We have to do this to turn `VersionedXcm<()>` into `VersionedXcm<RuntimeCall>`.
-		let xcm_program = VersionedXcm::V4(Xcm::<RuntimeCall>::from(
-			remote_message.clone().try_into().unwrap(),
-		));
+		let xcm_program =
+			VersionedXcm::V4(Xcm::<RuntimeCall>::from(remote_message.clone().try_into().unwrap()));
 
 		// Now we get the delivery fees to the final destination.
-		let result = Runtime::dry_run_xcm(
-			sender_as_seen_by_relay.clone().into(),
-			xcm_program,
-			weight,
-		).unwrap();
+		let result =
+			Runtime::dry_run_xcm(sender_as_seen_by_relay.clone().into(), xcm_program, weight)
+				.unwrap();
 		let (destination_to_query, messages_to_query) = &result.forwarded_messages[0];
 		// There's actually two messages here.
 		// One created when the message we sent from PenpalA arrived and was executed.
@@ -199,7 +195,8 @@ fn multi_hop_works() {
 		let delivery_fees = Runtime::query_delivery_fees(
 			destination_to_query.clone(),
 			intermediate_remote_message.clone(),
-		).unwrap();
+		)
+		.unwrap();
 		intermediate_delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
 		assert_eq!(intermediate_delivery_fees_amount, 39_700_000_000);
 	});
@@ -210,10 +207,9 @@ fn multi_hop_works() {
 		type Runtime = <PenpalB as Chain>::Runtime;
 
 		let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
-		final_execution_fees = Runtime::query_weight_to_asset_fee(
-			weight,
-			VersionedAssetId::V4(Parent.into()),
-		).unwrap();
+		final_execution_fees =
+			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::V4(Parent.into()))
+				.unwrap();
 		assert_eq!(final_execution_fees, 3_276_800_000);
 	});
 
@@ -233,9 +229,16 @@ fn multi_hop_works() {
 
 	// Actually run the extrinsic.
 	let test_args = TestContext {
-		sender: PenpalASender::get(), // Alice.
+		sender: PenpalASender::get(),     // Alice.
 		receiver: PenpalBReceiver::get(), // Bob in PenpalB.
-		args: TestArgs::new_para(destination, beneficiary_id.clone(), amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(
+			destination,
+			beneficiary_id.clone(),
+			amount_to_send,
+			assets,
+			None,
+			0,
+		),
 	};
 	let mut test = ParaToParaThroughRelayTest::new(test_args);
 
@@ -263,17 +266,16 @@ fn multi_hop_works() {
 	// We know the exact fees on every hop.
 	assert_eq!(
 		sender_assets_after,
-		sender_assets_before
-			- amount_to_send
-			- delivery_fees_amount // This is charged directly from the sender's account.
+		sender_assets_before - amount_to_send - delivery_fees_amount /* This is charged directly
+		                                                              * from the sender's
+		                                                              * account. */
 	);
 	assert_eq!(
 		receiver_assets_after,
-		receiver_assets_before
-			+ amount_to_send
-			- intermediate_execution_fees
-			- intermediate_delivery_fees_amount
-			- final_execution_fees
+		receiver_assets_before + amount_to_send -
+			intermediate_execution_fees -
+			intermediate_delivery_fees_amount -
+			final_execution_fees
 	);
 }
 
@@ -308,7 +310,10 @@ fn transfer_assets_para_to_para(test: ParaToParaThroughRelayTest) -> DispatchRes
 }
 
 // Constructs the SignedExtra component of an extrinsic for the Westend runtime.
-fn construct_extrinsic_westend(sender: sp_keyring::AccountKeyring, call: westend_runtime::RuntimeCall) -> westend_runtime::UncheckedExtrinsic {
+fn construct_extrinsic_westend(
+	sender: sp_keyring::AccountKeyring,
+	call: westend_runtime::RuntimeCall,
+) -> westend_runtime::UncheckedExtrinsic {
 	type Runtime = <Westend as Chain>::Runtime;
 	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
 	let tip = 0;
@@ -336,7 +341,10 @@ fn construct_extrinsic_westend(sender: sp_keyring::AccountKeyring, call: westend
 }
 
 // Constructs the SignedExtra component of an extrinsic for the Westend runtime.
-fn construct_extrinsic_penpal(sender: sp_keyring::AccountKeyring, call: penpal_runtime::RuntimeCall) -> penpal_runtime::UncheckedExtrinsic {
+fn construct_extrinsic_penpal(
+	sender: sp_keyring::AccountKeyring,
+	call: penpal_runtime::RuntimeCall,
+) -> penpal_runtime::UncheckedExtrinsic {
 	type Runtime = <PenpalA as Chain>::Runtime;
 	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
 	let tip = 0;
@@ -352,7 +360,8 @@ fn construct_extrinsic_penpal(sender: sp_keyring::AccountKeyring, call: penpal_r
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_asset_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
 	);
-	type SignedPayload = generic::SignedPayload::<penpal_runtime::RuntimeCall, penpal_runtime::SignedExtra>;
+	type SignedPayload =
+		generic::SignedPayload<penpal_runtime::RuntimeCall, penpal_runtime::SignedExtra>;
 	let raw_payload = SignedPayload::new(call, extra).unwrap();
 	let signature = raw_payload.using_encoded(|payload| sender.sign(payload));
 	let (call, extra, _) = raw_payload.deconstruct();

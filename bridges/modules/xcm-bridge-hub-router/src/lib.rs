@@ -39,7 +39,7 @@ use sp_core::H256;
 use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
 use sp_std::vec::Vec;
 use xcm::prelude::*;
-use xcm_builder::{ExporterFor, SovereignPaidRemoteExporter, InspectMessageQueues};
+use xcm_builder::{ExporterFor, InspectMessageQueues, SovereignPaidRemoteExporter};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -647,14 +647,10 @@ mod tests {
 	#[test]
 	fn get_messages_works() {
 		run_test(|| {
-			assert_ok!(
-				send_xcm::<XcmBridgeHubRouter>((
-					Parent,
-					Parent,
-					GlobalConsensus(BridgedNetworkId::get()),
-					Parachain(1000)
-				).into(), vec![ClearOrigin].into())
-			);
+			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
+				(Parent, Parent, GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)).into(),
+				vec![ClearOrigin].into()
+			));
 			// TODO: Get messages queued for bridging.
 			assert_eq!(XcmBridgeHubRouter::get_messages(), vec![]);
 		});
