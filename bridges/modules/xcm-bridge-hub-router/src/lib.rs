@@ -96,7 +96,7 @@ pub mod pallet {
 		/// Origin of the sibling bridge hub that is allowed to report bridge status.
 		type BridgeHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
-		type ToBridgeHubSender: SendXcm;
+		type ToBridgeHubSender: SendXcm + InspectMessageQueues;
 		/// Underlying channel with the sibling bridge hub. It must match the channel, used
 		/// by the `Self::ToBridgeHubSender`.
 		type WithBridgeHubChannel: XcmChannelStatusProvider;
@@ -399,8 +399,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 
 impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
-		// TODO: Get messages queued for bridging.
-		Vec::new()
+		ViaBridgeHubExporter::<T, I>::get_messages()
 	}
 }
 
@@ -651,8 +650,21 @@ mod tests {
 				(Parent, Parent, GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)).into(),
 				vec![ClearOrigin].into()
 			));
-			// TODO: Get messages queued for bridging.
-			assert_eq!(XcmBridgeHubRouter::get_messages(), vec![]);
+			assert_eq!(
+				XcmBridgeHubRouter::get_messages(),
+				vec![
+					(
+						VersionedLocation::V4((Parent, Parachain(1002)).into()),
+						vec![VersionedXcm::V4(Xcm::builder()
+							.withdraw_asset((Parent, 1_002_000))
+							.buy_execution((Parent, 1_002_000), Unlimited)
+							.set_appendix(Xcm::builder_unsafe().deposit_asset(AllCounted(1), (Parent, Parachain(1000))).build())
+							.export_message(Kusama, Parachain(1000), Xcm::builder_unsafe().clear_origin().build())
+							.build()
+						)],
+					),
+				],
+			);
 		});
 	}
 }
