@@ -249,8 +249,8 @@ coverage-result:
   needs:
     - codecov-test-linux-stable
   script:
-    - codecov create-report-results --code <CODE>
-    - codecov get-report-results --code <CODE>
+    - codecov create-report-results
+    - codecov get-report-results
 
 #
 #
