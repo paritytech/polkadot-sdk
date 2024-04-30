@@ -42,27 +42,11 @@ pub mod prelude {
 	};
 	// Client structs
 	pub use super::{
-		Backend, ExecutorDispatch, LocalExecutorDispatch, TestClient, TestClientBuilder,
+		Backend, ExecutorDispatch,  TestClient, TestClientBuilder,
 		WasmExecutionMethod,
 	};
 	// Keyring
 	pub use super::{AccountKeyring, Sr25519Keyring};
-}
-
-/// A unit struct which implements `NativeExecutionDispatch` feeding in the
-/// hard-coded runtime.
-pub struct LocalExecutorDispatch;
-
-impl sc_executor::NativeExecutionDispatch for LocalExecutorDispatch {
-	type ExtendHostFunctions = ();
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		substrate_test_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		substrate_test_runtime::native_version()
-	}
 }
 
 /// Test client database backend.
@@ -110,7 +94,7 @@ pub type TestClientBuilder<E, B> = substrate_test_client::TestClientBuilder<
 	GenesisParameters,
 >;
 
-/// Test client type with `LocalExecutorDispatch` and generic Backend.
+/// Test client type with `WasmExecutor` and generic Backend.
 pub type Client<B> = client::Client<
 	B,
 	client::LocalCallExecutor<substrate_test_runtime::Block, B, WasmExecutor>,

@@ -245,8 +245,8 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 	}
 }
 
-impl<Block: BlockT, Backend, G: GenesisInit>
-	TestClientBuilder<Block, client::LocalCallExecutor<Block, Backend, WasmExecutor>, Backend, G>
+impl<Block: BlockT, H, Backend, G: GenesisInit>
+	TestClientBuilder<Block, client::LocalCallExecutor<Block, Backend, WasmExecutor<H>>, Backend, G>
 {
 	/// Build the test client with the given native executor.
 	pub fn build_with_native_executor<RuntimeApi, I>(
@@ -255,17 +255,18 @@ impl<Block: BlockT, Backend, G: GenesisInit>
 	) -> (
 		client::Client<
 			Backend,
-			client::LocalCallExecutor<Block, Backend, WasmExecutor>,
+			client::LocalCallExecutor<Block, Backend, WasmExecutor<H>>,
 			Block,
 			RuntimeApi,
 		>,
 		sc_consensus::LongestChain<Backend, Block>,
 	)
 	where
-		I: Into<Option<WasmExecutor>>,
+		I: Into<Option<WasmExecutor<H>>>,
 		Backend: sc_client_api::backend::Backend<Block> + 'static,
+		H: sc_executor::HostFunctions,
 	{
-		let executor = executor.into().unwrap_or_default();
+		let executor = executor.into().unwrap_or_else(|| WasmExecutor::<H>::builder().build());
 		let executor = LocalCallExecutor::new(
 			self.backend.clone(),
 			executor.clone(),

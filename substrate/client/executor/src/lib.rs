@@ -45,6 +45,7 @@ pub use sp_core::traits::Externalities;
 pub use sp_version::{NativeVersion, RuntimeVersion};
 #[doc(hidden)]
 pub use sp_wasm_interface;
+pub use sp_wasm_interface::HostFunctions;
 pub use wasm_runtime::{read_embedded_version, WasmExecutionMethod};
 
 pub use sc_executor_common::{

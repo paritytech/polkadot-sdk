@@ -49,7 +49,14 @@ pub type ParachainBlockData = cumulus_primitives_core::ParachainBlockData<Block>
 pub type Backend = substrate_test_client::Backend<Block>;
 
 /// Test client executor.
-pub type Executor = client::LocalCallExecutor<Block, Backend, WasmExecutor>;
+pub type Executor = client::LocalCallExecutor<
+	Block,
+	Backend,
+	WasmExecutor<(
+		sp_io::SubstrateHostFunctions,
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	)>,
+>;
 
 /// Test client builder for Cumulus
 pub type TestClientBuilder =
