@@ -300,6 +300,18 @@ parameter_types! {
 	pub const StakingPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/staki");
 }
 
+parameter_types! {
+	pub Recipients: Vec<pallet_polkadot_inflation::InflationFn<Test>> = vec![
+		Box::new(
+			pallet_polkadot_inflation::Pallet::<Test>::polkadot_staking_income::<
+				IdealStakingRate,
+				Falloff,
+				StakingRecipient
+			>
+		),
+	];
+}
+
 use crate::inflation::polkadot_inflation as pallet_polkadot_inflation;
 
 // #[derive_impl(crate::inflation::polkadot_inflation::config_preludes::TestDefaultConfig)]
@@ -308,12 +320,9 @@ impl pallet_polkadot_inflation::Config for Test {
 	type UnixTime = Timestamp;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
-	type IdealStakingRate = IdealStakingRate;
-	type MinInflation = MinInflation;
+
 	type MaxInflation = MaxInflation;
-	type Falloff = Falloff;
-	type StakingRecipient = StakingRecipient;
-	type LeftoverRecipients = LeftoverRecipients;
+	type Recipients = Recipients;
 }
 
 pub struct EventListenerMock;
@@ -327,13 +336,12 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
 	}
 
-	fn on_before_era_end(_era_index: EraIndex) {
-		let new_total_stake = Staking::eras_total_stake(active_era());
+	fn on_before_era_end(era_index: EraIndex) {
+		let new_total_stake = Staking::eras_total_stake(era_index);
 		// Set the right last known staked amount,
 		<Test as pallet_polkadot_inflation::Config>::update_total_stake(new_total_stake, None);
 		// Trigger an inflation, which will populate the pot.
-		PolkadotInflation::inflate_with_bookkeeping()
-			.expect("inflation should not fail in test setup");
+		PolkadotInflation::inflate().expect("inflation should not fail in test setup");
 	}
 }
 

@@ -21,16 +21,7 @@
 //! (`pallet-staking``)[`crate`]. While generalized to a high extent, it is not necessarily written
 //! to be reusable outside of the Polkadot relay chain scope.
 //!
-//! This pallet processes inflation in the following steps: :
-//!
-//! 1. [`Config::MaxInflation`] is always minted, and it is split into two portions: `staking` and
-//!    `leftover` based on [`Config::IdealStakingRate`].
-//! assci diagram that show
-//! ```
-//! |-----------|---------------------------------|
-//!   leftover               staking
-//! ```
-//! 2. First, [`Config::PreStakingRecipients`] are paid out. This
+//! This pallet processes inflation in the following steps:
 
 use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill};
 
@@ -88,39 +79,29 @@ pub mod polkadot_inflation {
 	// 	}
 	// }
 
-	enum InflationPayout<AccountId> {
+	#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+	pub enum InflationPayout<AccountId> {
 		/// Pay the amount to the given account.
 		Pay(AccountId),
 		/// Split the equally between the given accounts.
 		///
-		/// This can always be implemented by a combination of [`Self::Pay`], but it is easier to express things like "split the amount between A, B, and C".
-		SplitEqual(Vec<AccountId>)
+		/// This can always be implemented by a combination of [`Self::Pay`], but it is easier to
+		/// express things like "split the amount between A, B, and C".
+		SplitEqual(Vec<AccountId>),
 		/// Burn the full amount.
 		Burn,
 	}
 
-	struct Inflation<T> {
-		max: BalanceOf<T>,
-		staking: BalanceOf<T>,
-	}
-
-	impl<T: Config> Inflation<T> {
-		fn new(max: BalanceOf<T>, staking: BalanceOf<T>) -> Self {
-			Self { max, staking }
-		}
-
-		fn leftover(&self) -> BalanceOf<T> {
-			self.max.saturating_sub(self.staking)
-		}
-
-		fn payout(&self, portion: Perquintill, recipient: InflationPayout) {
-			let amount = portion * self.staking;
-			match recipient {
-				InflationPayout::Pay(who) => T::Currency::mint_into(&who, amount).defensive(),
-				InflationPayout::Burn => T::Currency::burn(amount).defensive(),
-			}
-		}
-	}
+	/// A function that calculates the inflation payout.
+	///
+	/// Inputs are the total amount that is left from the inflation, and the proportion of the
+	/// tokens that are staked from the perspective of this pallet, as [`LastKnownStakedStorage`].
+	pub type InflationFn<T> = Box<
+		dyn FnOnce(
+			BalanceOf<T>,
+			Perquintill,
+		) -> (BalanceOf<T>, InflationPayout<<T as frame_system::Config>::AccountId>),
+	>;
 
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
@@ -131,33 +112,16 @@ pub mod polkadot_inflation {
 		type UnixTime: frame_support::traits::UnixTime;
 
 		#[pallet::no_default]
-		type Recipients: Get<Vec<(InflationPayout<Self::AccountId>, Box<dyn FnOnce(BalanceOf<Self>) -> BalanceOf<Self>)>>
-
-		/// Account Id to which staking inflation is forwarded to.
-		#[pallet::no_default]
-		type StakingRecipient: Get<Self::AccountId>;
-
-		/// Ideal staking rate. Combined with [`Config::MaxInflation`], [`Config::MinInflation`] and
-		/// [`Config::Falloff`] to determine the inflation rate that is forwarded to
-		/// [`StakingRecipient`] account.
-		type IdealStakingRate: Get<Perquintill>;
-		type MaxInflation: Get<Perquintill>;
-		type MinInflation: Get<Perquintill>;
-		type Falloff: Get<Perquintill>;
-
-		/// A list of recipients of [`Config::MaxInflation`] that front-run whatever is paid to
-		/// [`StakingRecipient`].
-		type PreStakingRecipients: Get<Vec<(Self::AccountId, Perquintill)>>;
-
-		/// A list of recipients that get the leftovers of the total inflation.
-		type LeftoverRecipients: Get<Vec<(Self::AccountId, Perquintill)>>;
-
-		#[pallet::no_default]
 		type Currency: fung::Mutate<Self::AccountId>
 			+ fung::Inspect<Self::AccountId, Balance = Self::CurrencyBalance>;
 
 		#[pallet::no_default]
 		type CurrencyBalance: frame_support::traits::tokens::Balance + From<u64>;
+
+		type MaxInflation: Get<Perquintill>;
+
+		#[pallet::no_default]
+		type Recipients: Get<Vec<InflationFn<Self>>>;
 
 		/// Customize how this pallet reads the total issuance, if need be.
 		///
@@ -216,7 +180,8 @@ pub mod polkadot_inflation {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		Inflated { staking: BalanceOf<T>, leftovers: BalanceOf<T> },
+		Inflated { amount: BalanceOf<T> },
+		InflationDistributed { payout: InflationPayout<T::AccountId>, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -230,75 +195,102 @@ pub mod polkadot_inflation {
 		#[pallet::weight(0)]
 		#[pallet::call_index(0)]
 		pub fn force_inflate(origin: OriginFor<T>) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::inflate_with_bookkeeping()?;
-			Ok(())
+			let _ = ensure_root(origin)?;
+			Self::inflate()
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Trigger an inflation,
-		pub fn inflate_with_duration(
-			since_last_inflation: u64,
-		) -> Result<Inflation<BalanceOf<T>>, Error<T>> {
+		pub fn polkadot_staking_income<
+			IdealStakingRate: Get<Perquintill>,
+			Falloff: Get<Perquintill>,
+			StakingPayoutAccount: Get<T::AccountId>,
+		>(
+			max_inflation: BalanceOf<T>,
+			staked_ratio: Perquintill,
+		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
+			let ideal_stake = IdealStakingRate::get();
+			let falloff = Falloff::get();
+
+			// TODO: notion of min-inflation is now gone, will this be an issue?
+			let adjustment =
+				pallet_staking_reward_fn::compute_inflation(staked_ratio, ideal_stake, falloff);
+			let staking_income = adjustment * max_inflation;
+			(staking_income, InflationPayout::Pay(StakingPayoutAccount::get()))
+		}
+
+		pub fn treasury_income<
+			TreasuryAccount: Get<T::AccountId>,
+			FixedIncome: Get<Perquintill>,
+		>(
+			max_inflation: BalanceOf<T>,
+			_staking_ratio: Perquintill,
+		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
+			let fixed_income = FixedIncome::get();
+			let treasury_income = fixed_income * max_inflation;
+			(treasury_income, InflationPayout::Pay(TreasuryAccount::get()))
+		}
+
+		pub fn inflate() -> DispatchResult {
+			let last_inflated = LastInflated::<T>::get();
+			let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
+			let since_last_inflation = now.saturating_sub(last_inflated);
+
 			let adjusted_total_issuance = T::adjusted_total_issuance();
 
 			// what percentage of a year has passed since last inflation?
 			let annual_proportion =
 				Perquintill::from_rational(since_last_inflation, MILLISECONDS_PER_YEAR);
-
-			let total_staked = Self::last_known_stake().ok_or(Error::<T>::UnknownLastStake)?;
-
-			let min_annual_inflation = T::MinInflation::get();
 			let max_annual_inflation = T::MaxInflation::get();
-			let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
-			let ideal_stake = T::IdealStakingRate::get();
-
-			let staked_ratio = Perquintill::from_rational(total_staked, adjusted_total_issuance);
-			let falloff = T::Falloff::get();
-
-			let adjustment =
-				pallet_staking_reward_fn::compute_inflation(staked_ratio, ideal_stake, falloff);
-			let staking_annual_inflation: Perquintill =
-				min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
 
 			// final inflation formula.
-			let payout_with_annual_inflation = |i| annual_proportion * i * adjusted_total_issuance;
+			let total_staked = Self::last_known_stake().ok_or(Error::<T>::UnknownLastStake)?;
+			let mut max_payout = annual_proportion * max_annual_inflation * adjusted_total_issuance;
+			let staked_ratio = Perquintill::from_rational(total_staked, adjusted_total_issuance);
 
-			// ideal amount that we want to payout.
-			let max_payout = payout_with_annual_inflation(max_annual_inflation);
-			let staking_inflation = payout_with_annual_inflation(staking_annual_inflation);
-
-			Ok(Inflation::new(max_payout, staking_inflation))
-		}
-
-		pub fn inflate_with_bookkeeping() -> DispatchResult {
-			let last_inflated = LastInflated::<T>::get();
-			let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
-			let since_last_inflation = now.saturating_sub(last_inflated);
-			let inflation = Self::inflate_with_duration(since_last_inflation)?;
-
-			// distribute the inflation to pots.
-			T::Currency::mint_into(
-				&T::StakingRecipient::get(),
-				staking + T::Currency::minimum_balance(),
-			)
-			.defensive();
-			T::LeftoverRecipients::get().into_iter().for_each(|(who, proportion)| {
-				let amount = proportion * leftovers;
-				T::Currency::mint_into(&who, amount).defensive();
-			});
+			use sp_runtime::traits::Zero;
+			if max_payout.is_zero() {
+				return Ok(());
+			}
 
 			crate::log!(
-				debug,
-				"inflation: done at {:?}, period duration: {:?}, staking: {:?}, leftovers: {:?}",
+				info,
+				"inflating at {:?}, last inflated {:?}, max inflation {:?}, distributing among {} recipients",
 				now,
-				since_last_inflation,
-				staking,
-				leftovers
+				last_inflated,
+				max_payout,
+				T::Recipients::get().len()
 			);
+			Self::deposit_event(Event::Inflated { amount: max_payout });
 
-			Self::deposit_event(Event::Inflated { staking, leftovers });
+			for payout_fn in T::Recipients::get() {
+				let (amount, payout) = payout_fn(max_payout, staked_ratio);
+				log::info!(
+					"amount of {:?} paid out to {:?} with {:?} remaining",
+					amount,
+					payout,
+					max_payout
+				);
+				match &payout {
+					InflationPayout::Pay(who) => {
+						T::Currency::mint_into(who, max_payout).defensive();
+						max_payout -= amount;
+					},
+					InflationPayout::SplitEqual(whos) => {
+						let amount_split = max_payout / (whos.len() as u32).into();
+						for who in whos {
+							T::Currency::mint_into(&who, amount_split).defensive();
+							max_payout -= amount_split;
+						}
+					},
+					InflationPayout::Burn => {
+						// no burn needed, we haven't even minted anything.
+						max_payout -= amount;
+					},
+				}
+				Self::deposit_event(Event::InflationDistributed { payout, amount });
+			}
+
 			LastInflated::<T>::put(T::UnixTime::now().as_millis().saturated_into::<u64>());
 
 			Ok(())
