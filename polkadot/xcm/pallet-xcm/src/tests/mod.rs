@@ -557,11 +557,7 @@ fn incomplete_execute_reverts_side_effects() {
 					),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
-				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
-					index: 4,
-					error: [24, 0, 0, 0,],
-					message: Some("LocalExecutionIncomplete")
-				})
+				error: sp_runtime::DispatchError::from(Error::<Test>::LocalExecutionIncomplete)
 			})
 		);
 	});
