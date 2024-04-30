@@ -556,18 +556,21 @@ parameter_types! {
 	//	"UNSIGNED_PHASE"
 	//);
 
-	pub SignedPhase: u32 = (1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2);
-	pub UnsignedPhase: u32 = (1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	pub SignedPhase: u32 = 0; //(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	pub UnsignedPhase: u32 = (5 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2);
+
+	// TODO: fetch bounds from storage for in-the-fly testing.
 
 	pub SignedValidationPhase: BlockNumber = Pages::get();
 	pub Lookhaead: BlockNumber = Pages::get();
-	pub Pages: PageIndex = 3;
-	pub MaxWinnersPerPage: u32 = 5;
-	pub MaxBackersPerWinner: u32 = 16;
+	pub Pages: PageIndex = 5;
+	pub MaxWinnersPerPage: u32 = 10;
+	pub MaxBackersPerWinner: u32 = 12;
 
-	pub VoterSnapshotPerBlock: VoterIndex = 4;
-	pub TargetSnapshotPerBlock: TargetIndex = 12;
+	pub VoterSnapshotPerBlock: VoterIndex = 10;
+	pub TargetSnapshotPerBlock: TargetIndex = 10;
 	pub ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
+	pub MaxVoters: u32 = VoterSnapshotPerBlock::get() * Pages::get();
 
 	pub const SignedMaxSubmissions: u32 = 128;
 	pub const SignedMaxRefunds: u32 = 128 / 4;
@@ -579,12 +582,12 @@ parameter_types! {
 	pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(5u32, 10_000);
 
 	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 4;
-
-	pub const MaxElectingVoters: u32 = 22_500;
 	pub const MaxActiveValidators: u32 = 1000;
 
-	pub ElectionBounds: frame_election_provider_support::bounds::ElectionBounds =
-		ElectionBoundsBuilder::default().voters_count(MaxElectingVoters::get().into()).build();
+	// on-chain election.
+	pub const MaxOnchainElectingVoters: u32 = 22_500;
+	pub OnChainElectionBounds: frame_election_provider_support::bounds::ElectionBounds =
+		ElectionBoundsBuilder::default().voters_count(MaxOnchainElectingVoters::get().into()).build();
 
 	pub const NposSolutionPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
@@ -595,7 +598,7 @@ frame_election_provider_support::generate_solution_type!(
 		VoterIndex = VoterIndex,
 		TargetIndex = TargetIndex,
 		Accuracy = sp_runtime::PerU16,
-		MaxVoters = MaxElectingVoters,
+		MaxVoters = MaxVoters,
 	>(16)
 );
 
@@ -692,7 +695,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
 	type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
 	type DataProvider = Staking;
-	type Bounds = ElectionBounds;
+	type Bounds = OnChainElectionBounds;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type WeightInfo = (); // weights::frame_election_provider_support::WeightInfo<Runtime>;
