@@ -49,7 +49,6 @@ use polkadot_primitives::{BlockId, Id as ParaId, OccupiedCoreAssumption};
 
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
-use sc_consensus_slots::time_until_next_slot;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
@@ -109,16 +108,37 @@ struct SlotAndTime {
 #[derive(Debug)]
 struct SlotTimer {
 	slot_duration: SlotDuration,
+	drift: Duration,
+}
+
+/// Returns current duration since unix epoch.
+fn duration_now() -> Duration {
+	use std::time::SystemTime;
+	let now = SystemTime::now();
+	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
+		panic!("Current time {:?} is before unix epoch. Something is wrong: {:?}", now, e)
+	})
+}
+
+/// TODO For testing of slot drift, check if can be moved elsewhere.
+/// Returns the duration until the next slot from now.
+fn time_until_next_slot(slot_duration: Duration, drift: Duration) -> Duration {
+	let now = duration_now().as_millis() - drift.as_millis();
+
+	let next_slot = (now + slot_duration.as_millis()) / slot_duration.as_millis();
+	let remaining_millis = next_slot * slot_duration.as_millis() - now;
+	Duration::from_millis(remaining_millis as u64)
 }
 
 impl SlotTimer {
-	pub fn new(slot_duration: SlotDuration) -> Self {
-		Self { slot_duration }
+	pub fn new_with_drift(slot_duration: SlotDuration, drift: Duration) -> Self {
+		Self { slot_duration, drift }
 	}
 
 	/// Returns a future that resolves when the next slot arrives.
 	pub async fn wait_until_next_slot(&self) -> SlotAndTime {
-		let time_until_next_slot = time_until_next_slot(self.slot_duration.as_duration());
+		let time_until_next_slot =
+			time_until_next_slot(self.slot_duration.as_duration(), self.drift);
 		tokio::time::sleep(time_until_next_slot).await;
 		let timestamp = sp_timestamp::Timestamp::current();
 		SlotAndTime { slot: Slot::from_timestamp(timestamp, self.slot_duration), timestamp }
@@ -177,7 +197,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		},
 	};
 
-	let slot_timer = SlotTimer::new(slot_duration);
+	let slot_timer = SlotTimer::new_with_drift(slot_duration, Duration::from_secs(1));
 
 	let mut collator = {
 		let params = collator_util::Params {
