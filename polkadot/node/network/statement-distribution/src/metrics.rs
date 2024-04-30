@@ -36,6 +36,7 @@ struct MetricsInner {
 	share: prometheus::Histogram,
 	// V2+
 	peer_rate_limit_request_drop: prometheus::Counter<prometheus::U64>,
+	max_parallel_requests_reached: prometheus::Counter<prometheus::U64>,
 }
 
 /// Statement Distribution metrics.
@@ -127,6 +128,15 @@ impl Metrics {
 		}
 	}
 
+	/// Update max parallel requests reached counter
+	/// This counter is updated when the maximum number of parallel requests is reached
+	/// and we are waiting for one of the requests to finish
+	pub fn on_max_parallel_requests_reached(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.max_parallel_requests_reached.inc();
+		}
+	}
+
 }
 
 impl metrics::Metrics for Metrics {
@@ -210,6 +220,13 @@ impl metrics::Metrics for Metrics {
 				prometheus::Counter::new(
 					"polkadot_parachain_statement_distribution_peer_rate_limit_request_drop_total",
 					"Number of statement distribution requests dropped because of the peer rate limiting.",
+				)?,
+				registry,
+			)?,
+			max_parallel_requests_reached: prometheus::register(
+				prometheus::Counter::new(
+					"polkadot_parachain_statement_distribution_max_parallel_requests_reached_total",
+					"Number of times the maximum number of parallel requests was reached.",
 				)?,
 				registry,
 			)?,
