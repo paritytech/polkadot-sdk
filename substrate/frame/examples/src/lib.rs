@@ -43,6 +43,9 @@
 //! - [`pallet_example_frame_crate`]: Example pallet showcasing how one can be
 //! built using only the `frame` umbrella crate.
 //!
+//! - [`pallet_example_single_block_migrations`]: An example pallet demonstrating best-practices for
+//!   writing storage migrations.
+//!
 //! - [`pallet_example_tasks`]: This pallet demonstrates the use of `Tasks` to execute service work.
 //!
 //! **Tip**: Use `cargo doc --package <pallet-name> --open` to view each pallet's documentation.

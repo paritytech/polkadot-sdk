@@ -7,8 +7,8 @@ cargo-clippy:
   variables:
     RUSTFLAGS: "-D warnings"
   script:
-    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace
-    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --all-features --locked --workspace
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace --quiet
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --all-features --locked --workspace --quiet
 
 check-try-runtime:
   stage: check
@@ -104,21 +104,20 @@ check-toml-format:
     - .docker-env
     - .test-pr-refs
   script:
-    - |
-      export RUST_LOG=remote-ext=debug,runtime=debug
-
-      echo "---------- Downloading try-runtime CLI ----------"
-      curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.5.0/try-runtime-x86_64-unknown-linux-musl -o try-runtime
-      chmod +x ./try-runtime
-
-      echo "---------- Building ${PACKAGE} runtime ----------"
-      time cargo build --release --locked -p "$PACKAGE" --features try-runtime
-
-      echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
+    - export RUST_LOG=remote-ext=debug,runtime=debug
+    - echo "---------- Downloading try-runtime CLI ----------"
+    - curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.5.4/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+    - chmod +x ./try-runtime
+    - echo "Using try-runtime-cli version:"
+    - ./try-runtime --version
+    - echo "---------- Building ${PACKAGE} runtime ----------"
+    - time cargo build --release --locked -p "$PACKAGE" --features try-runtime
+    - echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
+    - >
       time ./try-runtime ${COMMAND_EXTRA_ARGS} \
-          --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
-          on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
-      sleep 5
+        --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
+        on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
+    - sleep 5
 
 # Check runtime migrations for Parity managed relay chains
 check-runtime-migration-westend:
@@ -256,3 +255,19 @@ find-fail-ci-phrase:
       echo "No $ASSERT_REGEX was found, exiting with 0";
       exit 0;
       fi
+
+check-core-crypto-features:
+  stage: check
+  extends:
+    - .docker-env
+    - .common-refs
+  script:
+    - pushd substrate/primitives/core
+    - ./check-features-variants.sh
+    - popd
+    - pushd substrate/primitives/application-crypto
+    - ./check-features-variants.sh
+    - popd
+    - pushd substrate/primitives/keyring
+    - ./check-features-variants.sh
+    - popd

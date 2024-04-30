@@ -30,7 +30,7 @@ mod tests;
 use crate::{
 	assigner_on_demand, configuration,
 	paras::AssignCoretime,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider},
 	ParaId,
 };
 
@@ -256,7 +256,7 @@ pub mod pallet {
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
@@ -316,14 +316,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		}
 	}
 
-	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
-		let config = <configuration::Pallet<T>>::config();
-		AssignmentProviderConfig {
-			max_availability_timeouts: config.on_demand_retries,
-			ttl: config.on_demand_ttl,
-		}
-	}
-
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {
 		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
@@ -332,8 +324,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	fn session_core_count() -> u32 {
-		let config = <configuration::Pallet<T>>::config();
-		config.coretime_cores
+		let config = configuration::ActiveConfig::<T>::get();
+		config.scheduler_params.num_cores
 	}
 }
 
@@ -481,9 +473,9 @@ impl<T: Config> AssignCoretime for Pallet<T> {
 		let current_block = frame_system::Pallet::<T>::block_number();
 
 		// Add a new core and assign the para to it.
-		let mut config = <configuration::Pallet<T>>::config();
-		let core = config.coretime_cores;
-		config.coretime_cores.saturating_inc();
+		let mut config = configuration::ActiveConfig::<T>::get();
+		let core = config.scheduler_params.num_cores;
+		config.scheduler_params.num_cores.saturating_inc();
 
 		// `assign_coretime` is only called at genesis or by root, so setting the active
 		// config here is fine.

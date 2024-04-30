@@ -218,5 +218,3 @@ try-runtime = [
 	"pallet-nomination-pools/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 ]
-
-experimental = [ "pallet-aura/experimental" ]

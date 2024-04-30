@@ -151,7 +151,7 @@ impl<
 	fn can_check_out(_dest: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungible_adapter",
-			"check_out dest: {:?}, what: {:?}",
+			"can_check_out dest: {:?}, what: {:?}",
 			_dest,
 			what
 		);

@@ -25,8 +25,9 @@ use crate::{
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use sp_runtime::{DigestItem, RuntimeDebug};
-use sp_std::vec::Vec;
 
 /// Epoch slot claim digest entry.
 ///

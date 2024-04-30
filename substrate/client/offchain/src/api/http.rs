@@ -604,7 +604,7 @@ enum WorkerToApi {
 		/// because we don't want the `HttpApi` to have to drive the reading.
 		/// Instead, reading an item from the channel will notify the worker task, which will push
 		/// the next item.
-		/// Can also be used to send an error, in case an error happend on the HTTP socket. After
+		/// Can also be used to send an error, in case an error happened on the HTTP socket. After
 		/// an error is sent, the channel will close.
 		body: mpsc::Receiver<Result<hyper::body::Bytes, hyper::Error>>,
 	},

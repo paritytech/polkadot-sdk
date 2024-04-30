@@ -31,7 +31,7 @@ use sp_runtime::{
 	transaction_validity, BuildStorage, PerU16, Perbill, Percent,
 };
 use sp_staking::{
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, SessionIndex,
 };
 use sp_std::prelude::*;
@@ -187,7 +187,7 @@ parameter_types! {
 	// TODO: remove what's not needed from here down:
 
 	// we expect a minimum of 3 blocks in signed phase and unsigned phases before trying
-	// enetering in emergency phase after the election failed.
+	// entering in emergency phase after the election failed.
 	pub static MinBlocksBeforeEmergency: BlockNumber = 3;
 	#[derive(Debug)]
 	pub static MaxVotesPerVoter: u32 = 16;
@@ -286,7 +286,6 @@ parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
 	pub const BondingDuration: sp_staking::EraIndex = 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 7; // 1/4 the bonding duration.
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(40);
 	pub HistoryDepth: u32 = 84;
 }
 
@@ -299,12 +298,15 @@ impl pallet_bags_list::Config for Runtime {
 }
 
 parameter_types! {
+	pub static MaxUnlockingChunks: u32 = 32;
 	pub MaxControllersInDeprecationBatch: u32 = 5900;
 	pub static MaxValidatorSet: u32 = 500;
 }
 
 /// Upper limit on the number of NPOS nominations.
 const MAX_QUOTA_NOMINATIONS: u32 = 16;
+/// Disabling factor set explicitly to byzantine threshold
+pub(crate) const SLASHING_DISABLING_FACTOR: usize = 3;
 
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
@@ -324,7 +326,6 @@ impl pallet_staking::Config for Runtime {
 	type NextNewSession = Session;
 	type MaxExposurePageSize = ConstU32<256>;
 	type MaxValidatorSet = MaxValidatorSet;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = ElectionProvider;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = BagsList;
@@ -336,6 +337,7 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<SLASHING_DISABLING_FACTOR>;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
@@ -870,9 +872,11 @@ pub(crate) fn try_submit_solution() -> Result<(), ()> {
 			let page_score = paged_solution.0.score;
 
 			paged_solutions.push(paged_solution.0.solution_pages[0].clone());
-			total_election_score += page_score;
+			total_election_score.minimal_stake += page_score.minimal_stake;
+			total_election_score.sum_stake += page_score.sum_stake;
+			// not correct btw (see below).
+			total_election_score.sum_stake_squared += page_score.sum_stake_squared;
 		}
-
 		//TODO: fix this hack
 		total_election_score.sum_stake_squared = 40500000;
 
@@ -915,7 +919,6 @@ pub(crate) fn on_offence_now(
 		offenders,
 		slash_fraction,
 		Staking::eras_start_session_index(now).unwrap(),
-		DisableStrategy::WhenSlashed,
 	);
 }
 
@@ -930,18 +933,16 @@ pub(crate) fn add_slash(who: &AccountId) {
 	);
 }
 
-// Slashes enough validators to cross the `Staking::OffendingValidatorsThreshold`.
-pub(crate) fn slash_through_offending_threshold() {
-	let validators = Session::validators();
-	let mut remaining_slashes = <T as pallet_staking::Config>::OffendingValidatorsThreshold::get() *
-		validators.len() as u32;
+// Slashes 1/2 of the active set. Returns the `AccountId`s of the slashed validators.
+pub(crate) fn slash_half_the_active_set() -> Vec<AccountId> {
+	let mut slashed = Session::validators();
+	slashed.truncate(slashed.len() / 2);
 
-	for v in validators.into_iter() {
-		if remaining_slashes != 0 {
-			add_slash(&v);
-			remaining_slashes -= 1;
-		}
+	for v in slashed.iter() {
+		add_slash(v);
 	}
+
+	slashed
 }
 
 // Slashes a percentage of the active nominators that haven't been slashed yet, with

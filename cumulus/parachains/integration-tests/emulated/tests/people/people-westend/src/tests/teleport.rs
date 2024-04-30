@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use people_westend_runtime::xcm_config::XcmConfig as PeopleWestendXcmConfig;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
@@ -155,7 +155,7 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	test.assert();
 
 	let delivery_fees = Westend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
+		xcm_helpers::teleport_assets_delivery_fees::<
 			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
@@ -204,7 +204,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = PeopleWestend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
+		xcm_helpers::teleport_assets_delivery_fees::<
 			<PeopleWestendXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
@@ -248,7 +248,7 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = PeopleWestend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
+		xcm_helpers::teleport_assets_delivery_fees::<
 			<PeopleWestendXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});

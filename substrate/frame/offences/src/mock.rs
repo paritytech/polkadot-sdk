@@ -33,7 +33,7 @@ use sp_runtime::{
 	BuildStorage, Perbill,
 };
 use sp_staking::{
-	offence::{self, DisableStrategy, Kind, OffenceDetails},
+	offence::{self, Kind, OffenceDetails},
 	SessionIndex,
 };
 
@@ -51,7 +51,6 @@ impl<Reporter, Offender> offence::OnOffenceHandler<Reporter, Offender, Weight>
 		_offenders: &[OffenceDetails<Reporter, Offender>],
 		slash_fraction: &[Perbill],
 		_offence_session: SessionIndex,
-		_disable_strategy: DisableStrategy,
 	) -> Weight {
 		OnOffencePerbill::mutate(|f| {
 			*f = slash_fraction.to_vec();
@@ -74,7 +73,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

@@ -2,8 +2,10 @@
 timeout = 1000
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config]
-  max_validators_per_core = 5
   needed_approvals = 8
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+  max_validators_per_core = 5
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
   max_approval_coalesce_count = 5

@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-ethereum-client"
 description = "Snowbridge Ethereum Client Pallet"
-version = "0.0.0"
+version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -15,14 +15,10 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.196", optional = true }
-serde_json = { version = "1.0.113", optional = true }
+serde = { optional = true, workspace = true, default-features = true }
+serde_json = { optional = true, workspace = true, default-features = true }
 codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-ssz_rs = { version = "0.9.0", default-features = false }
-ssz_rs_derive = { version = "0.9.0", default-features = false }
-byte-slice-cast = { version = "1.2.1", default-features = false }
-rlp = { version = "0.5.2", default-features = false }
 hex-literal = { version = "0.4.1", optional = true }
 log = { workspace = true }
 
@@ -36,21 +32,20 @@ sp-io = { path = "../../../../substrate/primitives/io", default-features = false
 
 snowbridge-core = { path = "../../primitives/core", default-features = false }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
-snowbridge-pallet-ethereum-client-fixtures = { path = "./fixtures", default-features = false, optional = true }
+snowbridge-pallet-ethereum-client-fixtures = { path = "fixtures", default-features = false, optional = true }
 primitives = { package = "snowbridge-beacon-primitives", path = "../../primitives/beacon", default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
-bp-runtime = { path = "../../../primitives/runtime", default-features = false }
 pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.5"
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-serde_json = "1.0.113"
+serde_json = { workspace = true, default-features = true }
 hex-literal = "0.4.1"
 pallet-timestamp = { path = "../../../../substrate/frame/timestamp" }
-snowbridge-pallet-ethereum-client-fixtures = { path = "./fixtures" }
+snowbridge-pallet-ethereum-client-fixtures = { path = "fixtures" }
 sp-io = { path = "../../../../substrate/primitives/io" }
-serde = "1.0.196"
+serde = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -62,15 +57,12 @@ fuzzing = [
 	"sp-io",
 ]
 std = [
-	"bp-runtime/std",
-	"byte-slice-cast/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"pallet-timestamp/std",
 	"primitives/std",
-	"rlp/std",
 	"scale-info/std",
 	"serde",
 	"snowbridge-core/std",
@@ -80,7 +72,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"ssz_rs/std",
 	'frame-benchmarking/std',
 ]
 runtime-benchmarks = [

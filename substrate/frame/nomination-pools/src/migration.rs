@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::log;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
@@ -70,7 +70,7 @@ pub mod unversioned {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
 
-			// recalcuate the `TotalValueLocked` to compare with the current on-chain TVL which may
+			// recalculate the `TotalValueLocked` to compare with the current on-chain TVL which may
 			// be out of sync.
 			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
 			let onchain_tvl = TotalValueLocked::<T>::get();
@@ -132,7 +132,7 @@ pub mod v8 {
 	}
 
 	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			Ok(Vec::new())
@@ -211,7 +211,7 @@ pub(crate) mod v7 {
 		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, V7BondedPoolInner<T>>;
 
 	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
 			// The TVL should be the sum of all the funds that are actively staked and in the
@@ -282,7 +282,7 @@ mod v6 {
 			})
 		}
 	}
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV6<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV6<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut success = 0u64;
 			let mut fail = 0u64;
@@ -342,25 +342,25 @@ pub mod v5 {
 	pub struct MigrateToV5<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV5<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let in_code = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			log!(
 				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
-				current,
+				"Running migration with in-code storage version {:?} / onchain {:?}",
+				in_code,
 				onchain
 			);
 
-			if current == 5 && onchain == 4 {
+			if in_code == 5 && onchain == 4 {
 				let mut translated = 0u64;
 				RewardPools::<T>::translate::<OldRewardPool<T>, _>(|_id, old_value| {
 					translated.saturating_inc();
 					Some(old_value.migrate_to_v5())
 				});
 
-				current.put::<Pallet<T>>();
-				log!(info, "Upgraded {} pools, storage to version {:?}", translated, current);
+				in_code.put::<Pallet<T>>();
+				log!(info, "Upgraded {} pools, storage to version {:?}", translated, in_code);
 
 				// reads: translated + onchain version.
 				// writes: translated + current.put.
@@ -498,12 +498,12 @@ pub mod v4 {
 	#[allow(deprecated)]
 	impl<T: Config, U: Get<Perbill>> OnRuntimeUpgrade for MigrateToV4<T, U> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			log!(
 				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
+				"Running migration with in-code storage version {:?} / onchain {:?}",
 				current,
 				onchain
 			);
@@ -579,13 +579,13 @@ pub mod v3 {
 	pub struct MigrateToV3<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV3<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			if onchain == 2 {
 				log!(
 					info,
-					"Running migration with current storage version {:?} / onchain {:?}",
+					"Running migration with in-code storage version {:?} / onchain {:?}",
 					current,
 					onchain
 				);
@@ -859,12 +859,12 @@ pub mod v2 {
 
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			log!(
 				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
+				"Running migration with in-code storage version {:?} / onchain {:?}",
 				current,
 				onchain
 			);
@@ -976,12 +976,12 @@ pub mod v1 {
 	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			log!(
 				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
+				"Running migration with in-code storage version {:?} / onchain {:?}",
 				current,
 				onchain
 			);

@@ -22,33 +22,34 @@
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp,
-	paras::{self, SetGoAhead},
-	scheduler::{self, AvailabilityTimeoutStatus},
+	paras::{self, UpgradeStrategy},
+	scheduler,
 	shared::{self, AllowedRelayParentsTracker},
+	util::make_persisted_validation_data_with_parent,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	traits::{Defensive, EnqueueMessage, Footprint, QueueFootprint},
+	traits::{EnqueueMessage, Footprint, QueueFootprint},
 	BoundedSlice,
 };
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
-	effective_minimum_backing_votes, supermajority_threshold, well_known_keys,
-	AvailabilityBitfield, BackedCandidate, CandidateCommitments, CandidateDescriptor,
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash,
-	HeadData, Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage,
-	ValidatorId, ValidatorIndex, ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
+	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
+	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
+	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
+	ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
 #[cfg(feature = "std")]
 use sp_std::fmt;
 use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
 	prelude::*,
 };
 
@@ -59,6 +60,8 @@ pub(crate) mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+
+pub mod migration;
 
 pub trait WeightInfo {
 	fn receive_upward_messages(i: u32) -> Weight;
@@ -83,20 +86,8 @@ impl WeightInfo for () {
 /// `configuration` pallet to check these values before setting.
 pub const MAX_UPWARD_MESSAGE_SIZE_BOUND: u32 = 128 * 1024;
 
-/// A bitfield signed by a validator indicating that it is keeping its piece of the erasure-coding
-/// for any backed candidates referred to by a `1` bit available.
-///
-/// The bitfield's signature should be checked at the point of submission. Afterwards it can be
-/// dropped.
-#[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(Debug))]
-pub struct AvailabilityBitfieldRecord<N> {
-	bitfield: AvailabilityBitfield, // one bit per core.
-	submitted_at: N,                // for accounting, as meaning of bits may change over time.
-}
-
 /// A backed candidate pending availability.
-#[derive(Encode, Decode, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, PartialEq, TypeInfo, Clone)]
 #[cfg_attr(test, derive(Debug))]
 pub struct CandidatePendingAvailability<H, N> {
 	/// The availability core this is assigned to.
@@ -105,6 +96,8 @@ pub struct CandidatePendingAvailability<H, N> {
 	hash: CandidateHash,
 	/// The candidate descriptor.
 	descriptor: CandidateDescriptor<H>,
+	/// The candidate commitments.
+	commitments: CandidateCommitments,
 	/// The received availability votes. One bit per validator.
 	availability_votes: BitVec<u8, BitOrderLsb0>,
 	/// The backers of the candidate pending availability.
@@ -124,8 +117,11 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 	}
 
 	/// Get the relay-chain block number this was backed in.
-	pub(crate) fn backed_in_number(&self) -> &N {
-		&self.backed_in_number
+	pub(crate) fn backed_in_number(&self) -> N
+	where
+		N: Clone,
+	{
+		self.backed_in_number.clone()
 	}
 
 	/// Get the core index.
@@ -143,6 +139,11 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 		&self.descriptor
 	}
 
+	/// Get the candidate commitments.
+	pub(crate) fn candidate_commitments(&self) -> &CandidateCommitments {
+		&self.commitments
+	}
+
 	/// Get the candidate's relay parent's number.
 	pub(crate) fn relay_parent_number(&self) -> N
 	where
@@ -151,11 +152,22 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 		self.relay_parent_number.clone()
 	}
 
+	/// Get the candidate backing group.
+	pub(crate) fn backing_group(&self) -> GroupIndex {
+		self.backing_group
+	}
+
+	/// Get the candidate's backers.
+	pub(crate) fn backers(&self) -> &BitVec<u8, BitOrderLsb0> {
+		&self.backers
+	}
+
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub(crate) fn new(
 		core: CoreIndex,
 		hash: CandidateHash,
 		descriptor: CandidateDescriptor<H>,
+		commitments: CandidateCommitments,
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		backers: BitVec<u8, BitOrderLsb0>,
 		relay_parent_number: N,
@@ -166,6 +178,7 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 			core,
 			hash,
 			descriptor,
+			commitments,
 			availability_votes,
 			backers,
 			relay_parent_number,
@@ -232,7 +245,7 @@ pub enum AggregateMessageOrigin {
 /// Identifies a UMP queue inside the `MessageQueue` pallet.
 ///
 /// It is written in verbose form since future variants like `Here` and `Bridged` are already
-/// forseeable.
+/// foreseeable.
 #[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum UmpQueueId {
 	/// The message originated from this parachain.
@@ -256,8 +269,10 @@ pub type MaxUmpMessageLenOf<T> =
 pub mod pallet {
 	use super::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -300,30 +315,10 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Validator indices are out of order or contains duplicates.
-		UnsortedOrDuplicateValidatorIndices,
-		/// Dispute statement sets are out of order or contain duplicates.
-		UnsortedOrDuplicateDisputeStatementSet,
-		/// Backed candidates are out of order (core index) or contain duplicates.
-		UnsortedOrDuplicateBackedCandidates,
-		/// A different relay parent was provided compared to the on-chain stored one.
-		UnexpectedRelayParent,
-		/// Availability bitfield has unexpected size.
-		WrongBitfieldSize,
-		/// Bitfield consists of zeros only.
-		BitfieldAllZeros,
-		/// Multiple bitfields submitted by same validator or validators out of order by index.
-		BitfieldDuplicateOrUnordered,
 		/// Validator index out of bounds.
 		ValidatorIndexOutOfBounds,
-		/// Invalid signature
-		InvalidBitfieldSignature,
 		/// Candidate submitted but para not scheduled.
 		UnscheduledCandidate,
-		/// Candidate scheduled despite pending candidate already existing for the para.
-		CandidateScheduledBeforeParaFree,
-		/// Scheduled cores out of order.
-		ScheduledOutOfOrder,
 		/// Head data exceeds the configured maximum.
 		HeadDataTooLarge,
 		/// Code upgrade prematurely.
@@ -359,30 +354,21 @@ pub mod pallet {
 		/// The `para_head` hash in the candidate descriptor doesn't match the hash of the actual
 		/// para head in the commitments.
 		ParaHeadMismatch,
-		/// A bitfield that references a freed core,
-		/// either intentionally or as part of a concluded
-		/// invalid dispute.
-		BitfieldReferencesFreedCore,
 	}
 
-	/// The latest bitfield for each validator, referred to by their index in the validator set.
+	/// Candidates pending availability by `ParaId`. They form a chain starting from the latest
+	/// included head of the para.
+	/// Use a different prefix post-migration to v1, since the v0 `PendingAvailability` storage
+	/// would otherwise have the exact same prefix which could cause undefined behaviour when doing
+	/// the migration.
 	#[pallet::storage]
-	pub(crate) type AvailabilityBitfields<T: Config> =
-		StorageMap<_, Twox64Concat, ValidatorIndex, AvailabilityBitfieldRecord<BlockNumberFor<T>>>;
-
-	/// Candidates pending availability by `ParaId`.
-	#[pallet::storage]
+	#[pallet::storage_prefix = "V1"]
 	pub(crate) type PendingAvailability<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ParaId,
-		CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>,
+		VecDeque<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>>,
 	>;
-
-	/// The commitments of candidates pending availability, by `ParaId`.
-	#[pallet::storage]
-	pub(crate) type PendingAvailabilityCommitments<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, CandidateCommitments>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {}
@@ -391,22 +377,45 @@ pub mod pallet {
 const LOG_TARGET: &str = "runtime::inclusion";
 
 /// The reason that a candidate's outputs were rejected for.
-#[derive(derive_more::From)]
 #[cfg_attr(feature = "std", derive(Debug))]
-enum AcceptanceCheckErr<BlockNumber> {
+enum AcceptanceCheckErr {
 	HeadDataTooLarge,
 	/// Code upgrades are not permitted at the current time.
 	PrematureCodeUpgrade,
 	/// The new runtime blob is too large.
 	NewCodeTooLarge,
 	/// The candidate violated this DMP acceptance criteria.
-	ProcessedDownwardMessages(dmp::ProcessedDownwardMessagesAcceptanceErr),
+	ProcessedDownwardMessages,
 	/// The candidate violated this UMP acceptance criteria.
-	UpwardMessages(UmpAcceptanceCheckErr),
+	UpwardMessages,
 	/// The candidate violated this HRMP watermark acceptance criteria.
-	HrmpWatermark(hrmp::HrmpWatermarkAcceptanceErr<BlockNumber>),
+	HrmpWatermark,
 	/// The candidate violated this outbound HRMP acceptance criteria.
-	OutboundHrmp(hrmp::OutboundHrmpAcceptanceErr),
+	OutboundHrmp,
+}
+
+impl From<dmp::ProcessedDownwardMessagesAcceptanceErr> for AcceptanceCheckErr {
+	fn from(_: dmp::ProcessedDownwardMessagesAcceptanceErr) -> Self {
+		Self::ProcessedDownwardMessages
+	}
+}
+
+impl From<UmpAcceptanceCheckErr> for AcceptanceCheckErr {
+	fn from(_: UmpAcceptanceCheckErr) -> Self {
+		Self::UpwardMessages
+	}
+}
+
+impl<BlockNumber> From<hrmp::HrmpWatermarkAcceptanceErr<BlockNumber>> for AcceptanceCheckErr {
+	fn from(_: hrmp::HrmpWatermarkAcceptanceErr<BlockNumber>) -> Self {
+		Self::HrmpWatermark
+	}
+}
+
+impl From<hrmp::OutboundHrmpAcceptanceErr> for AcceptanceCheckErr {
+	fn from(_: hrmp::OutboundHrmpAcceptanceErr) -> Self {
+		Self::OutboundHrmp
+	}
 }
 
 /// An error returned by [`Pallet::check_upward_messages`] that indicates a violation of one of
@@ -472,9 +481,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		// unlike most drain methods, drained elements are not cleared on `Drop` of the iterator
 		// and require consumption.
-		for _ in <PendingAvailabilityCommitments<T>>::drain() {}
-		for _ in <PendingAvailability<T>>::drain() {}
-		for _ in <AvailabilityBitfields<T>>::drain() {}
+		for _ in PendingAvailability::<T>::drain() {}
 
 		Self::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
 	}
@@ -493,27 +500,18 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Bitfields are expected to have been sanitized already. E.g. via `sanitize_bitfields`!
 	///
-	/// Updates storage items `PendingAvailability` and `AvailabilityBitfields`.
+	/// Updates storage items `PendingAvailability`.
 	///
 	/// Returns a `Vec` of `CandidateHash`es and their respective `AvailabilityCore`s that became
 	/// available, and cores free.
-	pub(crate) fn update_pending_availability_and_get_freed_cores<F>(
-		expected_bits: usize,
+	pub(crate) fn update_pending_availability_and_get_freed_cores(
 		validators: &[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
-		core_lookup: F,
-	) -> Vec<(CoreIndex, CandidateHash)>
-	where
-		F: Fn(CoreIndex) -> Option<ParaId>,
-	{
-		let mut assigned_paras_record = (0..expected_bits)
-			.map(|bit_index| core_lookup(CoreIndex::from(bit_index as u32)))
-			.map(|opt_para_id| {
-				opt_para_id.map(|para_id| (para_id, PendingAvailability::<T>::get(&para_id)))
-			})
-			.collect::<Vec<_>>();
+	) -> Vec<(CoreIndex, CandidateHash)> {
+		let threshold = availability_threshold(validators.len());
 
-		let now = <frame_system::Pallet<T>>::block_number();
+		let mut votes_per_core: BTreeMap<CoreIndex, BTreeSet<ValidatorIndex>> = BTreeMap::new();
+
 		for (checked_bitfield, validator_index) in
 			signed_bitfields.into_iter().map(|signed_bitfield| {
 				let validator_idx = signed_bitfield.validator_index();
@@ -521,292 +519,196 @@ impl<T: Config> Pallet<T> {
 				(checked_bitfield, validator_idx)
 			}) {
 			for (bit_idx, _) in checked_bitfield.0.iter().enumerate().filter(|(_, is_av)| **is_av) {
-				let pending_availability = if let Some((_, pending_availability)) =
-					assigned_paras_record[bit_idx].as_mut()
-				{
-					pending_availability
-				} else {
-					// For honest validators, this happens in case of unoccupied cores,
-					// which in turn happens in case of a disputed candidate.
-					// A malicious one might include arbitrary indices, but they are represented
-					// by `None` values and will be sorted out in the next if case.
-					continue
-				};
-
-				// defensive check - this is constructed by loading the availability bitfield
-				// record, which is always `Some` if the core is occupied - that's why we're here.
-				let validator_index = validator_index.0 as usize;
-				if let Some(mut bit) =
-					pending_availability.as_mut().and_then(|candidate_pending_availability| {
-						candidate_pending_availability.availability_votes.get_mut(validator_index)
-					}) {
-					*bit = true;
-				}
+				let core_index = CoreIndex(bit_idx as u32);
+				votes_per_core
+					.entry(core_index)
+					.or_insert_with(|| BTreeSet::new())
+					.insert(validator_index);
 			}
-
-			let record =
-				AvailabilityBitfieldRecord { bitfield: checked_bitfield, submitted_at: now };
-
-			<AvailabilityBitfields<T>>::insert(&validator_index, record);
 		}
 
-		let threshold = availability_threshold(validators.len());
+		let mut freed_cores = vec![];
 
-		let mut freed_cores = Vec::with_capacity(expected_bits);
-		for (para_id, pending_availability) in assigned_paras_record
-			.into_iter()
-			.flatten()
-			.filter_map(|(id, p)| p.map(|p| (id, p)))
-		{
-			if pending_availability.availability_votes.count_ones() >= threshold {
-				<PendingAvailability<T>>::remove(&para_id);
-				let commitments = match PendingAvailabilityCommitments::<T>::take(&para_id) {
-					Some(commitments) => commitments,
-					None => {
-						log::warn!(
-							target: LOG_TARGET,
-							"Inclusion::process_bitfields: PendingAvailability and PendingAvailabilityCommitments
-							are out of sync, did someone mess with the storage?",
-						);
-						continue
-					},
-				};
+		let pending_paraids: Vec<_> = PendingAvailability::<T>::iter_keys().collect();
+		for paraid in pending_paraids {
+			PendingAvailability::<T>::mutate(paraid, |candidates| {
+				if let Some(candidates) = candidates {
+					let mut last_enacted_index: Option<usize> = None;
 
-				let receipt = CommittedCandidateReceipt {
-					descriptor: pending_availability.descriptor,
-					commitments,
-				};
-				let _weight = Self::enact_candidate(
-					pending_availability.relay_parent_number,
-					receipt,
-					pending_availability.backers,
-					pending_availability.availability_votes,
-					pending_availability.core,
-					pending_availability.backing_group,
-				);
+					for (candidate_index, candidate) in candidates.iter_mut().enumerate() {
+						if let Some(validator_indices) = votes_per_core.remove(&candidate.core) {
+							for validator_index in validator_indices.iter() {
+								// defensive check - this is constructed by loading the
+								// availability bitfield record, which is always `Some` if
+								// the core is occupied - that's why we're here.
+								if let Some(mut bit) =
+									candidate.availability_votes.get_mut(validator_index.0 as usize)
+								{
+									*bit = true;
+								}
+							}
+						}
 
-				freed_cores.push((pending_availability.core, pending_availability.hash));
-			} else {
-				<PendingAvailability<T>>::insert(&para_id, &pending_availability);
-			}
+						// We check for the candidate's availability even if we didn't get any new
+						// bitfields for its core, as it may have already been available at a
+						// previous block but wasn't enacted due to its predecessors not being
+						// available.
+						if candidate.availability_votes.count_ones() >= threshold {
+							// We can only enact a candidate if we've enacted all of its
+							// predecessors already.
+							let can_enact = if candidate_index == 0 {
+								last_enacted_index == None
+							} else {
+								let prev_candidate_index = usize::try_from(candidate_index - 1)
+									.expect("Previous `if` would have caught a 0 candidate index.");
+								matches!(last_enacted_index, Some(old_index) if old_index == prev_candidate_index)
+							};
+
+							if can_enact {
+								last_enacted_index = Some(candidate_index);
+							}
+						}
+					}
+
+					// Trim the pending availability candidates storage and enact candidates of this
+					// para now.
+					if let Some(last_enacted_index) = last_enacted_index {
+						let evicted_candidates = candidates.drain(0..=last_enacted_index);
+						for candidate in evicted_candidates {
+							freed_cores.push((candidate.core, candidate.hash));
+
+							let receipt = CommittedCandidateReceipt {
+								descriptor: candidate.descriptor,
+								commitments: candidate.commitments,
+							};
+							let _weight = Self::enact_candidate(
+								candidate.relay_parent_number,
+								receipt,
+								candidate.backers,
+								candidate.availability_votes,
+								candidate.core,
+								candidate.backing_group,
+							);
+						}
+					}
+				}
+			});
 		}
 
 		freed_cores
 	}
 
-	/// Process candidates that have been backed. Provide the relay storage root, a set of
-	/// candidates and scheduled cores.
+	/// Process candidates that have been backed. Provide a set of
+	/// candidates along with their scheduled cores.
 	///
-	/// Both should be sorted ascending by core index, and the candidates should be a subset of
-	/// scheduled cores. If these conditions are not met, the execution of the function fails.
+	/// Candidates of the same paraid should be sorted according to their dependency order (they
+	/// should form a chain). If this condition is not met, this function will return an error.
+	/// (This really should not happen here, if the candidates were properly sanitised in
+	/// paras_inherent).
 	pub(crate) fn process_candidates<GV>(
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-		candidates: Vec<BackedCandidate<T::Hash>>,
-		scheduled: &BTreeMap<ParaId, CoreIndex>,
+		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
+		core_index_enabled: bool,
 	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
-		let now = <frame_system::Pallet<T>>::block_number();
-
-		ensure!(candidates.len() <= scheduled.len(), Error::<T>::UnscheduledCandidate);
-
-		if scheduled.is_empty() {
+		if candidates.is_empty() {
 			return Ok(ProcessedCandidates::default())
 		}
 
-		let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
-		let validators = shared::Pallet::<T>::active_validator_keys();
+		let now = frame_system::Pallet::<T>::block_number();
+		let validators = shared::ActiveValidatorKeys::<T>::get();
 
 		// Collect candidate receipts with backers.
 		let mut candidate_receipt_with_backing_validator_indices =
 			Vec::with_capacity(candidates.len());
+		let mut core_indices = Vec::with_capacity(candidates.len());
 
-		// Do all checks before writing storage.
-		let core_indices_and_backers = {
-			let mut core_indices_and_backers = Vec::with_capacity(candidates.len());
-			let mut last_core = None;
-
-			let mut check_assignment_in_order = |core_idx| -> DispatchResult {
-				ensure!(
-					last_core.map_or(true, |core| core_idx > core),
-					Error::<T>::ScheduledOutOfOrder,
-				);
-
-				last_core = Some(core_idx);
-				Ok(())
+		for (para_id, para_candidates) in candidates {
+			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
+				None => {
+					defensive!("Latest included head data for paraid {:?} is None", para_id);
+					continue
+				},
+				Some(latest_head_data) => latest_head_data,
 			};
 
-			// We combine an outer loop over candidates with an inner loop over the scheduled,
-			// where each iteration of the outer loop picks up at the position
-			// in scheduled just after the past iteration left off.
-			//
-			// If the candidates appear in the same order as they appear in `scheduled`,
-			// then they should always be found. If the end of `scheduled` is reached,
-			// then the candidate was either not scheduled or out-of-order.
-			//
-			// In the meantime, we do certain sanity checks on the candidates and on the scheduled
-			// list.
-			for (candidate_idx, backed_candidate) in candidates.iter().enumerate() {
-				let relay_parent_hash = backed_candidate.descriptor().relay_parent;
-				let para_id = backed_candidate.descriptor().para_id;
+			for (candidate, core) in para_candidates.iter() {
+				let candidate_hash = candidate.candidate().hash();
 
-				let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
-
-				let check_ctx = CandidateCheckContext::<T>::new(prev_context);
-				let signing_context = SigningContext {
-					parent_hash: relay_parent_hash,
-					session_index: shared::Pallet::<T>::session_index(),
-				};
-
-				let relay_parent_number = match check_ctx.verify_backed_candidate(
+				let check_ctx = CandidateCheckContext::<T>::new(None);
+				let relay_parent_number = check_ctx.verify_backed_candidate(
 					&allowed_relay_parents,
-					candidate_idx,
-					backed_candidate,
-				)? {
-					Err(FailedToCreatePVD) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Failed to create PVD for candidate {}",
-							candidate_idx,
-						);
-						// We don't want to error out here because it will
-						// brick the relay-chain. So we return early without
-						// doing anything.
-						return Ok(ProcessedCandidates::default())
-					},
-					Ok(rpn) => rpn,
-				};
+					candidate.candidate(),
+					latest_head_data.clone(),
+				)?;
 
-				let para_id = backed_candidate.descriptor().para_id;
-				let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
-
-				let core_idx = *scheduled.get(&para_id).ok_or(Error::<T>::UnscheduledCandidate)?;
-				check_assignment_in_order(core_idx)?;
-				ensure!(
-					<PendingAvailability<T>>::get(&para_id).is_none() &&
-						<PendingAvailabilityCommitments<T>>::get(&para_id).is_none(),
-					Error::<T>::CandidateScheduledBeforeParaFree,
-				);
-
-				// The candidate based upon relay parent `N` should be backed by a group
-				// assigned to core at block `N + 1`. Thus, `relay_parent_number + 1`
-				// will always land in the current session.
-				let group_idx = <scheduler::Pallet<T>>::group_assigned_to_core(
-					core_idx,
+				// The candidate based upon relay parent `N` should be backed by a
+				// group assigned to core at block `N + 1`. Thus,
+				// `relay_parent_number + 1` will always land in the current
+				// session.
+				let group_idx = scheduler::Pallet::<T>::group_assigned_to_core(
+					*core,
 					relay_parent_number + One::one(),
 				)
 				.ok_or_else(|| {
 					log::warn!(
 						target: LOG_TARGET,
-						"Failed to compute group index for candidate {}",
-						candidate_idx
+						"Failed to compute group index for candidate {:?}",
+						candidate_hash
 					);
 					Error::<T>::InvalidAssignment
 				})?;
 				let group_vals =
 					group_validators(group_idx).ok_or_else(|| Error::<T>::InvalidGroupIndex)?;
 
-				// check the signatures in the backing and that it is a majority.
-				{
-					let maybe_amount_validated = primitives::check_candidate_backing(
-						&backed_candidate,
-						&signing_context,
-						group_vals.len(),
-						|intra_group_vi| {
-							group_vals
-								.get(intra_group_vi)
-								.and_then(|vi| validators.get(vi.0 as usize))
-								.map(|v| v.clone())
-						},
-					);
+				// Check backing vote count and validity.
+				let (backers, backer_idx_and_attestation) = Self::check_backing_votes(
+					candidate,
+					&validators,
+					group_vals,
+					core_index_enabled,
+				)?;
 
-					match maybe_amount_validated {
-						Ok(amount_validated) => ensure!(
-							amount_validated >=
-								effective_minimum_backing_votes(
-									group_vals.len(),
-									minimum_backing_votes
-								),
-							Error::<T>::InsufficientBacking,
-						),
-						Err(()) => {
-							Err(Error::<T>::InvalidBacking)?;
-						},
+				// Found a valid candidate.
+				latest_head_data = candidate.candidate().commitments.head_data.clone();
+				candidate_receipt_with_backing_validator_indices
+					.push((candidate.receipt(), backer_idx_and_attestation));
+				core_indices.push((*core, *para_id));
+
+				// Update storage now
+				PendingAvailability::<T>::mutate(&para_id, |pending_availability| {
+					let new_candidate = CandidatePendingAvailability {
+						core: *core,
+						hash: candidate_hash,
+						descriptor: candidate.candidate().descriptor.clone(),
+						commitments: candidate.candidate().commitments.clone(),
+						// initialize all availability votes to 0.
+						availability_votes: bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()],
+						relay_parent_number,
+						backers: backers.to_bitvec(),
+						backed_in_number: now,
+						backing_group: group_idx,
+					};
+
+					if let Some(pending_availability) = pending_availability {
+						pending_availability.push_back(new_candidate);
+					} else {
+						*pending_availability =
+							Some([new_candidate].into_iter().collect::<VecDeque<_>>())
 					}
+				});
 
-					let mut backer_idx_and_attestation =
-						Vec::<(ValidatorIndex, ValidityAttestation)>::with_capacity(
-							backed_candidate.validator_indices.count_ones(),
-						);
-					let candidate_receipt = backed_candidate.receipt();
-
-					for ((bit_idx, _), attestation) in backed_candidate
-						.validator_indices
-						.iter()
-						.enumerate()
-						.filter(|(_, signed)| **signed)
-						.zip(backed_candidate.validity_votes.iter().cloned())
-					{
-						let val_idx =
-							group_vals.get(bit_idx).expect("this query succeeded above; qed");
-						backer_idx_and_attestation.push((*val_idx, attestation));
-
-						backers.set(val_idx.0 as _, true);
-					}
-					candidate_receipt_with_backing_validator_indices
-						.push((candidate_receipt, backer_idx_and_attestation));
-				}
-
-				core_indices_and_backers.push((
-					(core_idx, para_id),
-					backers,
+				// Deposit backed event.
+				Self::deposit_event(Event::<T>::CandidateBacked(
+					candidate.candidate().to_plain(),
+					candidate.candidate().commitments.head_data.clone(),
+					*core,
 					group_idx,
-					relay_parent_number,
 				));
 			}
-
-			core_indices_and_backers
-		};
-
-		// one more sweep for actually writing to storage.
-		let core_indices = core_indices_and_backers.iter().map(|(c, ..)| *c).collect();
-		for (candidate, (core, backers, group, relay_parent_number)) in
-			candidates.into_iter().zip(core_indices_and_backers)
-		{
-			let para_id = candidate.descriptor().para_id;
-
-			// initialize all availability votes to 0.
-			let availability_votes: BitVec<u8, BitOrderLsb0> =
-				bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
-
-			Self::deposit_event(Event::<T>::CandidateBacked(
-				candidate.candidate.to_plain(),
-				candidate.candidate.commitments.head_data.clone(),
-				core.0,
-				group,
-			));
-
-			let candidate_hash = candidate.candidate.hash();
-
-			let (descriptor, commitments) =
-				(candidate.candidate.descriptor, candidate.candidate.commitments);
-
-			<PendingAvailability<T>>::insert(
-				&para_id,
-				CandidatePendingAvailability {
-					core: core.0,
-					hash: candidate_hash,
-					descriptor,
-					availability_votes,
-					relay_parent_number,
-					backers: backers.to_bitvec(),
-					backed_in_number: now,
-					backing_group: group,
-				},
-			);
-			<PendingAvailabilityCommitments<T>>::insert(&para_id, commitments);
 		}
 
 		Ok(ProcessedCandidates::<T::Hash> {
@@ -815,13 +717,86 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	// Get the latest backed output head data of this para.
+	pub(crate) fn para_latest_head_data(para_id: &ParaId) -> Option<HeadData> {
+		match PendingAvailability::<T>::get(para_id).and_then(|pending_candidates| {
+			pending_candidates.back().map(|x| x.commitments.head_data.clone())
+		}) {
+			Some(head_data) => Some(head_data),
+			None => paras::Heads::<T>::get(para_id),
+		}
+	}
+
+	fn check_backing_votes(
+		backed_candidate: &BackedCandidate<T::Hash>,
+		validators: &[ValidatorId],
+		group_vals: Vec<ValidatorIndex>,
+		core_index_enabled: bool,
+	) -> Result<(BitVec<u8, BitOrderLsb0>, Vec<(ValidatorIndex, ValidityAttestation)>), Error<T>> {
+		let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
+
+		let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
+		let signing_context = SigningContext {
+			parent_hash: backed_candidate.descriptor().relay_parent,
+			session_index: shared::CurrentSessionIndex::<T>::get(),
+		};
+
+		let (validator_indices, _) =
+			backed_candidate.validator_indices_and_core_index(core_index_enabled);
+
+		// check the signatures in the backing and that it is a majority.
+		let maybe_amount_validated = primitives::check_candidate_backing(
+			backed_candidate.candidate().hash(),
+			backed_candidate.validity_votes(),
+			validator_indices,
+			&signing_context,
+			group_vals.len(),
+			|intra_group_vi| {
+				group_vals
+					.get(intra_group_vi)
+					.and_then(|vi| validators.get(vi.0 as usize))
+					.map(|v| v.clone())
+			},
+		);
+
+		match maybe_amount_validated {
+			Ok(amount_validated) => ensure!(
+				amount_validated >=
+					effective_minimum_backing_votes(group_vals.len(), minimum_backing_votes),
+				Error::<T>::InsufficientBacking,
+			),
+			Err(()) => {
+				Err(Error::<T>::InvalidBacking)?;
+			},
+		}
+
+		let mut backer_idx_and_attestation =
+			Vec::<(ValidatorIndex, ValidityAttestation)>::with_capacity(
+				validator_indices.count_ones(),
+			);
+
+		for ((bit_idx, _), attestation) in validator_indices
+			.iter()
+			.enumerate()
+			.filter(|(_, signed)| **signed)
+			.zip(backed_candidate.validity_votes().iter().cloned())
+		{
+			let val_idx = group_vals.get(bit_idx).expect("this query succeeded above; qed");
+			backer_idx_and_attestation.push((*val_idx, attestation));
+
+			backers.set(val_idx.0 as _, true);
+		}
+
+		Ok((backers, backer_idx_and_attestation))
+	}
+
 	/// Run the acceptance criteria checks on the given candidate commitments.
 	pub(crate) fn check_validation_outputs_for_runtime_api(
 		para_id: ParaId,
 		relay_parent_number: BlockNumberFor<T>,
 		validation_outputs: primitives::CandidateCommitments,
 	) -> bool {
-		let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
+		let prev_context = paras::MostRecentContext::<T>::get(para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
 		if check_ctx
@@ -858,7 +833,7 @@ impl<T: Config> Pallet<T> {
 	) -> Weight {
 		let plain = receipt.to_plain();
 		let commitments = receipt.commitments;
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		T::RewardValidators::reward_backing(
 			backers
@@ -880,19 +855,19 @@ impl<T: Config> Pallet<T> {
 		let mut weight = T::DbWeight::get().reads_writes(1, 0);
 		if let Some(new_code) = commitments.new_validation_code {
 			// Block number of candidate's inclusion.
-			let now = <frame_system::Pallet<T>>::block_number();
+			let now = frame_system::Pallet::<T>::block_number();
 
-			weight.saturating_add(<paras::Pallet<T>>::schedule_code_upgrade(
+			weight.saturating_add(paras::Pallet::<T>::schedule_code_upgrade(
 				receipt.descriptor.para_id,
 				new_code,
 				now,
 				&config,
-				SetGoAhead::Yes,
+				UpgradeStrategy::SetGoAheadSignal,
 			));
 		}
 
 		// enact the messaging facet of the candidate.
-		weight.saturating_accrue(<dmp::Pallet<T>>::prune_dmq(
+		weight.saturating_accrue(dmp::Pallet::<T>::prune_dmq(
 			receipt.descriptor.para_id,
 			commitments.processed_downward_messages,
 		));
@@ -900,11 +875,11 @@ impl<T: Config> Pallet<T> {
 			receipt.descriptor.para_id,
 			commitments.upward_messages.as_slice(),
 		));
-		weight.saturating_accrue(<hrmp::Pallet<T>>::prune_hrmp(
+		weight.saturating_accrue(hrmp::Pallet::<T>::prune_hrmp(
 			receipt.descriptor.para_id,
 			BlockNumberFor::<T>::from(commitments.hrmp_watermark),
 		));
-		weight.saturating_accrue(<hrmp::Pallet<T>>::queue_outbound_hrmp(
+		weight.saturating_accrue(hrmp::Pallet::<T>::queue_outbound_hrmp(
 			receipt.descriptor.para_id,
 			commitments.horizontal_messages,
 		));
@@ -916,7 +891,7 @@ impl<T: Config> Pallet<T> {
 			backing_group,
 		));
 
-		weight.saturating_add(<paras::Pallet<T>>::note_new_head(
+		weight.saturating_add(paras::Pallet::<T>::note_new_head(
 			receipt.descriptor.para_id,
 			commitments.head_data,
 			relay_parent_number,
@@ -935,7 +910,7 @@ impl<T: Config> Pallet<T> {
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
 		// Cannot send UMP messages while off-boarding.
-		if <paras::Pallet<T>>::is_offboarding(para) {
+		if paras::Pallet::<T>::is_offboarding(para) {
 			ensure!(upward_messages.is_empty(), UmpAcceptanceCheckErr::IsOffboarding);
 		}
 
@@ -1019,110 +994,173 @@ impl<T: Config> Pallet<T> {
 		weight
 	}
 
-	/// Cleans up all paras pending availability that the predicate returns true for.
-	///
-	/// The predicate accepts the index of the core and the block number the core has been occupied
-	/// since (i.e. the block number the candidate was backed at in this fork of the relay chain).
+	/// Cleans up all timed out candidates as well as their descendant candidates.
 	///
 	/// Returns a vector of cleaned-up core IDs.
-	pub(crate) fn collect_pending(
-		pred: impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>>,
-	) -> Vec<CoreIndex> {
-		let mut cleaned_up_ids = Vec::new();
-		let mut cleaned_up_cores = Vec::new();
+	pub(crate) fn free_timedout() -> Vec<CoreIndex> {
+		let timeout_pred = scheduler::Pallet::<T>::availability_timeout_predicate();
 
-		for (para_id, pending_record) in <PendingAvailability<T>>::iter() {
-			if pred(pending_record.backed_in_number).timed_out {
-				cleaned_up_ids.push(para_id);
-				cleaned_up_cores.push(pending_record.core);
-			}
+		let timed_out: Vec<_> = Self::free_failed_cores(
+			|candidate| timeout_pred(candidate.backed_in_number).timed_out,
+			None,
+		)
+		.collect();
+
+		let mut timed_out_cores = Vec::with_capacity(timed_out.len());
+		for candidate in timed_out.iter() {
+			timed_out_cores.push(candidate.core);
+
+			let receipt = CandidateReceipt {
+				descriptor: candidate.descriptor.clone(),
+				commitments_hash: candidate.commitments.hash(),
+			};
+
+			Self::deposit_event(Event::<T>::CandidateTimedOut(
+				receipt,
+				candidate.commitments.head_data.clone(),
+				candidate.core,
+			));
 		}
 
-		for para_id in cleaned_up_ids {
-			let pending = <PendingAvailability<T>>::take(&para_id);
-			let commitments = <PendingAvailabilityCommitments<T>>::take(&para_id);
-
-			if let (Some(pending), Some(commitments)) = (pending, commitments) {
-				// defensive: this should always be true.
-				let candidate = CandidateReceipt {
-					descriptor: pending.descriptor,
-					commitments_hash: commitments.hash(),
-				};
-
-				Self::deposit_event(Event::<T>::CandidateTimedOut(
-					candidate,
-					commitments.head_data,
-					pending.core,
-				));
-			}
-		}
-
-		cleaned_up_cores
+		timed_out_cores
 	}
 
-	/// Cleans up all paras pending availability that are in the given list of disputed candidates.
+	/// Cleans up all cores pending availability occupied by one of the disputed candidates or which
+	/// are descendants of a disputed candidate.
 	///
-	/// Returns a vector of cleaned-up core IDs.
-	pub(crate) fn collect_disputed(disputed: &BTreeSet<CandidateHash>) -> Vec<CoreIndex> {
-		let mut cleaned_up_ids = Vec::new();
-		let mut cleaned_up_cores = Vec::new();
+	/// Returns a vector of cleaned-up core IDs, along with the evicted candidate hashes.
+	pub(crate) fn free_disputed(
+		disputed: &BTreeSet<CandidateHash>,
+	) -> Vec<(CoreIndex, CandidateHash)> {
+		Self::free_failed_cores(
+			|candidate| disputed.contains(&candidate.hash),
+			Some(disputed.len()),
+		)
+		.map(|candidate| (candidate.core, candidate.hash))
+		.collect()
+	}
 
-		for (para_id, pending_record) in <PendingAvailability<T>>::iter() {
-			if disputed.contains(&pending_record.hash) {
-				cleaned_up_ids.push(para_id);
-				cleaned_up_cores.push(pending_record.core);
+	// Clean up cores whose candidates are deemed as failed by the predicate. `pred` returns true if
+	// a candidate is considered failed.
+	// A failed candidate also frees all subsequent cores which hold descendants of said candidate.
+	fn free_failed_cores<
+		P: Fn(&CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>) -> bool,
+	>(
+		pred: P,
+		capacity_hint: Option<usize>,
+	) -> impl Iterator<Item = CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
+		let mut earliest_dropped_indices: BTreeMap<ParaId, usize> = BTreeMap::new();
+
+		for (para_id, pending_candidates) in PendingAvailability::<T>::iter() {
+			// We assume that pending candidates are stored in dependency order. So we need to store
+			// the earliest dropped candidate. All others that follow will get freed as well.
+			let mut earliest_dropped_idx = None;
+			for (index, candidate) in pending_candidates.iter().enumerate() {
+				if pred(candidate) {
+					earliest_dropped_idx = Some(index);
+					// Since we're looping the candidates in dependency order, we've found the
+					// earliest failed index for this paraid.
+					break;
+				}
+			}
+
+			if let Some(earliest_dropped_idx) = earliest_dropped_idx {
+				earliest_dropped_indices.insert(para_id, earliest_dropped_idx);
 			}
 		}
 
-		for para_id in cleaned_up_ids {
-			let _ = <PendingAvailability<T>>::take(&para_id);
-			let _ = <PendingAvailabilityCommitments<T>>::take(&para_id);
+		let mut cleaned_up_cores =
+			if let Some(capacity) = capacity_hint { Vec::with_capacity(capacity) } else { vec![] };
+
+		for (para_id, earliest_dropped_idx) in earliest_dropped_indices {
+			// Do cleanups and record the cleaned up cores
+			PendingAvailability::<T>::mutate(&para_id, |record| {
+				if let Some(record) = record {
+					let cleaned_up = record.drain(earliest_dropped_idx..);
+					cleaned_up_cores.extend(cleaned_up);
+				}
+			});
 		}
 
-		cleaned_up_cores
+		cleaned_up_cores.into_iter()
 	}
 
-	/// Forcibly enact the candidate with the given ID as though it had been deemed available
-	/// by bitfields.
+	/// Forcibly enact the pending candidates of the given paraid as though they had been deemed
+	/// available by bitfields.
 	///
 	/// Is a no-op if there is no candidate pending availability for this para-id.
-	/// This should generally not be used but it is useful during execution of Runtime APIs,
+	/// If there are multiple candidates pending availability for this para-id, it will enact all of
+	/// them. This should generally not be used but it is useful during execution of Runtime APIs,
 	/// where the changes to the state are expected to be discarded directly after.
 	pub(crate) fn force_enact(para: ParaId) {
-		let pending = <PendingAvailability<T>>::take(&para);
-		let commitments = <PendingAvailabilityCommitments<T>>::take(&para);
+		PendingAvailability::<T>::mutate(&para, |candidates| {
+			if let Some(candidates) = candidates {
+				for candidate in candidates.drain(..) {
+					let receipt = CommittedCandidateReceipt {
+						descriptor: candidate.descriptor,
+						commitments: candidate.commitments,
+					};
 
-		if let (Some(pending), Some(commitments)) = (pending, commitments) {
-			let candidate =
-				CommittedCandidateReceipt { descriptor: pending.descriptor, commitments };
-
-			Self::enact_candidate(
-				pending.relay_parent_number,
-				candidate,
-				pending.backers,
-				pending.availability_votes,
-				pending.core,
-				pending.backing_group,
-			);
-		}
+					Self::enact_candidate(
+						candidate.relay_parent_number,
+						receipt,
+						candidate.backers,
+						candidate.availability_votes,
+						candidate.core,
+						candidate.backing_group,
+					);
+				}
+			}
+		});
 	}
 
-	/// Returns the `CommittedCandidateReceipt` pending availability for the para provided, if any.
+	/// Returns the first `CommittedCandidateReceipt` pending availability for the para provided, if
+	/// any.
 	pub(crate) fn candidate_pending_availability(
 		para: ParaId,
 	) -> Option<CommittedCandidateReceipt<T::Hash>> {
-		<PendingAvailability<T>>::get(&para)
-			.map(|p| p.descriptor)
-			.and_then(|d| <PendingAvailabilityCommitments<T>>::get(&para).map(move |c| (d, c)))
-			.map(|(d, c)| CommittedCandidateReceipt { descriptor: d, commitments: c })
+		PendingAvailability::<T>::get(&para).and_then(|p| {
+			p.get(0).map(|p| CommittedCandidateReceipt {
+				descriptor: p.descriptor.clone(),
+				commitments: p.commitments.clone(),
+			})
+		})
 	}
 
-	/// Returns the metadata around the candidate pending availability for the
+	/// Returns all the `CommittedCandidateReceipt` pending availability for the para provided, if
+	/// any.
+	pub(crate) fn candidates_pending_availability(
+		para: ParaId,
+	) -> Vec<CommittedCandidateReceipt<T::Hash>> {
+		<PendingAvailability<T>>::get(&para)
+			.map(|candidates| {
+				candidates
+					.into_iter()
+					.map(|candidate| CommittedCandidateReceipt {
+						descriptor: candidate.descriptor.clone(),
+						commitments: candidate.commitments.clone(),
+					})
+					.collect()
+			})
+			.unwrap_or_default()
+	}
+
+	/// Returns the metadata around the first candidate pending availability for the
 	/// para provided, if any.
 	pub(crate) fn pending_availability(
 		para: ParaId,
 	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		<PendingAvailability<T>>::get(&para)
+		PendingAvailability::<T>::get(&para).and_then(|p| p.get(0).cloned())
+	}
+
+	/// Returns the metadata around the candidate pending availability occupying the supplied core,
+	/// if any.
+	pub(crate) fn pending_availability_with_core(
+		para: ParaId,
+		core: CoreIndex,
+	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
+		PendingAvailability::<T>::get(&para)
+			.and_then(|p| p.iter().find(|c| c.core == core).cloned())
 	}
 }
 
@@ -1130,7 +1168,7 @@ const fn availability_threshold(n_validators: usize) -> usize {
 	supermajority_threshold(n_validators)
 }
 
-impl<BlockNumber> AcceptanceCheckErr<BlockNumber> {
+impl AcceptanceCheckErr {
 	/// Returns the same error so that it can be threaded through a needle of `DispatchError` and
 	/// ultimately returned from a `Dispatchable`.
 	fn strip_into_dispatch_err<T: Config>(self) -> Error<T> {
@@ -1139,10 +1177,10 @@ impl<BlockNumber> AcceptanceCheckErr<BlockNumber> {
 			HeadDataTooLarge => Error::<T>::HeadDataTooLarge,
 			PrematureCodeUpgrade => Error::<T>::PrematureCodeUpgrade,
 			NewCodeTooLarge => Error::<T>::NewCodeTooLarge,
-			ProcessedDownwardMessages(_) => Error::<T>::IncorrectDownwardMessageHandling,
-			UpwardMessages(_) => Error::<T>::InvalidUpwardMessages,
-			HrmpWatermark(_) => Error::<T>::HrmpWatermarkMishandling,
-			OutboundHrmp(_) => Error::<T>::InvalidOutboundHrmp,
+			ProcessedDownwardMessages => Error::<T>::IncorrectDownwardMessageHandling,
+			UpwardMessages => Error::<T>::InvalidUpwardMessages,
+			HrmpWatermark => Error::<T>::HrmpWatermarkMishandling,
+			OutboundHrmp => Error::<T>::InvalidOutboundHrmp,
 		}
 	}
 }
@@ -1159,7 +1197,7 @@ impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 		#[allow(deprecated)]
 		well_known_keys::relay_dispatch_queue_size_typed(para).set((count, size));
 
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let remaining_count = config.max_upward_queue_count.saturating_sub(count);
 		let remaining_size = config.max_upward_queue_size.saturating_sub(size);
 		well_known_keys::relay_dispatch_queue_remaining_capacity(para)
@@ -1173,13 +1211,9 @@ pub(crate) struct CandidateCheckContext<T: Config> {
 	prev_context: Option<BlockNumberFor<T>>,
 }
 
-/// An error indicating that creating Persisted Validation Data failed
-/// while checking a candidate's validity.
-pub(crate) struct FailedToCreatePVD;
-
 impl<T: Config> CandidateCheckContext<T> {
 	pub(crate) fn new(prev_context: Option<BlockNumberFor<T>>) -> Self {
-		Self { config: <configuration::Pallet<T>>::config(), prev_context }
+		Self { config: configuration::ActiveConfig::<T>::get(), prev_context }
 	}
 
 	/// Execute verification of the candidate.
@@ -1194,11 +1228,11 @@ impl<T: Config> CandidateCheckContext<T> {
 	pub(crate) fn verify_backed_candidate(
 		&self,
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-		candidate_idx: usize,
-		backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>,
-	) -> Result<Result<BlockNumberFor<T>, FailedToCreatePVD>, Error<T>> {
-		let para_id = backed_candidate.descriptor().para_id;
-		let relay_parent = backed_candidate.descriptor().relay_parent;
+		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
+		parent_head_data: HeadData,
+	) -> Result<BlockNumberFor<T>, Error<T>> {
+		let para_id = backed_candidate_receipt.descriptor().para_id;
+		let relay_parent = backed_candidate_receipt.descriptor().relay_parent;
 
 		// Check that the relay-parent is one of the allowed relay-parents.
 		let (relay_parent_storage_root, relay_parent_number) = {
@@ -1209,63 +1243,58 @@ impl<T: Config> CandidateCheckContext<T> {
 		};
 
 		{
-			let persisted_validation_data = match crate::util::make_persisted_validation_data::<T>(
-				para_id,
+			let persisted_validation_data = make_persisted_validation_data_with_parent::<T>(
 				relay_parent_number,
 				relay_parent_storage_root,
-			)
-			.defensive_proof("the para is registered")
-			{
-				Some(l) => l,
-				None => return Ok(Err(FailedToCreatePVD)),
-			};
+				parent_head_data,
+			);
 
 			let expected = persisted_validation_data.hash();
 
 			ensure!(
-				expected == backed_candidate.descriptor().persisted_validation_data_hash,
+				expected == backed_candidate_receipt.descriptor().persisted_validation_data_hash,
 				Error::<T>::ValidationDataHashMismatch,
 			);
 		}
 
 		ensure!(
-			backed_candidate.descriptor().check_collator_signature().is_ok(),
+			backed_candidate_receipt.descriptor().check_collator_signature().is_ok(),
 			Error::<T>::NotCollatorSigned,
 		);
 
-		let validation_code_hash = <paras::Pallet<T>>::current_code_hash(para_id)
+		let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)
 			// A candidate for a parachain without current validation code is not scheduled.
 			.ok_or_else(|| Error::<T>::UnscheduledCandidate)?;
 		ensure!(
-			backed_candidate.descriptor().validation_code_hash == validation_code_hash,
+			backed_candidate_receipt.descriptor().validation_code_hash == validation_code_hash,
 			Error::<T>::InvalidValidationCodeHash,
 		);
 
 		ensure!(
-			backed_candidate.descriptor().para_head ==
-				backed_candidate.candidate.commitments.head_data.hash(),
+			backed_candidate_receipt.descriptor().para_head ==
+				backed_candidate_receipt.commitments.head_data.hash(),
 			Error::<T>::ParaHeadMismatch,
 		);
 
 		if let Err(err) = self.check_validation_outputs(
 			para_id,
 			relay_parent_number,
-			&backed_candidate.candidate.commitments.head_data,
-			&backed_candidate.candidate.commitments.new_validation_code,
-			backed_candidate.candidate.commitments.processed_downward_messages,
-			&backed_candidate.candidate.commitments.upward_messages,
-			BlockNumberFor::<T>::from(backed_candidate.candidate.commitments.hrmp_watermark),
-			&backed_candidate.candidate.commitments.horizontal_messages,
+			&backed_candidate_receipt.commitments.head_data,
+			&backed_candidate_receipt.commitments.new_validation_code,
+			backed_candidate_receipt.commitments.processed_downward_messages,
+			&backed_candidate_receipt.commitments.upward_messages,
+			BlockNumberFor::<T>::from(backed_candidate_receipt.commitments.hrmp_watermark),
+			&backed_candidate_receipt.commitments.horizontal_messages,
 		) {
 			log::debug!(
 				target: LOG_TARGET,
-				"Validation outputs checking during inclusion of a candidate {} for parachain `{}` failed",
-				candidate_idx,
+				"Validation outputs checking during inclusion of a candidate {:?} for parachain `{}` failed",
+				backed_candidate_receipt.hash(),
 				u32::from(para_id),
 			);
 			Err(err.strip_into_dispatch_err::<T>())?;
 		};
-		Ok(Ok(relay_parent_number))
+		Ok(relay_parent_number)
 	}
 
 	/// Check the given outputs after candidate validation on whether it passes the acceptance
@@ -1294,7 +1323,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		upward_messages: &[primitives::UpwardMessage],
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[primitives::OutboundHrmpMessage<ParaId>],
-	) -> Result<(), AcceptanceCheckErr<BlockNumberFor<T>>> {
+	) -> Result<(), AcceptanceCheckErr> {
 		ensure!(
 			head_data.0.len() <= self.config.max_head_data_size as _,
 			AcceptanceCheckErr::HeadDataTooLarge,
@@ -1303,7 +1332,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		// if any, the code upgrade attempt is allowed.
 		if let Some(new_validation_code) = new_validation_code {
 			ensure!(
-				<paras::Pallet<T>>::can_upgrade_validation_code(para_id),
+				paras::Pallet::<T>::can_upgrade_validation_code(para_id),
 				AcceptanceCheckErr::PrematureCodeUpgrade,
 			);
 			ensure!(
@@ -1313,14 +1342,14 @@ impl<T: Config> CandidateCheckContext<T> {
 		}
 
 		// check if the candidate passes the messaging acceptance criteria
-		<dmp::Pallet<T>>::check_processed_downward_messages(
+		dmp::Pallet::<T>::check_processed_downward_messages(
 			para_id,
 			relay_parent_number,
 			processed_downward_messages,
 		)?;
 		Pallet::<T>::check_upward_messages(&self.config, para_id, upward_messages)?;
-		<hrmp::Pallet<T>>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)?;
-		<hrmp::Pallet<T>>::check_outbound_hrmp(&self.config, para_id, horizontal_messages)?;
+		hrmp::Pallet::<T>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)?;
+		hrmp::Pallet::<T>::check_outbound_hrmp(&self.config, para_id, horizontal_messages)?;
 
 		Ok(())
 	}

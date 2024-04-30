@@ -38,7 +38,7 @@ pub(crate) type T = Runtime;
 pub(crate) const POOL1_BONDED: AccountId = 20318131474730217858575332831085u128;
 pub(crate) const POOL1_REWARD: AccountId = 20397359637244482196168876781421u128;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -125,7 +125,6 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = ();
 	type MaxExposurePageSize = ConstU32<64>;
-	type OffendingValidatorsThreshold = ();
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, ())>;
 	type GenesisElectionProvider = Self::ElectionProvider;
@@ -138,6 +137,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = Pools;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 parameter_types! {
@@ -186,6 +186,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = ConstU32<8>;
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

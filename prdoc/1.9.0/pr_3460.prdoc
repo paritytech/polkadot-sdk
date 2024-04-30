@@ -1,0 +1,26 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Repot all templates
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR moves all templates into a single folder in the polkadot-sdk repo (`/templates`) and
+      unifies their crate names as well. Most notably, the crate name for what was formerly known
+      as `node-template` is no `solochain-template-node`. The other two crates in the template are
+      consequently called: `solochain-runtime-template` and `pallet-solochain-template`.
+      The other two template crate names follow a similar patter, just replacing `solochain` with
+      `parachain` or `minimal`.
+
+      This PR is part of a bigger step toward automating the template repositories, see the
+      following: https://github.com/paritytech/polkadot-sdk/issues/3155
+
+# the following crates are removed and renamed, although none are released.
+crates:
+  - name: minimal-template-runtime             # formerly called minimal-runtime
+  - name: minimal-template-node                # formerly called minimal-node
+  - name: solochain-template-node              # formerly called node-template
+  - name: solochain-template-runtime           # formerly called node-template-runtime
+  - name: parachain-template-runtime           # formerly called parachain-runtime
+  - name: parachain-template-runtime           # formerly called parachain-node

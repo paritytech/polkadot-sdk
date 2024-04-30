@@ -23,14 +23,14 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		LockableCurrency, OnUnbalanced, UnixTime,
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{CheckedSub, One, SaturatedConversion, StaticLookup, Zero},
+	traits::{One, SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent, Saturating,
 };
 
@@ -45,14 +45,15 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, MaxNominationsOf, NegativeImbalanceOf,
-	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
+	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
-// [`Call::unbond`], as the post dipatch weight may depend on the number of slashing span on the
+// [`Call::unbond`], as the post dispatch weight may depend on the number of slashing span on the
 // account which is not provided as an input. The value set should be conservative but sensible.
 pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
@@ -63,8 +64,8 @@ pub mod pallet {
 	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 
-	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(14);
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -85,10 +86,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The staking balance.
 		type Currency: LockableCurrency<
-			Self::AccountId,
-			Moment = BlockNumberFor<Self>,
-			Balance = Self::CurrencyBalance,
-		>;
+				Self::AccountId,
+				Moment = BlockNumberFor<Self>,
+				Balance = Self::CurrencyBalance,
+			> + InspectLockableCurrency<Self::AccountId>;
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
@@ -221,10 +222,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxValidatorSet: Get<u32>;
 
-		/// The fraction of the validator set that is safe to be offending.
-		/// After the threshold is reached a new era will be forced.
-		type OffendingValidatorsThreshold: Get<Perbill>;
-
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
 		/// used for NPoS election.
 		///
@@ -281,6 +278,9 @@ pub mod pallet {
 		///
 		/// WARNING: this only reports slashing and withdraw events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
+
+		// `DisablingStragegy` controls how validators are disabled
+		type DisablingStrategy: DisablingStrategy<Self>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -382,6 +382,15 @@ pub mod pallet {
 	#[pallet::getter(fn nominators)]
 	pub type Nominators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
+
+	/// Stakers whose funds are managed by other pallets.
+	///
+	/// This pallet does not apply any locks on them, therefore they are only virtually bonded. They
+	/// are expected to be keyless accounts and hence should not be allowed to mutate their ledger
+	/// directly via this pallet. Instead, these accounts are managed by other pallets and accessed
+	/// via low level apis. We keep track of them to do minimal integrity checks.
+	#[pallet::storage]
+	pub type VirtualStakers<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	/// The maximum nominator count before we stop allowing new validators to join.
 	///
@@ -649,19 +658,16 @@ pub mod pallet {
 	#[pallet::getter(fn current_planned_session)]
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
-	/// Indices of validators that have offended in the active era and whether they are currently
-	/// disabled.
+	/// Indices of validators that have offended in the active era. The offenders are disabled for a
+	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
+	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
+	/// implicitly means that the implementor also controls the max number of disabled validators.
 	///
-	/// This value should be a superset of disabled validators since not all offences lead to the
-	/// validator being disabled (if there was no slash). This is needed to track the percentage of
-	/// validators that have offended in the current era, ensuring a new era is forced if
-	/// `OffendingValidatorsThreshold` is reached. The vec is always kept sorted so that we can find
-	/// whether a given validator has previously offended using binary search. It gets cleared when
-	/// the era ends.
+	/// The vec is always kept sorted so that we can find whether a given validator has previously
+	/// offended using binary search.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	#[pallet::getter(fn offending_validators)]
-	pub type OffendingValidators<T: Config> = StorageValue<_, Vec<(u32, bool)>, ValueQuery>;
+	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -863,18 +869,17 @@ pub mod pallet {
 		SnapshotTargetsSizeExceeded {
 			size: u32,
 		},
-		/// A new force era mode was set.
 		ForceEra {
 			mode: Forcing,
 		},
-
-		StakingTrace {
-			election_estimation: BlockNumberFor<T>,
-			now: BlockNumberFor<T>,
+		/// Report of a controller batch deprecation.
+		ControllerBatchDeprecated {
+			failures: u32,
 		},
 	}
 
 	#[pallet::error]
+	#[derive(PartialEq)]
 	pub enum Error<T> {
 		/// Not a controller account.
 		NotController,
@@ -934,6 +939,14 @@ pub mod pallet {
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
+		/// Cannot reset a ledger.
+		CannotRestoreLedger,
+		/// Provided reward destination is not allowed.
+		RewardDestinationRestricted,
+		/// Not enough funds available to withdraw.
+		NotEnoughFunds,
+		/// Operation not allowed for virtual stakers.
+		VirtualStakerNotAllowed,
 	}
 
 	#[pallet::hooks]
@@ -964,11 +977,6 @@ pub mod pallet {
 				}
 			} else {
 				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
-
-				Self::deposit_event(Event::StakingTrace {
-					now,
-					election_estimation: next_election,
-				});
 
 				if now == (next_election.saturating_sub(pages)) {
 					// start calling elect.
@@ -1056,6 +1064,11 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
 
+			// An existing controller cannot become a stash.
+			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
+				return Err(Error::<T>::AlreadyPaired.into())
+			}
+
 			// Reject a bond which is considered to be _dust_.
 			if value < T::Currency::minimum_balance() {
 				return Err(Error::<T>::InsufficientBond.into())
@@ -1096,30 +1109,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-
-			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
-
-			let stash_balance = T::Currency::free_balance(&stash);
-			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
-				let extra = extra.min(max_additional);
-				ledger.total += extra;
-				ledger.active += extra;
-				// Last check: the new active amount of ledger must be more than ED.
-				ensure!(
-					ledger.active >= T::Currency::minimum_balance(),
-					Error::<T>::InsufficientBond
-				);
-
-				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-				ledger.update()?;
-				// update this staker in the sorted list, if they exist in it.
-				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
-				}
-
-				Self::deposit_event(Event::<T>::Bonded { stash, amount: extra });
-			}
-			Ok(())
+			Self::do_bond_extra(&stash, max_additional)
 		}
 
 		/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond
@@ -1249,7 +1239,7 @@ pub mod pallet {
 		/// this call results in a complete removal of all the data related to the stash account.
 		/// In this case, the `num_slashing_spans` must be larger or equal to the number of
 		/// slashing spans associated with the stash account in the [`SlashingSpans`] storage type,
-		/// otherwise the call will fail. The call weight is directly propotional to
+		/// otherwise the call will fail. The call weight is directly proportional to
 		/// `num_slashing_spans`.
 		///
 		/// ## Complexity
@@ -1453,8 +1443,6 @@ pub mod pallet {
 		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// The bonded map and ledger are mutated directly as this extrinsic is related to a
-			// (temporary) passive migration.
 			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				let controller = ledger.controller()
                     .defensive_proof("Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.")
@@ -1464,9 +1452,8 @@ pub mod pallet {
 					// Stash is already its own controller.
 					return Err(Error::<T>::AlreadyPaired.into())
 				}
-				<Ledger<T>>::remove(controller);
-				<Bonded<T>>::insert(&stash, &stash);
-				<Ledger<T>>::insert(&stash, ledger);
+
+				let _ = ledger.set_controller_to_stash()?;
 				Ok(())
 			})?
 		}
@@ -1488,7 +1475,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Increments the ideal number of validators.
+		/// Increments the ideal number of validators up to maximum of
+		/// `ElectionProviderBase::MaxWinners`.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1507,7 +1495,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Scale up the ideal number of validators by a factor.
+		/// Scale up the ideal number of validators by a factor up to maximum of
+		/// `ElectionProviderBase::MaxWinners`.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1742,6 +1731,9 @@ pub mod pallet {
 			num_slashing_spans: u32,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
+
+			// virtual stakers should not be allowed to be reaped.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
 			let ed = T::Currency::minimum_balance();
 			let reapable = T::Currency::total_balance(&stash) < ed ||
@@ -2063,7 +2055,7 @@ pub mod pallet {
 						};
 
 						if ledger.stash != *controller && !payee_deprecated {
-							Some((controller.clone(), ledger))
+							Some(ledger)
 						} else {
 							None
 						}
@@ -2072,14 +2064,118 @@ pub mod pallet {
 				.collect();
 
 			// Update unique pairs.
-			for (controller, ledger) in filtered_batch_with_ledger {
-				let stash = ledger.stash.clone();
-
-				<Bonded<T>>::insert(&stash, &stash);
-				<Ledger<T>>::remove(controller);
-				<Ledger<T>>::insert(stash, ledger);
+			let mut failures = 0;
+			for ledger in filtered_batch_with_ledger {
+				let _ = ledger.clone().set_controller_to_stash().map_err(|_| failures += 1);
 			}
+			Self::deposit_event(Event::<T>::ControllerBatchDeprecated { failures });
+
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
+		}
+
+		/// Restores the state of a ledger which is in an inconsistent state.
+		///
+		/// The requirements to restore a ledger are the following:
+		/// * The stash is bonded; or
+		/// * The stash is not bonded but it has a staking lock left behind; or
+		/// * If the stash has an associated ledger and its state is inconsistent; or
+		/// * If the ledger is not corrupted *but* its staking lock is out of sync.
+		///
+		/// The `maybe_*` input parameters will overwrite the corresponding data and metadata of the
+		/// ledger associated with the stash. If the input parameters are not set, the ledger will
+		/// be reset values from on-chain state.
+		#[pallet::call_index(29)]
+		#[pallet::weight(T::WeightInfo::restore_ledger())]
+		pub fn restore_ledger(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			maybe_controller: Option<T::AccountId>,
+			maybe_total: Option<BalanceOf<T>>,
+			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			// cannot restore ledger for virtual stakers.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
+
+			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+			let stash_balance = T::Currency::free_balance(&stash);
+
+			let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
+				Ok(LedgerIntegrityState::Corrupted) => {
+					let new_controller = maybe_controller.unwrap_or(stash.clone());
+
+					let new_total = if let Some(total) = maybe_total {
+						let new_total = total.min(stash_balance);
+						// enforce lock == ledger.amount.
+						T::Currency::set_lock(
+							crate::STAKING_ID,
+							&stash,
+							new_total,
+							WithdrawReasons::all(),
+						);
+						new_total
+					} else {
+						current_lock
+					};
+
+					Ok((new_controller, new_total))
+				},
+				Ok(LedgerIntegrityState::CorruptedKilled) => {
+					if current_lock == Zero::zero() {
+						// this case needs to restore both lock and ledger, so the new total needs
+						// to be given by the called since there's no way to restore the total
+						// on-chain.
+						ensure!(maybe_total.is_some(), Error::<T>::CannotRestoreLedger);
+						Ok((
+							stash.clone(),
+							maybe_total.expect("total exists as per the check above; qed."),
+						))
+					} else {
+						Ok((stash.clone(), current_lock))
+					}
+				},
+				Ok(LedgerIntegrityState::LockCorrupted) => {
+					// ledger is not corrupted but its locks are out of sync. In this case, we need
+					// to enforce a new ledger.total and staking lock for this stash.
+					let new_total =
+						maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?.min(stash_balance);
+					T::Currency::set_lock(
+						crate::STAKING_ID,
+						&stash,
+						new_total,
+						WithdrawReasons::all(),
+					);
+
+					Ok((stash.clone(), new_total))
+				},
+				Err(Error::<T>::BadState) => {
+					// the stash and ledger do not exist but lock is lingering.
+					T::Currency::remove_lock(crate::STAKING_ID, &stash);
+					ensure!(
+						Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
+						Error::<T>::BadState
+					);
+
+					return Ok(());
+				},
+				Ok(LedgerIntegrityState::Ok) | Err(_) => Err(Error::<T>::CannotRestoreLedger),
+			}?;
+
+			// re-bond stash and controller tuple.
+			Bonded::<T>::insert(&stash, &new_controller);
+
+			// resoter ledger state.
+			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
+			ledger.controller = Some(new_controller);
+			ledger.unlocking = maybe_unlocking.unwrap_or_default();
+			ledger.update()?;
+
+			ensure!(
+				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+				Error::<T>::BadState
+			);
+			Ok(())
 		}
 	}
 }

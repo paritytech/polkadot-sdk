@@ -20,6 +20,7 @@ use frame_system::unique;
 use parity_scale_codec::Encode;
 use sp_std::{marker::PhantomData, result::Result};
 use xcm::prelude::*;
+use xcm_executor::{traits::FeeReason, FeesMode};
 
 /// Wrapper router which, if the message does not already end with a `SetTopic` instruction,
 /// appends one to the message filled with a universally unique ID. This ID is returned from a
@@ -102,5 +103,73 @@ impl<Inner: SendXcm, TopicSource: SourceTopic> SendXcm for WithTopicSource<Inner
 		let (ticket, unique_id) = ticket;
 		Inner::deliver(ticket)?;
 		Ok(unique_id)
+	}
+}
+
+/// Trait for a type which ensures all requirements for successful delivery with XCM transport
+/// layers.
+pub trait EnsureDelivery {
+	/// Prepare all requirements for successful `XcmSender: SendXcm` passing (accounts, balances,
+	/// channels ...). Returns:
+	/// - possible `FeesMode` which is expected to be set to executor
+	/// - possible `Assets` which are expected to be subsume to the Holding Register
+	fn ensure_successful_delivery(
+		origin_ref: &Location,
+		dest: &Location,
+		fee_reason: FeeReason,
+	) -> (Option<FeesMode>, Option<Assets>);
+}
+
+/// Tuple implementation for `EnsureDelivery`.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl EnsureDelivery for Tuple {
+	fn ensure_successful_delivery(
+		origin_ref: &Location,
+		dest: &Location,
+		fee_reason: FeeReason,
+	) -> (Option<FeesMode>, Option<Assets>) {
+		for_tuples!( #(
+			// If the implementation returns something, we're done; if not, let others try.
+			match Tuple::ensure_successful_delivery(origin_ref, dest, fee_reason.clone()) {
+				r @ (Some(_), Some(_)) | r @ (Some(_), None) | r @ (None, Some(_)) => return r,
+				(None, None) => (),
+			}
+		)* );
+		// doing nothing
+		(None, None)
+	}
+}
+
+/// A wrapper router that attempts to *encode* and *decode* passed XCM `message` to ensure that the
+/// receiving side will be able to decode, at least with the same XCM version.
+///
+/// This is designed to be at the top-level of any routers which do the real delivery. While other
+/// routers can manipulate the `message`, we cannot access the final XCM due to the generic
+/// `Inner::Ticket`. Therefore, this router aims to validate at least the passed `message`.
+///
+/// NOTE: For use in mock runtimes which don't have the DMP/UMP/HRMP XCM validations.
+pub struct EnsureDecodableXcm<Inner>(sp_std::marker::PhantomData<Inner>);
+impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
+	type Ticket = Inner::Ticket;
+
+	fn validate(
+		destination: &mut Option<Location>,
+		message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		if let Some(msg) = message {
+			let versioned_xcm = VersionedXcm::<()>::from(msg.clone());
+			if versioned_xcm.validate_xcm_nesting().is_err() {
+				log::error!(
+					target: "xcm::validate_xcm_nesting",
+					"EnsureDecodableXcm validate_xcm_nesting error for \nversioned_xcm: {versioned_xcm:?}\nbased on xcm: {msg:?}"
+				);
+				return Err(SendError::Transport("EnsureDecodableXcm validate_xcm_nesting error"))
+			}
+		}
+		Inner::validate(destination, message)
+	}
+
+	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		Inner::deliver(ticket)
 	}
 }

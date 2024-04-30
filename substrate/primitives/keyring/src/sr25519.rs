@@ -18,15 +18,22 @@
 //! Support code for the runtime. A set of test accounts.
 
 pub use sp_core::sr25519;
+#[cfg(feature = "std")]
+use sp_core::sr25519::Signature;
 use sp_core::{
 	hex2array,
-	sr25519::{Pair, Public, Signature},
+	sr25519::{Pair, Public},
 	ByteArray, Pair as PairT, H256,
 };
 use sp_runtime::AccountId32;
 
+extern crate alloc;
+use alloc::{fmt, format, str::FromStr, string::String, vec::Vec};
+
 /// Set of test accounts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter, Ord, PartialOrd,
+)]
 pub enum Keyring {
 	Alice,
 	Bob,
@@ -77,6 +84,7 @@ impl Keyring {
 		self.to_raw_public().into()
 	}
 
+	#[cfg(feature = "std")]
 	pub fn sign(self, msg: &[u8]) -> Signature {
 		Pair::from(self).sign(msg)
 	}
@@ -140,16 +148,16 @@ impl From<Keyring> for sp_runtime::MultiSigner {
 #[derive(Debug)]
 pub struct ParseKeyringError;
 
-impl std::fmt::Display for ParseKeyringError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for ParseKeyringError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(f, "ParseKeyringError")
 	}
 }
 
-impl std::str::FromStr for Keyring {
+impl FromStr for Keyring {
 	type Err = ParseKeyringError;
 
-	fn from_str(s: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
+	fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
 		match s {
 			"alice" => Ok(Keyring::Alice),
 			"bob" => Ok(Keyring::Bob),

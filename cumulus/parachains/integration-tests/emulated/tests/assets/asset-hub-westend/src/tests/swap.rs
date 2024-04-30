@@ -13,12 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
-use westend_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3;
+use crate::imports::*;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
-	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocationV3::get());
+	let asset_native = Box::new(
+		v3::Location::try_from(asset_hub_westend_runtime::xcm_config::WestendLocation::get())
+			.expect("conversion works"),
+	);
 	let asset_one = Box::new(v3::Location {
 		parents: 0,
 		interior: [
@@ -112,49 +114,38 @@ fn swap_locally_on_chain_using_local_assets() {
 
 #[test]
 fn swap_locally_on_chain_using_foreign_assets() {
-	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocationV3::get());
-	let ah_as_seen_by_penpal = PenpalB::sibling_location_of(AssetHubWestend::para_id());
-	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHubV3::get();
-	let asset_id_on_penpal = match asset_location_on_penpal.last() {
-		Some(v3::Junction::GeneralIndex(id)) => *id as u32,
-		_ => unreachable!(),
-	};
-	let asset_owner_on_penpal = PenpalBSender::get();
+	let asset_native = Box::new(v3::Location::try_from(RelayLocation::get()).unwrap());
+	let asset_location_on_penpal =
+		v3::Location::try_from(PenpalLocalTeleportableToAssetHub::get()).expect("conversion_works");
 	let foreign_asset_at_asset_hub_westend =
-		v3::Location::new(1, [v3::Junction::Parachain(PenpalB::para_id().into())])
+		v3::Location::new(1, [v3::Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)
 			.unwrap();
 
-	// 1. Create asset on penpal and, 2. Create foreign asset on asset_hub_westend
-	super::penpal_create_foreign_asset_on_asset_hub(
-		asset_id_on_penpal,
-		foreign_asset_at_asset_hub_westend,
-		ah_as_seen_by_penpal,
-		true,
-		asset_owner_on_penpal,
-		ASSET_MIN_BALANCE * 1_000_000,
-	);
-
-	let penpal_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalB::para_id());
-	let sov_penpal_on_ahw = AssetHubWestend::sovereign_account_id_of(penpal_as_seen_by_ah);
+	let penpal_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalA::para_id());
+	let sov_penpal_on_ahr = AssetHubWestend::sovereign_account_id_of(penpal_as_seen_by_ah);
 	AssetHubWestend::fund_accounts(vec![
-		(AssetHubWestendSender::get().into(), 5_000_000 * WESTEND_ED), /* An account to swap dot
-		                                                                * for something else. */
+		// An account to swap dot for something else.
+		(AssetHubWestendSender::get().into(), 5_000_000 * ASSET_HUB_WESTEND_ED),
+		// Penpal's sovereign account in AH should have some balance
+		(sov_penpal_on_ahr.clone().into(), 100_000_000 * ASSET_HUB_WESTEND_ED),
 	]);
 
 	AssetHubWestend::execute_with(|| {
-		// 3: Mint foreign asset on asset_hub_westend:
+		// 0: No need to create foreign asset as it exists in genesis.
+		//
+		// 1: Mint foreign asset on asset_hub_westend:
 		//
 		// (While it might be nice to use batch,
 		// currently that's disabled due to safe call filters.)
 
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		// 3. Mint foreign asset (in reality this should be a teleport or some such)
+		// 1. Mint foreign asset (in reality this should be a teleport or some such)
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahw.clone().into()),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone().into()),
 			foreign_asset_at_asset_hub_westend,
-			sov_penpal_on_ahw.clone().into(),
-			3_000_000_000_000,
+			sov_penpal_on_ahr.clone().into(),
+			ASSET_HUB_WESTEND_ED * 3_000_000_000_000,
 		));
 
 		assert_expected_events!(
@@ -164,7 +155,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			]
 		);
 
-		// 4. Create pool:
+		// 2. Create pool:
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			asset_native.clone(),
@@ -178,69 +169,69 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			]
 		);
 
-		// 5. Add liquidity:
+		// 3. Add liquidity:
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahw.clone()),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
 			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_westend),
-			1_000_000_000_000,
-			2_000_000_000_000,
+			1_000_000_000_000_000,
+			2_000_000_000_000_000,
 			0,
 			0,
-			sov_penpal_on_ahw.clone().into()
+			sov_penpal_on_ahr.clone().into()
 		));
 
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {lp_token_minted, .. }) => {
-					lp_token_minted: *lp_token_minted == 1414213562273,
+					lp_token_minted: *lp_token_minted == 1414213562372995,
 				},
 			]
 		);
 
-		// 6. Swap!
+		// 4. Swap!
 		let path = vec![asset_native.clone(), Box::new(foreign_asset_at_asset_hub_westend)];
 
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::swap_exact_tokens_for_tokens(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			path,
-			100000,
-			1000,
-			AssetHubWestendSender::get().into(),
-			true
-		));
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::swap_exact_tokens_for_tokens(
+				<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				path,
+				100000 * ASSET_HUB_WESTEND_ED,
+				1000 * ASSET_HUB_WESTEND_ED,
+				AssetHubWestendSender::get().into(),
+				true
+			)
+		);
 
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::SwapExecuted { amount_in, amount_out, .. },) => {
-					amount_in: *amount_in == 100000,
-					amount_out: *amount_out == 199399,
+					amount_in: *amount_in == 100000000000000,
+					amount_out: *amount_out == 181322178776029,
 				},
 			]
 		);
 
-		// 7. Remove liquidity
+		// 5. Remove liquidity
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::remove_liquidity(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahw.clone()),
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
 			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_westend),
-			1414213562273 - 2_000_000_000, // all but the 2 EDs can't be retrieved.
+			1414213562372995 - ASSET_HUB_WESTEND_ED * 2, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
-			sov_penpal_on_ahw.into(),
+			sov_penpal_on_ahr.clone().into(),
 		));
 	});
 }
 
 #[test]
 fn cannot_create_pool_from_pool_assets() {
-	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocationV3::get());
-	let mut asset_one = asset_hub_westend_runtime::xcm_config::PoolAssetsPalletLocationV3::get();
-	asset_one
-		.append_with(v3::Junction::GeneralIndex(ASSET_ID.into()))
-		.expect("pool assets");
+	let asset_native = asset_hub_westend_runtime::xcm_config::WestendLocation::get();
+	let mut asset_one = asset_hub_westend_runtime::xcm_config::PoolAssetsPalletLocation::get();
+	asset_one.append_with(GeneralIndex(ASSET_ID.into())).expect("pool assets");
 
 	AssetHubWestend::execute_with(|| {
 		let pool_owner_account_id = asset_hub_westend_runtime::AssetConversionOrigin::get();
@@ -263,8 +254,8 @@ fn cannot_create_pool_from_pool_assets() {
 		assert_matches::assert_matches!(
 			<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 				<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-				asset_native,
-				Box::new(asset_one),
+				Box::new(v3::Location::try_from(asset_native).expect("conversion works")),
+				Box::new(v3::Location::try_from(asset_one).expect("conversion works")),
 			),
 			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))
 		);
@@ -273,7 +264,9 @@ fn cannot_create_pool_from_pool_assets() {
 
 #[test]
 fn pay_xcm_fee_with_some_asset_swapped_for_native() {
-	let asset_native = asset_hub_westend_runtime::xcm_config::WestendLocationV3::get();
+	let asset_native =
+		v3::Location::try_from(asset_hub_westend_runtime::xcm_config::WestendLocation::get())
+			.expect("conversion works");
 	let asset_one = xcm::v3::Location {
 		parents: 0,
 		interior: [
@@ -283,7 +276,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 		.into(),
 	};
 	let penpal = AssetHubWestend::sovereign_account_id_of(AssetHubWestend::sibling_location_of(
-		PenpalB::para_id(),
+		PenpalA::para_id(),
 	));
 
 	AssetHubWestend::execute_with(|| {
@@ -356,7 +349,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 		));
 	});
 
-	PenpalB::execute_with(|| {
+	PenpalA::execute_with(|| {
 		// send xcm transact from `penpal` account which as only `ASSET_ID` tokens on
 		// `AssetHubWestend`
 		let call = AssetHubWestend::force_create_asset_call(
@@ -366,11 +359,11 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 			ASSET_MIN_BALANCE,
 		);
 
-		let penpal_root = <PenpalB as Chain>::RuntimeOrigin::root();
+		let penpal_root = <PenpalA as Chain>::RuntimeOrigin::root();
 		let fee_amount = 4_000_000_000_000u128;
 		let asset_one =
 			([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount).into();
-		let asset_hub_location = PenpalB::sibling_location_of(AssetHubWestend::para_id()).into();
+		let asset_hub_location = PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
 		let xcm = xcm_transact_paid_execution(
 			call,
 			OriginKind::SovereignAccount,
@@ -378,13 +371,13 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 			penpal.clone(),
 		);
 
-		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::send(
+		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
 			penpal_root,
 			bx!(asset_hub_location),
 			bx!(xcm),
 		));
 
-		PenpalB::assert_xcm_pallet_sent();
+		PenpalA::assert_xcm_pallet_sent();
 	});
 
 	AssetHubWestend::execute_with(|| {

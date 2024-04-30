@@ -4,7 +4,11 @@
   "chainType": "Live",
   "bootNodes": [
     "/dns/rococo-asset-hub-bootnode-0.polkadot.io/tcp/30333/p2p/12D3KooWRrZMndHAopzao34uGsN7srjS3gh9nAjTGKLSyJeU31Lg",
-    "/dns/rococo-asset-hub-bootnode-1.polkadot.io/tcp/30333/p2p/12D3KooWAewimoNJqMaiiV5pYiowA5hLuh5JS5QiRJCCyWVrrSTS"
+    "/dns/rococo-asset-hub-bootnode-1.polkadot.io/tcp/30333/p2p/12D3KooWAewimoNJqMaiiV5pYiowA5hLuh5JS5QiRJCCyWVrrSTS",
+    "/dns/rococo-asset-hub-bootnode-0.polkadot.io/tcp/30335/ws/p2p/12D3KooWRrZMndHAopzao34uGsN7srjS3gh9nAjTGKLSyJeU31Lg",
+    "/dns/rococo-asset-hub-bootnode-1.polkadot.io/tcp/30335/ws/p2p/12D3KooWAewimoNJqMaiiV5pYiowA5hLuh5JS5QiRJCCyWVrrSTS",
+    "/dns/rococo-asset-hub-bootnode-0.polkadot.io/tcp/443/wss/p2p/12D3KooWRrZMndHAopzao34uGsN7srjS3gh9nAjTGKLSyJeU31Lg",
+    "/dns/rococo-asset-hub-bootnode-1.polkadot.io/tcp/443/wss/p2p/12D3KooWAewimoNJqMaiiV5pYiowA5hLuh5JS5QiRJCCyWVrrSTS"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

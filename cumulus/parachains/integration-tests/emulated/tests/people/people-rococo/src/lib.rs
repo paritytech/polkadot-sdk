@@ -13,52 +13,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use codec::Encode;
+#[cfg(test)]
+mod imports {
+	pub use codec::Encode;
 
-// Substrate
-pub use frame_support::{
-	assert_err, assert_ok,
-	pallet_prelude::Weight,
-	sp_runtime::{AccountId32, DispatchError, DispatchResult},
-	traits::fungibles::Inspect,
-};
+	// Substrate
+	pub use frame_support::{
+		assert_ok,
+		pallet_prelude::Weight,
+		sp_runtime::{AccountId32, DispatchResult},
+		traits::fungibles::Inspect,
+	};
 
-// Polkadot
-pub use xcm::{
-	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
-};
+	// Polkadot
+	pub use xcm::prelude::*;
 
-// Cumulus
-pub use asset_test_utils::xcm_helpers;
-pub use emulated_integration_tests_common::{
-	test_parachain_is_trusted_teleporter,
-	xcm_emulator::{
-		assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
-		RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
-	},
-	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
-};
-pub use parachains_common::{AccountId, Balance};
-pub use rococo_system_emulated_network::{
-	people_rococo_emulated_chain::{
-		genesis::ED as PEOPLE_ROCOCO_ED, PeopleRococoParaPallet as PeopleRococoPallet,
-	},
-	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
-	PenpalAPara as PenpalA, PeopleRococoPara as PeopleRococo,
-	PeopleRococoParaReceiver as PeopleRococoReceiver, PeopleRococoParaSender as PeopleRococoSender,
-	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-	RococoRelaySender as RococoSender,
-};
+	// Cumulus
+	pub use asset_test_utils::xcm_helpers;
+	pub use emulated_integration_tests_common::xcm_emulator::{
+		assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test, TestArgs,
+		TestContext, TestExt,
+	};
+	pub use parachains_common::Balance;
+	pub use rococo_system_emulated_network::{
+		people_rococo_emulated_chain::{
+			genesis::ED as PEOPLE_ROCOCO_ED, PeopleRococoParaPallet as PeopleRococoPallet,
+		},
+		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+		PeopleRococoPara as PeopleRococo, PeopleRococoParaReceiver as PeopleRococoReceiver,
+		PeopleRococoParaSender as PeopleRococoSender, RococoRelay as Rococo,
+		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
+	};
 
-// pub const ASSET_ID: u32 = 1;
-// pub const ASSET_MIN_BALANCE: u128 = 1000;
-pub type RelayToSystemParaTest = Test<Rococo, PeopleRococo>;
-pub type RelayToParaTest = Test<Rococo, PenpalA>;
-pub type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;
-pub type SystemParaToParaTest = Test<PeopleRococo, PenpalA>;
-pub type ParaToSystemParaTest = Test<PenpalA, PeopleRococo>;
+	pub type RelayToSystemParaTest = Test<Rococo, PeopleRococo>;
+	pub type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;
+}
 
 #[cfg(test)]
 mod tests;

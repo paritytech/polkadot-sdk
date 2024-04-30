@@ -23,10 +23,8 @@ use syn::spanned::Spanned;
 mod keyword {
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(Pallet);
-	syn::custom_keyword!(generate_store);
 	syn::custom_keyword!(without_storage_info);
 	syn::custom_keyword!(storage_version);
-	syn::custom_keyword!(Store);
 }
 
 /// Definition of the pallet pallet.
@@ -37,23 +35,19 @@ pub struct PalletStructDef {
 	pub instances: Vec<helper::InstanceUsage>,
 	/// The keyword Pallet used (contains span).
 	pub pallet: keyword::Pallet,
-	/// Whether the trait `Store` must be generated.
-	pub store: Option<(syn::Visibility, keyword::Store, proc_macro2::Span)>,
 	/// The span of the pallet::pallet attribute.
 	pub attr_span: proc_macro2::Span,
 	/// Whether to specify the storages max encoded len when implementing `StorageInfoTrait`.
 	/// Contains the span of the attribute.
 	pub without_storage_info: Option<proc_macro2::Span>,
-	/// The current storage version of the pallet.
+	/// The in-code storage version of the pallet.
 	pub storage_version: Option<syn::Path>,
 }
 
 /// Parse for one variant of:
-/// * `#[pallet::generate_store($vis trait Store)]`
 /// * `#[pallet::without_storage_info]`
 /// * `#[pallet::storage_version(STORAGE_VERSION)]`
 pub enum PalletStructAttr {
-	GenerateStore { span: proc_macro2::Span, vis: syn::Visibility, keyword: keyword::Store },
 	WithoutStorageInfoTrait(proc_macro2::Span),
 	StorageVersion { storage_version: syn::Path, span: proc_macro2::Span },
 }
@@ -61,9 +55,7 @@ pub enum PalletStructAttr {
 impl PalletStructAttr {
 	fn span(&self) -> proc_macro2::Span {
 		match self {
-			Self::GenerateStore { span, .. } |
-			Self::WithoutStorageInfoTrait(span) |
-			Self::StorageVersion { span, .. } => *span,
+			Self::WithoutStorageInfoTrait(span) | Self::StorageVersion { span, .. } => *span,
 		}
 	}
 }
@@ -77,16 +69,7 @@ impl syn::parse::Parse for PalletStructAttr {
 		content.parse::<syn::Token![::]>()?;
 
 		let lookahead = content.lookahead1();
-		if lookahead.peek(keyword::generate_store) {
-			content.parse::<keyword::generate_store>()?;
-			let generate_content;
-			syn::parenthesized!(generate_content in content);
-			let vis = generate_content.parse::<syn::Visibility>()?;
-			generate_content.parse::<syn::Token![trait]>()?;
-			let keyword = generate_content.parse::<keyword::Store>()?;
-			let span = content.span();
-			Ok(Self::GenerateStore { vis, keyword, span })
-		} else if lookahead.peek(keyword::without_storage_info) {
+		if lookahead.peek(keyword::without_storage_info) {
 			let span = content.parse::<keyword::without_storage_info>()?.span();
 			Ok(Self::WithoutStorageInfoTrait(span))
 		} else if lookahead.peek(keyword::storage_version) {
@@ -116,16 +99,12 @@ impl PalletStructDef {
 			return Err(syn::Error::new(item.span(), msg))
 		};
 
-		let mut store = None;
 		let mut without_storage_info = None;
 		let mut storage_version_found = None;
 
 		let struct_attrs: Vec<PalletStructAttr> = helper::take_item_pallet_attrs(&mut item.attrs)?;
 		for attr in struct_attrs {
 			match attr {
-				PalletStructAttr::GenerateStore { vis, keyword, span } if store.is_none() => {
-					store = Some((vis, keyword, span));
-				},
 				PalletStructAttr::WithoutStorageInfoTrait(span)
 					if without_storage_info.is_none() =>
 				{
@@ -162,7 +141,6 @@ impl PalletStructDef {
 			index,
 			instances,
 			pallet,
-			store,
 			attr_span,
 			without_storage_info,
 			storage_version: storage_version_found,

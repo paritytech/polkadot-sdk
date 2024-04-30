@@ -27,7 +27,7 @@ use primitives::CoreIndex;
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider},
 };
 
 pub use pallet::*;
@@ -46,7 +46,7 @@ pub mod pallet {
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
-		<paras::Pallet<T>>::parachains()
+		paras::Parachains::<T>::get()
 			.get(core_idx.0 as usize)
 			.copied()
 			.map(Assignment::Bulk)
@@ -57,16 +57,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// Bulk assignment has no need to push the assignment back on a session change,
 	/// this is a no-op in the case of a bulk assignment slot.
 	fn push_back_assignment(_: Assignment) {}
-
-	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
-		AssignmentProviderConfig {
-			// The next assignment already goes to the same [`ParaId`], no timeout tracking needed.
-			max_availability_timeouts: 0,
-			// The next assignment already goes to the same [`ParaId`], this can be any number
-			// that's high enough to clear the time it takes to clear backing/availability.
-			ttl: 10u32.into(),
-		}
-	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {

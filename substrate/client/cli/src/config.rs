@@ -28,12 +28,13 @@ use sc_service::{
 	config::{
 		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
 		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
-		RpcMethods, TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
+		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
+		WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -338,6 +339,16 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)
 	}
 
+	/// RPC server batch request configuration.
+	fn rpc_batch_config(&self) -> Result<RpcBatchRequestConfig> {
+		Ok(RpcBatchRequestConfig::Unlimited)
+	}
+
+	/// RPC rate limit configuration.
+	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
+		Ok(None)
+	}
+
 	/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -417,8 +428,10 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// By default this is retrieved from `NodeKeyParams` if it is available. Otherwise its
 	/// `NodeKeyConfig::default()`.
 	fn node_key(&self, net_config_dir: &PathBuf) -> Result<NodeKeyConfig> {
+		let is_dev = self.is_dev()?;
+		let role = self.role(is_dev)?;
 		self.node_key_params()
-			.map(|x| x.node_key(net_config_dir))
+			.map(|x| x.node_key(net_config_dir, role, is_dev))
 			.unwrap_or_else(|| Ok(Default::default()))
 	}
 
@@ -452,11 +465,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let is_dev = self.is_dev()?;
 		let chain_id = self.chain_id(is_dev)?;
 		let chain_spec = cli.load_spec(&chain_id)?;
-		let base_path = self
-			.base_path()?
-			.unwrap_or_else(|| BasePath::from_project("", "", &C::executable_name()));
-		let config_dir = base_path.config_dir(chain_spec.id());
-		let net_config_dir = config_dir.join(DEFAULT_NETWORK_CONFIG_PATH);
+		let base_path = base_path_or_default(self.base_path()?, &C::executable_name());
+		let config_dir = build_config_dir(&base_path, chain_spec.id());
+		let net_config_dir = build_net_config_dir(&config_dir);
 		let client_id = C::client_id();
 		let database_cache_size = self.database_cache_size()?.unwrap_or(1024);
 		let database = self.database()?.unwrap_or(
@@ -510,6 +521,8 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			rpc_max_subs_per_conn: self.rpc_max_subscriptions_per_connection()?,
 			rpc_port: DCV::rpc_listen_port(),
 			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
+			rpc_batch_config: self.rpc_batch_config()?,
+			rpc_rate_limit: self.rpc_rate_limit()?,
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
@@ -651,4 +664,34 @@ pub fn generate_node_name() -> String {
 			return node_name
 		}
 	}
+}
+
+/// Returns the value of `base_path` or the default_path if it is None
+pub(crate) fn base_path_or_default(
+	base_path: Option<BasePath>,
+	executable_name: &String,
+) -> BasePath {
+	base_path.unwrap_or_else(|| BasePath::from_project("", "", executable_name))
+}
+
+/// Returns the default path for configuration  directory based on the chain_spec
+pub(crate) fn build_config_dir(base_path: &BasePath, chain_spec_id: &str) -> PathBuf {
+	base_path.config_dir(chain_spec_id)
+}
+
+/// Returns the default path for the network configuration inside the configuration dir
+pub(crate) fn build_net_config_dir(config_dir: &PathBuf) -> PathBuf {
+	config_dir.join(DEFAULT_NETWORK_CONFIG_PATH)
+}
+
+/// Returns the default path for the network directory starting from the provided base_path
+/// or from the default base_path.
+pub(crate) fn build_network_key_dir_or_default(
+	base_path: Option<BasePath>,
+	chain_spec_id: &str,
+	executable_name: &String,
+) -> PathBuf {
+	let config_dir =
+		build_config_dir(&base_path_or_default(base_path, executable_name), chain_spec_id);
+	build_net_config_dir(&config_dir)
 }

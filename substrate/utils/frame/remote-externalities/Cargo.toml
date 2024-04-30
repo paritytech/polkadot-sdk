@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 jsonrpsee = { version = "0.22", features = ["http-client"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 log = { workspace = true, default-features = true }
-serde = "1.0.196"
+serde = { workspace = true, default-features = true }
 sp-core = { path = "../../../primitives/core" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
@@ -26,7 +26,7 @@ sp-io = { path = "../../../primitives/io" }
 sp-runtime = { path = "../../../primitives/runtime" }
 tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
 substrate-rpc-client = { path = "../rpc/client" }
-futures = "0.3"
+futures = "0.3.30"
 indicatif = "0.17.7"
 spinners = "4.1.0"
 tokio-retry = "0.3.0"

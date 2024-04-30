@@ -72,6 +72,7 @@ pub struct TestClientBuilder<Block: BlockT, ExecutorDispatch, Backend: 'static, 
 	fork_blocks: ForkBlocks<Block>,
 	bad_blocks: BadBlocks<Block>,
 	enable_offchain_indexing_api: bool,
+	enable_import_proof_recording: bool,
 	no_genesis: bool,
 }
 
@@ -120,6 +121,7 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 			bad_blocks: None,
 			enable_offchain_indexing_api: false,
 			no_genesis: false,
+			enable_import_proof_recording: false,
 		}
 	}
 
@@ -165,6 +167,12 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		self
 	}
 
+	/// Enable proof recording on import.
+	pub fn enable_import_proof_recording(mut self) -> Self {
+		self.enable_import_proof_recording = true;
+		self
+	}
+
 	/// Disable writing genesis.
 	pub fn set_no_genesis(mut self) -> Self {
 		self.no_genesis = true;
@@ -202,6 +210,7 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		};
 
 		let client_config = ClientConfig {
+			enable_import_proof_recording: self.enable_import_proof_recording,
 			offchain_indexing_api: self.enable_offchain_indexing_api,
 			no_genesis: self.no_genesis,
 			..Default::default()

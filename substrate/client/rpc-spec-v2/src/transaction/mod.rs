@@ -35,9 +35,6 @@ pub mod transaction;
 pub mod transaction_broadcast;
 
 pub use api::{TransactionApiServer, TransactionBroadcastApiServer};
-pub use event::{
-	TransactionBlock, TransactionBroadcasted, TransactionDropped, TransactionError,
-	TransactionEvent,
-};
+pub use event::{TransactionBlock, TransactionDropped, TransactionError, TransactionEvent};
 pub use transaction::Transaction;
 pub use transaction_broadcast::TransactionBroadcast;

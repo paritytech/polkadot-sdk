@@ -1,0 +1,13 @@
+title: Unrequest a pre-image when it failed to execute
+
+doc:
+  - audience: Runtime User
+    description: |
+      When a referenda finished the proposal will be scheduled. When it is scheduled,
+      the pre-image is requested. The pre-image is unrequested after the proposal
+      was executed. However, if the proposal failed to execute it wasn't unrequested.
+      Thus, it could not be removed from the on-chain state. This issue is now solved
+      by ensuring to unrequest the pre-image when it failed to execute.
+
+crates:
+  - name: pallet-scheduler

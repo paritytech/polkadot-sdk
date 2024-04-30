@@ -78,7 +78,7 @@ pub fn genesis() -> Storage {
 		},
 		babe: rococo_runtime::BabeConfig {
 			authorities: Default::default(),
-			epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			epoch_config: rococo_runtime::BABE_GENESIS_EPOCH_CONFIG,
 			..Default::default()
 		},
 		sudo: rococo_runtime::SudoConfig {
