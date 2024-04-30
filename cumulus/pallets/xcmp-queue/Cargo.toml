@@ -69,9 +69,9 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"xcm-builder/std",
 ]
 
 runtime-benchmarks = [

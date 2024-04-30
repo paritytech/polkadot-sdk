@@ -96,8 +96,8 @@ std = [
 	"sp-tracing/std",
 	"sp-trie/std",
 	"trie-db/std",
-	"xcm/std",
 	"xcm-builder/std",
+	"xcm/std",
 ]
 
 runtime-benchmarks = [

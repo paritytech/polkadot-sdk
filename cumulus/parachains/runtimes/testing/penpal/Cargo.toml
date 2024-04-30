@@ -135,8 +135,8 @@ std = [
 	"substrate-wasm-builder",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"xcm/std",
 	"xcm-fee-payment-runtime-api/std",
+	"xcm/std",
 ]
 
 runtime-benchmarks = [
