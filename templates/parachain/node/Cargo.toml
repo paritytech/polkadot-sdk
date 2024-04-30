@@ -13,9 +13,6 @@ build = "build.rs"
 [lints]
 workspace = true
 
-# [[bin]]
-# name = "parachain-template-node"
-
 [dependencies]
 clap = { version = "4.5.3", features = ["derive"] }
 log = { workspace = true, default-features = true }

@@ -56,6 +56,10 @@
 #[doc(no_inline)]
 pub use frame_support::pallet;
 
+/// Export the main runtime macro. This is the new version of `construct_runtime!`.
+#[doc(no_inline)]
+pub use frame_support::;
+
 #[doc(no_inline)]
 pub use frame_support::pallet_macros::{import_section, pallet_section};
 
@@ -151,7 +155,11 @@ pub mod runtime {
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
 
+		/// Some fee related types.
+		pub use frame_support::weights::{FeePolynomial, FixedFee, IdentityFee, NoFee};
+
 		/// Macro to amalgamate the runtime into `struct Runtime`.
+		// TODO: eventually change this to `use frame_support::construct_runtime as deprecated_construct_runtime;`
 		pub use frame_support::construct_runtime;
 
 		/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.
@@ -208,6 +216,7 @@ pub mod runtime {
 		pub use sp_block_builder::*;
 		pub use sp_consensus_aura::*;
 		pub use sp_consensus_grandpa::*;
+		pub use sp_genesis_builder::{runtime_api::*, Result as GenesisBuildResult};
 		pub use sp_offchain::*;
 		pub use sp_session::runtime_api::*;
 		pub use sp_transaction_pool::runtime_api::*;
@@ -358,6 +367,8 @@ pub mod deps {
 	pub use sp_consensus_aura;
 	#[cfg(feature = "runtime")]
 	pub use sp_consensus_grandpa;
+	#[cfg(feature = "runtime")]
+	pub use sp_genesis_builder;
 	#[cfg(feature = "runtime")]
 	pub use sp_inherents;
 	#[cfg(feature = "runtime")]

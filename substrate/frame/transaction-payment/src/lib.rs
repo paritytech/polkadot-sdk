@@ -335,6 +335,9 @@ pub mod pallet {
 			type RuntimeEvent = ();
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
+			// because TestDefaultConfig of `pallet-balances` is u64.
+			type WeightToFee = frame_support::weights::NoFee<u64>;
+			type LengthToFee = frame_support::weights::NoFee<u64>;
 		}
 	}
 
@@ -354,11 +357,11 @@ pub mod pallet {
 		type OnChargeTransaction: OnChargeTransaction<Self>;
 
 		/// Convert a weight value into a deductible fee based on the currency type.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
 
 		/// Convert a length value into a deductible fee based on the currency type.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type LengthToFee: WeightToFee<Balance = BalanceOf<Self>>;
 
 		/// Update the multiplier of the next block, based on the previous block's weight.
