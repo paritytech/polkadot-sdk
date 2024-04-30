@@ -74,6 +74,7 @@ use std::{
 
 use crate::{
 	error::{JfyiError, JfyiErrorResult},
+	metrics::Metrics,
 	LOG_TARGET,
 };
 use candidates::{BadAdvertisement, Candidates, PostConfirmation};
@@ -3350,6 +3351,7 @@ pub(crate) struct ResponderMessage {
 pub(crate) async fn respond_task(
 	mut receiver: IncomingRequestReceiver<AttestedCandidateRequest>,
 	mut sender: mpsc::Sender<ResponderMessage>,
+	metrics: Metrics,
 ) {
 	let mut pending_out = FuturesUnordered::new();
 	let mut active_peers = HashSet::new();
@@ -3373,12 +3375,14 @@ pub(crate) async fn respond_task(
 				// If peer currently being served drop request
 				if active_peers.contains(&request.peer) {
 					gum::trace!(target: LOG_TARGET, "Peer already being served, dropping request");
+					metrics.on_request_dropped_peer_rate_limit();
 					continue
 				}
 
 				// If we are over parallel limit wait for one to finish
 				if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
 					gum::trace!(target: LOG_TARGET, "Over max parallel requests, waiting for one to finish");
+					metrics.on_max_parallel_requests_reached();
 					let (_, peer) = pending_out.select_next_some().await;
 					active_peers.remove(&peer);
 				}
