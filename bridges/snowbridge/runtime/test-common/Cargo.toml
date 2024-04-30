@@ -3,7 +3,7 @@ name = "snowbridge-runtime-test-common"
 description = "Snowbridge Runtime Tests"
 version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
 categories = ["cryptography::cryptocurrencies"]
 
