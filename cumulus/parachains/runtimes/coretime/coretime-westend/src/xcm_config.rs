@@ -22,12 +22,12 @@ use super::{
 use frame_support::{
 	pallet_prelude::PalletInfoAccess,
 	parameter_types,
-	traits::{ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
+use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
@@ -249,7 +249,7 @@ impl xcm_executor::Config for XcmConfig {
 		TokenRelayLocation,
 		AccountId,
 		Balances,
-		ToStakingPot<Runtime>,
+		ResolveTo<StakingPotAccountId<Runtime>, Balances>,
 	>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
@@ -295,10 +295,9 @@ impl pallet_xcm::Config for Runtime {
 	// We want to disallow users sending (arbitrary) XCM programs from this chain.
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = XcmRouter;
-	// We support local origins dispatching XCM executions in principle...
+	// We support local origins dispatching XCM executions.
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	// ... but disallow generic XCM execution. As a result only teleports are allowed.
-	type XcmExecuteFilter = Nothing;
+	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Nothing; // This parachain is not meant as a reserve location.

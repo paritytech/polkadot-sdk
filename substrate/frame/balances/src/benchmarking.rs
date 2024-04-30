@@ -297,7 +297,7 @@ mod benchmarks {
 		assert_eq!(Balances::<T, I>::total_issuance(), ti + delta);
 	}
 
-	// Benchmark `burn` extrinsic with the worst possible condition - burn kills the account.
+	/// Benchmark `burn` extrinsic with the worst possible condition - burn kills the account.
 	#[benchmark]
 	fn burn_allow_death() {
 		let existential_deposit = T::ExistentialDeposit::get();

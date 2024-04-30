@@ -17,7 +17,7 @@ workspace = true
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-frame = { path = "../../substrate/frame", features = [
+frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = [
 	"experimental",
 	"runtime",
 ] }

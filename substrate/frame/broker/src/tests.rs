@@ -372,6 +372,11 @@ fn instapool_payouts_work() {
 		advance_to(11);
 		assert_eq!(pot(), 14);
 		assert_eq!(revenue(), 106);
+
+		// Cannot claim for 0 timeslices.
+		assert_noop!(Broker::do_claim_revenue(region, 0), Error::<Test>::NoClaimTimeslices);
+
+		// Revenue can be claimed.
 		assert_ok!(Broker::do_claim_revenue(region, 100));
 		assert_eq!(pot(), 10);
 		assert_eq!(balance(2), 4);

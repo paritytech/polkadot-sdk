@@ -105,8 +105,8 @@ impl<T: Config> Pallet<T> {
 	) -> Result<RegionId, DispatchError> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-		ensure!(sale.first_core < status.core_count, Error::<T>::Unavailable);
-		ensure!(sale.cores_sold < sale.cores_offered, Error::<T>::SoldOut);
+		Self::ensure_cores_for_sale(&status, &sale)?;
+
 		let now = frame_system::Pallet::<T>::block_number();
 		ensure!(now > sale.sale_start, Error::<T>::TooEarly);
 		let price = Self::sale_price(&sale, now);
@@ -131,8 +131,7 @@ impl<T: Config> Pallet<T> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-		ensure!(sale.first_core < status.core_count, Error::<T>::Unavailable);
-		ensure!(sale.cores_sold < sale.cores_offered, Error::<T>::SoldOut);
+		Self::ensure_cores_for_sale(&status, &sale)?;
 
 		let renewal_id = AllowedRenewalId { core, when: sale.region_begin };
 		let record = AllowedRenewals::<T>::get(renewal_id).ok_or(Error::<T>::NotAllowed)?;
@@ -329,6 +328,7 @@ impl<T: Config> Pallet<T> {
 		mut region: RegionId,
 		max_timeslices: Timeslice,
 	) -> DispatchResult {
+		ensure!(max_timeslices > 0, Error::<T>::NoClaimTimeslices);
 		let mut contribution =
 			InstaPoolContribution::<T>::take(region).ok_or(Error::<T>::UnknownContribution)?;
 		let contributed_parts = region.mask.count_ones();
@@ -454,5 +454,26 @@ impl<T: Config> Pallet<T> {
 		});
 
 		Ok(())
+	}
+
+	pub(crate) fn ensure_cores_for_sale(
+		status: &StatusRecord,
+		sale: &SaleInfoRecordOf<T>,
+	) -> Result<(), DispatchError> {
+		ensure!(sale.first_core < status.core_count, Error::<T>::Unavailable);
+		ensure!(sale.cores_sold < sale.cores_offered, Error::<T>::SoldOut);
+
+		Ok(())
+	}
+
+	/// If there is an ongoing sale returns the current price of a core.
+	pub fn current_price() -> Result<BalanceOf<T>, DispatchError> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+
+		Self::ensure_cores_for_sale(&status, &sale)?;
+
+		let now = frame_system::Pallet::<T>::block_number();
+		Ok(Self::sale_price(&sale, now))
 	}
 }

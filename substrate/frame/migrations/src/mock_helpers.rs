@@ -79,7 +79,7 @@ impl SteppedMigrations for MockedMigrations {
 
 		let mut count: u32 =
 			cursor.as_ref().and_then(|c| Decode::decode(&mut &c[..]).ok()).unwrap_or(0);
-		log::debug!("MockedMigration: Step {}", count);
+		log::debug!("MockedMigration: Step {count} vs max {steps}");
 		if count != steps || matches!(kind, TimeoutAfter) {
 			count += 1;
 			return Some(Ok(Some(count.encode())))

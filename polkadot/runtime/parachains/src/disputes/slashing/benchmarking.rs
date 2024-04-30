@@ -83,8 +83,8 @@ where
 	}
 	initializer::Pallet::<T>::on_finalize(BlockNumberFor::<T>::one());
 
-	let session_index = crate::shared::Pallet::<T>::session_index();
-	let session_info = crate::session_info::Pallet::<T>::session_info(session_index);
+	let session_index = crate::shared::CurrentSessionIndex::<T>::get();
+	let session_info = crate::session_info::Sessions::<T>::get(session_index);
 	let session_info = session_info.unwrap();
 	let validator_id = session_info.validators.get(ValidatorIndex::from(0)).unwrap().clone();
 	let key = (PARACHAIN_KEY_TYPE_ID, validator_id.clone());
@@ -95,7 +95,7 @@ where
 	pallet_session::Pallet::<T>::rotate_session();
 	initializer::Pallet::<T>::on_finalize(BlockNumberFor::<T>::one());
 
-	let idx = crate::shared::Pallet::<T>::session_index();
+	let idx = crate::shared::CurrentSessionIndex::<T>::get();
 	assert!(
 		idx > session_index,
 		"session rotation should work for parachain pallets: {} <= {}",
