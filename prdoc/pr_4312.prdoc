@@ -7,7 +7,7 @@ doc:
       to cover those events on tests if necessary.
   - audience: Runtime User
     description: |
-      New events were added to `pallet-assets`: `Deposited` and `Withdrawn`. This indicates
+      New events were added to `pallet-assets`: `Deposited` and `Withdrawn`. These indicate
       a change in the balance of an account.
 
 crates:
