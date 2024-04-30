@@ -247,7 +247,7 @@ include:
 #
 #
 #
-.coverage-result:
+coverage-result:
   stage: test
   extends:
     - .docker-env
@@ -263,7 +263,7 @@ include:
 #
 #
 #  
-.codecov-start:
+codecov-start:
   stage: test
   when: manual
   extends:
@@ -272,16 +272,16 @@ include:
     - .pipeline-stopper-artifacts
   script:
     - !reference [.codecov-cli, script]    
-    - codecovcli create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA}
-    - codecovcli create-report -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA}
+    - codecovcli create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error -v
+    - codecovcli create-report -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error -v
 
 #
 #
 #
 codecov-test-linux-stable:
   stage: test
-  #needs:
-  #  - codecov-start
+  needs:
+    - codecov-start
   extends:
     - .docker-env
     - .common-refs
@@ -315,7 +315,7 @@ codecov-test-linux-stable:
         --branch \
         -o target/coverage/result/report-${CI_NODE_INDEX}.lcov
     - ls -l target/coverage/result/    
-    - codecovcli upload-process -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN}
+    - codecovcli do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -v --fail-on-error
   #  
 
 
