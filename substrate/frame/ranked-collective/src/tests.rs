@@ -23,7 +23,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	error::BadOrigin,
 	parameter_types,
-	traits::{ConstU16, ConstU32, EitherOf, MapSuccess, Polling},
+	traits::{ConstU16, EitherOf, MapSuccess, Polling},
 };
 use sp_core::Get;
 use sp_runtime::{
@@ -181,7 +181,6 @@ impl Config for Test {
 	type VoteWeight = Geometric;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = ();
-	type MaxRank = ConstU32<9>;
 }
 
 pub struct ExtBuilder {}
