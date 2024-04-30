@@ -43,11 +43,10 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
-	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
+	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, PayloadProvider, ValidatorSet,
 	BEEFY_ENGINE_ID,
 };
 use sp_keystore::KeystorePtr;
-use sp_mmr_primitives::MmrApi;
 use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -69,6 +68,7 @@ pub mod justification;
 
 use crate::{
 	communication::gossip::GossipValidator,
+	fisherman::Fisherman,
 	justification::BeefyVersionedFinalityProof,
 	keystore::BeefyKeystore,
 	metrics::VoterMetrics,
@@ -80,6 +80,7 @@ pub use communication::beefy_protocol_name::{
 };
 use sp_runtime::generic::OpaqueDigestItemId;
 
+mod fisherman;
 #[cfg(test)]
 mod tests;
 
@@ -305,14 +306,16 @@ where
 		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
 		is_authority: bool,
 	) -> BeefyWorker<B, BE, P, R, S, N> {
+		let key_store = Arc::new(self.key_store);
 		BeefyWorker {
-			backend: self.backend,
-			runtime: self.runtime,
-			key_store: self.key_store,
-			metrics: self.metrics,
-			persisted_state: self.persisted_state,
+			backend: self.backend.clone(),
+			runtime: self.runtime.clone(),
+			key_store: key_store.clone(),
 			payload_provider,
 			sync,
+			fisherman: Arc::new(Fisherman::new(self.backend, self.runtime, key_store)),
+			metrics: self.metrics,
+			persisted_state: self.persisted_state,
 			comms,
 			links,
 			pending_justifications,
@@ -487,7 +490,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	C: Client<B, BE> + BlockBackend<B>,
 	P: PayloadProvider<B> + Clone,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId> + MmrApi<B, MmrRootHash, NumberFor<B>>,
+	R::Api: BeefyApi<B, AuthorityId>,
 	N: GossipNetwork<B> + NetworkRequest + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
 {
