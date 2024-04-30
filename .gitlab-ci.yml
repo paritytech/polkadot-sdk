@@ -237,6 +237,13 @@ include:
     ref: main
     file: /common/forklift.yml
 
+.codecov-cli:
+  script: 
+    - curl -os codecovcli https://cli.codecov.io/latest/linux/codecov
+    - sudo chmod +x codecovcli
+    - mv codecovcli /usr/local/bin/codecovcli
+    - codecovcli --version
+
 #
 #
 #
@@ -249,8 +256,8 @@ coverage-result:
   needs:
     - codecov-test-linux-stable
   script:
-    - codecov create-report-results
-    - codecov get-report-results
+    - codecovcli create-report-results
+    - codecovcli get-report-results
 
 #
 #
@@ -263,8 +270,8 @@ codecov-start:
     - .common-refs
     - .pipeline-stopper-artifacts
   script:
-    - codecov create-commit
-    - codecov create-report
+    - codecovcli create-commit
+    - codecovcli create-report
 
 #
 #
@@ -305,7 +312,7 @@ codecov-test-linux-stable:
         --branch \
         -o target/coverage/result/report-${CI_NODE_INDEX}.lcov
     - ls -l target/coverage/result/    
-    - codecov do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --desable-search
+    - codecovcli do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --desable-search
   #  
 
 
