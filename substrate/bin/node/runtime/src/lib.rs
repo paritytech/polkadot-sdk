@@ -1038,7 +1038,6 @@ impl pallet_ranked_collective::Config for Runtime {
 	type MemberSwappedHandler = (CoreFellowship, Salary);
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = (CoreFellowship, Salary);
-	type MaxRank = ConstU32<9>;
 }
 
 impl pallet_remark::Config for Runtime {
@@ -1870,7 +1869,7 @@ impl pallet_core_fellowship::Config for Runtime {
 	type ApproveOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
 	type PromoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
 	type EvidenceSize = ConstU32<16_384>;
-	type MaxRank = <Self as pallet_ranked_collective::Config>::MaxRank;
+	type MaxRank = ConstU32<9>;
 }
 
 parameter_types! {

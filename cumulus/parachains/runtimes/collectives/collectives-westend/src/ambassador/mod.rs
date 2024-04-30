@@ -119,7 +119,6 @@ impl pallet_ranked_collective::Config<AmbassadorCollectiveInstance> for Runtime 
 	type VoteWeight = pallet_ranked_collective::Linear;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = (crate::AmbassadorCore, crate::AmbassadorSalary);
-	type MaxRank = ConstU32<9>;
 }
 
 parameter_types! {
@@ -221,8 +220,7 @@ impl pallet_core_fellowship::Config<AmbassadorCoreInstance> for Runtime {
 	type ApproveOrigin = PromoteOrigin;
 	type PromoteOrigin = PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
-	type MaxRank =
-		<Self as pallet_ranked_collective::Config<AmbassadorCollectiveInstance>>::MaxRank;
+	type MaxRank = ConstU32<9>;
 }
 
 pub type AmbassadorSalaryInstance = pallet_salary::Instance2;

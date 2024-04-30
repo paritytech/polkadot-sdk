@@ -434,10 +434,6 @@ pub mod pallet {
 		/// Setup a member for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkSetup: BenchmarkSetup<Self::AccountId>;
-
-		/// The maximum number of members.
-		#[pallet::constant]
-		type MaxRank: Get<u32>;
 	}
 
 	/// The number of members in the collective who have at least the rank according to the index
@@ -1006,10 +1002,6 @@ pub mod pallet {
 
 		fn demote(who: &Self::AccountId) -> DispatchResult {
 			Self::do_demote_member(who.clone(), None)
-		}
-
-		fn max_rank() -> Self::Rank {
-			T::MaxRank::get() as Rank
 		}
 	}
 }

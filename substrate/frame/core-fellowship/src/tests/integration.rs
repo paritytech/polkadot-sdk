@@ -27,6 +27,7 @@ use frame_system::EnsureSignedBy;
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, TallyOf, Votes};
 use sp_core::{ConstU32, Get};
 use sp_runtime::{
+	bounded_vec,
 	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
 	BuildStorage, DispatchError,
 };
@@ -78,7 +79,7 @@ impl Config for Test {
 	type ApproveOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type EvidenceSize = EvidenceSize;
-	type MaxRank = <Self as pallet_ranked_collective::Config>::MaxRank;
+	type MaxRank = ConstU32<9>;
 }
 
 pub struct TestPolls;
@@ -158,7 +159,6 @@ impl pallet_ranked_collective::Config for Test {
 	type VoteWeight = Geometric;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = CoreFellowship;
-	type MaxRank = ConstU32<9>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -168,11 +168,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 100));
 		promote_n_times(100, 9);
 		let params = ParamsType {
-			active_salary: BoundedVec::try_from(vec![10, 20, 30, 40, 50, 60, 70, 80, 90]).unwrap(),
-			passive_salary: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap(),
-			demotion_period: BoundedVec::try_from(vec![2, 4, 6, 8, 10, 12, 14, 16, 18]).unwrap(),
-			min_promotion_period: BoundedVec::try_from(vec![3, 6, 9, 12, 15, 18, 21, 24, 27])
-				.unwrap(),
+			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: bounded_vec![2, 4, 6, 8, 10, 12, 14, 16, 18],
+			min_promotion_period: bounded_vec![3, 6, 9, 12, 15, 18, 21, 24, 27],
 			offboard_timeout: 1,
 		};
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));

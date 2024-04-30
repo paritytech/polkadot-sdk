@@ -213,6 +213,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type EvidenceSize: Get<u32>;
 
+		/// Represents the highest possible rank in this pallet.
+		/// Increasing this value is supported, but decreasing it may lead to a broken state.
 		#[pallet::constant]
 		type MaxRank: Get<u32>;
 	}
@@ -564,7 +566,7 @@ pub mod pallet {
 		/// in the range `1..=RANK_COUNT` is `None`.
 		pub(crate) fn rank_to_index(rank: RankOf<T, I>) -> Option<usize> {
 			match TryInto::<usize>::try_into(rank) {
-				Ok(r) if r <= T::Members::max_rank().into() && r > 0 => Some(r - 1),
+				Ok(r) if r as u32 <= <T as Config<I>>::MaxRank::get() && r > 0 => Some(r - 1),
 				_ => return None,
 			}
 		}

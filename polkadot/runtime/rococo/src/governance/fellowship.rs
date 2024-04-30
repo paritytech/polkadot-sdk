@@ -358,5 +358,4 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type VoteWeight = pallet_ranked_collective::Geometric;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = ();
-	type MaxRank = ConstU32<9>;
 }
