@@ -182,7 +182,6 @@ impl pallet_ranked_collective::Config for Test {
 	type VoteWeight = Geometric;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = Salary;
-	type MaxRank = ConstU32<9>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
