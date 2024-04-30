@@ -11053,6 +11053,7 @@ dependencies = [
  "pallet-staking-reward-fn",
  "pallet-timestamp",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "rand_chacha 0.2.2",
  "scale-info",
  "serde",

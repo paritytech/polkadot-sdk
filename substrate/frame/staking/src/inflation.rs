@@ -23,20 +23,16 @@
 //!
 //! This pallet processes inflation in the following steps:
 
-use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill};
-
 #[frame_support::pallet]
 pub mod polkadot_inflation {
-	//! Polkadot inflation pallet.
-	use frame_support::{
-		pallet_prelude::*,
+	use frame::{
+		arithmetic::*,
+		prelude::*,
 		traits::{
 			fungible::{self as fung, Inspect, Mutate},
-			UnixTime,
+			AtLeast32BitUnsigned, Saturating, UnixTime,
 		},
 	};
-	use frame_system::pallet_prelude::*;
-	use sp_runtime::{traits::Saturating, Perquintill};
 
 	type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
@@ -299,8 +295,52 @@ pub mod polkadot_inflation {
 }
 
 #[cfg(test)]
+mod mock {
+	use super::*;
+	use frame::{prelude::*, testing_prelude::*};
+	use polkadot_inflation::{InflationFn, InflationPayout};
+
+	construct_runtime!(
+		pub struct Runtime {
+			System: frame_system,
+			Currency: pallet_balances,
+			Inflation: polkadot_inflation,
+			Timestampe: pallet_timestamp,
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for Runtime {}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for Runtime {}
+
+	#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+	impl pallet_timestamp::Config for Runtime {}
+
+	parameter_types! {
+		pub static Recipients: Vec<InflationFn<Runtime>> = vec![
+			Box::new(|_, _| (0, InflationPayout::Burn)),
+			Box::new(|_, _| (0, InflationPayout::Burn)),
+		];
+		pub static MaxInflation: Perquintill = Perquintill::from_percent(10);
+	}
+
+	impl polkadot_inflation::Config for Runtime {
+		type RuntimeEvent = RuntimeEvent;
+		type Recipients = Recipients;
+		type Currency = Balances;
+		type CurrencyBalance = <Runtime as pallet_balances::Config>::Balance;
+		type MaxInflation = MaxInflation;
+		type UnixTime = Timestamp;
+	}
+}
+#[cfg(test)]
 mod tests {
-	use crate::mock::*;
+
+	mod polkadot_staking_income {}
+
+	mod treasury_income {}
 
 	#[test]
 	fn inflation_stateless_is_sensible() {

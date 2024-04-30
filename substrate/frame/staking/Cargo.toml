@@ -37,6 +37,11 @@ sp-std = { path = "../../primitives/std", default-features = false }
 
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
+# we use frame only for the inflation pallet for now
+frame = { package = "polkadot-sdk-frame", path = "..", default-features = false, features = [
+	"experimental",
+	"runtime",
+] }
 
 pallet-session = { path = "../session", default-features = false, features = [
 	"historical",
