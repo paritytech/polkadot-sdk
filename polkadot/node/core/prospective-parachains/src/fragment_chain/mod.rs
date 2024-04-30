@@ -798,29 +798,29 @@ impl FragmentChain {
 	fn is_fork_or_cycle(&self, parent_head_hash: Hash, output_head_hash: Option<Hash>) -> bool {
 		if self.by_parent_head.contains_key(&parent_head_hash) {
 			// fork. our parent has another child already
-			return false;
+			return true;
 		}
 
 		if let Some(output_head_hash) = output_head_hash {
 			if self.by_output_head.contains_key(&output_head_hash) {
 				// this is not a chain, there are multiple paths to the same state.
-				return false;
+				return true;
 			}
 
 			// trivial 0-length cycle.
 			if parent_head_hash == output_head_hash {
-				return false;
+				return true;
 			}
 
 			// this should catch any other cycles. our output state cannot already be the parent
 			// state of another candidate, unless this is a cycle, since the already added
 			// candidates form a chain.
 			if self.by_parent_head.contains_key(&output_head_hash) {
-				return false;
+				return true;
 			}
 		}
 
-		true
+		false
 	}
 
 	// Checks the potential of a candidate to be added to the chain in the future.
@@ -834,7 +834,7 @@ impl FragmentChain {
 		parent_head_hash: Hash,
 		output_head_hash: Option<Hash>,
 	) -> bool {
-		if !self.is_fork_or_cycle(parent_head_hash, output_head_hash) {
+		if self.is_fork_or_cycle(parent_head_hash, output_head_hash) {
 			return false;
 		}
 
@@ -894,7 +894,7 @@ impl FragmentChain {
 				// 4. all non-pending-availability candidates have relay-parent in scope.
 				// 5. candidate outputs fulfill constraints
 
-				if !self.is_fork_or_cycle(
+				if self.is_fork_or_cycle(
 					candidate.parent_head_data_hash(),
 					Some(candidate.output_head_data_hash()),
 				) {
