@@ -3372,7 +3372,7 @@ pub(crate) async fn respond_task(
 
 				// If peer currently being served drop request
 				if active_peers.contains(&request.peer) {
-					gum::debug!(target: LOG_TARGET, "Peer already being served, dropping request");
+					gum::trace!(target: LOG_TARGET, "Peer already being served, dropping request");
 					continue
 				}
 
