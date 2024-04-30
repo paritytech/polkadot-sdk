@@ -551,7 +551,7 @@ impl<T: Config> Pallet<T> {
 			Self::era_payout_account(era_index),
 			T::Currency::total_balance(&Self::era_payout_account(era_index))
 		);
-		T::Currency::total_balance(&Self::era_payout_account(era_index))
+		T::Currency::total_balance(&Self::era_payout_account(era_index)).saturating_sub(T::Currency::minimum_balance())
 	}
 
 	/// Compute payout for era.
@@ -559,7 +559,7 @@ impl<T: Config> Pallet<T> {
 		use frame_support::traits::ExistenceRequirement;
 		// Note: active_era_start can be None if end era is called during genesis config.
 		let pending_payout_account = Self::pending_payout_account();
-		let pending_payout = T::Currency::total_balance(&pending_payout_account);
+		let pending_payout = T::Currency::total_balance(&pending_payout_account)
 
 		let active_era_payouts = Self::era_payout_account(active_era.index);
 		log!(
@@ -569,18 +569,17 @@ impl<T: Config> Pallet<T> {
 			pending_payout
 		);
 
-		// TODO: deal with EDs etc.
-		T::Currency::transfer(
+		let _ = T::Currency::transfer(
 			&pending_payout_account,
 			&active_era_payouts,
+			// pending payout is guaranteed to have at least ED, so this will never fail.
 			pending_payout,
 			ExistenceRequirement::AllowDeath,
-		)
-		.expect("`pending_payout_account` must exist");
+		).defensive();
 
 		Self::deposit_event(Event::<T>::EraPaid {
 			era_index: active_era.index,
-			validator_payout: pending_payout,
+			validator_payout: pending_payout.saturating_sub(T::Currency::minimum_balance()),
 		});
 
 		// Clear offending validators.

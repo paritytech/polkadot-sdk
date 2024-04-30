@@ -330,9 +330,10 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_before_era_end(_era_index: EraIndex) {
 		let new_total_stake = Staking::eras_total_stake(active_era());
 		// Set the right last known staked amount,
-		<Test as pallet_polkadot_inflation::Config>::update_total_stake(new_total_stake);
+		<Test as pallet_polkadot_inflation::Config>::update_total_stake(new_total_stake, None);
 		// Trigger an inflation, which will populate the pot.
-		PolkadotInflation::inflate_with_bookkeeping();
+		PolkadotInflation::inflate_with_bookkeeping()
+			.expect("inflation should not fail in test setup");
 	}
 }
 
