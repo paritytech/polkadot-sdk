@@ -401,14 +401,7 @@ impl<T: Config> Snapshot<T> {
 	/// Return the number of desired targets, which is defined by [`T::DataProvider`].
 	fn desired_targets() -> Option<u32> {
 		match T::DataProvider::desired_targets() {
-			Ok(desired) => {
-				// TODO: remove and add to the chainspec.
-				if desired.is_zero() {
-					Some(5)
-				} else {
-					Some(desired)
-				}
-			},
+			Ok(desired) => Some(desired),
 			Err(err) => {
 				defensive!(
 					"error fetching the desired targets from the election data provider {}",

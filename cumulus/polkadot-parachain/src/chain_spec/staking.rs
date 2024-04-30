@@ -115,6 +115,24 @@ fn staking_rococo_genesis(
 		"polkadotXcm": staking_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
+		},
+		"staking": staking_rococo_runtime::StakingConfig {
+			// add a few stakers to start with for testing.
+			stakers: vec![
+				(
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					100u128,
+					pallet_staking::StakerStatus::Validator,
+				),
+				(
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					200u128,
+					pallet_staking::StakerStatus::Validator,
+				),
+			],
+			..Default::default()
 		}
 	})
 }

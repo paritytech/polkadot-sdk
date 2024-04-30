@@ -289,8 +289,8 @@ impl<T: Config> Pallet<T> {
 		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
 			(Phase::Unsigned(_), Some(page)) => {
 				let (full_score, partial_score, partial_solution) =
-					//OffchainWorkerMiner::<T>::fetch_or_mine(page)?;
-				    OffchainWorkerMiner::<T>::mine(page)?;
+					OffchainWorkerMiner::<T>::mine(page)?;
+				//OffchainWorkerMiner::<T>::fetch_or_mine(page)?;
 
 				// submit page only if full score improves the current queued score.
 				if <T::Verifier as Verifier>::ensure_score_improves(full_score) {

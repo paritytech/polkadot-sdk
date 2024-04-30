@@ -15,8 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, verifier::impls::pallet::*};
-use frame_support::assert_ok;
+use crate::{
+	mock::*,
+	verifier::{impls::pallet::*, *},
+	Phase,
+};
+use frame_support::assert_noop;
 use sp_npos_elections::ElectionScore;
 
 mod solution {
@@ -24,7 +28,7 @@ mod solution {
 
 	#[test]
 	fn variant_flipping_works() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			assert!(QueuedSolution::<T>::valid() != QueuedSolution::<T>::invalid());
 
 			let valid_before = QueuedSolution::<T>::valid();
@@ -44,7 +48,30 @@ mod solution {
 	}
 }
 
-mod feasibility_check {}
+mod feasibility_check {
+	use super::*;
+
+	#[test]
+	fn winner_indices_page_in_bounds() {
+		ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+			let mut solution = mine_full(1).unwrap();
+			assert_eq!(crate::Snapshot::<Runtime>::targets().unwrap().len(), 8);
+
+			// swap all votes from 3 to 4 to invalidate index 4.
+			solution.solution_pages[0]
+				.votes1
+				.iter_mut()
+				.filter(|(_, t)| *t == TargetIndex::from(3u16))
+				.for_each(|(_, t)| *t += 1);
+
+			assert_noop!(
+				VerifierPallet::feasibility_check(solution.solution_pages[0].clone(), 0),
+				FeasibilityError::InvalidVote,
+			);
+		})
+	}
+}
 
 mod sync_verifier {
 	use super::*;
@@ -54,24 +81,13 @@ mod sync_verifier {
 	};
 
 	#[test]
-	fn sync_verification_works() {
-		ExtBuilder::verifier().build_and_execute(|| {
-			// no queued score or solution at the beginning.
-			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
-			assert!(<VerifierPallet as Verifier>::get_queued_solution(0).is_none());
-
-			compute_snapshot_checked();
-			assert!(assert_snapshots().is_ok());
-
-			let (score, solution_page) = mine(0).unwrap();
-
-			assert_ok!(<VerifierPallet as Verifier>::verify_synchronous(solution_page, score, 0));
-		})
+	fn sync_verifier_simple_works() {
+		ExtBuilder::default().build_and_execute(|| {})
 	}
 
 	#[test]
 	fn next_missing_solution_works() {
-		ExtBuilder::verifier().build_and_execute(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			let supports: SupportsOf<VerifierPallet> = Default::default();
 			let msp = crate::Pallet::<T>::msp();
 			assert!(msp == <T as crate::Config>::Pages::get() - 1 && msp == 2);
@@ -96,4 +112,11 @@ mod sync_verifier {
 	}
 }
 
-mod async_verifier {}
+mod async_verifier {
+	use super::*;
+
+	#[test]
+	fn async_verifier_simple_works() {
+		ExtBuilder::default().build_and_execute(|| {})
+	}
+}

@@ -26,7 +26,10 @@ pub use staking::*;
 use crate::{
 	self as epm,
 	signed::{self as signed_pallet},
-	unsigned::{self as unsigned_pallet, miner::OffchainWorkerMiner},
+	unsigned::{
+		self as unsigned_pallet,
+		miner::{Miner, MinerError, OffchainWorkerMiner},
+	},
 	verifier::{self as verifier_pallet},
 	Config, *,
 };
@@ -476,6 +479,11 @@ pub fn clear_snapshot() {
 
 pub fn balances(who: AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolution<T>, MinerError> {
+	let (solution, _) = Miner::<T, Solver>::mine_paged_solution(pages, false)?;
+	Ok(solution)
 }
 
 pub fn mine(page: PageIndex) -> Result<(ElectionScore, SolutionOf<T>), ()> {
