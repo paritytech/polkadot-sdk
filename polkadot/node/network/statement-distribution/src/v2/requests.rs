@@ -437,12 +437,10 @@ impl ResponseManager {
 	/// Await the next incoming response to a sent request, or immediately
 	/// return `None` if there are no pending responses.
 	pub async fn incoming(&mut self) -> Option<UnhandledResponse> {
-		if let Some(response) = self.pending_responses.next().await {
-			// Upon receiving a response, remove the peer from the active set.
+		self.pending_responses.next().await.map(|response| {
 			self.active_peers.remove(&response.requested_peer);
-			return Some(UnhandledResponse { response });
-		}
-		None
+			UnhandledResponse { response }
+		})
 	}
 
 	fn len(&self) -> usize {
