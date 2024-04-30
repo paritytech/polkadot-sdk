@@ -1875,6 +1875,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1724" id="1724">1724</a>
 <a href="#1725" id="1725">1725</a>
 <a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2448,6 +2452,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>Touched { asset_id: T::AssetId, who: T::AccountId, depositor: T::AccountId },
 		<span class="doccomment">/// Some account `who` was blocked.
 		</span>Blocked { asset_id: T::AssetId, who: T::AccountId },
+		<span class="doccomment">/// Some assets were deposited (e.g. for transaction fees).
+		</span>Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		<span class="doccomment">/// Some assets were withdrawn from the account (e.g. for transaction fees).
+		</span>Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 	}
 
 	<span class="attr">#[pallet::error]

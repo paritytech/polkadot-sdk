@@ -491,6 +491,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -611,6 +627,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">type </span>OnDropCredit = fungibles::DecreaseIssuance&lt;T::AccountId, <span class="self">Self</span>&gt;;
 	<span class="kw">type </span>OnDropDebt = fungibles::IncreaseIssuance&lt;T::AccountId, <span class="self">Self</span>&gt;;
+
+	<span class="kw">fn </span>done_deposit(
+		asset_id: <span class="self">Self</span>::AssetId,
+		who: <span class="kw-2">&amp;</span>&lt;T <span class="kw">as </span>SystemConfig&gt;::AccountId,
+		amount: <span class="self">Self</span>::Balance,
+	) {
+		<span class="self">Self</span>::deposit_event(Event::Deposited { asset_id, who: who.clone(), amount })
+	}
+
+	<span class="kw">fn </span>done_withdraw(
+		asset_id: <span class="self">Self</span>::AssetId,
+		who: <span class="kw-2">&amp;</span>&lt;T <span class="kw">as </span>SystemConfig&gt;::AccountId,
+		amount: <span class="self">Self</span>::Balance,
+	) {
+		<span class="self">Self</span>::deposit_event(Event::Withdrawn { asset_id, who: who.clone(), amount })
+	}
 }
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; fungibles::Unbalanced&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
