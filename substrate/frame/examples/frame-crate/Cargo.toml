@@ -2,7 +2,7 @@
 name = "pallet-example-frame-crate"
 version = "0.0.1"
 authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+edition.workspace = true
 license = "MIT-0"
 homepage = "https://substrate.io"
 repository.workspace = true

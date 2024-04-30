@@ -25,13 +25,15 @@ use crate::{
 
 use async_trait::async_trait;
 use bp_header_chain::justification::{GrandpaJustification, JustificationVerificationContext};
-use finality_relay::{FinalityPipeline, FinalitySyncPipeline};
+use finality_relay::{
+	FinalityPipeline, FinalitySyncPipeline, HeadersToRelay, SourceClient, TargetClient,
+};
 use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
 	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
 	ChainWithTransactions, Client, HashOf, HeaderOf, SyncHeader,
 };
-use relay_utils::metrics::MetricsParams;
+use relay_utils::{metrics::MetricsParams, TrackedTransactionStatus, TransactionTracker};
 use sp_core::Pair;
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -115,6 +117,7 @@ pub trait SubmitFinalityProofCallBuilder<P: SubstrateFinalitySyncPipeline> {
 	fn build_submit_finality_proof_call(
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		proof: SubstrateFinalityProof<P>,
+		is_free_execution_expected: bool,
 		context: <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<P::SourceChain>>::FinalityVerificationContext,
 	) -> CallOf<P::TargetChain>;
 }
@@ -142,6 +145,7 @@ where
 	fn build_submit_finality_proof_call(
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		proof: GrandpaJustification<HeaderOf<P::SourceChain>>,
+		_is_free_execution_expected: bool,
 		_context: JustificationVerificationContext,
 	) -> CallOf<P::TargetChain> {
 		BridgeGrandpaCall::<R, I>::submit_finality_proof {
@@ -176,6 +180,7 @@ macro_rules! generate_submit_finality_proof_call_builder {
 						<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
 					>
 				>,
+				_is_free_execution_expected: bool,
 				_context: bp_header_chain::justification::JustificationVerificationContext,
 			) -> relay_substrate_client::CallOf<
 				<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::TargetChain
@@ -215,6 +220,7 @@ macro_rules! generate_submit_finality_proof_ex_call_builder {
 						<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
 					>
 				>,
+				is_free_execution_expected: bool,
 				context: bp_header_chain::justification::JustificationVerificationContext,
 			) -> relay_substrate_client::CallOf<
 				<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::TargetChain
@@ -223,7 +229,8 @@ macro_rules! generate_submit_finality_proof_ex_call_builder {
 					$bridge_grandpa($submit_finality_proof {
 						finality_target: Box::new(header.into_inner()),
 						justification: proof,
-						current_set_id: context.authority_set_id
+						current_set_id: context.authority_set_id,
+						is_free_execution_expected,
 					})
 				}
 			}
@@ -235,15 +242,16 @@ macro_rules! generate_submit_finality_proof_ex_call_builder {
 pub async fn run<P: SubstrateFinalitySyncPipeline>(
 	source_client: Client<P::SourceChain>,
 	target_client: Client<P::TargetChain>,
-	only_mandatory_headers: bool,
+	headers_to_relay: HeadersToRelay,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	metrics_params: MetricsParams,
 ) -> anyhow::Result<()> {
 	log::info!(
 		target: "bridge",
-		"Starting {} -> {} finality proof relay",
+		"Starting {} -> {} finality proof relay: relaying {:?} headers",
 		P::SourceChain::NAME,
 		P::TargetChain::NAME,
+		headers_to_relay,
 	);
 
 	finality_relay::run(
@@ -260,11 +268,42 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 				P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 				relay_utils::STALL_TIMEOUT,
 			),
-			only_mandatory_headers,
+			headers_to_relay,
 		},
 		metrics_params,
 		futures::future::pending(),
 	)
 	.await
 	.map_err(|e| anyhow::format_err!("{}", e))
+}
+
+/// Relay single header. No checks are made to ensure that transaction will succeed.
+pub async fn relay_single_header<P: SubstrateFinalitySyncPipeline>(
+	source_client: Client<P::SourceChain>,
+	target_client: Client<P::TargetChain>,
+	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
+	header_number: BlockNumberOf<P::SourceChain>,
+) -> anyhow::Result<()> {
+	let finality_source = SubstrateFinalitySource::<P>::new(source_client, None);
+	let (header, proof) = finality_source.header_and_finality_proof(header_number).await?;
+	let Some(proof) = proof else {
+		return Err(anyhow::format_err!(
+			"Unable to submit {} header #{} to {}: no finality proof",
+			P::SourceChain::NAME,
+			header_number,
+			P::TargetChain::NAME,
+		));
+	};
+
+	let finality_target = SubstrateFinalityTarget::<P>::new(target_client, transaction_params);
+	let tx_tracker = finality_target.submit_finality_proof(header, proof, false).await?;
+	match tx_tracker.wait().await {
+		TrackedTransactionStatus::Finalized(_) => Ok(()),
+		TrackedTransactionStatus::Lost => Err(anyhow::format_err!(
+			"Transaction with {} header #{} is considered lost at {}",
+			P::SourceChain::NAME,
+			header_number,
+			P::TargetChain::NAME,
+		)),
+	}
 }
