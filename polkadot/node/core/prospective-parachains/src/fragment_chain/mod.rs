@@ -36,7 +36,9 @@
 //! elastic scaling, so that we may parallelise the backing process across different groups. As long
 //! as some basic constraints are not violated by an unconnected candidate (like the relay parent
 //! being in scope), we proceed with the backing process, hoping that its predecessors will be
-//! backed soon enough.
+//! backed soon enough. This is commonly called a potential candidate. Note that not all potential
+//! candidates will be maintained in the CandidateStorage. The total number of connected + potential
+//! candidates will be at most max_candidate_dapth + 1.
 //!
 //! This module also makes use of types provided by the Inclusion Emulator module, such as
 //! [`Fragment`] and [`Constraints`]. These perform the actual job of checking for validity of
@@ -717,6 +719,8 @@ impl FragmentChain {
 	// Checks if this candidate could be added in the future to this chain.
 	// This assumes that the chain does not already contain this candidate. It may or may not be
 	// present in the `CandidateStorage`.
+	// Even if the candidate is a potential candidate, this function will indicate that it can be
+	// kept only if there's enough room for it.
 	pub(crate) fn can_add_candidate_as_potential(
 		&self,
 		storage: &CandidateStorage,
