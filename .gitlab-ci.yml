@@ -240,8 +240,39 @@ include:
 #
 #
 #
-test-linux-stable-codecov:
+coverage-result:
   stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .pipeline-stopper-artifacts  
+  needs:
+    - codecov-test-linux-stable
+  script:
+    - codecov create-report-results --code <CODE>
+    - codecov get-report-results --code <CODE>
+
+#
+#
+#  
+codecov-start:
+  stage: test
+  when: manual
+  extends:
+    - .docker-env
+    - .common-refs
+    - .pipeline-stopper-artifacts
+  script:
+    - codecov create-commit
+    - codecov create-report
+
+#
+#
+#
+codecov-test-linux-stable:
+  stage: test
+  needs:
+    - codecov-start
   extends:
     - .docker-env
     - .common-refs
@@ -274,8 +305,7 @@ test-linux-stable-codecov:
         --branch \
         -o target/coverage/result/report-${CI_NODE_INDEX}.lcov
     - ls -l target/coverage/result/    
-    - codecov upload-process -t ${CODECOV_TOKEN} -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --desable-search
-    - codecov get-report-results
+    - codecov do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --desable-search
   #  
 
 
