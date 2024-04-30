@@ -23,9 +23,9 @@ use super::*;
 use crate::Pallet as CoreFellowship;
 
 use frame_benchmarking::v2::*;
+use frame_support::testing_prelude::bounded_vec;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_arithmetic::traits::Bounded;
-use sp_runtime::bounded_vec;
 
 const SEED: u32 = 0;
 
