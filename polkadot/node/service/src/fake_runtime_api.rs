@@ -421,7 +421,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn dry_run_xcm(_: VersionedLocation, _: VersionedXcm<()>, _: Weight) -> Result<xcm_fee_payment_runtime_api::dry_run::XcmDryRunEffects<()>, xcm_fee_payment_runtime_api::dry_run::Error> {
+		fn dry_run_xcm(_: VersionedLocation, _: VersionedXcm<()>) -> Result<xcm_fee_payment_runtime_api::dry_run::XcmDryRunEffects<()>, xcm_fee_payment_runtime_api::dry_run::Error> {
 			unimplemented!()
 		}
 	}

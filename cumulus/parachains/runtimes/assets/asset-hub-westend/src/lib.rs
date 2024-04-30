@@ -1373,7 +1373,7 @@ impl_runtime_apis! {
 			})
 		}
 
-		fn dry_run_xcm(origin_location: VersionedLocation, program: VersionedXcm<RuntimeCall>, weight: Weight) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+		fn dry_run_xcm(origin_location: VersionedLocation, program: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_builder::InspectMessageQueues;
 			use xcm::prelude::*;
 
@@ -1398,7 +1398,7 @@ impl_runtime_apis! {
 				origin_location,
 				program,
 				&mut hash,
-				weight,
+				Weight::MAX, // Max limit available for execution.
 				Weight::zero(),
 			);
 			let forwarded_messages = xcm_config::XcmRouter::get_messages();

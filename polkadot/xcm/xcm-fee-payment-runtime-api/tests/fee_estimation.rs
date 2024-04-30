@@ -335,7 +335,6 @@ fn dry_run_xcm() {
 				H256::zero(),
 				VersionedLocation::V4(AccountIndex64 { index: 1, network: None }.into()),
 				VersionedXcm::V4(xcm),
-				xcm_weight,
 			)
 			.unwrap()
 			.unwrap();

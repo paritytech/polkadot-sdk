@@ -63,7 +63,7 @@ sp_api::decl_runtime_apis! {
 		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<Event>, Error>;
 
 		/// Dry run XCM program
-		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>, weight: Weight) -> Result<XcmDryRunEffects<Event>, Error>;
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>) -> Result<XcmDryRunEffects<Event>, Error>;
 	}
 }
 

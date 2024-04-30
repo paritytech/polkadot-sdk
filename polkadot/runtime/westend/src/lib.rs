@@ -2250,7 +2250,7 @@ sp_api::impl_runtime_apis! {
 			})
 		}
 
-		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>, weight: Weight) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_builder::InspectMessageQueues;
 			let origin_location: Location = origin_location.try_into().map_err(|error| {
 				log::error!(
@@ -2273,7 +2273,7 @@ sp_api::impl_runtime_apis! {
 				origin_location,
 				xcm,
 				&mut hash,
-				weight,
+				Weight::MAX, // Max limit available for execution.
 				Weight::zero(),
 			);
 			let forwarded_messages = xcm_config::XcmRouter::get_messages();
