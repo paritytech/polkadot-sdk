@@ -19,7 +19,7 @@ requests = { memory = "2G", cpu = "1" }
   [[relaychain.node_groups]]
   name = "honest"
   count = 4
-  args = ["-lparachain=debug"]
+  args = ["-lparachain=debug,parachain::statement-distribution=trace"]
 
   [[relaychain.nodes]]
   image = "{{MALUS_IMAGE}}"
