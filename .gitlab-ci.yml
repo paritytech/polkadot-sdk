@@ -266,13 +266,14 @@ coverage-result:
 codecov-start:
   stage: test
   when: manual
+  allow_failure: false
   extends:
     - .docker-env
     - .common-refs
     - .pipeline-stopper-artifacts
   script:
     - !reference [.codecov-cli, script]    
-    - codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error
+    - codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME}
     - codecovcli -v create-report -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error
 
 #
