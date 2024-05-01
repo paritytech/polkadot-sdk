@@ -17,9 +17,6 @@
 
 //! Mock file for offences benchmarking.
 
-#![cfg(test)]
-
-use super::*;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -33,14 +30,14 @@ use pallet_session::historical as pallet_session_historical;
 use sp_runtime::{
 	testing::{Header, UintAuthorityId},
 	traits::IdentityLookup,
-	BuildStorage,
+	BuildStorage, Perbill,
 };
 
 type AccountId = u64;
 type Nonce = u32;
 type Balance = u64;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -177,7 +174,6 @@ impl pallet_staking::Config for Test {
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = ConstU32<64>;
-	type OffendingValidatorsThreshold = ();
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
@@ -189,6 +185,7 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 impl pallet_im_online::Config for Test {

@@ -1,0 +1,29 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: PoV Reclaim Runtime Side
+author: skunert
+topic: runtime
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a mechanism to reclaim proof size weight.
+      1. Introduces a new `SignedExtension` that reclaims the difference
+      between benchmarked proof size weight and actual consumed proof size weight.
+      2. Introduces a manual mechanism, `StorageWeightReclaimer`, to reclaim excess storage weight for situations
+      that require manual weight management. The most prominent case is the `on_idle` hook.
+      3. Adds the `storage_proof_size` host function to the PVF. Parachain nodes should add it to ensure compatibility.
+
+      To enable proof size reclaiming, add the host `storage_proof_size` host function to the parachain node. Add the
+      `StorageWeightReclaim` `SignedExtension` to your runtime and enable proof recording during block import.
+
+
+crates:
+  - name: "cumulus-primitives-storage-weight-reclaim"
+host_functions:
+  - name: "storage_proof_size"
+    description: |
+      This host function is used to pass the current size of the storage proof to the runtime.
+      It was introduced before but becomes relevant now.
+      Note: This host function is intended to be used through `cumulus_primitives_storage_weight_reclaim::get_proof_size`.
+      Direct usage is not recommended.

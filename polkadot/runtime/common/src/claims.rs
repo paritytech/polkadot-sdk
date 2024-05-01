@@ -203,20 +203,17 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn claims)]
-	pub(super) type Claims<T: Config> = StorageMap<_, Identity, EthereumAddress, BalanceOf<T>>;
+	pub type Claims<T: Config> = StorageMap<_, Identity, EthereumAddress, BalanceOf<T>>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn total)]
-	pub(super) type Total<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+	pub type Total<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// Vesting schedule for a claim.
 	/// First balance is the total amount that should be held for vesting.
 	/// Second balance is how much should be unlocked per block.
 	/// The block number is when the vesting should start.
 	#[pallet::storage]
-	#[pallet::getter(fn vesting)]
-	pub(super) type Vesting<T: Config> =
+	pub type Vesting<T: Config> =
 		StorageMap<_, Identity, EthereumAddress, (BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>;
 
 	/// The statement kind that must be signed, if any.
@@ -341,10 +338,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			<Total<T>>::mutate(|t| *t += value);
-			<Claims<T>>::insert(who, value);
+			Total::<T>::mutate(|t| *t += value);
+			Claims::<T>::insert(who, value);
 			if let Some(vs) = vesting_schedule {
-				<Vesting<T>>::insert(who, vs);
+				Vesting::<T>::insert(who, vs);
 			}
 			if let Some(s) = statement {
 				Signing::<T>::insert(who, s);
@@ -492,7 +489,7 @@ pub mod pallet {
 			))?;
 
 			let e = InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into());
-			ensure!(<Claims<T>>::contains_key(&signer), e);
+			ensure!(Claims::<T>::contains_key(&signer), e);
 
 			let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
 			match Signing::<T>::get(signer) {
@@ -551,9 +548,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn process_claim(signer: EthereumAddress, dest: T::AccountId) -> sp_runtime::DispatchResult {
-		let balance_due = <Claims<T>>::get(&signer).ok_or(Error::<T>::SignerHasNoClaim)?;
+		let balance_due = Claims::<T>::get(&signer).ok_or(Error::<T>::SignerHasNoClaim)?;
 
-		let new_total = Self::total().checked_sub(&balance_due).ok_or(Error::<T>::PotUnderflow)?;
+		let new_total =
+			Total::<T>::get().checked_sub(&balance_due).ok_or(Error::<T>::PotUnderflow)?;
 
 		let vesting = Vesting::<T>::get(&signer);
 		if vesting.is_some() && T::VestingSchedule::vesting_balance(&dest).is_some() {
@@ -571,9 +569,9 @@ impl<T: Config> Pallet<T> {
 				.expect("No other vesting schedule exists, as checked above; qed");
 		}
 
-		<Total<T>>::put(new_total);
-		<Claims<T>>::remove(&signer);
-		<Vesting<T>>::remove(&signer);
+		Total::<T>::put(new_total);
+		Claims::<T>::remove(&signer);
+		Vesting::<T>::remove(&signer);
 		Signing::<T>::remove(&signer);
 
 		// Let's deposit an event to let the outside world know this happened.
@@ -683,7 +681,7 @@ mod secp_utils {
 		what: &[u8],
 		extra: &[u8],
 	) -> EcdsaSignature {
-		let msg = keccak_256(&<super::Pallet<T>>::ethereum_signable_message(
+		let msg = keccak_256(&super::Pallet::<T>::ethereum_signable_message(
 			&to_ascii_hex(what)[..],
 			extra,
 		));
@@ -702,7 +700,6 @@ mod tests {
 	use secp_utils::*;
 
 	use parity_scale_codec::Encode;
-	use sp_core::H256;
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::claims;
@@ -715,11 +712,8 @@ mod tests {
 	};
 	use pallet_balances;
 	use sp_runtime::{
-		traits::{BlakeTwo256, Identity, IdentityLookup},
-		transaction_validity::TransactionLongevity,
-		BuildStorage,
-		DispatchError::BadOrigin,
-		TokenError,
+		traits::Identity, transaction_validity::TransactionLongevity, BuildStorage,
+		DispatchError::BadOrigin, TokenError,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -734,34 +728,13 @@ mod tests {
 		}
 	);
 
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-	}
-
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = ();
-		type DbWeight = ();
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
-		type Nonce = u64;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<u64>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
-		type Version = ();
-		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = ();
-		type OnSetCode = ();
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
@@ -862,13 +835,13 @@ mod tests {
 	#[test]
 	fn basic_setup_works() {
 		new_test_ext().execute_with(|| {
-			assert_eq!(Claims::total(), total_claims());
-			assert_eq!(Claims::claims(&eth(&alice())), Some(100));
-			assert_eq!(Claims::claims(&eth(&dave())), Some(200));
-			assert_eq!(Claims::claims(&eth(&eve())), Some(300));
-			assert_eq!(Claims::claims(&eth(&frank())), Some(400));
-			assert_eq!(Claims::claims(&EthereumAddress::default()), None);
-			assert_eq!(Claims::vesting(&eth(&alice())), Some((50, 10, 1)));
+			assert_eq!(claims::Total::<Test>::get(), total_claims());
+			assert_eq!(claims::Claims::<Test>::get(&eth(&alice())), Some(100));
+			assert_eq!(claims::Claims::<Test>::get(&eth(&dave())), Some(200));
+			assert_eq!(claims::Claims::<Test>::get(&eth(&eve())), Some(300));
+			assert_eq!(claims::Claims::<Test>::get(&eth(&frank())), Some(400));
+			assert_eq!(claims::Claims::<Test>::get(&EthereumAddress::default()), None);
+			assert_eq!(claims::Vesting::<Test>::get(&eth(&alice())), Some((50, 10, 1)));
 		});
 	}
 
@@ -892,7 +865,7 @@ mod tests {
 			));
 			assert_eq!(Balances::free_balance(&42), 100);
 			assert_eq!(Vesting::vesting_balance(&42), Some(50));
-			assert_eq!(Claims::total(), total_claims() - 100);
+			assert_eq!(claims::Total::<Test>::get(), total_claims() - 100);
 		});
 	}
 
@@ -925,7 +898,7 @@ mod tests {
 			));
 			assert_eq!(Balances::free_balance(&42), 100);
 			assert_eq!(Vesting::vesting_balance(&42), Some(50));
-			assert_eq!(Claims::total(), total_claims() - 100);
+			assert_eq!(claims::Total::<Test>::get(), total_claims() - 100);
 		});
 	}
 
@@ -1029,7 +1002,7 @@ mod tests {
 				StatementKind::Regular.to_text().to_vec()
 			));
 			assert_eq!(Balances::free_balance(&42), 200);
-			assert_eq!(Claims::total(), total_claims() - 200);
+			assert_eq!(claims::Total::<Test>::get(), total_claims() - 200);
 
 			let s = sig::<Test>(&dave(), &42u64.encode(), StatementKind::Regular.to_text());
 			let r = Claims::claim_attest(
@@ -1062,7 +1035,7 @@ mod tests {
 				StatementKind::Saft.to_text().to_vec()
 			));
 			assert_eq!(Balances::free_balance(&42), 300);
-			assert_eq!(Claims::total(), total_claims() - 300);
+			assert_eq!(claims::Total::<Test>::get(), total_claims() - 300);
 		});
 	}
 
@@ -1083,7 +1056,7 @@ mod tests {
 				StatementKind::Saft.to_text().to_vec()
 			));
 			assert_eq!(Balances::free_balance(&42), 100 + 300);
-			assert_eq!(Claims::total(), total_claims() - 400);
+			assert_eq!(claims::Total::<Test>::get(), total_claims() - 400);
 		});
 	}
 
@@ -1147,7 +1120,7 @@ mod tests {
 				Error::<Test>::SignerHasNoClaim,
 			);
 			assert_ok!(Claims::mint_claim(RuntimeOrigin::root(), eth(&bob()), 200, None, None));
-			assert_eq!(Claims::total(), total_claims() + 200);
+			assert_eq!(claims::Total::<Test>::get(), total_claims() + 200);
 			assert_ok!(Claims::claim(
 				RuntimeOrigin::none(),
 				69,
@@ -1155,7 +1128,7 @@ mod tests {
 			));
 			assert_eq!(Balances::free_balance(&69), 200);
 			assert_eq!(Vesting::vesting_balance(&69), None);
-			assert_eq!(Claims::total(), total_claims());
+			assert_eq!(claims::Total::<Test>::get(), total_claims());
 		});
 	}
 
@@ -1309,7 +1282,7 @@ mod tests {
 				None
 			));
 			// New total
-			assert_eq!(Claims::total(), total_claims() + 200);
+			assert_eq!(claims::Total::<Test>::get(), total_claims() + 200);
 
 			// They should not be able to claim
 			assert_noop!(
@@ -1372,7 +1345,7 @@ mod tests {
 
 		new_test_ext().execute_with(|| {
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(
+				Pallet::<Test>::validate_unsigned(
 					source,
 					&ClaimsCall::claim {
 						dest: 1,
@@ -1388,14 +1361,14 @@ mod tests {
 				})
 			);
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(
+				Pallet::<Test>::validate_unsigned(
 					source,
 					&ClaimsCall::claim { dest: 0, ethereum_signature: EcdsaSignature([0; 65]) }
 				),
 				InvalidTransaction::Custom(ValidityError::InvalidEthereumSignature.into()).into(),
 			);
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(
+				Pallet::<Test>::validate_unsigned(
 					source,
 					&ClaimsCall::claim {
 						dest: 1,
@@ -1411,7 +1384,7 @@ mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			};
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(source, &call),
+				Pallet::<Test>::validate_unsigned(source, &call),
 				Ok(ValidTransaction {
 					priority: 100,
 					requires: vec![],
@@ -1421,7 +1394,7 @@ mod tests {
 				})
 			);
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(
+				Pallet::<Test>::validate_unsigned(
 					source,
 					&ClaimsCall::claim_attest {
 						dest: 1,
@@ -1439,7 +1412,7 @@ mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			};
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(source, &call),
+				Pallet::<Test>::validate_unsigned(source, &call),
 				InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()).into(),
 			);
 
@@ -1450,7 +1423,7 @@ mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			};
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(source, &call),
+				Pallet::<Test>::validate_unsigned(source, &call),
 				InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()).into(),
 			);
 
@@ -1461,7 +1434,7 @@ mod tests {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			};
 			assert_eq!(
-				<Pallet<Test>>::validate_unsigned(source, &call),
+				Pallet::<Test>::validate_unsigned(source, &call),
 				InvalidTransaction::Custom(ValidityError::InvalidStatement.into()).into(),
 			);
 		});

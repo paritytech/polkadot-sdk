@@ -31,6 +31,8 @@
 //! it will use a different set of keys. For Polkadot use case we plan to use `secp256k1` for BEEFY,
 //! while GRANDPA uses `ed25519`.
 
+extern crate alloc;
+
 mod commitment;
 mod payload;
 
@@ -41,16 +43,16 @@ pub mod witness;
 #[cfg(feature = "std")]
 pub mod test_utils;
 
-pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
+pub use commitment::{Commitment, KnownSignature, SignedCommitment, VersionedFinalityProof};
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
 
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 use sp_core::H256;
 use sp_runtime::traits::{Hash, Keccak256, NumberFor};
-use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
 pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;
@@ -198,7 +200,7 @@ pub mod ecdsa_bls_crypto {
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// We can not simply call
 			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
-			// because that invokes ECDSA default verification which perfoms Blake2b hash
+			// because that invokes ECDSA default verification which performs Blake2b hash
 			// which we don't want. This is because ECDSA signatures are meant to be verified
 			// on Ethereum network where Keccak hasher is significantly cheaper than Blake2b.
 			// See Figure 3 of [OnSc21](https://www.scitepress.org/Papers/2021/106066/106066.pdf)
@@ -304,14 +306,14 @@ pub struct VoteMessage<Number, Id, Signature> {
 /// BEEFY happens when a voter votes on the same round/block for different payloads.
 /// Proving is achieved by collecting the signed commitments of conflicting votes.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
-pub struct EquivocationProof<Number, Id, Signature> {
+pub struct DoubleVotingProof<Number, Id, Signature> {
 	/// The first vote in the equivocation.
 	pub first: VoteMessage<Number, Id, Signature>,
 	/// The second vote in the equivocation.
 	pub second: VoteMessage<Number, Id, Signature>,
 }
 
-impl<Number, Id, Signature> EquivocationProof<Number, Id, Signature> {
+impl<Number, Id, Signature> DoubleVotingProof<Number, Id, Signature> {
 	/// Returns the authority id of the equivocator.
 	pub fn offender_id(&self) -> &Id {
 		&self.first.id
@@ -345,7 +347,7 @@ where
 /// Verifies the equivocation proof by making sure that both votes target
 /// different blocks and that its signatures are valid.
 pub fn check_equivocation_proof<Number, Id, MsgHash>(
-	report: &EquivocationProof<Number, Id, <Id as RuntimeAppPublic>::Signature>,
+	report: &DoubleVotingProof<Number, Id, <Id as RuntimeAppPublic>::Signature>,
 ) -> bool
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
@@ -435,7 +437,7 @@ sp_api::decl_runtime_apis! {
 		/// hardcoded to return `None`). Only useful in an offchain context.
 		fn submit_report_equivocation_unsigned_extrinsic(
 			equivocation_proof:
-				EquivocationProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+				DoubleVotingProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 

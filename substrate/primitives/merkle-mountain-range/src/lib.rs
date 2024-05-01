@@ -20,14 +20,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
+extern crate alloc;
+
 pub use mmr_lib;
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use core::fmt;
 use scale_info::TypeInfo;
 use sp_debug_derive::RuntimeDebug;
 use sp_runtime::traits;
-use sp_std::fmt;
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::Vec;
 
 pub mod utils;
 
@@ -248,10 +250,10 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
 pub struct Compact<H, T> {
 	/// Internal tuple representation.
 	pub tuple: T,
-	_hash: sp_std::marker::PhantomData<H>,
+	_hash: core::marker::PhantomData<H>,
 }
 
-impl<H, T> sp_std::ops::Deref for Compact<H, T> {
+impl<H, T> core::ops::Deref for Compact<H, T> {
 	type Target = T;
 
 	fn deref(&self) -> &Self::Target {

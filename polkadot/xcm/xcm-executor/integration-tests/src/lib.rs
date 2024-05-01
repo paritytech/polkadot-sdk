@@ -14,17 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(test)]
 
 use codec::Encode;
 use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
+use polkadot_service::chain_spec::get_account_id_from_seed;
 use polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
 	TestClientBuilder, TestClientBuilderExt,
 };
 use polkadot_test_runtime::{pallet_test_notifier, xcm_config::XcmConfig};
 use polkadot_test_service::construct_extrinsic;
+use sp_core::sr25519;
 use sp_runtime::traits::Block;
 use sp_state_machine::InspectState;
 use xcm::{latest::prelude::*, VersionedResponse, VersionedXcm};
@@ -320,6 +321,87 @@ fn query_response_elicits_handler() {
 				q,
 				Response::ExecutionResult(None),
 			)) if *q == query_id && matches!(location.unpack(), (0, [Junction::AccountId32 { .. }])),
+		)));
+	});
+}
+
+/// Simulates a cross-chain message from Parachain to Parachain through Relay Chain
+/// that deposits assets into the reserve of the destination.
+/// Regression test for `DepositReserveAsset` changes in
+/// <https://github.com/paritytech/polkadot-sdk/pull/3340>
+#[test]
+fn deposit_reserve_asset_works_for_any_xcm_sender() {
+	sp_tracing::try_init_simple();
+	let mut client = TestClientBuilder::new().build();
+
+	// Init values for the simulated origin Parachain
+	let amount_to_send: u128 = 1_000_000_000_000;
+	let assets: Assets = (Parent, amount_to_send).into();
+	let fee_asset_item = 0;
+	let max_assets = assets.len() as u32;
+	let fees = assets.get(fee_asset_item as usize).unwrap().clone();
+	let weight_limit = Unlimited;
+	let reserve = Location::parent();
+	let dest = Location::new(1, [Parachain(2000)]);
+	let beneficiary_id = get_account_id_from_seed::<sr25519::Public>("Alice");
+	let beneficiary = Location::new(0, [AccountId32 { network: None, id: beneficiary_id.into() }]);
+
+	// spends up to half of fees for execution on reserve and other half for execution on
+	// destination
+	let fee1 = amount_to_send.saturating_div(2);
+	let fee2 = amount_to_send.saturating_sub(fee1);
+	let fees_half_1 = Asset::from((fees.id.clone(), Fungible(fee1)));
+	let fees_half_2 = Asset::from((fees.id.clone(), Fungible(fee2)));
+
+	let reserve_context = <XcmConfig as xcm_executor::Config>::UniversalLocation::get();
+	// identifies fee item as seen by `reserve` - to be used at reserve chain
+	let reserve_fees = fees_half_1.reanchored(&reserve, &reserve_context).unwrap();
+	// identifies fee item as seen by `dest` - to be used at destination chain
+	let dest_fees = fees_half_2.reanchored(&dest, &reserve_context).unwrap();
+	// identifies assets as seen by `reserve` - to be used at reserve chain
+	let assets_reanchored = assets.reanchored(&reserve, &reserve_context).unwrap();
+	// identifies `dest` as seen by `reserve`
+	let dest = dest.reanchored(&reserve, &reserve_context).unwrap();
+	// xcm to be executed at dest
+	let xcm_on_dest = Xcm(vec![
+		BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() },
+		DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+	]);
+	// xcm to be executed at reserve
+	let msg = Xcm(vec![
+		WithdrawAsset(assets_reanchored),
+		ClearOrigin,
+		BuyExecution { fees: reserve_fees, weight_limit },
+		DepositReserveAsset { assets: Wild(AllCounted(max_assets)), dest, xcm: xcm_on_dest },
+	]);
+
+	let mut block_builder = client.init_polkadot_block_builder();
+
+	// Simulate execution of an incoming XCM message at the reserve chain
+	let execute = construct_extrinsic(
+		&client,
+		polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
+			message: Box::new(VersionedXcm::from(msg)),
+			max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
+		}),
+		sp_keyring::Sr25519Keyring::Alice,
+		0,
+	);
+
+	block_builder.push_polkadot_extrinsic(execute).expect("pushes extrinsic");
+
+	let block = block_builder.build().expect("Finalizes the block").block;
+	let block_hash = block.hash();
+
+	futures::executor::block_on(client.import(sp_consensus::BlockOrigin::Own, block))
+		.expect("imports the block");
+
+	client.state_at(block_hash).expect("state should exist").inspect_state(|| {
+		assert!(polkadot_test_runtime::System::events().iter().any(|r| matches!(
+			r.event,
+			polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
+				outcome: Outcome::Complete { .. }
+			}),
 		)));
 	});
 }

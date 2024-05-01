@@ -2226,11 +2226,11 @@ fn reorg_triggers_a_notification_even_for_sources_that_should_not_trigger_notifi
 #[test]
 fn use_dalek_ext_works() {
 	fn zero_ed_pub() -> sp_core::ed25519::Public {
-		sp_core::ed25519::Public([0u8; 32])
+		sp_core::ed25519::Public::default()
 	}
 
 	fn zero_ed_sig() -> sp_core::ed25519::Signature {
-		sp_core::ed25519::Signature::from_raw([0u8; 64])
+		sp_core::ed25519::Signature::default()
 	}
 
 	let mut client = TestClientBuilder::new().build();

@@ -454,7 +454,7 @@ pub struct BlockEntry {
 	slot: Slot,
 	relay_vrf_story: RelayVRFStory,
 	// The candidates included as-of this block and the index of the core they are
-	// leaving. Sorted ascending by core index.
+	// leaving.
 	candidates: Vec<(CoreIndex, CandidateHash)>,
 	// A bitfield where the i'th bit corresponds to the i'th candidate in `candidates`.
 	// The i'th bit is `true` iff the candidate has been approved in the context of this
@@ -586,6 +586,13 @@ impl BlockEntry {
 	/// Return if we have candidates waiting for signature to be issued
 	pub fn has_candidates_pending_signature(&self) -> bool {
 		!self.candidates_pending_signature.is_empty()
+	}
+
+	/// Returns true if candidate hash is in the queue for a signature.
+	pub fn candidate_is_pending_signature(&self, candidate_hash: CandidateHash) -> bool {
+		self.candidates_pending_signature
+			.values()
+			.any(|context| context.candidate_hash == candidate_hash)
 	}
 
 	/// Candidate hashes  for candidates pending signatures

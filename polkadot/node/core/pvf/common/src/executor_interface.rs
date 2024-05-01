@@ -16,6 +16,7 @@
 
 //! Interface to the Substrate Executor
 
+use crate::error::ExecuteError;
 use polkadot_primitives::{
 	executor_params::{DEFAULT_LOGICAL_STACK_MAX, DEFAULT_NATIVE_STACK_MAX},
 	ExecutorParam, ExecutorParams,
@@ -23,7 +24,7 @@ use polkadot_primitives::{
 use sc_executor_common::{
 	error::WasmError,
 	runtime_blob::RuntimeBlob,
-	wasm_runtime::{HeapAllocStrategy, InvokeMethod, WasmModule as _},
+	wasm_runtime::{HeapAllocStrategy, WasmModule as _},
 };
 use sc_executor_wasmtime::{Config, DeterministicStackLimit, Semantics, WasmtimeRuntime};
 use sp_core::storage::{ChildInfo, TrackedStorageKey};
@@ -109,7 +110,7 @@ pub unsafe fn execute_artifact(
 	compiled_artifact_blob: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, ExecuteError> {
 	let mut extensions = sp_externalities::Extensions::new();
 
 	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
@@ -118,12 +119,11 @@ pub unsafe fn execute_artifact(
 
 	match sc_executor::with_externalities_safe(&mut ext, || {
 		let runtime = create_runtime_from_artifact_bytes(compiled_artifact_blob, executor_params)?;
-		runtime.new_instance()?.call(InvokeMethod::Export("validate_block"), params)
+		runtime.new_instance()?.call("validate_block", params)
 	}) {
 		Ok(Ok(ok)) => Ok(ok),
 		Ok(Err(err)) | Err(err) => Err(err),
 	}
-	.map_err(|err| format!("execute error: {:?}", err))
 }
 
 /// Constructs the runtime for the given PVF, given the artifact bytes.

@@ -237,6 +237,61 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
+# Fetch the release artifacts like binary and signatures from S3. Assumes the ENV are set:
+# - RELEASE_ID
+# - GITHUB_TOKEN
+# - REPO in the form paritytech/polkadot
+fetch_release_artifacts_from_s3() {
+  echo "Version    : $VERSION"
+  echo "Repo       : $REPO"
+  echo "Binary     : $BINARY"
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  echo "OUTPUT_DIR : $OUTPUT_DIR"
+
+  URL_BASE=$(get_s3_url_base $BINARY)
+  echo "URL_BASE=$URL_BASE"
+
+  URL_BINARY=$URL_BASE/$VERSION/$BINARY
+  URL_SHA=$URL_BASE/$VERSION/$BINARY.sha256
+  URL_ASC=$URL_BASE/$VERSION/$BINARY.asc
+
+  # Fetch artifacts
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
+
+  echo "Fetching artifacts..."
+  for URL in $URL_BINARY $URL_SHA $URL_ASC; do
+    echo "Fetching %s" "$URL"
+    curl --progress-bar -LO "$URL" || echo "Missing $URL"
+  done
+
+  pwd
+  ls -al --color
+  popd > /dev/null
+
+}
+
+# Pass the name of the binary as input, it will
+# return the s3 base url
+function get_s3_url_base() {
+    name=$1
+    case $name in
+    polkadot | polkadot-execute-worker | polkadot-prepare-worker | staking-miner)
+        printf "https://releases.parity.io/polkadot"
+        ;;
+
+    polkadot-parachain)
+        printf "https://releases.parity.io/cumulus"
+        ;;
+
+    *)
+        printf "UNSUPPORTED BINARY $name"
+        exit 1
+        ;;
+    esac
+}
+
+
 # Check the checksum for a given binary
 function check_sha256() {
     echo "Checking SHA256 for $1"
@@ -248,13 +303,11 @@ function check_sha256() {
 function import_gpg_keys() {
   GPG_KEYSERVER=${GPG_KEYSERVER:-"keyserver.ubuntu.com"}
   SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
-  WILL="2835EAF92072BC01D188AF2C4A092B93E97CE1E2"
   EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
-  MARA="533C920F40E73A21EEB7E9EBF27AEA7E7594C9CF"
   MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
 
   echo "Importing GPG keys from $GPG_KEYSERVER in parallel"
-  for key in $SEC $WILL $EGOR $MARA $MORGAN; do
+  for key in $SEC $EGOR $MORGAN; do
     (
       echo "Importing GPG key $key"
       gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
@@ -316,7 +369,7 @@ function relative_parent() {
 # used as Github Workflow Matrix. This call is exposed by the `scan` command and can be used as:
 # podman run --rm -it -v /.../fellowship-runtimes:/build docker.io/chevdor/srtool:1.70.0-0.11.1 scan
 function find_runtimes() {
-    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches 'construct_runtime!' -- '*lib.rs'))
+    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches '[frame_support::runtime]!' -- '*lib.rs'))
     re=".*-runtime$"
     JSON=$(jq --null-input '{ "include": [] }')
 
@@ -343,4 +396,51 @@ function find_runtimes() {
         fi
     done
     echo $JSON
+}
+
+# Filter the version matches the particular pattern and return it.
+# input: version (v1.8.0 or v1.8.0-rc1)
+# output: none
+filter_version_from_input() {
+  version=$1
+  regex="(^v[0-9]+\.[0-9]+\.[0-9]+)$|(^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+)$"
+
+  if [[ $version =~ $regex ]]; then
+      if [ -n "${BASH_REMATCH[1]}" ]; then
+          echo "${BASH_REMATCH[1]}"
+      elif [ -n "${BASH_REMATCH[2]}" ]; then
+          echo "${BASH_REMATCH[2]}"
+      fi
+  else
+      echo "Invalid version: $version"
+      exit 1
+  fi
+
+}
+
+# Check if the release_id is valid number
+# input: release_id
+# output: release_id or exit 1
+check_release_id() {
+  input=$1
+
+  release_id=$(echo "$input" | sed 's/[^0-9]//g')
+
+  if [[ $release_id =~ ^[0-9]+$ ]]; then
+      echo "$release_id"
+  else
+      echo "Invalid release_id from input: $input"
+      exit 1
+  fi
+
+}
+
+# Get latest release tag
+#
+# input: none
+# output: latest_release_tag
+get_latest_release_tag() {
+    TOKEN="Authorization: Bearer $GITHUB_TOKEN"
+    latest_release_tag=$(curl -s -H "$TOKEN" $api_base/paritytech/polkadot-sdk/releases/latest | jq -r '.tag_name')
+    printf $latest_release_tag
 }

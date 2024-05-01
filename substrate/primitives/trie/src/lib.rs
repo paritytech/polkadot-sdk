@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "std")]
 pub mod cache;
 mod error;
@@ -33,6 +35,8 @@ mod trie_stream;
 #[cfg(feature = "std")]
 pub mod proof_size_extension;
 
+use alloc::{borrow::Borrow, boxed::Box, vec, vec::Vec};
+use core::marker::PhantomData;
 /// Our `NodeCodec`-specific error.
 pub use error::Error;
 /// Various re-exports from the `hash-db` crate.
@@ -42,7 +46,6 @@ use hash_db::{Hasher, Prefix};
 pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
-use sp_std::{borrow::Borrow, boxed::Box, marker::PhantomData, vec::Vec};
 pub use storage_proof::{CompactProof, StorageProof};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
@@ -52,8 +55,10 @@ use trie_db::proof::{generate_proof, verify_proof};
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
+	triedb::{TrieDBDoubleEndedIterator, TrieDBKeyDoubleEndedIterator},
 	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
-	TrieDBKeyIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
+	TrieDBKeyIterator, TrieDBNodeDoubleEndedIterator, TrieDBRawIterator, TrieLayout, TrieMut,
+	TrieRecorder,
 };
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
@@ -323,7 +328,7 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided key.
-pub fn read_trie_first_descedant_value<L: TrieLayout, DB>(
+pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
@@ -444,7 +449,7 @@ where
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided child key.
-pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
+pub fn read_child_trie_first_descendant_value<L: TrieConfiguration, DB>(
 	keyspace: &[u8],
 	db: &DB,
 	root: &TrieHash<L>,
@@ -500,7 +505,7 @@ pub struct KeySpacedDBMut<'a, DB: ?Sized, H>(&'a mut DB, &'a [u8], PhantomData<H
 /// Utility function used to merge some byte data (keyspace) and `prefix` data
 /// before calling key value database primitives.
 fn keyspace_as_prefix_alloc(ks: &[u8], prefix: Prefix) -> (Vec<u8>, Option<u8>) {
-	let mut result = sp_std::vec![0; ks.len() + prefix.0.len()];
+	let mut result = vec![0; ks.len() + prefix.0.len()];
 	result[..ks.len()].copy_from_slice(ks);
 	result[ks.len()..].copy_from_slice(prefix.0);
 	(result, prefix.1)

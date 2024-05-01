@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Use generic hash for runtime wasm in resolve_state_version_from_wasm
+
+doc:
+  - audience: Node Dev
+    description: |
+      Changes the runtime hash algorithm used in resolve_state_version_from_wasm from DefaultHasher to a caller-provided
+      one (usually HashingFor<Block>). Fixes a bug where the runtime wasm was being compiled again when it was not
+      needed, because the hash did not match
+crates:
+  - name: sc-chain-spec

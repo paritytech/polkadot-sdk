@@ -100,6 +100,13 @@ pub struct Config {
 	pub prep_worker_path: PathBuf,
 	/// Path to the execution worker binary
 	pub exec_worker_path: PathBuf,
+	/// The maximum number of pvf execution workers.
+	pub pvf_execute_workers_max_num: usize,
+	/// The maximum number of pvf workers that can be spawned in the pvf prepare pool for tasks
+	/// with the priority below critical.
+	pub pvf_prepare_workers_soft_max_num: usize,
+	/// The absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	pub pvf_prepare_workers_hard_max_num: usize,
 }
 
 /// The candidate validation subsystem.
@@ -224,6 +231,9 @@ async fn run<Context>(
 		secure_validator_mode,
 		prep_worker_path,
 		exec_worker_path,
+		pvf_execute_workers_max_num,
+		pvf_prepare_workers_soft_max_num,
+		pvf_prepare_workers_hard_max_num,
 	}: Config,
 ) -> SubsystemResult<()> {
 	let (validation_host, task) = polkadot_node_core_pvf::start(
@@ -233,6 +243,9 @@ async fn run<Context>(
 			secure_validator_mode,
 			prep_worker_path,
 			exec_worker_path,
+			pvf_execute_workers_max_num,
+			pvf_prepare_workers_soft_max_num,
+			pvf_prepare_workers_hard_max_num,
 		),
 		pvf_metrics,
 	)
@@ -617,7 +630,7 @@ async fn validate_candidate_exhaustive(
 		Err(e) => {
 			gum::info!(target: LOG_TARGET, ?para_id, err=?e, "Invalid candidate (validation code)");
 
-			// Code already passed pre-checking, if decompression fails now this most likley means
+			// Code already passed pre-checking, if decompression fails now this most likely means
 			// some local corruption happened.
 			return Err(ValidationFailed("Code decompression failed".to_string()))
 		},
@@ -657,7 +670,14 @@ async fn validate_candidate_exhaustive(
 				PrepareJobKind::Compilation,
 			);
 
-			validation_backend.validate_candidate(pvf, exec_timeout, params.encode()).await
+			validation_backend
+				.validate_candidate(
+					pvf,
+					exec_timeout,
+					params.encode(),
+					polkadot_node_core_pvf::Priority::Normal,
+				)
+				.await
 		},
 		PvfExecKind::Approval =>
 			validation_backend
@@ -667,6 +687,7 @@ async fn validate_candidate_exhaustive(
 					params,
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
+					polkadot_node_core_pvf::Priority::Critical,
 				)
 				.await,
 	};
@@ -694,6 +715,8 @@ async fn validate_candidate_exhaustive(
 				"ambiguous worker death".to_string(),
 			))),
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
@@ -747,10 +770,15 @@ trait ValidationBackend {
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
+		// The priority for the preparation job.
+		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError>;
 
-	/// Tries executing a PVF for the approval subsystem. Will retry once if an error is encountered
-	/// that may have been transient.
+	/// Tries executing a PVF. Will retry once if an error is encountered that may have
+	/// been transient.
+	///
+	/// The `prepare_priority` is relevant in the context of the caller. Currently we expect
+	/// that `approval` context has priority over `backing` context.
 	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
 	/// preparation.
@@ -761,6 +789,8 @@ trait ValidationBackend {
 		params: ValidationParams,
 		executor_params: ExecutorParams,
 		retry_delay: Duration,
+		// The priority for the preparation job.
+		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -774,46 +804,58 @@ trait ValidationBackend {
 		// long.
 		let total_time_start = Instant::now();
 
-		let mut validation_result =
-			self.validate_candidate(pvf.clone(), exec_timeout, params.encode()).await;
+		// Use `Priority::Critical` as finality trumps parachain liveliness.
+		let mut validation_result = self
+			.validate_candidate(pvf.clone(), exec_timeout, params.encode(), prepare_priority)
+			.await;
 		if validation_result.is_ok() {
 			return validation_result
+		}
+
+		macro_rules! break_if_no_retries_left {
+			($counter:ident) => {
+				if $counter > 0 {
+					$counter -= 1;
+				} else {
+					break
+				}
+			};
 		}
 
 		// Allow limited retries for each kind of error.
 		let mut num_death_retries_left = 1;
 		let mut num_job_error_retries_left = 1;
 		let mut num_internal_retries_left = 1;
+		let mut num_runtime_construction_retries_left = 1;
 		loop {
 			// Stop retrying if we exceeded the timeout.
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
 				break
 			}
-
+			let mut retry_immediately = false;
 			match validation_result {
 				Err(ValidationError::PossiblyInvalid(
 					PossiblyInvalidError::AmbiguousWorkerDeath |
 					PossiblyInvalidError::AmbiguousJobDeath(_),
-				)) =>
-					if num_death_retries_left > 0 {
-						num_death_retries_left -= 1;
-					} else {
-						break
-					},
+				)) => break_if_no_retries_left!(num_death_retries_left),
 
 				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
-					if num_job_error_retries_left > 0 {
-						num_job_error_retries_left -= 1;
-					} else {
-						break
-					},
+					break_if_no_retries_left!(num_job_error_retries_left),
 
 				Err(ValidationError::Internal(_)) =>
-					if num_internal_retries_left > 0 {
-						num_internal_retries_left -= 1;
-					} else {
-						break
-					},
+					break_if_no_retries_left!(num_internal_retries_left),
+
+				Err(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::RuntimeConstruction(_),
+				)) => {
+					break_if_no_retries_left!(num_runtime_construction_retries_left);
+					self.precheck_pvf(pvf.clone()).await?;
+					// In this case the error is deterministic
+					// And a retry forces the ValidationBackend
+					// to re-prepare the artifact so
+					// there is no need to wait before the retry
+					retry_immediately = true;
+				},
 
 				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
 			}
@@ -821,8 +863,11 @@ trait ValidationBackend {
 			// If we got a possibly transient error, retry once after a brief delay, on the
 			// assumption that the conditions that caused this error may have resolved on their own.
 			{
-				// Wait a brief delay before retrying.
-				futures_timer::Delay::new(retry_delay).await;
+				// In case of many transient errors it is necessary to wait a little bit
+				// for the error to be probably resolved
+				if !retry_immediately {
+					futures_timer::Delay::new(retry_delay).await;
+				}
 
 				let new_timeout = exec_timeout.saturating_sub(total_time_start.elapsed());
 
@@ -836,8 +881,9 @@ trait ValidationBackend {
 
 				// Encode the params again when re-trying. We expect the retry case to be relatively
 				// rare, and we want to avoid unconditionally cloning data.
-				validation_result =
-					self.validate_candidate(pvf.clone(), new_timeout, params.encode()).await;
+				validation_result = self
+					.validate_candidate(pvf.clone(), new_timeout, params.encode(), prepare_priority)
+					.await;
 			}
 		}
 
@@ -855,11 +901,13 @@ impl ValidationBackend for ValidationHost {
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
+		// The priority for the preparation job.
+		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError> {
-		let priority = polkadot_node_core_pvf::Priority::Normal;
-
 		let (tx, rx) = oneshot::channel();
-		if let Err(err) = self.execute_pvf(pvf, exec_timeout, encoded_params, priority, tx).await {
+		if let Err(err) =
+			self.execute_pvf(pvf, exec_timeout, encoded_params, prepare_priority, tx).await
+		{
 			return Err(InternalValidationError::HostCommunication(format!(
 				"cannot send pvf to the validation host, it might have shut down: {:?}",
 				err

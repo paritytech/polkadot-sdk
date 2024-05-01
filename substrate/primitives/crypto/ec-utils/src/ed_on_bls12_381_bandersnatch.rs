@@ -19,10 +19,10 @@
 //! computationally expensive operations.
 
 use crate::utils;
+use alloc::vec::Vec;
 use ark_ec::CurveConfig;
 use ark_ed_on_bls12_381_bandersnatch_ext::CurveHooks;
 use sp_runtime_interface::runtime_interface;
-use sp_std::vec::Vec;
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]

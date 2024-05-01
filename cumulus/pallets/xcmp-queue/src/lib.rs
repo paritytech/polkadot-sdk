@@ -462,7 +462,7 @@ impl<T: Config> Pallet<T> {
 		// Max message size refers to aggregates, or pages. Not to individual fragments.
 		let max_message_size = channel_info.max_message_size as usize;
 		let format_size = format.encoded_size();
-		// We check the encoded fragment length plus the format size agains the max message size
+		// We check the encoded fragment length plus the format size against the max message size
 		// because the format is concatenated if a new page is needed.
 		let size_to_check = encoded_fragment
 			.len()
@@ -600,7 +600,7 @@ impl<T: Config> Pallet<T> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let fp = T::XcmpQueue::footprint(sender);
 		// Assume that it will not fit into the current page:
-		let new_pages = fp.pages.saturating_add(1);
+		let new_pages = fp.ready_pages.saturating_add(1);
 		if new_pages > drop_threshold {
 			// This should not happen since the channel should have been suspended in
 			// [`on_queue_changed`].
@@ -663,12 +663,12 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 		let mut suspended_channels = <InboundXcmpSuspended<T>>::get();
 		let suspended = suspended_channels.contains(&para);
 
-		if suspended && fp.pages <= resume_threshold {
+		if suspended && fp.ready_pages <= resume_threshold {
 			Self::send_signal(para, ChannelSignal::Resume);
 
 			suspended_channels.remove(&para);
 			<InboundXcmpSuspended<T>>::put(suspended_channels);
-		} else if !suspended && fp.pages >= suspend_threshold {
+		} else if !suspended && fp.ready_pages >= suspend_threshold {
 			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
 			Self::send_signal(para, ChannelSignal::Suspend);
 
@@ -916,7 +916,8 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
-				validate_xcm_nesting(&versioned_xcm)
+				versioned_xcm
+					.validate_xcm_nesting()
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 
 				Ok(((id, versioned_xcm), price))
@@ -932,29 +933,18 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		defensive_assert!(
-			validate_xcm_nesting(&xcm).is_ok(),
-			"Tickets are valid prior to delivery by trait XCM; qed"
-		);
 
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
 			},
-			Err(e) => Err(SendError::Transport(e.into())),
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Deliver error: {e:?}");
+				Err(SendError::Transport(e.into()))
+			},
 		}
 	}
-}
-
-/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`.
-///
-/// Note that this uses the limit of the sender - not the receiver. It it best effort.
-pub(crate) fn validate_xcm_nesting(xcm: &VersionedXcm<()>) -> Result<(), ()> {
-	xcm.using_encoded(|mut enc| {
-		VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
-	})
-	.map_err(|_| ())
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {

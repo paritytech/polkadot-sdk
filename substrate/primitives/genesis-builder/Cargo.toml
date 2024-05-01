@@ -1,12 +1,12 @@
 [package]
 name = "sp-genesis-builder"
-version = "0.7.0"
+version = "0.8.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Substrate GenesisConfig builder API"
+description = "Substrate RuntimeGenesisConfig builder API"
 readme = "README.md"
 
 [lints]
@@ -16,11 +16,19 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bytes"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+
 sp-api = { path = "../api", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
-serde_json = { version = "1.0.111", default-features = false, features = ["alloc", "arbitrary_precision"] }
+serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 
 [features]
 default = ["std"]
-std = ["serde_json/std", "sp-api/std", "sp-runtime/std", "sp-std/std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"serde_json/std",
+	"sp-api/std",
+	"sp-runtime/std",
+]

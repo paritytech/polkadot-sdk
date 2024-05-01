@@ -36,7 +36,7 @@ on:
             -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/$OWNER/$REPO/releases | \
             jq '.[] | { name: .name, id: .id }'
         required: true
-        type: string
+        type: number
 
       registry:
         description: Container registry
@@ -61,7 +61,6 @@ permissions:
   contents: write
 
 env:
-  RELEASE_ID: ${{ inputs.release_id }}
   ENGINE: docker
   REGISTRY: ${{ inputs.registry }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,6 +70,7 @@ env:
   # EVENT_ACTION: ${{ github.event.action }}
   EVENT_NAME: ${{ github.event_name }}
   IMAGE_TYPE: ${{ inputs.image_type }}
+  VERSION: ${{ inputs.version }}
 
 jobs:
   fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
@@ -95,13 +95,16 @@ jobs:
         #   chmod a+x $BINARY
         #   ls -al
 
-      - name: Fetch rc artifacts or release artifacts based on release id
+      - name: Fetch rc artifacts or release artifacts from s3 based on version
         #this step runs only if the workflow is triggered manually
         if: ${{ env.EVENT_NAME  == 'workflow_dispatch' }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          fetch_release_artifacts
+          VERSION=$(filter_version_from_input "${{ inputs.version }}")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          fetch_release_artifacts_from_s3
 
       - name: Cache the artifacts
         uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
@@ -147,7 +150,10 @@ jobs:
         if: ${{ env.IMAGE_TYPE == 'rc' }}
         id: fetch_rc_refs
         run: |
-          release=release-${{ inputs.release_id }} && \
+          . ./.github/scripts/common/lib.sh
+
+          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
+          release=release-$RELEASE_ID && \
           echo "release=${release}" >> $GITHUB_OUTPUT
 
           commit=$(git rev-parse --short HEAD) && \

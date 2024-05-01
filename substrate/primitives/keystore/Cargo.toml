@@ -17,8 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-parking_lot = { version = "0.12.1", default-features = false }
-thiserror = "1.0"
+parking_lot = { version = "0.12.1", default-features = false, optional = true }
 sp-core = { path = "../core", default-features = false }
 sp-externalities = { path = "../externalities", default-features = false }
 
@@ -28,7 +27,7 @@ rand_chacha = "0.2.2"
 
 [features]
 default = ["std"]
-std = ["codec/std", "sp-core/std", "sp-externalities/std"]
+std = ["codec/std", "dep:parking_lot", "sp-core/std", "sp-externalities/std"]
 
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still

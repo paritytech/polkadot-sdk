@@ -14,16 +14,23 @@
 // limitations under the License.
 
 // Substrate
-use sp_core::storage::Storage;
+use frame_support::parameter_types;
+use sp_core::{sr25519, storage::Storage};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
+	accounts, build_genesis_storage, collators, get_account_id_from_seed,
+	PenpalSiblingSovereignAccount, PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID,
+	SAFE_XCM_VERSION,
 };
-use parachains_common::Balance;
+use parachains_common::{AccountId, Balance};
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
+
+parameter_types! {
+	pub AssetHubWestendAssetOwner: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
+}
 
 pub fn genesis() -> Storage {
 	let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
@@ -54,6 +61,22 @@ pub fn genesis() -> Storage {
 		},
 		polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
+		},
+		assets: asset_hub_westend_runtime::AssetsConfig {
+			assets: vec![(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), true, ED)],
+			..Default::default()
+		},
+		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
+			assets: vec![
+				// Penpal's teleportable asset representation
+				(
+					PenpalTeleportableAssetLocation::get(),
+					PenpalSiblingSovereignAccount::get(),
+					true,
+					ED,
+				),
+			],
 			..Default::default()
 		},
 		..Default::default()

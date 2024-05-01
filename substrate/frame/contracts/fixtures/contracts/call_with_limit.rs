@@ -38,7 +38,6 @@ pub extern "C" fn call() {
 		forwarded_input: [u8],
 	);
 
-	#[allow(deprecated)]
 	api::call_v2(
 		uapi::CallFlags::empty(),
 		callee_addr,

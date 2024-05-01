@@ -4,7 +4,7 @@ set -e
 
 trap "trap - SIGTERM && kill -9 -$$" SIGINT SIGTERM EXIT
 
-source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
+source "$FRAMEWORK_PATH/utils/zombienet.sh"
 
 # whether to init the chains (open HRMP channels, set XCM version, create reserve assets, etc)
 init=0
@@ -59,12 +59,12 @@ if [[ $init -eq 1 ]]; then
 fi
 
 if [[ $start_relayer -eq 1 ]]; then
-  ${BASH_SOURCE%/*}/start_relayer.sh $rococo_dir $westend_dir relayer_pid
+  ${BASH_SOURCE%/*}/start_relayer.sh $rococo_dir $westend_dir finality_relayer_pid parachains_relayer_pid messages_relayer_pid
 fi
 
 echo $rococo_dir > $TEST_DIR/rococo.env
 echo $westend_dir > $TEST_DIR/westend.env
 echo
 
-wait -n $rococo_pid $westend_pid $relayer_pid
+wait -n $rococo_pid $westend_pid $finality_relayer_pid $parachains_relayer_pid $messages_relayer_pid
 kill -9 -$$

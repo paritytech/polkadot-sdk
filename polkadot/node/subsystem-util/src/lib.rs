@@ -30,7 +30,7 @@ use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
-use polkadot_primitives::{slashing, ExecutorParams};
+use polkadot_primitives::{async_backing::BackingState, slashing, CoreIndex, ExecutorParams};
 
 pub use overseer::{
 	gen::{OrchestraError as OverseerError, Timeout},
@@ -53,7 +53,10 @@ pub use rand;
 use sp_application_crypto::AppCrypto;
 use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
-use std::time::Duration;
+use std::{
+	collections::{BTreeMap, VecDeque},
+	time::Duration,
+};
 use thiserror::Error;
 use vstaging::get_disabled_validators_with_fallback;
 
@@ -293,6 +296,7 @@ specialize_requests! {
 	fn request_validation_code(para_id: ParaId, assumption: OccupiedCoreAssumption) -> Option<ValidationCode>; ValidationCode;
 	fn request_validation_code_by_hash(validation_code_hash: ValidationCodeHash) -> Option<ValidationCode>; ValidationCodeByHash;
 	fn request_candidate_pending_availability(para_id: ParaId) -> Option<CommittedCandidateReceipt>; CandidatePendingAvailability;
+	fn request_candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt>; CandidatesPendingAvailability;
 	fn request_candidate_events() -> Vec<CandidateEvent>; CandidateEvents;
 	fn request_session_info(index: SessionIndex) -> Option<SessionInfo>; SessionInfo;
 	fn request_validation_code_hash(para_id: ParaId, assumption: OccupiedCoreAssumption)
@@ -304,6 +308,8 @@ specialize_requests! {
 	fn request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -> Option<()>; SubmitReportDisputeLost;
 	fn request_disabled_validators() -> Vec<ValidatorIndex>; DisabledValidators;
 	fn request_async_backing_params() -> AsyncBackingParams; AsyncBackingParams;
+	fn request_claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>>; ClaimQueue;
+	fn request_para_backing_state(para_id: ParaId) -> Option<BackingState>; ParaBackingState;
 }
 
 /// Requests executor parameters from the runtime effective at given relay-parent. First obtains
@@ -378,7 +384,7 @@ pub fn signing_key_and_index<'a>(
 
 /// Sign the given data with the given validator ID.
 ///
-/// Returns `Ok(None)` if the private key that correponds to that validator ID is not found in the
+/// Returns `Ok(None)` if the private key that corresponds to that validator ID is not found in the
 /// given keystore. Returns an error if the key could not be used for signing.
 pub fn sign(
 	keystore: &KeystorePtr,

@@ -18,5 +18,5 @@
 
 use frame_support::traits::StorageVersion;
 
-/// The current storage version.
+/// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);

@@ -435,7 +435,7 @@ async fn archive_storage_closest_merkle_value() {
 
 	/// The core of this test.
 	///
-	/// Checks keys that are exact match, keys with descedant and keys that should not return
+	/// Checks keys that are exact match, keys with descendant and keys that should not return
 	/// values.
 	///
 	/// Returns (key, merkle value) pairs.
@@ -459,7 +459,7 @@ async fn archive_storage_closest_merkle_value() {
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
 							pagination_start_key: None,
 						},
-						// Key with descedent.
+						// Key with descendant.
 						PaginatedStorageQuery {
 							key: hex_string(b":A"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
