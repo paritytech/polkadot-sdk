@@ -106,8 +106,8 @@
 //! submitter's solution is verified, valid and thus accepted, the submitter is added to the
 //! whitelist. The whitelist is a bounded FIFO with the list of the last submitters (note: there may
 //! be duplicate submitters in the whitelist, in case their submissions were accepted in the last
-//! `SignedWhitelistMax` rounds). The base deposit for whitelisted submissions is
-//! [`pallet::Config::SignedDepositWhitelist`].
+//! `SignedWhitelistMax` rounds where signed submissions were accepted). The base deposit for
+//! whitelisted submissions is [`pallet::Config::SignedDepositWhitelist`].
 //!
 //! For non-whitelisted submitters, the base deposit is calculated by
 //! [`pallet::Config::SignedDepositBase`], which calculates the deposit based on the size of the
