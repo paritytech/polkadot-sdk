@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714492861836,
+  "lastUpdate": 1714589456194,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -7643,6 +7643,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010334418866666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maciej",
+            "username": "Overkillus",
+            "email": "maciej.zyszkiewicz@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6d392c7eea496e0874a9ea37f4a8ea447ebc330e",
+          "message": "Statement Distribution Per Peer Rate Limit (#3444)\n\n- [x] Drop requests from a PeerID that is already being served by us.\n- [x] Don't sent requests to a PeerID if we already are requesting\nsomething from them at that moment (prioritise other requests or wait).\n- [x] Tests\n- [ ] ~~Add a small rep update for unsolicited requests (same peer\nrequest)~~ not included in original PR due to potential issues with\nnodes slowly updating\n- [x] Add a metric to track the amount of dropped requests due to peer\nrate limiting\n- [x] Add a metric to track how many time a node reaches the max\nparallel requests limit in v2+\n\nHelps with but does not close yet:\nhttps://github.com/paritytech-secops/srlabs_findings/issues/303",
+          "timestamp": "2024-05-01T17:17:55Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d392c7eea496e0874a9ea37f4a8ea447ebc330e"
+        },
+        "date": 1714589430772,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.93333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013462606326666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011416420880000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022761539919999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16746014383333332,
             "unit": "seconds"
           }
         ]
