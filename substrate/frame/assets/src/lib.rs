@@ -571,6 +571,10 @@ pub mod pallet {
 		Touched { asset_id: T::AssetId, who: T::AccountId, depositor: T::AccountId },
 		/// Some account `who` was blocked.
 		Blocked { asset_id: T::AssetId, who: T::AccountId },
+		/// Some assets were deposited (e.g. for transaction fees).
+		Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		/// Some assets were withdrawn from the account (e.g. for transaction fees).
+		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 	}
 
 	#[pallet::error]
