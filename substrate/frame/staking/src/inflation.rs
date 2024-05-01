@@ -17,14 +17,13 @@
 
 //! Staking inflation pallet.
 //!
-//! This pallet provides inflation related functionality specifically for
-//! (`pallet-staking``)[`crate`]. While generalized to a high extent, it is not necessarily written
-//! to be reusable outside of the Polkadot relay chain scope.
+//! This pallet provides the means for a chain to configure its inflation logic in a simple
+//! script-like manner.
 //!
 //! This pallet processes inflation in the following steps:
 
 #[frame_support::pallet]
-pub mod polkadot_inflation {
+pub mod pallet_inflation {
 	use frame::{
 		arithmetic::*,
 		prelude::*,
@@ -42,42 +41,9 @@ pub mod polkadot_inflation {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
-	// pub mod config_preludes {
-	// 	use super::*;
-	// 	use frame_support::derive_impl;
-
-	// 	type AccountId = <TestDefaultConfig as frame_system::DefaultConfig>::AccountId;
-
-	// 	pub struct TestDefaultConfig;
-
-	// 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
-	// 	impl frame_system::DefaultConfig for TestDefaultConfig {}
-
-	// 	frame_support::parameter_types! {
-	// 		pub const IdealStakingRate: Perquintill = Perquintill::from_percent(75);
-	// 		pub const MaxInflation: Perquintill = Perquintill::from_percent(10);
-	// 		pub const MinInflation: Perquintill = Perquintill::from_percent(2);
-	// 		pub const Falloff: Perquintill = Perquintill::from_percent(5);
-	// 		pub const LeftoverRecipients: Vec<(AccountId, Perquintill)> = vec![];
-	// 	}
-
-	// 	use crate::inflation::polkadot_inflation::DefaultConfig;
-	// 	#[frame_support::register_default_impl(TestDefaultConfig)]
-	// 	impl DefaultConfig for TestDefaultConfig {
-	// 		#[inject_runtime_type]
-	// 		type RuntimeEvent = ();
-
-	// 		type IdealStakingRate = IdealStakingRate;
-	// 		type MaxInflation = MaxInflation;
-	// 		type MinInflation = MinInflation;
-	// 		type Falloff = Falloff;
-	// 		type LeftoverRecipients = LeftoverRecipients;
-	// 	}
-	// }
-
+	/// The payout action to be taken in each inflation step.
 	#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
-	pub enum InflationPayout<AccountId> {
+	pub enum PayoutAction<AccountId> {
 		/// Pay the amount to the given account.
 		Pay(AccountId),
 		/// Split the equally between the given accounts.
@@ -89,43 +55,84 @@ pub mod polkadot_inflation {
 		Burn,
 	}
 
-	/// A function that calculates the inflation payout.
+	/// A descriptor of what needs to be done with the inflation amount.
+	pub trait InflationFnTrait<AccountId, Balance>: Sized + Clone {
+		/// Calculates the next payout action that needs to be made as a part of the inflation
+		/// recipients.
+		///
+		/// The inputs are:
+		///
+		/// * `max_inflation`: the total amount that is available at this step to be inflated.
+		/// * `staked_ratio`: the proportion of the tokens that are staked from the perspective of
+		///   this pallet.
+		///
+		/// Return types are:
+		///
+		/// * `balance`: a subset of the input balance that should be paid out.
+		/// * [`InflationPayout`]: an action to be made.
+		fn next_payout(
+			max_inflation: Balance,
+			staked_ratio: Perquintill,
+		) -> (Balance, PayoutAction<AccountId>);
+	}
+
+	pub type InflationFnOf<T> =
+		Box<dyn InflationFnTrait<<T as frame_system::Config>::AccountId, BalanceOf<T>>>;
+
+	/// A function that calculates the next payout that needs to be made as a part of the inflation
+	/// recipients.
 	///
-	/// Inputs are the total amount that is left from the inflation, and the proportion of the
-	/// tokens that are staked from the perspective of this pallet, as [`LastKnownStakedStorage`].
+	/// The inputs are:
+	///
+	/// * `balance`: the total amount that is available at this step to be inflated.
+	/// * `perquintill`: the proportion of the tokens that are staked from the perspective of this
+	///   pallet.
+	///
+	/// Return types are:
+	///
+	/// * `balance`: a subset of the input balance that should be paid out.
+	/// * [`InflationPayout`]: an action to be made.
 	pub type InflationFn<T> = Box<
-		dyn FnOnce(
+		dyn Fn(
 			BalanceOf<T>,
 			Perquintill,
-		) -> (BalanceOf<T>, InflationPayout<<T as frame_system::Config>::AccountId>),
+		) -> (BalanceOf<T>, PayoutAction<<T as frame_system::Config>::AccountId>),
 	>;
 
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
+		/// Runtime event type.
 		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// Something that provides a notion of the unix-time.
 		#[pallet::no_default]
 		type UnixTime: frame_support::traits::UnixTime;
 
+		/// The currency type of the runtime.
 		#[pallet::no_default]
 		type Currency: fung::Mutate<Self::AccountId>
 			+ fung::Inspect<Self::AccountId, Balance = Self::CurrencyBalance>;
 
+		/// Same as the balance type of [`Config::Currency`], only provided to further bound it to
+		/// `From<u64>`.
 		#[pallet::no_default]
 		type CurrencyBalance: frame_support::traits::tokens::Balance + From<u64>;
 
+		/// Maximum fixed amount by which we inflate, before passing it down to [`Recipients`]
 		type MaxInflation: Get<Perquintill>;
 
+		/// The recipients of the inflation, as a sequence of items described by [`InflationFn`]
 		#[pallet::no_default]
 		type Recipients: Get<Vec<InflationFn<Self>>>;
 
+		/// An origin that can trigger an inflation at any point in time via
+		/// [`Call::force_inflate`].
+		type InflationOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Customize how this pallet reads the total issuance, if need be.
 		///
-		/// This is mainly here to cater for Nis in Kusama.
-		///
-		/// NOTE: one should not use `T::Currency::total_issuance()` directly within the pallet in
-		/// case it has been overwritten here.
+		/// NOTE: This is mainly here to cater for Nis in Kusama.
 		#[pallet::no_default]
 		fn adjusted_total_issuance() -> BalanceOf<Self> {
 			Self::Currency::total_issuance()
@@ -143,15 +150,17 @@ pub mod polkadot_inflation {
 	}
 
 	// TODO: needs a migration that sets the initial value.
-	// TODO: test if this is not set, that we are still bound to max inflation.
 	#[pallet::storage]
-	pub type LastInflated<T> = StorageValue<Value = u64, QueryKind = ValueQuery>;
+	pub type LastInflated<T> = StorageValue<Value = u64, QueryKind = OptionQuery>;
 
+	/// A record of the last amount of tokens staked from the perspective of this pallet.
 	#[derive(Clone, Eq, PartialEq, DebugNoBound, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T))]
 	#[codec(mel_bound())]
 	pub struct LastKnownStake<T: Config> {
+		/// The staked amount.
 		pub(crate) stake: BalanceOf<T>,
+		/// Until which future block number is this amount valid for?
 		pub(crate) valid_until: Option<BlockNumberFor<T>>,
 	}
 
@@ -177,116 +186,74 @@ pub mod polkadot_inflation {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		Inflated { amount: BalanceOf<T> },
-		InflationDistributed { payout: InflationPayout<T::AccountId>, amount: BalanceOf<T> },
+		/// A total of `amount` is proposed for inflation. All of this may or may not be used.
+		PossiblyInflated { amount: BalanceOf<T> },
+		/// `amount` has been processed with the given `payout` action.
+		InflationDistributed { amount: BalanceOf<T>, payout: PayoutAction<T::AccountId> },
+		/// `amount` has not be used and is therefore not minted.
 		InflationUnused { amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// The last stake amount is not set.
 		UnknownLastStake,
+		/// The last inflation amount is not set.
+		UnknownLastInflated,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// `force_inflate`
+		/// Force inflation to happen.
+		///
+		/// The origin of this call must be [`Config::InflationOrigin`]
 		#[pallet::weight(0)]
 		#[pallet::call_index(0)]
 		pub fn force_inflate(origin: OriginFor<T>) -> DispatchResult {
-			let _ = ensure_root(origin)?;
+			let _ = T::InflationOrigin::ensure_origin(origin)?;
 			Self::inflate()
 		}
 	}
 
-	/// A set of inflation functions provided by this pallet.
-	pub mod inflation_fns {
-		use super::*;
-		pub fn polkadot_staking_income<
-			T: Config,
-			IdealStakingRate: Get<Perquintill>,
-			Falloff: Get<Perquintill>,
-			StakingPayoutAccount: Get<T::AccountId>,
-		>(
-			max_inflation: BalanceOf<T>,
-			staked_ratio: Perquintill,
-		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
-			let ideal_stake = IdealStakingRate::get();
-			let falloff = Falloff::get();
-
-			// TODO: notion of min-inflation is now gone, will this be an issue?
-			let adjustment =
-				pallet_staking_reward_fn::compute_inflation(staked_ratio, ideal_stake, falloff);
-			let staking_income = adjustment * max_inflation;
-			(staking_income, InflationPayout::Pay(StakingPayoutAccount::get()))
-		}
-
-		pub fn fixed_ratio<T: Config, To: Get<T::AccountId>, FixedIncome: Get<Perquintill>>(
-			max_inflation: BalanceOf<T>,
-			_staking_ratio: Perquintill,
-		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
-			let fixed_income = FixedIncome::get();
-			let fixed_income = fixed_income * max_inflation;
-			(fixed_income, InflationPayout::Pay(To::get()))
-		}
-
-		pub fn burn_ratio<T: Config, BurnRate: Get<Percent>>(
-			max_inflation: BalanceOf<T>,
-			_staking_ratio: Perquintill,
-		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
-			let burn = BurnRate::get() * max_inflation;
-			(burn, InflationPayout::Burn)
-		}
-
-		pub fn pay<T: Config, To: Get<T::AccountId>, Ratio: Get<Percent>>(
-			max_inflation: BalanceOf<T>,
-			_staking_ratio: Perquintill,
-		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
-			let payout = Ratio::get() * max_inflation;
-			(payout, InflationPayout::Pay(To::get()))
-		}
-
-		pub fn split_equal<T: Config, To: Get<Vec<T::AccountId>>, Ratio: Get<Percent>>(
-			max_inflation: BalanceOf<T>,
-			_staking_ratio: Perquintill,
-		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
-			let payout = Ratio::get() * max_inflation;
-			(payout, InflationPayout::SplitEqual(To::get()))
-		}
-	}
-
 	impl<T: Config> Pallet<T> {
+		/// Perform inflation.
+		///
+		/// This is the main entry point function of this pallet, and can be called form
+		/// [`Call::force_inflate`] or other places in the runtime.
 		pub fn inflate() -> DispatchResult {
-			let last_inflated = LastInflated::<T>::get();
+			let last_inflated = LastInflated::<T>::get().ok_or(Error::<T>::UnknownLastInflated)?;
 			let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
 			let since_last_inflation = now.saturating_sub(last_inflated);
-
 			let adjusted_total_issuance = T::adjusted_total_issuance();
 
 			// what percentage of a year has passed since last inflation?
 			let annual_proportion =
 				Perquintill::from_rational(since_last_inflation, MILLISECONDS_PER_YEAR);
-			let max_annual_inflation = T::MaxInflation::get();
 
-			// final inflation formula.
+			// staking rate.
 			let total_staked = Self::last_known_stake().ok_or(Error::<T>::UnknownLastStake)?;
-			let mut max_payout = annual_proportion * max_annual_inflation * adjusted_total_issuance;
 			let staked_ratio = Perquintill::from_rational(total_staked, adjusted_total_issuance);
 
+			let max_annual_inflation = T::MaxInflation::get();
+			let mut max_payout = annual_proportion * max_annual_inflation * adjusted_total_issuance;
+
 			if max_payout.is_zero() {
-				Self::deposit_event(Event::Inflated { amount: Zero::zero() });
+				Self::deposit_event(Event::PossiblyInflated { amount: Zero::zero() });
 				LastInflated::<T>::put(T::UnixTime::now().as_millis().saturated_into::<u64>());
 				return Ok(());
 			}
 
 			crate::log!(
 				info,
-				"inflating at {:?}, last inflated {:?}, max inflation {:?}, distributing among {} recipients",
+				"inflating at {:?}, annual proportion {:?}, issuance {:?}, last inflated {:?}, max inflation {:?}, distributing among {} recipients",
 				now,
+				annual_proportion,
+				adjusted_total_issuance,
 				last_inflated,
 				max_payout,
 				T::Recipients::get().len()
 			);
-			Self::deposit_event(Event::Inflated { amount: max_payout });
+			Self::deposit_event(Event::PossiblyInflated { amount: max_payout });
 
 			for payout_fn in T::Recipients::get() {
 				let (amount, payout) = payout_fn(max_payout, staked_ratio);
@@ -301,18 +268,18 @@ pub mod polkadot_inflation {
 					payout,
 				);
 				match &payout {
-					InflationPayout::Pay(who) => {
+					PayoutAction::Pay(who) => {
 						T::Currency::mint_into(who, amount).defensive();
 						max_payout -= amount;
 					},
-					InflationPayout::SplitEqual(whos) => {
+					PayoutAction::SplitEqual(whos) => {
 						let amount_split = amount / (whos.len() as u32).into();
 						for who in whos {
 							T::Currency::mint_into(&who, amount_split).defensive();
 							max_payout -= amount_split;
 						}
 					},
-					InflationPayout::Burn => {
+					PayoutAction::Burn => {
 						// no burn needed, we haven't even minted anything.
 						max_payout -= amount;
 					},
@@ -339,20 +306,69 @@ pub mod polkadot_inflation {
 			LastKnownStakedStorage::<T>::get()
 		}
 	}
+
+	/// A set of inflation functions provided by this pallet.
+	pub mod inflation_fns {
+		use super::*;
+		pub fn polkadot_staking_income<
+			T: Config,
+			IdealStakingRate: Get<Perquintill>,
+			Falloff: Get<Perquintill>,
+			StakingPayoutAccount: Get<T::AccountId>,
+		>(
+			max_inflation: BalanceOf<T>,
+			staked_ratio: Perquintill,
+		) -> (BalanceOf<T>, PayoutAction<T::AccountId>) {
+			let ideal_stake = IdealStakingRate::get();
+			let falloff = Falloff::get();
+
+			// TODO: notion of min-inflation is now gone, will this be an issue?
+			let adjustment =
+				pallet_staking_reward_fn::compute_inflation(staked_ratio, ideal_stake, falloff);
+			let staking_income = adjustment * max_inflation;
+			(staking_income, PayoutAction::Pay(StakingPayoutAccount::get()))
+		}
+
+		pub fn burn_ratio<T: Config, BurnRate: Get<Percent>>(
+			max_inflation: BalanceOf<T>,
+			_staking_ratio: Perquintill,
+		) -> (BalanceOf<T>, PayoutAction<T::AccountId>) {
+			let burn = BurnRate::get() * max_inflation;
+			(burn, PayoutAction::Burn)
+		}
+
+		pub fn pay<T: Config, To: Get<T::AccountId>, Ratio: Get<Percent>>(
+			max_inflation: BalanceOf<T>,
+			_staking_ratio: Perquintill,
+		) -> (BalanceOf<T>, PayoutAction<T::AccountId>) {
+			let payout = Ratio::get() * max_inflation;
+			(payout, PayoutAction::Pay(To::get()))
+		}
+
+		pub fn split_equal<T: Config, To: Get<Vec<T::AccountId>>, Ratio: Get<Percent>>(
+			max_inflation: BalanceOf<T>,
+			_staking_ratio: Perquintill,
+		) -> (BalanceOf<T>, PayoutAction<T::AccountId>) {
+			let payout = Ratio::get() * max_inflation;
+			(payout, PayoutAction::SplitEqual(To::get()))
+		}
+	}
 }
 
 #[cfg(test)]
 mod mock {
-	use self::polkadot_inflation::LastKnownStake;
+	use self::pallet_inflation::{LastInflated, LastKnownStake};
 	use super::*;
+	use core::{borrow::BorrowMut, cell::RefCell};
 	use frame::{arithmetic::*, prelude::*, testing_prelude::*, traits::fungible::Mutate};
-	use polkadot_inflation::{inflation_fns, InflationFn, InflationPayout, MILLISECONDS_PER_YEAR};
+	use pallet_inflation::{inflation_fns, InflationFn, PayoutAction, MILLISECONDS_PER_YEAR};
+	use std::sync::Arc;
 
 	construct_runtime!(
 		pub struct Runtime {
 			System: frame_system,
 			Balances: pallet_balances,
-			Inflation: polkadot_inflation,
+			Inflation: pallet_inflation,
 			Timestamp: pallet_timestamp,
 		}
 	);
@@ -382,22 +398,52 @@ mod mock {
 		pub static DividedRecipients: Vec<AccountId> = vec![2, 3];
 		pub static DividedRatio: Percent = Percent::from_percent(100);
 
-		pub Recipients: Vec<InflationFn<Runtime>> = vec![
-			Box::new(inflation_fns::burn_ratio::<Runtime, BurnRatio>),
-			Box::new(inflation_fns::pay::<Runtime, OneRecipient, OneRatio>),
-			Box::new(inflation_fns::split_equal::<Runtime, DividedRecipients, DividedRatio>),
-		];
-
 		pub static MaxInflation: Perquintill = Perquintill::from_percent(10);
 	}
 
-	impl polkadot_inflation::Config for Runtime {
+	thread_local! {
+		static RECIPIENTS: RefCell<Vec<InflationFn<Runtime>>> = RefCell::new(vec![
+			Box::new(inflation_fns::burn_ratio::<Runtime, BurnRatio>),
+			Box::new(inflation_fns::pay::<Runtime, OneRecipient, OneRatio>),
+			Box::new(inflation_fns::split_equal::<Runtime, DividedRecipients, DividedRatio>),
+		]);
+	}
+
+	pub struct Recipients;
+	impl Get<Vec<InflationFn<Runtime>>> for Recipients {
+		fn get() -> Vec<InflationFn<Runtime>> {
+			RECIPIENTS.with(|v| {
+				let v_borrowed = v.borrow();
+				let mut cloned = Vec::with_capacity(v_borrowed.len());
+				for fn_box in &*v_borrowed {
+					let fn_clone: InflationFn<Runtime> = unsafe { core::ptr::read(fn_box) };
+					cloned.push(fn_clone);
+				}
+				cloned
+			})
+		}
+	}
+
+	impl Recipients {
+		pub(crate) fn add(new_fn: InflationFn<Runtime>) {
+			RECIPIENTS.with(|v| v.borrow_mut().push(new_fn));
+		}
+		pub(crate) fn clear() {
+			RECIPIENTS.with(|v| v.borrow_mut().clear());
+		}
+		pub(crate) fn pop() {
+			RECIPIENTS.with(|v| v.borrow_mut().pop());
+		}
+	}
+
+	impl pallet_inflation::Config for Runtime {
 		type RuntimeEvent = RuntimeEvent;
 		type Recipients = Recipients;
 		type Currency = Balances;
 		type CurrencyBalance = Balance;
 		type MaxInflation = MaxInflation;
 		type UnixTime = Timestamp;
+		type InflationOrigin = EnsureRoot<AccountId>;
 	}
 
 	pub(crate) fn now() -> Moment {
@@ -418,41 +464,43 @@ mod mock {
 		let mut state = TestState::new_empty();
 		state.execute_with(|| {
 			Balances::mint_into(&42, issuance).unwrap();
-			<Runtime as polkadot_inflation::Config>::update_total_stake(0, None);
+			<Runtime as pallet_inflation::Config>::update_total_stake(0, None);
 			// needed to emit events.
 			frame_system::Pallet::<Runtime>::set_block_number(1);
+			LastInflated::<Runtime>::put(0);
 		});
 
 		state
 	}
 
-	pub(crate) fn events() -> Vec<polkadot_inflation::Event<Runtime>> {
-		System::read_events_for_pallet::<polkadot_inflation::Event<Runtime>>()
+	pub(crate) fn events() -> Vec<pallet_inflation::Event<Runtime>> {
+		System::read_events_for_pallet::<pallet_inflation::Event<Runtime>>()
 	}
 }
 #[cfg(test)]
 mod tests {
-	use super::{mock::*, polkadot_inflation::*};
-	use crate::inflation::polkadot_inflation;
+	use super::{mock::*, pallet_inflation::*};
+	use crate::inflation::pallet_inflation;
 	use frame::{prelude::*, testing_prelude::*, traits::fungible::Inspect};
 	use frame_support::hypothetically;
 
-	mod polkadot_staking_income {}
+	const DEFAULT_INITIAL_TI: Balance = 365 * 10 * 100;
+	const DEFAULT_DAILY_INFLATION: Balance = 80;
 
-	mod fixed_income {}
+	mod polkadot_staking_income {}
 
 	#[test]
 	fn payout_variants_work() {
 		// with 10% annual inflation, we mint 100 tokens per day with the given issuance.
-		new_test_ext(365 * 10 * 100).execute_with(|| {
+		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
 			progress_day(1);
 
 			// silly, just for sanity.
 			let ed = Balances::total_issuance();
-			assert_eq!(ed, 365 * 10 * 100);
+			assert_eq!(ed, DEFAULT_INITIAL_TI);
 
 			// no inflation so far
-			assert_eq!(LastInflated::<Runtime>::get(), 0);
+			assert_eq!(LastInflated::<Runtime>::get().unwrap(), 0);
 
 			// do the inflation.
 			assert_ok!(Inflation::inflate());
@@ -460,11 +508,11 @@ mod tests {
 			assert_eq!(
 				events(),
 				vec![
-					Event::Inflated { amount: 100 },
-					Event::InflationDistributed { payout: InflationPayout::Burn, amount: 20 },
-					Event::InflationDistributed { payout: InflationPayout::Pay(1), amount: 40 },
+					Event::PossiblyInflated { amount: 100 },
+					Event::InflationDistributed { payout: PayoutAction::Burn, amount: 20 },
+					Event::InflationDistributed { payout: PayoutAction::Pay(1), amount: 40 },
 					Event::InflationDistributed {
-						payout: InflationPayout::SplitEqual(vec![2, 3]),
+						payout: PayoutAction::SplitEqual(vec![2, 3]),
 						amount: 40
 					}
 				]
@@ -473,22 +521,97 @@ mod tests {
 			assert_eq!(Balances::total_balance(&1), 40);
 			assert_eq!(Balances::total_balance(&2), 20);
 			assert_eq!(Balances::total_balance(&3), 20);
-			assert_eq!(Balances::total_issuance(), ed + 80);
-			assert_eq!(LastInflated::<Runtime>::get(), now());
+			assert_eq!(Balances::total_issuance(), ed + DEFAULT_DAILY_INFLATION);
+			assert_eq!(LastInflated::<Runtime>::get().unwrap(), now());
 		})
 	}
 
 	#[test]
 	fn unused_inflation() {
-		// unused inflation is not minted and is reported as event.
+		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
+			progress_day(1);
+			let ed = Balances::total_issuance();
+			// now the last 40 is un-used.
+			Recipients::pop();
+
+			// do the inflation.
+			assert_ok!(Inflation::inflate());
+
+			assert_eq!(
+				events(),
+				vec![
+					Event::PossiblyInflated { amount: 100 },
+					Event::InflationDistributed { payout: PayoutAction::Burn, amount: 20 },
+					Event::InflationDistributed { payout: PayoutAction::Pay(1), amount: 40 },
+					Event::InflationUnused { amount: 40 }
+				]
+			);
+
+			assert_eq!(Balances::total_balance(&1), 40);
+			assert_eq!(Balances::total_balance(&2), 0);
+			assert_eq!(Balances::total_balance(&3), 0);
+			assert_eq!(Balances::total_issuance(), ed + 40);
+		})
+	}
+
+	#[test]
+	fn unused_inflation_2() {
+		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
+			progress_day(1);
+			let ed = Balances::total_issuance();
+			// no inflation handler, all is not minted.
+			Recipients::clear();
+
+			// do the inflation.
+			assert_ok!(Inflation::inflate());
+
+			assert_eq!(
+				events(),
+				vec![
+					Event::PossiblyInflated { amount: 100 },
+					Event::InflationUnused { amount: 100 }
+				]
+			);
+
+			assert_eq!(Balances::total_balance(&1), 0);
+			assert_eq!(Balances::total_balance(&2), 0);
+			assert_eq!(Balances::total_balance(&3), 0);
+			assert_eq!(Balances::total_issuance(), ed);
+		})
+	}
+
+	#[test]
+	fn unused_inflation_3() {
+		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
+			progress_day(1);
+			let ed = Balances::total_issuance();
+			// one inflation handler that burns it all. Equal to `unused_inflation_2`.
+			Recipients::clear();
+			Recipients::add(Box::new(|x, _| (x, PayoutAction::Burn)));
+
+			// do the inflation.
+			assert_ok!(Inflation::inflate());
+
+			assert_eq!(
+				events(),
+				vec![
+					Event::PossiblyInflated { amount: 100 },
+					Event::InflationDistributed { amount: 100, payout: PayoutAction::Burn },
+				]
+			);
+
+			assert_eq!(Balances::total_balance(&1), 0);
+			assert_eq!(Balances::total_balance(&2), 0);
+			assert_eq!(Balances::total_balance(&3), 0);
+			assert_eq!(Balances::total_issuance(), ed);
+		})
 	}
 
 	#[test]
 	fn unset_last_known_total_stake() {
-		new_test_ext(356 * 10 * 100).execute_with(|| {
+		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
 			// some money is there to be inflated..
 			progress_day(1);
-			let ed = Balances::total_issuance();
 
 			// remove last known stake.
 			Inflation::kill_last_known_stake();
@@ -499,18 +622,19 @@ mod tests {
 
 	#[test]
 	fn expired_last_known_total_stake() {
-		new_test_ext(356 * 10 * 100).execute_with(|| {
+		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
 			// some money is there to be inflated..
 			progress_day(1);
 			let ed = Balances::total_issuance();
 
-			// if it is claimed before block 10.
-			<Runtime as polkadot_inflation::Config>::update_total_stake(0, Some(10));
+			// and as of now it can only be inflated until block 10
+			<Runtime as pallet_inflation::Config>::update_total_stake(0, Some(10));
 
+			// if it is claimed before block 10.
 			hypothetically!({
 				frame_system::Pallet::<Runtime>::set_block_number(5);
 				assert_ok!(Inflation::inflate());
-				assert_eq!(Balances::total_issuance(), ed + 100 - 10);
+				assert_eq!(Balances::total_issuance(), ed + DEFAULT_DAILY_INFLATION);
 			});
 
 			// but not if claimed after block 10.
@@ -522,25 +646,45 @@ mod tests {
 	}
 
 	#[test]
+	fn unknown_last_inflated() {
+		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
+			// some money is there to be inflated..
+			progress_day(1);
+			let ed = Balances::total_issuance();
+			LastInflated::<Runtime>::kill();
+
+			assert_noop!(Inflation::inflate(), Error::<Runtime>::UnknownLastInflated);
+		})
+	}
+
+	#[test]
 	fn inflation_is_time_independent() {
-		// over a fixed period, eg. a day, total amount inflated is the same if we inflate every
-		// block or every our or just once, assuming total stake is constant.
+		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
+			let ed = Balances::total_issuance();
+
+			hypothetically!({
+				for _ in 0..10 {
+					progress_day(1);
+					assert_ok!(Inflation::inflate());
+				}
+				assert_eq!(Balances::total_issuance(), 365800);
+			});
+
+			hypothetically!({
+				for _ in 0..10 {
+					progress_day(1);
+				}
+				assert_ok!(Inflation::inflate());
+				assert_eq!(Balances::total_issuance(), 365800);
+			});
+			// what matters is that the final total issuance is the same in both cases.
+		})
 	}
 
-	#[test]
-	fn staking_inflation_works_with_zero_ed() {
-		// inflation for staking, and how the stake is distributed into sub accounts is correct for
-		// both zero and non-zero ED.
-	}
+	mod ideas {
+		use super::*;
 
-	#[test]
-	fn payouts_are_stored_in_pots() {
-		// as we progress eras but no one claims, amounts are stored in pot accounts.
-	}
-
-	#[test]
-	fn unclaimed_rewards_are_burnt() {
-		// upon expiry, unclaimed rewards are burnt.
+		fn capped_inflation
 	}
 }
 

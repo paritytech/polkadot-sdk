@@ -313,7 +313,7 @@ parameter_types! {
 	];
 }
 
-use crate::inflation::polkadot_inflation as pallet_polkadot_inflation;
+use crate::inflation::pallet_inflation as pallet_polkadot_inflation;
 
 // #[derive_impl(crate::inflation::polkadot_inflation::config_preludes::TestDefaultConfig)]
 impl pallet_polkadot_inflation::Config for Test {
@@ -324,6 +324,7 @@ impl pallet_polkadot_inflation::Config for Test {
 
 	type MaxInflation = MaxInflation;
 	type Recipients = Recipients;
+	type InflationOrigin = EnsureRoot<AccountId>;
 }
 
 pub struct EventListenerMock;
