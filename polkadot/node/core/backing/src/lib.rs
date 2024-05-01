@@ -1383,7 +1383,6 @@ async fn handle_validated_candidate_command<Context>(
 							commitments,
 						};
 
-						let parent_head_data_hash = persisted_validation_data.parent_head.hash();
 						let hypothetical_candidate = HypotheticalCandidate::Complete {
 							candidate_hash,
 							receipt: Arc::new(receipt.clone()),
