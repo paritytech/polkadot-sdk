@@ -19,11 +19,11 @@
 use crate::{
 	communication::{
 		gossip::{proofs_topic, votes_topic, GossipFilterCfg, GossipMessage},
-		peers::PeerReport,
 		request_response::outgoing_requests_engine::ResponseInfo,
 	},
 	error::Error,
 	find_authorities_change,
+	fisherman::Fisherman,
 	justification::BeefyVersionedFinalityProof,
 	keystore::BeefyKeystore,
 	metric_inc, metric_set,
@@ -33,17 +33,16 @@ use crate::{
 };
 use codec::{Codec, Decode, DecodeAll, Encode};
 use futures::{stream::Fuse, FutureExt, StreamExt};
-use log::{debug, error, info, log_enabled, trace, warn};
+use log::{debug, error, info, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_utils::notification::NotificationReceiver;
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
-	check_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, BeefySignatureHasher, Commitment, EquivocationProof, PayloadProvider, ValidatorSet,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	BeefyApi, Commitment, DoubleVotingProof, PayloadProvider, ValidatorSet, VersionedFinalityProof,
+	VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
 	generic::BlockId,
@@ -51,7 +50,7 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{
-	collections::{BTreeMap, BTreeSet, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	fmt::Debug,
 	sync::Arc,
 };
@@ -332,6 +331,7 @@ impl<B: Block> PersistedState<B> {
 		validator_set: ValidatorSet<AuthorityId>,
 		key_store: &BeefyKeystore<AuthorityId>,
 		metrics: &Option<VoterMetrics>,
+		is_authority: bool,
 	) {
 		debug!(target: LOG_TARGET, "🥩 New active validator set: {:?}", validator_set);
 
@@ -348,11 +348,16 @@ impl<B: Block> PersistedState<B> {
 			}
 		}
 
-		if log_enabled!(target: LOG_TARGET, log::Level::Debug) {
-			// verify the new validator set - only do it if we're also logging the warning
-			if verify_validator_set::<B>(&new_session_start, &validator_set, key_store).is_err() {
-				metric_inc!(metrics, beefy_no_authority_found_in_store);
-			}
+		// verify we have some BEEFY key available in keystore when role is authority.
+		if is_authority && key_store.public_keys().map_or(false, |k| k.is_empty()) {
+			error!(
+				target: LOG_TARGET,
+				"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
+				you must generate valid session keys \
+				(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)",
+				new_session_start,
+			);
+			metric_inc!(metrics, beefy_no_authority_found_in_store);
 		}
 
 		let id = validator_set.id();
@@ -368,16 +373,17 @@ impl<B: Block> PersistedState<B> {
 }
 
 /// A BEEFY worker/voter that follows the BEEFY protocol
-pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
+pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, N> {
 	// utilities
 	pub backend: Arc<BE>,
 	pub runtime: Arc<RuntimeApi>,
-	pub key_store: BeefyKeystore<AuthorityId>,
+	pub key_store: Arc<BeefyKeystore<AuthorityId>>,
 	pub payload_provider: P,
 	pub sync: Arc<S>,
+	pub fisherman: Arc<Fisherman<B, BE, RuntimeApi>>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
-	pub comms: BeefyComms<B>,
+	pub comms: BeefyComms<B, N>,
 
 	// channels
 	/// Links between the block importer, the background voter and the RPC layer.
@@ -390,9 +396,11 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub persisted_state: PersistedState<B>,
 	/// BEEFY voter metrics
 	pub metrics: Option<VoterMetrics>,
+	/// Node runs under "Authority" role.
+	pub is_authority: bool,
 }
 
-impl<B, BE, P, R, S> BeefyWorker<B, BE, P, R, S>
+impl<B, BE, P, R, S, N> BeefyWorker<B, BE, P, R, S, N>
 where
 	B: Block + Codec,
 	BE: Backend<B>,
@@ -425,6 +433,7 @@ where
 			validator_set,
 			&self.key_store,
 			&self.metrics,
+			self.is_authority,
 		);
 	}
 
@@ -582,9 +591,9 @@ where
 				}
 				metric_inc!(self.metrics, beefy_good_votes_processed);
 			},
-			VoteImportResult::Equivocation(proof) => {
+			VoteImportResult::DoubleVoting(proof) => {
 				metric_inc!(self.metrics, beefy_equivocation_votes);
-				self.report_equivocation(proof)?;
+				self.report_double_voting(proof)?;
 			},
 			VoteImportResult::Invalid => metric_inc!(self.metrics, beefy_invalid_votes),
 			VoteImportResult::Stale => metric_inc!(self.metrics, beefy_stale_votes),
@@ -818,7 +827,7 @@ where
 		mut self,
 		block_import_justif: &mut Fuse<NotificationReceiver<BeefyVersionedFinalityProof<B>>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
-	) -> (Error, BeefyComms<B>) {
+	) -> (Error, BeefyComms<B, N>) {
 		info!(
 			target: LOG_TARGET,
 			"🥩 run BEEFY worker, best grandpa: #{:?}.",
@@ -887,11 +896,8 @@ where
 						},
 						ResponseInfo::PeerReport(peer_report) => {
 							self.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
-							continue;
 						},
-						ResponseInfo::Pending => {
-							continue;
-						},
+						ResponseInfo::Pending => {},
 					}
 				},
 				justif = block_import_justif.next() => {
@@ -926,13 +932,6 @@ where
 						break Error::VotesGossipStreamTerminated;
 					}
 				},
-				// Process peer reports.
-				report = self.comms.gossip_report_stream.next() => {
-					if let Some(PeerReport { who, cost_benefit }) = report {
-						self.comms.gossip_engine.report(who, cost_benefit);
-					}
-					continue;
-				},
 			}
 
 			// Act on changed 'state'.
@@ -943,64 +942,13 @@ where
 		(error, self.comms)
 	}
 
-	/// Report the given equivocation to the BEEFY runtime module. This method
-	/// generates a session membership proof of the offender and then submits an
-	/// extrinsic to report the equivocation. In particular, the session membership
-	/// proof must be generated at the block at which the given set was active which
-	/// isn't necessarily the best block if there are pending authority set changes.
-	pub(crate) fn report_equivocation(
+	/// Report the given equivocation to the BEEFY runtime module.
+	fn report_double_voting(
 		&self,
-		proof: EquivocationProof<NumberFor<B>, AuthorityId, Signature>,
+		proof: DoubleVotingProof<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
 		let rounds = self.persisted_state.voting_oracle.active_rounds()?;
-		let (validators, validator_set_id) = (rounds.validators(), rounds.validator_set_id());
-		let offender_id = proof.offender_id().clone();
-
-		if !check_equivocation_proof::<_, _, BeefySignatureHasher>(&proof) {
-			debug!(target: LOG_TARGET, "🥩 Skip report for bad equivocation {:?}", proof);
-			return Ok(())
-		} else if let Some(local_id) = self.key_store.authority_id(validators) {
-			if offender_id == local_id {
-				warn!(target: LOG_TARGET, "🥩 Skip equivocation report for own equivocation");
-				return Ok(())
-			}
-		}
-
-		let number = *proof.round_number();
-		let hash = self
-			.backend
-			.blockchain()
-			.expect_block_hash_from_id(&BlockId::Number(number))
-			.map_err(|err| {
-				let err_msg = format!(
-					"Couldn't get hash for block #{:?} (error: {:?}), skipping report for equivocation",
-					number, err
-				);
-				Error::Backend(err_msg)
-			})?;
-		let runtime_api = self.runtime.runtime_api();
-		// generate key ownership proof at that block
-		let key_owner_proof = match runtime_api
-			.generate_key_ownership_proof(hash, validator_set_id, offender_id)
-			.map_err(Error::RuntimeApi)?
-		{
-			Some(proof) => proof,
-			None => {
-				debug!(
-					target: LOG_TARGET,
-					"🥩 Equivocation offender not part of the authority set."
-				);
-				return Ok(())
-			},
-		};
-
-		// submit equivocation report at **best** block
-		let best_block_hash = self.backend.blockchain().info().best_hash;
-		runtime_api
-			.submit_report_equivocation_unsigned_extrinsic(best_block_hash, proof, key_owner_proof)
-			.map_err(Error::RuntimeApi)?;
-
-		Ok(())
+		self.fisherman.report_double_voting(proof, rounds)
 	}
 }
 
@@ -1040,39 +988,12 @@ where
 	}
 }
 
-/// Verify `active` validator set for `block` against the key store
-///
-/// We want to make sure that we have _at least one_ key in our keystore that
-/// is part of the validator set, that's because if there are no local keys
-/// then we can't perform our job as a validator.
-///
-/// Note that for a non-authority node there will be no keystore, and we will
-/// return an error and don't check. The error can usually be ignored.
-fn verify_validator_set<B: Block>(
-	block: &NumberFor<B>,
-	active: &ValidatorSet<AuthorityId>,
-	key_store: &BeefyKeystore<AuthorityId>,
-) -> Result<(), Error> {
-	let active: BTreeSet<&AuthorityId> = active.validators().iter().collect();
-
-	let public_keys = key_store.public_keys()?;
-	let store: BTreeSet<&AuthorityId> = public_keys.iter().collect();
-
-	if store.intersection(&active).count() == 0 {
-		let msg = "no authority public key found in store".to_string();
-		debug!(target: LOG_TARGET, "🥩 for block {:?} {}", block, msg);
-		Err(Error::Keystore(msg))
-	} else {
-		Ok(())
-	}
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
 	use crate::{
 		communication::{
-			gossip::GossipValidator,
+			gossip::{tests::TestNetwork, GossipValidator},
 			notification::{BeefyBestBlockStream, BeefyVersionedFinalityProofStream},
 			request_response::outgoing_requests_engine::OnDemandJustificationsEngine,
 		},
@@ -1129,6 +1050,7 @@ pub(crate) mod tests {
 		MmrRootProvider<Block, TestApi>,
 		TestApi,
 		Arc<SyncingService<Block>>,
+		TestNetwork,
 	> {
 		let keystore = create_beefy_keystore(key);
 
@@ -1158,7 +1080,8 @@ pub(crate) mod tests {
 			.take_notification_service(&crate::tests::beefy_gossip_proto_name())
 			.unwrap();
 		let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-		let (gossip_validator, gossip_report_stream) = GossipValidator::new(known_peers.clone());
+		let gossip_validator =
+			GossipValidator::new(known_peers.clone(), Arc::new(TestNetwork::new().0));
 		let gossip_validator = Arc::new(gossip_validator);
 		let gossip_engine = GossipEngine::new(
 			network.clone(),
@@ -1191,23 +1114,21 @@ pub(crate) mod tests {
 		)
 		.unwrap();
 		let payload_provider = MmrRootProvider::new(api.clone());
-		let comms = BeefyComms {
-			gossip_engine,
-			gossip_validator,
-			gossip_report_stream,
-			on_demand_justifications,
-		};
+		let comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
+		let key_store: Arc<BeefyKeystore<AuthorityId>> = Arc::new(Some(keystore).into());
 		BeefyWorker {
-			backend,
-			runtime: api,
-			key_store: Some(keystore).into(),
+			backend: backend.clone(),
+			runtime: api.clone(),
+			key_store: key_store.clone(),
 			metrics,
 			payload_provider,
 			sync: Arc::new(sync),
+			fisherman: Arc::new(Fisherman::new(backend, api, key_store)),
 			links,
 			comms,
 			pending_justifications: BTreeMap::new(),
 			persisted_state,
+			is_authority: true,
 		}
 	}
 
@@ -1472,32 +1393,6 @@ pub(crate) mod tests {
 	}
 
 	#[tokio::test]
-	async fn keystore_vs_validator_set() {
-		let keys = &[Keyring::Alice];
-		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
-		let mut net = BeefyTestNet::new(1);
-		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
-
-		// keystore doesn't contain other keys than validators'
-		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), Ok(()));
-
-		// unknown `Bob` key
-		let keys = &[Keyring::Bob];
-		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
-		let err_msg = "no authority public key found in store".to_string();
-		let expected = Err(Error::Keystore(err_msg));
-		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), expected);
-
-		// worker has no keystore
-		worker.key_store = None.into();
-		let expected_err = Err(Error::Keystore("no Keystore".into()));
-		assert_eq!(
-			verify_validator_set::<Block>(&1, &validator_set, &worker.key_store),
-			expected_err
-		);
-	}
-
-	#[tokio::test]
 	async fn should_finalize_correctly() {
 		let keys = [Keyring::Alice];
 		let validator_set = ValidatorSet::new(make_beefy_ids(&keys), 0).unwrap();
@@ -1647,6 +1542,11 @@ pub(crate) mod tests {
 		let mut net = BeefyTestNet::new(1);
 		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
 		worker.runtime = api_alice.clone();
+		worker.fisherman = Arc::new(Fisherman::new(
+			worker.backend.clone(),
+			worker.runtime.clone(),
+			worker.key_store.clone(),
+		));
 
 		// let there be a block with num = 1:
 		let _ = net.peer(0).push_blocks(1, false);
@@ -1661,7 +1561,7 @@ pub(crate) mod tests {
 		);
 		{
 			// expect voter (Alice) to successfully report it
-			assert_eq!(worker.report_equivocation(good_proof.clone()), Ok(()));
+			assert_eq!(worker.report_double_voting(good_proof.clone()), Ok(()));
 			// verify Alice reports Bob equivocation to runtime
 			let reported = api_alice.reported_equivocations.as_ref().unwrap().lock();
 			assert_eq!(reported.len(), 1);
@@ -1673,7 +1573,7 @@ pub(crate) mod tests {
 		let mut bad_proof = good_proof.clone();
 		bad_proof.first.id = Keyring::Charlie.public();
 		// bad proofs are simply ignored
-		assert_eq!(worker.report_equivocation(bad_proof), Ok(()));
+		assert_eq!(worker.report_double_voting(bad_proof), Ok(()));
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 
@@ -1682,7 +1582,7 @@ pub(crate) mod tests {
 		old_proof.first.commitment.validator_set_id = 0;
 		old_proof.second.commitment.validator_set_id = 0;
 		// old proofs are simply ignored
-		assert_eq!(worker.report_equivocation(old_proof), Ok(()));
+		assert_eq!(worker.report_double_voting(old_proof), Ok(()));
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 
@@ -1692,7 +1592,7 @@ pub(crate) mod tests {
 			(block_num, payload2.clone(), set_id, &Keyring::Alice),
 		);
 		// equivocations done by 'self' are simply ignored (not reported)
-		assert_eq!(worker.report_equivocation(self_proof), Ok(()));
+		assert_eq!(worker.report_double_voting(self_proof), Ok(()));
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 	}

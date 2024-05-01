@@ -24,7 +24,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 log = { workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 smallvec = { version = "1", default-features = false, features = [
@@ -58,7 +58,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/x
 [dev-dependencies]
 array-bytes = "6.1"
 assert_matches = "1"
-env_logger = "0.9"
+env_logger = "0.11"
 pretty_assertions = "1"
 wat = "1"
 pallet-contracts-fixtures = { path = "./fixtures" }

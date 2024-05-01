@@ -2606,7 +2606,31 @@ fn should_delay_before_retrying_dropped_requests() {
 		// Sleep for the given amount of time. This should reset the delay for the first candidate.
 		futures_timer::Delay::new(REQUEST_RETRY_DELAY).await;
 
-		// We re-try the first request.
+		// We re-try the first request the second time  drop it again.
+		assert_matches!(
+			overseer.recv().await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(mut requests, IfDisconnected::ImmediateError)) => {
+				assert_eq!(requests.len(), 1);
+				assert_matches!(
+					requests.pop().unwrap(),
+					Requests::AttestedCandidateV2(outgoing) => {
+						assert_eq!(outgoing.peer, Recipient::Peer(peer_c));
+						assert_eq!(outgoing.payload.candidate_hash, candidate_hash_1);
+						assert_eq!(outgoing.payload.mask, mask);
+					}
+				);
+			}
+		);
+
+		assert_matches!(
+			overseer_recv_with_timeout(&mut overseer, Duration::from_millis(100)).await,
+			None
+		);
+
+		// Sleep for the given amount of time. This should reset the delay for the first candidate.
+		futures_timer::Delay::new(REQUEST_RETRY_DELAY).await;
+
+		// We re-try the first request, for the third time, so let's answer to it.
 		{
 			let statements = vec![
 				state

@@ -1657,6 +1657,9 @@ pub mod pallet {
 
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
+
+		/// The origin that can manage pool configurations.
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	/// The sum of funds across all pools.
@@ -2495,7 +2498,7 @@ pub mod pallet {
 		}
 
 		/// Update configurations for the nomination pools. The origin for this call must be
-		/// Root.
+		/// [`Config::AdminOrigin`].
 		///
 		/// # Arguments
 		///
@@ -2516,7 +2519,7 @@ pub mod pallet {
 			max_members_per_pool: ConfigOp<u32>,
 			global_max_commission: ConfigOp<Perbill>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 
 			macro_rules! config_op_exp {
 				($storage:ty, $op:ident) => {

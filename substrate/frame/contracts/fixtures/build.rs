@@ -163,7 +163,7 @@ fn invoke_cargo_fmt<'a>(
 ) -> Result<()> {
 	// If rustfmt is not installed, skip the check.
 	if !Command::new("rustup")
-		.args(["nightly-2024-01-22", "run", "rustfmt", "--version"])
+		.args(["nightly-2024-04-10", "run", "rustfmt", "--version"])
 		.output()
 		.map_or(false, |o| o.status.success())
 	{
@@ -171,7 +171,7 @@ fn invoke_cargo_fmt<'a>(
 	}
 
 	let fmt_res = Command::new("rustup")
-		.args(["nightly-2024-01-22", "run", "rustfmt", "--check", "--config-path"])
+		.args(["nightly-2024-04-10", "run", "rustfmt", "--check", "--config-path"])
 		.arg(config_path)
 		.args(files)
 		.output()
@@ -186,7 +186,7 @@ fn invoke_cargo_fmt<'a>(
 	eprintln!("{}\n{}", stdout, stderr);
 	eprintln!(
 		"Fixtures files are not formatted.\n
-		Please run `rustup nightly-2024-01-22 run rustfmt --config-path {} {}/*.rs`",
+		Please run `rustup nightly-2024-04-10 run rustfmt --config-path {} {}/*.rs`",
 		config_path.display(),
 		contract_dir.display()
 	);

@@ -77,8 +77,8 @@ frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-c
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
 
 # External Crates
-async-trait = "0.1.74"
-futures = "0.3.21"
+async-trait = "0.1.79"
+futures = "0.3.30"
 hex-literal = "0.4.1"
 is_executable = "1.0.1"
 gum = { package = "tracing-gum", path = "../gum" }
@@ -148,7 +148,7 @@ xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api" }
 polkadot-test-client = { path = "../test/client" }
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
-env_logger = "0.9.0"
+env_logger = "0.11"
 assert_matches = "1.5.0"
 serial_test = "2.0.0"
 tempfile = "3.2"

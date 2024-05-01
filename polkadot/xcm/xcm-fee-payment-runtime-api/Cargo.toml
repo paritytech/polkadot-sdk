@@ -16,7 +16,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 ] }
 
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = [
+scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 	"serde",
 ] }
