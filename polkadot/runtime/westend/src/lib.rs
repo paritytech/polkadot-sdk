@@ -56,7 +56,7 @@ use primitives::{
 };
 use runtime_common::{
 	assigned_slots, auctions, crowdloan,
-	elections::OnChainAccuracy,
+	elections::{VoterIndex, TargetIndex, OnChainAccuracy},
 	identity_migrator, impl_runtime_weights,
 	impls::{
 		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
@@ -667,7 +667,6 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxValidatorSet;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
 	type ElectionProvider = ElectionProviderMultiBlock;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -1514,10 +1513,6 @@ mod runtime {
 	#[runtime::pallet_index(23)]
 	pub type Multisig = pallet_multisig;
 
-	// Election pallet. Only works with staking, but placed here to maintain indices.
-	#[runtime::pallet_index(24)]
-	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
-
 	// Provides a semi-sorted list of nominators for staking.
 	#[runtime::pallet_index(25)]
 	pub type VoterList = pallet_bags_list<Instance1>;
@@ -1622,6 +1617,19 @@ mod runtime {
 	// Pallet for migrating Identity to a parachain. To be removed post-migration.
 	#[runtime::pallet_index(248)]
 	pub type IdentityMigrator = identity_migrator;
+
+	// Suite the pallets for elections. Order matters.
+	#[runtime::pallet_index(250)]
+	pub type ElectionProviderMultiBlock = pallet_election_provider_multi_block;
+
+	#[runtime::pallet_index(251)]
+	pub type ElectionVerifierPallet = pallet_epm_verifier;
+
+	#[runtime::pallet_index(252)]
+	pub type ElectionSignedPallet = pallet_epm_signed;
+
+	#[runtime::pallet_index(253)]
+	pub type ElectionUnsignedPallet = pallet_epm_unsigned;
 }
 
 /// The address format for describing accounts.

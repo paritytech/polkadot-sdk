@@ -120,7 +120,6 @@ members = [
 	"cumulus/parachains/runtimes/collectives/collectives-westend",
 	"cumulus/parachains/runtimes/constants",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",
-	"cumulus/parachains/runtimes/staking/staking-westend",
 	"cumulus/parachains/runtimes/coretime/coretime-rococo",
 	"cumulus/parachains/runtimes/coretime/coretime-westend",
 	"cumulus/parachains/runtimes/glutton/glutton-westend",

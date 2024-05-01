@@ -437,10 +437,10 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::StakingRococo | Runtime::Penpal(_) | Runtime::Default => {
+			Runtime::StakingRococo => {
 				let $partials = new_partial::<RuntimeApi, _>(
 					&$config,
-					crate::service::rococo_parachain_build_import_queue,
+					crate::service::build_aura_import_queue,
 				)?;
 				$code
 			},
@@ -838,7 +838,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.map(|r| r.0)
 			.map_err(Into::into),
 
-		Runtime::StakingRococo => crate::service::start_generic_aura_node::<RuntimeApi, AuraId>(
+		Runtime::StakingRococo => crate::service::start_rococo_parachain_node::<Network>(
 			config,
 			polkadot_config,
 			collator_options,

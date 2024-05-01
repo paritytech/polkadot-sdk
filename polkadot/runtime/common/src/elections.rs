@@ -16,6 +16,9 @@
 
 //! Code for elections.
 
+pub type VoterIndex = u32;
+pub type TargetIndex = u16;
+
 /// Implements the weight types for the elections module and a specific
 /// runtime.
 /// This macro should not be called directly; use
@@ -44,6 +47,7 @@ macro_rules! impl_elections_weights {
 		}
 	};
 }
+
 
 /// The accuracy type used for genesis election provider;
 pub type OnChainAccuracy = sp_runtime::Perbill;

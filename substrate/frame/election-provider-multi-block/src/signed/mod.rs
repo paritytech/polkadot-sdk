@@ -68,14 +68,14 @@ use frame_support::{
 	RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
-use sp_runtime::{bounded_vec, BoundedVec};
-
 use sp_npos_elections::ElectionScore;
+use sp_runtime::BoundedVec;
+use sp_std::vec::Vec;
 
 // public re-exports.
 pub use pallet::{
 	Call, Config, Error, Event, HoldReason, Pallet, __substrate_call_check,
-	__substrate_event_check, tt_default_parts, tt_error_token,
+	__substrate_event_check, tt_default_parts, tt_default_parts_v2, tt_error_token,
 };
 
 // Alias for the pallet's balance type.
@@ -472,11 +472,13 @@ pub mod pallet {
 
 			T::Currency::hold(&HoldReason::ElectionSolutionSubmission.into(), &who, deposit)?;
 
-			let metadata = SubmissionMetadata {
-				pages: bounded_vec![false, false, false],
-				claimed_score,
-				deposit,
-			};
+			let pages: BoundedVec<_, T::Pages> = (0..T::Pages::get())
+				.map(|_| false)
+				.collect::<Vec<_>>()
+				.try_into()
+				.expect("bounded vec constructed from bound; qed.");
+
+			let metadata = SubmissionMetadata { pages, claimed_score, deposit };
 
 			let _ = Submissions::<T>::try_register(&who, round, metadata)?;
 

@@ -301,6 +301,7 @@ where
 	};
 
 	if parachain_config.offchain_worker.enabled {
+		/*
 		task_manager.spawn_handle().spawn(
 			"offchain-workers-runner",
 			"offchain-worker",
@@ -313,6 +314,26 @@ where
 					transaction_pool.clone(),
 				)),
 				network_provider: network.clone(),
+				enable_http_requests: true,
+				custom_extensions: |_| vec![],
+			})
+			.run(client.clone(), task_manager.spawn_handle())
+			.boxed(),
+		);
+		*/
+
+		task_manager.spawn_handle().spawn(
+			"offchain-workers-runner",
+			"offchain-work",
+			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+				runtime_api_provider: client.clone(),
+				keystore: Some(params.keystore_container.keystore()),
+				offchain_db: backend.offchain_storage(),
+				transaction_pool: Some(OffchainTransactionPoolFactory::new(
+					transaction_pool.clone(),
+				)),
+				network_provider: Arc::new(network.clone()),
+				is_validator: parachain_config.role.is_authority(),
 				enable_http_requests: true,
 				custom_extensions: |_| vec![],
 			})

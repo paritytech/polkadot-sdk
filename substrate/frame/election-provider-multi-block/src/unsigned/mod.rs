@@ -76,7 +76,7 @@ use sp_runtime::SaturatedConversion;
 // public re-exports.
 pub use pallet::{
 	Call, Config, Event, Pallet, __substrate_call_check, __substrate_event_check,
-	__substrate_validate_unsigned_check, tt_default_parts, tt_error_token,
+	__substrate_validate_unsigned_check, tt_default_parts, tt_default_parts_v2, tt_error_token,
 };
 
 #[frame_support::pallet(dev_mode)]

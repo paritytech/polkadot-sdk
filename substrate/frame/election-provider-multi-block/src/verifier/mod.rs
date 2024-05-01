@@ -74,7 +74,7 @@ use sp_runtime::RuntimeDebug;
 // public re-exports.
 pub use impls::pallet::{
 	Call, Config, Event, Pallet, __substrate_call_check, __substrate_event_check, tt_default_parts,
-	tt_error_token,
+	tt_default_parts_v2, tt_error_token,
 };
 
 use crate::{PageIndex, SupportsOf};
