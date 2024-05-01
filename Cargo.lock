@@ -20495,7 +20495,6 @@ dependencies = [
  "ansi_term",
  "assert_cmd",
  "frame-metadata",
- "frame-remote-externalities",
  "jsonrpsee",
  "log",
  "parity-scale-codec",

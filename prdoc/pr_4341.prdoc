@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Revive `sub-du`: tool for calculating storage size of pallets"
+
+doc:
+  - audience: Runtime User
+    description: |
+      A tool like [`du`](https://en.wikipedia.org/wiki/Du_(Unix)) that calculates storage size of pallets of a Substrate chain.
+
+crates: []
