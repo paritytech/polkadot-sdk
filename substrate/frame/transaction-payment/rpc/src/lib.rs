@@ -17,7 +17,7 @@
 
 //! RPC interface for the transaction payment pallet.
 
-use std::{convert::TryInto, sync::Arc};
+use std::sync::Arc;
 
 use codec::{Codec, Decode};
 use jsonrpsee::{

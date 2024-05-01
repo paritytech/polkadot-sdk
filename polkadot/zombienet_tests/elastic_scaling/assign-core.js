@@ -1,6 +1,6 @@
 async function run(nodeName, networkInfo, args) {
-  const { wsUri, userDefinedTypes } = networkInfo.nodesByName[nodeName];
-  const api = await zombie.connect(wsUri, userDefinedTypes);
+  const wsUri = networkInfo.nodesByName[nodeName].wsUri;
+  const api = await zombie.connect(wsUri);
 
   let para = Number(args[0]);
   let core = Number(args[1]);
@@ -32,8 +32,6 @@ async function run(nodeName, networkInfo, args) {
         }
       });
   });
-
-
 
   return 0;
 }

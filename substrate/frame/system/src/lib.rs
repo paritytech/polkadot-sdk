@@ -741,9 +741,7 @@ pub mod pallet {
 		#[cfg(feature = "experimental")]
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight())]
-		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-
+		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
 				return Err(Error::<T>::InvalidTask.into())
 			}
@@ -1027,6 +1025,18 @@ pub mod pallet {
 						priority: 100,
 						requires: Vec::new(),
 						provides: vec![hash.as_ref().to_vec()],
+						longevity: TransactionLongevity::max_value(),
+						propagate: true,
+					})
+				}
+			}
+			#[cfg(feature = "experimental")]
+			if let Call::do_task { ref task } = call {
+				if task.is_valid() {
+					return Ok(ValidTransaction {
+						priority: u64::max_value(),
+						requires: Vec::new(),
+						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
 						longevity: TransactionLongevity::max_value(),
 						propagate: true,
 					})

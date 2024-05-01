@@ -27,7 +27,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, LockableCurrency,
 		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
@@ -35,13 +35,12 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_io;
 use sp_runtime::{
-	curve::PiecewiseLinear,
 	testing::UintAuthorityId,
 	traits::{IdentityLookup, Zero},
 	BuildStorage,
 };
 use sp_staking::{
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
 };
 
@@ -288,6 +287,7 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
+	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
 }
 
 parameter_types! {
@@ -303,7 +303,8 @@ parameter_types! {
 parameter_types! {
 	pub Recipients: Vec<pallet_polkadot_inflation::InflationFn<Test>> = vec![
 		Box::new(
-			pallet_polkadot_inflation::Pallet::<Test>::polkadot_staking_income::<
+			pallet_polkadot_inflation::inflation_fns::polkadot_staking_income::<
+				Test,
 				IdealStakingRate,
 				Falloff,
 				StakingRecipient
@@ -328,12 +329,15 @@ impl pallet_polkadot_inflation::Config for Test {
 pub struct EventListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
-		_pool_account: &AccountId,
+		pool_account: &AccountId,
 		slashed_bonded: Balance,
 		slashed_chunks: &BTreeMap<EraIndex, Balance>,
-		_total_slashed: Balance,
+		total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
+		SlashObserver::mutate(|map| {
+			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
+		});
 	}
 
 	fn on_before_era_end(era_index: EraIndex) {
@@ -344,6 +348,9 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 		PolkadotInflation::inflate().expect("inflation should not fail in test setup");
 	}
 }
+
+// Disabling threshold for `UpToLimitDisablingStrategy`
+pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 impl crate::pallet::pallet::Config for Test {
 	type PalletId = StakingPalletId;
@@ -360,7 +367,6 @@ impl crate::pallet::pallet::Config for Test {
 	type SessionInterface = Self;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
@@ -373,6 +379,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -537,6 +544,8 @@ impl ExtBuilder {
 				(31, self.balance_factor * 2000),
 				(41, self.balance_factor * 2000),
 				(51, self.balance_factor * 2000),
+				(201, self.balance_factor * 2000),
+				(202, self.balance_factor * 2000),
 				// optional nominator
 				(100, self.balance_factor * 2000),
 				(101, self.balance_factor * 2000),
@@ -564,8 +573,10 @@ impl ExtBuilder {
 				(31, 31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
 				// an idle validator
 				(41, 41, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
-			];
-			// optionally add a nominator
+				(51, 51, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(201, 201, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(202, 202, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+			]; // optionally add a nominator
 			if self.nominate {
 				stakers.push((
 					101,
@@ -680,6 +691,21 @@ pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
+pub(crate) fn bond_virtual_nominator(
+	who: AccountId,
+	payee: AccountId,
+	val: Balance,
+	target: Vec<AccountId>,
+) {
+	// In a real scenario, `who` is a keyless account managed by another pallet which provides for
+	// it.
+	System::inc_providers(&who);
+
+	// Bond who virtually.
+	assert_ok!(<Staking as sp_staking::StakingUnchecked>::virtual_bond(&who, val, &payee));
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
+}
+
 /// Progress to the given block, triggering session and era changes as we progress.
 ///
 /// This will finalize the previous block, initialize up to the given block, essentially simulating
@@ -772,12 +798,11 @@ pub(crate) fn on_offence_in_era(
 	>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
-	disable_strategy: DisableStrategy,
 ) {
 	let bonded_eras = crate::BondedEras::<Test>::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
+			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
 			return
 		} else if bonded_era > era {
 			break
@@ -789,7 +814,6 @@ pub(crate) fn on_offence_in_era(
 			offenders,
 			slash_fraction,
 			Staking::eras_start_session_index(era).unwrap(),
-			disable_strategy,
 		);
 	} else {
 		panic!("cannot slash in era {}", era);
@@ -804,7 +828,7 @@ pub(crate) fn on_offence_now(
 	slash_fraction: &[Perbill],
 ) {
 	let now = Staking::active_era().unwrap().index;
-	on_offence_in_era(offenders, slash_fraction, now, DisableStrategy::WhenSlashed)
+	on_offence_in_era(offenders, slash_fraction, now)
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
@@ -962,11 +986,6 @@ pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
 parameter_types! {
 	static StakingEventsIndex: usize = 0;
 }
-ord_parameter_types! {
-	pub const One: AccountId = 1;
-}
-
-type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 
 pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 	let all: Vec<_> = System::events()
@@ -981,3 +1000,9 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
+
+ord_parameter_types! {
+	pub const One: AccountId = 1;
+}
+
+type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;

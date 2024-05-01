@@ -75,6 +75,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
 	"frame-support/std",
+	"frame/std",
 	"frame-system/std",
 	"pallet-authorship/std",
 	"pallet-bags-list/std",

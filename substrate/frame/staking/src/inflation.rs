@@ -36,7 +36,8 @@ pub mod polkadot_inflation {
 
 	type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-	const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+	// Milliseconds per year for the Julian year (365.25 days).
+	pub const MILLISECONDS_PER_YEAR: u64 = 1000 * 60 * 60 * 24 * 365_25 / 100;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -178,6 +179,7 @@ pub mod polkadot_inflation {
 	pub enum Event<T: Config> {
 		Inflated { amount: BalanceOf<T> },
 		InflationDistributed { payout: InflationPayout<T::AccountId>, amount: BalanceOf<T> },
+		InflationUnused { amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -196,8 +198,11 @@ pub mod polkadot_inflation {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
+	/// A set of inflation functions provided by this pallet.
+	pub mod inflation_fns {
+		use super::*;
 		pub fn polkadot_staking_income<
+			T: Config,
 			IdealStakingRate: Get<Perquintill>,
 			Falloff: Get<Perquintill>,
 			StakingPayoutAccount: Get<T::AccountId>,
@@ -215,18 +220,41 @@ pub mod polkadot_inflation {
 			(staking_income, InflationPayout::Pay(StakingPayoutAccount::get()))
 		}
 
-		pub fn treasury_income<
-			TreasuryAccount: Get<T::AccountId>,
-			FixedIncome: Get<Perquintill>,
-		>(
+		pub fn fixed_ratio<T: Config, To: Get<T::AccountId>, FixedIncome: Get<Perquintill>>(
 			max_inflation: BalanceOf<T>,
 			_staking_ratio: Perquintill,
 		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
 			let fixed_income = FixedIncome::get();
-			let treasury_income = fixed_income * max_inflation;
-			(treasury_income, InflationPayout::Pay(TreasuryAccount::get()))
+			let fixed_income = fixed_income * max_inflation;
+			(fixed_income, InflationPayout::Pay(To::get()))
 		}
 
+		pub fn burn_ratio<T: Config, BurnRate: Get<Percent>>(
+			max_inflation: BalanceOf<T>,
+			_staking_ratio: Perquintill,
+		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
+			let burn = BurnRate::get() * max_inflation;
+			(burn, InflationPayout::Burn)
+		}
+
+		pub fn pay<T: Config, To: Get<T::AccountId>, Ratio: Get<Percent>>(
+			max_inflation: BalanceOf<T>,
+			_staking_ratio: Perquintill,
+		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
+			let payout = Ratio::get() * max_inflation;
+			(payout, InflationPayout::Pay(To::get()))
+		}
+
+		pub fn split_equal<T: Config, To: Get<Vec<T::AccountId>>, Ratio: Get<Percent>>(
+			max_inflation: BalanceOf<T>,
+			_staking_ratio: Perquintill,
+		) -> (BalanceOf<T>, InflationPayout<T::AccountId>) {
+			let payout = Ratio::get() * max_inflation;
+			(payout, InflationPayout::SplitEqual(To::get()))
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
 		pub fn inflate() -> DispatchResult {
 			let last_inflated = LastInflated::<T>::get();
 			let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
@@ -244,8 +272,9 @@ pub mod polkadot_inflation {
 			let mut max_payout = annual_proportion * max_annual_inflation * adjusted_total_issuance;
 			let staked_ratio = Perquintill::from_rational(total_staked, adjusted_total_issuance);
 
-			use sp_runtime::traits::Zero;
 			if max_payout.is_zero() {
+				Self::deposit_event(Event::Inflated { amount: Zero::zero() });
+				LastInflated::<T>::put(T::UnixTime::now().as_millis().saturated_into::<u64>());
 				return Ok(());
 			}
 
@@ -261,19 +290,23 @@ pub mod polkadot_inflation {
 
 			for payout_fn in T::Recipients::get() {
 				let (amount, payout) = payout_fn(max_payout, staked_ratio);
-				log::info!(
-					"amount of {:?} paid out to {:?} with {:?} remaining",
+				debug_assert!(amount <= max_payout, "payout exceeds max");
+				let amount = amount.min(max_payout);
+
+				crate::log!(
+					info,
+					"amount {:?} out of {:?} being paid out to to {:?}",
 					amount,
+					max_payout,
 					payout,
-					max_payout
 				);
 				match &payout {
 					InflationPayout::Pay(who) => {
-						T::Currency::mint_into(who, max_payout).defensive();
+						T::Currency::mint_into(who, amount).defensive();
 						max_payout -= amount;
 					},
 					InflationPayout::SplitEqual(whos) => {
-						let amount_split = max_payout / (whos.len() as u32).into();
+						let amount_split = amount / (whos.len() as u32).into();
 						for who in whos {
 							T::Currency::mint_into(&who, amount_split).defensive();
 							max_payout -= amount_split;
@@ -287,42 +320,74 @@ pub mod polkadot_inflation {
 				Self::deposit_event(Event::InflationDistributed { payout, amount });
 			}
 
+			if !max_payout.is_zero() {
+				Self::deposit_event(Event::InflationUnused { amount: max_payout });
+			}
+
 			LastInflated::<T>::put(T::UnixTime::now().as_millis().saturated_into::<u64>());
 
 			Ok(())
+		}
+
+		#[cfg(test)]
+		pub(crate) fn kill_last_known_stake() {
+			LastKnownStakedStorage::<T>::kill();
+		}
+
+		#[cfg(test)]
+		pub(crate) fn last_known_stake_storage() -> Option<LastKnownStake<T>> {
+			LastKnownStakedStorage::<T>::get()
 		}
 	}
 }
 
 #[cfg(test)]
 mod mock {
+	use self::polkadot_inflation::LastKnownStake;
 	use super::*;
-	use frame::{prelude::*, testing_prelude::*};
-	use polkadot_inflation::{InflationFn, InflationPayout};
+	use frame::{arithmetic::*, prelude::*, testing_prelude::*, traits::fungible::Mutate};
+	use polkadot_inflation::{inflation_fns, InflationFn, InflationPayout, MILLISECONDS_PER_YEAR};
 
 	construct_runtime!(
 		pub struct Runtime {
 			System: frame_system,
-			Currency: pallet_balances,
+			Balances: pallet_balances,
 			Inflation: polkadot_inflation,
-			Timestampe: pallet_timestamp,
+			Timestamp: pallet_timestamp,
 		}
 	);
 
+	pub type AccountId = <Runtime as frame_system::Config>::AccountId;
+	pub type Balance = <Runtime as pallet_balances::Config>::Balance;
+	pub type Moment = <Runtime as pallet_timestamp::Config>::Moment;
+
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-	impl frame_system::Config for Runtime {}
+	impl frame_system::Config for Runtime {
+		type Block = frame::testing_prelude::MockBlock<Runtime>;
+		type AccountData = pallet_balances::AccountData<Balance>;
+	}
 
 	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-	impl pallet_balances::Config for Runtime {}
+	impl pallet_balances::Config for Runtime {
+		type AccountStore = System;
+	}
 
 	#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 	impl pallet_timestamp::Config for Runtime {}
 
 	parameter_types! {
-		pub static Recipients: Vec<InflationFn<Runtime>> = vec![
-			Box::new(|_, _| (0, InflationPayout::Burn)),
-			Box::new(|_, _| (0, InflationPayout::Burn)),
+		pub static BurnRatio: Percent = Percent::from_percent(20);
+		pub static OneRecipient: AccountId = 1;
+		pub static OneRatio: Percent = Percent::from_percent(50);
+		pub static DividedRecipients: Vec<AccountId> = vec![2, 3];
+		pub static DividedRatio: Percent = Percent::from_percent(100);
+
+		pub Recipients: Vec<InflationFn<Runtime>> = vec![
+			Box::new(inflation_fns::burn_ratio::<Runtime, BurnRatio>),
+			Box::new(inflation_fns::pay::<Runtime, OneRecipient, OneRatio>),
+			Box::new(inflation_fns::split_equal::<Runtime, DividedRecipients, DividedRatio>),
 		];
+
 		pub static MaxInflation: Perquintill = Perquintill::from_percent(10);
 	}
 
@@ -330,32 +395,130 @@ mod mock {
 		type RuntimeEvent = RuntimeEvent;
 		type Recipients = Recipients;
 		type Currency = Balances;
-		type CurrencyBalance = <Runtime as pallet_balances::Config>::Balance;
+		type CurrencyBalance = Balance;
 		type MaxInflation = MaxInflation;
 		type UnixTime = Timestamp;
+	}
+
+	pub(crate) fn now() -> Moment {
+		pallet_timestamp::Now::<Runtime>::get()
+	}
+
+	fn progress_timestamp(by: Moment) {
+		Timestamp::set_timestamp(now() + by);
+	}
+
+	pub(crate) fn progress_day(days: Moment) {
+		let progress = MILLISECONDS_PER_YEAR / 365 * days;
+		progress_timestamp(progress)
+	}
+
+	pub(crate) fn new_test_ext(issuance: Balance) -> TestState {
+		sp_tracing::try_init_simple();
+		let mut state = TestState::new_empty();
+		state.execute_with(|| {
+			Balances::mint_into(&42, issuance).unwrap();
+			<Runtime as polkadot_inflation::Config>::update_total_stake(0, None);
+			// needed to emit events.
+			frame_system::Pallet::<Runtime>::set_block_number(1);
+		});
+
+		state
+	}
+
+	pub(crate) fn events() -> Vec<polkadot_inflation::Event<Runtime>> {
+		System::read_events_for_pallet::<polkadot_inflation::Event<Runtime>>()
 	}
 }
 #[cfg(test)]
 mod tests {
+	use super::{mock::*, polkadot_inflation::*};
+	use crate::inflation::polkadot_inflation;
+	use frame::{prelude::*, testing_prelude::*, traits::fungible::Inspect};
+	use frame_support::hypothetically;
 
 	mod polkadot_staking_income {}
 
-	mod treasury_income {}
+	mod fixed_income {}
 
 	#[test]
-	fn inflation_stateless_is_sensible() {
-		// standalone functions to make sure internal logic is sensible.
-		// mostly a wrapper for `pallet_staking_reward_fn::compute_inflation`.
+	fn payout_variants_work() {
+		// with 10% annual inflation, we mint 100 tokens per day with the given issuance.
+		new_test_ext(365 * 10 * 100).execute_with(|| {
+			progress_day(1);
+
+			// silly, just for sanity.
+			let ed = Balances::total_issuance();
+			assert_eq!(ed, 365 * 10 * 100);
+
+			// no inflation so far
+			assert_eq!(LastInflated::<Runtime>::get(), 0);
+
+			// do the inflation.
+			assert_ok!(Inflation::inflate());
+
+			assert_eq!(
+				events(),
+				vec![
+					Event::Inflated { amount: 100 },
+					Event::InflationDistributed { payout: InflationPayout::Burn, amount: 20 },
+					Event::InflationDistributed { payout: InflationPayout::Pay(1), amount: 40 },
+					Event::InflationDistributed {
+						payout: InflationPayout::SplitEqual(vec![2, 3]),
+						amount: 40
+					}
+				]
+			);
+
+			assert_eq!(Balances::total_balance(&1), 40);
+			assert_eq!(Balances::total_balance(&2), 20);
+			assert_eq!(Balances::total_balance(&3), 20);
+			assert_eq!(Balances::total_issuance(), ed + 80);
+			assert_eq!(LastInflated::<Runtime>::get(), now());
+		})
+	}
+
+	#[test]
+	fn unused_inflation() {
+		// unused inflation is not minted and is reported as event.
 	}
 
 	#[test]
 	fn unset_last_known_total_stake() {
-		// if unset, we should not inflate at ll.
+		new_test_ext(356 * 10 * 100).execute_with(|| {
+			// some money is there to be inflated..
+			progress_day(1);
+			let ed = Balances::total_issuance();
+
+			// remove last known stake.
+			Inflation::kill_last_known_stake();
+
+			assert_noop!(Inflation::inflate(), Error::<Runtime>::UnknownLastStake);
+		})
 	}
 
 	#[test]
 	fn expired_last_known_total_stake() {
-		// if expired, we should not inflate at all.
+		new_test_ext(356 * 10 * 100).execute_with(|| {
+			// some money is there to be inflated..
+			progress_day(1);
+			let ed = Balances::total_issuance();
+
+			// if it is claimed before block 10.
+			<Runtime as polkadot_inflation::Config>::update_total_stake(0, Some(10));
+
+			hypothetically!({
+				frame_system::Pallet::<Runtime>::set_block_number(5);
+				assert_ok!(Inflation::inflate());
+				assert_eq!(Balances::total_issuance(), ed + 100 - 10);
+			});
+
+			// but not if claimed after block 10.
+			hypothetically!({
+				frame_system::Pallet::<Runtime>::set_block_number(11);
+				assert_noop!(Inflation::inflate(), Error::<Runtime>::UnknownLastStake);
+			});
+		})
 	}
 
 	#[test]
@@ -383,6 +546,7 @@ mod tests {
 
 mod deprecated {
 	use super::*;
+	use sp_runtime::{curve::PiecewiseLinear, Perbill};
 
 	/// The total payout to all validators (and their nominators) per era and maximum payout.
 	///
@@ -399,7 +563,7 @@ mod deprecated {
 		era_duration: u64,
 	) -> (N, N)
 	where
-		N: AtLeast32BitUnsigned + Clone,
+		N: sp_runtime::traits::AtLeast32BitUnsigned + Clone,
 	{
 		// Milliseconds per year for the Julian year (365.25 days).
 		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
