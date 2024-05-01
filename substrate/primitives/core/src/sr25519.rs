@@ -22,7 +22,9 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
+use crate::crypto::{
+	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError,
+};
 #[cfg(feature = "full_crypto")]
 use schnorrkel::signing_context;
 use schnorrkel::{
@@ -31,9 +33,7 @@ use schnorrkel::{
 };
 use sp_std::vec::Vec;
 
-use crate::crypto::{
-	CryptoType, CryptoTypeId, Derive, Public as TraitPublic, PublicBytes, SignatureBytes,
-};
+use crate::crypto::{CryptoType, CryptoTypeId, Derive, Public as TraitPublic, SignatureBytes};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -59,20 +59,28 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize = 64;
 
 #[doc(hidden)]
 pub struct Sr25519Tag;
+#[doc(hidden)]
+pub struct Sr25519PublicTag;
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") public key.
-pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Sr25519Tag>;
+pub type Public = CryptoBytes<PUBLIC_KEY_SERIALIZED_SIZE, Sr25519PublicTag>;
 
-/// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
-pub struct Pair(Keypair);
+impl TraitPublic for Public {}
 
-impl Clone for Pair {
-	fn clone(&self) -> Self {
-		Pair(schnorrkel::Keypair {
-			public: self.0.public,
-			secret: schnorrkel::SecretKey::from_bytes(&self.0.secret.to_bytes()[..])
-				.expect("key is always the correct size; qed"),
-		})
+impl Derive for Public {
+	/// Derive a child key from a series of given junctions.
+	///
+	/// `None` if there are any hard junctions in there.
+	#[cfg(feature = "serde")]
+	fn derive<Iter: Iterator<Item = DeriveJunction>>(&self, path: Iter) -> Option<Public> {
+		let mut acc = PublicKey::from_bytes(self.as_ref()).ok()?;
+		for j in path {
+			match j {
+				DeriveJunction::Soft(cc) => acc = acc.derived_key_simple(ChainCode(cc), &[]).0,
+				DeriveJunction::Hard(_cc) => return None,
+			}
+		}
+		Some(Self::from(acc.to_bytes()))
 	}
 }
 
@@ -129,29 +137,6 @@ impl<'de> Deserialize<'de> for Public {
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Sr25519Tag>;
 
-#[cfg(feature = "serde")]
-impl Serialize for Signature {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&array_bytes::bytes2hex("", self))
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Signature {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let signature_hex = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::try_from(signature_hex.as_ref())
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
 #[cfg(feature = "full_crypto")]
 impl From<schnorrkel::Signature> for Signature {
 	fn from(s: schnorrkel::Signature) -> Signature {
@@ -159,36 +144,18 @@ impl From<schnorrkel::Signature> for Signature {
 	}
 }
 
-impl sp_std::fmt::Debug for Signature {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
-	}
+/// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
+pub struct Pair(Keypair);
 
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-impl Derive for Public {
-	/// Derive a child key from a series of given junctions.
-	///
-	/// `None` if there are any hard junctions in there.
-	#[cfg(feature = "serde")]
-	fn derive<Iter: Iterator<Item = DeriveJunction>>(&self, path: Iter) -> Option<Public> {
-		let mut acc = PublicKey::from_bytes(self.as_ref()).ok()?;
-		for j in path {
-			match j {
-				DeriveJunction::Soft(cc) => acc = acc.derived_key_simple(ChainCode(cc), &[]).0,
-				DeriveJunction::Hard(_cc) => return None,
-			}
-		}
-		Some(Self::from(acc.to_bytes()))
+impl Clone for Pair {
+	fn clone(&self) -> Self {
+		Pair(schnorrkel::Keypair {
+			public: self.0.public,
+			secret: schnorrkel::SecretKey::from_bytes(&self.0.secret.to_bytes()[..])
+				.expect("key is always the correct size; qed"),
+		})
 	}
 }
-
-impl TraitPublic for Public {}
 
 #[cfg(feature = "std")]
 impl From<MiniSecretKey> for Pair {

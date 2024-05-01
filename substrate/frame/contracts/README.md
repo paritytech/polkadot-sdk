@@ -59,7 +59,7 @@ In general, a contract execution needs to be deterministic so that all nodes com
 it. To that end we disallow any instructions that could cause indeterminism. Most notable are any floating point
 arithmetic. That said, sometimes contracts are executed off-chain and hence are not subject to consensus. If code is
 only executed by a single node and implicitly trusted by other actors is such a case. Trusted execution environments
-come to mind. To that end we allow the execution of indeterminstic code for off-chain usages with the following
+come to mind. To that end we allow the execution of indeterministic code for off-chain usages with the following
 constraints:
 
 1. No contract can ever be instantiated from an indeterministic code. The only way to execute the code is to use a

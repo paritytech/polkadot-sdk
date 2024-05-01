@@ -27,11 +27,10 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../
 
 # Bridges
 pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages", default-features = false }
-bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false }
 
 # Cumulus
-parachains-common = { path = "../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false }
-bridge-hub-westend-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
+bridge-hub-westend-runtime = { path = "../../../../../runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }

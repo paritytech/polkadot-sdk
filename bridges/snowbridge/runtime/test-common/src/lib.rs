@@ -7,7 +7,6 @@ use frame_support::{
 	traits::{fungible::Mutate, OnFinalize, OnInitialize},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom,
 };
@@ -467,7 +466,6 @@ pub fn ethereum_extrinsic<Runtime>(
 			let initial_checkpoint = make_checkpoint();
 			let update = make_finalized_header_update();
 			let sync_committee_update = make_sync_committee_update();
-			let execution_header_update = make_execution_header_update();
 
 			let alice = Alice;
 			let alice_account = alice.to_account_id();
@@ -494,22 +492,12 @@ pub fn ethereum_extrinsic<Runtime>(
 				}
 				.into();
 
-			let execution_header_call: <Runtime as pallet_utility::Config>::RuntimeCall =
-				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit_execution_header {
-					update: Box::new(*execution_header_update),
-				}
-				.into();
-
 			let update_outcome = construct_and_apply_extrinsic(alice, update_call.into());
 			assert_ok!(update_outcome);
 
 			let sync_committee_outcome =
 				construct_and_apply_extrinsic(alice, update_sync_committee_call.into());
 			assert_ok!(sync_committee_outcome);
-
-			let execution_header_outcome =
-				construct_and_apply_extrinsic(alice, execution_header_call.into());
-			assert_ok!(execution_header_outcome);
 		});
 }
 
@@ -548,7 +536,6 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 		.execute_with(|| {
 			let initial_checkpoint = make_checkpoint();
 			let sync_committee_update = make_sync_committee_update();
-			let execution_header_update = make_execution_header_update();
 
 			let alice = Alice;
 			let alice_account = alice.to_account_id();
@@ -569,18 +556,8 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 				}
 				.into();
 
-			let execution_header_call: <Runtime as pallet_utility::Config>::RuntimeCall =
-				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit_execution_header {
-					update: Box::new(*execution_header_update),
-				}
-				.into();
-
 			let sync_committee_outcome =
 				construct_and_apply_extrinsic(alice, update_sync_committee_call.into());
 			assert_ok!(sync_committee_outcome);
-
-			let execution_header_outcome =
-				construct_and_apply_extrinsic(alice, execution_header_call.into());
-			assert_ok!(execution_header_outcome);
 		});
 }

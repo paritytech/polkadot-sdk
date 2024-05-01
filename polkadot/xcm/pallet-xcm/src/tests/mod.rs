@@ -474,7 +474,7 @@ fn claim_assets_works() {
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// First trap some assets.
 		let trapping_program =
-			Xcm::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT).into()).build();
+			Xcm::<RuntimeCall>::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT)).build();
 		// Even though assets are trapped, the extrinsic returns success.
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
@@ -557,11 +557,7 @@ fn incomplete_execute_reverts_side_effects() {
 					),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
-				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
-					index: 4,
-					error: [24, 0, 0, 0,],
-					message: Some("LocalExecutionIncomplete")
-				})
+				error: sp_runtime::DispatchError::from(Error::<Test>::LocalExecutionIncomplete)
 			})
 		);
 	});

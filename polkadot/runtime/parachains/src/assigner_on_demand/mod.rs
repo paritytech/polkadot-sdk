@@ -386,7 +386,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			// We need to update the spot traffic on block initialize in order to account for idle
 			// blocks.
 			QueueStatus::<T>::mutate(|queue_status| {
@@ -551,7 +551,7 @@ where
 		para_id: ParaId,
 		existence_requirement: ExistenceRequirement,
 	) -> DispatchResult {
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		QueueStatus::<T>::mutate(|queue_status| {
 			Self::update_spot_traffic(&config, queue_status);
@@ -684,7 +684,7 @@ where
 
 	/// Adds an order to the on demand queue.
 	///
-	/// Paramenters:
+	/// Parameters:
 	/// - `location`: Whether to push this entry to the back or the front of the queue. Pushing an
 	///   entry to the front of the queue is only used when the scheduler wants to push back an
 	///   entry it has already popped.
@@ -763,7 +763,7 @@ where
 
 	/// Increases the affinity of a `ParaId` to a specified `CoreIndex`.
 	/// Adds to the count of the `CoreAffinityCount` if an entry is found and the core_index
-	/// matches. A non-existant entry will be initialized with a count of 1 and uses the  supplied
+	/// matches. A non-existent entry will be initialized with a count of 1 and uses the  supplied
 	/// `CoreIndex`.
 	fn increase_affinity(para_id: ParaId, core_index: CoreIndex) {
 		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| match maybe_affinity {

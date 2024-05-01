@@ -81,6 +81,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::marker::PhantomData;
+use frame_support::traits::TypedGet;
 pub use pallet::*;
 
 #[cfg(test)]
@@ -119,7 +121,7 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
@@ -979,5 +981,17 @@ pub mod pallet {
 		fn end_session(_: SessionIndex) {
 			// we don't care.
 		}
+	}
+}
+
+/// [`TypedGet`] implementation to get the AccountId of the StakingPot.
+pub struct StakingPotAccountId<R>(PhantomData<R>);
+impl<R> TypedGet for StakingPotAccountId<R>
+where
+	R: crate::Config,
+{
+	type Type = <R as frame_system::Config>::AccountId;
+	fn get() -> Self::Type {
+		<crate::Pallet<R>>::account_id()
 	}
 }

@@ -31,7 +31,7 @@ use sp_runtime::{
 	traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto},
 	RuntimeDebug,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
+use sp_std::{fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
@@ -56,7 +56,7 @@ mod chain;
 mod storage_proof;
 mod storage_types;
 
-// Re-export macro to aviod include paste dependency everywhere
+// Re-export macro to avoid include paste dependency everywhere
 pub use sp_runtime::paste;
 
 /// Use this when something must be shared among all instances.
@@ -461,7 +461,7 @@ macro_rules! generate_static_str_provider {
 	};
 }
 
-/// Error message that is only dispayable in `std` environment.
+/// Error message that is only displayable in `std` environment.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct StrippableError<T> {

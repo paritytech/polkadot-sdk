@@ -119,7 +119,7 @@ pub mod pallet {
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
-		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` fitler.
+		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` filter.
 		/// The instance filter determines whether a given call may be proxied under this type.
 		///
 		/// IMPORTANT: `Default` must be provided and MUST BE the the *most permissive* value.

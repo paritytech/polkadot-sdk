@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! A minimal runtime that includes the template [`pallet`](`pallet_minimal_template`).
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // Make the WASM binary available.
@@ -23,7 +25,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame::{
 	deps::frame_support::{
-		genesis_builder_helper::{build_config, create_default_config},
+		genesis_builder_helper::{build_state, get_preset},
+		runtime,
 		weights::{FixedFee, NoFee},
 	},
 	prelude::*,
@@ -36,6 +39,7 @@ use frame::{
 	},
 };
 
+/// The runtime version.
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("minimal-template-runtime"),
@@ -54,61 +58,108 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
+/// The signed extensions that are added to the runtime.
 type SignedExtra = (
+	// Checks that the sender is not the zero address.
 	frame_system::CheckNonZeroSender<Runtime>,
+	// Checks that the runtime version is correct.
 	frame_system::CheckSpecVersion<Runtime>,
+	// Checks that the transaction version is correct.
 	frame_system::CheckTxVersion<Runtime>,
+	// Checks that the genesis hash is correct.
 	frame_system::CheckGenesis<Runtime>,
+	// Checks that the era is valid.
 	frame_system::CheckEra<Runtime>,
+	// Checks that the nonce is valid.
 	frame_system::CheckNonce<Runtime>,
+	// Checks that the weight is valid.
 	frame_system::CheckWeight<Runtime>,
+	// Ensures that the sender has enough funds to pay for the transaction
+	// and deducts the fee from the sender's account.
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 
-construct_runtime!(
-	pub enum Runtime {
-		System: frame_system,
-		Timestamp: pallet_timestamp,
+// Composes the runtime by adding all the used pallets and deriving necessary types.
+#[runtime]
+mod runtime {
+	/// The main runtime type.
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
 
-		Balances: pallet_balances,
-		Sudo: pallet_sudo,
-		TransactionPayment: pallet_transaction_payment,
+	/// Mandatory system pallet that should always be included in a FRAME runtime.
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
 
-		// our local pallet
-		Template: pallet_minimal_template,
-	}
-);
+	/// Provides a way for consensus systems to set and check the onchain time.
+	#[runtime::pallet_index(1)]
+	pub type Timestamp = pallet_timestamp;
+
+	/// Provides the ability to keep track of balances.
+	#[runtime::pallet_index(2)]
+	pub type Balances = pallet_balances;
+
+	/// Provides a way to execute privileged functions.
+	#[runtime::pallet_index(3)]
+	pub type Sudo = pallet_sudo;
+
+	/// Provides the ability to charge for extrinsic execution.
+	#[runtime::pallet_index(4)]
+	pub type TransactionPayment = pallet_transaction_payment;
+
+	/// A minimal pallet template.
+	#[runtime::pallet_index(5)]
+	pub type Template = pallet_minimal_template;
+}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
+/// Implements the types required for the system pallet.
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type Version = Version;
-	type BlockHashCount = ConstU32<1024>;
+	// Use the account data from the balances pallet
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
 }
 
+// Implements the types required for the balances pallet.
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
 }
 
+// Implements the types required for the sudo pallet.
 #[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig)]
 impl pallet_sudo::Config for Runtime {}
 
+// Implements the types required for the sudo pallet.
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Runtime {}
 
+// Implements the types required for the transaction payment pallet.
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
+	// Setting fee as independent of the weight of the extrinsic for demo purposes
 	type WeightToFee = NoFee<<Self as pallet_balances::Config>::Balance>;
+	// Setting fee as fixed for any length of the call data for demo purposes
 	type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 }
 
+// Implements the types required for the template pallet.
 impl pallet_minimal_template::Config for Runtime {}
 
 type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
@@ -221,12 +272,16 @@ impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+		}
+
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+			vec![]
 		}
 	}
 }
