@@ -11,7 +11,7 @@
 //! for them.
 //!
 //! The language evolves over time to accomodate the needs of the community
-//! via the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0001-process.md).
+//! via the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0032-process.md).
 //!
 //! XCM is the language, it deals with interpreting and executing programs.
 //! It does not deal with actually **sending** these programs from one consensus system to another.
@@ -25,11 +25,11 @@
 //!
 //! For these docs, we'll use a Rust implementation of XCM and the XCVM, consisting of the following
 //! parts:
-//! - XCM: Holds the definition of an XCM program, the instructions and main concepts.
-//! - Executor: Implements the XCVM, capable of executing XCMs. Highly configurable.
-//! - Builder: A collection of types used to configure the executor.
-//! - XCM Pallet: A FRAME pallet for interacting with the executor.
-//! - Simulator: A playground to tinker with different XCM programs and executor configurations.
+//! - [`XCM`](xcm): Holds the definition of an XCM program, the instructions and main concepts.
+//! - [`Executor`](xcm_executor): Implements the XCVM, capable of executing XCMs. Highly configurable.
+//! - [`Builder`](xcm_builder): A collection of types used to configure the executor.
+//! - [`XCM Pallet`](pallet_xcm): A FRAME pallet for interacting with the executor.
+//! - [`Simulator`](xcm_simulator): A playground to tinker with different XCM programs and executor configurations.
 //!
 //! XCM programs are composed of Instructions, which reference Locations and Assets.
 //!
@@ -63,7 +63,7 @@
 //! Many junctions are available; parachains, pallets, 32 and 20 byte accounts, governance bodies,
 //! and arbitrary indices are the most common.
 //! A full list of available junctions can be found in the [format](https://github.com/paritytech/xcm-format#interior-locations--junctions)
-//! and [Junction enum](xcm::v3::prelude::Junction).
+//! and [Junction enum](xcm::v4::prelude::Junction).
 //!
 //! We'll use a file system notation to represent locations, and start with relative locations.
 //! In the diagram, the location of parachain 1000 as seen from all other locations is as follows:
@@ -103,8 +103,13 @@
 //! `Parachain(1000)/PalletInstance(53)/GeneralIndex(1984)`, when seen from the Polkadot relaychain.
 #![doc = simple_mermaid::mermaid!("../mermaid/usdt_location.mmd")]
 //!
+//! Asset Hub also has another type of assets called `ForeignAssets`.
+//! These assets are identified by the XCM Location to their origin.
+//! Two such assets are a Parachain asset, like Moonbeam's GLMR, and KSM, from the cousin Kusama network.
+//! These are represented as `../Parachain(2004)/PalletInstance(10)` and `../../GlobalConsensus(Kusama)` respectively.
+//!
 //! The whole type can be seen in the [format](https://github.com/paritytech/xcm-format#6-universal-asset-identifiers)
-//! and [rust docs](xcm::v3::prelude::MultiAsset).
+//! and [rust docs](xcm::v4::prelude::Asset).
 //!
 //! ## Instructions
 //!
@@ -115,7 +120,7 @@
 //! XCM programs are composed of a sequence of instructions.
 //!
 //! All available instructions can be seen in the [format](https://github.com/paritytech/xcm-format#5-the-xcvm-instruction-set)
-//! and the [Instruction enum](xcm::v3::prelude::Instruction).
+//! and the [Instruction enum](xcm::v4::prelude::Instruction).
 //!
 //! A very simple example is the following:
 //!
@@ -144,3 +149,10 @@
 //! the assets specified in `fees`, with a sanity check of `weight_limit`. `DepositAsset` has the
 //! same operands as the original `TransferAsset` instruction, specifying `assets` and a
 //! `beneficiary` account.
+//!
+//! ## Next steps
+//!
+//! Continue with the [guides](crate::guides) for step-by-step tutorials on XCM,
+//! or jump to the [cookbook](crate::cookbook) to see examples.
+//!
+//! The [glossary](crate::glossary) can be useful if some of the terms are confusing.

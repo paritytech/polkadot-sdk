@@ -16,24 +16,29 @@
 //!
 //! A system that can reach any kind of consensus.
 //! For example, relay chains, parachains, smart contracts.
+//! Most messaging between consensus systems has to be done asynchronously, for this, XCM is used.
+//! Between two smart contracts on the same parachain, however, communication can be done synchronously.
 //!
-//! ## MultiLocation
+//! ## [`Location`](xcm::v4::prelude::Location)
 //!
 //! A way of addressing consensus systems.
 //! These could be relative or absolute.
 //!
-//! ## Junction
+//! ## [`Junction`](xcm::v4::prelude::Junction)
 //!
-//! The different ways of descending down a `MultiLocation` hierarchy.
+//! The different ways of descending down a [`Location`](xcm::v4::prelude::Location) hierarchy.
 //! A junction can be a Parachain, an Account, or more.
 //!
-//! ## MultiAsset
+//! ## [`Asset`](xcm::v4::prelude::Asset)
 //!
-//! A way of identifying assets in the same or another consensus system, by using a `MultiLocation`.
+//! A way of identifying assets in the same or another consensus system, by using a [`Location`](xcm::v4::prelude::Location).
 //!
 //! ## Sovereign account
 //!
 //! An account in a consensus system that is controlled by an account in another consensus system.
+//!
+//! Runtimes use a converter between a [`Location`](xcm::v4::prelude::Location) and an account.
+//! These converters implement the [`ConvertLocation`](xcm_executor::traits::ConvertLocation) trait.
 //!
 //! ## Teleport
 //!
@@ -57,6 +62,8 @@
 //! Every XCM is an XCVM programme.
 //! Holds state in registers.
 //!
+//! An implementation of the virtual machine is the [`xcm-executor`](xcm_executor::XcmExecutor).
+//!
 //! ## Holding register
 //!
 //! An XCVM register used to hold arbitrary `Asset`s during the execution of an XCVM programme.
@@ -66,6 +73,15 @@
 //! An XCM executor configuration item that works as a firewall for incoming XCMs.
 //! All XCMs have to pass the barrier to be executed, else they are dropped.
 //! It can be used for whitelisting only certain types or messages or messages from certain senders.
+//!
+//! Lots of barrier definitions exist in [`xcm-builder`](xcm_builder).
+//!
+//! ## VMP (Vertical Message Passing)
+//!
+//! Umbrella term for both UMP (Upward Message Passing) and DMP (Downward Message Passing).
+//!
+//! The following diagram shows the uses of both protocols:
+#![doc = simple_mermaid::mermaid!("../mermaid/transport_protocols.mmd")]
 //!
 //! ## UMP (Upward Message Passing)
 //!
@@ -85,4 +101,4 @@
 //!
 //! Transport-layer protocol that allows a parachain to send messages to a sibling parachain going
 //! through the relay chain. It's a precursor to XCMP, also known as XCMP-lite.
-//! It uses a mixture of UMP and VMP.
+//! It uses a mixture of UMP and DMP.

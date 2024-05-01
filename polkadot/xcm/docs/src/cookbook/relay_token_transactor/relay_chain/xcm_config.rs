@@ -19,6 +19,9 @@ parameter_types! {
     pub ThisNetwork: NetworkId = NetworkId::Polkadot;
 }
 
+/// Converter from XCM Locations to accounts.
+/// This generates sovereign accounts for Locations and converts
+/// local AccountId32 junctions to local accounts.
 pub type LocationToAccountId = (
     HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
     AccountId32Aliases<ThisNetwork, AccountId>,
@@ -27,17 +30,19 @@ pub type LocationToAccountId = (
 mod asset_transactor {
     use super::*;
 
-    /// AssetTransactor for handling the Relay Chain token
+    /// AssetTransactor for handling the Relay Chain token.
     pub type FungibleTransactor = FungibleAdapter<
-        // Use this `fungible` implementation
+        // Use this `fungible` implementation.
         Balances,
-        // This transactor handles the native token
+        // This transactor handles the native token.
         IsConcrete<HereLocation>,
-        // How to convert an XCM Location into a local account id
+        // How to convert an XCM Location into a local account id.
+        // Whenever assets are handled, the location is turned into an account.
+        // This account is the one where balances are withdrawn/deposited.
         LocationToAccountId,
-        // The account id type, needed because `fungible` is generic over it
+        // The account id type, needed because `fungible` is generic over it.
         AccountId,
-        // Not tracking teleports
+        // Not tracking teleports.
         (),
     >;
 
@@ -109,7 +114,8 @@ impl pallet_xcm::Config for Runtime {
     type XcmExecutor = XcmExecutor<XcmConfig>;
     // We don't allow teleports
     type XcmTeleportFilter = Nothing;
-    // We allow all reserve transfers
+    // We allow all reserve transfers.
+    // This is so it can act as a reserve for its native token.
     type XcmReserveTransferFilter = Everything;
     // Same weigher executor uses to weigh XCM programs
     type Weigher = weigher::Weigher;
