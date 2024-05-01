@@ -140,6 +140,18 @@ pub fn expand_runtime_metadata(
 							>(),
 						event_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeEvent>(),
 						error_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeError>(),
+					},
+					custom_types: #scrate::__private::metadata_ir::CustomMetadataIR {
+						map: [
+							(
+								"CallEnumTy".into(),
+								#scrate::__private::scale_info::meta_type::<
+										<#runtime as #system_path::Config>::RuntimeCall
+									>(),
+							),
+						]
+						.into_iter()
+						.collect(),
 					}
 				}
 			}
