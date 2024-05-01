@@ -77,12 +77,12 @@ fn main() -> Result<(), String> {
 	// We expect no variance for received and sent
 	// but use 0.001 because we operate with floats
 	messages.extend(average_usage.check_network_usage(&[
-		("Received from peers", 52944.7000, 0.001),
-		("Sent to peers", 63532.2000, 0.001),
+		("Received from peers", 52942.4600, 0.001),
+		("Sent to peers", 63547.0330, 0.001),
 	]));
 	messages.extend(average_usage.check_cpu_usage(&[
-		("approval-distribution", 7.7883, 0.1),
-		("approval-voting", 10.4655, 0.1),
+		("approval-distribution", 7.0317, 0.1),
+		("approval-voting", 9.5751, 0.1),
 	]));
 
 	if messages.is_empty() {
