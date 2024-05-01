@@ -124,7 +124,7 @@ impl Metrics {
 	/// of peer rate limit
 	pub fn on_request_dropped_peer_rate_limit(&self) {
 		if let Some(metrics) = &self.0 {
-			metrics.sent_requests.inc();
+			metrics.peer_rate_limit_request_drop.inc();
 		}
 	}
 
