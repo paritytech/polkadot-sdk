@@ -3,7 +3,7 @@
 //! This guide is relevant for cumulus based parachain projects started in 2023 or before. Later
 //! projects should already be async backing compatible. If starting a new parachain project, please use
 //! an async backing compatible template such as
-//! [`cumulus/parachain-template`](https://!github.com/paritytech/polkadot-sdk/tree/master/templates/parachain).
+//! [`cumulus/parachain-template`](https://github.com/paritytech/polkadot-sdk/tree/master/templates/parachain).
 //!
 //! The rollout process for Async Backing has three phases. Phases 1 and 2 below put new infrastructure
 //! in place. Then we can simply turn on async backing in phase 3. But first, some pre-reqs and context
@@ -11,11 +11,11 @@
 //! ## Async Backing Prerequisites
 //!
 //! For more contextual information about asynchronous backing, see
-//! [this page](../learn/learn-async-backing.md).
+//! [this page](https://wiki.polkadot.network/docs/learn-async-backing).
 //!
 //! Pull the latest version of Cumulus for use with your parachain. It contains necessary changes for
 //! async backing compatibility. Latest on master branch of
-//! [Polkadot-SDK](https://!github.com/paritytech/polkadot-sdk) is currently sufficient. Any 2024 release
+//! [Polkadot-SDK](https://github.com/paritytech/polkadot-sdk) is currently sufficient. Any 2024 release
 //! will work as well.
 //!
 //! ## Async Backing Terminology and Parameters
@@ -75,11 +75,11 @@
 //! "scheduling_lookahead": 2
 //! ```
 //!
-//! <!-- prettier-ignore-start -->
-//! :::warning warning `scheduling_lookahead` must be set to 2, otherwise parachain block times will
-//! degrade to worse than with sync backing! 
-//! :::
-//! <!-- prettier-ignore-end -->
+//! <div class="warning">`scheduling_lookahead` must be set to 2, otherwise parachain block times will degrade to worse than with sync backing!</div>
+//! 
+//!  
+//! 
+//! 
 //!
 //! ## Phase 1 - Update Parachain Runtime
 //!
