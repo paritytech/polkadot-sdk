@@ -1321,7 +1321,6 @@ impl_runtime_apis! {
 			if !matches!(xcm_version, 3 | 4) {
 				return Err(XcmPaymentApiError::UnhandledXcmVersion);
 			}
-			// TODO: For now only WND.
 			Ok([VersionedAssetId::V4(xcm_config::WestendLocation::get().into())]
 				.into_iter()
 				.filter_map(|asset| asset.into_version(xcm_version).ok())
