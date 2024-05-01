@@ -194,7 +194,9 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type MinerTxPriority = TransactionPriority;
 	type MinerConfig = Self;
 	type SignedMaxSubmissions = ConstU32<10>;
+	type SignedWhitelistMax = ConstU32<2>;
 	type SignedRewardBase = ();
+	type SignedDepositWhitelist = ();
 	type SignedDepositBase =
 		GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
 	type SignedDepositByte = ();
