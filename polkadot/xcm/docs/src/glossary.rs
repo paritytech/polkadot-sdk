@@ -17,7 +17,8 @@
 //! A system that can reach any kind of consensus.
 //! For example, relay chains, parachains, smart contracts.
 //! Most messaging between consensus systems has to be done asynchronously, for this, XCM is used.
-//! Between two smart contracts on the same parachain, however, communication can be done synchronously.
+//! Between two smart contracts on the same parachain, however, communication can be done
+//! synchronously.
 //!
 //! ## [`Location`](xcm::v4::prelude::Location)
 //!
@@ -31,7 +32,8 @@
 //!
 //! ## [`Asset`](xcm::v4::prelude::Asset)
 //!
-//! A way of identifying assets in the same or another consensus system, by using a [`Location`](xcm::v4::prelude::Location).
+//! A way of identifying assets in the same or another consensus system, by using a
+//! [`Location`](xcm::v4::prelude::Location).
 //!
 //! ## Sovereign account
 //!

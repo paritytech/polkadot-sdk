@@ -1,8 +1,8 @@
 use frame::testing_prelude::*;
 use test_log::test;
 use xcm::prelude::*;
-use xcm_simulator::TestExt;
 use xcm_executor::traits::ConvertLocation;
+use xcm_simulator::TestExt;
 
 use super::{
 	network::{MockNet, ParaA, Relay, ALICE, BOB, CENTS, INITIAL_BALANCE},
@@ -107,9 +107,6 @@ fn reserve_asset_transfers_work() {
 		let parachain: Location = Parachain(2222).into();
 		let parachains_sovereign_account =
 			relay_chain::LocationToAccountId::convert_location(&parachain).unwrap();
-		assert_eq!(
-			relay_chain::Balances::free_balance(parachains_sovereign_account),
-			25 * CENTS
-		);
+		assert_eq!(relay_chain::Balances::free_balance(parachains_sovereign_account), 25 * CENTS);
 	});
 }

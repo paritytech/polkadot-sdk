@@ -24,7 +24,7 @@
 //! ## Contribute
 //!
 //! To contribute to the format, check out the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0032-process.md).
-//! To contribute to these docs, [make a PR](https://github.com/paritytech/polkadot-sdk/tree/master/polkadot/xcm/docs).
+//! To contribute to these docs, [make a PR](https://github.com/paritytech/polkadot-sdk).
 //!
 //! ## Why Rust Docs?
 //!

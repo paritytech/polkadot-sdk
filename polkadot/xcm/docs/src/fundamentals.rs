@@ -26,10 +26,12 @@
 //! For these docs, we'll use a Rust implementation of XCM and the XCVM, consisting of the following
 //! parts:
 //! - [`XCM`](xcm): Holds the definition of an XCM program, the instructions and main concepts.
-//! - [`Executor`](xcm_executor): Implements the XCVM, capable of executing XCMs. Highly configurable.
+//! - [`Executor`](xcm_executor): Implements the XCVM, capable of executing XCMs. Highly
+//!   configurable.
 //! - [`Builder`](xcm_builder): A collection of types used to configure the executor.
 //! - [`XCM Pallet`](pallet_xcm): A FRAME pallet for interacting with the executor.
-//! - [`Simulator`](xcm_simulator): A playground to tinker with different XCM programs and executor configurations.
+//! - [`Simulator`](xcm_simulator): A playground to tinker with different XCM programs and executor
+//!   configurations.
 //!
 //! XCM programs are composed of Instructions, which reference Locations and Assets.
 //!
@@ -105,16 +107,17 @@
 //!
 //! Asset Hub also has another type of assets called `ForeignAssets`.
 //! These assets are identified by the XCM Location to their origin.
-//! Two such assets are a Parachain asset, like Moonbeam's GLMR, and KSM, from the cousin Kusama network.
-//! These are represented as `../Parachain(2004)/PalletInstance(10)` and `../../GlobalConsensus(Kusama)` respectively.
+//! Two such assets are a Parachain asset, like Moonbeam's GLMR, and KSM, from the cousin Kusama
+//! network. These are represented as `../Parachain(2004)/PalletInstance(10)` and
+//! `../../GlobalConsensus(Kusama)` respectively.
 //!
 //! The whole type can be seen in the [format](https://github.com/paritytech/xcm-format#6-universal-asset-identifiers)
 //! and [rust docs](xcm::v4::prelude::Asset).
 //!
 //! ## Instructions
 //!
-//! Given the vocabulary to talk about both locations -- chains and accounts -- and assets, we now need
-//! a way to express what we want the consensus system to do when executing our programs.
+//! Given the vocabulary to talk about both locations -- chains and accounts -- and assets, we now
+//! need a way to express what we want the consensus system to do when executing our programs.
 //! We need a way of writing our programs.
 //!
 //! XCM programs are composed of a sequence of instructions.

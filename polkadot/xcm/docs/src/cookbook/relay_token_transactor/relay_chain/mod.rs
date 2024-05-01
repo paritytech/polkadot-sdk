@@ -1,20 +1,17 @@
 //! Relay chain runtime mock.
 
-use frame::prelude::*;
-use frame::runtime::prelude::*;
-use frame::deps::{
-    sp_runtime::AccountId32,
-    frame_support::weights::WeightMeter,
+use frame::{
+	deps::{frame_support::weights::WeightMeter, sp_runtime::AccountId32},
+	prelude::*,
+	runtime::prelude::*,
+	traits::{IdentityLookup, ProcessMessage, ProcessMessageError},
 };
-use frame::traits::{IdentityLookup, ProcessMessage, ProcessMessageError};
-use polkadot_runtime_parachains::{
-	inclusion::{AggregateMessageOrigin, UmpQueueId},
-};
+use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 use xcm::v4::prelude::*;
 
 mod xcm_config;
-use xcm_config::XcmConfig;
 pub use xcm_config::LocationToAccountId;
+use xcm_config::XcmConfig;
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
@@ -33,7 +30,7 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Runtime {
-    type AccountStore = System;
+	type AccountStore = System;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -85,6 +82,6 @@ construct_runtime! {
 		System: frame_system,
 		Balances: pallet_balances,
 		MessageQueue: pallet_message_queue,
-        XcmPallet: pallet_xcm,
+		XcmPallet: pallet_xcm,
 	}
 }

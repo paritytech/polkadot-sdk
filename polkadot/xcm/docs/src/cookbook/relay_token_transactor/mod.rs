@@ -8,8 +8,8 @@
 //!
 //! The second step is to configure `IsReserve` to recognize the relay chain as a reserve for its
 //! own asset.
-//! With this, you'll be able to easily mint a derivative asset, backed one-to-on from the Relay Chain, by using the xcm
-//! pallet's `transfer_assets` extrinsic.
+//! With this, you'll be able to easily mint a derivative asset, backed one-to-on from the Relay
+//! Chain, by using the xcm pallet's `transfer_assets` extrinsic.
 //!
 //! The `IsReserve` type takes a type that implements `ContainsPair<MultiAsset, MultiLocation>`.
 //! In this case, we want a type that contains the pair `(relay_chain_native_token, relay_chain)`.
