@@ -340,18 +340,8 @@ fn ledger_consistency_active_balance_below_ed() {
 	execute_with(ext, || {
 		assert_eq!(Staking::ledger(11.into()).unwrap().active, 1000);
 
-		// unbonding total of active stake fails because the active ledger balance would fall
-		// below the `MinNominatorBond`.
-		assert_noop!(
-			Staking::unbond(RuntimeOrigin::signed(11), 1000),
-			Error::<Runtime>::InsufficientBond
-		);
-
-		// however, chilling works as expected.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
-
-		// now unbonding the full active balance works, since remainder of the active balance is
-		// not enforced to be below `MinNominatorBond` if the stash has been chilled.
+		// unbonding total of active stake passes because Chill occurs implicitly when unbonding
+		// full amount
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 
 		// the active balance of the ledger entry is 0, while total balance is 1000 until
