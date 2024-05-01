@@ -348,6 +348,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -374,14 +410,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">struct </span>MetricsInner {
-	statements_distributed: prometheus::Counter&lt;prometheus::U64&gt;,
+	<span class="comment">// V1
+	</span>statements_distributed: prometheus::Counter&lt;prometheus::U64&gt;,
 	sent_requests: prometheus::Counter&lt;prometheus::U64&gt;,
 	received_responses: prometheus::CounterVec&lt;prometheus::U64&gt;,
-	active_leaves_update: prometheus::Histogram,
-	share: prometheus::Histogram,
 	network_bridge_update: prometheus::HistogramVec,
 	statements_unexpected: prometheus::CounterVec&lt;prometheus::U64&gt;,
 	created_message_size: prometheus::Gauge&lt;prometheus::U64&gt;,
+	<span class="comment">// V1+
+	</span>active_leaves_update: prometheus::Histogram,
+	share: prometheus::Histogram,
+	<span class="comment">// V2+
+	</span>peer_rate_limit_request_drop: prometheus::Counter&lt;prometheus::U64&gt;,
+	max_parallel_requests_reached: prometheus::Counter&lt;prometheus::U64&gt;,
 }
 
 <span class="doccomment">/// Statement Distribution metrics.
@@ -464,6 +505,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			metrics.created_message_size.set(size <span class="kw">as </span>u64);
 		}
 	}
+
+	<span class="doccomment">/// Update sent dropped requests counter when request dropped because
+	/// of peer rate limit
+	</span><span class="kw">pub fn </span>on_request_dropped_peer_rate_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
+			metrics.peer_rate_limit_request_drop.inc();
+		}
+	}
+
+	<span class="doccomment">/// Update max parallel requests reached counter
+	/// This counter is updated when the maximum number of parallel requests is reached
+	/// and we are waiting for one of the requests to finish
+	</span><span class="kw">pub fn </span>on_max_parallel_requests_reached(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
+			metrics.max_parallel_requests_reached.inc();
+		}
+	}
 }
 
 <span class="kw">impl </span>metrics::Metrics <span class="kw">for </span>Metrics {
@@ -541,6 +599,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">"polkadot_parachain_statement_distribution_created_message_size"</span>,
 					<span class="string">"Size of created messages containing Seconded statements."</span>,
 				))<span class="question-mark">?</span>,
+				registry,
+			)<span class="question-mark">?</span>,
+			peer_rate_limit_request_drop: prometheus::register(
+				prometheus::Counter::new(
+					<span class="string">"polkadot_parachain_statement_distribution_peer_rate_limit_request_drop_total"</span>,
+					<span class="string">"Number of statement distribution requests dropped because of the peer rate limiting."</span>,
+				)<span class="question-mark">?</span>,
+				registry,
+			)<span class="question-mark">?</span>,
+			max_parallel_requests_reached: prometheus::register(
+				prometheus::Counter::new(
+					<span class="string">"polkadot_parachain_statement_distribution_max_parallel_requests_reached_total"</span>,
+					<span class="string">"Number of times the maximum number of parallel requests was reached."</span>,
+				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 		};

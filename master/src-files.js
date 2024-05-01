@@ -113,7 +113,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["generate_bags",["",[],["lib.rs"]]],\
 ["glutton_westend_runtime",["",[["weights",[],["cumulus_pallet_parachain_system.rs","mod.rs","pallet_glutton.rs","pallet_message_queue.rs","pallet_timestamp.rs"]]],["lib.rs","xcm_config.rs"]]],\
 ["kitchensink_runtime",["",[],["assets_api.rs","constants.rs","impls.rs","lib.rs","voter_bags.rs"]]],\
-["malus",["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_finalized_candidates.rs","dispute_valid_candidates.rs","mod.rs","suggest_garbage_candidate.rs","support_disabled.rs"]]],["interceptor.rs","malus.rs","shared.rs"]]],\
+["malus",["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_finalized_candidates.rs","dispute_valid_candidates.rs","mod.rs","spam_statement_requests.rs","suggest_garbage_candidate.rs","support_disabled.rs"]]],["interceptor.rs","malus.rs","shared.rs"]]],\
 ["messages_relay",["",[],["lib.rs","message_lane.rs","message_lane_loop.rs","message_race_delivery.rs","message_race_limits.rs","message_race_loop.rs","message_race_receiving.rs","message_race_strategy.rs","metrics.rs"]]],\
 ["minimal_template",["",[],["lib.rs"]]],\
 ["minimal_template_node",["",[],["chain_spec.rs","cli.rs","lib.rs","rpc.rs","service.rs"]]],\

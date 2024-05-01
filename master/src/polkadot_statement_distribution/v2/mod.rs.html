@@ -3606,6 +3606,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3455" id="3455">3455</a>
 <a href="#3456" id="3456">3456</a>
 <a href="#3457" id="3457">3457</a>
+<a href="#3458" id="3458">3458</a>
+<a href="#3459" id="3459">3459</a>
+<a href="#3460" id="3460">3460</a>
+<a href="#3461" id="3461">3461</a>
+<a href="#3462" id="3462">3462</a>
+<a href="#3463" id="3463">3463</a>
+<a href="#3464" id="3464">3464</a>
+<a href="#3465" id="3465">3465</a>
+<a href="#3466" id="3466">3466</a>
+<a href="#3467" id="3467">3467</a>
+<a href="#3468" id="3468">3468</a>
+<a href="#3469" id="3469">3469</a>
+<a href="#3470" id="3470">3470</a>
+<a href="#3471" id="3471">3471</a>
+<a href="#3472" id="3472">3472</a>
+<a href="#3473" id="3473">3473</a>
+<a href="#3474" id="3474">3474</a>
+<a href="#3475" id="3475">3475</a>
+<a href="#3476" id="3476">3476</a>
+<a href="#3477" id="3477">3477</a>
+<a href="#3478" id="3478">3478</a>
+<a href="#3479" id="3479">3479</a>
+<a href="#3480" id="3480">3480</a>
+<a href="#3481" id="3481">3481</a>
+<a href="#3482" id="3482">3482</a>
+<a href="#3483" id="3483">3483</a>
+<a href="#3484" id="3484">3484</a>
+<a href="#3485" id="3485">3485</a>
+<a href="#3486" id="3486">3486</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3667,6 +3696,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>fatality::Nested;
 <span class="kw">use </span>futures::{
 	channel::{mpsc, oneshot},
+	future::FutureExt,
+	select,
 	stream::FuturesUnordered,
 	SinkExt, StreamExt,
 };
@@ -3681,6 +3712,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use crate</span>::{
 	error::{JfyiError, JfyiErrorResult},
+	metrics::Metrics,
 	LOG_TARGET,
 };
 <span class="kw">use </span>candidates::{BadAdvertisement, Candidates, PostConfirmation};
@@ -7031,36 +7063,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>respond_task(
 	<span class="kw-2">mut </span>receiver: IncomingRequestReceiver&lt;AttestedCandidateRequest&gt;,
 	<span class="kw-2">mut </span>sender: mpsc::Sender&lt;ResponderMessage&gt;,
+	metrics: Metrics,
 ) {
 	<span class="kw">let </span><span class="kw-2">mut </span>pending_out = FuturesUnordered::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>active_peers = HashSet::new();
+
 	<span class="kw">loop </span>{
-		<span class="comment">// Ensure we are not handling too many requests in parallel.
-		</span><span class="kw">if </span>pending_out.len() &gt;= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS <span class="kw">as </span>usize {
-			<span class="comment">// Wait for one to finish:
-			</span>pending_out.next().<span class="kw">await</span>;
+		<span class="macro">select! </span>{
+			<span class="comment">// New request
+			</span>request_result = receiver.recv(|| <span class="macro">vec!</span>[COST_INVALID_REQUEST]).fuse() =&gt; {
+				<span class="kw">let </span>request = <span class="kw">match </span>request_result.into_nested() {
+					<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(v)) =&gt; v,
+					<span class="prelude-val">Err</span>(fatal) =&gt; {
+						<span class="macro">gum::debug!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>fatal, <span class="string">"Shutting down request responder"</span>);
+						<span class="kw">return
+					</span>},
+					<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(jfyi)) =&gt; {
+						<span class="macro">gum::debug!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>jfyi, <span class="string">"Decoding request failed"</span>);
+						<span class="kw">continue
+					</span>},
+				};
+
+				<span class="comment">// If peer currently being served drop request
+				</span><span class="kw">if </span>active_peers.contains(<span class="kw-2">&amp;</span>request.peer) {
+					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"Peer already being served, dropping request"</span>);
+					metrics.on_request_dropped_peer_rate_limit();
+					<span class="kw">continue
+				</span>}
+
+				<span class="comment">// If we are over parallel limit wait for one to finish
+				</span><span class="kw">if </span>pending_out.len() &gt;= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS <span class="kw">as </span>usize {
+					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"Over max parallel requests, waiting for one to finish"</span>);
+					metrics.on_max_parallel_requests_reached();
+					<span class="kw">let </span>(<span class="kw">_</span>, peer) = pending_out.select_next_some().<span class="kw">await</span>;
+					active_peers.remove(<span class="kw-2">&amp;</span>peer);
+				}
+
+				<span class="comment">// Start serving the request
+				</span><span class="kw">let </span>(pending_sent_tx, pending_sent_rx) = oneshot::channel();
+				<span class="kw">let </span>peer = request.peer;
+				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = sender
+					.feed(ResponderMessage { request, sent_feedback: pending_sent_tx })
+					.<span class="kw">await
+				</span>{
+					<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Shutting down responder"</span>);
+					<span class="kw">return
+				</span>}
+				<span class="kw">let </span>future_with_peer = pending_sent_rx.map(<span class="kw">move </span>|result| (result, peer));
+				pending_out.push(future_with_peer);
+				active_peers.insert(peer);
+			},
+			<span class="comment">// Request served/finished
+			</span>result = pending_out.select_next_some() =&gt; {
+				<span class="kw">let </span>(<span class="kw">_</span>, peer) = result;
+				active_peers.remove(<span class="kw-2">&amp;</span>peer);
+			},
 		}
-
-		<span class="kw">let </span>req = <span class="kw">match </span>receiver.recv(|| <span class="macro">vec!</span>[COST_INVALID_REQUEST]).<span class="kw">await</span>.into_nested() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(v)) =&gt; v,
-			<span class="prelude-val">Err</span>(fatal) =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>fatal, <span class="string">"Shutting down request responder"</span>);
-				<span class="kw">return
-			</span>},
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(jfyi)) =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>jfyi, <span class="string">"Decoding request failed"</span>);
-				<span class="kw">continue
-			</span>},
-		};
-
-		<span class="kw">let </span>(pending_sent_tx, pending_sent_rx) = oneshot::channel();
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = sender
-			.feed(ResponderMessage { request: req, sent_feedback: pending_sent_tx })
-			.<span class="kw">await
-		</span>{
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Shutting down responder"</span>);
-			<span class="kw">return
-		</span>}
-		pending_out.push(pending_sent_rx);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

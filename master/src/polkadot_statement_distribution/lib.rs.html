@@ -590,6 +590,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#439" id="439">439</a>
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -799,6 +800,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			v2::respond_task(
 				<span class="self">self</span>.req_receiver.take().expect(<span class="string">"Mandatory argument to new. qed"</span>),
 				res_sender.clone(),
+				<span class="self">self</span>.metrics.clone(),
 			)
 			.boxed(),
 		)

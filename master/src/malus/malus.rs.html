@@ -389,6 +389,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
 <a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -431,6 +438,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>DisputeAncestor(DisputeAncestorOptions),
 	<span class="doccomment">/// Delayed disputing of finalized candidates.
 	</span>DisputeFinalizedCandidates(DisputeFinalizedCandidatesOptions),
+	<span class="doccomment">/// Spam many request statements instead of sending a single one.
+	</span>SpamStatementRequests(SpamStatementRequestsOptions),
 }
 
 <span class="attr">#[derive(Debug, Parser)]
@@ -488,6 +497,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					DisputeFinalizedCandidates { dispute_offset },
 					finality_delay,
 				)<span class="question-mark">?
+			</span>},
+			NemesisVariant::SpamStatementRequests(opts) =&gt; {
+				<span class="kw">let </span>SpamStatementRequestsOptions { spam_factor, cli } = opts;
+
+				polkadot_cli::run_node(cli, SpamStatementRequests { spam_factor }, finality_delay)<span class="question-mark">?
 			</span>},
 		}
 		<span class="prelude-val">Ok</span>(())
