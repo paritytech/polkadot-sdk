@@ -31,7 +31,8 @@ use sp_api::ProvideRuntimeApi;
 use wasm_timer::Instant;
 
 use crate::{
-	communication::{benefit, cost, fisherman::Fisherman, peers::KnownPeers},
+	communication::{benefit, cost, peers::KnownPeers},
+	fisherman::Fisherman,
 	justification::{
 		proof_block_num_and_set_id, verify_with_validator_set, BeefyVersionedFinalityProof,
 	},
@@ -236,7 +237,7 @@ where
 	next_rebroadcast: Mutex<Instant>,
 	known_peers: Arc<Mutex<KnownPeers<B>>>,
 	network: Arc<N>,
-	pub(crate) fisherman: Fisherman<B, BE, P, R>,
+	pub(crate) fisherman: Arc<Fisherman<B, BE, R, P>>,
 }
 
 impl<B, N, BE, P, R> GossipValidator<B, N, BE, P, R>
@@ -250,7 +251,7 @@ where
 	pub(crate) fn new(
 		known_peers: Arc<Mutex<KnownPeers<B>>>,
 		network: Arc<N>,
-		fisherman: Fisherman<B, BE, P, R>,
+		fisherman: Arc<Fisherman<B, BE, R, P>>,
 	) -> Self {
 		Self {
 			votes_topic: votes_topic::<B>(),
@@ -719,7 +720,8 @@ pub(crate) mod tests {
 		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
-		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
+		let fisherman =
+			Arc::new(create_fisherman(&keyring, Arc::new(api.clone()), backend.clone()));
 
 		let gv = GossipValidator::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
@@ -843,7 +845,8 @@ pub(crate) mod tests {
 		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
-		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
+		let fisherman =
+			Arc::new(create_fisherman(&keyring, Arc::new(api.clone()), backend.clone()));
 
 		let gv = GossipValidator::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
@@ -931,7 +934,8 @@ pub(crate) mod tests {
 		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
-		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
+		let fisherman =
+			Arc::new(create_fisherman(&keyring, Arc::new(api.clone()), backend.clone()));
 
 		let gv = GossipValidator::new(
 			Arc::new(Mutex::new(KnownPeers::new())),

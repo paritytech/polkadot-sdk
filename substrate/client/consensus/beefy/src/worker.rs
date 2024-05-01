@@ -23,6 +23,7 @@ use crate::{
 	},
 	error::Error,
 	find_authorities_change,
+	fisherman::Fisherman,
 	justification::BeefyVersionedFinalityProof,
 	keystore::BeefyKeystore,
 	metric_inc, metric_set,
@@ -39,11 +40,9 @@ use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
-	check_vote_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, BeefyEquivocationProof, BeefySignatureHasher, Commitment, MmrRootHash,
-	PayloadProvider, ValidatorSet, VersionedFinalityProof, VoteEquivocationProof, VoteMessage,
-	BEEFY_ENGINE_ID,
+	BeefyApi, Commitment, DoubleVotingProof, MmrRootHash, PayloadProvider, ValidatorSet,
+	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_mmr_primitives::MmrApi;
 use sp_runtime::{
@@ -382,6 +381,7 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, N> {
 	pub key_store: Arc<BeefyKeystore<AuthorityId>>,
 	pub payload_provider: P,
 	pub sync: Arc<S>,
+	pub fisherman: Arc<Fisherman<B, BE, RuntimeApi, P>>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
 	pub comms: BeefyComms<B, N, BE, P, RuntimeApi>,
@@ -407,7 +407,7 @@ where
 	BE: Backend<B>,
 	P: PayloadProvider<B>,
 	S: SyncOracle,
-	R: ProvideRuntimeApi<B>,
+	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {
@@ -592,9 +592,9 @@ where
 				}
 				metric_inc!(self.metrics, beefy_good_votes_processed);
 			},
-			VoteImportResult::Equivocation(proof) => {
+			VoteImportResult::DoubleVoting(proof) => {
 				metric_inc!(self.metrics, beefy_equivocation_votes);
-				self.report_vote_equivocation(proof)?;
+				self.report_double_voting(proof)?;
 			},
 			VoteImportResult::Invalid => metric_inc!(self.metrics, beefy_invalid_votes),
 			VoteImportResult::Stale => metric_inc!(self.metrics, beefy_stale_votes),
@@ -943,68 +943,13 @@ where
 		(error, self.comms)
 	}
 
-	/// Report the given equivocation to the BEEFY runtime module. This method
-	/// generates a session membership proof of the offender and then submits an
-	/// extrinsic to report the equivocation. In particular, the session membership
-	/// proof must be generated at the block at which the given set was active which
-	/// isn't necessarily the best block if there are pending authority set changes.
-	pub(crate) fn report_vote_equivocation(
+	/// Report the given equivocation to the BEEFY runtime module.
+	fn report_double_voting(
 		&self,
-		proof: VoteEquivocationProof<NumberFor<B>, AuthorityId, Signature>,
+		proof: DoubleVotingProof<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
 		let rounds = self.persisted_state.voting_oracle.active_rounds()?;
-		let (validators, validator_set_id) = (rounds.validators(), rounds.validator_set_id());
-		let offender_id = proof.offender_id().clone();
-
-		if !check_vote_equivocation_proof::<_, _, BeefySignatureHasher>(&proof) {
-			debug!(target: LOG_TARGET, "🥩 Skip report for bad equivocation {:?}", proof);
-			return Ok(())
-		} else if let Some(local_id) = self.key_store.authority_id(validators) {
-			if offender_id == local_id {
-				warn!(target: LOG_TARGET, "🥩 Skip equivocation report for own equivocation");
-				return Ok(())
-			}
-		}
-
-		let number = *proof.round_number();
-		let hash = self
-			.backend
-			.blockchain()
-			.expect_block_hash_from_id(&BlockId::Number(number))
-			.map_err(|err| {
-				let err_msg = format!(
-					"Couldn't get hash for block #{:?} (error: {:?}), skipping report for equivocation",
-					number, err
-				);
-				Error::Backend(err_msg)
-			})?;
-		let runtime_api = self.runtime.runtime_api();
-		// generate key ownership proof at that block
-		let key_owner_proof = match runtime_api
-			.generate_key_ownership_proof(hash, validator_set_id, offender_id)
-			.map_err(Error::RuntimeApi)?
-		{
-			Some(proof) => proof,
-			None => {
-				debug!(
-					target: LOG_TARGET,
-					"🥩 Equivocation offender not part of the authority set."
-				);
-				return Ok(())
-			},
-		};
-
-		// submit equivocation report at **best** block
-		let best_block_hash = self.backend.blockchain().info().best_hash;
-		runtime_api
-			.submit_report_vote_equivocation_unsigned_extrinsic(
-				best_block_hash,
-				proof,
-				key_owner_proof,
-			)
-			.map_err(Error::RuntimeApi)?;
-
-		Ok(())
+		self.fisherman.report_double_voting(proof, rounds)
 	}
 }
 
@@ -1049,11 +994,11 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::{
 		communication::{
-			fisherman::Fisherman,
 			gossip::{tests::TestNetwork, GossipValidator},
 			notification::{BeefyBestBlockStream, BeefyVersionedFinalityProofStream},
 			request_response::outgoing_requests_engine::OnDemandJustificationsEngine,
 		},
+		fisherman::Fisherman,
 		tests::{
 			create_beefy_keystore, get_beefy_streams, make_beefy_ids, BeefyPeer, BeefyTestNet,
 			TestApi,
@@ -1072,13 +1017,12 @@ pub(crate) mod tests {
 		known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider,
 		test_utils::{
-			generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote,
-			generate_vote_equivocation_proof, Keyring,
+			generate_double_voting_proof, generate_fork_equivocation_proof_sc,
+			generate_fork_equivocation_proof_vote, Keyring,
 		},
 		ConsensusLog, ForkEquivocationProof, KnownSignature, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
-	use std::marker::PhantomData;
 	use substrate_test_runtime_client::{
 		runtime::{Block, Digest, DigestItem, Header},
 		Backend,
@@ -1141,19 +1085,21 @@ pub(crate) mod tests {
 		let network = peer.network_service().clone();
 		let sync = peer.sync_service().clone();
 		let payload_provider = MmrRootProvider::new(api.clone());
-		let fisherman = Fisherman {
-			backend: backend.clone(),
-			runtime: api.clone(),
-			key_store: key_store.clone(),
-			payload_provider: payload_provider.clone(),
-			_phantom: PhantomData,
-		};
+		let fisherman = Arc::new(Fisherman::new(
+			backend.clone(),
+			api.clone(),
+			key_store.clone(),
+			payload_provider.clone(),
+		));
 		let notification_service = peer
 			.take_notification_service(&crate::tests::beefy_gossip_proto_name())
 			.unwrap();
 		let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-		let gossip_validator =
-			GossipValidator::new(known_peers.clone(), Arc::new(TestNetwork::new().0), fisherman);
+		let gossip_validator = GossipValidator::new(
+			known_peers.clone(),
+			Arc::new(TestNetwork::new().0),
+			fisherman.clone(),
+		);
 		let gossip_validator = Arc::new(gossip_validator);
 		let gossip_engine = GossipEngine::new(
 			network.clone(),
@@ -1187,15 +1133,15 @@ pub(crate) mod tests {
 			beefy_genesis,
 		)
 		.unwrap();
-		let payload_provider = MmrRootProvider::new(api.clone());
 		let comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
 		BeefyWorker {
-			backend,
-			runtime: api,
-			key_store: key_store.into(),
+			backend: backend.clone(),
+			runtime: api.clone(),
+			key_store: key_store.clone(),
 			metrics,
 			payload_provider,
 			sync: Arc::new(sync),
+			fisherman: fisherman.clone(),
 			links,
 			comms,
 			pending_justifications: BTreeMap::new(),
@@ -1614,6 +1560,12 @@ pub(crate) mod tests {
 		let mut net = BeefyTestNet::new(1);
 		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone(), None);
 		worker.runtime = api_alice.clone();
+		worker.fisherman = Arc::new(Fisherman::new(
+			worker.backend.clone(),
+			worker.runtime.clone(),
+			worker.key_store.clone(),
+			worker.payload_provider.clone(),
+		));
 
 		// let there be a block with num = 1:
 		let _ = net.peer(0).push_blocks(1, false);
@@ -1622,13 +1574,13 @@ pub(crate) mod tests {
 		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![128]);
 
 		// generate an equivocation proof, with Bob as perpetrator
-		let good_proof = generate_vote_equivocation_proof(
+		let good_proof = generate_double_voting_proof(
 			(block_num, payload1.clone(), set_id, &Keyring::Bob),
 			(block_num, payload2.clone(), set_id, &Keyring::Bob),
 		);
 		{
 			// expect voter (Alice) to successfully report it
-			assert_eq!(worker.report_vote_equivocation(good_proof.clone()), Ok(()));
+			assert_eq!(worker.report_double_voting(good_proof.clone()), Ok(()));
 			// verify Alice reports Bob equivocation to runtime
 			let reported = api_alice.reported_vote_equivocations.as_ref().unwrap().lock();
 			assert_eq!(reported.len(), 1);
@@ -1640,7 +1592,7 @@ pub(crate) mod tests {
 		let mut bad_proof = good_proof.clone();
 		bad_proof.first.id = Keyring::Charlie.public();
 		// bad proofs are simply ignored
-		assert_eq!(worker.report_vote_equivocation(bad_proof), Ok(()));
+		assert_eq!(worker.report_double_voting(bad_proof), Ok(()));
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
 
@@ -1649,17 +1601,17 @@ pub(crate) mod tests {
 		old_proof.first.commitment.validator_set_id = 0;
 		old_proof.second.commitment.validator_set_id = 0;
 		// old proofs are simply ignored
-		assert_eq!(worker.report_vote_equivocation(old_proof), Ok(()));
+		assert_eq!(worker.report_double_voting(old_proof), Ok(()));
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
 
 		// now let's try reporting a self-equivocation
-		let self_proof = generate_vote_equivocation_proof(
+		let self_proof = generate_double_voting_proof(
 			(block_num, payload1.clone(), set_id, &Keyring::Alice),
 			(block_num, payload2.clone(), set_id, &Keyring::Alice),
 		);
 		// equivocations done by 'self' are simply ignored (not reported)
-		assert_eq!(worker.report_vote_equivocation(self_proof), Ok(()));
+		assert_eq!(worker.report_double_voting(self_proof), Ok(()));
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
 	}

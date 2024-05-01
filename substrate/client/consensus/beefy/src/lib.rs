@@ -18,7 +18,6 @@
 
 use crate::{
 	communication::{
-		fisherman::Fisherman,
 		notification::{
 			BeefyBestBlockSender, BeefyBestBlockStream, BeefyVersionedFinalityProofSender,
 			BeefyVersionedFinalityProofStream,
@@ -47,11 +46,10 @@ use sp_blockchain::{
 };
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
-	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
+	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, PayloadProvider, ValidatorSet,
 	BEEFY_ENGINE_ID,
 };
 use sp_keystore::KeystorePtr;
-use sp_mmr_primitives::MmrApi;
 use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -68,6 +66,7 @@ mod round;
 mod worker;
 
 pub mod communication;
+mod fisherman;
 pub mod import;
 pub mod justification;
 
@@ -81,6 +80,9 @@ use crate::{
 pub use communication::beefy_protocol_name::{
 	gossip_protocol_name, justifications_protocol_name as justifs_protocol_name,
 };
+use fisherman::Fisherman;
+use sp_consensus_beefy::MmrRootHash;
+use sp_mmr_primitives::MmrApi;
 use sp_runtime::generic::OpaqueDigestItemId;
 
 #[cfg(test)]
@@ -309,13 +311,14 @@ where
 		is_authority: bool,
 	) -> BeefyWorker<B, BE, P, R, S, N> {
 		BeefyWorker {
-			backend: self.backend,
-			runtime: self.runtime,
-			key_store: self.key_store,
-			metrics: self.metrics,
-			persisted_state: self.persisted_state,
+			backend: self.backend.clone(),
+			runtime: self.runtime.clone(),
+			key_store: self.key_store.clone(),
 			payload_provider,
 			sync,
+			fisherman: comms.gossip_validator.fisherman.clone(),
+			metrics: self.metrics,
+			persisted_state: self.persisted_state,
 			comms,
 			links,
 			pending_justifications,
@@ -507,7 +510,6 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		mut on_demand_justifications_handler,
 		is_authority,
 	} = beefy_params;
-
 	let key_store: Arc<BeefyKeystore<AuthorityId>> = Arc::new(key_store.into());
 
 	let BeefyNetworkParams {
@@ -527,16 +529,16 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let mut block_import_justif = links.from_block_import_justif_stream.subscribe(100_000).fuse();
 
 	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-	let fisherman = Fisherman {
-		backend: backend.clone(),
-		key_store: key_store.clone(),
-		runtime: runtime.clone(),
-		payload_provider: payload_provider.clone(),
-		_phantom: PhantomData,
-	};
+	let fisherman = Arc::new(Fisherman::new(
+		backend.clone(),
+		runtime.clone(),
+		key_store.clone(),
+		payload_provider.clone(),
+	));
 	// Default votes filter is to discard everything.
 	// Validator is updated later with correct starting round and set id.
-	let gossip_validator = GossipValidator::new(known_peers.clone(), network.clone(), fisherman);
+	let gossip_validator =
+		GossipValidator::new(known_peers.clone(), network.clone(), fisherman.clone());
 	let gossip_validator = Arc::new(gossip_validator);
 	let gossip_engine = GossipEngine::new(
 		network.clone(),
@@ -565,7 +567,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			builder_init_result = BeefyWorkerBuilder::async_initialize(
 				backend.clone(),
 				runtime.clone(),
-				key_store.clone().into(),
+				key_store.clone(),
 				metrics.clone(),
 				min_block_delta,
 				beefy_comms.gossip_validator.clone(),

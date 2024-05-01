@@ -39,9 +39,9 @@ sp-consensus-beefy = { path = "../../../primitives/consensus/beefy" }
 sp-core = { path = "../../../primitives/core" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-keystore = { path = "../../../primitives/keystore" }
-sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
 tokio = "1.37"
+sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 
 
 [dev-dependencies]

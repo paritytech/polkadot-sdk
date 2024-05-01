@@ -2019,7 +2019,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_vote_equivocation_unsigned_extrinsic(
-			vote_equivocation_proof: beefy_primitives::VoteEquivocationProof<
+			vote_equivocation_proof: beefy_primitives::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,

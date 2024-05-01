@@ -323,14 +323,14 @@ pub trait BeefyEquivocationProof<Id, Number> {
 /// BEEFY happens when a voter votes on the same round/block for different payloads.
 /// Proving is achieved by collecting the signed commitments of conflicting votes.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
-pub struct VoteEquivocationProof<Number, Id, Signature> {
+pub struct DoubleVotingProof<Number, Id, Signature> {
 	/// The first vote in the equivocation.
 	pub first: VoteMessage<Number, Id, Signature>,
 	/// The second vote in the equivocation.
 	pub second: VoteMessage<Number, Id, Signature>,
 }
 
-impl<Number, Id, Signature> VoteEquivocationProof<Number, Id, Signature> {
+impl<Number, Id, Signature> DoubleVotingProof<Number, Id, Signature> {
 	/// Returns the authority id of the equivocator.
 	pub fn offender_id(&self) -> &Id {
 		&self.first.id
@@ -338,7 +338,7 @@ impl<Number, Id, Signature> VoteEquivocationProof<Number, Id, Signature> {
 }
 
 impl<Number, Id, Signature> BeefyEquivocationProof<Id, Number>
-	for VoteEquivocationProof<Number, Id, Signature>
+	for DoubleVotingProof<Number, Id, Signature>
 {
 	fn offender_ids(&self) -> Vec<&Id> {
 		vec![self.offender_id()]
@@ -487,8 +487,8 @@ where
 
 /// Verifies the vote equivocation proof by making sure that both votes target
 /// different blocks and that its signatures are valid.
-pub fn check_vote_equivocation_proof<Number, Id, MsgHash>(
-	report: &VoteEquivocationProof<Number, Id, <Id as RuntimeAppPublic>::Signature>,
+pub fn check_double_voting_proof<Number, Id, MsgHash>(
+	report: &DoubleVotingProof<Number, Id, <Id as RuntimeAppPublic>::Signature>,
 ) -> bool
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
@@ -683,8 +683,8 @@ sp_api::decl_runtime_apis! {
 		/// reporting is disabled for the given runtime (i.e. this method is
 		/// hardcoded to return `None`). Only useful in an offchain context.
 		fn submit_report_vote_equivocation_unsigned_extrinsic(
-			vote_equivocation_proof:
-				VoteEquivocationProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+			equivocation_proof:
+				DoubleVotingProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 

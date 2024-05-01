@@ -39,8 +39,8 @@ use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log::{error, info};
 use sp_consensus_beefy::{
-	BeefyEquivocationProof, CheckForkEquivocationProof, ForkEquivocationProof, ValidatorSetId,
-	VoteEquivocationProof, KEY_TYPE as BEEFY_KEY_TYPE,
+	BeefyEquivocationProof, CheckForkEquivocationProof, DoubleVotingProof, ForkEquivocationProof,
+	ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE,
 };
 use sp_runtime::{
 	traits::Hash as HashT,
@@ -128,7 +128,7 @@ pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, 
 /// Equivocation evidence convenience alias.
 pub enum EquivocationEvidenceFor<T: Config> {
 	VoteEquivocationProof(
-		VoteEquivocationProof<
+		DoubleVotingProof<
 			BlockNumberFor<T>,
 			<T as Config>::BeefyId,
 			<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
@@ -194,7 +194,7 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 		match self {
 			EquivocationEvidenceFor::VoteEquivocationProof(equivocation_proof, _) => {
 				// Validate equivocation proof (check votes are different and signatures are valid).
-				if !sp_consensus_beefy::check_vote_equivocation_proof(&equivocation_proof) {
+				if !sp_consensus_beefy::check_double_voting_proof(&equivocation_proof) {
 					return Err(Error::<T>::InvalidVoteEquivocationProof.into());
 				}
 

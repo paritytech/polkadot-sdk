@@ -41,8 +41,8 @@ use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 use sp_std::prelude::*;
 
 use sp_consensus_beefy::{
-	AuthorityIndex, BeefyAuthorityId, CheckForkEquivocationProof, ConsensusLog, OnNewValidatorSet,
-	ValidatorSet, VoteEquivocationProof, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	AuthorityIndex, BeefyAuthorityId, CheckForkEquivocationProof, ConsensusLog, DoubleVotingProof,
+	OnNewValidatorSet, ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 
 mod default_weights;
@@ -222,7 +222,7 @@ pub mod pallet {
 		pub fn report_vote_equivocation(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
-				VoteEquivocationProof<
+				DoubleVotingProof<
 					BlockNumberFor<T>,
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
@@ -260,7 +260,7 @@ pub mod pallet {
 		pub fn report_vote_equivocation_unsigned(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
-				VoteEquivocationProof<
+				DoubleVotingProof<
 					BlockNumberFor<T>,
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
@@ -510,7 +510,7 @@ impl<T: Config> Pallet<T> {
 	/// an unsigned extrinsic with a call to `report_equivocation_unsigned` and
 	/// will push the transaction to the pool. Only useful in an offchain context.
 	pub fn submit_unsigned_vote_equivocation_report(
-		equivocation_proof: VoteEquivocationProof<
+		equivocation_proof: DoubleVotingProof<
 			BlockNumberFor<T>,
 			T::BeefyId,
 			<T::BeefyId as RuntimeAppPublic>::Signature,

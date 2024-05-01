@@ -22,7 +22,6 @@ use crate::{
 	aux_schema::{load_persistent, tests::verify_persisted_version},
 	beefy_block_import_and_links,
 	communication::{
-		fisherman::Fisherman,
 		gossip::{
 			proofs_topic,
 			tests::{sign_commitment, TestNetwork},
@@ -31,6 +30,7 @@ use crate::{
 		request_response::{on_demand_justifications_protocol_config, BeefyJustifsRequestHandler},
 	},
 	error::Error,
+	fisherman::Fisherman,
 	gossip_protocol_name,
 	justification::*,
 	keystore::BeefyKeystore,
@@ -61,9 +61,9 @@ use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
 	test_utils::Keyring as BeefyKeyring,
-	BeefyApi, Commitment, ConsensusLog, ForkEquivocationProof, MmrRootHash,
+	BeefyApi, Commitment, ConsensusLog, DoubleVotingProof, ForkEquivocationProof, MmrRootHash,
 	OpaqueKeyOwnershipProof, Payload, SignedCommitment, ValidatorSet, ValidatorSetId,
-	VersionedFinalityProof, VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
+	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_core::H256;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
@@ -261,7 +261,7 @@ pub(crate) struct TestApi {
 	pub validator_set: Option<BeefyValidatorSet>,
 	pub mmr_root_hash: MmrRootHash,
 	pub reported_vote_equivocations:
-		Option<Arc<Mutex<Vec<VoteEquivocationProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
+		Option<Arc<Mutex<Vec<DoubleVotingProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
 	pub reported_fork_equivocations:
 		Option<Arc<Mutex<Vec<ForkEquivocationProof<AuthorityId, Header, MmrRootHash>>>>>,
 }
@@ -320,7 +320,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn submit_report_vote_equivocation_unsigned_extrinsic(
-			proof: VoteEquivocationProof<NumberFor<Block>, AuthorityId, Signature>,
+			proof: DoubleVotingProof<NumberFor<Block>, AuthorityId, Signature>,
 			_dummy: OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			if let Some(equivocations_buf) = self.inner.reported_vote_equivocations.as_ref() {
@@ -404,7 +404,7 @@ pub(crate) fn create_fisherman<BE>(
 	                                            * necessary keys for the Fisherman */
 	api: Arc<TestApi>,
 	backend: Arc<BE>,
-) -> Fisherman<Block, BE, MmrRootProvider<Block, TestApi>, TestApi> {
+) -> Fisherman<Block, BE, TestApi, MmrRootProvider<Block, TestApi>> {
 	let key_store: Arc<BeefyKeystore<AuthorityId>> =
 		Arc::new(Some(create_beefy_keystore(beefy_keyring)).into());
 	let payload_provider = MmrRootProvider::new(api.clone());
@@ -1507,7 +1507,7 @@ async fn gossiped_finality_proofs() {
 	let beefy_peers = peers.iter().enumerate().map(|(id, key)| (id, key, api.clone())).collect();
 
 	let charlie = &mut net.peers[2];
-	let fisherman = create_fisherman(&BeefyKeyring::Alice, api, backend.clone());
+	let fisherman = Arc::new(create_fisherman(&BeefyKeyring::Alice, api, backend.clone()));
 	let known_peers = Arc::new(Mutex::new(KnownPeers::<Block>::new()));
 	// Charlie will run just the gossip engine and not the full voter.
 	let gossip_validator =

@@ -2,7 +2,7 @@
 name = "pallet-collective-content"
 version = "0.6.0"
 authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+edition.workspace = true
 description = "Managed content"
 license = "Apache-2.0"
 

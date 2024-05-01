@@ -18,16 +18,18 @@
 
 use crate::{
 	error::Error, expect_validator_set_nonblocking, justification::BeefyVersionedFinalityProof,
-	keystore::BeefyKeystore, LOG_TARGET,
+	keystore::BeefyKeystore, round::Rounds, LOG_TARGET,
 };
-use log::{debug, warn};
+use log::{debug, error, warn};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
+	check_double_voting_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, BeefyEquivocationProof, BeefySignatureHasher, ForkEquivocationProof, KnownSignature,
-	MmrHashing, MmrRootHash, Payload, PayloadProvider, ValidatorSet, VoteMessage,
+	BeefyApi, BeefyEquivocationProof, BeefySignatureHasher, DoubleVotingProof,
+	ForkEquivocationProof, KnownSignature, MmrHashing, MmrRootHash, OpaqueKeyOwnershipProof,
+	Payload, PayloadProvider, ValidatorSet, ValidatorSetId, VoteMessage,
 };
 use sp_mmr_primitives::{AncestryProof, MmrApi};
 use sp_runtime::{
@@ -36,14 +38,10 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc};
 
-/// Helper wrapper used to check gossiped votes for (historical) equivocations,
-/// and report any such protocol infringements.
-pub(crate) struct Fisherman<B: Block, BE, P, R> {
-	pub backend: Arc<BE>,
-	pub runtime: Arc<R>,
-	pub key_store: Arc<BeefyKeystore<AuthorityId>>,
-	pub payload_provider: P,
-	pub _phantom: PhantomData<B>,
+/// Helper struct containing the id and the key ownership proof for a validator.
+pub struct ProvedValidator<'a> {
+	pub id: &'a AuthorityId,
+	pub key_owner_proof: OpaqueKeyOwnershipProof,
 }
 
 struct CanonicalHashHeaderPayload<B: Block> {
@@ -52,14 +50,143 @@ struct CanonicalHashHeaderPayload<B: Block> {
 	payload: Payload,
 }
 
-impl<B, BE, R, P> Fisherman<B, BE, P, R>
+/// Helper wrapper used to check gossiped votes for (historical) equivocations,
+/// and report any such protocol infringements.
+pub(crate) struct Fisherman<B: Block, BE, RuntimeApi, P> {
+	pub backend: Arc<BE>,
+	pub runtime: Arc<RuntimeApi>,
+	pub key_store: Arc<BeefyKeystore<AuthorityId>>,
+	pub payload_provider: P,
+	pub _phantom: PhantomData<B>,
+}
+
+impl<B, BE, RuntimeApi, P> Fisherman<B, BE, RuntimeApi, P>
 where
 	B: Block,
 	BE: Backend<B> + Send + Sync,
 	P: PayloadProvider<B> + Send + Sync,
-	R: ProvideRuntimeApi<B> + Send + Sync,
-	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
+	RuntimeApi: ProvideRuntimeApi<B> + Send + Sync,
+	RuntimeApi::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
+	pub fn new(
+		backend: Arc<BE>,
+		runtime: Arc<RuntimeApi>,
+		keystore: Arc<BeefyKeystore<AuthorityId>>,
+		payload_provider: P,
+	) -> Self {
+		Self {
+			backend,
+			runtime,
+			key_store: keystore,
+			payload_provider,
+			_phantom: Default::default(),
+		}
+	}
+
+	fn prove_offenders<'a>(
+		&self,
+		at: BlockId<B>,
+		offender_ids: impl Iterator<Item = &'a AuthorityId>,
+		validator_set_id: ValidatorSetId,
+	) -> Result<Vec<crate::fisherman::ProvedValidator<'a>>, Error> {
+		let hash = match at {
+			BlockId::Hash(hash) => hash,
+			BlockId::Number(number) => self
+				.backend
+				.blockchain()
+				.expect_block_hash_from_id(&BlockId::Number(number))
+				.map_err(|err| {
+					Error::Backend(format!(
+						"Couldn't get hash for block #{:?} (error: {:?}). \
+						Skipping report for equivocation",
+						at, err
+					))
+				})?,
+		};
+
+		let runtime_api = self.runtime.runtime_api();
+		let mut proved_offenders = vec![];
+		for offender_id in offender_ids {
+			match runtime_api.generate_key_ownership_proof(
+				hash,
+				validator_set_id,
+				offender_id.clone(),
+			) {
+				Ok(Some(key_owner_proof)) => {
+					proved_offenders.push(crate::fisherman::ProvedValidator {
+						id: offender_id,
+						key_owner_proof,
+					});
+				},
+				Ok(None) => {
+					debug!(
+						target: LOG_TARGET,
+						"🥩 Equivocation offender {} not part of the authority set {}.",
+						offender_id, validator_set_id
+					);
+				},
+				Err(e) => {
+					error!(
+						target: LOG_TARGET,
+						"🥩 Error generating key ownership proof for equivocation offender {} \
+						in authority set {}: {}",
+						offender_id, validator_set_id, e
+					);
+				},
+			};
+		}
+
+		Ok(proved_offenders)
+	}
+
+	/// Report the given equivocation to the BEEFY runtime module. This method
+	/// generates a session membership proof of the offender and then submits an
+	/// extrinsic to report the equivocation. In particular, the session membership
+	/// proof must be generated at the block at which the given set was active which
+	/// isn't necessarily the best block if there are pending authority set changes.
+	pub fn report_double_voting(
+		&self,
+		proof: DoubleVotingProof<NumberFor<B>, AuthorityId, Signature>,
+		active_rounds: &Rounds<B>,
+	) -> Result<(), Error> {
+		let (validators, validator_set_id) =
+			(active_rounds.validators(), active_rounds.validator_set_id());
+		let offender_id = proof.offender_id();
+
+		if !check_double_voting_proof::<_, _, BeefySignatureHasher>(&proof) {
+			debug!(target: LOG_TARGET, "🥩 Skipping report for bad equivocation {:?}", proof);
+			return Ok(())
+		}
+
+		if let Some(local_id) = self.key_store.authority_id(validators) {
+			if offender_id == &local_id {
+				warn!(target: LOG_TARGET, "🥩 Skipping report for own equivocation");
+				return Ok(())
+			}
+		}
+
+		let key_owner_proofs = self.prove_offenders(
+			BlockId::Number(*proof.round_number()),
+			vec![offender_id].into_iter(),
+			validator_set_id,
+		)?;
+
+		// submit equivocation report at **best** block
+		let best_block_hash = self.backend.blockchain().info().best_hash;
+		for crate::fisherman::ProvedValidator { key_owner_proof, .. } in key_owner_proofs {
+			self.runtime
+				.runtime_api()
+				.submit_report_vote_equivocation_unsigned_extrinsic(
+					best_block_hash,
+					proof.clone(),
+					key_owner_proof,
+				)
+				.map_err(Error::RuntimeApi)?;
+		}
+
+		Ok(())
+	}
+
 	fn canonical_hash_header_payload(
 		&self,
 		number: NumberFor<B>,

@@ -22,7 +22,7 @@ use codec::{Decode, Encode};
 use log::{debug, info};
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
-	Commitment, SignedCommitment, ValidatorSet, ValidatorSetId, VoteEquivocationProof, VoteMessage,
+	Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet, ValidatorSetId, VoteMessage,
 };
 use sp_runtime::traits::{Block, NumberFor};
 use std::collections::BTreeMap;
@@ -61,7 +61,7 @@ pub fn threshold(authorities: usize) -> usize {
 pub enum VoteImportResult<B: Block> {
 	Ok,
 	RoundConcluded(SignedCommitment<NumberFor<B>, Signature>),
-	Equivocation(VoteEquivocationProof<NumberFor<B>, AuthorityId, Signature>),
+	DoubleVoting(DoubleVotingProof<NumberFor<B>, AuthorityId, Signature>),
 	Invalid,
 	Stale,
 }
@@ -153,7 +153,7 @@ where
 					target: LOG_TARGET,
 					"🥩 detected equivocated vote: 1st: {:?}, 2nd: {:?}", previous_vote, vote
 				);
-				return VoteImportResult::Equivocation(VoteEquivocationProof {
+				return VoteImportResult::DoubleVoting(DoubleVotingProof {
 					first: previous_vote.clone(),
 					second: vote,
 				})
@@ -207,8 +207,8 @@ mod tests {
 	use sc_network_test::Block;
 
 	use sp_consensus_beefy::{
-		known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, Payload, SignedCommitment,
-		ValidatorSet, VoteEquivocationProof, VoteMessage,
+		known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, DoubleVotingProof, Payload,
+		SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
 	use super::{threshold, AuthorityId, Block as BlockT, RoundTracker, Rounds};
@@ -494,7 +494,7 @@ mod tests {
 		let mut alice_vote2 = alice_vote1.clone();
 		alice_vote2.commitment = commitment2;
 
-		let expected_result = VoteImportResult::Equivocation(VoteEquivocationProof {
+		let expected_result = VoteImportResult::DoubleVoting(DoubleVotingProof {
 			first: alice_vote1.clone(),
 			second: alice_vote2.clone(),
 		});

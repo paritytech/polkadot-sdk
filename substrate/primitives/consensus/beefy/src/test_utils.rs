@@ -18,8 +18,8 @@
 #[cfg(feature = "bls-experimental")]
 use crate::ecdsa_bls_crypto;
 use crate::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, ForkEquivocationProof,
-	KnownSignature, Payload, ValidatorSetId, VoteEquivocationProof, VoteMessage,
+	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof,
+	ForkEquivocationProof, KnownSignature, Payload, ValidatorSetId, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
@@ -150,13 +150,13 @@ fn signed_vote<Number: BlockNumber>(
 }
 
 /// Create a new `VoteEquivocationProof` based on given arguments.
-pub fn generate_vote_equivocation_proof(
+pub fn generate_double_voting_proof(
 	vote1: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
 	vote2: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
-) -> VoteEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
+) -> DoubleVotingProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
 	let first = signed_vote(vote1.0, vote1.1, vote1.2, vote1.3);
 	let second = signed_vote(vote2.0, vote2.1, vote2.2, vote2.3);
-	VoteEquivocationProof { first, second }
+	DoubleVotingProof { first, second }
 }
 
 /// Create a new `ForkEquivocationProof` based on vote & canonical header.
