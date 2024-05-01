@@ -1384,19 +1384,6 @@ async fn handle_validated_candidate_command<Context>(
 						};
 
 						let parent_head_data_hash = persisted_validation_data.parent_head.hash();
-						// Note that `GetHypotheticalMembership` doesn't account for recursion,
-						// i.e. candidates can appear at multiple depths in the tree and in fact
-						// at all depths, and we don't know what depths a candidate will ultimately
-						// occupy because that's dependent on other candidates we haven't yet
-						// received.
-						//
-						// The only way to effectively rule this out is to have candidate receipts
-						// directly commit to the parachain block number or some other incrementing
-						// counter. That requires a major primitives format upgrade, so for now
-						// we just rule out trivial cycles.
-						if parent_head_data_hash == receipt.commitments.head_data.hash() {
-							return Ok(())
-						}
 						let hypothetical_candidate = HypotheticalCandidate::Complete {
 							candidate_hash,
 							receipt: Arc::new(receipt.clone()),
