@@ -1349,6 +1349,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1198" id="1198">1198</a>
 <a href="#1199" id="1199">1199</a>
 <a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1380,7 +1385,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>polkadot_runtime_parachains::{
 	assigner_parachains <span class="kw">as </span>parachains_assigner_parachains,
-	configuration <span class="kw">as </span>parachains_configuration, disputes <span class="kw">as </span>parachains_disputes,
+	configuration <span class="kw">as </span>parachains_configuration,
+	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
+	disputes <span class="kw">as </span>parachains_disputes,
 	disputes::slashing <span class="kw">as </span>parachains_slashing,
 	dmp <span class="kw">as </span>parachains_dmp, hrmp <span class="kw">as </span>parachains_hrmp, inclusion <span class="kw">as </span>parachains_inclusion,
 	initializer <span class="kw">as </span>parachains_initializer, origin <span class="kw">as </span>parachains_origin, paras <span class="kw">as </span>parachains_paras,
@@ -1429,7 +1436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		SaturatedConversion, StaticLookup, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent,
 };
 <span class="kw">use </span>sp_staking::SessionIndex;
 <span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
@@ -1908,7 +1915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>FirstMessageFactorPercent: u64 = <span class="number">100</span>;
-	<span class="kw">pub const </span>DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (<span class="number">51200</span>, <span class="number">500</span>);
+	<span class="kw">pub const </span>HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(<span class="number">100</span>);
 }
 
 <span class="kw">impl </span>parachains_hrmp::Config <span class="kw">for </span>Runtime {
@@ -1916,7 +1923,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>ChannelManager = frame_system::EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>Currency = Balances;
-	<span class="kw">type </span>DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	<span class="kw">type </span>DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio&lt;
+		Runtime,
+		HrmpChannelSizeAndCapacityWithSystemRatio,
+	&gt;;
 	<span class="kw">type </span>WeightInfo = parachains_hrmp::TestWeightInfo;
 }
 

@@ -1611,6 +1611,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1460" id="1460">1460</a>
 <a href="#1461" id="1461">1461</a>
 <a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1643,7 +1656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
 	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
-<span class="kw">use </span>sp_runtime::{traits::Zero, Perbill};
+<span class="kw">use </span>sp_runtime::{traits::Zero, Perbill, Percent};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="attr">#[cfg(test)]
@@ -3071,6 +3084,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		PendingConfigs::&lt;T&gt;::put(pending_configs);
 
 		<span class="prelude-val">Ok</span>(())
+	}
+}
+
+<span class="doccomment">/// The implementation of `Get&lt;(u32, u32)&gt;` which reads `ActiveConfig` and returns `P` percent of
+/// `hrmp_channel_max_message_size` / `hrmp_channel_max_capacity`.
+</span><span class="kw">pub struct </span>ActiveConfigHrmpChannelSizeAndCapacityRatio&lt;T, P&gt;(sp_std::marker::PhantomData&lt;(T, P)&gt;);
+<span class="kw">impl</span>&lt;T: <span class="kw">crate</span>::hrmp::pallet::Config, P: Get&lt;Percent&gt;&gt; Get&lt;(u32, u32)&gt;
+	<span class="kw">for </span>ActiveConfigHrmpChannelSizeAndCapacityRatio&lt;T, P&gt;
+{
+	<span class="kw">fn </span>get() -&gt; (u32, u32) {
+		<span class="kw">let </span>config = ActiveConfig::&lt;T&gt;::get();
+		<span class="kw">let </span>percent = P::get();
+		(percent * config.hrmp_channel_max_message_size, percent * config.hrmp_channel_max_capacity)
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

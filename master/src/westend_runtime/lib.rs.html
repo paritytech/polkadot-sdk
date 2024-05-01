@@ -2773,6 +2773,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2622" id="2622">2622</a>
 <a href="#2623" id="2623">2623</a>
 <a href="#2624" id="2624">2624</a>
+<a href="#2625" id="2625">2625</a>
+<a href="#2626" id="2626">2626</a>
+<a href="#2627" id="2627">2627</a>
+<a href="#2628" id="2628">2628</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2843,6 +2847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>runtime_parachains::{
 	assigner_coretime <span class="kw">as </span>parachains_assigner_coretime,
 	assigner_on_demand <span class="kw">as </span>parachains_assigner_on_demand, configuration <span class="kw">as </span>parachains_configuration,
+	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes <span class="kw">as </span>parachains_disputes,
 	disputes::slashing <span class="kw">as </span>parachains_slashing,
 	dmp <span class="kw">as </span>parachains_dmp, hrmp <span class="kw">as </span>parachains_hrmp, inclusion <span class="kw">as </span>parachains_inclusion,
@@ -3938,7 +3943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>parachains_dmp::Config <span class="kw">for </span>Runtime {}
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (<span class="number">4096</span>, <span class="number">4</span>);
+	<span class="kw">pub const </span>HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(<span class="number">100</span>);
 }
 
 <span class="kw">impl </span>parachains_hrmp::Config <span class="kw">for </span>Runtime {
@@ -3946,7 +3951,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>ChannelManager = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>Currency = Balances;
-	<span class="kw">type </span>DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	<span class="kw">type </span>DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio&lt;
+		Runtime,
+		HrmpChannelSizeAndCapacityWithSystemRatio,
+	&gt;;
 	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_hrmp::WeightInfo&lt;<span class="self">Self</span>&gt;;
 }
 
