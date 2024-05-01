@@ -427,7 +427,14 @@ impl DiscoveryBehaviour {
 					warn!(target: "sub-libp2p", "Failed to update local starage");
 				}
 			}
-			kad.put_record_to(record, peers.into_iter().map(|peer_id| peer_id.into()), Quorum::All);
+
+			if !peers.is_empty() {
+				kad.put_record_to(
+					record,
+					peers.into_iter().map(|peer_id| peer_id.into()),
+					Quorum::All,
+				);
+			}
 		}
 	}
 
