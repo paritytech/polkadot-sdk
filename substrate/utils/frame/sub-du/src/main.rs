@@ -1,16 +1,64 @@
+//! # `sub-du`
+//!
+//! A tool like [`du`](https://en.wikipedia.org/wiki/Du_(Unix)) that calculates storage size of pallets of a Substrate chain.
+//!
+//! # Note
+//!
+//! Currently, when calculating the size of `Map` storages, it reads the value of first iterated key
+//! to get the size of the value and assumes all the keys have values of the same size. This is not
+//! necessarily true, but it is a trade-off between speed and accuracy. Otherwise, calculating the
+//! size of some prefixes (e.g. `System::Account`) would take quite a long time.
+//!
+//! # Usage
+//!
+//! ```sh
+//! cargo run -- --progress --uri wss://rpc.polkadot.io:443 --count 1000
+//! ```
+//!
+//! # Example Output
+//!
+//! ```sh
+//! Scraping at block Some(0xb83ec17face39e35bdf29305a9f8f568775e357fc55745132ea9bd4d8ff6d976) of polkadot(1002000)
+//! 152 K │ │─┬ System
+//! 101 M │ │ │─ Account => Map(106,025,440 bytes, 1325318 keys)
+//! 128 K │ │ │─ BlockHash => Map(131,104 bytes, 4097 keys)
+//! 24  K │ │ │─ Events => Value(24,588 bytes)
+//! 156 B │ │ │─ Digest => Value(156 bytes)
+//! 32  B │ │ │─ ParentHash => Value(32 bytes)
+//! 18  B │ │ │─ BlockWeight => Value(18 bytes)
+//! 13  B │ │ │─ LastRuntimeUpgrade => Value(13 bytes)
+//! 4   B │ │ │─ EventCount => Value(4 bytes)
+//! 4   B │ │ │─ Number => Value(4 bytes)
+//! 1   B │ │ │─ UpgradedToTripleRefCount => Value(1 bytes)
+//! 1   B │ │ │─ UpgradedToU32RefCount => Value(1 bytes)
+//! 0   B │ │ │─ AuthorizedUpgrade => Value(0 bytes)
+//! 0   B │ │ │─ ExecutionPhase => Value(0 bytes)
+//! 0   B │ │ │─ EventTopics => Map(0 bytes, 0 keys)
+//! 0   B │ │ │─ ExtrinsicData => Map(0 bytes, 0 keys)
+//! 0   B │ │ │─ AllExtrinsicsLen => Value(0 bytes)
+//! 0   B │ │ │─ ExtrinsicCount => Value(0 bytes)
+//! 1   K │ │─┬ Scheduler
+//! 1   K │ │ │─ Agenda => Map(1,551 bytes, 1551 keys)
+//! 24  B │ │ │─ Lookup => Map(24 bytes, 3 keys)
+//! ```
+
 use ansi_term::{Colour::*, Style};
-use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed, StorageEntryType};
-use remote_externalities::{twox_128, Mode, OnlineConfig, StorageKey, Transport};
-use sc_rpc_api::state::StateApiClient;
+use frame_metadata::{v14::StorageEntryType, RuntimeMetadata, RuntimeMetadataPrefixed};
+use sc_rpc_api::{chain::ChainApiClient, state::StateApiClient};
 use separator::Separatable;
-use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper, H256 as Hash};
+use sp_core::{storage::StorageKey, twox_128};
+use sp_runtime::testing::{Header, H256 as Hash};
 use structopt::StructOpt;
+use substrate_rpc_client::WsClient;
+
+#[cfg(test)]
+mod tests;
 
 const KB: usize = 1024;
 const MB: usize = KB * KB;
 const GB: usize = MB * MB;
 
-pub const LOG_TARGET: &'static str = "sub-du";
+pub const LOG_TARGET: &str = "sub-du";
 
 fn get_prefix(indent: usize) -> &'static str {
 	match indent {
@@ -47,7 +95,7 @@ struct Pallet {
 impl std::fmt::Display for Pallet {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		let mod_style = Style::new().bold().italic().fg(Green);
-		write!(
+		writeln!(
 			f,
 			"{} {} {}\n",
 			mod_style.paint(format!("{}", Size(self.size))),
@@ -55,7 +103,7 @@ impl std::fmt::Display for Pallet {
 			mod_style.paint(self.name.clone())
 		)?;
 		for s in self.items.iter() {
-			write!(f, "{} {} {}\n", Size(s.size), get_prefix(3), s)?;
+			writeln!(f, "{} {} {}", Size(s.size), get_prefix(3), s)?;
 		}
 		Ok(())
 	}
@@ -133,16 +181,9 @@ struct Opt {
 	#[structopt(long, short)]
 	progress: bool,
 
-	/// Weather to scrape all pairs or just the size of them.
-	///
-	/// If enabled, the command might take longer but then the number of keys in each map is also
-	/// scraped.
-	///
-	/// # Warning
-	///
-	/// This uses an unsafe RPC call and can only be used if the target node allows it.
-	#[structopt(long, short)]
-	scrape_pairs: bool,
+	/// Count of keys to read in one page.
+	#[structopt(long, default_value = "1000")]
+	count: u32,
 }
 
 /// create key prefix for a module as vec bytes. Basically twox128 hash of the given values.
@@ -155,26 +196,85 @@ pub fn pallet_prefix_raw(module: &[u8], storage: &[u8]) -> Vec<u8> {
 	final_key
 }
 
-type Block = RawBlock<ExtrinsicWrapper<Hash>>;
+/// Using `state_getStorageSize` RPC call times out since querying storage size of a relatively
+/// large storage prefix takes a lot of time. This function is a workaround to get the size of the
+/// storage by using paginated `state_getKeysPaged` RPC call.
+///
+/// It is a modified implementation of `state_getStorageSize` RPC call, with some major differences:
+///
+/// - uses paginated reading of keys.
+/// - only reads once for the value size, instead of reading it for all keys.
+///
+/// The latter might not be entirely accurate, since not all values might have the same size (e.g.
+/// when storage value contains `Option<T>` or unbounded data types). It is a trade-off between
+/// speed and accuracy. Otherwise, calculating the size would take quite a long time.
+async fn prefix_storage_size(
+	client: &WsClient,
+	at: Option<Hash>,
+	prefix: StorageKey,
+	count: u32,
+) -> Option<(u64, usize)> {
+	match client.storage(prefix.clone(), at).await {
+		Ok(Some(d)) => return Some((d.0.len() as u64, 0)),
+		Ok(None) => (),
+		Err(e) => {
+			log::error!(target: LOG_TARGET, "Error while reading storage: {:?}", e);
+			return None;
+		},
+	}
+
+	let mut sum = 0;
+	let mut keys_count = 0;
+	let mut value_size = None;
+
+	let mut start_key = None;
+
+	loop {
+		let keys = client
+			.storage_keys_paged(Some(prefix.clone()), count, start_key, at)
+			.await
+			.unwrap_or(vec![]);
+
+		if keys.is_empty() {
+			break;
+		}
+
+		let current_keys = keys.len();
+		keys_count += current_keys;
+
+		for key in keys.clone() {
+			// don't really need to read for all, just for the first one to get the size.
+			if let Some(size) = value_size {
+				sum += size;
+			} else if let Ok(Some(value)) = client.storage(key.clone(), at).await {
+				value_size = Some(value.0.len() as u64);
+				sum += value.0.len() as u64;
+			}
+		}
+		if current_keys < count as usize {
+			break;
+		}
+
+		start_key = if let Some(last) = keys.last() { Some(last.clone()) } else { break };
+	}
+
+	Some((sum, keys_count))
+}
 
 #[tokio::main]
-async fn main() -> () {
+async fn main() {
+	let now = std::time::Instant::now();
+
 	tracing_subscriber::fmt::try_init().unwrap();
 	let opt = Opt::from_args();
 
-	let mut cfg = OnlineConfig::default();
-	cfg.transport = Transport::Uri(opt.uri);
-	cfg.transport.map_uri().await.unwrap();
-
-	// connect to a node.
-	let ext = remote_externalities::Builder::<Block>::new().mode(Mode::Online(cfg));
+	let rpc_client = substrate_rpc_client::ws_client(opt.uri).await.unwrap();
 	let mut modules: Vec<Pallet> = vec![];
 
 	// potentially replace head with the given hash
-	let head = ext.rpc_get_head().await.unwrap();
-	let at = opt.at.or(Some(head));
+	let head = ChainApiClient::<(), _, Header, ()>::finalized_head(&rpc_client).await.unwrap();
 
-	let rpc_client = ext.as_online().rpc_client();
+	let at = opt.at.or(Some(head));
 
 	let runtime = rpc_client.runtime_version(at).await.unwrap();
 
@@ -185,87 +285,83 @@ async fn main() -> () {
 		.expect("Runtime Metadata failed to decode");
 	let metadata = prefixed_metadata.1;
 
-	if let RuntimeMetadata::V14(inner) = metadata {
-		let pallets = inner.pallets;
-		for pallet in pallets.into_iter() {
-			let name = pallet.name;
+	let mut total_size = 0;
+	match metadata {
+		RuntimeMetadata::V14(inner) => {
+			let pallets = inner.pallets;
+			for pallet in pallets.into_iter() {
+				let name = pallet.name;
 
-			// skip, if this module has no storage items.
-			if pallet.storage.is_none() {
-				log::warn!(
-					target: LOG_TARGET,
-					"Pallet with name {:?} seems to have no storage items.",
-					name
-				);
-				continue
-			}
+				// skip, if this module has no storage items.
+				if pallet.storage.is_none() {
+					log::warn!(
+						target: LOG_TARGET,
+						"Pallet with name {:?} seems to have no storage items.",
+						name
+					);
+					continue
+				}
 
-			let storage = pallet.storage.unwrap();
-			let prefix = storage.prefix;
-			let entries = storage.entries;
-			let mut pallet_info = Pallet::new(name.clone());
+				let storage = pallet.storage.unwrap();
+				let prefix = storage.prefix;
+				let entries = storage.entries;
+				let mut pallet_info = Pallet::new(name.clone());
 
-			for storage_entry in entries.into_iter() {
-				let storage_name = storage_entry.name;
-				let ty = storage_entry.ty;
-				let key_prefix = pallet_prefix_raw(prefix.as_bytes(), storage_name.as_bytes());
+				for storage_entry in entries.into_iter() {
+					let storage_name = storage_entry.name;
 
-				let (pairs, size) = if opt.scrape_pairs {
-					// this should be slower but gives more detail.
-					let pairs =
-						rpc_client.storage_pairs(StorageKey(key_prefix.clone()), at).await.unwrap();
-					let pairs = pairs
-						.into_iter()
-						.map(|(k, v)| (k.0, v.0))
-						.collect::<Vec<(Vec<u8>, Vec<u8>)>>();
-					let size = pairs.iter().fold(0, |acc, x| acc + x.1.len());
-					(pairs, size)
-				} else {
+					let ty = storage_entry.ty;
+					let key_prefix = pallet_prefix_raw(prefix.as_bytes(), storage_name.as_bytes());
+
 					// This should be faster
-					let size = rpc_client
-						.storage_size(StorageKey(key_prefix), at)
-						.await
-						.unwrap()
-						.unwrap_or_default() as usize;
-					let pairs: Vec<_> = vec![];
-					(pairs, size)
-				};
+					let (size, pairs) = prefix_storage_size(
+						&rpc_client,
+						at,
+						StorageKey(key_prefix.clone()),
+						opt.count,
+					)
+					.await
+					.unwrap();
 
-				log::debug!(
-					target: LOG_TARGET,
-					"{:?}::{:?} => count: {}, size: {} bytes",
-					name,
-					storage_name,
-					pairs.len(),
-					size
-				);
+					log::debug!(
+						target: LOG_TARGET,
+						"{:?}::{:?} => count: {}, size: {} bytes",
+						name,
+						storage_name,
+						pairs,
+						size
+					);
 
-				pallet_info.size += size;
-				let item = match ty {
-					StorageEntryType::Plain(_) => StorageItem::Value(size),
-					StorageEntryType::Map { .. } => StorageItem::Map(size, pairs.len()),
-				};
-				pallet_info.items.push(Storage::new(storage_name, item));
+					pallet_info.size += size as usize;
+					let item = match ty {
+						StorageEntryType::Plain(_) => StorageItem::Value(size as usize),
+						StorageEntryType::Map { .. } => StorageItem::Map(size as usize, pairs),
+					};
+					pallet_info.items.push(Storage::new(storage_name, item));
+				}
+				pallet_info.items.sort_by_key(|x| x.size);
+				pallet_info.items.reverse();
+
+				if opt.progress {
+					print!("{}", pallet_info);
+				}
+				total_size += pallet_info.size;
+				modules.push(pallet_info);
 			}
-			pallet_info.items.sort_by_key(|x| x.size);
-			pallet_info.items.reverse();
-			println!("Scraped module {}. Total size {}.", pallet_info.name, pallet_info.size,);
-			if opt.progress {
-				print!("{}", pallet_info);
+
+			modules.sort_by_key(|m| m.size);
+			modules.reverse();
+
+			if !opt.progress {
+				modules.into_iter().for_each(|m| {
+					print!("{}", m);
+				})
 			}
-			modules.push(pallet_info);
-		}
+			println!("\nTotal size: {} {}", Size(total_size), runtime.spec_name,);
+			let elapsed = now.elapsed();
+			println!("{:?}s", elapsed.as_secs_f32());
+		},
 
-		println!("Scraping results done. Final sorted tree:");
-		modules.sort_by_key(|m| m.size);
-		modules.reverse();
-
-		let total: usize = modules.iter().map(|m| m.size).sum();
-		println!("{} {} {}", Size(total), get_prefix(1), runtime.spec_name,);
-		modules.into_iter().for_each(|m| {
-			print!("{}", m);
-		});
-	} else {
-		panic!("Unsupported Metadata version");
+		_ => panic!("Unsupported metadata version."),
 	}
 }
