@@ -18,7 +18,7 @@
 use codec::Encode;
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
-	prelude::vec::Vec,
+	prelude::{collections::BTreeMap, vec::Vec},
 	IntoPortable, MetaType, Registry,
 };
 
@@ -41,6 +41,8 @@ pub struct MetadataIR<T: Form = MetaForm> {
 	pub apis: Vec<RuntimeApiMetadataIR<T>>,
 	/// The outer enums types as found in the runtime.
 	pub outer_enums: OuterEnumsIR<T>,
+	/// The custom types collected by the runtime.
+	pub custom_types: CustomMetadataIR<T>,
 }
 
 /// Metadata of a runtime trait.
@@ -365,6 +367,27 @@ impl IntoPortable for PalletEventMetadataIR {
 impl From<MetaType> for PalletEventMetadataIR {
 	fn from(ty: MetaType) -> Self {
 		Self { ty }
+	}
+}
+
+/// Metadata for custom types.
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub struct CustomMetadataIR<T: Form = MetaForm> {
+	/// The custom map.
+	pub map: BTreeMap<T::String, T::Type>,
+}
+
+impl IntoPortable for CustomMetadataIR {
+	type Output = CustomMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		let map = self
+			.map
+			.into_iter()
+			.map(|(key, value)| (key.into_portable(registry), registry.register_type(&value)))
+			.collect();
+
+		CustomMetadataIR { map }
 	}
 }
 
