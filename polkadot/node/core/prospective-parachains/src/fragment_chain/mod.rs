@@ -454,7 +454,7 @@ impl Scope {
 
 pub struct FragmentNode {
 	fragment: Fragment,
-	pub candidate_hash: CandidateHash,
+	candidate_hash: CandidateHash,
 	cumulative_modifications: ConstraintModifications,
 }
 
@@ -482,7 +482,7 @@ pub enum PotentialAddition {
 pub(crate) struct FragmentChain {
 	scope: Scope,
 
-	pub chain: Vec<FragmentNode>,
+	chain: Vec<FragmentNode>,
 
 	candidates: HashSet<CandidateHash>,
 
@@ -523,7 +523,7 @@ impl FragmentChain {
 	}
 
 	/// Returns an O(n) iterator over the hashes of candidates contained in the
-	/// chain.
+	/// tree.
 	pub(crate) fn candidates(&self) -> impl Iterator<Item = CandidateHash> + '_ {
 		self.candidates.iter().cloned()
 	}
@@ -536,6 +536,11 @@ impl FragmentChain {
 	/// Whether the candidate exists.
 	pub(crate) fn contains_candidate(&self, candidate: &CandidateHash) -> bool {
 		self.candidates.contains(candidate)
+	}
+
+	/// Return a vector of the chain's candidate hashes, in-order.
+	pub(crate) fn chain(&self) -> Vec<CandidateHash> {
+		self.chain.iter().map(|candidate| candidate.candidate_hash).collect()
 	}
 
 	/// Try accumulating more candidates onto the chain.
@@ -753,10 +758,6 @@ impl FragmentChain {
 			// If we've only one slot left to fill, it must be filled with a connected candidate.
 			PotentialAddition::IfConnected
 		} else {
-			gum::debug!(
-				target: LOG_TARGET,
-				"Too many unconnected candidates",
-			);
 			PotentialAddition::None
 		}
 	}
@@ -902,11 +903,6 @@ impl FragmentChain {
 					candidate.parent_head_data_hash(),
 					Some(candidate.output_head_data_hash()),
 				) {
-					gum::debug!(
-						target: LOG_TARGET,
-						candidate_hash = ?candidate.candidate_hash,
-						"Refusing to add candidate to the fragment chain, it would introduce a fork or a cycle",
-					);
 					continue
 				}
 
@@ -999,10 +995,5 @@ impl FragmentChain {
 				break
 			}
 		}
-	}
-
-	#[cfg(test)]
-	fn chain(&self) -> Vec<CandidateHash> {
-		self.chain.iter().map(|c| c.candidate_hash).collect()
 	}
 }

@@ -141,7 +141,7 @@ async fn run_iteration<Context>(
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 			FromOrchestra::Communication { msg } => match msg {
 				ProspectiveParachainsMessage::IntroduceSecondedCandidate(request, tx) =>
-					handle_introduce_seconded_candidate(&mut *ctx, view, request, tx).await,
+					handle_introduce_seconded_candidate(&mut *ctx, view, request, tx, metrics).await,
 				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) =>
 					handle_candidate_backed(&mut *ctx, view, para, candidate_hash).await,
 				ProspectiveParachainsMessage::GetBackableCandidates(
@@ -152,7 +152,7 @@ async fn run_iteration<Context>(
 					tx,
 				) => answer_get_backable_candidates(&view, relay_parent, para, count, ancestors, tx),
 				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx) =>
-					answer_hypothetical_membership_request(&view, request, tx),
+					answer_hypothetical_membership_request(&view, request, tx, metrics),
 				ProspectiveParachainsMessage::GetMinimumRelayParents(relay_parent, tx) =>
 					answer_minimum_relay_parents_request(&view, relay_parent, tx),
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) =>
@@ -232,7 +232,6 @@ async fn handle_active_leaves_update<Context>(
 
 			let Some((constraints, pending_availability)) = backing_state else {
 				// This indicates a runtime conflict of some kind.
-
 				gum::debug!(
 					target: LOG_TARGET,
 					para_id = ?para,
@@ -331,13 +330,18 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 	let active_leaves = &view.active_leaves;
 	let mut live_candidates = HashSet::new();
 	let mut live_paras = HashSet::new();
-	for (leaf, sub_view) in active_leaves.iter() {
+	for sub_view in active_leaves.values() {
 		live_candidates.extend(sub_view.pending_availability.iter().cloned());
 
 		for (para_id, fragment_chain) in &sub_view.fragment_chains {
 			live_candidates.extend(fragment_chain.candidates());
 			live_paras.insert(*para_id);
+		}
+	}
 
+	let connected_candidates_count = live_candidates.len();
+	for (leaf, sub_view) in active_leaves.iter() {
+		for (para_id, fragment_chain) in &sub_view.fragment_chains {
 			if let Some(storage) = view.candidate_storage.get(para_id) {
 				let unconnected_potential =
 					fragment_chain.find_unconnected_potential_candidates(storage, None);
@@ -345,7 +349,9 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 					gum::trace!(
 						target: LOG_TARGET,
 						?leaf,
-						"Keeping unconnected candidates in storage: {:?}",
+						"Keeping {} unconnected candidates for paraid {} in storage: {:?}",
+						unconnected_potential.len(),
+						para_id,
 						unconnected_potential
 					);
 				}
@@ -365,7 +371,21 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 		// This maintains a convenient invariant that para-id storage exists
 		// as long as there's an active head which schedules the para.
 		true
-	})
+	});
+
+	for (para_id, storage) in view.candidate_storage.iter() {
+		gum::trace!(
+			target: LOG_TARGET,
+			"Keeping a total of {} connected candidates for paraid {} in storage",
+			storage.candidates().count(),
+			para_id,
+		);
+	}
+
+	metrics.record_candidate_storage_size(
+		live_candidates.len() as u64,
+		live_candidates.len().saturating_sub(connected_candidates_count) as u64,
+	);
 }
 
 struct ImportablePendingAvailability {
@@ -432,7 +452,10 @@ async fn handle_introduce_seconded_candidate<Context>(
 	view: &mut View,
 	request: IntroduceSecondedCandidateRequest,
 	tx: oneshot::Sender<bool>,
+	metrics: &Metrics,
 ) {
+	metrics.time_introduce_seconded_candidate();
+
 	let IntroduceSecondedCandidateRequest {
 		candidate_para: para,
 		candidate_receipt: candidate,
@@ -492,30 +515,23 @@ async fn handle_introduce_seconded_candidate<Context>(
 	let mut keep_in_storage = false;
 	for (relay_parent, leaf_data) in view.active_leaves.iter_mut() {
 		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
-			gum::debug!(
+			gum::trace!(
 				target: LOG_TARGET,
 				para = ?para,
 				?relay_parent,
 				"Candidates in chain before trying to introduce a new one: {:?}",
-				chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+				chain.chain()
 			);
 			chain.extend_from_storage(&*storage);
 			if chain.contains_candidate(&candidate_hash) {
 				keep_in_storage = true;
 
-				gum::debug!(
+				gum::trace!(
 					target: LOG_TARGET,
 					?relay_parent,
 					para = ?para,
 					?candidate_hash,
-					"Added candidate to chain",
-				);
-				gum::debug!(
-					target: LOG_TARGET,
-					para = ?para,
-					?relay_parent,
-					"Candidates in chain after introducing a new one: {:?}",
-					chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+					"Added candidate to chain.",
 				);
 			} else {
 				match chain.can_add_candidate_as_potential(
@@ -526,29 +542,22 @@ async fn handle_introduce_seconded_candidate<Context>(
 					output_head_hash,
 				) {
 					PotentialAddition::Anyhow => {
-						gum::debug!(
+						gum::trace!(
 							target: LOG_TARGET,
 							para = ?para,
 							?relay_parent,
 							?candidate_hash,
-							"kept unconnected candidate",
-						);
-
-						gum::debug!(
-							target: LOG_TARGET,
-							para = ?para,
-							"Candidates in chain after introducing a new one: {:?}",
-							chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+							"Kept candidate as unconnected potential.",
 						);
 
 						keep_in_storage = true;
 					},
 					_ => {
-						gum::debug!(
+						gum::trace!(
 							target: LOG_TARGET,
 							para = ?para,
 							?relay_parent,
-							"Not introducing a new one: {:?}",
+							"Not introducing a new candidate: {:?}",
 							candidate_hash
 						);
 					},
@@ -566,7 +575,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 			target: LOG_TARGET,
 			para = ?para,
 			candidate = ?candidate_hash,
-			"Newly-seconded candidate cannot be kept",
+			"Newly-seconded candidate cannot be kept under any active leaf",
 		);
 	}
 
@@ -585,7 +594,7 @@ async fn handle_candidate_backed<Context>(
 			target: LOG_TARGET,
 			para_id = ?para,
 			?candidate_hash,
-			"Received instruction to back unknown candidate",
+			"Received instruction to back a candidate for unscheduled para",
 		);
 
 		return
@@ -660,7 +669,7 @@ fn answer_get_backable_candidates(
 		return
 	};
 
-	gum::debug!(
+	gum::trace!(
 		target: LOG_TARGET,
 		?relay_parent,
 		para_id = ?para,
@@ -668,12 +677,12 @@ fn answer_get_backable_candidates(
 		storage.candidates().map(|candidate| candidate.hash()).collect::<Vec<_>>()
 	);
 
-	gum::debug!(
+	gum::trace!(
 		target: LOG_TARGET,
 		?relay_parent,
 		para_id = ?para,
 		"Candidate chain for para: {:?}",
-		chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+		chain.chain()
 	);
 
 	let backable_candidates: Vec<_> = chain
@@ -722,7 +731,10 @@ fn answer_hypothetical_membership_request(
 	view: &View,
 	request: HypotheticalMembershipRequest,
 	tx: oneshot::Sender<Vec<(HypotheticalCandidate, HypotheticalMembership)>>,
+	metrics: &Metrics,
 ) {
+	metrics.time_hypothetical_membership_request();
+
 	let mut response = Vec::with_capacity(request.candidates.len());
 	for candidate in request.candidates {
 		response.push((candidate, vec![]));
