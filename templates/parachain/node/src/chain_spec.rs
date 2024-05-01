@@ -1,11 +1,11 @@
 use cumulus_primitives_core::ParaId;
-use parachain_template_runtime as runtime;
 use runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOSIT};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
+use staking_runtime as runtime;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
@@ -196,6 +196,47 @@ fn testnet_genesis(
 		"polkadotXcm": {
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
-		"sudo": { "key": Some(root) }
+		"sudo": { "key": Some(root) },
+		"staking": staking_runtime::StakingConfig {
+			// add a few stakers to start with for testing.
+			stakers: vec![
+				(
+					utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+					utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+					100u128,
+					pallet_staking::StakerStatus::Validator,
+				),
+				(
+					utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
+					utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
+					200u128,
+					pallet_staking::StakerStatus::Validator,
+				),
+			],
+			validator_count: 2,
+			..Default::default()
+		}
 	})
+}
+
+mod utils {
+	use super::*;
+	use sp_runtime::traits::Verify;
+
+	type AccountPublic = <Signature as Verify>::Signer;
+
+	/// Helper function to generate a crypto pair from seed.
+	pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+		TPublic::Pair::from_string(&format!("//{}", seed), None)
+			.expect("static values are valid; qed")
+			.public()
+	}
+
+	/// Helper function to generate an account ID from seed.
+	pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+	where
+		AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+	{
+		AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	}
 }

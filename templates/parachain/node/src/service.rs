@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 
 use cumulus_client_cli::CollatorOptions;
 // Local Runtime Types
-use parachain_template_runtime::{
+use staking_runtime::{
 	apis::RuntimeApi,
 	opaque::{Block, Hash},
 };

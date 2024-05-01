@@ -29,6 +29,14 @@ use frame_support::{
 		WeightToFeeCoefficients, WeightToFeePolynomial,
 	},
 };
+
+pub use pallet_election_provider_multi_block::{
+	self as pallet_epm_core,
+	signed::{self as pallet_epm_signed},
+	unsigned::{self as pallet_epm_unsigned, miner::Miner},
+	verifier::{self as pallet_epm_verifier},
+};
+
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 
@@ -36,9 +44,6 @@ pub use sp_runtime::{MultiAddress, Perbill, Permill};
 pub use sp_runtime::BuildStorage;
 
 use weights::ExtrinsicBaseWeight;
-
-/// Import the template pallet.
-pub use pallet_parachain_template;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -157,8 +162,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("parachain-template-runtime"),
-	impl_name: create_runtime_str!("parachain-template-runtime"),
+	spec_name: create_runtime_str!("staking-dev"),
+	impl_name: create_runtime_str!("staking-dev"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 0,
@@ -250,8 +255,20 @@ construct_runtime!(
 		CumulusXcm: cumulus_pallet_xcm = 32,
 		MessageQueue: pallet_message_queue = 33,
 
-		// Template
-		TemplatePallet: pallet_parachain_template = 50,
+		// Utility module.
+		Utility: pallet_utility = 34,
+
+		// Staking.
+		Staking: pallet_staking = 35,
+		NominationPools: pallet_nomination_pools = 36,
+		FastUnstake: pallet_fast_unstake = 37,
+		VoterList: pallet_bags_list::<Instance1> = 38,
+
+		// Election provider core pallet and sub-pallets. Note: order matters.
+		ElectionProviderMultiBlock: pallet_epm_core = 39,
+		ElectionVerifierPallet: pallet_epm_verifier = 40,
+		ElectionSignedPallet: pallet_epm_signed = 41,
+		ElectionUnsignedPallet: pallet_epm_unsigned = 42,
 	}
 );
 

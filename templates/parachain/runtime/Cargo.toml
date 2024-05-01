@@ -1,7 +1,7 @@
 [package]
-name = "parachain-template-runtime"
-description = "A parachain runtime template built with Substrate and Cumulus, part of Polkadot Sdk."
-version = "0.0.0"
+name = "staking-runtime"
+description = "A staking parachain runtime template built with Substrate and Cumulus, part of Polkadot Sdk."
+version = "0.0.1"
 license = "MIT-0"
 authors.workspace = true
 homepage.workspace = true
@@ -29,9 +29,6 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 ] }
 smallvec = "1.11.0"
 
-# Local
-pallet-parachain-template = { path = "../pallets/template", default-features = false }
-
 # Substrate / FRAME
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
@@ -48,9 +45,22 @@ pallet-balances = { path = "../../../substrate/frame/balances", default-features
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
+pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
+
+# Staking related pallets
+pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
+pallet-staking-reward-curve = { path = "../../../substrate/frame/staking/reward-curve", default-features = false }
+pallet-staking-runtime-api = { path = "../../../substrate/frame/staking/runtime-api", default-features = false }
+sp-staking = { path = "../../../substrate/primitives/staking", default-features = false}
+frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
+pallet-election-provider-multi-block = { path = "../../../substrate/frame/election-provider-multi-block", default-features = false }
+pallet-bags-list = { path = "../../../substrate/frame/bags-list", default-features = false }
+sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", default-features = false }
+pallet-nomination-pools = { path = "../../../substrate/frame/nomination-pools", default-features = false }
+pallet-fast-unstake = { path = "../../../substrate/frame/fast-unstake", default-features = false }
 
 # Substrate	Primitives
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
@@ -114,7 +124,6 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
-	"pallet-parachain-template/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
@@ -142,6 +151,16 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+  # staking
+  "pallet-staking/std",
+	"pallet-staking-runtime-api/std",
+	"sp-staking/std",
+	"frame-election-provider-support/std",
+	"pallet-election-provider-multi-block/std",
+	"pallet-bags-list/std",
+	"sp-npos-elections/std",
+	"pallet-nomination-pools/std",
+	"pallet-fast-unstake/std",
 ]
 
 runtime-benchmarks = [
@@ -158,7 +177,6 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
-	"pallet-parachain-template/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
@@ -168,6 +186,14 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+  # staking
+  "pallet-staking/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+  #"pallet-election-provider-multi-block/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-fast-unstake/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -184,7 +210,6 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
-	"pallet-parachain-template/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
@@ -193,4 +218,11 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+  # staking
+  "pallet-staking/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	#"pallet-election-provider-multi-block/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-fast-unstake/try-runtime",
 ]
