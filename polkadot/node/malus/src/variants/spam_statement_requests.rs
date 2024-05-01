@@ -142,9 +142,7 @@ impl OverseerGen for SpamStatementRequests {
 			&self.spam_factor,
 		);
 
-		let request_spammer = RequestSpammer {
-			spam_factor: self.spam_factor,
-		};
+		let request_spammer = RequestSpammer { spam_factor: self.spam_factor };
 
 		validator_overseer_builder(
 			args,
