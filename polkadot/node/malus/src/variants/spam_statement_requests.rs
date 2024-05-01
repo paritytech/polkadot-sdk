@@ -43,15 +43,13 @@ use std::sync::Arc;
 
 /// Wraps around network bridge and replaces it.
 #[derive(Clone)]
-struct RequestSpammer<Spawner> {
-	spawner: Spawner, //stores the actual network bridge subsystem spawner
+struct RequestSpammer {
 	spam_factor: u32, // How many statement distribution requests to send.
 }
 
-impl<Sender, Spawner> MessageInterceptor<Sender> for RequestSpammer<Spawner>
+impl<Sender> MessageInterceptor<Sender> for RequestSpammer
 where
 	Sender: overseer::NetworkBridgeTxSenderTrait + Clone + Send + 'static,
-	Spawner: overseer::gen::Spawner + Clone + 'static,
 {
 	type Message = NetworkBridgeTxMessage;
 
@@ -145,7 +143,6 @@ impl OverseerGen for SpamStatementRequests {
 		);
 
 		let request_spammer = RequestSpammer {
-			spawner: SpawnGlue(args.spawner.clone()),
 			spam_factor: self.spam_factor,
 		};
 
