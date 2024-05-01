@@ -1,0 +1,13 @@
+title: Whitelist for signed solution submitters in Staking
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Implementation of a whitelisting feature for signed solution submitters in the staking
+      pallet. When a signed solution is validated and accepted, its account is whitelisted.
+      A whitelisted submitter's based deposit is fixed and it does not depend on the size of the
+      submission queue.
+
+crates:
+- name: pallet-election-provider-multi-phase
+  bump: minor

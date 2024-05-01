@@ -568,8 +568,6 @@ impl<T: Config> Pallet<T> {
 			T::SignedDepositWhitelist::get()
 		} else {
 			T::SignedDepositBase::convert(Self::signed_submissions().len())
-				.saturating_add(len_deposit)
-				.saturating_add(weight_deposit)
 		};
 
 		base_deposit.saturating_add(len_deposit).saturating_add(weight_deposit)
@@ -932,9 +930,75 @@ mod tests {
 
 	#[test]
 	fn whitelisted_deposit_fee_works_e2e() {
-		ExtBuilder::default().build_and_execute(|| {
-			// TODO
-		})
+		ExtBuilder::default()
+			.signed_whitelist(1, 3)
+			.signed_base_deposit(10, true, Percent::from_percent(10))
+			.build_and_execute(|| {
+				roll_to_signed();
+
+				// 1 slot for whitelisted submitters.
+				assert_eq!(SignedWhitelistMax::get(), 1);
+
+				// add 99 as whitelisted.
+				whitelist(99);
+
+				assert!(MultiPhase::current_phase().is_signed());
+
+				// 99, which is whitelisted, submits a bad solution.
+				let bad_solution = RawSolution {
+					score: ElectionScore {
+						minimal_stake: 10u128,
+						sum_stake: 10u128,
+						sum_stake_squared: 10u128,
+					},
+					..Default::default()
+				};
+				assert_ok!(MultiPhase::submit(
+					RuntimeOrigin::signed(99),
+					Box::new(bad_solution.clone())
+				));
+
+				// whitelisted submissions deposit 3.
+				assert!(is_whitelisted(&99));
+				assert_eq!(balances(&99), (97, 3));
+
+				// 999 computes a correct score.
+				let ok_solution = raw_solution();
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(999), Box::new(ok_solution)));
+
+				// 999 is not whitelisted, thus is deposits the "normal" amount.
+				assert!(!is_whitelisted(&999));
+				let (_, reserved_999) = balances(&999);
+
+				// deposit reserved for 999 is calculated based on the progressive deposit since it
+				// is not whitelisted.
+				assert_eq!(reserved_999, 11);
+
+				// 9999 submits a bad solution.
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(9999), Box::new(bad_solution)));
+
+				// 9999 is not whitelisted, thus is deposits the "normal" amount.
+				assert!(!is_whitelisted(&9999));
+				let (_, reserved_9999) = balances(&9999);
+
+				// deposit reserved for 999 is calculated based on the progressive deposit since it
+				// is not whitelisted.
+				assert_eq!(reserved_9999, 12);
+
+				// since 9999 deposit is higher than 999 because the submission queue was larger
+				// at the time of the submission.
+				assert!(reserved_9999 > reserved_999);
+
+				// round hasn't finished, so 99 is still whitelisted.
+				assert!(is_whitelisted(&99));
+
+				roll_to_unsigned();
+
+				// now 999 is whitelisted for the next round (last submitting a good solution).
+				assert!(is_whitelisted(&999));
+				// and 99 is not whitelisted anymore, since there is only 1 slot for whitelisted.
+				assert!(!is_whitelisted(&99));
+			})
 	}
 
 	#[test]

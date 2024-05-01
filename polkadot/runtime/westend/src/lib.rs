@@ -468,6 +468,7 @@ parameter_types! {
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 128;
+	pub const SignedWhitelistMax: u32 = 2;
 	pub const SignedMaxRefunds: u32 = 128 / 4;
 	pub const SignedFixedDeposit: Balance = deposit(2, 0);
 	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
@@ -539,8 +540,10 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedPhase = MaybeSignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type SignedMaxSubmissions = SignedMaxSubmissions;
+	type SignedWhitelistMax = SignedWhitelistMax;
 	type SignedMaxRefunds = SignedMaxRefunds;
 	type SignedRewardBase = SignedRewardBase;
+	type SignedDepositWhitelist = SignedRewardBase;
 	type SignedDepositBase =
 		GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
 	type SignedDepositByte = SignedDepositByte;

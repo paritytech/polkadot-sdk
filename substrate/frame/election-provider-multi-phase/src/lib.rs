@@ -93,6 +93,32 @@
 //! Note that both of the bottom solutions end up being discarded and get their deposit back,
 //! despite one of them being *invalid*.
 //!
+//! ### Signed submission deposits
+//!
+//! Each signed submission must hold a deposit that will be returned to the submitter if their
+//! solution was accepted or not processed. The deposit will be slashed if the submission is not
+//! valid. The amount to deposit per submission *may* depend on multiple factors, namely the size of
+//! the submission (in bytes and weight), the deposit base, the inclusion or not of the submitter in
+//! a whitelist and, potentially, on the size of the submission queue.
+//!
+//! The base deposit of a submission is calculated based on whether a submitter is whitelisted. Up
+//! to [`pallet::Config::SignedWhitelistMax`] can be whitelisted at a given time. Everytime a
+//! submitter's solution is verified, valid and thus accepted, the submitter is added to the
+//! whitelist. The whitelist is a bounded FIFO with the list of the last submitters (note: there may
+//! be duplicate submitters in the whitelist, in case their submissions were accepted in the last
+//! `SignedWhitelistMax` rounds). The base deposit for whitelisted submissions is
+//! [`pallet::Config::SignedDepositWhitelist`].
+//!
+//! For non-whitelisted submitters, the base deposit is calculated by
+//! [`pallet::Config::SignedDepositBase`], which calculates the deposit based on the size of the
+//! submission queue at the time of the submission.
+//!
+//! Regardless of their whitelist status, all submission deposits will have a portion related to
+//! the solution size and weight, namely:
+//!
+//! - [`pallet::Config::SignedDepositByte`]: which define the per-byte deposit portion;
+//! - [`pallet::Config::SignedDepositWeight`]: which define the per-weight deposit portion;
+//!
 //! ## Unsigned Phase
 //!
 //! The unsigned phase will always follow the signed phase, with the specified duration. In this
