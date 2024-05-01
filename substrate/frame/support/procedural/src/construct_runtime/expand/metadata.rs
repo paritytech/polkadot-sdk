@@ -149,6 +149,12 @@ pub fn expand_runtime_metadata(
 										<#runtime as #system_path::Config>::RuntimeCall
 									>(),
 							),
+							(
+								"AccountId".into(),
+								#scrate::__private::scale_info::meta_type::<
+										<#runtime as #system_path::Config>::AccountId
+									>(),
+							),
 						]
 						.into_iter()
 						.collect(),
