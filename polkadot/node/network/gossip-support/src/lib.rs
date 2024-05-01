@@ -393,11 +393,21 @@ where
 		let mut changed = Vec::new();
 
 		for (authority, new_addresses) in &resolved {
+			let new_peer_ids = new_addresses
+				.iter()
+				.flat_map(|addr| parse_addr(addr.clone()).ok().map(|(p, _)| p))
+				.collect::<HashSet<_>>();
 			match self.resolved_authorities.get(authority) {
-				Some(old_addresses) if !old_addresses.is_superset(new_addresses) =>
-					changed.push(new_addresses.clone()),
+				Some(old_addresses) => {
+					let old_peer_ids = old_addresses
+						.iter()
+						.flat_map(|addr| parse_addr(addr.clone()).ok().map(|(p, _)| p))
+						.collect::<HashSet<_>>();
+					if !old_peer_ids.is_superset(&new_peer_ids) {
+						changed.push(new_addresses.clone());
+					}
+				},
 				None => changed.push(new_addresses.clone()),
-				_ => {},
 			}
 		}
 		gum::debug!(
