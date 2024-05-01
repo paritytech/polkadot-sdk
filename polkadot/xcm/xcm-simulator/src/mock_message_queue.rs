@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Parachain runtime mock.
+//! Simple mock message queue.
 
 use codec::{Decode, Encode};
 
@@ -29,11 +29,10 @@ use xcm::{latest::prelude::*, VersionedXcm};
 
 pub use pallet::*;
 
-#[frame::pallet]
+#[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame::prelude::*;
-    use frame::deps::frame_system;
+    use frame_support::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -70,21 +69,37 @@ pub mod pallet {
     pub enum Event<T: Config> {
         // XCMP
         /// Some XCM was executed OK.
-        Success(Option<T::Hash>),
+        Success {
+            message_id: Option<T::Hash>,
+        },
         /// Some XCM failed.
-        Fail(Option<T::Hash>, XcmError),
+        Fail {
+            message_id: Option<T::Hash>,
+            error: XcmError,
+        },
         /// Bad XCM version used.
-        BadVersion(Option<T::Hash>),
+        BadVersion {
+            message_id: Option<T::Hash>,
+        },
         /// Bad XCM format used.
-        BadFormat(Option<T::Hash>),
+        BadFormat {
+            message_id: Option<T::Hash>,
+        },
 
         // DMP
         /// Downward message is invalid XCM.
-        InvalidFormat(MessageId),
+        InvalidFormat {
+            message_id: MessageId,
+        },
         /// Downward message is unsupported version of XCM.
-        UnsupportedVersion(MessageId),
+        UnsupportedVersion {
+            message_id: MessageId,
+        },
         /// Downward message executed with the given outcome.
-        ExecutedDownward(MessageId, Outcome),
+        ExecutedDownward {
+            message_id: MessageId,
+            outcome: Outcome,
+        }
     }
 
     impl<T: Config> Pallet<T> {
@@ -104,16 +119,16 @@ pub mod pallet {
                 Ok(xcm) => {
                     let location = (Parent, Parachain(sender.into()));
                     match T::XcmExecutor::prepare_and_execute(location, xcm, &mut message_hash, max_weight, Weight::zero()) {
-                        Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
-                        Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
+                        Outcome::Error { error } => (Err(error), Event::Fail { message_id: Some(hash), error }),
+                        Outcome::Complete { used } => (Ok(used), Event::Success { message_id: Some(hash) }),
                         // As far as the caller is concerned, this was dispatched without error, so
                         // we just report the weight used.
-                        Outcome::Incomplete { used, error } => (Ok(used), Event::Fail(Some(hash), error)),
+                        Outcome::Incomplete { used, error } => (Ok(used), Event::Fail { message_id: Some(hash), error }),
                     }
                 }
                 Err(()) => (
                     Err(XcmError::UnhandledXcmVersion),
-                    Event::BadVersion(Some(hash)),
+                    Event::BadVersion { message_id: Some(hash) },
                 ),
             };
             Self::deposit_event(event);
@@ -149,21 +164,21 @@ pub mod pallet {
     impl<T: Config> DmpMessageHandler for Pallet<T> {
         fn handle_dmp_messages(
             iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
-            limit: frame::prelude::Weight,
-        ) -> frame::prelude::Weight {
-            for (_i, (_sent_at, data)) in iter.enumerate() {
+            limit: Weight,
+        ) -> Weight {
+            for (_sent_at, data) in iter {
                 let mut id = sp_io::hashing::blake2_256(&data[..]);
                 let maybe_versioned = VersionedXcm::<T::RuntimeCall>::decode(&mut &data[..]);
                 match maybe_versioned {
                     Err(_) => {
-                        Self::deposit_event(Event::InvalidFormat(id));
+                        Self::deposit_event(Event::InvalidFormat { message_id: id });
                     }
                     Ok(versioned) => match Xcm::try_from(versioned) {
-                        Err(()) => Self::deposit_event(Event::UnsupportedVersion(id)),
+                        Err(()) => Self::deposit_event(Event::UnsupportedVersion { message_id: id }),
                         Ok(x) => {
                             let outcome = T::XcmExecutor::prepare_and_execute(Parent, x.clone(), &mut id, limit, Weight::zero());
                             <ReceivedDmp<T>>::append(x);
-                            Self::deposit_event(Event::ExecutedDownward(id, outcome));
+                            Self::deposit_event(Event::ExecutedDownward { message_id: id, outcome });
                         }
                     },
                 }

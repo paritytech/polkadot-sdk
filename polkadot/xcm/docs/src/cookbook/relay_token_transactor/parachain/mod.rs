@@ -5,10 +5,10 @@ use frame::runtime::prelude::*;
 use frame::deps::frame_system;
 use frame::traits::IdentityLookup;
 use xcm_executor::XcmExecutor;
+use xcm_simulator::mock_message_queue;
 
 mod xcm_config;
 use xcm_config::XcmConfig;
-use crate::mock_message_queue;
 
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
 pub type AccountId = frame::deps::sp_runtime::AccountId32;

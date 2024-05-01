@@ -68,7 +68,7 @@ fn reserve_asset_transfers_work() {
 		// This is why the derivatives are backed one-to-one.
 		let parachains_sovereign_account =
 			relay_chain::LocationToAccountId::convert_location(&destination).unwrap();
-		assert_eq!(relay_chain::Balances::free_balance(&parachains_sovereign_account), 50 * CENTS);
+		assert_eq!(relay_chain::Balances::free_balance(parachains_sovereign_account), 50 * CENTS);
 	});
 
 	ParaA::execute_with(|| {
@@ -108,7 +108,7 @@ fn reserve_asset_transfers_work() {
 		let parachains_sovereign_account =
 			relay_chain::LocationToAccountId::convert_location(&parachain).unwrap();
 		assert_eq!(
-			relay_chain::Balances::free_balance(&parachains_sovereign_account),
+			relay_chain::Balances::free_balance(parachains_sovereign_account),
 			25 * CENTS
 		);
 	});
