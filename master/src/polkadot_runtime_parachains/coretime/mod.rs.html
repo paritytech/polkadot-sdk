@@ -424,6 +424,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -452,7 +454,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_broker::{CoreAssignment, CoreIndex <span class="kw">as </span>BrokerCoreIndex};
 <span class="kw">use </span>primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
 <span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
-<span class="kw">use </span>xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
+<span class="kw">use </span>xcm::prelude::{
+	send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm,
+};
 
 <span class="kw">use crate</span>::{
 	assigner_coretime::{<span class="self">self</span>, PartsOf57600},

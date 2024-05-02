@@ -490,7 +490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>sp_std::vec::Vec;
 	<span class="kw">use </span>sp_std::{iter, prelude::<span class="kw-2">*</span>, result};
-	<span class="kw">use </span>xcm::v4::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
+	<span class="kw">use </span>xcm::prelude::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 
 	<span class="doccomment">/// Return information about a legacy lease of a parachain.
 	</span><span class="kw">pub trait </span>GetLegacyLease&lt;N&gt; {
