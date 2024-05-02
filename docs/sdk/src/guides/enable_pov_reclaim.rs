@@ -1,6 +1,7 @@
 //! This guide will teach you how to enable storage weight reclaiming for a parachain. The
 //! explanations in this guide assume a project structure similar to the one detailed in
-//! the [substrate documentation](crate::polkadot_sdk::substrate#anatomy-of-a-binary-crate).
+//! the [substrate documentation](crate::polkadot_sdk::substrate#anatomy-of-a-binary-crate). Full
+//! technical details are available in the original [pull request](https://github.com/paritytech/polkadot-sdk/pull/3002).
 //!
 //! # What is PoV reclaim?
 //! When a parachain submits a block to a relay chain like Polkadot or Kusama, it sends the block
@@ -22,14 +23,14 @@
 //! ability to fetch the size of the storage proof from the node. The reclaim
 //! mechanism uses the
 //! [`storage_proof_size`](cumulus_primitives_proof_size_hostfunction::storage_proof_size)
-//! hostfunction for this purpose. For convenience, cumulus provides
+//! host function for this purpose. For convenience, cumulus provides
 //! [`ParachainHostFunctions`](cumulus_client_service::ParachainHostFunctions), a set of
-//! hostfunctions typically used by cumulus-based parachains. In the binary crate of your parachain,
-//! find the instantiation of the [`WasmExecutor`](sc_executor::WasmExecutor) and set the correct
-//! generic type.
+//! host functions typically used by cumulus-based parachains. In the binary crate of your
+//! parachain, find the instantiation of the [`WasmExecutor`](sc_executor::WasmExecutor) and set the
+//! correct generic type.
 //!
 //! This example from the parachain-template shows a type definition that includes the correct
-//! hostfunctions.
+//! host functions.
 #![doc = docify::embed!("../../templates/parachain/node/src/service.rs", wasm_executor)]
 //!
 //! > **Note:**
