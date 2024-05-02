@@ -337,7 +337,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	/// Try-state checks for the stake-tracker pallet.
 	///
-	/// 1. `do_try_state_approvals`: checks the curent approval stake in the target list compared
+	/// 1. `do_try_state_approvals`: checks the current approval stake in the target list compared
 	///    with the staking state.
 	/// 2. `do_try_state_target_sorting`: checks if the target list is sorted by score (approvals).
 	/// 3. `do_try_state_voter_sorting`: checks if the voter list is sorted by score (stake).
