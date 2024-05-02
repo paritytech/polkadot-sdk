@@ -27,7 +27,7 @@ pub fn expand_runtime_metadata(
 	scrate: &TokenStream,
 	extrinsic: &TokenStream,
 	system_path: &PalletPath,
-	assets_path: Option<PalletPath>,
+	assets_pallet: Option<&Pallet>,
 ) -> TokenStream {
 	let pallets = pallet_declarations
 		.iter()
@@ -76,18 +76,22 @@ pub fn expand_runtime_metadata(
 		})
 		.collect::<Vec<_>>();
 
-	let asset_id = if let Some(assets_path) = assets_path {
-		quote! {
-			(
-				"AssetId".into(),
-				#scrate::__private::scale_info::meta_type::<
-						<#runtime as #assets_path::Config>::AssetId
-					>(),
-			),
-		}
-	} else {
-		quote! {}
-	};
+	let maybe_asset_id = assets_pallet
+		.map(|pallet| {
+			let path = &pallet.path;
+			let instance = &pallet.instance;
+			let maybe_instance = instance.as_ref().map(|inst| quote! { <#inst> });
+
+			quote! {
+				(
+					"AssetId".into(),
+					#scrate::__private::scale_info::meta_type::<
+							<#runtime as #path::Config #maybe_instance>::AssetId
+						>(),
+				),
+			}
+		})
+		.unwrap_or_default();
 
 	quote! {
 		impl #runtime {
@@ -169,7 +173,7 @@ pub fn expand_runtime_metadata(
 										<#runtime as #system_path::Config>::AccountId
 									>(),
 							),
-							#asset_id
+							#maybe_asset_id
 						]
 						.into_iter()
 						.collect(),

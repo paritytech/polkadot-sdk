@@ -39,6 +39,10 @@ use syn::{Ident, Result};
 
 /// The fixed name of the system pallet.
 const SYSTEM_PALLET_NAME: &str = "System";
+/// The fixed name of the ForeignAssets pallet.
+const FOREIGN_ASSETS_PALLET_NAME: &str = "ForeignAssets";
+/// The fixed name of the Assets pallet.
+const ASSETS_PALLET_NAME: &str = "Assets";
 
 pub fn expand(def: Def, legacy_ordering: bool) -> TokenStream2 {
 	let input = def.input;
@@ -143,6 +147,12 @@ fn construct_runtime_final_expansion(
 		))
 	}
 
+	// Find either the foreign assets pallet or the local assets pallet in this order.
+	let assets_pallet = pallets
+		.iter()
+		.find(|decl| decl.name == FOREIGN_ASSETS_PALLET_NAME)
+		.or_else(|| pallets.iter().find(|decl| decl.name == ASSETS_PALLET_NAME));
+
 	let features = pallets
 		.iter()
 		.filter_map(|decl| {
@@ -230,6 +240,7 @@ fn construct_runtime_final_expansion(
 		&scrate,
 		&unchecked_extrinsic,
 		&system_pallet.path,
+		assets_pallet,
 	);
 	let outer_config = expand::expand_outer_config(&name, &pallets, &scrate);
 	let inherent =

@@ -416,7 +416,7 @@ fn construct_runtime_final_expansion(
 		&scrate,
 		&unchecked_extrinsic,
 		&system_pallet.path,
-		assets_pallet.map(|pallet| pallet.path.clone()),
+		assets_pallet,
 	);
 	let outer_config = expand::expand_outer_config(&name, &pallets, &scrate);
 	let inherent =
