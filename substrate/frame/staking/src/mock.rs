@@ -303,7 +303,7 @@ parameter_types! {
 parameter_types! {
 	pub Recipients: Vec<pallet_polkadot_inflation::InflationActions<Test>> = vec![
 		Box::new(
-			pallet_polkadot_inflation::inflation_fns::polkadot_staking_income::<
+			pallet_polkadot_inflation::inflation_actions::polkadot_staking_income::<
 				Test,
 				IdealStakingRate,
 				Falloff,

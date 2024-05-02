@@ -48,11 +48,11 @@
 //!
 //! See the following self-explanatory example, used in the tests of this pallet, which implements a
 //! fixed 10% rate inflation system, which is partially distributed and is partially burnt.
-#![doc = docify::embed!("./src/inflation.rs", configs)]
+#![doc = docify::embed!("./src/lib.rs", configs)]
 //!
 //! These configurations are then fed into the pallet as such. This using the pre-existing set of
 //! actions from [`inflation_actions`].
-#![doc = docify::embed!("./src/inflation.rs", fns)]
+#![doc = docify::embed!("./src/lib.rs", fns)]
 //!
 //! A fixed rate inflation system would look the same, except it would use [`FixedAnnualInflation`].
 //!
@@ -81,16 +81,30 @@
 //! cost to users who wish to simply use [`Config::Currency::total_issuance`].
 
 /// Re-export all of the pallet stuff.
-pub use pallet_inflation::*;
+pub use pallet::*;
 
-#[frame_support::pallet]
-pub mod pallet_inflation {
+pub(crate) const LOG_TARGET: &str = "runtime::inflation";
+
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		frame::log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] 💶 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
+
+#[frame::pallet]
+pub mod pallet {
 	use frame::{
 		arithmetic::*,
+		deps::sp_std::marker::PhantomData,
 		prelude::*,
 		traits::{
 			fungible::{self as fung, Inspect, Mutate},
-			AtLeast32BitUnsigned, Saturating, UnixTime,
+			UnixTime,
 		},
 	};
 
@@ -110,7 +124,7 @@ pub mod pallet_inflation {
 	}
 
 	/// Fixed percentage of the issuance inflation per yer, as specified by [`Ratio`].
-	pub struct FixedRatioAnnualInflation<T, Ratio>(sp_std::marker::PhantomData<(T, Ratio)>);
+	pub struct FixedRatioAnnualInflation<T, Ratio>(PhantomData<(T, Ratio)>);
 	impl<T: Config, Ratio: Get<Perquintill>> InflationSource<BalanceOf<T>>
 		for FixedRatioAnnualInflation<T, Ratio>
 	{
@@ -133,7 +147,7 @@ pub mod pallet_inflation {
 	}
 
 	/// Fixed inflation per yer, as specified by [`Amount`].
-	pub struct FixedAnnualInflation<T, Amount>(sp_std::marker::PhantomData<(T, Amount)>);
+	pub struct FixedAnnualInflation<T, Amount>(PhantomData<(T, Amount)>);
 	impl<T: Config, Amount: Get<BalanceOf<T>>> InflationSource<BalanceOf<T>>
 		for FixedAnnualInflation<T, Amount>
 	{
@@ -195,7 +209,7 @@ pub mod pallet_inflation {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Something that provides a notion of the unix-time.
-		type UnixTime: frame_support::traits::UnixTime;
+		type UnixTime: frame::traits::UnixTime;
 
 		/// The currency type of the runtime.
 		type Currency: fung::Mutate<Self::AccountId>
@@ -203,7 +217,7 @@ pub mod pallet_inflation {
 
 		/// Same as the balance type of [`Config::Currency`], only provided to further bound it to
 		/// `From<u64>`.
-		type CurrencyBalance: frame_support::traits::tokens::Balance + From<u64>;
+		type CurrencyBalance: frame::traits::tokens::Balance + From<u64>;
 
 		/// The recipients of the inflation, as a sequence of items described by [`InflationFn`]
 		type Recipients: Get<Vec<InflationActions<Self>>>;
@@ -434,11 +448,9 @@ pub mod pallet_inflation {
 
 #[cfg(any(doc, test))]
 mod mock {
-	use self::pallet_inflation::{FixedRatioAnnualInflation, LastInflated};
-	use super::*;
+	use super::{pallet as pallet_inflation, *};
 	use core::cell::RefCell;
 	use frame::{arithmetic::*, prelude::*, testing_prelude::*, traits::fungible::Mutate};
-	use pallet_inflation::{inflation_actions, InflationActions, MILLISECONDS_PER_YEAR};
 
 	construct_runtime!(
 		pub struct Runtime {
@@ -564,15 +576,14 @@ mod mock {
 
 #[cfg(any(doc, test))]
 mod tests {
-	use super::{mock::*, pallet_inflation::*};
-	use crate::inflation::pallet_inflation;
+	use super::{
+		mock::*,
+		pallet::{self as pallet_inflation, *},
+	};
 	use frame::{prelude::*, testing_prelude::*, traits::fungible::Inspect};
-	use frame_support::hypothetically;
 
 	const DEFAULT_INITIAL_TI: Balance = 365 * 10 * 100;
 	const DEFAULT_DAILY_INFLATION: Balance = 80;
-
-	mod polkadot_staking_income {}
 
 	#[test]
 	fn payout_variants_work() {
@@ -735,7 +746,6 @@ mod tests {
 		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
 			// some money is there to be inflated..
 			progress_day(1);
-			let ed = Balances::total_issuance();
 			LastInflated::<Runtime>::kill();
 
 			assert_noop!(Inflation::inflate(), Error::<Runtime>::UnknownLastInflated);
@@ -745,8 +755,6 @@ mod tests {
 	#[test]
 	fn inflation_is_time_independent() {
 		new_test_ext(DEFAULT_INITIAL_TI).execute_with(|| {
-			let ed = Balances::total_issuance();
-
 			hypothetically!({
 				for _ in 0..10 {
 					progress_day(1);
@@ -766,98 +774,3 @@ mod tests {
 		})
 	}
 }
-
-mod deprecated {
-	use super::*;
-	use sp_runtime::{curve::PiecewiseLinear, Perbill};
-
-	/// The total payout to all validators (and their nominators) per era and maximum payout.
-	///
-	/// Defined as such:
-	/// `staker-payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens /
-	/// era_per_year` `maximum-payout = max_yearly_inflation * total_tokens / era_per_year`
-	///
-	/// `era_duration` is expressed in millisecond.
-	#[deprecated]
-	pub fn compute_total_payout<N>(
-		yearly_inflation: &PiecewiseLinear<'static>,
-		npos_token_staked: N,
-		total_tokens: N,
-		era_duration: u64,
-	) -> (N, N)
-	where
-		N: sp_runtime::traits::AtLeast32BitUnsigned + Clone,
-	{
-		// Milliseconds per year for the Julian year (365.25 days).
-		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
-
-		let portion = Perbill::from_rational(era_duration as u64, MILLISECONDS_PER_YEAR);
-		let payout = portion *
-			yearly_inflation.calculate_for_fraction_times_denominator(
-				npos_token_staked,
-				total_tokens.clone(),
-			);
-		let maximum = portion * (yearly_inflation.maximum * total_tokens);
-		(payout, maximum)
-	}
-
-	#[cfg(test)]
-	mod test {
-		use sp_runtime::curve::PiecewiseLinear;
-
-		pallet_staking_reward_curve::build! {
-			const I_NPOS: PiecewiseLinear<'static> = curve!(
-				min_inflation: 0_025_000,
-				max_inflation: 0_100_000,
-				ideal_stake: 0_500_000,
-				falloff: 0_050_000,
-				max_piece_count: 40,
-				test_precision: 0_005_000,
-			);
-		}
-
-		#[test]
-		fn npos_curve_is_sensible() {
-			const YEAR: u64 = 365 * 24 * 60 * 60 * 1000;
-
-			// check maximum inflation.
-			// not 10_000 due to rounding error.
-			assert_eq!(super::compute_total_payout(&I_NPOS, 0, 100_000u64, YEAR).1, 9_993);
-
-			// super::I_NPOS.calculate_for_fraction_times_denominator(25, 100)
-			assert_eq!(super::compute_total_payout(&I_NPOS, 0, 100_000u64, YEAR).0, 2_498);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 5_000, 100_000u64, YEAR).0, 3_248);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, YEAR).0, 6_246);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 40_000, 100_000u64, YEAR).0, 8_494);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, YEAR).0, 9_993);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 60_000, 100_000u64, YEAR).0, 4_379);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, YEAR).0, 2_733);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 95_000, 100_000u64, YEAR).0, 2_513);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 100_000, 100_000u64, YEAR).0, 2_505);
-
-			const DAY: u64 = 24 * 60 * 60 * 1000;
-			assert_eq!(super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, DAY).0, 17);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, DAY).0, 27);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, DAY).0, 7);
-
-			const SIX_HOURS: u64 = 6 * 60 * 60 * 1000;
-			assert_eq!(super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, SIX_HOURS).0, 4);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, SIX_HOURS).0, 7);
-			assert_eq!(super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, SIX_HOURS).0, 2);
-
-			const HOUR: u64 = 60 * 60 * 1000;
-			assert_eq!(
-				super::compute_total_payout(
-					&I_NPOS,
-					2_500_000_000_000_000_000_000_000_000u128,
-					5_000_000_000_000_000_000_000_000_000u128,
-					HOUR
-				)
-				.0,
-				57_038_500_000_000_000_000_000
-			);
-		}
-	}
-}
-
-pub use deprecated::compute_total_payout;
