@@ -8116,7 +8116,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/litep2p?rev=e03a6023882db111beeb24d8c0ceaac0721d3f0f#e03a6023882db111beeb24d8c0ceaac0721d3f0f"
+source = "git+https://github.com/paritytech//litep2p?branch=lenxv/expose-peer-records#b6fb4c0c77f211006997e118c11f8d2aadea1f58"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
