@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714664138247,
+  "lastUpdate": 1714668663798,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -1832,6 +1832,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.3372831581402367,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6580101ef3d5c36e1d84a820136fb87f398b04a3",
+          "message": "Deprecate `NativeElseWasmExecutor` (#4329)\n\nThe native executor is deprecated and downstream users should stop using\nit.",
+          "timestamp": "2024-05-02T15:19:38Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6580101ef3d5c36e1d84a820136fb87f398b04a3"
+        },
+        "date": 1714668637461,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63553.030000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.352515512110115,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.737282359900052,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.481066659380165,
             "unit": "seconds"
           }
         ]
