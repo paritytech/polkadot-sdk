@@ -37,11 +37,6 @@ sp-std = { path = "../../primitives/std", default-features = false }
 
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
-# we use frame only for the inflation pallet for now
-frame = { package = "polkadot-sdk-frame", path = "..", default-features = false, features = [
-	"experimental",
-	"runtime",
-] }
 
 pallet-session = { path = "../session", default-features = false, features = [
 	"historical",
@@ -62,11 +57,12 @@ sp-npos-elections = { path = "../../primitives/npos-elections" }
 pallet-timestamp = { path = "../timestamp" }
 pallet-staking-reward-curve = { path = "reward-curve" }
 pallet-bags-list = { path = "../bags-list" }
+pallet-inflation = { path = "../inflation" }
 substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }
 rand_chacha = { version = "0.2" }
-docify = "0.2.8"
+
 
 [features]
 default = ["std"]
@@ -76,7 +72,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
 	"frame-support/std",
-	"frame/std",
 	"frame-system/std",
 	"pallet-authorship/std",
 	"pallet-bags-list/std",

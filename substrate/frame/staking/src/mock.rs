@@ -95,7 +95,7 @@ frame_support::construct_runtime!(
 		Authorship: pallet_authorship,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		PolkadotInflation: pallet_polkadot_inflation,
+		PolkadotInflation: pallet_inflation,
 		Staking: pallet_staking,
 		Session: pallet_session,
 		Historical: pallet_session::historical,
@@ -301,9 +301,9 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub Recipients: Vec<pallet_polkadot_inflation::InflationActions<Test>> = vec![
+	pub Recipients: Vec<pallet_inflation::InflationStep<Test>> = vec![
 		Box::new(
-			pallet_polkadot_inflation::inflation_actions::polkadot_staking_income::<
+			pallet_inflation::inflation_actions::polkadot_staking_income::<
 				Test,
 				IdealStakingRate,
 				Falloff,
@@ -313,15 +313,15 @@ parameter_types! {
 	];
 }
 
-use crate::inflation::pallet_inflation as pallet_polkadot_inflation;
+use pallet_inflation;
 
-impl pallet_polkadot_inflation::Config for Test {
+impl pallet_inflation::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type UnixTime = Timestamp;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 
-	type InflationSource = pallet_polkadot_inflation::FixedRatioAnnualInflation<Test, MaxInflation>;
+	type InflationSource = pallet_inflation::FixedRatioAnnualInflation<Test, MaxInflation>;
 	type Recipients = Recipients;
 	type InflationOrigin = EnsureRoot<AccountId>;
 }
@@ -343,7 +343,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_before_era_end(era_index: EraIndex) {
 		let new_total_stake = Staking::eras_total_stake(era_index);
 		// Set the right last known staked amount,
-		<Test as pallet_polkadot_inflation::Config>::update_total_stake(new_total_stake, None);
+		<Test as pallet_inflation::Config>::update_total_stake(new_total_stake, None);
 		// Trigger an inflation, which will populate the pot.
 		PolkadotInflation::inflate().expect("inflation should not fail in test setup");
 	}
@@ -636,6 +636,10 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let mut ext = sp_io::TestExternalities::from(storage);
+
+		ext.execute_with(|| {
+			pallet_inflation::LastInflated::<Test>::put(0);
+		});
 
 		if self.initialize_first_session {
 			// We consider all test to start after timestamp is initialized This must be ensured by

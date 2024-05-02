@@ -296,7 +296,6 @@ pub(crate) mod mock;
 mod tests;
 
 pub mod election_size_tracker;
-pub mod inflation;
 pub mod ledger;
 pub mod migrations;
 pub mod slashing;
@@ -925,15 +924,7 @@ where
 		total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
-		let (validator_payout, max_payout) = inflation::compute_total_payout(
-			T::get(),
-			total_staked,
-			total_issuance,
-			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
-			era_duration_millis,
-		);
-		let rest = max_payout.saturating_sub(validator_payout);
-		(validator_payout, rest)
+		todo!()
 	}
 }
 
