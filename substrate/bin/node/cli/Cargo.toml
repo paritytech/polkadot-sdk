@@ -49,25 +49,27 @@ futures = "0.3.30"
 log = { workspace = true, default-features = true }
 rand = "0.8"
 
+polkadot-sdk = { path = "../../../../umbrella", features = ["node"] }
+
 # primitives
-sp-authority-discovery = { path = "../../../primitives/authority-discovery" }
-sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
+#sp-authority-discovery = { path = "../../../primitives/authority-discovery" }
+#sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../primitives/consensus/beefy" }
 grandpa-primitives = { package = "sp-consensus-grandpa", path = "../../../primitives/consensus/grandpa" }
-sp-api = { path = "../../../primitives/api" }
-sp-core = { path = "../../../primitives/core" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-timestamp = { path = "../../../primitives/timestamp" }
-sp-genesis-builder = { path = "../../../primitives/genesis-builder" }
-sp-inherents = { path = "../../../primitives/inherents" }
-sp-keyring = { path = "../../../primitives/keyring" }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-transaction-storage-proof = { path = "../../../primitives/transaction-storage-proof" }
-sp-io = { path = "../../../primitives/io" }
-sp-mixnet = { path = "../../../primitives/mixnet" }
-sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
-sp-statement-store = { path = "../../../primitives/statement-store" }
+#sp-api = { path = "../../../primitives/api" }
+#sp-core = { path = "../../../primitives/core" }
+#sp-runtime = { path = "../../../primitives/runtime" }
+#sp-timestamp = { path = "../../../primitives/timestamp" }
+#sp-genesis-builder = { path = "../../../primitives/genesis-builder" }
+#sp-inherents = { path = "../../../primitives/inherents" }
+#sp-keyring = { path = "../../../primitives/keyring" }
+#sp-keystore = { path = "../../../primitives/keystore" }
+#sp-consensus = { path = "../../../primitives/consensus/common" }
+#sp-transaction-storage-proof = { path = "../../../primitives/transaction-storage-proof" }
+#sp-io = { path = "../../../primitives/io" }
+#sp-mixnet = { path = "../../../primitives/mixnet" }
+#sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
+#sp-statement-store = { path = "../../../primitives/statement-store" }
 
 # client dependencies
 sc-client-api = { path = "../../../client/api" }
@@ -126,9 +128,9 @@ sc-consensus-babe = { path = "../../../client/consensus/babe" }
 sc-consensus-epochs = { path = "../../../client/consensus/epochs" }
 sc-service-test = { path = "../../../client/service/test" }
 sc-block-builder = { path = "../../../client/block-builder" }
-sp-tracing = { path = "../../../primitives/tracing" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
+#sp-tracing = { path = "../../../primitives/tracing" }
+#sp-blockchain = { path = "../../../primitives/blockchain" }
+#sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 futures = "0.3.30"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
@@ -153,16 +155,16 @@ pallet-glutton = { path = "../../../frame/glutton" }
 pallet-sudo = { path = "../../../frame/sudo" }
 pallet-treasury = { path = "../../../frame/treasury" }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment" }
-sp-application-crypto = { path = "../../../primitives/application-crypto" }
+#sp-application-crypto = { path = "../../../primitives/application-crypto" }
 pallet-root-testing = { path = "../../../frame/root-testing" }
-sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
-sp-externalities = { path = "../../../primitives/externalities" }
-sp-keyring = { path = "../../../primitives/keyring" }
-sp-runtime = { path = "../../../primitives/runtime" }
+#sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
+#sp-externalities = { path = "../../../primitives/externalities" }
+#sp-keyring = { path = "../../../primitives/keyring" }
+#sp-runtime = { path = "../../../primitives/runtime" }
 serde_json = { workspace = true, default-features = true }
 scale-info = { version = "2.11.1", features = ["derive", "serde"] }
-sp-trie = { path = "../../../primitives/trie" }
-sp-state-machine = { path = "../../../primitives/state-machine" }
+#sp-trie = { path = "../../../primitives/trie" }
+#sp-state-machine = { path = "../../../primitives/state-machine" }
 
 [build-dependencies]
 clap = { version = "4.5.3", optional = true }
@@ -206,7 +208,7 @@ runtime-benchmarks = [
 	"pallet-treasury/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+	#"sp-runtime/runtime-benchmarks",
 ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
@@ -227,7 +229,7 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
-	"sp-runtime/try-runtime",
+	#"sp-runtime/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
 

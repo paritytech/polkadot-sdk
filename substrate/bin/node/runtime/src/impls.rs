@@ -17,6 +17,17 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
+pub use polkadot_sdk::{
+	frame_support, frame_system,
+
+	pallet_alliance, pallet_asset_conversion, pallet_asset_conversion_ops, pallet_asset_conversion_tx_payment, pallet_asset_rate, pallet_asset_tx_payment, pallet_assets, pallet_authority_discovery, pallet_authorship, pallet_babe, pallet_bags_list, pallet_balances, pallet_beefy, pallet_beefy_mmr, pallet_bounties, pallet_broker, pallet_child_bounties, pallet_collective, pallet_contracts, pallet_conviction_voting, pallet_core_fellowship, pallet_democracy, pallet_election_provider_multi_phase, pallet_elections_phragmen, pallet_example_tasks, pallet_fast_unstake, pallet_glutton, pallet_grandpa, pallet_identity, pallet_im_online, pallet_indices, pallet_insecure_randomness_collective_flip, pallet_lottery, pallet_membership, pallet_message_queue, pallet_migrations, pallet_mixnet, pallet_mmr, pallet_multisig, pallet_nft_fractionalization, pallet_nfts, pallet_nfts_runtime_api, pallet_nis, pallet_nomination_pools, pallet_nomination_pools_runtime_api, pallet_offences, pallet_parameters, pallet_preimage, pallet_proxy, pallet_ranked_collective, pallet_recovery, pallet_referenda, pallet_remark, pallet_root_testing, pallet_safe_mode, pallet_salary, pallet_scheduler, pallet_session, pallet_skip_feeless_payment, pallet_society, pallet_staking, pallet_staking_runtime_api, pallet_state_trie_migration, pallet_statement, pallet_sudo, pallet_timestamp, pallet_tips, pallet_transaction_payment, pallet_transaction_payment_rpc_runtime_api, pallet_transaction_storage, pallet_treasury, pallet_tx_pause, pallet_uniques, pallet_utility, pallet_vesting, pallet_whitelist,
+
+	sp_api, sp_runtime,
+	sp_authority_discovery, sp_block_builder, sp_consensus_babe, sp_consensus_beefy, sp_consensus_grandpa, sp_core, sp_genesis_builder, sp_inherents, sp_io, sp_mixnet, sp_offchain, sp_session, sp_staking, sp_statement_store, sp_std, sp_storage, sp_transaction_pool, sp_version
+
+	// pallet_staking_reward_curve
+};
+
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -113,12 +124,12 @@ impl ProposalProvider<AccountId, Hash, RuntimeCall> for AllianceProposalProvider
 
 #[cfg(test)]
 mod multiplier_tests {
-	use frame_support::{
+	use polkadot_sdk::frame_support::{
 		dispatch::DispatchClass,
 		weights::{Weight, WeightToFee},
 	};
-	use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
-	use sp_runtime::{
+	use polkadot_sdk::pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+	use polkadot_sdk::sp_runtime::{
 		assert_eq_error_rate,
 		traits::{Convert, One, Zero},
 		BuildStorage, FixedPointNumber,
@@ -198,7 +209,7 @@ mod multiplier_tests {
 	where
 		F: Fn() -> (),
 	{
-		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
+		let mut t: polkadot_sdk::sp_io::TestExternalities = polkadot_sdk::frame_system::GenesisConfig::<Runtime>::default()
 			.build_storage()
 			.unwrap()
 			.into();
@@ -308,7 +319,7 @@ mod multiplier_tests {
 			Weight::from_parts(100, 0);
 
 		// Default substrate weight.
-		let tx_weight = frame_support::weights::constants::ExtrinsicBaseWeight::get();
+		let tx_weight = polkadot_sdk::frame_support::weights::constants::ExtrinsicBaseWeight::get();
 
 		run_with_system_weight(block_weight, || {
 			// initial value configured on module
@@ -325,7 +336,7 @@ mod multiplier_tests {
 				fm = next;
 				iterations += 1;
 				let fee =
-					<Runtime as pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(
+					<Runtime as polkadot_sdk::pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(
 						&tx_weight,
 					);
 				let adjusted_fee = fm.saturating_mul_acc_int(fee);

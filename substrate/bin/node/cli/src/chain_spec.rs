@@ -18,6 +18,8 @@
 
 //! Substrate chain configurations.
 
+use polkadot_sdk::*;
+
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use kitchensink_runtime::{

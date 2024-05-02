@@ -20,6 +20,8 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
+use polkadot_sdk::*;
+
 use crate::Cli;
 use codec::Encode;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -835,6 +837,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 
 #[cfg(test)]
 mod tests {
+	use polkadot_sdk::*;
 	use crate::service::{new_full_base, NewFullBase};
 	use codec::Encode;
 	use kitchensink_runtime::{

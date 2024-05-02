@@ -198,7 +198,7 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 		macro_rules! #default_parts_unique_id_v2 {
 			{
 				$caller:tt
-				frame_support = [{ $($frame_support:ident)::* }]
+				frame_support = [{ $($frame_support:tt)* }]
 			} => {
 				$($frame_support)*::__private::tt_return! {
 					$caller
