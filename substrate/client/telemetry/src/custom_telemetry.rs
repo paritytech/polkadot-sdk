@@ -236,17 +236,18 @@ mod external {
 pub struct CustomTelemetryWorker {
 	///
 	pub handle: Option<TelemetryHandle>,
+	///
+	pub sampling_interval_ms: u128,
 }
 
 impl CustomTelemetryWorker {
 	///
 	pub async fn run(self) {
 		const SLEEP_DURATION: Duration = Duration::from_millis(250);
-		const MAX_SLEEP_DURATION: u128 = 60_000;
 
 		let mut start = std::time::Instant::now();
 		loop {
-			if start.elapsed().as_millis() >= MAX_SLEEP_DURATION {
+			if start.elapsed().as_millis() >= self.sampling_interval_ms {
 				let metrics = BlockMetrics::take_metrics().unwrap_or_default();
 				let block_intervals = external::prepare_data(metrics.intervals);
 

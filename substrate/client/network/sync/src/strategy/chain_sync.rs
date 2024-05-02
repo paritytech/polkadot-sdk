@@ -705,7 +705,7 @@ where
 									BlockMetrics::observe_interval_partial(
 										IntervalKind::Sync,
 										header.number().clone().try_into().unwrap_or_default(),
-										std::format!("{}", header.hash()),
+										std::format!("{:?}", header.hash()),
 										timestamp,
 										false,
 									);

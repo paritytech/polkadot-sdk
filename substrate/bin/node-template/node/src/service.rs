@@ -63,7 +63,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	});
 
 	let telemetry_handle = telemetry.as_ref().map(|t| t.handle());
-	let custom_telemetry_worker = CustomTelemetryWorker { handle: telemetry_handle };
+	let custom_telemetry_worker = CustomTelemetryWorker { handle: telemetry_handle, sampling_interval_ms: 6_000u128 };
 	task_manager
 		.spawn_handle()
 		.spawn("custom_telemetry", None, custom_telemetry_worker.run());
