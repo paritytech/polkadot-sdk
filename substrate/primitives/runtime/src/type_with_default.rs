@@ -89,21 +89,30 @@ impl<T, D: Get<T>> Default for TypeWithDefault<T, D> {
 	}
 }
 
-impl<T: From<u32>, D: Get<T>> From<u32> for TypeWithDefault<T, D> {
-	fn from(value: u32) -> Self {
-		Self::new(value.into())
-	}
-}
 impl<T: From<u16>, D: Get<T>> From<u16> for TypeWithDefault<T, D> {
 	fn from(value: u16) -> Self {
 		Self::new(value.into())
 	}
 }
+
+impl<T: From<u32>, D: Get<T>> From<u32> for TypeWithDefault<T, D> {
+	fn from(value: u32) -> Self {
+		Self::new(value.into())
+	}
+}
+
+impl<T: From<u64>, D: Get<T>> From<u64> for TypeWithDefault<T, D> {
+	fn from(value: u64) -> Self {
+		Self::new(value.into())
+	}
+}
+
 impl<T: CheckedNeg, D: Get<T>> CheckedNeg for TypeWithDefault<T, D> {
 	fn checked_neg(&self) -> Option<Self> {
 		self.0.checked_neg().map(Self::new)
 	}
 }
+
 impl<T: CheckedRem, D: Get<T>> CheckedRem for TypeWithDefault<T, D> {
 	fn checked_rem(&self, rhs: &Self) -> Option<Self> {
 		self.0.checked_rem(&rhs.0).map(Self::new)
@@ -203,13 +212,6 @@ impl<T: From<u8>, D: Get<T>> From<u8> for TypeWithDefault<T, D> {
 impl<T: Display, D: Get<T>> Display for TypeWithDefault<T, D> {
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "{}", self.0)
-	}
-}
-
-impl<T: TryFrom<u64>, D: Get<T>> TryFrom<u64> for TypeWithDefault<T, D> {
-	type Error = <T as TryFrom<u64>>::Error;
-	fn try_from(n: u64) -> Result<TypeWithDefault<T, D>, Self::Error> {
-		T::try_from(n).map(Self::new)
 	}
 }
 
