@@ -42,8 +42,7 @@ pub mod prelude {
 	};
 	// Client structs
 	pub use super::{
-		Backend, ExecutorDispatch,  TestClient, TestClientBuilder,
-		WasmExecutionMethod,
+		Backend, ExecutorDispatch, TestClient, TestClientBuilder, WasmExecutionMethod,
 	};
 	// Keyring
 	pub use super::{AccountKeyring, Sr25519Keyring};
