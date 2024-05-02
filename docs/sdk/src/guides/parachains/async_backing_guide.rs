@@ -83,29 +83,49 @@
 //!
 //! ## Phase 1 - Update Parachain Runtime
 //!
-//! This phase involves configuring your parachain’s runtime to make use of async backing system.
+//! This phase involves configuring your parachain’s runtime `/runtime/src/lib.rs` to make use of async backing system.
 //!
-//! 1. Ensure constants for `capacity` and `velocity` are both set to 1 in
-//!    [`/runtime/src/lib.rs`](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/lib.rs).
+//! 1. Establish and ensure constants for `capacity` and `velocity` are both set to 1 in
+//!    `/runtime/src/lib.rs`.
 //!    
-//!    Change capacity to 1 
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", capacity)]
+//!    ```text
+//!    //!/ Maximum number of blocks simultaneously accepted by the Runtime, not yet included into the
+//!    //!/ relay chain.
+//!    pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+//!    //!/ How many parachain blocks are processed by the relay chain per parent. Limits the number of
+//!    //!/ blocks authored per slot.
+//!    ```
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", velocity)]
 //!
-//! 2. Ensure the constant relay chain slot duration measured in milliseconds equal to `6000` in
-//!    [`/runtime/src/lib.rs`](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/lib.rs).
+//! 2. Establish and ensure the constant relay chain slot duration measured in milliseconds equal to `6000` in
+//!    `/runtime/src/lib.rs`.
 //!
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", relay_slot_duration)]
 //!
 //! 3. Establish constants `MILLISECS_PER_BLOCK` and `SLOT_DURATION` if not already present in
-//!    [`/runtime/src/lib.rs`](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/lib.rs).
+//!    `/runtime/src/lib.rs`.
 //!
-//! Change block time to 12000 
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", block_time)]
+//!    ```text
+//!    //!/ Change this to adjust the block time.
+//!    pub const MILLISECS_PER_BLOCK: u64 = 12000;
+//!    ```
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", slot_duration)]
 //!
 //!
-//! 4. Configure `pallet_aura` in [`/runtime/src/configs/mod.rs`](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/configs/mod.rs).
+//! 4. Configure `cumulus_pallet_parachain_system` in `runtime/src/lib.rs`
+//!
+//!    - Set the parachain system property `CheckAssociatedRelayNumber` to
+//!      `RelayNumberMonotonicallyIncreases`
+//!
+#![doc = docify::embed!("../../templates/parachain/runtime/src/configs/mod.rs", cumulus_parachain_config)]
+//!
+//!    - Define a `FixedVelocityConsensusHook` using our capacity, velocity, and relay slot duration
+//!      constants. Use this to set the parachain system `ConsensusHook` property.
+//!
+#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", consensus_hook)]
+//!
+//!
+//! 5. Configure `pallet_aura` in your `runtime/src/lib.rs` or in [`/runtime/src/configs/mod.rs`](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/configs/mod.rs).
 #![doc = docify::embed!("../../templates/parachain/runtime/src/configs/mod.rs", aura_config)]
 //!
 //!    - Set `AllowMultipleBlocksPerSlot` to `false` (don't worry, we will set it to `true` when we
@@ -113,6 +133,51 @@
 //!    - Ensure `pallet_aura::SlotDuration` is using the constant `SLOT_DURATION`
 //!
 //!
+//! 6. Update `aura_api::SlotDuration()` to match the constant `SLOT_DURATION`
+//!
+//!    ```text
+//!    impl_runtime_apis! {
+//!    	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
+//!    		fn slot_duration() -> sp_consensus_aura::SlotDuration {
+//!             
+//!    			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+//!    		}
+//!
+//!    		fn authorities() -> Vec<AuraId> {
+//!    			Aura::authorities().into_inner()
+//!    		}
+//!    	}
+//!    ```
+//!
+//! 7. Implement the `AuraUnincludedSegmentApi`, which allows the collator client to query its runtime
+//!    to determine whether it should author a block.
+//!
+//!    - Add the dependency `cumulus-primitives-aura` to the `runtime/Cargo.toml` file for your runtime
+//!
+//! ```text
+//! cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
+//! cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+//! cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
+//! cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
+//! cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"] }
+//! cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
+//! ```
+//!
+//! - In the same file, add `"cumulus-primitives-aura/std",` to the `std` feature.
+//!
+//! - Inside the `impl_runtime_apis!` block for your runtime, implement the `AuraUnincludedSegmentApi`
+//!   as shown below.
+//!
+//! ```text
+//! impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
+//! 	fn can_build_upon(
+//! 		included_hash: <Block as BlockT>::Hash,
+//! 		slot: cumulus_primitives_aura::Slot,
+//! 	) -> bool {
+//! 		ConsensusHook::can_build_upon(included_hash, slot)
+//! 	}
+//! }
+//! ```
 //! **Note:** With a capacity of 1 we have an effective velocity of ½ even when velocity is configured
 //! to some larger value. This is because capacity will be filled after a single block is produced and
 //! will only be freed up after that block is included on the relay chain, which takes 2 relay blocks to
@@ -123,14 +188,9 @@
 //!
 //! This phase consists of plugging in the new lookahead collator node.
 //!
-//! 1. Import `cumulus_primitives_core::ValidationCode` to `node/src/service.rs`
+//! 1. Import `cumulus_primitives_core::ValidationCode` to `node/src/service.rs`.
 //!
-//! ```text
-//! use cumulus_primitives_core::{
-//! 	relay_chain::{CollatorPair, ValidationCode},
-//! 	ParaId,
-//! };
-//! ```
+#![doc = docify::embed!("../../templates/parachain/node/src/service.rs", cumulus_primitives)]
 //!
 //! 2. In `node/src/service.rs`, modify `sc_service::spawn_tasks` to use a clone of `Backend` rather
 //!    than the original
@@ -177,9 +237,7 @@
 //!
 //! 4. In `node/src/service.rs` import the lookahead collator rather than the basic collator
 //!
-//! ```text
-//! use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
-//! ```
+#![doc = docify::embed!("../../templates/parachain/node/src/service.rs", lookahead_collator)]
 //!
 //! 5. In `start_consensus()` replace the `BasicAuraParams` struct with `AuraParams`
 //!    - Change the struct type from `BasicAuraParams` to `AuraParams`
@@ -241,28 +299,20 @@
 //!
 //! 1. Configure `pallet_aura`, setting `AllowMultipleBlocksPerSlot` to true in `runtime/src/lib.rs`.
 //!
-//! ```text
-//! impl pallet_aura::Config for Runtime {
-//!     type AuthorityId = AuraId;
-//!     type DisabledValidators = ();
-//!     type MaxAuthorities = ConstU32<100_000>;
-//!     
-//!     type AllowMultipleBlocksPerSlot = ConstBool<true>;
-//!     #[cfg(feature = "experimental")]
-//!     type SlotDuration = ConstU64<SLOT_DURATION>;
-//! }
-//! ```
+#![doc = docify::embed!("../../templates/parachain/runtime/src/configs/mod.rs", aura_config)]
 //!
 //! 1. Increase the maximum `UNINCLUDED_SEGMENT_CAPACITY` in `runtime/src/lib.rs`.
 //!
 //! ```text
 //! //!/ Maximum number of blocks simultaneously accepted by the Runtime, not yet included into the
 //! //!/ relay chain.
-//! pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
+//! ```
+#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", capacity)]
+//! ```text
 //! //!/ How many parachain blocks are processed by the relay chain per parent. Limits the number of
 //! //!/ blocks authored per slot.
-//! pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 //! ```
+#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", velocity)]
 //!
 //! 3. Decrease `MILLISECS_PER_BLOCK` to 6000.
 //!
@@ -277,18 +327,15 @@
 //!   //!/ up by `pallet_aura` to implement `fn slot_duration()`.
 //!   //!/
 //!   //!/ Change this to adjust the block time.
-//!   pub const MILLISECS_PER_BLOCK: u64 = 6000;
 //!   ```
+#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", block_time)]
 //!
 //! 4. Update `MAXIMUM_BLOCK_WEIGHT` to reflect the increased time available for block production.
 //!
 //! ```text
 //! //!/ We allow for 2 seconds of compute with a 6 second average block.
-//! pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-//!     WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
-//!     cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
-//! );
 //! ```
+#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", max_block_weight)]
 //!
 //! 5. Add a feature flagged alternative for `MinimumPeriod` in `pallet_timestamp`. The type should be
 //!    `ConstU64<0>` with the feature flag experimental, and `ConstU64<{SLOT_DURATION / 2}>` without.
@@ -316,3 +363,6 @@
 //! Relay block number is kept track of by each parachain in `pallet-parachain-system` with the storage
 //! value `LastRelayChainBlockNumber`. This value can be obtained and used wherever timing based on
 //! block number is needed.
+
+#![deny(rustdoc::broken_intra_doc_links)]
+#![deny(rustdoc::private_intra_doc_links)]

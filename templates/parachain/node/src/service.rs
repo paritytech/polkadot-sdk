@@ -12,6 +12,7 @@ use parachain_template_runtime::{
 
 // Cumulus Imports
 use cumulus_client_collator::service::CollatorService;
+#[docify::export(lookahead_collator)]
 use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_consensus_proposer::Proposer;
@@ -20,6 +21,7 @@ use cumulus_client_service::{
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainHostFunctions,
 	StartRelayChainTasksParams,
 };
+#[docify::export(cumulus_primitives)]
 use cumulus_primitives_core::{
 	relay_chain::{CollatorPair, ValidationCode},
 	ParaId,
@@ -160,6 +162,7 @@ fn build_import_queue(
 	)
 }
 
+
 fn start_consensus(
 	client: Arc<ParachainClient>,
 	backend: Arc<ParachainBackend>,
@@ -194,6 +197,7 @@ fn start_consensus(
 		client.clone(),
 	);
 
+	#[docify::export(aura_params)]
 	let params = AuraParams {
 		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 		block_import,
@@ -317,6 +321,7 @@ pub async fn start_parachain_node(
 		})
 	};
 
+	#[docify::export(spawn_tasks)]
 	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		rpc_builder,
 		client: client.clone(),
