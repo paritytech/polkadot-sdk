@@ -236,7 +236,7 @@ pub(crate) async fn import_single_block_metered_v2<B: BlockT, V: Verifier<B>>(
 	verifier: &mut V,
 	metrics: Option<Metrics>,
 ) -> BlockImportResult<B> {
-	let block_hash = std::format!("{}", block.hash);
+	let block_hash = std::format!("{:?}", block.hash);
 
 	// This is ugly because the type of `h.number()` is not a normal primitive but
 	// a trait. That's why we are forced to used try_into().

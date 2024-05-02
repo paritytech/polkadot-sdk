@@ -456,7 +456,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		let proposal_interval = IntervalWithBlockInformation {
 			kind: IntervalKind::Proposal,
 			block_number: header_num.try_into().unwrap_or_default(),
-			block_hash: std::format!("{}", post_header_hash),
+			block_hash: std::format!("{:?}", post_header_hash),
 			start_timestamp: start_proposal_timestamp,
 			end_timestamp: end_proposal_timestamp,
 		};
