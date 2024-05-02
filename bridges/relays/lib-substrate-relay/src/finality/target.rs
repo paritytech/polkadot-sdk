@@ -107,13 +107,24 @@ impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<
 	async fn free_source_headers_interval(
 		&self,
 	) -> Result<Option<BlockNumberOf<P::SourceChain>>, Self::Error> {
-		self.client
+		Ok(self
+			.client
 			.typed_state_call(
 				P::SourceChain::FREE_HEADERS_INTERVAL_METHOD.into(),
 				(),
 				Some(self.client.best_header().await?.hash()),
 			)
 			.await
+			.unwrap_or_else(|e| {
+				log::info!(
+					target: "bridge",
+					"Call of {} at {} has failed with an error: {:?}. Treating as `None`",
+					P::SourceChain::FREE_HEADERS_INTERVAL_METHOD,
+					P::TargetChain::NAME,
+					e,
+				);
+				None
+			}))
 	}
 
 	async fn submit_finality_proof(
