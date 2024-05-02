@@ -173,6 +173,10 @@ pub fn expand_runtime_metadata(
 										<#runtime as #system_path::Config>::AccountId
 									>(),
 							),
+							(
+								"Address".into(),
+								address_ty,
+							),
 							#maybe_asset_id
 						]
 						.into_iter()
