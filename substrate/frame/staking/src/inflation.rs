@@ -15,12 +15,60 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Staking inflation pallet.
+//! > Made with *Polkadot-Sdk*
 //!
-//! This pallet provides the means for a chain to configure its inflation logic in a simple
-//! script-like manner.
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/inflation) -
+//! [![polkadot]](https://polkadot.network)
 //!
-//! This pallet processes inflation in the following steps:
+//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//!
+//! # Inflation Pallet
+//!
+//! A pallet designed to handle varying types of inflation systems.
+//!
+//! While designed to be used in the Polkadot relay chain, it can be used in other contexts as well.
+//!
+//! ## Overview
+//!
+//! The pallet's logical flow is as follows:
+//!
+//! * At arbitrary points in time, this pallet is instructed to inflate. At the moment, this is
+//!   exposed as a standalone pallet function [`Pallet::inflate`] and a dispatchable with custom
+//!   origin, [`Call::force_inflate`].
+//! * To determine the amount that the pallet should consider for inflating,
+//!   [`Config::InflationSource`] is used. Two example implementations are [`FixedAnnualInflation`]
+//!   and [`FixedRatioAnnualInflation`]. The latter is what Polkadot relay chain uses today. This
+//!   function yields an amount, called `i` for example.
+//! * Then, the pallet allows the runtime parameterize what should happen with `i` through a
+//!   sequence of actions. The set of actions provided at the moment are fairly simple, see
+//!   [`InflationAction`]. The `action` has access to the maximum amount that it can consume.
+//!
+//! ### Example
+//!
+//! ## Implementation Notes
+//!
+//! Given that most inflation schemes work on an annual basis, this pallet always keeps track of
+//! when was the last time that it has inflated, and provides this timestamp, next to the current
+//! timestamp, to the inflation API.
+//!
+//! In an somewhat of an opinionated design, but with a similar intent, given that some inflation
+//! systems inflate as a function of the staking rate, this pallet also keeps track of a single
+//! value as the amount of tokens at stake, and provides this value to some APIs as well. This
+//! amount can be updated by any other system in the runtime via [`Config::update_total_stake`].
+//!
+//! The latter is a sub-optimal design, but allows us to easily use this pallet in Polkadot. A user
+//! that wishes to not use this value can entirely ignore it, and the only extra cost is one storage
+//! lookup per inflation. This can easily be improved by moving this value to the runtime, but for
+//! now it is kept here.
+//!
+//! Finally, this pallet also provides a means to use an alternative function as the definition of
+//! total issuance, in case part of the issuance need not be counted towards inflation. Similarly,
+//! this is intended to expand the usage of this pallet to Polkadot/Kusama, and is of zero extra
+//! cost to users who wish to simply use [`Config::Currency::total_issuance`].
+
+/// Re-export all of the pallet stuff.
+pub use pallet_inflation::*;
 
 #[frame_support::pallet]
 pub mod pallet_inflation {
@@ -38,8 +86,57 @@ pub mod pallet_inflation {
 	// Milliseconds per year for the Julian year (365.25 days).
 	pub const MILLISECONDS_PER_YEAR: u64 = 1000 * 60 * 60 * 24 * 365_25 / 100;
 
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
+	/// A descriptor of how much we should inflate.
+	///
+	/// This pallet always keeps track of the last instance of time that at which point inflation
+	/// happened, and it provides it to this trait as input.
+	// TODO: not happy with the name.
+	pub trait InflationSource<Balance> {
+		/// Pay
+		fn inflation_source(current_issuance: Balance, last_inflated: u64, now: u64) -> Balance;
+	}
+
+	/// Fixed percentage of the issuance inflation per yer, as specified by [`Ratio`].
+	pub struct FixedRatioAnnualInflation<T, Ratio>(sp_std::marker::PhantomData<(T, Ratio)>);
+	impl<T: Config, Ratio: Get<Perquintill>> InflationSource<BalanceOf<T>>
+		for FixedRatioAnnualInflation<T, Ratio>
+	{
+		fn inflation_source(
+			current_issuance: BalanceOf<T>,
+			last_inflated: u64,
+			now: u64,
+		) -> T::CurrencyBalance {
+			let since_last_inflation = now.saturating_sub(last_inflated);
+
+			// what percentage of a year has passed since last inflation?
+			// TODO: if this function is called less than once per yer, it will not be accurate. But
+			// I suppose that is fine?
+			let annual_proportion =
+				Perquintill::from_rational(since_last_inflation, MILLISECONDS_PER_YEAR);
+
+			let max_annual_inflation = Ratio::get();
+			annual_proportion * max_annual_inflation * current_issuance
+		}
+	}
+
+	/// Fixed inflation per yer, as specified by [`Amount`].
+	pub struct FixedAnnualInflation<T, Amount>(sp_std::marker::PhantomData<(T, Amount)>);
+	impl<T: Config, Amount: Get<BalanceOf<T>>> InflationSource<BalanceOf<T>>
+		for FixedAnnualInflation<T, Amount>
+	{
+		fn inflation_source(
+			_current_issuance: BalanceOf<T>,
+			last_inflated: u64,
+			now: u64,
+		) -> T::CurrencyBalance {
+			let since_last_inflation = now.saturating_sub(last_inflated);
+
+			// what percentage of a year has passed since last inflation?
+			let annual_proportion =
+				Perquintill::from_rational(since_last_inflation, MILLISECONDS_PER_YEAR);
+			annual_proportion * Amount::get()
+		}
+	}
 
 	/// The payout action to be taken in each inflation step.
 	#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
@@ -55,30 +152,6 @@ pub mod pallet_inflation {
 		Burn,
 	}
 
-	/// A descriptor of what needs to be done with the inflation amount.
-	pub trait InflationFnTrait<AccountId, Balance>: Sized + Clone {
-		/// Calculates the next payout action that needs to be made as a part of the inflation
-		/// recipients.
-		///
-		/// The inputs are:
-		///
-		/// * `max_inflation`: the total amount that is available at this step to be inflated.
-		/// * `staked_ratio`: the proportion of the tokens that are staked from the perspective of
-		///   this pallet.
-		///
-		/// Return types are:
-		///
-		/// * `balance`: a subset of the input balance that should be paid out.
-		/// * [`InflationPayout`]: an action to be made.
-		fn next_payout(
-			max_inflation: Balance,
-			staked_ratio: Perquintill,
-		) -> (Balance, PayoutAction<AccountId>);
-	}
-
-	pub type InflationFnOf<T> =
-		Box<dyn InflationFnTrait<<T as frame_system::Config>::AccountId, BalanceOf<T>>>;
-
 	/// A function that calculates the next payout that needs to be made as a part of the inflation
 	/// recipients.
 	///
@@ -90,60 +163,56 @@ pub mod pallet_inflation {
 	///
 	/// Return types are:
 	///
-	/// * `balance`: a subset of the input balance that should be paid out.
+	/// * `balance`: a subset of the input balance that should be paid out. This amount should
+	///   always be less than or equal to the input balance.
 	/// * [`InflationPayout`]: an action to be made.
-	pub type InflationFn<T> = Box<
+	pub type InflationActions<T> = Box<
 		dyn Fn(
 			BalanceOf<T>,
 			Perquintill,
 		) -> (BalanceOf<T>, PayoutAction<<T as frame_system::Config>::AccountId>),
 	>;
 
-	#[pallet::config(with_default)]
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Runtime event type.
-		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Something that provides a notion of the unix-time.
-		#[pallet::no_default]
 		type UnixTime: frame_support::traits::UnixTime;
 
 		/// The currency type of the runtime.
-		#[pallet::no_default]
 		type Currency: fung::Mutate<Self::AccountId>
 			+ fung::Inspect<Self::AccountId, Balance = Self::CurrencyBalance>;
 
 		/// Same as the balance type of [`Config::Currency`], only provided to further bound it to
 		/// `From<u64>`.
-		#[pallet::no_default]
 		type CurrencyBalance: frame_support::traits::tokens::Balance + From<u64>;
 
-		/// Maximum fixed amount by which we inflate, before passing it down to [`Recipients`]
-		type MaxInflation: Get<Perquintill>;
-
 		/// The recipients of the inflation, as a sequence of items described by [`InflationFn`]
-		#[pallet::no_default]
-		type Recipients: Get<Vec<InflationFn<Self>>>;
+		type Recipients: Get<Vec<InflationActions<Self>>>;
 
 		/// An origin that can trigger an inflation at any point in time via
 		/// [`Call::force_inflate`].
 		type InflationOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Customize how this pallet reads the total issuance, if need be.
+		/// The main input function that determines how this pallet determines the inflation amount.
+		type InflationSource: InflationSource<BalanceOf<Self>>;
+
+		/// Customize how this pallet reads the total issuance, if need be. If not, the sensible
+		/// value of `Currency::total_issuance()` is used.
 		///
 		/// NOTE: This is mainly here to cater for Nis in Kusama.
-		#[pallet::no_default]
 		fn adjusted_total_issuance() -> BalanceOf<Self> {
 			Self::Currency::total_issuance()
 		}
 
-		/// A simple and possibly short terms means for updating the total stake, esp. so long as
-		/// this pallet is in the same runtime as with `pallet-staking`.
-		///
-		/// Once multi-chain, we should expect an extrinsic, gated by the origin of the staking
-		/// parachain that can update this value. This can be `Transact`-ed via XCM.
-		#[pallet::no_default] // TODO @gupnik this should be taken care of better? the fn already has a default.
+		/// A simple and possibly short terms means for updating the total stake.
+		// Once multi-chain, we should expect an extrinsic, gated by the origin of the staking
+		// parachain that can update this value. This can be `Transact`-ed via XCM.
 		fn update_total_stake(stake: BalanceOf<Self>, valid_until: Option<BlockNumberFor<Self>>) {
 			LastKnownStakedStorage::<Self>::put(LastKnownStake { stake, valid_until });
 		}
@@ -223,19 +292,10 @@ pub mod pallet_inflation {
 		pub fn inflate() -> DispatchResult {
 			let last_inflated = LastInflated::<T>::get().ok_or(Error::<T>::UnknownLastInflated)?;
 			let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
-			let since_last_inflation = now.saturating_sub(last_inflated);
 			let adjusted_total_issuance = T::adjusted_total_issuance();
 
-			// what percentage of a year has passed since last inflation?
-			let annual_proportion =
-				Perquintill::from_rational(since_last_inflation, MILLISECONDS_PER_YEAR);
-
-			// staking rate.
-			let total_staked = Self::last_known_stake().ok_or(Error::<T>::UnknownLastStake)?;
-			let staked_ratio = Perquintill::from_rational(total_staked, adjusted_total_issuance);
-
-			let max_annual_inflation = T::MaxInflation::get();
-			let mut max_payout = annual_proportion * max_annual_inflation * adjusted_total_issuance;
+			let mut max_payout =
+				T::InflationSource::inflation_source(adjusted_total_issuance, last_inflated, now);
 
 			if max_payout.is_zero() {
 				Self::deposit_event(Event::PossiblyInflated { amount: Zero::zero() });
@@ -243,11 +303,15 @@ pub mod pallet_inflation {
 				return Ok(());
 			}
 
+			// staking rate.
+			let total_staked = Self::last_known_stake().ok_or(Error::<T>::UnknownLastStake)?;
+			let staked_ratio = Perquintill::from_rational(total_staked, adjusted_total_issuance);
+
 			crate::log!(
 				info,
 				"inflating at {:?}, annual proportion {:?}, issuance {:?}, last inflated {:?}, max inflation {:?}, distributing among {} recipients",
 				now,
-				annual_proportion,
+				Perquintill::from_rational(now.saturating_sub(last_inflated), MILLISECONDS_PER_YEAR),
 				adjusted_total_issuance,
 				last_inflated,
 				max_payout,
@@ -357,11 +421,11 @@ pub mod pallet_inflation {
 
 #[cfg(test)]
 mod mock {
-	use self::pallet_inflation::{LastInflated, LastKnownStake};
+	use self::pallet_inflation::{FixedRatioAnnualInflation, LastInflated, LastKnownStake};
 	use super::*;
 	use core::{borrow::BorrowMut, cell::RefCell};
 	use frame::{arithmetic::*, prelude::*, testing_prelude::*, traits::fungible::Mutate};
-	use pallet_inflation::{inflation_fns, InflationFn, PayoutAction, MILLISECONDS_PER_YEAR};
+	use pallet_inflation::{inflation_fns, InflationActions, PayoutAction, MILLISECONDS_PER_YEAR};
 	use std::sync::Arc;
 
 	construct_runtime!(
@@ -402,7 +466,7 @@ mod mock {
 	}
 
 	thread_local! {
-		static RECIPIENTS: RefCell<Vec<InflationFn<Runtime>>> = RefCell::new(vec![
+		static RECIPIENTS: RefCell<Vec<InflationActions<Runtime>>> = RefCell::new(vec![
 			Box::new(inflation_fns::burn_ratio::<Runtime, BurnRatio>),
 			Box::new(inflation_fns::pay::<Runtime, OneRecipient, OneRatio>),
 			Box::new(inflation_fns::split_equal::<Runtime, DividedRecipients, DividedRatio>),
@@ -410,13 +474,13 @@ mod mock {
 	}
 
 	pub struct Recipients;
-	impl Get<Vec<InflationFn<Runtime>>> for Recipients {
-		fn get() -> Vec<InflationFn<Runtime>> {
+	impl Get<Vec<InflationActions<Runtime>>> for Recipients {
+		fn get() -> Vec<InflationActions<Runtime>> {
 			RECIPIENTS.with(|v| {
 				let v_borrowed = v.borrow();
 				let mut cloned = Vec::with_capacity(v_borrowed.len());
 				for fn_box in &*v_borrowed {
-					let fn_clone: InflationFn<Runtime> = unsafe { core::ptr::read(fn_box) };
+					let fn_clone: InflationActions<Runtime> = unsafe { core::ptr::read(fn_box) };
 					cloned.push(fn_clone);
 				}
 				cloned
@@ -425,7 +489,7 @@ mod mock {
 	}
 
 	impl Recipients {
-		pub(crate) fn add(new_fn: InflationFn<Runtime>) {
+		pub(crate) fn add(new_fn: InflationActions<Runtime>) {
 			RECIPIENTS.with(|v| v.borrow_mut().push(new_fn));
 		}
 		pub(crate) fn clear() {
@@ -441,7 +505,7 @@ mod mock {
 		type Recipients = Recipients;
 		type Currency = Balances;
 		type CurrencyBalance = Balance;
-		type MaxInflation = MaxInflation;
+		type InflationSource = FixedRatioAnnualInflation<Runtime, MaxInflation>;
 		type UnixTime = Timestamp;
 		type InflationOrigin = EnsureRoot<AccountId>;
 	}
@@ -679,12 +743,6 @@ mod tests {
 			});
 			// what matters is that the final total issuance is the same in both cases.
 		})
-	}
-
-	mod ideas {
-		use super::*;
-
-		fn capped_inflation
 	}
 }
 

@@ -301,7 +301,7 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub Recipients: Vec<pallet_polkadot_inflation::InflationFn<Test>> = vec![
+	pub Recipients: Vec<pallet_polkadot_inflation::InflationActions<Test>> = vec![
 		Box::new(
 			pallet_polkadot_inflation::inflation_fns::polkadot_staking_income::<
 				Test,
@@ -315,14 +315,13 @@ parameter_types! {
 
 use crate::inflation::pallet_inflation as pallet_polkadot_inflation;
 
-// #[derive_impl(crate::inflation::polkadot_inflation::config_preludes::TestDefaultConfig)]
 impl pallet_polkadot_inflation::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type UnixTime = Timestamp;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 
-	type MaxInflation = MaxInflation;
+	type InflationSource = pallet_polkadot_inflation::FixedRatioAnnualInflation<Test, MaxInflation>;
 	type Recipients = Recipients;
 	type InflationOrigin = EnsureRoot<AccountId>;
 }
