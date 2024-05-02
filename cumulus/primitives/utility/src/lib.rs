@@ -69,6 +69,9 @@ where
 			let price = P::price_for_delivery((), &xcm);
 			let versioned_xcm =
 				W::wrap_version(&d, xcm).map_err(|()| SendError::DestinationUnsupported)?;
+			versioned_xcm
+				.validate_xcm_nesting()
+				.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 			let data = versioned_xcm.encode();
 
 			Ok((data, price))
@@ -526,6 +529,8 @@ impl<
 mod test_xcm_router {
 	use super::*;
 	use cumulus_primitives_core::UpwardMessage;
+	use frame_support::assert_ok;
+	use xcm::MAX_XCM_DECODE_DEPTH;
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)
 	struct OkFixedXcmHashWithAssertingRequiredInputsSender;
@@ -619,6 +624,29 @@ mod test_xcm_router {
 				ParentAsUmp<OtherErrorUpwardMessageSender, (), ()>,
 				OkFixedXcmHashWithAssertingRequiredInputsSender
 			)>(dest.into(), message)
+		);
+	}
+
+	#[test]
+	fn parent_as_ump_validate_nested_xcm_works() {
+		let dest = Parent;
+
+		type Router = ParentAsUmp<(), (), ()>;
+
+		// Message that is not too deeply nested:
+		let mut good = Xcm(vec![ClearOrigin]);
+		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
+			good = Xcm(vec![SetAppendix(good)]);
+		}
+
+		// Check that the good message is validated:
+		assert_ok!(<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(good.clone())));
+
+		// Nesting the message one more time should reject it:
+		let bad = Xcm(vec![SetAppendix(good)]);
+		assert_eq!(
+			Err(SendError::ExceedsMaxMessageSize),
+			<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
 		);
 	}
 }
