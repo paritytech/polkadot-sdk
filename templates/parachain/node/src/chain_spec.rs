@@ -37,23 +37,6 @@ impl Extensions {
 	}
 }
 
-type AccountPublic = <Signature as Verify>::Signer;
-
-/// Generate collator keys from seed.
-///
-/// This function's return type must always match the session keys of the chain in tuple format.
-pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
-	get_from_seed::<AuraId>(seed)
-}
-
-/// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
-
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
@@ -73,7 +56,7 @@ pub fn development_config() -> ChainSpec {
 		Extensions {
 			relay_chain: "rococo-local".into(),
 			// You MUST set this to the correct network!
-			para_id: 1000,
+			para_id: 2000,
 		},
 	)
 	.with_name("Development")
@@ -83,29 +66,29 @@ pub fn development_config() -> ChainSpec {
 		// initial collators.
 		vec![
 			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed("Alice"),
+				utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+				utils::get_collator_keys_from_seed("Alice"),
 			),
 			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_collator_keys_from_seed("Bob"),
+				utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
+				utils::get_collator_keys_from_seed("Bob"),
 			),
 		],
 		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Dave"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Eve"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
 		1000.into(),
 	))
 	.build()
@@ -124,7 +107,7 @@ pub fn local_testnet_config() -> ChainSpec {
 		Extensions {
 			relay_chain: "rococo-local".into(),
 			// You MUST set this to the correct network!
-			para_id: 1000,
+			para_id: 2000,
 		},
 	)
 	.with_name("Local Testnet")
@@ -134,29 +117,29 @@ pub fn local_testnet_config() -> ChainSpec {
 		// initial collators.
 		vec![
 			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed("Alice"),
+				utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+				utils::get_collator_keys_from_seed("Alice"),
 			),
 			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_collator_keys_from_seed("Bob"),
+				utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
+				utils::get_collator_keys_from_seed("Bob"),
 			),
 		],
 		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Dave"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Eve"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
 		1000.into(),
 	))
 	.with_protocol_id("template-local")
@@ -226,7 +209,7 @@ mod staking_genesis {
 
 		for i in 0..validators {
 			let stash =
-				get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "validator"));
+				utils::get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "validator"));
 			let stake = 1u128 << 20;
 			targets.push(stash.clone());
 
@@ -235,7 +218,7 @@ mod staking_genesis {
 
 		for i in 0..nominators {
 			let stash =
-				get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "nominator"));
+				utils::get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "nominator"));
 			let stake = 1u128 << 20;
 			let nominations = utils::select_targets(edges, targets.clone());
 
@@ -250,11 +233,30 @@ mod utils {
 	use super::*;
 	use rand::prelude::*;
 
+	type AccountPublic = <Signature as Verify>::Signer;
+
+	/// Generate collator keys from seed.
+	///
+	/// This function's return type must always match the session keys of the chain in tuple format.
+	pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
+		get_from_seed::<AuraId>(seed)
+	}
+
+	/// Helper function to generate an account ID from seed
+	pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+	where
+		AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+	{
+		AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	}
+
+	/// Seed generator from ID and domain.
 	pub(crate) fn as_seed(id: u32, domain: &str) -> String {
 		let seed = format!("{}-{}", domain, id);
 		seed
 	}
 
+	/// Selects `n` random targets from a list of accounts.
 	pub(crate) fn select_targets(n: usize, validators: Vec<AccountId>) -> Vec<AccountId> {
 		validators
 			.choose_multiple(&mut rand::thread_rng(), n)
