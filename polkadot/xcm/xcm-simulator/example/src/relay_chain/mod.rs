@@ -16,31 +16,29 @@
 
 //! Relay chain runtime mock.
 
+mod xcm_config;
+pub use xcm_config::*;
+
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, Everything, Nothing, ProcessMessage, ProcessMessageError},
+	traits::{
+		AsEnsureOriginWithArg, ConstU128, Everything, Nothing, ProcessMessage, ProcessMessageError,
+	},
 	weights::{Weight, WeightMeter},
 };
 
 use frame_system::EnsureRoot;
-use sp_core::{ConstU32, H256};
+use sp_core::ConstU32;
 use sp_runtime::{traits::IdentityLookup, AccountId32};
 
-use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	configuration,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	origin, shared,
 };
 use xcm::latest::prelude::*;
-use xcm_builder::{
-	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex,
-	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	ConvertedConcreteId, EnsureDecodableXcm, FixedRateOfFungible, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
-};
-use xcm_executor::{traits::JustTry, Config, XcmExecutor};
+use xcm_builder::{IsConcrete, SignedToAccountId32};
+use xcm_executor::XcmExecutor;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -51,51 +49,17 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
-parameter_types! {
-	pub ExistentialDeposit: Balance = 1;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
-}
-
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = MaxLocks;
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
+	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 impl pallet_uniques::Config for Runtime {
@@ -127,83 +91,8 @@ impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
 }
 
-parameter_types! {
-	pub const TokenLocation: Location = Here.into_location();
-	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorLocation = RelayNetwork::get().into();
-	pub UnitWeightCost: u64 = 1_000;
-}
-
-pub type LocationToAccountId = (
-	ChildParachainConvertsVia<ParaId, AccountId>,
-	AccountId32Aliases<RelayNetwork, AccountId>,
-	Account32Hash<(), AccountId>,
-);
-
-pub type LocalAssetTransactor = (
-	FungibleAdapter<Balances, IsConcrete<TokenLocation>, LocationToAccountId, AccountId, ()>,
-	NonFungiblesAdapter<
-		Uniques,
-		ConvertedConcreteId<u32, u32, AsPrefixedGeneralIndex<(), u32, JustTry>, JustTry>,
-		LocationToAccountId,
-		AccountId,
-		NoChecking,
-		(),
-	>,
-);
-
-type LocalOriginConverter = (
-	SovereignSignedViaLocation<LocationToAccountId, RuntimeOrigin>,
-	ChildParachainAsNative<origin::Origin, RuntimeOrigin>,
-	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
-	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
-);
-
-parameter_types! {
-	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub TokensPerSecondPerByte: (AssetId, u128, u128) =
-		(AssetId(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
-	pub const MaxInstructions: u32 = 100;
-	pub const MaxAssetsIntoHolding: u32 = 64;
-}
-
-pub type XcmRouter = EnsureDecodableXcm<super::RelayChainXcmRouter>;
-pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
-
-pub struct XcmConfig;
-impl Config for XcmConfig {
-	type RuntimeCall = RuntimeCall;
-	type XcmSender = XcmRouter;
-	type AssetTransactor = LocalAssetTransactor;
-	type OriginConverter = LocalOriginConverter;
-	type IsReserve = ();
-	type IsTeleporter = ();
-	type UniversalLocation = UniversalLocation;
-	type Barrier = Barrier;
-	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
-	type Trader = FixedRateOfFungible<TokensPerSecondPerByte, ()>;
-	type ResponseHandler = ();
-	type AssetTrap = ();
-	type AssetLocker = XcmPallet;
-	type AssetExchanger = ();
-	type AssetClaims = ();
-	type SubscriptionService = ();
-	type PalletInstancesInfo = ();
-	type FeeManager = ();
-	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type MessageExporter = ();
-	type UniversalAliases = Nothing;
-	type CallDispatcher = RuntimeCall;
-	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
-	type TransactionalProcessor = FrameTransactionalProcessor;
-	type HrmpNewChannelOpenRequestHandler = ();
-	type HrmpChannelAcceptedHandler = ();
-	type HrmpChannelClosingHandler = ();
-}
-
-pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
+pub type LocalOriginToLocation =
+	SignedToAccountId32<RuntimeOrigin, AccountId, constants::RelayNetwork>;
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -215,16 +104,16 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
-	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
-	type UniversalLocation = UniversalLocation;
+	type Weigher = weigher::Weigher;
+	type UniversalLocation = constants::UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = Balances;
-	type CurrencyMatcher = IsConcrete<TokenLocation>;
+	type CurrencyMatcher = IsConcrete<constants::TokenLocation>;
 	type TrustedLockers = ();
-	type SovereignAccountOf = LocationToAccountId;
+	type SovereignAccountOf = location_converter::LocationConverter;
 	type MaxLockers = ConstU32<8>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
