@@ -413,6 +413,18 @@ fn handle_child_process(
 
 	// Conditional variable to notify us when a thread is done.
 	let condvar = thread::get_condvar();
+
+	let execute_thread = thread::spawn_worker_thread_with_stack_size(
+		"execute thread",
+		move || validate_using_artifact(&compiled_artifact_blob, &executor_params, &params),
+		Arc::clone(&condvar),
+		WaitOutcome::Finished,
+		execute_thread_stack_size,
+	)
+	.unwrap_or_else(|err| {
+		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
+	});
+
 	let cpu_time_start = ProcessTime::now();
 
 	// Spawn a new thread that runs the CPU time monitor.
@@ -422,17 +434,6 @@ fn handle_child_process(
 		move || cpu_time_monitor_loop(cpu_time_start, execution_timeout, cpu_time_monitor_rx),
 		Arc::clone(&condvar),
 		WaitOutcome::TimedOut,
-	)
-	.unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
-	});
-
-	let execute_thread = thread::spawn_worker_thread_with_stack_size(
-		"execute thread",
-		move || validate_using_artifact(&compiled_artifact_blob, &executor_params, &params),
-		Arc::clone(&condvar),
-		WaitOutcome::Finished,
-		execute_thread_stack_size,
 	)
 	.unwrap_or_else(|err| {
 		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
