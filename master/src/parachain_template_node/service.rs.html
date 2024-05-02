@@ -553,6 +553,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="comment">// std
@@ -567,6 +572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Cumulus Imports
 </span><span class="kw">use </span>cumulus_client_collator::service::CollatorService;
+<span class="kw">use </span>cumulus_client_consensus_aura::collators::lookahead::{<span class="self">self </span><span class="kw">as </span>aura, Params <span class="kw">as </span>AuraParams};
 <span class="kw">use </span>cumulus_client_consensus_common::ParachainBlockImport <span class="kw">as </span>TParachainBlockImport;
 <span class="kw">use </span>cumulus_client_consensus_proposer::Proposer;
 <span class="kw">use </span>cumulus_client_service::{
@@ -574,7 +580,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainHostFunctions,
 	StartRelayChainTasksParams,
 };
-<span class="kw">use </span>cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
+<span class="kw">use </span>cumulus_primitives_core::{
+	relay_chain::{CollatorPair, ValidationCode},
+	ParaId,
+};
 <span class="kw">use </span>cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 
 <span class="comment">// Substrate Imports
@@ -711,6 +720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>start_consensus(
 	client: Arc&lt;ParachainClient&gt;,
+	backend: Arc&lt;ParachainBackend&gt;,
 	block_import: ParachainBlockImport,
 	prometheus_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
@@ -725,10 +735,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	overseer_handle: OverseerHandle,
 	announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_service::Error&gt; {
-	<span class="kw">use </span>cumulus_client_consensus_aura::collators::basic::{
-		<span class="self">self </span><span class="kw">as </span>basic_aura, Params <span class="kw">as </span>BasicAuraParams,
-	};
-
 	<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
@@ -746,11 +752,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		client.clone(),
 	);
 
-	<span class="kw">let </span>params = BasicAuraParams {
+	<span class="kw">let </span>params = AuraParams {
 		create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
 		block_import,
-		para_client: client,
+		para_client: client.clone(),
+		para_backend: backend,
 		relay_client: relay_chain_interface,
+		code_hash_provider: <span class="kw">move </span>|block_hash| {
+			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+		},
 		sync_oracle,
 		keystore,
 		collator_key,
@@ -759,13 +769,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relay_chain_slot_duration,
 		proposer,
 		collator_service,
-		<span class="comment">// Very limited proposal time.
-		</span>authoring_duration: Duration::from_millis(<span class="number">500</span>),
-		collation_request_receiver: <span class="prelude-val">None</span>,
+		authoring_duration: Duration::from_millis(<span class="number">2000</span>),
+		reinitialize: <span class="bool-val">false</span>,
 	};
 
 	<span class="kw">let </span>fut =
-		basic_aura::run::&lt;Block, sp_consensus_aura::sr25519::AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+		aura::run::&lt;Block, sp_consensus_aura::sr25519::AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
 			params,
 		);
 	task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);
@@ -873,8 +882,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		task_manager: <span class="kw-2">&amp;mut </span>task_manager,
 		config: parachain_config,
 		keystore: params.keystore_container.keystore(),
-		backend,
-		network: network.clone(),
+		backend: backend.clone(),
+		network,
 		sync_service: sync_service.clone(),
 		system_rpc_tx,
 		tx_handler_controller,
@@ -937,13 +946,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>validator {
 		start_consensus(
 			client.clone(),
+			backend,
 			block_import,
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|t| t.handle()),
 			<span class="kw-2">&amp;</span>task_manager,
-			relay_chain_interface.clone(),
+			relay_chain_interface,
 			transaction_pool,
-			sync_service.clone(),
+			sync_service,
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
 			para_id,
