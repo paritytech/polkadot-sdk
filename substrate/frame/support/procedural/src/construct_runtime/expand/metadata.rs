@@ -28,6 +28,7 @@ pub fn expand_runtime_metadata(
 	extrinsic: &TokenStream,
 	system_path: &PalletPath,
 	assets_pallet: Option<&Pallet>,
+	header: &TokenStream,
 ) -> TokenStream {
 	let pallets = pallet_declarations
 		.iter()
@@ -192,6 +193,10 @@ pub fn expand_runtime_metadata(
 								#scrate::__private::scale_info::meta_type::<
 										<#runtime as #system_path::Config>::Hashing
 									>(),
+							),
+							(
+								"Header".into(),
+								#scrate::__private::scale_info::meta_type::<#header>(),
 							),
 							#maybe_asset_id
 						]

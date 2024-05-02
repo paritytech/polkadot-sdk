@@ -398,6 +398,7 @@ fn construct_runtime_final_expansion(
 	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 	let block = quote!(<#name as #frame_system::Config>::Block);
 	let unchecked_extrinsic = quote!(<#block as #scrate::sp_runtime::traits::Block>::Extrinsic);
+	let header = quote!(<#block as #scrate::sp_runtime::traits::Block>::Header);
 
 	let outer_event =
 		expand::expand_outer_enum(&name, &pallets, &scrate, expand::OuterEnumType::Event)?;
@@ -417,6 +418,7 @@ fn construct_runtime_final_expansion(
 		&unchecked_extrinsic,
 		&system_pallet.path,
 		assets_pallet,
+		&header,
 	);
 	let outer_config = expand::expand_outer_config(&name, &pallets, &scrate);
 	let inherent =
