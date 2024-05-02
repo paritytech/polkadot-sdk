@@ -18,11 +18,9 @@
 //! Types used in the Fast Unstake pallet.
 
 use crate::Config;
-use codec::MaxEncodedLen;
 use frame_support::{
 	traits::Currency, BoundedVec, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
-use scale_info::TypeInfo;
 use sp_staking::{EraIndex, StakingInterface};
 use sp_std::prelude::*;
 
