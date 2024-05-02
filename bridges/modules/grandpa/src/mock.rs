@@ -49,7 +49,8 @@ impl frame_system::Config for TestRuntime {
 }
 
 parameter_types! {
-	pub const MaxFreeMandatoryHeadersPerBlock: u32 = 2;
+	pub const MaxFreeHeadersPerBlock: u32 = 2;
+	pub const FreeHeadersInterval: u32 = 32;
 	pub const HeadersToKeep: u32 = 5;
 }
 
@@ -57,7 +58,8 @@ impl grandpa::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type CompatibleWithRelayer = GetDefault;
 	type BridgedChain = TestBridgedChain;
-	type MaxFreeMandatoryHeadersPerBlock = MaxFreeMandatoryHeadersPerBlock;
+	type MaxFreeHeadersPerBlock = MaxFreeHeadersPerBlock;
+	type FreeHeadersInterval = FreeHeadersInterval;
 	type HeadersToKeep = HeadersToKeep;
 	type WeightInfo = ();
 }

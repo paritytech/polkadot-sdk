@@ -35,9 +35,9 @@ use staging_xcm_builder as xcm_builder;
 use xcm_builder::{
 	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	FixedRateOfFungible, FixedWeightBounds, FungibleAdapter, IsChildSystemParachain, IsConcrete,
-	MintLocation, RespectSuspension, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit,
+	EnsureDecodableXcm, FixedRateOfFungible, FixedWeightBounds, FungibleAdapter,
+	IsChildSystemParachain, IsConcrete, MintLocation, RespectSuspension, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 };
 
 pub type AccountId = AccountId32;
@@ -67,6 +67,8 @@ impl SendXcm for TestSendXcm {
 		Ok(hash)
 	}
 }
+
+pub type TestXcmRouter = EnsureDecodableXcm<TestSendXcm>;
 
 // copied from kusama constants
 pub const UNITS: Balance = 1_000_000_000_000;
@@ -137,7 +139,7 @@ impl configuration::Config for Runtime {
 parameter_types! {
 	pub const KsmLocation: Location = Location::here();
 	pub const KusamaNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = KusamaNetwork::get().into();
 	pub CheckAccount: (AccountId, MintLocation) = (XcmPallet::check_account(), MintLocation::Local);
 }
 
@@ -180,7 +182,7 @@ pub type TrustedTeleporters = (xcm_builder::Case<KusamaForAssetHub>,);
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = TestSendXcm;
+	type XcmSender = TestXcmRouter;
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = ();
@@ -215,7 +217,7 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type UniversalLocation = UniversalLocation;
 	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	type XcmRouter = TestSendXcm;
+	type XcmRouter = TestXcmRouter;
 	// Anyone can execute XCM messages locally...
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmExecuteFilter = Nothing;

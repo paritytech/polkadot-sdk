@@ -26,7 +26,7 @@ use sp_runtime::{
 	},
 	FixedPointOperand,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
+use sp_std::{fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
 
 /// Chain call, that is either SCALE-encoded, or decoded.
 #[derive(Debug, Clone, PartialEq)]
@@ -236,6 +236,12 @@ where
 pub trait Parachain: Chain {
 	/// Parachain identifier.
 	const PARACHAIN_ID: u32;
+	/// Maximal size of the parachain header.
+	///
+	/// This isn't a strict limit. The relayer may submit larger headers and the
+	/// pallet will accept the call. The limit is only used to compute whether
+	/// the refund can be made.
+	const MAX_HEADER_SIZE: u32;
 }
 
 impl<T> Parachain for T
@@ -244,6 +250,8 @@ where
 	<T as UnderlyingChainProvider>::Chain: Parachain,
 {
 	const PARACHAIN_ID: u32 = <<T as UnderlyingChainProvider>::Chain as Parachain>::PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 =
+		<<T as UnderlyingChainProvider>::Chain as Parachain>::MAX_HEADER_SIZE;
 }
 
 /// Adapter for `Get<u32>` to access `PARACHAIN_ID` from `trait Parachain`
@@ -309,6 +317,11 @@ macro_rules! decl_bridge_finality_runtime_apis {
 				pub const [<$chain:upper _FINALITY_COMPATIBLE_RELAYER_VERSION>]: &str =
 					stringify!([<$chain:camel FinalityApi_compatible_relayer_version>]);
 
+				/// Name of the `<ThisChain>FinalityApi::free_headers_interval` runtime method.
+				pub const [<FREE_HEADERS_INTERVAL_FOR_ $chain:upper _METHOD>]: &str =
+					stringify!([<$chain:camel FinalityApi_free_headers_interval>]);
+
+
 				$(
 					/// Name of the `<ThisChain>FinalityApi::accepted_<consensus>_finality_proofs`
 					/// runtime method.
@@ -327,6 +340,13 @@ macro_rules! decl_bridge_finality_runtime_apis {
 						/// Return version of relayer that is compatible with finality pallet configuration
 						/// and may safely submit transaction to this chain.
 						fn compatible_relayer_version() -> bp_runtime::RelayerVersion;
+
+						/// Returns free headers interval, if it is configured in the runtime.
+						/// The caller expects that if his transaction improves best known header
+						/// at least by the free_headers_interval`, it will be fee-free.
+						///
+						/// See [`pallet_bridge_grandpa::Config::FreeHeadersInterval`] for details.
+						fn free_headers_interval() -> Option<BlockNumber>;
 
 						$(
 							/// Returns the justifications accepted in the current block.
