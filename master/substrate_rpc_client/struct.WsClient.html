@@ -156,7 +156,7 @@ the reason why the client was disconnected but it’s not cancel-safe.</p>
 <p>The typical use-case is that this method will be called after
 <a href="struct.WsClient.html#method.on_disconnect" title="method substrate_rpc_client::WsClient::on_disconnect"><code>Client::on_disconnect</code></a> has returned in a “select loop”.</p>
 <h5 id="cancel-safety"><a class="doc-anchor" href="#cancel-safety">§</a>Cancel-safety</h5>
-<p>This method is not cancel-safe</p>
+<p>This method is cancel-safe</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.on_disconnect" class="method"><h4 class="code-header">pub async fn <a href="#method.on_disconnect" class="fn">on_disconnect</a>(&amp;self)</h4></section></summary><div class="docblock"><p>Completes when the client is disconnected or the client’s background task encountered an error.
 If the client is already disconnected, the future produced by this method will complete immediately.</p>
 <h5 id="cancel-safety-1"><a class="doc-anchor" href="#cancel-safety-1">§</a>Cancel safety</h5>

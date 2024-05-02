@@ -267,7 +267,7 @@ revisions of this crate.</p>
 <p>To view the docs specific <a href="../index.html" title="mod polkadot_sdk_docs"><code>crate</code></a> locally for development, including the correct HTML headers
 injected, run:</p>
 <div class="example-wrap"><pre class="language-sh"><code>SKIP_WASM_BUILD=1 \
-RUSTDOCFLAGS=&quot;--html-in-header $(pwd)/docs/sdk/headers/header.html --extend-css $(pwd)/docs/sdk/headers/theme.css --default-theme=ayu&quot; \
+RUSTDOCFLAGS=&quot;--html-in-header $(pwd)/docs/sdk/assets/header.html --extend-css $(pwd)/docs/sdk/assets/theme.css --default-theme=ayu&quot; \
 cargo doc -p polkadot-sdk-docs --no-deps --open
 </code></pre></div>
 <p>If even faster build time for docs is needed, you can temporarily remove most of the

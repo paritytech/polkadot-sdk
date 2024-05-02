@@ -421,6 +421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
@@ -498,6 +499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>BlockId = generic::BlockId&lt;Block&gt;;
 
 <span class="doccomment">/// The SignedExtension to the basic transaction logic.
+</span><span class="attr">#[docify::export(template_signed_extra)]
 </span><span class="kw">pub type </span>SignedExtra = (
 	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
 	frame_system::CheckSpecVersion&lt;Runtime&gt;,
