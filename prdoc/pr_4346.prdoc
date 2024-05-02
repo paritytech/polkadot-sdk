@@ -11,7 +11,7 @@ doc:
 crates:
   - name: pallet-staking
     bump: patch
-  - name: pallet-session
+  - name: pallet-session-benchmarking
     bump: patch
   - name: pallet-balances
     bump: patch
