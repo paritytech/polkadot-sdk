@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714640197358,
+  "lastUpdate": 1714647684475,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -7799,6 +7799,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01015029263333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "171bedc2b319e18d51a7b510d8bd4cfd2e645c31",
+          "message": "Bridge: ignore client errors when calling recently added `*_free_headers_interval` methods (#4350)\n\nsee https://github.com/paritytech/parity-bridges-common/issues/2974 : we\nstill need to support unupgraded chains (BHK and BHP) in relay\n\nWe may need to revert this change when all chains are upgraded",
+          "timestamp": "2024-05-02T10:02:59Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/171bedc2b319e18d51a7b510d8bd4cfd2e645c31"
+        },
+        "date": 1714647659054,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666662,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01149748202666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013760565240000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022940044173333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16921953033333345,
             "unit": "seconds"
           }
         ]
