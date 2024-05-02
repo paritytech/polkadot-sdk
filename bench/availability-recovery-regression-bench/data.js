@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714653702482,
+  "lastUpdate": 1714658619983,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -6299,6 +6299,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.793335692333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Lulu",
+            "username": "Morganamilo",
+            "email": "morgan@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "df84ea789f3fd0de20bd801e344ffa30172ffb55",
+          "message": "sc-tracing: enable env-filter feature (#4357)\n\nThis crate uses this feature however it appears to still work without\nthis feature enabled. I believe this is due to feature unification of\nthe workspace. Some other crate enables this feature so it also ends up\nenabled here. But when this crate is pushed to crates.io and compiled\nindividualy it fails to compile.",
+          "timestamp": "2024-05-02T13:34:48Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/df84ea789f3fd0de20bd801e344ffa30172ffb55"
+        },
+        "date": 1714658594285,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.15487407163333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.583811420333333,
             "unit": "seconds"
           }
         ]
