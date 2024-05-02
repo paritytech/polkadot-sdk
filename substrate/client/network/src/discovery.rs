@@ -646,13 +646,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						{
 							for (addr, _error) in errors {
 								entry.get_mut().retain(|a| a != addr);
-								if let Some(k) = self.kademlia.as_mut() {
-									// Remove addresses that can't be reached from kademlia as well,
-									// otherwise it is going to try to continously reconnect to
-									// peers that go away if they are not removed from the routing
-									// table.
-									k.remove_address(&peer_id, &addr);
-								}
 							}
 							if entry.get().is_empty() {
 								entry.remove();
