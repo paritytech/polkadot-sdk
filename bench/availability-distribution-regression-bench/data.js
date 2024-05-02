@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714653407076,
+  "lastUpdate": 1714658317835,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -7903,6 +7903,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00943789574666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Qinxuan Chen",
+            "username": "koushiro",
+            "email": "koushiro.cqx@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4e0b3abbd696c809aebd8d5e64a671abf843087f",
+          "message": "deps: update jsonrpsee to v0.22.5 (#4330)\n\nuse `server-core` feature instead of `server` feature when defining the\nrpc api",
+          "timestamp": "2024-05-02T12:25:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e0b3abbd696c809aebd8d5e64a671abf843087f"
+        },
+        "date": 1714658291861,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.926666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012359749259999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022144698113333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16106044409333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010285193560000008,
             "unit": "seconds"
           }
         ]
