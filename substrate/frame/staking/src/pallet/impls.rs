@@ -149,6 +149,13 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Returns a closure around the staker's active stake that can be passed around.
+	pub fn active_stake_of_fn() -> Box<dyn Fn(&T::AccountId) -> BalanceOf<T>> {
+		Box::new(move |who: &T::AccountId| -> BalanceOf<T> {
+			Self::stake(who).unwrap_or_default().active
+		})
+	}
+
 	/// Same as `weight_of_fn`, but made for one time use.
 	pub fn weight_of(who: &T::AccountId) -> VoteWeight {
 		let issuance = T::Currency::total_issuance();
@@ -176,11 +183,11 @@ impl<T: Config> Pallet<T> {
 		// last check: the new active amount of ledger must be more than ED.
 		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
-		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
+		let new_active = ledger.active;
 		ledger.update()?;
 		// update this staker in the sorted list, if they exist in it.
 		if T::VoterList::contains(stash) {
-			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash)).defensive();
+			let _ = T::VoterList::on_update(&stash, new_active).defensive();
 		}
 
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: extra });
@@ -1669,10 +1676,10 @@ where
 }
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
-	type Score = VoteWeight;
+	type Score = BalanceOf<T>;
 
 	fn score(who: &T::AccountId) -> Self::Score {
-		Self::weight_of(who)
+		Self::stake(&who).unwrap_or_default().active
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

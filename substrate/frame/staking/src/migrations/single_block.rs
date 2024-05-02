@@ -406,7 +406,7 @@ pub mod v9 {
 				let weight_of_cached = Pallet::<T>::weight_of_fn();
 				for (v, _) in Validators::<T>::iter() {
 					let weight = weight_of_cached(&v);
-					let _ = T::VoterList::on_insert(v.clone(), weight).map_err(|err| {
+					let _ = T::VoterList::on_insert(v.clone(), weight.into()).map_err(|err| {
 						log!(warn, "failed to insert {:?} into VoterList: {:?}", v, err)
 					});
 				}
@@ -488,7 +488,7 @@ pub mod v8 {
 
 			let migrated = T::VoterList::unsafe_regenerate(
 				Nominators::<T>::iter().map(|(id, _)| id),
-				Pallet::<T>::weight_of_fn(),
+				Pallet::<T>::active_stake_of_fn(),
 			);
 
 			StorageVersion::<T>::put(ObsoleteReleases::V8_0_0);

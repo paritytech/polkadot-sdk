@@ -20,7 +20,7 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, SortedListProvider, VoteWeight,
+	onchain, SequentialPhragmen, SortedListProvider,
 };
 use frame_support::{
 	assert_ok, derive_impl,
@@ -209,13 +209,12 @@ impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 	}
 }
 
-const VOTER_THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
-	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+const VOTER_THRESHOLDS: [Balance; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
 const TARGET_THRESHOLDS: [Balance; 9] = [100, 200, 300, 400, 500, 600, 1_000, 2_000, 10_000];
 
 parameter_types! {
-	pub static VoterBagThresholds: &'static [sp_npos_elections::VoteWeight] = &VOTER_THRESHOLDS;
+	pub static VoterBagThresholds: &'static [Balance] = &VOTER_THRESHOLDS;
 	pub static TargetBagThresholds: &'static [Balance] = &TARGET_THRESHOLDS;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
@@ -233,7 +232,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	// Staking is the source of truth for voter bags list, since they are not kept up to date.
 	type ScoreProvider = Staking;
 	type BagThresholds = VoterBagThresholds;
-	type Score = VoteWeight;
+	type Score = Balance;
 }
 
 type TargetBagsListInstance = pallet_bags_list::Instance2;
@@ -1147,7 +1146,7 @@ pub(crate) fn ensure_on_staking_updates_emitted(
 	EventsEmitted::set(vec![]);
 }
 
-pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(AccountId, Balance)>) {
+pub(crate) fn voters_and_targets() -> (Vec<(AccountId, Balance)>, Vec<(AccountId, Balance)>) {
 	(
 		VoterBagsList::iter()
 			.map(|v| (v, VoterBagsList::get_score(&v).unwrap()))

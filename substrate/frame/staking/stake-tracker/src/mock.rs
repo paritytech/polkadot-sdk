@@ -19,8 +19,9 @@
 
 use crate::{self as pallet_stake_tracker, *};
 
-use frame_election_provider_support::{ScoreProvider, VoteWeight};
+use frame_election_provider_support::ScoreProvider;
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+use sp_npos_elections::ExtendedBalance;
 use sp_runtime::{BuildStorage, DispatchResult, Perbill};
 use sp_staking::{Stake, StakingInterface};
 
@@ -69,11 +70,12 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 }
 
-const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
-	[100, 200, 300, 400, 500, 600, 700, 800, 900];
+const TARGET_THRESHOLDS: [ExtendedBalance; 9] = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+const VOTER_THRESHOLDS: [Balance; 9] = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
 parameter_types! {
-	pub static BagThresholds: &'static [VoteWeight] = &THRESHOLDS;
+	pub static TargetBagThresholds: &'static [ExtendedBalance] = &TARGET_THRESHOLDS;
+	pub static VoterBagThresholds: &'static [Balance] = &VOTER_THRESHOLDS;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -81,8 +83,8 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ScoreProvider = StakingMock;
-	type BagThresholds = BagThresholds;
-	type Score = VoteWeight;
+	type BagThresholds = VoterBagThresholds;
+	type Score = <StakingMock as StakingInterface>::Balance;
 }
 
 type TargetBagsListInstance = pallet_bags_list::Instance2;
@@ -90,8 +92,8 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ScoreProvider = pallet_bags_list::Pallet<Test, TargetBagsListInstance>;
-	type BagThresholds = BagThresholds;
-	type Score = <StakingMock as StakingInterface>::Balance;
+	type BagThresholds = TargetBagThresholds;
+	type Score = ExtendedBalance;
 }
 
 impl pallet_stake_tracker::Config for Test {
@@ -105,7 +107,7 @@ impl pallet_stake_tracker::Config for Test {
 pub struct StakingMock {}
 
 impl ScoreProvider<AccountId> for StakingMock {
-	type Score = VoteWeight;
+	type Score = <StakingMock as StakingInterface>::Balance;
 
 	fn score(id: &AccountId) -> Self::Score {
 		let nominators = TestNominators::get();
@@ -273,10 +275,16 @@ parameter_types! {
 	pub static Bonded: Vec<AccountId> = Default::default();
 }
 
-pub(crate) fn get_scores<L: SortedListProvider<AccountId, Score = VoteWeight>>(
-) -> Vec<(AccountId, Balance)> {
-	let scores: Vec<_> = L::iter().map(|e| (e, L::get_score(&e).unwrap())).collect();
-	scores
+pub(crate) fn get_target_scores() -> Vec<(AccountId, ExtendedBalance)> {
+	TargetBagsList::iter()
+		.map(|e| (e, TargetBagsList::get_score(&e).unwrap()))
+		.collect::<Vec<_>>()
+}
+
+pub(crate) fn get_voter_scores() -> Vec<(AccountId, Balance)> {
+	VoterBagsList::iter()
+		.map(|e| (e, VoterBagsList::get_score(&e).unwrap()))
+		.collect::<Vec<_>>()
 }
 
 pub(crate) fn populate_lists() {
@@ -304,7 +312,7 @@ pub(crate) fn stake_of(who: AccountId) -> Option<Stake<Balance>> {
 	StakingMock::stake(&who).ok()
 }
 
-pub(crate) fn score_of_target(who: AccountId) -> Balance {
+pub(crate) fn score_of_target(who: AccountId) -> ExtendedBalance {
 	<pallet_bags_list::Pallet<Test, TargetBagsListInstance> as ScoreProvider<AccountId>>::score(
 		&who,
 	)
