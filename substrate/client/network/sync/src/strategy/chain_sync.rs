@@ -1144,7 +1144,7 @@ where
 			BlockMetrics::observe_interval_partial(
 				IntervalKind::Sync,
 				summary.number.try_into().unwrap_or_default(),
-				std::format!("{}", summary.block_hash),
+				std::format!("{:?}", summary.block_hash),
 				BlockMetrics::get_current_timestamp_in_ms_or_default(),
 				true,
 			);
