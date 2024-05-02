@@ -462,7 +462,10 @@ impl Stream for Discovery {
 					"`GET_RECORD` succeeded for {query_id:?}: {record:?}",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, record }));
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess {
+					query_id,
+					record: record.record,
+				}));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
