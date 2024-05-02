@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714653103792,
+  "lastUpdate": 1714658017295,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -1738,6 +1738,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.7203813428501618,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Qinxuan Chen",
+            "username": "koushiro",
+            "email": "koushiro.cqx@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4e0b3abbd696c809aebd8d5e64a671abf843087f",
+          "message": "deps: update jsonrpsee to v0.22.5 (#4330)\n\nuse `server-core` feature instead of `server` feature when defining the\nrpc api",
+          "timestamp": "2024-05-02T12:25:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e0b3abbd696c809aebd8d5e64a671abf843087f"
+        },
+        "date": 1714657991672,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63551.1,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.141575628700015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.813329087629892,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0584330719201267,
             "unit": "seconds"
           }
         ]
