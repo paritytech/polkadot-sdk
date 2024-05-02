@@ -200,7 +200,7 @@ impl<T: Config> Pallet<T> {
 
 		let ed = T::Currency::minimum_balance();
 		let used_weight =
-			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active == 0u32.into()) {
+			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.

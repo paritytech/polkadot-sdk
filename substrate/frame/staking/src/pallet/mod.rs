@@ -1644,9 +1644,9 @@ pub mod pallet {
 			let origin_balance = T::Currency::total_balance(&stash);
 			let ledger_total = Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
 			let reapable = origin_balance < ed ||
-				origin_balance == 0u32.into() ||
+				origin_balance.is_zero() ||
 				ledger_total < ed ||
-				ledger_total == 0u32.into();
+				ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
