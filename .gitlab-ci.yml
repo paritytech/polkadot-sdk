@@ -316,7 +316,7 @@ codecov-test-linux-stable:
         --branch \
         -o target/coverage/result/report-${CI_NODE_INDEX}.lcov
     - ls -l target/coverage/result/    
-    - codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} --fail-on-error--pr ${CI_COMMIT_REF_NAME} --git-service github
+    - codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
   #  
 
 
