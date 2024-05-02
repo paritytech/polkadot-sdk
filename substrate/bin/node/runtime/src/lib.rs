@@ -3077,7 +3077,7 @@ impl_runtime_apis! {
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: sp_consensus_beefy::EquivocationProof<
+			equivocation_proof: sp_consensus_beefy::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
