@@ -2470,7 +2470,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Arc&lt;Client&lt;sc_client_api::in_mem::Backend&lt;Block&gt;&gt;&gt;,
 	) {
 		<span class="kw">let </span>backend = Arc::new(sc_client_api::in_mem::Backend::new());
-		<span class="kw">let </span>executor = substrate_test_runtime_client::new_native_or_wasm_executor();
+		<span class="kw">let </span>executor = substrate_test_runtime_client::WasmExecutor::default();
 		<span class="kw">let </span>client_config = sc_service::ClientConfig::default();
 		<span class="kw">let </span>genesis_block_builder = sc_service::GenesisBlockBuilder::new(
 			<span class="kw-2">&amp;</span>substrate_test_runtime_client::GenesisParameters::default().genesis_storage(),

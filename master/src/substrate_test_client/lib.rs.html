@@ -599,15 +599,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -634,7 +625,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span><span class="self">self</span>::client_ext::{BlockOrigin, ClientBlockImportExt, ClientExt};
 <span class="kw">pub use </span>sc_client_api::{execution_extensions::ExecutionExtensions, BadBlocks, ForkBlocks};
 <span class="kw">pub use </span>sc_client_db::{<span class="self">self</span>, Backend, BlocksPruning};
-<span class="kw">pub use </span>sc_executor::{<span class="self">self</span>, NativeElseWasmExecutor, WasmExecutionMethod, WasmExecutor};
+<span class="kw">pub use </span>sc_executor::{<span class="self">self</span>, WasmExecutionMethod, WasmExecutor};
 <span class="kw">pub use </span>sc_service::{client, RpcHandlers};
 <span class="kw">pub use </span>sp_consensus;
 <span class="kw">pub use </span>sp_keyring::{
@@ -855,14 +846,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;Block: BlockT, D, Backend, G: GenesisInit&gt;
-	TestClientBuilder&lt;
-		Block,
-		client::LocalCallExecutor&lt;Block, Backend, NativeElseWasmExecutor&lt;D&gt;&gt;,
-		Backend,
-		G,
-	&gt; <span class="kw">where
-	</span>D: sc_executor::NativeExecutionDispatch,
+<span class="kw">impl</span>&lt;Block: BlockT, H, Backend, G: GenesisInit&gt;
+	TestClientBuilder&lt;Block, client::LocalCallExecutor&lt;Block, Backend, WasmExecutor&lt;H&gt;&gt;, Backend, G&gt;
 {
 	<span class="doccomment">/// Build the test client with the given native executor.
 	</span><span class="kw">pub fn </span>build_with_native_executor&lt;RuntimeApi, I&gt;(
@@ -871,21 +856,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; (
 		client::Client&lt;
 			Backend,
-			client::LocalCallExecutor&lt;Block, Backend, NativeElseWasmExecutor&lt;D&gt;&gt;,
+			client::LocalCallExecutor&lt;Block, Backend, WasmExecutor&lt;H&gt;&gt;,
 			Block,
 			RuntimeApi,
 		&gt;,
 		sc_consensus::LongestChain&lt;Backend, Block&gt;,
 	)
 	<span class="kw">where
-		</span>I: Into&lt;<span class="prelude-ty">Option</span>&lt;NativeElseWasmExecutor&lt;D&gt;&gt;&gt;,
-		D: sc_executor::NativeExecutionDispatch + <span class="lifetime">'static</span>,
+		</span>I: Into&lt;<span class="prelude-ty">Option</span>&lt;WasmExecutor&lt;H&gt;&gt;&gt;,
 		Backend: sc_client_api::backend::Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
+		H: sc_executor::HostFunctions,
 	{
-		<span class="kw">let </span><span class="kw-2">mut </span>executor = executor.into().unwrap_or_else(|| {
-			NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build())
-		});
-		executor.disable_use_native();
+		<span class="kw">let </span>executor = executor.into().unwrap_or_else(|| WasmExecutor::&lt;H&gt;::builder().build());
 		<span class="kw">let </span>executor = LocalCallExecutor::new(
 			<span class="self">self</span>.backend.clone(),
 			executor.clone(),

@@ -720,6 +720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -777,14 +778,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span><span class="self">self</span>::{
 	builder::{
 		build_network, new_client, new_db_backend, new_full_client, new_full_parts,
-		new_full_parts_record_import, new_full_parts_with_genesis_builder,
-		new_native_or_wasm_executor, new_wasm_executor, spawn_tasks, BuildNetworkParams,
-		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
-		TFullClient,
+		new_full_parts_record_import, new_full_parts_with_genesis_builder, new_wasm_executor,
+		spawn_tasks, BuildNetworkParams, KeystoreContainer, NetworkStarter, SpawnTasksParams,
+		TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
 };
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">pub use </span>builder::new_native_or_wasm_executor;
 
 <span class="kw">pub use </span>sc_chain_spec::{
 	construct_genesis_block, resolve_state_version_from_wasm, BuildGenesisBlock,

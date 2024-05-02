@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AccountKeyring","Sr25519Keyring","WasmExecutionMethod"],"struct":["NativeElseWasmExecutor"],"trait":["ClientBlockImportExt","ClientExt"]};
+window.SIDEBAR_ITEMS = {"enum":["AccountKeyring","Sr25519Keyring","WasmExecutionMethod"],"trait":["ClientBlockImportExt","ClientExt"]};

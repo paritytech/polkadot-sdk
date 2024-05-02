@@ -940,6 +940,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#789" id="789">789</a>
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1025,7 +1043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Builder for creating a [`WasmExecutor`] instance.
-</span><span class="kw">pub struct </span>WasmExecutorBuilder&lt;H&gt; {
+</span><span class="kw">pub struct </span>WasmExecutorBuilder&lt;H = sp_io::SubstrateHostFunctions&gt; {
 	_phantom: PhantomData&lt;H&gt;,
 	method: WasmExecutionMethod,
 	onchain_heap_alloc_strategy: <span class="prelude-ty">Option</span>&lt;HeapAllocStrategy&gt;,
@@ -1160,7 +1178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An abstraction over Wasm code executor. Supports selecting execution backend and
 /// manages runtime cache.
-</span><span class="kw">pub struct </span>WasmExecutor&lt;H&gt; {
+</span><span class="kw">pub struct </span>WasmExecutor&lt;H = sp_io::SubstrateHostFunctions&gt; {
 	<span class="doccomment">/// Method used to execute fallback Wasm code.
 	</span>method: WasmExecutionMethod,
 	<span class="doccomment">/// The heap allocation strategy for onchain Wasm calls.
@@ -1194,10 +1212,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;H&gt; WasmExecutor&lt;H&gt;
-<span class="kw">where
-	</span>H: HostFunctions,
-{
+<span class="kw">impl </span>Default <span class="kw">for </span>WasmExecutor&lt;sp_io::SubstrateHostFunctions&gt; {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		WasmExecutorBuilder::new().build()
+	}
+}
+
+<span class="kw">impl</span>&lt;H&gt; WasmExecutor&lt;H&gt; {
 	<span class="doccomment">/// Create new instance.
 	///
 	/// # Parameters
@@ -1254,7 +1275,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>allow_missing_host_functions(<span class="kw-2">&amp;mut </span><span class="self">self</span>, allow_missing_host_functions: bool) {
 		<span class="self">self</span>.allow_missing_host_functions = allow_missing_host_functions
 	}
+}
 
+<span class="kw">impl</span>&lt;H&gt; WasmExecutor&lt;H&gt;
+<span class="kw">where
+	</span>H: HostFunctions,
+{
 	<span class="doccomment">/// Execute the given closure `f` with the latest runtime (based on `runtime_code`).
 	///
 	/// The closure `f` is expected to return `Err(_)` when there happened a `panic!` in native code
@@ -1500,6 +1526,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A generic `CodeExecutor` implementation that uses a delegate to determine wasm code equivalence
 /// and dispatch to native code when possible, falling back on `WasmExecutor` when not.
+</span><span class="attr">#[deprecated(
+	note = <span class="string">"Native execution will be deprecated, please replace with `WasmExecutor`. Will be removed at end of 2024."
+</span>)]
 </span><span class="kw">pub struct </span>NativeElseWasmExecutor&lt;D: NativeExecutionDispatch&gt; {
 	<span class="doccomment">/// Native runtime version info.
 	</span>native_version: NativeVersion,
@@ -1510,7 +1539,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	use_native: bool,
 }
 
-<span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; NativeElseWasmExecutor&lt;D&gt; {
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; NativeElseWasmExecutor&lt;D&gt; {
 	<span class="doccomment">///
 	/// Create new instance.
 	///
@@ -1570,7 +1600,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; RuntimeVersionOf <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; RuntimeVersionOf <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
 	<span class="kw">fn </span>runtime_version(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		ext: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Externalities,
@@ -1580,13 +1611,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; GetNativeVersion <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; GetNativeVersion <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
 	<span class="kw">fn </span>native_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>NativeVersion {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.native_version
 	}
 }
 
-<span class="kw">impl</span>&lt;D: NativeExecutionDispatch + <span class="lifetime">'static</span>&gt; CodeExecutor <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">impl</span>&lt;D: NativeExecutionDispatch + <span class="lifetime">'static</span>&gt; CodeExecutor <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
 	<span class="kw">type </span>Error = Error;
 
 	<span class="kw">fn </span>call(
@@ -1660,7 +1693,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; Clone <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; Clone <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		NativeElseWasmExecutor {
 			native_version: D::native_version(),
@@ -1670,7 +1704,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; sp_core::traits::ReadRuntimeVersion <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">impl</span>&lt;D: NativeExecutionDispatch&gt; sp_core::traits::ReadRuntimeVersion <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
 	<span class="kw">fn </span>read_runtime_version(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		wasm_code: <span class="kw-2">&amp;</span>[u8],
@@ -1707,6 +1742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
+	#[allow(deprecated)]
 	</span><span class="kw">fn </span>native_executor_registers_custom_interface() {
 		<span class="kw">let </span>executor = NativeElseWasmExecutor::&lt;MyExecutorDispatch&gt;::new_with_wasm_executor(
 			WasmExecutor::builder().build(),

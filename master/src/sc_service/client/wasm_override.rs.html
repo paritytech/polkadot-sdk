@@ -496,9 +496,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -765,24 +762,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>sc_executor::{HeapAllocStrategy, NativeElseWasmExecutor, WasmExecutor};
+	<span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor};
 	<span class="kw">use </span>std::fs::{<span class="self">self</span>, File};
-	<span class="kw">use </span>substrate_test_runtime_client::LocalExecutorDispatch;
 
-	<span class="kw">fn </span>executor() -&gt; NativeElseWasmExecutor&lt;substrate_test_runtime_client::LocalExecutorDispatch&gt; {
-		NativeElseWasmExecutor::&lt;substrate_test_runtime_client::LocalExecutorDispatch&gt;::new_with_wasm_executor(
-			WasmExecutor::builder()
-				.with_onchain_heap_alloc_strategy(HeapAllocStrategy::Static {extra_pages: <span class="number">128</span>})
-				.with_offchain_heap_alloc_strategy(HeapAllocStrategy::Static {extra_pages: <span class="number">128</span>})
-				.with_max_runtime_instances(<span class="number">1</span>)
-				.with_runtime_cache_size(<span class="number">2</span>)
-				.build()
-		)
+	<span class="kw">fn </span>executor() -&gt; WasmExecutor {
+		WasmExecutor::builder()
+			.with_onchain_heap_alloc_strategy(HeapAllocStrategy::Static { extra_pages: <span class="number">128 </span>})
+			.with_offchain_heap_alloc_strategy(HeapAllocStrategy::Static { extra_pages: <span class="number">128 </span>})
+			.with_max_runtime_instances(<span class="number">1</span>)
+			.with_runtime_cache_size(<span class="number">2</span>)
+			.build()
 	}
 
 	<span class="kw">fn </span>wasm_test&lt;F&gt;(fun: F)
 	<span class="kw">where
-		</span>F: Fn(<span class="kw-2">&amp;</span>Path, <span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>NativeElseWasmExecutor&lt;LocalExecutorDispatch&gt;),
+		</span>F: Fn(<span class="kw-2">&amp;</span>Path, <span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>WasmExecutor),
 	{
 		<span class="kw">let </span>exec = executor();
 		<span class="kw">let </span>bytes = substrate_test_runtime::wasm_binary_unwrap();
