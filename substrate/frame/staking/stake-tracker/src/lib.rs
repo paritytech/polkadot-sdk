@@ -481,8 +481,6 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		log!(trace, "try-state: calculated approvals map: {:?}", approvals_map);
-
 		// if the target list is in lazy mode, we don't expect the stake approvals of the target
 		// to be correct at all times.
 		// compare calculated approvals per target with target list state.
