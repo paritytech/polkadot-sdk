@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714598894498,
+  "lastUpdate": 1714639893871,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -1597,6 +1597,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.799201386750028,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "14c4afc5382dcb18095af5c090e2aa1af65ecae6",
+          "message": "[Backport] Version bumps and reorg prdocs from 1.11.0 (#4336)\n\nThis PR backports version bumps and reorganization of the `prdocs` from\n`1.11.0` release branch back to master",
+          "timestamp": "2024-05-02T07:21:11Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/14c4afc5382dcb18095af5c090e2aa1af65ecae6"
+        },
+        "date": 1714639868568,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63547.78999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.6460106499399405,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.25104776159003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3935174199001787,
             "unit": "seconds"
           }
         ]
