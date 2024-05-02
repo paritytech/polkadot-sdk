@@ -177,6 +177,10 @@ pub fn expand_runtime_metadata(
 								"Address".into(),
 								address_ty,
 							),
+							(
+								"Signature".into(),
+								signature_ty,
+							),
 							#maybe_asset_id
 						]
 						.into_iter()
