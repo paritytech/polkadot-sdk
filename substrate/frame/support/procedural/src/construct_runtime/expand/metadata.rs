@@ -181,6 +181,18 @@ pub fn expand_runtime_metadata(
 								"Signature".into(),
 								signature_ty,
 							),
+							(
+								"Hash".into(),
+								#scrate::__private::scale_info::meta_type::<
+										<#runtime as #system_path::Config>::Hash
+									>(),
+							),
+							(
+								"Hashing".into(),
+								#scrate::__private::scale_info::meta_type::<
+										<#runtime as #system_path::Config>::Hashing
+									>(),
+							),
 							#maybe_asset_id
 						]
 						.into_iter()
