@@ -163,12 +163,6 @@ pub fn expand_runtime_metadata(
 					custom_types: #scrate::__private::metadata_ir::CustomMetadataIR {
 						map: [
 							(
-								"CallEnumTy".into(),
-								#scrate::__private::scale_info::meta_type::<
-										<#runtime as #system_path::Config>::RuntimeCall
-									>(),
-							),
-							(
 								"AccountId".into(),
 								#scrate::__private::scale_info::meta_type::<
 										<#runtime as #system_path::Config>::AccountId
