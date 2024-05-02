@@ -887,6 +887,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -1009,6 +1010,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -1080,7 +1082,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81953c529336010edd6d8e358f886d9581267795c61b19475b71314bffa46d35"
 dependencies = [
  "concurrent-queue",
- "event-listener 2.5.3",
+ "event-listener",
  "futures-core",
 ]
 
@@ -1090,7 +1092,7 @@ version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fa3dc5f2a8564f07759c008b9109dc0d39de92a88d5588b8a5036d286383afb"
 dependencies = [
- "async-lock 2.8.0",
+ "async-lock",
  "async-task",
  "concurrent-queue",
  "fastrand 1.9.0",
@@ -1104,7 +1106,7 @@ version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "279cf904654eeebfa37ac9bb1598880884924aab82e290aa65c9e77a0e142e06"
 dependencies = [
- "async-lock 2.8.0",
+ "async-lock",
  "autocfg",
  "blocking",
  "futures-lite",
@@ -1119,7 +1121,7 @@ dependencies = [
  "async-channel",
  "async-executor",
  "async-io",
- "async-lock 2.8.0",
+ "async-lock",
  "blocking",
  "futures-lite",
  "once_cell",
@@ -1131,7 +1133,7 @@ version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fc5b45d93ef0529756f812ca52e44c221b35341892d3dcc34132ac02f3dd2af"
 dependencies = [
- "async-lock 2.8.0",
+ "async-lock",
  "autocfg",
  "cfg-if",
  "concurrent-queue",
@@ -1151,18 +1153,7 @@ version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "287272293e9d8c41773cec55e365490fe034813a2f172f502d6ddcf75b2f582b"
 dependencies = [
- "event-listener 2.5.3",
-]
-
-[[package]]
-name = "async-lock"
-version = "3.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d034b430882f8381900d3fe6f0aaa3ad94f2cb4ac519b429692a1bc2dda4ae7b"
-dependencies = [
- "event-listener 4.0.3",
- "event-listener-strategy",
- "pin-project-lite 0.2.12",
+ "event-listener",
 ]
 
 [[package]]
@@ -1184,11 +1175,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a9d28b1d97e08915212e2e45310d47854eafa69600756fc735fb788f75199c9"
 dependencies = [
  "async-io",
- "async-lock 2.8.0",
+ "async-lock",
  "autocfg",
  "blocking",
  "cfg-if",
- "event-listener 2.5.3",
+ "event-listener",
  "futures-lite",
  "rustix 0.37.23",
  "signal-hook",
@@ -1205,7 +1196,7 @@ dependencies = [
  "async-channel",
  "async-global-executor",
  "async-io",
- "async-lock 2.8.0",
+ "async-lock",
  "crossbeam-utils",
  "futures-channel",
  "futures-core",
@@ -1358,7 +1349,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "ring 0.1.0",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sp-ark-bls12-381",
  "sp-ark-ed-on-bls12-381-bandersnatch",
  "zeroize",
@@ -1618,7 +1609,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77231a1c8f801696fc0123ec6150ce92cffb8e164a02afb9c8ddee0e9b65ad65"
 dependencies = [
  "async-channel",
- "async-lock 2.8.0",
+ "async-lock",
  "async-task",
  "atomic-waker",
  "fastrand 1.9.0",
@@ -5009,7 +5000,7 @@ dependencies = [
  "ed25519 2.2.2",
  "rand_core 0.6.4",
  "serde",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "subtle 2.5.0",
  "zeroize",
 ]
@@ -5039,7 +5030,7 @@ dependencies = [
  "hashbrown 0.14.3",
  "hex",
  "rand_core 0.6.4",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "zeroize",
 ]
 
@@ -5330,27 +5321,6 @@ name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
-
-[[package]]
-name = "event-listener"
-version = "4.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67b215c49b2b248c855fb73579eb1f4f26c38ffdc12973e20e07b91d78d5646e"
-dependencies = [
- "concurrent-queue",
- "parking",
- "pin-project-lite 0.2.12",
-]
-
-[[package]]
-name = "event-listener-strategy"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "958e4d70b6d5e81971bebec42271ec641e7ff4e170a6fa605f2b8a8b65cb97d3"
-dependencies = [
- "event-listener 4.0.3",
- "pin-project-lite 0.2.12",
-]
 
 [[package]]
 name = "exit-future"
@@ -7036,7 +7006,7 @@ dependencies = [
  "curl",
  "curl-sys",
  "encoding_rs",
- "event-listener 2.5.3",
+ "event-listener",
  "futures-lite",
  "http",
  "log",
@@ -7112,9 +7082,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee"
-version = "0.22.2"
+version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f3ae45a64cfc0882934f963be9431b2a165d667f53140358181f262aca0702"
+checksum = "cfdb12a2381ea5b2e68c3469ec604a007b367778cdb14d09612c8069ebd616ad"
 dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-http-client",
@@ -7128,9 +7098,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-client-transport"
-version = "0.22.2"
+version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "455fc882e56f58228df2aee36b88a1340eafd707c76af2fa68cf94b37d461131"
+checksum = "4978087a58c3ab02efc5b07c5e5e2803024536106fd5506f558db172c889b3aa"
 dependencies = [
  "futures-util",
  "http",
@@ -7149,12 +7119,11 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-core"
-version = "0.22.2"
+version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b75568f4f9696e3a47426e1985b548e1a9fcb13372a5e320372acaf04aca30d1"
+checksum = "b4b257e1ec385e07b0255dde0b933f948b5c8b8c28d42afda9587c3a967b896d"
 dependencies = [
  "anyhow",
- "async-lock 3.3.0",
  "async-trait",
  "beef",
  "futures-timer",
@@ -7175,9 +7144,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-http-client"
-version = "0.22.2"
+version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e7a95e346f55df84fb167b7e06470e196e7d5b9488a21d69c5d9732043ba7ba"
+checksum = "1ccf93fc4a0bfe05d851d37d7c32b7f370fe94336b52a2f0efc5f1981895c2e5"
 dependencies = [
  "async-trait",
  "hyper",
@@ -7195,9 +7164,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-proc-macros"
-version = "0.22.2"
+version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30ca066e73dd70294aebc5c2675d8ffae43be944af027c857ce0d4c51785f014"
+checksum = "7d0bb047e79a143b32ea03974a6bf59b62c2a4c5f5d42a381c907a8bbb3f75c0"
 dependencies = [
  "heck 0.4.1",
  "proc-macro-crate 3.0.0",
@@ -7208,9 +7177,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-server"
-version = "0.22.2"
+version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e29c1bd1f9bba83c864977c73404e505f74f730fa0db89dd490ec174e36d7f0"
+checksum = "12d8b6a9674422a8572e0b0abb12feeb3f2aeda86528c80d0350c2bd0923ab41"
 dependencies = [
  "futures-util",
  "http",
@@ -7232,9 +7201,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-types"
-version = "0.22.2"
+version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3467fd35feeee179f71ab294516bdf3a81139e7aeebdd860e46897c12e1a3368"
+checksum = "150d6168405890a7a3231a3c74843f58b8959471f6df76078db2619ddee1d07d"
 dependencies = [
  "anyhow",
  "beef",
@@ -7245,9 +7214,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-ws-client"
-version = "0.22.2"
+version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68ca71e74983f624c0cb67828e480a981586074da8ad3a2f214c6a3f884edab9"
+checksum = "58b9db2dfd5bb1194b0ce921504df9ceae210a345bc2f6c5a61432089bbab070"
 dependencies = [
  "http",
  "jsonrpsee-client-transport",
@@ -7267,7 +7236,7 @@ dependencies = [
  "elliptic-curve",
  "once_cell",
  "serdect",
- "sha2 0.10.7",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -7698,7 +7667,7 @@ dependencies = [
  "multihash 0.17.0",
  "quick-protobuf",
  "rand 0.8.5",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "thiserror",
  "zeroize",
 ]
@@ -7723,7 +7692,7 @@ dependencies = [
  "log",
  "quick-protobuf",
  "rand 0.8.5",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "smallvec",
  "thiserror",
  "uint",
@@ -7781,7 +7750,7 @@ dependencies = [
  "once_cell",
  "quick-protobuf",
  "rand 0.8.5",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "snow",
  "static_assertions",
  "thiserror",
@@ -8116,7 +8085,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/litep2p?branch=master#b142c9eb611fb2fe78d2830266a3675b37299ceb"
+source = "git+https://github.com/paritytech/litep2p?rev=e03a6023882db111beeb24d8c0ceaac0721d3f0f#e03a6023882db111beeb24d8c0ceaac0721d3f0f"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -8143,7 +8112,7 @@ dependencies = [
  "ring 0.16.20",
  "rustls 0.20.8",
  "serde",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "simple-dns",
  "smallvec",
  "snow",
@@ -8692,7 +8661,7 @@ dependencies = [
  "core2",
  "digest 0.10.7",
  "multihash-derive 0.8.0",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "unsigned-varint",
 ]
@@ -8709,7 +8678,7 @@ dependencies = [
  "core2",
  "digest 0.10.7",
  "multihash-derive 0.8.0",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "unsigned-varint",
 ]
@@ -8739,7 +8708,7 @@ dependencies = [
  "ripemd",
  "serde",
  "sha1",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "strobe-rs",
 ]
@@ -11786,6 +11755,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-interface",
+ "docify",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures",
@@ -11838,9 +11808,11 @@ dependencies = [
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
+ "docify",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -11971,7 +11943,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand 0.8.5",
- "rand_core 0.5.1",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -12493,7 +12465,7 @@ checksum = "56af0a30af74d0445c0bf6d9d051c979b516a1a5af790d251daee76005420a48"
 dependencies = [
  "once_cell",
  "pest",
- "sha2 0.10.7",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -13896,8 +13868,11 @@ dependencies = [
 name = "polkadot-sdk-docs"
 version = "0.0.1"
 dependencies = [
+ "cumulus-client-service",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
+ "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-primitives-storage-weight-reclaim",
  "docify",
  "frame-executive",
  "frame-support",
@@ -13935,9 +13910,11 @@ dependencies = [
  "sc-consensus-grandpa",
  "sc-consensus-manual-seal",
  "sc-consensus-pow",
+ "sc-executor",
  "sc-network",
  "sc-rpc",
  "sc-rpc-api",
+ "sc-service",
  "scale-info",
  "simple-mermaid",
  "sp-api",
@@ -17815,7 +17792,7 @@ dependencies = [
  "merlin",
  "rand_core 0.6.4",
  "serde_bytes",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "subtle 2.5.0",
  "zeroize",
 ]
@@ -18228,9 +18205,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.7"
+version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "479fb9d862239e610720565ca91403019f2f00410f1864c5aa7479b950a76ed8"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -18430,7 +18407,7 @@ dependencies = [
  "async-executor",
  "async-fs",
  "async-io",
- "async-lock 2.8.0",
+ "async-lock",
  "async-net",
  "async-process",
  "blocking",
@@ -18453,7 +18430,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0bb30cf57b7b5f6109ce17c3164445e2d6f270af2cb48f6e4d31c2967c9a9f5"
 dependencies = [
  "arrayvec 0.7.4",
- "async-lock 2.8.0",
+ "async-lock",
  "atomic-take",
  "base64 0.21.2",
  "bip39",
@@ -18464,7 +18441,7 @@ dependencies = [
  "derive_more",
  "ed25519-zebra 4.0.3",
  "either",
- "event-listener 2.5.3",
+ "event-listener",
  "fnv",
  "futures-lite",
  "futures-util",
@@ -18488,7 +18465,7 @@ dependencies = [
  "schnorrkel 0.10.2",
  "serde",
  "serde_json",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "siphasher",
  "slab",
@@ -18507,12 +18484,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "256b5bad1d6b49045e95fe87492ce73d5af81545d8b4d8318a872d2007024c33"
 dependencies = [
  "async-channel",
- "async-lock 2.8.0",
+ "async-lock",
  "base64 0.21.2",
  "blake2-rfc",
  "derive_more",
  "either",
- "event-listener 2.5.3",
+ "event-listener",
  "fnv",
  "futures-channel",
  "futures-lite",
@@ -18555,7 +18532,7 @@ dependencies = [
  "rand_core 0.6.4",
  "ring 0.17.7",
  "rustc_version 0.4.0",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "subtle 2.5.0",
 ]
 
@@ -19403,7 +19380,7 @@ dependencies = [
  "byteorder",
  "criterion 0.4.0",
  "digest 0.10.7",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "sp-crypto-hashing-proc-macro",
  "twox-hash",
@@ -19824,7 +19801,7 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sp-api",
  "sp-application-crypto",
  "sp-core",
@@ -20368,9 +20345,9 @@ dependencies = [
 
 [[package]]
 name = "str0m"
-version = "0.2.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee48572247f422dcbe68630c973f8296fbd5157119cd36a3223e48bf83d47727"
+checksum = "d3f10d3f68e60168d81110410428a435dbde28cc5525f5f7c6fdec92dbdc2800"
 dependencies = [
  "combine",
  "crc",
@@ -20521,7 +20498,7 @@ dependencies = [
  "pbkdf2",
  "rustc-hex",
  "schnorrkel 0.11.4",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "zeroize",
 ]
 
@@ -22213,7 +22190,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "sha3",
  "thiserror",
  "zeroize",
@@ -22531,7 +22508,7 @@ dependencies = [
  "log",
  "rustix 0.36.15",
  "serde",
- "sha2 0.10.7",
+ "sha2 0.10.8",
  "toml 0.5.11",
  "windows-sys 0.45.0",
  "zstd 0.11.2+zstd.1.5.2",

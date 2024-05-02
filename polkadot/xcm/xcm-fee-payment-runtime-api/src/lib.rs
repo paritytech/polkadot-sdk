@@ -41,7 +41,7 @@ sp_api::decl_runtime_apis! {
 		///
 		/// # Arguments
 		///
-		/// * `xcm_version`: Version.
+		/// * `xcm_version`: desired XCM `Version` of `VersionedAssetId`.
 		fn query_acceptable_payment_assets(xcm_version: Version) -> Result<Vec<VersionedAssetId>, Error>;
 
 		/// Returns a weight needed to execute a XCM.
