@@ -170,9 +170,19 @@ fn testnet_genesis(
 	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
+	let staking_gen = staking_genesis::generate(10, 10, 16, 20);
+	let stakers = staking_gen.stakers.iter().map(|(k, _, _, _)| k).collect::<Vec<_>>();
+
+	let endowed_accounts = endowed_accounts
+		.iter()
+		.cloned()
+		.zip(stakers.iter().cloned())
+		.map(|k| (k, 1u64 << 60))
+		.collect::<Vec<_>>();
+
 	serde_json::json!({
 		"balances": {
-			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
+			"balances": endowed_accounts,
 		},
 		"parachainInfo": {
 			"parachainId": id,
@@ -197,46 +207,58 @@ fn testnet_genesis(
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
 		"sudo": { "key": Some(root) },
-		"staking": staking_runtime::StakingConfig {
-			// add a few stakers to start with for testing.
-			stakers: vec![
-				(
-					utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-					utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-					100u128,
-					pallet_staking::StakerStatus::Validator,
-				),
-				(
-					utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
-					utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
-					200u128,
-					pallet_staking::StakerStatus::Validator,
-				),
-			],
-			validator_count: 2,
-			..Default::default()
-		}
+		"staking": staking_gen,
 	})
+}
+
+mod staking_genesis {
+	use super::*;
+	use pallet_staking::StakerStatus;
+
+	pub(crate) fn generate(
+		validators: u32,
+		nominators: u32,
+		edges: usize,
+		validator_count: u32,
+	) -> staking_runtime::StakingConfig {
+		let mut targets = vec![];
+		let mut stakers = vec![];
+
+		for i in 0..validators {
+			let stash =
+				get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "validator"));
+			let stake = 1u128 << 20;
+			targets.push(stash.clone());
+
+			stakers.push((stash.clone(), stash, stake, StakerStatus::Validator));
+		}
+
+		for i in 0..nominators {
+			let stash =
+				get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "nominator"));
+			let stake = 1u128 << 20;
+			let nominations = utils::select_targets(edges, targets.clone());
+
+			stakers.push((stash.clone(), stash, stake, StakerStatus::Nominator(nominations)));
+		}
+
+		staking_runtime::StakingConfig { stakers, validator_count, ..Default::default() }
+	}
 }
 
 mod utils {
 	use super::*;
-	use sp_runtime::traits::Verify;
+	use rand::prelude::*;
 
-	type AccountPublic = <Signature as Verify>::Signer;
-
-	/// Helper function to generate a crypto pair from seed.
-	pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-		TPublic::Pair::from_string(&format!("//{}", seed), None)
-			.expect("static values are valid; qed")
-			.public()
+	pub(crate) fn as_seed(id: u32, domain: &str) -> String {
+		let seed = format!("{}-{}", domain, id);
+		seed
 	}
 
-	/// Helper function to generate an account ID from seed.
-	pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-	where
-		AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-	{
-		AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	pub(crate) fn select_targets(n: usize, validators: Vec<AccountId>) -> Vec<AccountId> {
+		validators
+			.choose_multiple(&mut rand::thread_rng(), n)
+			.cloned()
+			.collect::<Vec<_>>()
 	}
 }
