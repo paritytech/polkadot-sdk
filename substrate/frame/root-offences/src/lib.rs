@@ -33,7 +33,7 @@ use alloc::vec::Vec;
 use pallet_session::historical::IdentificationTuple;
 use pallet_staking::{BalanceOf, Exposure, ExposureOf, Pallet as Staking};
 use sp_runtime::Perbill;
-use sp_staking::offence::{DisableStrategy, OnOffenceHandler};
+use sp_staking::offence::OnOffenceHandler;
 
 pub use pallet::*;
 
@@ -128,7 +128,7 @@ pub mod pallet {
 				T::AccountId,
 				IdentificationTuple<T>,
 				Weight,
-			>>::on_offence(&offenders, &slash_fraction, session_index, DisableStrategy::WhenSlashed);
+			>>::on_offence(&offenders, &slash_fraction, session_index);
 		}
 	}
 }
