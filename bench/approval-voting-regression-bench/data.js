@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714639893871,
+  "lastUpdate": 1714647385353,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -1644,6 +1644,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.3935174199001787,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "171bedc2b319e18d51a7b510d8bd4cfd2e645c31",
+          "message": "Bridge: ignore client errors when calling recently added `*_free_headers_interval` methods (#4350)\n\nsee https://github.com/paritytech/parity-bridges-common/issues/2974 : we\nstill need to support unupgraded chains (BHK and BHP) in relay\n\nWe may need to revert this change when all chains are upgraded",
+          "timestamp": "2024-05-02T10:02:59Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/171bedc2b319e18d51a7b510d8bd4cfd2e645c31"
+        },
+        "date": 1714647360193,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63539.619999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52933.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3350431958601434,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.528457082589954,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.155113249340108,
             "unit": "seconds"
           }
         ]
