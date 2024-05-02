@@ -39,6 +39,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
+#[docify::export(wasm_executor)]
 type ParachainExecutor = WasmExecutor<ParachainHostFunctions>;
 
 type ParachainClient = TFullClient<Block, RuntimeApi, ParachainExecutor>;
@@ -61,6 +62,7 @@ pub type Service = PartialComponents<
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
+#[docify::export(component_instantiation)]
 pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error> {
 	let telemetry = config
 		.telemetry_endpoints
