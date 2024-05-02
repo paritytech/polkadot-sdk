@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714599192105,
+  "lastUpdate": 1714640197358,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -7747,6 +7747,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010953754920000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "14c4afc5382dcb18095af5c090e2aa1af65ecae6",
+          "message": "[Backport] Version bumps and reorg prdocs from 1.11.0 (#4336)\n\nThis PR backports version bumps and reorganization of the `prdocs` from\n`1.11.0` release branch back to master",
+          "timestamp": "2024-05-02T07:21:11Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/14c4afc5382dcb18095af5c090e2aa1af65ecae6"
+        },
+        "date": 1714640171698,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.913333333327,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01207393814666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022379359086666658,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16159951193999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01015029263333334,
             "unit": "seconds"
           }
         ]
