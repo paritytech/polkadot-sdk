@@ -257,8 +257,8 @@ coverage-result:
     - codecov-test-linux-stable
   script:
     - !reference [.codecov-cli, script]  
-    - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error
-    - codecovcli -v get-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error
+    - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
+    - codecovcli -v get-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
 
 #
 #
@@ -274,7 +274,7 @@ codecov-start:
   script:
     - !reference [.codecov-cli, script]    
     - codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
-    - codecovcli -v create-report -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error
+    - codecovcli -v create-report -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
 
 #
 #
@@ -316,7 +316,7 @@ codecov-test-linux-stable:
         --branch \
         -o target/coverage/result/report-${CI_NODE_INDEX}.lcov
     - ls -l target/coverage/result/    
-    - codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} --fail-on-error
+    - codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} --fail-on-error--pr ${CI_COMMIT_REF_NAME} --git-service github
   #  
 
 
