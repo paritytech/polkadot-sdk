@@ -296,6 +296,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -405,14 +416,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>free_source_headers_interval(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumberOf&lt;P::SourceChain&gt;&gt;, <span class="self">Self</span>::Error&gt; {
-		<span class="self">self</span>.client
+		<span class="prelude-val">Ok</span>(<span class="self">self
+			</span>.client
 			.typed_state_call(
 				P::SourceChain::FREE_HEADERS_INTERVAL_METHOD.into(),
 				(),
 				<span class="prelude-val">Some</span>(<span class="self">self</span>.client.best_header().<span class="kw">await</span><span class="question-mark">?</span>.hash()),
 			)
 			.<span class="kw">await
-	</span>}
+			</span>.unwrap_or_else(|e| {
+				<span class="macro">log::info!</span>(
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"Call of {} at {} has failed with an error: {:?}. Treating as `None`"</span>,
+					P::SourceChain::FREE_HEADERS_INTERVAL_METHOD,
+					P::TargetChain::NAME,
+					e,
+				);
+				<span class="prelude-val">None
+			</span>}))
+	}
 
 	<span class="kw">async fn </span>submit_finality_proof(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
