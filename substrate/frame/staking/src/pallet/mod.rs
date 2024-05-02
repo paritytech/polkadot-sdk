@@ -1615,6 +1615,7 @@ pub mod pallet {
 		///
 		/// 1. the `total_balance` of the stash is below existential deposit.
 		/// 2. or, the `ledger.total` of the stash is below existential deposit.
+		/// 3. or, existential deposit is zero and either `total_balance` or `ledger.total` is zero.
 		///
 		/// The former can happen in cases like a slash; the latter when a fully unbonded account
 		/// is still receiving staking rewards in `RewardDestination::Staked`.
@@ -1640,8 +1641,12 @@ pub mod pallet {
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
 			let ed = T::Currency::minimum_balance();
-			let reapable = T::Currency::total_balance(&stash) < ed ||
-				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default() < ed;
+			let origin_balance = T::Currency::total_balance(&stash);
+			let ledger_total = Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
+			let reapable = origin_balance < ed ||
+				origin_balance == 0u32.into() ||
+				ledger_total < ed ||
+				ledger_total == 0u32.into();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
