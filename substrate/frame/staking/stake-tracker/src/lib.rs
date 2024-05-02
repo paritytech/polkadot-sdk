@@ -148,7 +148,10 @@ impl<Balance: PartialOrd + DefensiveSaturating> StakeImbalance<Balance> {
 /// Lazy: no score update events will be automatically reflected in the sorted list.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum SortingMode {
+	/// All the stake updates should be reflected in the lists' scores; the nodes are sorted by
+	/// score.
 	Strict,
+	/// The stake updates are not reflected in the lists' scores.
 	Lazy,
 }
 
@@ -167,7 +170,7 @@ impl SortingMode {
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::*;
-	use frame_election_provider_support::{ExtendedBalance, VoteWeight};
+	use frame_election_provider_support::ExtendedBalance;
 	use frame_system::pallet_prelude::BlockNumberFor;
 
 	/// The current storage version.
@@ -188,13 +191,18 @@ pub mod pallet {
 		/// The staking interface.
 		type Staking: StakingInterface<AccountId = Self::AccountId>;
 
-		/// Something that provides an *always* sorted list of voters.
-		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
+		/// Something that provides a list of voters that may be *always* sorted based the voter
+		/// stake, dependin on the state of [`pallet::VoterListMode`].
+		type VoterList: SortedListProvider<
+			Self::AccountId,
+			Score = <Self::Staking as StakingInterface>::Balance,
+		>;
 
 		/// Something that provides an *always* sorted list of targets by their approval stake.
 		type TargetList: SortedListProvider<
 			Self::AccountId,
-			Score = <Self::Staking as StakingInterface>::Balance,
+			//Score = <Self::Staking as StakingInterface>::Balance,
+			Score = ExtendedBalance,
 		>;
 	}
 
@@ -217,14 +225,6 @@ pub mod pallet {
 		/// the staking interface.
 		pub(crate) fn active_vote_of(who: &T::AccountId) -> BalanceOf<T> {
 			T::Staking::stake(who).map(|s| s.active).defensive_unwrap_or_default()
-		}
-
-		/// Converts a balance into the staker's vote weight.
-		pub(crate) fn weight_of(balance: BalanceOf<T>) -> VoteWeight {
-			<T::Staking as StakingInterface>::CurrencyToVote::to_vote(
-				balance,
-				T::Currency::total_issuance(),
-			)
 		}
 
 		/// Fetches and converts a voter's weight into the [`ExtendedBalance`] type for safe
@@ -289,16 +289,14 @@ pub mod pallet {
 			// update target score.
 			let removed = match imbalance {
 				StakeImbalance::Positive(imbalance) => {
-					let _ = T::TargetList::on_increase(who, Self::to_currency(imbalance))
-						.defensive_proof(
-							"staker should exist in the list, otherwise returned earlier.",
-						);
+					let _ = T::TargetList::on_increase(who, imbalance).defensive_proof(
+						"staker should exist in the list, otherwise returned earlier.",
+					);
 					false
 				},
 				StakeImbalance::Negative(imbalance) => {
 					if let Ok(current_score) = T::TargetList::get_score(who) {
-						let balance =
-							Self::to_vote_extended(current_score).saturating_sub(imbalance);
+						let balance = current_score.saturating_sub(imbalance);
 
 						// the target is removed from the list IFF score is 0 and the target is
 						// dangling (i.e. not bonded).
@@ -309,10 +307,9 @@ pub mod pallet {
 							true
 						} else {
 							// update the target score without removing it.
-							let _ = T::TargetList::on_update(who, Self::to_currency(balance))
-								.defensive_proof(
-									"staker exists in the list as per the check above; qed.",
-								);
+							let _ = T::TargetList::on_update(who, balance).defensive_proof(
+								"staker exists in the list as per the check above; qed.",
+							);
 							false
 						}
 					} else {
@@ -334,7 +331,10 @@ pub mod pallet {
 }
 
 #[cfg(any(test, feature = "try-runtime"))]
-impl<T: Config> Pallet<T> {
+impl<T: Config> Pallet<T>
+where
+	BalanceOf<T>: Into<sp_npos_elections::ExtendedBalance>,
+{
 	/// Try-state checks for the stake-tracker pallet.
 	///
 	/// 1. `do_try_state_approvals`: checks the current approval stake in the target list compared
@@ -391,7 +391,7 @@ impl<T: Config> Pallet<T> {
 
 				// sanity check.
 				let active_stake = T::Staking::stake(&voter)
-					.map(|s| Self::weight_of(s.active))
+					.map(|s| s.active)
 					.expect("active voter has bonded stake; qed.");
 
 				// if the voter list is in lazy mode, we don't expect the stake of the voter to
@@ -405,7 +405,7 @@ impl<T: Config> Pallet<T> {
 
 				for nomination in nominations {
 					if let Some(stake) = approvals_map.get_mut(&nomination) {
-						*stake += score as sp_npos_elections::ExtendedBalance;
+						*stake += score.into();
 					} else {
 						approvals_map.insert(nomination, score.into());
 					}
@@ -463,7 +463,7 @@ impl<T: Config> Pallet<T> {
 						"bonded and active validator should also be part of the voter list"
 					);
 					// return self-stake (ie. active bonded).
-					T::Staking::stake(&target).map(|s| Self::weight_of(s.active)).ok()
+					T::Staking::stake(&target).map(|s| s.active.into()).ok()
 				},
 				Ok(StakerStatus::Nominator(_)) => {
 					panic!("staker with nominator status should not be part of the target list");
@@ -486,7 +486,6 @@ impl<T: Config> Pallet<T> {
 		// compare calculated approvals per target with target list state.
 		for (target, calculated_stake) in approvals_map.iter() {
 			let stake_in_list = T::TargetList::get_score(target).expect("target must exist; qed.");
-			let stake_in_list = Self::to_vote_extended(stake_in_list);
 
 			if *calculated_stake != stake_in_list {
 				log!(
@@ -556,7 +555,10 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
+impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T>
+where
+	BalanceOf<T>: Into<sp_npos_elections::ExtendedBalance> + sp_std::fmt::Debug,
+{
 	/// When a nominator's stake is updated, all the nominated targets must be updated
 	/// accordingly.
 	///
@@ -574,16 +576,14 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 					return
 				}
 
-				let voter_weight = Self::weight_of(stake.active);
-
-				let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
+				let _ = T::VoterList::on_update(who, stake.active).defensive_proof(
 					"staker should exist in VoterList, as per the contract \
                             with staking.",
 				);
 
 				let stake_imbalance = StakeImbalance::from(
 					prev_stake.map_or(Default::default(), |s| Self::to_vote_extended(s.active)),
-					voter_weight.into(),
+					Self::to_vote_extended(stake.active),
 				);
 
 				// updates vote weight of nominated targets accordingly. Note: this will
@@ -593,16 +593,15 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				}
 			},
 			Ok(StakerStatus::Validator) => {
-				let voter_weight = Self::weight_of(stake.active);
 				let stake_imbalance = StakeImbalance::from(
 					prev_stake.map_or(Default::default(), |s| Self::to_vote_extended(s.active)),
-					voter_weight.into(),
+					Self::to_vote_extended(stake.active),
 				);
 
 				Self::update_target_score(who, stake_imbalance);
 
 				// validator is both a target and a voter.
-				let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
+				let _ = T::VoterList::on_update(who, stake.active).defensive_proof(
 					"the staker should exist in VoterList, as per the \
                             contract with staking.",
 				);
@@ -624,7 +623,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_validator_add(who: &T::AccountId, self_stake: Option<Stake<BalanceOf<T>>>) {
 		let self_stake = self_stake.unwrap_or_default().active;
 
-		match T::TargetList::on_insert(who.clone(), self_stake) {
+		match T::TargetList::on_insert(who.clone(), Self::to_vote_extended(self_stake)) {
 			Ok(_) => (),
 			Err(_) => {
 				// if the target already exists in the list, it means that the target is idle
@@ -650,13 +649,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// While idling, the target node is not removed from the target list but its score is
 	/// updated.
 	fn on_validator_idle(who: &T::AccountId) {
-		let self_stake = Self::weight_of(Self::active_vote_of(who));
+		let self_stake = Self::active_vote_of(who);
 		Self::update_target_score(who, StakeImbalance::Negative(self_stake.into()));
 
 		// validator is a nominator too.
 		Self::on_nominator_idle(who, vec![]);
 
-		log!(debug, "on_validator_idle: {:?}, decreased self-stake {}", who, self_stake);
+		log!(debug, "on_validator_idle: {:?}, decreased self-stake {:?}", who, self_stake);
 	}
 
 	/// A validator has been set as inactive/removed from the staking POV. The target node is
@@ -695,13 +694,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* this method is
 	/// called.
 	fn on_nominator_add(who: &T::AccountId, nominations: Vec<AccountIdOf<T>>) {
-		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
+		let nominator_vote = Self::active_vote_of(who);
 
 		let _ = T::VoterList::on_insert(who.clone(), nominator_vote).defensive_proof(
 			"the nominator must not exist in the list as per the contract with staking.",
 		);
 
-		// If who is a nominator, update the vote weight of the nominations if they exist. Note:
+		// If who is a nominator, update the score of the nominations if they exist. Note:
 		// this will update the score of up to `T::MaxNominations` validators.
 		match T::Staking::status(who).defensive() {
 			Ok(StakerStatus::Nominator(_)) =>
@@ -729,7 +728,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Note: the number of nodes that are updated is bounded by the maximum number of
 	/// nominators, which is defined in the staking pallet.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
-		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
+		let nominator_vote = Self::active_vote_of(who);
 
 		log!(
 			debug,
@@ -760,7 +759,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		prev_nominations: Vec<T::AccountId>,
 		nominations: Vec<T::AccountId>,
 	) {
-		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
+		let nominator_vote = Self::active_vote_of(who);
 
 		log!(
 			debug,

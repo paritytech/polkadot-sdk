@@ -116,6 +116,11 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 					}
 				}
 
+				let _ = T::VoterList::on_update(
+					&nominator,
+					Pallet::<T>::stake(&nominator).defensive_unwrap_or_default().active,
+				);
+
 				// progress cursor.
 				cursor = Some(nominator)
 			} else {

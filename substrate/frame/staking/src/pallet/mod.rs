@@ -18,9 +18,7 @@
 //! Staking FRAME Pallet.
 
 use codec::Codec;
-use frame_election_provider_support::{
-	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
-};
+use frame_election_provider_support::{ElectionProvider, ElectionProviderBase, SortedListProvider};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -230,7 +228,7 @@ pub mod pallet {
 		/// chilled.
 		///
 		/// Invariant: what comes out of this list will always be an active nominator.
-		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
+		type VoterList: SortedListProvider<Self::AccountId, Score = BalanceOf<Self>>;
 
 		/// Something that provides a sorted list of targets (aka electable and chilled
 		/// validators), used for NPoS election.
@@ -1603,10 +1601,10 @@ pub mod pallet {
 			let stash = ledger.stash.clone();
 			let final_unlocking = ledger.unlocking.len();
 
-			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
+			let active_stake = ledger.active;
 			ledger.update()?;
 			if T::VoterList::contains(&stash) {
-				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
+				let _ = T::VoterList::on_update(&stash, active_stake).defensive();
 			}
 
 			let removed_chunks = 1u32 // for the case where the last iterated chunk is not removed

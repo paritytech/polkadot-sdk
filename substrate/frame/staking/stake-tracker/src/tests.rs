@@ -19,7 +19,7 @@
 
 use crate::{mock::*, SortingMode, StakeImbalance, VoterListMode};
 
-use frame_election_provider_support::{ScoreProvider, SortedListProvider};
+use frame_election_provider_support::{ExtendedBalance, ScoreProvider, SortedListProvider};
 use frame_support::assert_ok;
 use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingInterface};
 
@@ -116,7 +116,9 @@ fn on_stake_update_works() {
 		let nomination_score_after = TargetBagsList::get_score(&nominations[0]).unwrap();
 		assert_eq!(
 			nomination_score_after,
-			nomination_score_before - (stake_before.unwrap().active - new_stake.active)
+			nomination_score_before -
+				(stake_before.unwrap().active as ExtendedBalance -
+					new_stake.active as ExtendedBalance)
 		);
 	});
 
@@ -148,7 +150,7 @@ fn on_stake_update_works() {
 		// the stake imbalance of previous and the new stake, in order to not touch the nomination's
 		// weight in the total target score).
 		let target_score_after = TargetBagsList::get_score(&10).unwrap();
-		assert_eq!(target_score_after, target_score_before - stake_imbalance);
+		assert_eq!(target_score_after, target_score_before - stake_imbalance as u128);
 	})
 }
 
@@ -224,7 +226,7 @@ fn on_stake_update_sorting_works() {
 
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
 		// [(10, 100), (11, 100), (1, 100), (2, 100)]
-		let voter_scores_before = get_scores::<VoterBagsList>();
+		let voter_scores_before = get_voter_scores();
 		assert_eq!(voter_scores_before, [(10, 100), (11, 100), (1, 100), (2, 100)]);
 
 		// noop, nothing changes.
@@ -234,7 +236,7 @@ fn on_stake_update_sorting_works() {
 			initial_stake,
 			initial_stake.unwrap(),
 		);
-		assert_eq!(voter_scores_before, get_scores::<VoterBagsList>());
+		assert_eq!(voter_scores_before, get_voter_scores());
 
 		// now let's change the self-vote of 11 and call `on_stake_update` again.
 		let nominations = <StakingMock as StakingInterface>::nominations(&11).unwrap();
@@ -384,7 +386,9 @@ fn on_nominator_remove_works() {
 		// now, the score of the nominated by 1 has less `nominator_score` stake than before the
 		// nominator was removed.
 		let nomination_score_after = TargetBagsList::get_score(&nominations[0]).unwrap();
-		assert!(nomination_score_after == nomination_score_before - nominator_score);
+		assert!(
+			nomination_score_after == nomination_score_before - nominator_score as ExtendedBalance
+		);
 	})
 }
 
@@ -504,7 +508,7 @@ mod staking_integration {
 	#[test]
 	fn on_remove_stakers_with_nominations_works() {
 		ExtBuilder::default().populate_lists().build_and_execute(|| {
-			assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 300), (11, 200)]);
+			assert_eq!(get_target_scores(), vec![(10, 300), (11, 200)]);
 
 			assert!(VoterBagsList::contains(&1));
 			assert_eq!(VoterBagsList::get_score(&1), Ok(100));
@@ -521,23 +525,17 @@ mod staking_integration {
 	#[test]
 	fn on_nominator_update_works() {
 		ExtBuilder::default().populate_lists().build_and_execute(|| {
-			assert_eq!(
-				get_scores::<VoterBagsList>(),
-				vec![(10, 100), (11, 100), (1, 100), (2, 100)]
-			);
-			assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 300), (11, 200)]);
+			assert_eq!(get_voter_scores(), vec![(10, 100), (11, 100), (1, 100), (2, 100)]);
+			assert_eq!(get_target_scores(), vec![(10, 300), (11, 200)]);
 
 			add_validator(20, 500);
 			// removes nomination from 10 and adds nomination to new validator, 20.
 			update_nominations_of(2, vec![11, 20]);
 
-			assert_eq!(
-				get_scores::<VoterBagsList>(),
-				[(20, 500), (10, 100), (11, 100), (1, 100), (2, 100)]
-			);
+			assert_eq!(get_voter_scores(), [(20, 500), (10, 100), (11, 100), (1, 100), (2, 100)]);
 
 			// target list has been updated:
-			assert_eq!(get_scores::<TargetBagsList>(), vec![(20, 600), (11, 200), (10, 200)]);
+			assert_eq!(get_target_scores(), vec![(20, 600), (11, 200), (10, 200)]);
 		})
 	}
 
@@ -547,11 +545,8 @@ mod staking_integration {
 			// sets voter list to lazy mode.
 			VoterListMode::<Test>::set(SortingMode::Lazy);
 
-			assert_eq!(
-				get_scores::<VoterBagsList>(),
-				vec![(10, 100), (11, 100), (1, 100), (2, 100)]
-			);
-			assert_eq!(get_scores::<TargetBagsList>(), vec![(10, 300), (11, 200)]);
+			assert_eq!(get_voter_scores(), vec![(10, 100), (11, 100), (1, 100), (2, 100)]);
+			assert_eq!(get_target_scores(), vec![(10, 300), (11, 200)]);
 
 			add_validator(20, 500);
 			// removes nomination from 10 and adds nomination to new validator, 20.
@@ -559,13 +554,10 @@ mod staking_integration {
 
 			// voter list has been updated because a new voter (20) has been added, not stake
 			// updated.
-			assert_eq!(
-				get_scores::<VoterBagsList>(),
-				[(20, 500), (10, 100), (11, 100), (1, 100), (2, 100)]
-			);
+			assert_eq!(get_voter_scores(), [(20, 500), (10, 100), (11, 100), (1, 100), (2, 100)]);
 
 			// target list has been updated:
-			assert_eq!(get_scores::<TargetBagsList>(), vec![(20, 600), (11, 200), (10, 200)]);
+			assert_eq!(get_target_scores(), vec![(20, 600), (11, 200), (10, 200)]);
 		})
 	}
 
