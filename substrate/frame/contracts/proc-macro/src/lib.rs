@@ -727,7 +727,7 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 					})?;
 				 __caller__
 					 .set_fuel(fuel.into())
-					 .map_err(|_| wasmi::Error::host(TrapReason::from(Error::<E::T>::OutOfGas)))?;
+					 .expect("Fuel metering is enabled; qed");
 			}
 		} else {
 			quote! { }
