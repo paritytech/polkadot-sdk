@@ -419,7 +419,7 @@ impl<T: Config> WasmBlob<T> {
 			.gas_meter_mut()
 			.gas_left()
 			.ref_time()
-			.checked_div(T::Schedule::get().instruction_weights.base as u64)
+			.checked_div(T::Schedule::get().ref_time_by_fuel())
 			.ok_or(Error::<T>::InvalidSchedule)?;
 		store
 			.set_fuel(fuel_limit)

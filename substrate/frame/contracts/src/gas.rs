@@ -39,45 +39,40 @@ impl ChargedAmount {
 
 /// Meter for syncing the gas between the executor and the gas meter.
 #[derive(DefaultNoBound)]
-struct ExecutorMeter<T: Config> {
-	fuel_left: u64,
+struct EngineMeter<T: Config> {
+	fuel: u64,
 	_phantom: PhantomData<T>,
 }
 
-impl<T: Config> ExecutorMeter<T> {
-	/// The ratio of the ref_time to the fuel.
-	fn ref_time_by_fuel() -> u64 {
-		u64::from(T::Schedule::get().instruction_weights.base)
-	}
-
+impl<T: Config> EngineMeter<T> {
 	/// Create a meter with the given fuel limit.
 	fn new(limit: Weight) -> Self {
 		Self {
-			fuel_left: limit.ref_time().saturating_div(Self::ref_time_by_fuel()),
+			fuel: limit.ref_time().saturating_div(T::Schedule::get().ref_time_by_fuel()),
 			_phantom: PhantomData,
 		}
 	}
 
 	/// Set the fuel left to the given value.
 	/// Returns the amount of Weight consumed since the last update.
-	fn update(&mut self, fuel_left: u64) -> Weight {
+	fn set_fuel(&mut self, fuel: u64) -> Weight {
 		let consumed = self
-			.fuel_left
-			.saturating_sub(fuel_left)
-			.saturating_mul(Self::ref_time_by_fuel());
-		self.fuel_left = fuel_left;
+			.fuel
+			.saturating_sub(fuel)
+			.saturating_mul(T::Schedule::get().ref_time_by_fuel());
+		self.fuel = fuel;
 		Weight::from_parts(consumed, 0)
 	}
 
 	/// Charge the given amount of gas.
 	/// Returns the amount of fuel left.
-	fn charge(&mut self, ref_time: u64) -> Result<Syncable, DispatchError> {
+	fn charge_ref_time(&mut self, ref_time: u64) -> Result<Syncable, DispatchError> {
 		let amount = ref_time
-			.checked_div(Self::ref_time_by_fuel())
+			.checked_div(T::Schedule::get().ref_time_by_fuel())
 			.ok_or(Error::<T>::InvalidSchedule)?;
 
-		self.fuel_left.checked_sub(amount).ok_or_else(|| Error::<T>::OutOfGas)?;
-		Ok(Syncable(self.fuel_left))
+		self.fuel.checked_sub(amount).ok_or_else(|| Error::<T>::OutOfGas)?;
+		Ok(Syncable(self.fuel))
 	}
 }
 
@@ -149,7 +144,7 @@ pub struct GasMeter<T: Config> {
 	/// The amount of resources that was consumed by the execution engine.
 	/// We have to track it separately in order to avoid the loss of precision that happens when
 	/// converting from ref_time to the execution engine unit.
-	executor_meter: ExecutorMeter<T>,
+	engine_meter: EngineMeter<T>,
 	_phantom: PhantomData<T>,
 	#[cfg(test)]
 	tokens: Vec<ErasedToken>,
@@ -161,7 +156,7 @@ impl<T: Config> GasMeter<T> {
 			gas_limit,
 			gas_left: gas_limit,
 			gas_left_lowest: gas_limit,
-			executor_meter: ExecutorMeter::new(gas_limit),
+			engine_meter: EngineMeter::new(gas_limit),
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
@@ -241,11 +236,8 @@ impl<T: Config> GasMeter<T> {
 	/// Needs to be called when entering a host function to update this meter with the
 	/// gas that was tracked by the executor. It tracks the latest seen total value
 	/// in order to compute the delta that needs to be charged.
-	pub fn sync_from_executor(
-		&mut self,
-		executor_total: u64,
-	) -> Result<RefTimeLeft, DispatchError> {
-		let weight_consumed = self.executor_meter.update(executor_total);
+	pub fn sync_from_executor(&mut self, engine_fuel: u64) -> Result<RefTimeLeft, DispatchError> {
+		let weight_consumed = self.engine_meter.set_fuel(engine_fuel);
 		self.gas_left
 			.checked_reduce(weight_consumed)
 			.ok_or_else(|| Error::<T>::OutOfGas)?;
@@ -262,7 +254,7 @@ impl<T: Config> GasMeter<T> {
 	/// to be done by the caller.
 	pub fn sync_to_executor(&mut self, before: RefTimeLeft) -> Result<Syncable, DispatchError> {
 		let ref_time_consumed = before.0.saturating_sub(self.gas_left().ref_time());
-		self.executor_meter.charge(ref_time_consumed)
+		self.engine_meter.charge_ref_time(ref_time_consumed)
 	}
 
 	/// Returns the amount of gas that is required to run the same call.
