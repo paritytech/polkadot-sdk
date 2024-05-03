@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714750915211,
+  "lastUpdate": 1714756954372,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -6635,6 +6635,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.16807474140000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Lulu",
+            "username": "Morganamilo",
+            "email": "morgan@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f45847b8b10db9cea664d0ce90083947c3843b10",
+          "message": "Add validate field to prdoc (#4368)",
+          "timestamp": "2024-05-03T15:07:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f45847b8b10db9cea664d0ce90083947c3843b10"
+        },
+        "date": 1714756928516,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.757756877066665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19150167073333332,
             "unit": "seconds"
           }
         ]
