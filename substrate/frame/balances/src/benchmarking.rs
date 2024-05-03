@@ -44,7 +44,7 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
+		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into()).max(1u32.into());
 		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, balance);
 
 		// Transfer `e - 1` existential deposits + 1 unit, which guarantees to create one account,
