@@ -7,11 +7,11 @@ use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::ParaId;
 use jsonrpsee::RpcModule;
 use parachains_common::{Block, Hash};
-use sc_consensus::ImportQueue;
+
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
-use sp_api::ConstructRuntimeApi;
+
 use std::sync::Arc;
 
 /// Start a polkadot-shell parachain node.

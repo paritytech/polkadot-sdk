@@ -10,7 +10,7 @@ use parachains_common::{Block, Hash, Header};
 use polkadot_primitives::{CollatorPair, PersistedValidationData};
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImportParams, ImportQueue,
+	BlockImportParams,
 };
 use sc_network::NetworkBackend;
 use sc_network_sync::SyncingService;

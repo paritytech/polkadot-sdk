@@ -15,7 +15,7 @@ use sc_network::NetworkBackend;
 use sc_service::{Configuration, TaskManager};
 use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
 use sp_consensus_aura::AuraApi;
-use sp_core::{crypto::Signature, traits::SpawnEssentialNamed, Pair, Public};
+use sp_core::{traits::SpawnEssentialNamed, Pair};
 use sp_runtime::app_crypto::AppCrypto;
 use std::{sync::Arc, time::Duration};
 

@@ -17,58 +17,54 @@
 mod core;
 mod start_nodes;
 
-use codec::{Codec, Decode};
+
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_collator::service::CollatorService;
+
 use cumulus_client_consensus_aura::collators::lookahead::{Params as AuraParams, self as aura};
 use cumulus_client_consensus_common::{
-	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
+	ParachainBlockImport as TParachainBlockImport,
 };
-use cumulus_client_consensus_proposer::Proposer;
-#[allow(deprecated)]
-use cumulus_client_service::old_consensus;
+
+
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, BuildNetworkParams, CollatorSybilResistance,
 	DARecoveryProfile, prepare_node_config, start_relay_chain_tasks, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{
 	ParaId,
-	relay_chain::{Hash as PHash, PersistedValidationData, ValidationCode},
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use sc_rpc::DenyUnsafe;
-use sp_core::Pair;
 
-use jsonrpsee::RpcModule;
+
+
 
 use crate::{fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi, rpc};
-pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Header, Nonce};
+pub use parachains_common::{AccountId, Balance, Block, Hash, Nonce};
 
-use futures::{lock::Mutex, prelude::*};
+use futures::{prelude::*};
 use sc_consensus::{
-	BlockImportParams,
-	import_queue::{BasicQueue, Verifier as VerifierT}, ImportQueue,
+	ImportQueue,
 };
 use sc_executor::{DEFAULT_HEAP_ALLOC_STRATEGY, HeapAllocStrategy, WasmExecutor};
 use sc_network::{config::FullNetworkConfiguration, NetworkBlock, service::traits::NetworkBackend};
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TaskManager, TFullBackend, TFullClient};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
-use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
-use sp_consensus_aura::AuraApi;
-use sp_core::traits::SpawnEssentialNamed;
+use sp_api::{ConstructRuntimeApi};
+
+
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
-	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT},
 };
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
 use polkadot_primitives::CollatorPair;
 
 pub use core::relay_chain_consensus::{
-	build_relay_to_aura_import_queue, start_relay_chain_consensus,
+	build_relay_to_aura_import_queue,
 };
 pub use core::lookahead_aura_consensus::{build_aura_import_queue, start_lookahead_aura_consensus};
 pub use start_nodes::rococo_contracts::start_contracts_rococo_node;
