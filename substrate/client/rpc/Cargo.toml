@@ -55,7 +55,7 @@ tokio = "1.37"
 sp-io = { path = "../../primitives/io" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 pretty_assertions = "1.2.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [features]
 test-helpers = []
