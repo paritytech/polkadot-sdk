@@ -23,19 +23,25 @@ use polkadot_node_subsystem::{
 	messages::CandidateBackingMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
-use polkadot_primitives::{SigningContext, ValidatorIndex, ValidatorPair};
+use polkadot_primitives::{PersistedValidationData, SigningContext, ValidatorIndex, ValidatorPair};
 use sp_core::Pair;
+use crate::NODE_UNDER_TEST;
 
 const LOG_TARGET: &str = "subsystem-bench::candidate-backing-mock";
 
 pub struct MockCandidateBacking {
 	to_subsystems: UnboundedSender<AllMessages>,
 	pair: ValidatorPair,
+	pvd: PersistedValidationData,
 }
 
 impl MockCandidateBacking {
-	pub fn new(to_subsystems: UnboundedSender<AllMessages>, pair: ValidatorPair) -> Self {
-		Self { to_subsystems, pair }
+	pub fn new(
+		to_subsystems: UnboundedSender<AllMessages>,
+		pair: ValidatorPair,
+		pvd: PersistedValidationData,
+	) -> Self {
+		Self { to_subsystems, pair, pvd }
 	}
 }
 
@@ -64,7 +70,7 @@ impl MockCandidateBacking {
 					match msg {
 						CandidateBackingMessage::Statement(relay_parent, statement) =>
 							match statement.payload() {
-								StatementWithPVD::Seconded(receipt, pvd) => {
+								StatementWithPVD::Seconded(receipt, _pvd) => {
 									let candidate_hash = receipt.hash();
 									let statement = Statement::Valid(candidate_hash);
 									let context = SigningContext {
@@ -77,8 +83,8 @@ impl MockCandidateBacking {
 										polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
 											relay_parent,
 											SignedFullStatementWithPVD::new(
-												statement.supply_pvd(pvd.clone()),
-												ValidatorIndex(0),
+												statement.supply_pvd(self.pvd.clone()),
+												ValidatorIndex(NODE_UNDER_TEST),
 												signature,
 												&context,
 												&self.pair.public(),
@@ -88,7 +94,29 @@ impl MockCandidateBacking {
 									);
 									let _ = self.to_subsystems.send(message).await;
 								},
-								StatementWithPVD::Valid(_) => todo!(),
+								StatementWithPVD::Valid(candidate_hash) => {
+									let statement = Statement::Valid(candidate_hash.clone());
+									let context = SigningContext {
+										parent_hash: relay_parent,
+										session_index: 0,
+									};
+									let payload = statement.to_compact().signing_payload(&context);
+									let signature = self.pair.sign(&payload[..]);
+									let message = AllMessages::StatementDistribution(
+									polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
+										relay_parent,
+										SignedFullStatementWithPVD::new(
+											statement.supply_pvd(self.pvd.clone()),
+											ValidatorIndex(NODE_UNDER_TEST),
+											signature,
+											&context,
+											&self.pair.public(),
+										)
+										.unwrap(),
+									),
+								);
+									let _ = self.to_subsystems.send(message).await;
+								},
 							},
 						_ => {
 							unimplemented!("Unexpected chain-api message")

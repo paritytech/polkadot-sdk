@@ -33,8 +33,9 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, Header,
-	PersistedValidationData, ValidatorPair,
+	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CompactStatement,
+	Hash, Header, PersistedValidationData, SignedStatement, SigningContext, ValidatorIndex,
+	ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, dummy_head_data, dummy_pvd,
@@ -44,7 +45,7 @@ use sp_core::{Pair, H256};
 use std::{
 	collections::HashMap,
 	sync::{
-		atomic::{AtomicBool, AtomicU32, Ordering},
+		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
 };
@@ -70,10 +71,7 @@ pub struct TestState {
 	// TODO
 	pub validator_pairs: Vec<ValidatorPair>,
 	// TODO
-	pub seconded_tracker: HashMap<CandidateHash, HashMap<u32, Arc<AtomicBool>>>,
-	pub seconded_count: HashMap<CandidateHash, Arc<AtomicU32>>,
-	pub statements_count: HashMap<CandidateHash, Arc<AtomicU32>>,
-	pub known_count: HashMap<CandidateHash, Arc<AtomicU32>>,
+	pub statements_tracker: HashMap<CandidateHash, HashMap<u32, Arc<AtomicBool>>>,
 }
 
 impl TestState {
@@ -87,10 +85,7 @@ impl TestState {
 			persisted_validation_data: dummy_pvd(dummy_head_data(), 0),
 			block_headers: Default::default(),
 			validator_pairs: Default::default(),
-			seconded_tracker: Default::default(),
-			seconded_count: Default::default(),
-			statements_count: Default::default(),
-			known_count: Default::default(),
+			statements_tracker: Default::default(),
 		};
 
 		// For each unique pov we create a candidate receipt.
@@ -162,16 +157,13 @@ impl TestState {
 				.candidate_receipts
 				.insert(info.hash, vec![CandidateReceipt { descriptor, commitments_hash }]);
 
-			test_state.seconded_tracker.insert(
+			test_state.statements_tracker.insert(
 				candidate_hash,
 				HashMap::from_iter(
-					(1..=config.max_validators_per_core)
-						.map(|index| (index as u32, Arc::new(AtomicBool::new(index == 1)))),
+					(0..config.n_validators)
+						.map(|index| (index as u32, Arc::new(AtomicBool::new(index <= 1)))),
 				),
 			);
-			test_state.seconded_count.insert(candidate_hash, Arc::new(AtomicU32::new(1)));
-			test_state.statements_count.insert(candidate_hash, Arc::new(AtomicU32::new(0)));
-			test_state.known_count.insert(candidate_hash, Arc::new(AtomicU32::new(0)));
 		}
 
 		test_state.validator_pairs = test_state
@@ -223,25 +215,36 @@ impl HandleNetworkMessage for TestState {
 					.position(|v| v == &authority_id)
 					.expect("Should exist");
 				let candidate_hash = *statement.unchecked_payload().candidate_hash();
-				self.statements_count
-					.get(&candidate_hash)
-					.expect("Pregenerated")
-					.as_ref()
-					.fetch_add(1, Ordering::SeqCst);
 
-				let known = self
-					.seconded_tracker
+				let sent = self
+					.statements_tracker
 					.get(&candidate_hash)
 					.expect("Pregenerated")
 					.get(&(index as u32))
 					.expect("Pregenerated")
 					.as_ref();
 
-				if known.load(Ordering::SeqCst) {
+				if sent.load(Ordering::SeqCst) {
 					return None
 				} else {
-					known.store(true, Ordering::SeqCst);
+					sent.store(true, Ordering::SeqCst);
 				}
+
+				let statement = CompactStatement::Valid(candidate_hash);
+				let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+				let payload = statement.signing_payload(&context);
+				let pair = self.validator_pairs.get(index).unwrap();
+				let signature = pair.sign(&payload[..]);
+				let statement = SignedStatement::new(
+					statement,
+					ValidatorIndex(index as u32),
+					signature,
+					&context,
+					&pair.public(),
+				)
+				.unwrap()
+				.as_unchecked()
+				.to_owned();
 
 				node_sender
 					.start_send_unpin(NetworkMessage::MessageFromPeer(
@@ -251,11 +254,6 @@ impl HandleNetworkMessage for TestState {
 						)),
 					))
 					.unwrap();
-				self.seconded_count
-					.get(&candidate_hash)
-					.expect("Pregenerated")
-					.as_ref()
-					.fetch_add(1, Ordering::SeqCst);
 				None
 			},
 			NetworkMessage::MessageFromNode(
@@ -282,11 +280,6 @@ impl HandleNetworkMessage for TestState {
 						)),
 					))
 					.unwrap();
-				self.known_count
-					.get(&manifest.candidate_hash)
-					.expect("Pregenerated")
-					.as_ref()
-					.fetch_add(1, Ordering::SeqCst);
 				None
 			},
 			_ => Some(message),

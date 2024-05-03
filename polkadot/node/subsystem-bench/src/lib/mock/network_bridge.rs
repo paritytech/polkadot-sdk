@@ -151,6 +151,22 @@ impl MockNetworkBridgeTx {
 								.expect("Should not fail");
 						}
 					},
+					NetworkBridgeTxMessage::SendValidationMessages(messages) => {
+						for (peers, message) in messages {
+							for peer in peers {
+								self.to_network_interface
+									.unbounded_send(NetworkMessage::MessageFromNode(
+										self.test_authorities
+											.peer_id_to_authority
+											.get(&peer)
+											.unwrap()
+											.clone(),
+										message.clone(),
+									))
+									.expect("Should not fail");
+							}
+						}
+					},
 					message => unimplemented!("Unexpected network bridge message {:?}", message),
 				},
 			}

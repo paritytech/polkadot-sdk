@@ -108,6 +108,7 @@ fn build_overseer(
 	let mock_candidate_backing = MockCandidateBacking::new(
 		tx,
 		state.validator_pairs.get(NODE_UNDER_TEST as usize).unwrap().clone(),
+		state.persisted_validation_data.clone(),
 	);
 	let (statement_req_receiver, statement_req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
@@ -300,14 +301,17 @@ pub async fn benchmark_statement_distribution(
 		env.send_message(message).await;
 
 		loop {
-			let known_count = state
-				.known_count
+			let count = state
+				.statements_tracker
 				.get(&candidate_hash)
 				.expect("Pregenerated")
-				.load(Ordering::SeqCst);
-			gum::info!(target: LOG_TARGET, known_count = ?known_count);
-			if known_count < 16 {
-				sleep(Duration::from_millis(50)).await;
+				.values()
+				.filter(|v| v.load(Ordering::SeqCst))
+				.collect::<Vec<_>>()
+				.len();
+			gum::info!(target: LOG_TARGET, count = ?count);
+			if count < 100 {
+				sleep(Duration::from_millis(1000)).await;
 			} else {
 				break;
 			}
