@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714750317403,
+  "lastUpdate": 1714756349618,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2114,6 +2114,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.6140283230100065,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Lulu",
+            "username": "Morganamilo",
+            "email": "morgan@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f45847b8b10db9cea664d0ce90083947c3843b10",
+          "message": "Add validate field to prdoc (#4368)",
+          "timestamp": "2024-05-03T15:07:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f45847b8b10db9cea664d0ce90083947c3843b10"
+        },
+        "date": 1714756323992,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63544.079999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9777332244200965,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.962579782649982,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.551998903559989,
             "unit": "seconds"
           }
         ]
