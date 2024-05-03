@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-mod core;
 mod start_nodes;
+mod consensus;
 
 use crate::{fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi, rpc};
 use cumulus_client_cli::CollatorOptions;
