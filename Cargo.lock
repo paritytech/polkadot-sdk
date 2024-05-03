@@ -3458,34 +3458,6 @@ dependencies = [
 
 [[package]]
 name = "criterion"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7c76e09c1aae2bc52b3d2f29e13c6572553b30c4aa1b8a49fd70de6412654cb"
-dependencies = [
- "anes",
- "atty",
- "cast",
- "ciborium",
- "clap 3.2.25",
- "criterion-plot",
- "futures",
- "itertools 0.10.5",
- "lazy_static",
- "num-traits",
- "oorandom",
- "plotters",
- "rayon",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "tinytemplate",
- "tokio",
- "walkdir",
-]
-
-[[package]]
-name = "criterion"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2b12d017a929603d80db1831cd3a24082f8137ce19c69e6447f54f5fc8d692f"
@@ -4405,7 +4377,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "clap 4.5.3",
- "criterion 0.5.1",
+ "criterion",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -5992,7 +5964,7 @@ name = "frame-system"
 version = "28.0.0"
 dependencies = [
  "cfg-if",
- "criterion 0.4.0",
+ "criterion",
  "docify",
  "frame-support",
  "log",
@@ -12800,7 +12772,7 @@ dependencies = [
 name = "polkadot-erasure-coding"
 version = "7.0.0"
 dependencies = [
- "criterion 0.4.0",
+ "criterion",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-primitives",
@@ -13178,7 +13150,7 @@ dependencies = [
  "assert_matches",
  "blake3",
  "cfg-if",
- "criterion 0.4.0",
+ "criterion",
  "futures",
  "futures-timer",
  "hex-literal",
@@ -13283,7 +13255,7 @@ version = "7.0.0"
 dependencies = [
  "blake3",
  "cfg-if",
- "criterion 0.4.0",
+ "criterion",
  "libc",
  "nix 0.27.1",
  "parity-scale-codec",
@@ -16399,7 +16371,7 @@ name = "sc-client-db"
 version = "0.35.0"
 dependencies = [
  "array-bytes 6.1.0",
- "criterion 0.4.0",
+ "criterion",
  "hash-db",
  "kitchensink-runtime",
  "kvdb",
@@ -16802,7 +16774,7 @@ version = "0.32.0"
 dependencies = [
  "array-bytes 6.1.0",
  "assert_matches",
- "criterion 0.4.0",
+ "criterion",
  "env_logger 0.11.3",
  "num_cpus",
  "parity-scale-codec",
@@ -17581,7 +17553,7 @@ version = "28.0.0"
 dependencies = [
  "ansi_term",
  "chrono",
- "criterion 0.4.0",
+ "criterion",
  "is-terminal",
  "lazy_static",
  "libc",
@@ -17622,7 +17594,7 @@ dependencies = [
  "array-bytes 6.1.0",
  "assert_matches",
  "async-trait",
- "criterion 0.4.0",
+ "criterion",
  "futures",
  "futures-timer",
  "linked-hash-map",
@@ -19002,7 +18974,7 @@ dependencies = [
 name = "sp-api-test"
 version = "2.0.1"
 dependencies = [
- "criterion 0.4.0",
+ "criterion",
  "futures",
  "log",
  "parity-scale-codec",
@@ -19048,7 +19020,7 @@ dependencies = [
 name = "sp-arithmetic"
 version = "23.0.0"
 dependencies = [
- "criterion 0.4.0",
+ "criterion",
  "docify",
  "integer-sqrt",
  "num-traits",
@@ -19256,7 +19228,7 @@ dependencies = [
  "blake2 0.10.6",
  "bounded-collections",
  "bs58 0.5.0",
- "criterion 0.4.0",
+ "criterion",
  "dyn-clonable",
  "ed25519-zebra",
  "futures",
@@ -19366,7 +19338,7 @@ version = "0.1.0"
 dependencies = [
  "blake2b_simd",
  "byteorder",
- "criterion 0.4.0",
+ "criterion",
  "digest 0.10.7",
  "sha2 0.10.8",
  "sha3",
@@ -19907,7 +19879,7 @@ version = "29.0.0"
 dependencies = [
  "ahash 0.8.8",
  "array-bytes 6.1.0",
- "criterion 0.5.1",
+ "criterion",
  "hash-db",
  "lazy_static",
  "memory-db",
@@ -20089,7 +20061,7 @@ dependencies = [
  "assert_cmd",
  "clap 4.5.3",
  "clap_complete",
- "criterion 0.4.0",
+ "criterion",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-support",
@@ -21732,7 +21704,7 @@ version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3092f400e9f7e3ce8c1756016a8b6287163ab7a11dd47d82169260cb4cc2d680"
 dependencies = [
- "criterion 0.5.1",
+ "criterion",
  "hash-db",
  "keccak-hasher",
  "memory-db",
