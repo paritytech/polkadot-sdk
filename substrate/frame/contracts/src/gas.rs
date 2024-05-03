@@ -76,7 +76,7 @@ impl<T: Config> ExecutorMeter<T> {
 			.checked_div(Self::ref_time_by_fuel())
 			.ok_or(Error::<T>::InvalidSchedule)?;
 
-		self.fuel_left = self.fuel_left.saturating_sub(amount);
+		self.fuel_left.checked_sub(amount).ok_or_else(|| Error::<T>::OutOfGas)?;
 		Ok(Syncable(self.fuel_left))
 	}
 }

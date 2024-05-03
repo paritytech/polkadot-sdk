@@ -348,9 +348,9 @@ impl<T: Config> WasmBlob<T> {
 		mut store: Store<Runtime<E>>,
 		result: Result<(), wasmi::Error>,
 	) -> ExecResult {
-		let engine_consumed_total = store.get_fuel().expect("Fuel metering is enabled; qed");
+		let engine_fuel = store.get_fuel().expect("Fuel metering is enabled; qed");
 		let gas_meter = store.data_mut().ext().gas_meter_mut();
-		let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
+		let _ = gas_meter.sync_from_executor(engine_fuel)?;
 		store.into_data().to_execution_result(result)
 	}
 
