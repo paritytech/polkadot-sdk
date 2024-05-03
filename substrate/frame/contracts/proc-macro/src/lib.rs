@@ -694,13 +694,13 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 			quote! {
 				// Write gas from wasmi into pallet-contracts before entering the host function.
 				let __gas_left_before__ = {
-					let executor_total =
-						__caller__.fuel_consumed().expect("Fuel metering is enabled; qed");
+					let fuel =
+						__caller__.get_fuel().expect("Fuel metering is enabled; qed");
 					__caller__
 						.data_mut()
 						.ext()
 						.gas_meter_mut()
-						.sync_from_executor(executor_total)
+						.sync_from_executor(fuel)
 						.map_err(TrapReason::from)
 						.map_err(#into_host)?
 				};
@@ -716,7 +716,7 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 		// Write gas from pallet-contracts into wasmi after leaving the host function.
 		let sync_gas_after = if expand_blocks {
 			quote! {
-				let fuel_consumed = __caller__
+				let fuel = __caller__
 					.data_mut()
 					.ext()
 					.gas_meter_mut()
@@ -726,7 +726,7 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 						wasmi::Error::host(err)
 					})?;
 				 __caller__
-					 .consume_fuel(fuel_consumed.into())
+					 .set_fuel(fuel.into())
 					 .map_err(|_| wasmi::Error::host(TrapReason::from(Error::<E::T>::OutOfGas)))?;
 			}
 		} else {

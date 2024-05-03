@@ -63,7 +63,7 @@ impl<T: Config> From<&WasmModule<T>> for Sandbox {
 
 		// Set fuel for wasmi execution.
 		store
-			.add_fuel(u64::MAX)
+			.set_fuel(u64::MAX)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		let entry_point = instance

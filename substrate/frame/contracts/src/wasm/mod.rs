@@ -348,7 +348,7 @@ impl<T: Config> WasmBlob<T> {
 		mut store: Store<Runtime<E>>,
 		result: Result<(), wasmi::Error>,
 	) -> ExecResult {
-		let engine_consumed_total = store.fuel_consumed().expect("Fuel metering is enabled; qed");
+		let engine_consumed_total = store.get_fuel().expect("Fuel metering is enabled; qed");
 		let gas_meter = store.data_mut().ext().gas_meter_mut();
 		let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
 		store.into_data().to_execution_result(result)
@@ -422,7 +422,7 @@ impl<T: Config> WasmBlob<T> {
 			.checked_div(T::Schedule::get().instruction_weights.base as u64)
 			.ok_or(Error::<T>::InvalidSchedule)?;
 		store
-			.add_fuel(fuel_limit)
+			.set_fuel(fuel_limit)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		// Start function should already see the correct refcount in case it will be ever inspected.
