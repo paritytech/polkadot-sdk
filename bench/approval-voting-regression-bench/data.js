@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714744757951,
+  "lastUpdate": 1714750317403,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2067,6 +2067,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.027563684640188,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "cheme",
+            "username": "cheme",
+            "email": "emericchevalier.pro@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4c09a0631334c3e021a30aa49a503815aa047b29",
+          "message": "State trie migration on asset-hub westend and collectives westend (#4185)",
+          "timestamp": "2024-05-03T14:04:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c09a0631334c3e021a30aa49a503815aa047b29"
+        },
+        "date": 1714750291333,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63542.48,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.947577491499999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.428531070030215,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.6140283230100065,
             "unit": "seconds"
           }
         ]
