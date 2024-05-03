@@ -561,7 +561,7 @@ pub struct RelayerVersion {
 	/// configuration that breaks the existing relayer. You may also need to bump the
 	/// [`Self::manual`] version if new relayer needs to be built and deployed. This field
 	/// is ignored by the relayer and it will keep running even if [`Self::auto`] is
-	/// different, but the [`Sef::manual`] stays the same.
+	/// different, but the [`Self::manual`] stays the same.
 	pub auto: H256,
 }
 
