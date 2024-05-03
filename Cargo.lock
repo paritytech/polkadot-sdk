@@ -8059,7 +8059,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "pin-project",
  "prost 0.11.9",
- "prost-build",
+ "prost-build 0.11.9",
  "quinn",
  "rand 0.8.5",
  "rcgen",
@@ -14791,12 +14791,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "146c289cda302b98a28d40c8b3b90498d6e526dd24ac2ecea73e4e491685b94a"
+checksum = "d0f5d036824e4761737860779c906171497f6d55681139d8312388f8fe398922"
 dependencies = [
  "bytes",
- "prost-derive 0.12.3",
+ "prost-derive 0.12.4",
 ]
 
 [[package]]
@@ -14814,11 +14814,32 @@ dependencies = [
  "petgraph",
  "prettyplease 0.1.25",
  "prost 0.11.9",
- "prost-types",
+ "prost-types 0.11.9",
  "regex",
  "syn 1.0.109",
  "tempfile",
  "which",
+]
+
+[[package]]
+name = "prost-build"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80b776a1b2dc779f5ee0641f8ade0125bc1298dd41a9a0c16d8bd57b42d222b1"
+dependencies = [
+ "bytes",
+ "heck 0.5.0",
+ "itertools 0.11.0",
+ "log",
+ "multimap",
+ "once_cell",
+ "petgraph",
+ "prettyplease 0.2.12",
+ "prost 0.12.4",
+ "prost-types 0.12.4",
+ "regex",
+ "syn 2.0.53",
+ "tempfile",
 ]
 
 [[package]]
@@ -14836,9 +14857,9 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efb6c9a1dd1def8e2124d17e83a20af56f1570d6c2d2bd9e266ccb768df3840e"
+checksum = "19de2de2a00075bf566bee3bd4db014b11587e84184d3f7a791bc17f1a8e9e48"
 dependencies = [
  "anyhow",
  "itertools 0.11.0",
@@ -14854,6 +14875,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "213622a1460818959ac1181aaeb2dc9c7f63df720db7d788b3e24eacd1983e13"
 dependencies = [
  "prost 0.11.9",
+]
+
+[[package]]
+name = "prost-types"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3235c33eb02c1f1e212abdbe34c78b264b038fb58ca612664343271e36e55ffe"
+dependencies = [
+ "prost 0.12.4",
 ]
 
 [[package]]
@@ -16188,8 +16218,8 @@ dependencies = [
  "multihash 0.17.0",
  "multihash-codetable",
  "parity-scale-codec",
- "prost 0.12.3",
- "prost-build",
+ "prost 0.12.4",
+ "prost-build 0.12.4",
  "quickcheck",
  "rand 0.8.5",
  "sc-client-api",
@@ -16933,8 +16963,8 @@ dependencies = [
  "parking_lot 0.12.1",
  "partial_sort",
  "pin-project",
- "prost 0.11.9",
- "prost-build",
+ "prost 0.12.4",
+ "prost-build 0.12.4",
  "rand 0.8.5",
  "sc-block-builder",
  "sc-client-api",
@@ -16979,7 +17009,7 @@ dependencies = [
  "futures",
  "libp2p-identity",
  "parity-scale-codec",
- "prost-build",
+ "prost-build 0.12.4",
  "sc-consensus",
  "sc-network-types",
  "sp-consensus",
@@ -17021,8 +17051,8 @@ dependencies = [
  "futures",
  "log",
  "parity-scale-codec",
- "prost 0.12.3",
- "prost-build",
+ "prost 0.12.4",
+ "prost-build 0.12.4",
  "sc-client-api",
  "sc-network",
  "sc-network-types",
@@ -17066,8 +17096,8 @@ dependencies = [
  "log",
  "mockall",
  "parity-scale-codec",
- "prost 0.12.3",
- "prost-build",
+ "prost 0.12.4",
+ "prost-build 0.12.4",
  "quickcheck",
  "sc-block-builder",
  "sc-client-api",
