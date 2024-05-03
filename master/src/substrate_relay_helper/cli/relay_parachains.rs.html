@@ -246,6 +246,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -266,6 +317,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>async_std::sync::Mutex;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>bp_polkadot_core::BlockNumber <span class="kw">as </span>RelayBlockNumber;
+<span class="kw">use </span>bp_runtime::HeaderIdProvider;
 <span class="kw">use </span>parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
 <span class="kw">use </span>relay_substrate_client::Parachain;
 <span class="kw">use </span>relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
@@ -297,6 +350,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>only_free_headers: bool,
 	<span class="attr">#[structopt(flatten)]
 	</span>prometheus_params: PrometheusParams,
+}
+
+<span class="doccomment">/// Single parachains head relaying params.
+</span><span class="attr">#[derive(StructOpt)]
+</span><span class="kw">pub struct </span>RelayParachainHeadParams {
+	<span class="attr">#[structopt(flatten)]
+	</span>source: SourceConnectionParams,
+	<span class="attr">#[structopt(flatten)]
+	</span>target: TargetConnectionParams,
+	<span class="attr">#[structopt(flatten)]
+	</span>target_sign: TargetSigningParams,
+	<span class="doccomment">/// Prove parachain head at that relay block number. This relay header must be previously
+	/// proved to the target chain.
+	</span><span class="attr">#[structopt(long)]
+	</span>at_relay_block: RelayBlockNumber,
 }
 
 <span class="doccomment">/// Trait used for relaying parachains finality between 2 chains.
@@ -341,6 +409,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.<span class="kw">await
 		</span>.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, e))
+	}
+
+	<span class="doccomment">/// Relay single parachain head. No checks are made to ensure that transaction will succeed.
+	</span><span class="kw">async fn </span>relay_parachain_head(data: RelayParachainHeadParams) -&gt; anyhow::Result&lt;()&gt; {
+		<span class="kw">let </span>source_chain_client = data.source.into_client::&lt;<span class="self">Self</span>::SourceRelay&gt;().<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>at_relay_block = source_chain_client
+			.header_by_number(data.at_relay_block)
+			.<span class="kw">await
+			</span>.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, e))<span class="question-mark">?
+			</span>.id();
+
+		<span class="kw">let </span>source_client = ParachainsSource::&lt;<span class="self">Self</span>::ParachainFinality&gt;::new(
+			source_chain_client.clone(),
+			Arc::new(Mutex::new(AvailableHeader::Missing)),
+		);
+
+		<span class="kw">let </span>target_transaction_params = TransactionParams {
+			signer: data.target_sign.to_keypair::&lt;<span class="self">Self</span>::Target&gt;()<span class="question-mark">?</span>,
+			mortality: data.target_sign.target_transactions_mortality,
+		};
+		<span class="kw">let </span>target_chain_client = data.target.into_client::&lt;<span class="self">Self</span>::Target&gt;().<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>target_client = ParachainsTarget::&lt;<span class="self">Self</span>::ParachainFinality&gt;::new(
+			source_chain_client,
+			target_chain_client,
+			target_transaction_params,
+		);
+
+		parachains_relay::parachains_loop::relay_single_head(
+			source_client,
+			target_client,
+			at_relay_block,
+		)
+		.<span class="kw">await
+		</span>.map_err(|<span class="kw">_</span>| <span class="macro">anyhow::format_err!</span>(<span class="string">"The command has failed"</span>))
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

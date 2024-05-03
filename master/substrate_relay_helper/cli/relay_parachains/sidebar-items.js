@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["RelayParachainsParams"],"trait":["ParachainsRelayer"]};
+window.SIDEBAR_ITEMS = {"struct":["RelayParachainHeadParams","RelayParachainsParams"],"trait":["ParachainsRelayer"]};
