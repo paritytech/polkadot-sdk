@@ -2239,6 +2239,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2088" id="2088">2088</a>
 <a href="#2089" id="2089">2089</a>
 <a href="#2090" id="2090">2090</a>
+<a href="#2091" id="2091">2091</a>
+<a href="#2092" id="2092">2092</a>
+<a href="#2093" id="2093">2093</a>
+<a href="#2094" id="2094">2094</a>
+<a href="#2095" id="2095">2095</a>
+<a href="#2096" id="2096">2096</a>
+<a href="#2097" id="2097">2097</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3179,7 +3186,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// - Three extra DB entries.
 		///
 		/// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
-		/// unless the `origin` falls below _existential deposit_ and gets removed as dust.
+		/// unless the `origin` falls below _existential deposit_ (or equal to 0) and gets removed
+		/// as dust.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(T::WeightInfo::bond())]
 		</span><span class="kw">pub fn </span>bond(
@@ -3856,6 +3864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// 1. the `total_balance` of the stash is below existential deposit.
 		/// 2. or, the `ledger.total` of the stash is below existential deposit.
+		/// 3. or, existential deposit is zero and either `total_balance` or `ledger.total` is zero.
 		///
 		/// The former can happen in cases like a slash; the latter when a fully unbonded account
 		/// is still receiving staking rewards in `RewardDestination::Staked`.
@@ -3881,8 +3890,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">ensure!</span>(!<span class="self">Self</span>::is_virtual_staker(<span class="kw-2">&amp;</span>stash), Error::&lt;T&gt;::VirtualStakerNotAllowed);
 
 			<span class="kw">let </span>ed = T::Currency::minimum_balance();
-			<span class="kw">let </span>reapable = T::Currency::total_balance(<span class="kw-2">&amp;</span>stash) &lt; ed ||
-				<span class="self">Self</span>::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default() &lt; ed;
+			<span class="kw">let </span>origin_balance = T::Currency::total_balance(<span class="kw-2">&amp;</span>stash);
+			<span class="kw">let </span>ledger_total =
+				<span class="self">Self</span>::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
+			<span class="kw">let </span>reapable = origin_balance &lt; ed ||
+				origin_balance.is_zero() ||
+				ledger_total &lt; ed ||
+				ledger_total.is_zero();
 			<span class="macro">ensure!</span>(reapable, Error::&lt;T&gt;::FundedTarget);
 
 			<span class="comment">// Remove all staking-related information and lock.

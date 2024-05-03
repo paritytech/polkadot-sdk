@@ -163,7 +163,8 @@ be the account that controls it.</p>
 <li>Three extra DB entries.</li>
 </ul>
 <p>NOTE: Two of the storage writes (<code>Self::bonded</code>, <code>Self::payee</code>) are <em>never</em> cleaned
-unless the <code>origin</code> falls below <em>existential deposit</em> and gets removed as dust.</p>
+unless the <code>origin</code> falls below <em>existential deposit</em> (or equal to 0) and gets removed
+as dust.</p>
 <h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
 <p>This function is an automatically generated, and is doc-only, uncallable
 stub. See the real version in

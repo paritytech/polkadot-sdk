@@ -153,6 +153,7 @@ be considered <code>dust</code> in the staking system. The requirements are:</p>
 <ol>
 <li>the <code>total_balance</code> of the stash is below existential deposit.</li>
 <li>or, the <code>ledger.total</code> of the stash is below existential deposit.</li>
+<li>or, existential deposit is zero and either <code>total_balance</code> or <code>ledger.total</code> is zero.</li>
 </ol>
 <p>The former can happen in cases like a slash; the latter when a fully unbonded account
 is still receiving staking rewards in <code>RewardDestination::Staked</code>.</p>

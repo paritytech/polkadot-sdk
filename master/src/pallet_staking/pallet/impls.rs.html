@@ -2455,6 +2455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2304" id="2304">2304</a>
 <a href="#2305" id="2305">2305</a>
 <a href="#2306" id="2306">2306</a>
+<a href="#2307" id="2307">2307</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2655,8 +2656,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">let </span>new_total = ledger.total;
 
+		<span class="kw">let </span>ed = T::Currency::minimum_balance();
 		<span class="kw">let </span>used_weight =
-			<span class="kw">if </span>ledger.unlocking.is_empty() &amp;&amp; ledger.active &lt; T::Currency::minimum_balance() {
+			<span class="kw">if </span>ledger.unlocking.is_empty() &amp;&amp; (ledger.active &lt; ed || ledger.active.is_zero()) {
 				<span class="comment">// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
