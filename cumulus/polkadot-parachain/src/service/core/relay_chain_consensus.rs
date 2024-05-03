@@ -12,7 +12,6 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams,
 };
-use sc_network::NetworkBackend;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
@@ -20,10 +19,7 @@ use sp_api::{ApiExt, ConstructRuntimeApi};
 use sp_consensus_aura::AuraApi;
 use sp_core::Pair;
 use sp_keystore::KeystorePtr;
-use sp_runtime::{
-	app_crypto::AppCrypto,
-	traits::{Block as BlockT, Header as HeaderT},
-};
+use sp_runtime::{app_crypto::AppCrypto, traits::Header as HeaderT};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
