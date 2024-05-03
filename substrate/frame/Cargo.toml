@@ -7,7 +7,6 @@ license = "Apache-2.0"
 homepage = "paritytech.github.io"
 repository.workspace = true
 description = "Experimental: The single package to get you started with building frame pallets and runtimes"
-publish = false
 
 [lints]
 workspace = true
