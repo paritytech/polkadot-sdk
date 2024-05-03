@@ -938,7 +938,7 @@ pub mod pallet {
 		/// - Three extra DB entries.
 		///
 		/// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
-		/// unless the `origin` falls below _existential deposit_ and gets removed as dust.
+		/// unless the `origin` falls below _existential deposit_ (or equal to 0) and gets removed as dust.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::bond())]
 		pub fn bond(
