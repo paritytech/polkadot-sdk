@@ -1,5 +1,5 @@
 use crate::service::{
-	build_aura_import_queue, build_contracts_rpc_extensions, start_lookahead_aura_consensus,
+	 build_contracts_rpc_extensions, start_lookahead_aura_consensus,
 	start_node_impl, ParachainClient,
 };
 use cumulus_client_cli::CollatorOptions;
@@ -9,6 +9,7 @@ use parachains_common::{Block, Hash};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, TaskManager};
 use std::sync::Arc;
+use crate::service::core::lookahead_aura_consensus::build_aura_import_queue;
 
 /// Start a parachain node for Rococo Contracts.
 pub async fn start_contracts_rococo_node<Net: NetworkBackend<Block, Hash>>(

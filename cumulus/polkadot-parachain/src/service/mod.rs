@@ -17,7 +17,6 @@
 mod core;
 mod start_nodes;
 
-use crate::service::core::lookahead_aura_consensus::start_lookahead_aura_consensus;
 use codec::{Codec, Decode};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
@@ -71,9 +70,13 @@ use polkadot_primitives::CollatorPair;
 pub use core::relay_chain_consensus::{
 	build_relay_to_aura_import_queue, start_relay_chain_consensus,
 };
+pub use core::lookahead_aura_consensus::{build_aura_import_queue, start_lookahead_aura_consensus};
 pub use start_nodes::rococo_contracts::start_contracts_rococo_node;
 pub use start_nodes::shell::{build_shell_import_queue, start_shell_node};
 pub use start_nodes::asset_hub_lookahead::start_asset_hub_lookahead_node;
+pub use start_nodes::generic_aura_lookahead::start_generic_aura_lookahead_node;
+pub use start_nodes::rococo_parachain::start_rococo_parachain_node;
+pub use start_nodes::basic_lookahead::start_basic_lookahead_node;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = cumulus_client_service::ParachainHostFunctions;
@@ -392,66 +395,6 @@ where
 	Ok((task_manager, client))
 }
 
-/// Build the import queue for Aura-based runtimes.
-pub fn build_aura_import_queue(
-	client: Arc<ParachainClient<FakeRuntimeApi>>,
-	block_import: ParachainBlockImport<FakeRuntimeApi>,
-	config: &Configuration,
-	telemetry: Option<TelemetryHandle>,
-	task_manager: &TaskManager,
-) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error> {
-	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
-	cumulus_client_consensus_aura::import_queue::<
-        sp_consensus_aura::sr25519::AuthorityPair,
-        _,
-        _,
-        _,
-        _,
-        _,
-    >(cumulus_client_consensus_aura::ImportQueueParams {
-        block_import,
-        client,
-        create_inherent_data_providers: move |_, _| async move {
-            let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-            let slot =
-                sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-                    *timestamp,
-                    slot_duration,
-                );
-
-            Ok((slot, timestamp))
-        },
-        registry: config.prometheus_registry(),
-        spawner: &task_manager.spawn_essential_handle(),
-        telemetry,
-    })
-        .map_err(Into::into)
-}
-
-/// Start a rococo parachain node.
-pub async fn start_rococo_parachain_node<Net: NetworkBackend<Block, Hash>>(
-	parachain_config: Configuration,
-	polkadot_config: Configuration,
-	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
-	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
-		parachain_config,
-		polkadot_config,
-		collator_options,
-		CollatorSybilResistance::Resistant, // Aura
-		para_id,
-		build_parachain_rpc_extensions::<FakeRuntimeApi>,
-		build_aura_import_queue,
-		start_lookahead_aura_consensus,
-		hwbench,
-	)
-	.await
-}
-
 fn build_parachain_rpc_extensions<RuntimeApi>(
 	deny_unsafe: sc_rpc::DenyUnsafe,
 	client: Arc<ParachainClient<RuntimeApi>>,
@@ -479,54 +422,6 @@ fn build_contracts_rpc_extensions(
 	let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
 
 	crate::rpc::create_contracts_rococo(deps).map_err(Into::into)
-}
-
-/// Uses the lookahead collator to support async backing.
-///
-/// Start an aura powered parachain node. Some system chains use this.
-pub async fn start_generic_aura_lookahead_node<Net: NetworkBackend<Block, Hash>>(
-	parachain_config: Configuration,
-	polkadot_config: Configuration,
-	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
-	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
-		parachain_config,
-		polkadot_config,
-		collator_options,
-		CollatorSybilResistance::Resistant, // Aura
-		para_id,
-		build_parachain_rpc_extensions::<FakeRuntimeApi>,
-		build_relay_to_aura_import_queue::<_, AuraId>,
-		start_lookahead_aura_consensus,
-		hwbench,
-	)
-	.await
-}
-
-/// Start an aura powered parachain node which uses the lookahead collator to support async backing.
-/// This node is basic in the sense that its runtime api doesn't include common contents such as
-/// transaction payment. Used for aura glutton.
-pub async fn start_basic_lookahead_node<Net: NetworkBackend<Block, Hash>>(
-	parachain_config: Configuration,
-	polkadot_config: Configuration,
-	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
-	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
-		parachain_config,
-		polkadot_config,
-		collator_options,
-		CollatorSybilResistance::Resistant, // Aura
-		para_id,
-		|_, _, _, _| Ok(RpcModule::new(())),
-		build_relay_to_aura_import_queue::<_, AuraId>,
-		start_lookahead_aura_consensus,
-		hwbench,
-	)
-	.await
 }
 
 /// Checks that the hardware meets the requirements and print a warning otherwise.

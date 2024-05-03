@@ -6,7 +6,7 @@ use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use parachains_common::{AuraId, Block, Hash};
 use polkadot_primitives::CollatorPair;
 use sc_network_sync::SyncingService;
-use sc_service::TaskManager;
+use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sp_keystore::KeystorePtr;
 use sp_runtime::app_crypto::AppCrypto;
@@ -76,4 +76,42 @@ pub fn start_lookahead_aura_consensus(
 	task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 	Ok(())
+}
+
+/// Build the import queue for Aura-based runtimes.
+pub fn build_aura_import_queue(
+	client: Arc<ParachainClient<crate::fake_runtime_api::aura::RuntimeApi>>,
+	block_import: ParachainBlockImport<crate::fake_runtime_api::aura::RuntimeApi>,
+	config: &Configuration,
+	telemetry: Option<TelemetryHandle>,
+	task_manager: &TaskManager,
+) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error> {
+	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+
+	cumulus_client_consensus_aura::import_queue::<
+		sp_consensus_aura::sr25519::AuthorityPair,
+		_,
+		_,
+		_,
+		_,
+		_,
+	>(cumulus_client_consensus_aura::ImportQueueParams {
+		block_import,
+		client,
+		create_inherent_data_providers: move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+			let slot =
+				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
+				);
+
+			Ok((slot, timestamp))
+		},
+		registry: config.prometheus_registry(),
+		spawner: &task_manager.spawn_essential_handle(),
+		telemetry,
+	})
+		.map_err(Into::into)
 }
