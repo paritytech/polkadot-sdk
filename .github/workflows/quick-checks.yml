@@ -9,8 +9,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  CARGO_NET_GIT_FETCH_WITH_CLI: true
+# env:
+#   CARGO_NET_GIT_FETCH_WITH_CLI: true
 
 jobs:
   set-image:
@@ -55,6 +55,9 @@ jobs:
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
+    strategy:
+      matrix:
+        attempts: [1, 2, 3]
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: run zepter
@@ -66,6 +69,9 @@ jobs:
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
+    strategy:
+      matrix:
+        attempts: [1, 2, 3]
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: run rust features
