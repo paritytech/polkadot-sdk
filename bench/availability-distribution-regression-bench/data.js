@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714688606898,
+  "lastUpdate": 1714738575732,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -8163,6 +8163,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010673378926666673,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "871281783c1be03157319d5143096fd3dd860d0a",
+          "message": "Bridge: fix zombienet tests (#4367)\n\nDue to recent bump of Rococo/Westend versions + the fact that\nhttps://github.com/paritytech/parity-bridges-common/pull/2894 has\nfinally reached this repo, tests now fail, because we've started\nchecking all client versions (even source) unless we specify\n`--source-version-mode Auto` in CLI arguments. This looks like an\noverkill, but all those version checks will be fixed by\nhttps://github.com/paritytech/polkadot-sdk/pull/4256, so now it makes\nsense just to add this CLI option. We also need to propagate it to\nrunning relays eventually.",
+          "timestamp": "2024-05-03T11:49:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/871281783c1be03157319d5143096fd3dd860d0a"
+        },
+        "date": 1714738550117,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.93333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022283963306666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1592591075733333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011945184453333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010325890333333339,
             "unit": "seconds"
           }
         ]
