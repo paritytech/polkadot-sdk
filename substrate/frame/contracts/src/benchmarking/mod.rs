@@ -906,7 +906,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = BenchEnv::seal1_terminate(&mut runtime, &mut memory, 0)
+			result = BenchEnv::seal1_terminate(&mut runtime, &mut memory, 0);
 		}
 
 		assert!(matches!(result, Err(crate::wasm::TrapReason::Termination)));
@@ -941,7 +941,7 @@ mod benchmarks {
 				subject_len,     // subject_len
 				subject_len + 4, // output_ptr
 				0,               // output_len_ptr
-			)
+			);
 		}
 
 		assert_ok!(result);
@@ -975,7 +975,7 @@ mod benchmarks {
 				topics_len,     // topics_len
 				4 + topics_len, // data_ptr
 				0,              // data_len
-			)
+			);
 		}
 
 		assert_ok!(result);
@@ -1574,7 +1574,7 @@ mod benchmarks {
 			result = BenchEnv::seal0_reentrance_count(&mut runtime, &mut memory)
 		}
 
-		assert!(result.unwrap() == 0);
+		assert_eq!(result.unwrap(), 0);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1589,7 +1589,7 @@ mod benchmarks {
 			result = BenchEnv::seal0_account_reentrance_count(&mut runtime, &mut memory, 0);
 		}
 
-		assert!(result.unwrap() == 0);
+		assert_eq!(result.unwrap(), 0);
 	}
 
 	#[benchmark(pov_mode = Measured)]
