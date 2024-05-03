@@ -277,20 +277,6 @@ dependencies = [
 
 [[package]]
 name = "aquamarine"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1da02abba9f9063d786eab1509833ebb2fac0f966862ca59439c76b9c566760"
-dependencies = [
- "include_dir",
- "itertools 0.10.5",
- "proc-macro-error",
- "proc-macro2 1.0.75",
- "quote 1.0.35",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "aquamarine"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21cc1548309245035eb18aa7f0967da6bc65587005170c56e6ef2788a4cf3f4e"
@@ -5740,7 +5726,7 @@ dependencies = [
 name = "frame-executive"
 version = "28.0.0"
 dependencies = [
- "aquamarine 0.3.3",
+ "aquamarine",
  "array-bytes",
  "frame-support",
  "frame-system",
@@ -5811,7 +5797,7 @@ dependencies = [
 name = "frame-support"
 version = "28.0.0"
 dependencies = [
- "aquamarine 0.5.0",
+ "aquamarine",
  "array-bytes",
  "assert_matches",
  "bitflags 1.3.2",
@@ -9607,7 +9593,7 @@ dependencies = [
 name = "pallet-bags-list"
 version = "27.0.0"
 dependencies = [
- "aquamarine 0.5.0",
+ "aquamarine",
  "docify",
  "frame-benchmarking",
  "frame-election-provider-support",
