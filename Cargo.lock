@@ -90,9 +90,9 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.8.8"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42cd52102d3df161c77a887b608d7a4897d7cc112886a9537b738a887a03aaff"
+checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
  "getrandom 0.2.10",
@@ -6524,7 +6524,7 @@ version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
- "ahash 0.8.8",
+ "ahash 0.8.11",
 ]
 
 [[package]]
@@ -6533,7 +6533,7 @@ version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
 dependencies = [
- "ahash 0.8.8",
+ "ahash 0.8.11",
  "allocator-api2",
  "serde",
 ]
@@ -7550,9 +7550,9 @@ dependencies = [
 
 [[package]]
 name = "libm"
-version = "0.2.7"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7012b1bbb0719e1097c47611d3898568c546d597c2e74d66f6087edd5233ff4"
+checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
 name = "libnghttp2-sys"
@@ -10070,7 +10070,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "wasm-instrument",
- "wasmi 0.32.0-beta.7",
+ "wasmi 0.32.0-beta.13",
  "wat",
 ]
 
@@ -11975,7 +11975,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand 0.8.5",
- "rand_core 0.5.1",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -16679,7 +16679,7 @@ dependencies = [
 name = "sc-consensus-grandpa"
 version = "0.19.0"
 dependencies = [
- "ahash 0.8.8",
+ "ahash 0.8.11",
  "array-bytes 6.1.0",
  "assert_matches",
  "async-trait",
@@ -17064,7 +17064,7 @@ dependencies = [
 name = "sc-network-gossip"
 version = "0.34.0"
 dependencies = [
- "ahash 0.8.8",
+ "ahash 0.8.11",
  "async-trait",
  "futures",
  "futures-timer",
@@ -17783,7 +17783,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "772575a524feeb803e5b0fcbc6dd9f367e579488197c94c6e4023aad2305774d"
 dependencies = [
- "ahash 0.8.8",
+ "ahash 0.8.11",
  "cfg-if",
  "hashbrown 0.13.2",
 ]
@@ -19942,7 +19942,7 @@ dependencies = [
 name = "sp-trie"
 version = "29.0.0"
 dependencies = [
- "ahash 0.8.8",
+ "ahash 0.8.11",
  "array-bytes 6.1.0",
  "criterion 0.5.1",
  "hash-db",
@@ -20387,6 +20387,17 @@ dependencies = [
  "sha-1 0.10.1",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "string-interner"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c6a0d765f5807e98a091107bae0a56ea3799f66a5de47b2c84c94a39c09974e"
+dependencies = [
+ "cfg-if",
+ "hashbrown 0.14.3",
+ "serde",
 ]
 
 [[package]]
@@ -22441,26 +22452,25 @@ checksum = "77a8281d1d660cdf54c76a3efa9ddd0c270cada1383a995db3ccb43d166456c7"
 dependencies = [
  "smallvec",
  "spin 0.9.8",
- "wasmi_arena 0.4.1",
+ "wasmi_arena",
  "wasmi_core 0.13.0",
  "wasmparser-nostd",
 ]
 
 [[package]]
 name = "wasmi"
-version = "0.32.0-beta.7"
+version = "0.32.0-beta.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20ae225a373bdfc7412ec39f3b409fe8a540a1907f698f21030a3bc010435ef0"
+checksum = "0af4e112c3ba7041f28b5180d42a53c19390f737f2f855813e2f11805dd7d7e6"
 dependencies = [
  "arrayvec 0.7.4",
  "multi-stash",
  "num-derive",
  "num-traits",
- "slice-group-by",
  "smallvec",
  "spin 0.9.8",
- "wasmi_arena 0.5.0",
- "wasmi_core 0.16.0",
+ "wasmi_collections",
+ "wasmi_core 0.20.0",
  "wasmparser-nostd",
 ]
 
@@ -22471,10 +22481,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "104a7f73be44570cac297b3035d76b169d6599637631cf37a1703326a0727073"
 
 [[package]]
-name = "wasmi_arena"
-version = "0.5.0"
+name = "wasmi_collections"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f686876d8f92a573a9a1e005b78ec1e893158bbdc3ac75a1270384ca86d6c6b"
+checksum = "940a5198807d9e7b3317f62dcae2745ba35699720d4600cb79c1cd652c8318b7"
+dependencies = [
+ "ahash 0.8.11",
+ "hashbrown 0.14.3",
+ "string-interner",
+]
 
 [[package]]
 name = "wasmi_core"
@@ -22490,9 +22505,9 @@ dependencies = [
 
 [[package]]
 name = "wasmi_core"
-version = "0.16.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02377ef0c323a5e462f033ededb94ddce7ea78cc6312f5f89d936bfa789e90c9"
+checksum = "ea739aa7763d2f2b86e6731eaa72193de51cb97a9a5a0d06ac35b181d36d0f54"
 dependencies = [
  "downcast-rs",
  "libm",
@@ -22512,9 +22527,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser-nostd"
-version = "0.100.1"
+version = "0.100.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9157cab83003221bfd385833ab587a039f5d6fa7304854042ba358a3b09e0724"
+checksum = "d5a015fe95f3504a94bb1462c717aae75253e39b9dd6c3fb1062c934535c64aa"
 dependencies = [
  "indexmap-nostd",
 ]
