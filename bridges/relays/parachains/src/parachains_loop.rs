@@ -139,6 +139,33 @@ pub fn metrics_prefix<P: ParachainsPipeline>() -> String {
 	)
 }
 
+/// Relay single parachain head.
+pub async fn relay_single_head<P: ParachainsPipeline>(
+	source_client: impl SourceClient<P>,
+	target_client: impl TargetClient<P>,
+	at_relay_block: HeaderIdOf<P::SourceRelayChain>,
+) -> Result<(), ()>
+where
+	P::SourceRelayChain: Chain<BlockNumber = RelayBlockNumber>,
+{
+	let tx_tracker =
+		submit_selected_head::<P, _>(&source_client, &target_client, at_relay_block, false)
+			.await
+			.map_err(drop)?;
+	match tx_tracker.wait().await {
+		TrackedTransactionStatus::Finalized(_) => Ok(()),
+		TrackedTransactionStatus::Lost => {
+			log::error!(
+				"Transaction with {} header at relay header {:?} is considered lost at {}",
+				P::SourceParachain::NAME,
+				at_relay_block,
+				P::TargetChain::NAME,
+			);
+			Err(())
+		},
+	}
+}
+
 /// Run parachain heads synchronization.
 pub async fn run<P: ParachainsPipeline>(
 	source_client: impl SourceClient<P>,
@@ -361,50 +388,61 @@ where
 		);
 
 		if is_update_required {
-			let (head_proof, head_hash) =
-				source_client.prove_parachain_head(prove_at_relay_block).await.map_err(|e| {
-					log::warn!(
-						target: "bridge",
-						"Failed to prove {} parachain ParaId({}) heads: {:?}",
-						P::SourceRelayChain::NAME,
-						P::SourceParachain::PARACHAIN_ID,
-						e,
-					);
-					FailedClient::Source
-				})?;
-			log::info!(
-				target: "bridge",
-				"Submitting {} parachain ParaId({}) head update transaction to {}. Para hash at source relay {:?}: {:?}",
-				P::SourceRelayChain::NAME,
-				P::SourceParachain::PARACHAIN_ID,
-				P::TargetChain::NAME,
+			let transaction_tracker = submit_selected_head::<P, _>(
+				&source_client,
+				&target_client,
 				prove_at_relay_block,
-				head_hash,
-			);
-
-			let transaction_tracker = target_client
-				.submit_parachain_head_proof(
-					prove_at_relay_block,
-					head_hash,
-					head_proof,
-					only_free_headers,
-				)
-				.await
-				.map_err(|e| {
-					log::warn!(
-						target: "bridge",
-						"Failed to submit {} parachain ParaId({}) heads proof to {}: {:?}",
-						P::SourceRelayChain::NAME,
-						P::SourceParachain::PARACHAIN_ID,
-						P::TargetChain::NAME,
-						e,
-					);
-					FailedClient::Target
-				})?;
+				only_free_headers,
+			)
+			.await?;
 			submitted_heads_tracker =
 				Some(SubmittedHeadsTracker::<P>::new(head_at_source, transaction_tracker));
 		}
 	}
+}
+
+/// Prove and submit parachain head at given relay chain block.
+async fn submit_selected_head<P: ParachainsPipeline, TC: TargetClient<P>>(
+	source_client: &impl SourceClient<P>,
+	target_client: &TC,
+	prove_at_relay_block: HeaderIdOf<P::SourceRelayChain>,
+	only_free_headers: bool,
+) -> Result<TC::TransactionTracker, FailedClient> {
+	let (head_proof, head_hash) =
+		source_client.prove_parachain_head(prove_at_relay_block).await.map_err(|e| {
+			log::warn!(
+				target: "bridge",
+				"Failed to prove {} parachain ParaId({}) heads: {:?}",
+				P::SourceRelayChain::NAME,
+				P::SourceParachain::PARACHAIN_ID,
+				e,
+			);
+			FailedClient::Source
+		})?;
+	log::info!(
+		target: "bridge",
+		"Submitting {} parachain ParaId({}) head update transaction to {}. Para hash at source relay {:?}: {:?}",
+		P::SourceRelayChain::NAME,
+		P::SourceParachain::PARACHAIN_ID,
+		P::TargetChain::NAME,
+		prove_at_relay_block,
+		head_hash,
+	);
+
+	target_client
+		.submit_parachain_head_proof(prove_at_relay_block, head_hash, head_proof, only_free_headers)
+		.await
+		.map_err(|e| {
+			log::warn!(
+				target: "bridge",
+				"Failed to submit {} parachain ParaId({}) heads proof to {}: {:?}",
+				P::SourceRelayChain::NAME,
+				P::SourceParachain::PARACHAIN_ID,
+				P::TargetChain::NAME,
+				e,
+			);
+			FailedClient::Target
+		})
 }
 
 /// Returns `true` if we need to submit parachain-head-update transaction.
