@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714688769104,
+  "lastUpdate": 1714738877776,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -6509,6 +6509,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.825112093333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "871281783c1be03157319d5143096fd3dd860d0a",
+          "message": "Bridge: fix zombienet tests (#4367)\n\nDue to recent bump of Rococo/Westend versions + the fact that\nhttps://github.com/paritytech/parity-bridges-common/pull/2894 has\nfinally reached this repo, tests now fail, because we've started\nchecking all client versions (even source) unless we specify\n`--source-version-mode Auto` in CLI arguments. This looks like an\noverkill, but all those version checks will be fixed by\nhttps://github.com/paritytech/polkadot-sdk/pull/4256, so now it makes\nsense just to add this CLI option. We also need to propagate it to\nrunning relays eventually.",
+          "timestamp": "2024-05-03T11:49:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/871281783c1be03157319d5143096fd3dd860d0a"
+        },
+        "date": 1714738851980,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.637800826833331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1813060995,
             "unit": "seconds"
           }
         ]
