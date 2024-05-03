@@ -157,9 +157,9 @@ smart-contracts.</p>
 <li><a href="pallet/enum.Call.html" title="enum pallet_contracts::pallet::Call"><code>Call</code></a></li>
 </ul>
 <h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
-<p>This module extends accounts based on the <a href="../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>frame_support::traits::fungible</code></a> traits to have
+<p>This module extends accounts based on the [<code>frame_support::traits::fungible</code>] traits to have
 smart-contract functionality. It can be used with other modules that implement accounts based on
-the <a href="../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>frame_support::traits::fungible</code></a> traits. These “smart-contract accounts” have the ability
+the [<code>frame_support::traits::fungible</code>] traits. These “smart-contract accounts” have the ability
 to instantiate smart-contracts and make calls to other contract and non-contract accounts.</p>
 <p>The smart-contract code is stored once, and later retrievable via its hash.
 This means that multiple smart-contracts can be instantiated from the same hash, without
@@ -197,7 +197,7 @@ allowed to code owner.</li>
 <li><a href="pallet/struct.Pallet.html#method.set_code" title="associated function pallet_contracts::pallet::Pallet::set_code"><code>Pallet::set_code</code></a> - Changes the code of an existing contract. Only allowed to <code>Root</code>
 origin.</li>
 <li><a href="pallet/struct.Pallet.html#method.migrate" title="associated function pallet_contracts::pallet::Pallet::migrate"><code>Pallet::migrate</code></a> - Runs migration steps of current multi-block migration in priority,
-before <a href="../frame_support/traits/hooks/trait.Hooks.html#method.on_idle" title="associated function frame_support::traits::hooks::Hooks::on_idle"><code>Hooks::on_idle</code></a> activates.</li>
+before [<code>Hooks::on_idle</code>][frame_support::traits::Hooks::on_idle] activates.</li>
 </ul>
 <h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
 <ul>
