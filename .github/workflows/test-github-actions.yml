@@ -8,9 +8,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# env:
-#   CARGO_NET_GIT_FETCH_WITH_CLI: true
-
 jobs:
   set-image:
     # GitHub Actions allows using 'env' in a container context.
@@ -30,9 +27,6 @@ jobs:
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
-    strategy:
-      matrix:
-        attempts: [1, 2, 3]
     env:
       RUSTFLAGS: "-C debug-assertions -D warnings"
       RUST_BACKTRACE: 1
@@ -51,9 +45,6 @@ jobs:
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
-    strategy:
-      matrix:
-        attempts: [1, 2, 3]
     env:
       RUSTFLAGS: "-C debug-assertions -D warnings"
       RUST_BACKTRACE: "full"
