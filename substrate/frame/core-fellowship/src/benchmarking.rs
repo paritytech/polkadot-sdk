@@ -25,7 +25,6 @@ use crate::Pallet as CoreFellowship;
 use frame_benchmarking::v2::*;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_arithmetic::traits::Bounded;
-use sp_core::bounded_vec;
 
 const SEED: u32 = 0;
 
@@ -36,7 +35,7 @@ mod benchmarks {
 	use super::*;
 
 	fn ensure_evidence<T: Config<I>, I: 'static>(who: &T::AccountId) -> BenchResult {
-		let evidence = bounded_vec![0; Evidence::<T, I>::bound()];
+		let evidence = BoundedVec::try_from(vec![0; Evidence::<T, I>::bound()]).unwrap();
 		let wish = Wish::Retention;
 		let origin = RawOrigin::Signed(who.clone()).into();
 		CoreFellowship::<T, I>::submit_evidence(origin, wish, evidence)?;
@@ -57,10 +56,10 @@ mod benchmarks {
 	fn set_benchmark_params<T: Config<I>, I: 'static>() -> Result<(), BenchmarkError> {
 		let max_rank = T::MaxRank::get().try_into().unwrap();
 		let params = ParamsType {
-			active_salary: bounded_vec![100u32.into(); max_rank],
-			passive_salary: bounded_vec![10u32.into(); max_rank],
-			demotion_period: bounded_vec![100u32.into(); max_rank],
-			min_promotion_period: bounded_vec![100u32.into(); max_rank],
+			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			offboard_timeout: 1u32.into(),
 		};
 
@@ -72,10 +71,10 @@ mod benchmarks {
 	fn set_params() -> Result<(), BenchmarkError> {
 		let max_rank = T::MaxRank::get().try_into().unwrap();
 		let params = ParamsType {
-			active_salary: bounded_vec![100u32.into(); max_rank],
-			passive_salary: bounded_vec![10u32.into(); max_rank],
-			demotion_period: bounded_vec![100u32.into(); max_rank],
-			min_promotion_period: bounded_vec![100u32.into(); max_rank],
+			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			offboard_timeout: 1u32.into(),
 		};
 
@@ -155,7 +154,7 @@ mod benchmarks {
 		// Ensure that the `min_promotion_period` wont get in our way.
 		let mut params = Params::<T, I>::get();
 		let max_rank = T::MaxRank::get().try_into().unwrap();
-		params.min_promotion_period = bounded_vec![Zero::zero(); max_rank];
+		params.min_promotion_period = BoundedVec::try_from(vec![Zero::zero(); max_rank]).unwrap();
 		Params::<T, I>::put(&params);
 
 		let member = make_member::<T, I>(1)?;
