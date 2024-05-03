@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714688158964,
+  "lastUpdate": 1714738263683,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -1973,6 +1973,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.65474114762001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ad72cd8d481008ddc38bdd67a3ca3434901dd795",
+          "message": "[WIP][CI] Add more GHA jobs (#4270)\n\ncc https://github.com/paritytech/ci_cd/issues/939",
+          "timestamp": "2024-05-03T10:43:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad72cd8d481008ddc38bdd67a3ca3434901dd795"
+        },
+        "date": 1714738238499,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63549.31,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.433170125599913,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.996437076970114,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.251428405340177,
             "unit": "seconds"
           }
         ]
