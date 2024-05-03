@@ -42,7 +42,7 @@ use substrate_prometheus_endpoint::Registry;
 
 pub use parachains_common::{AccountId, Balance, Block, Hash, Nonce};
 
-pub use core::{
+pub use consensus::{
 	lookahead_aura_consensus::{build_aura_import_queue, start_lookahead_aura_consensus},
 	relay_chain_consensus::build_relay_to_aura_import_queue,
 };

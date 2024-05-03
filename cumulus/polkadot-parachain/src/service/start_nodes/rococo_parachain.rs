@@ -5,8 +5,7 @@ use cumulus_primitives_core::ParaId;
 use parachains_common::{Block, Hash};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, TaskManager};
-use crate::service::{build_aura_import_queue, build_parachain_rpc_extensions, ParachainClient, start_node_impl};
-use crate::service::core::lookahead_aura_consensus::start_lookahead_aura_consensus;
+use crate::service::{build_aura_import_queue, build_parachain_rpc_extensions, ParachainClient, start_lookahead_aura_consensus, start_node_impl};
 
 /// Start a rococo parachain node.
 pub async fn start_rococo_parachain_node<Net: NetworkBackend<Block, Hash>>(

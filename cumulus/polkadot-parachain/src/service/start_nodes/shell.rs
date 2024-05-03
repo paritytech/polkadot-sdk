@@ -1,5 +1,5 @@
 use crate::service::{
-	core::relay_chain_consensus::start_relay_chain_consensus, start_node_impl,
+	consensus::relay_chain_consensus::start_relay_chain_consensus, start_node_impl,
 	ParachainBlockImport, ParachainClient,
 };
 use cumulus_client_cli::CollatorOptions;

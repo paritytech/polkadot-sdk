@@ -1,6 +1,6 @@
 use crate::service::{
 	aura, build_parachain_rpc_extensions,
-	core::relay_chain_consensus::build_relay_to_aura_import_queue, start_node_impl, AuraParams,
+	build_relay_to_aura_import_queue, start_node_impl, AuraParams,
 	ParachainClient,
 };
 use codec::{Codec, Decode};

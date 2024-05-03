@@ -100,7 +100,7 @@ pub fn start_relay_chain_consensus(
 	Ok(())
 }
 
-pub enum BuildOnAccess<R> {
+enum BuildOnAccess<R> {
 	Uninitialized(Option<Box<dyn FnOnce() -> R + Send + Sync>>),
 	Initialized(R),
 }
@@ -120,7 +120,7 @@ impl<R> BuildOnAccess<R> {
 
 /// Special [`ParachainConsensus`] implementation that waits for the upgrade from
 /// shell to a parachain runtime that implements Aura.
-pub struct WaitForAuraConsensus<Client, AuraId> {
+struct WaitForAuraConsensus<Client, AuraId> {
 	client: Arc<Client>,
 	aura_consensus: Arc<Mutex<BuildOnAccess<Box<dyn ParachainConsensus<Block>>>>>,
 	relay_chain_consensus: Arc<Mutex<Box<dyn ParachainConsensus<Block>>>>,
@@ -173,7 +173,7 @@ where
 	}
 }
 
-pub struct Verifier<Client, AuraId> {
+struct Verifier<Client, AuraId> {
 	client: Arc<Client>,
 	aura_verifier: BuildOnAccess<Box<dyn VerifierT<Block>>>,
 	relay_chain_verifier: Box<dyn VerifierT<Block>>,
