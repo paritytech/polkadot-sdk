@@ -14,11 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::service::{build_contracts_rpc_extensions, start_lookahead_aura_consensus, start_node_impl, ParachainClient, build_aura_import_queue};
+use crate::service::{
+	build_aura_import_queue, build_contracts_rpc_extensions,
+	common_types::{Block, Hash},
+	start_lookahead_aura_consensus, start_node_impl, ParachainClient,
+};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::ParaId;
-use parachains_common::{Block, Hash};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, TaskManager};
 use std::sync::Arc;

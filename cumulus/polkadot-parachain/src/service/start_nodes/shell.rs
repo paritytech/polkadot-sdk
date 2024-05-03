@@ -15,15 +15,14 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::service::{
-	consensus::relay_chain_consensus::start_relay_chain_consensus, start_node_impl,
-	ParachainBlockImport, ParachainClient,
+	common_types::{Block, Hash},
+	consensus::relay_chain_consensus::start_relay_chain_consensus,
+	start_node_impl, ParachainBlockImport, ParachainClient,
 };
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::ParaId;
 use jsonrpsee::RpcModule;
-use parachains_common::{Block, Hash};
-
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;

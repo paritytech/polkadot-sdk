@@ -16,12 +16,12 @@
 
 use crate::service::{
 	build_parachain_rpc_extensions, build_relay_to_aura_import_queue,
+	common_types::{AuraId, Block, Hash},
 	start_lookahead_aura_consensus, start_node_impl, ParachainClient,
 };
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::ParaId;
-use parachains_common::{AuraId, Block, Hash};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, TaskManager};
 use std::sync::Arc;

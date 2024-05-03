@@ -17,8 +17,8 @@
 use crate::{
 	rpc::DenyUnsafe,
 	service::{
-		new_partial, AccountId, Balance, Block, Hash, Nonce, ParachainBackend,
-		ParachainBlockImport, ParachainClient,
+		common_types::{AccountId, Balance, Block, Hash, Nonce},
+		new_partial, ParachainBackend, ParachainBlockImport, ParachainClient,
 	},
 };
 use cumulus_client_cli::CollatorOptions;

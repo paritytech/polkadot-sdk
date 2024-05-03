@@ -14,12 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::service::{aura, AuraParams, ParachainBackend, ParachainBlockImport, ParachainClient};
+use crate::service::{
+	aura,
+	common_types::{AuraId, Block, Hash},
+	AuraParams, ParachainBackend, ParachainBlockImport, ParachainClient,
+};
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_proposer::Proposer;
 use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use parachains_common::{AuraId, Block, Hash};
 use polkadot_primitives::CollatorPair;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, TaskManager};
@@ -129,5 +132,5 @@ pub fn build_aura_import_queue(
 		spawner: &task_manager.spawn_essential_handle(),
 		telemetry,
 	})
-		.map_err(Into::into)
+	.map_err(Into::into)
 }

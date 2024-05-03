@@ -18,6 +18,7 @@ use crate::service::{
 	aura, build_parachain_rpc_extensions,
 	build_relay_to_aura_import_queue, start_node_impl, AuraParams,
 	ParachainClient,
+	common_types::{AccountId, Balance, Block, Hash, Nonce}
 };
 use codec::{Codec, Decode};
 use cumulus_client_cli::CollatorOptions;
@@ -26,7 +27,6 @@ use cumulus_client_consensus_proposer::Proposer;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{relay_chain::ValidationCode, BlockT, ParaId};
 use futures::StreamExt;
-use parachains_common::{AccountId, Balance, Block, Hash, Nonce};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, TaskManager};
 use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};

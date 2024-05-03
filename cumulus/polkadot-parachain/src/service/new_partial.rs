@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::service::{HostFunctions, ParachainBlockImport, ParachainClient, Service, Block};
+use crate::service::{
+	common_types::Block, HostFunctions, ParachainBlockImport, ParachainClient, Service,
+};
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};

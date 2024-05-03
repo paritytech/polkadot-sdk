@@ -27,7 +27,16 @@ use sc_service::{PartialComponents, TFullBackend, TFullClient};
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 use std::{sync::Arc};
 
-pub use parachains_common::{AccountId, Balance, Block, Hash, Nonce};
+/// Module with common types.
+///
+/// The idea is to help downstream implementors who don't rely on `parachains_common` for types.
+/// Proxying the imports paths via this module makes it possible to only adjust imports here, as
+/// opposed to replacing `parachains_common` imports in every file.
+pub mod common_types {
+ 	pub use parachains_common::{AuraId, AccountId, Balance, Block, Hash, Nonce, Header};
+}
+
+use common_types::Block;
 
 // Exports from the service module
 
