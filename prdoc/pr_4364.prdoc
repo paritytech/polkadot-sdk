@@ -1,4 +1,4 @@
-title: Fix: dust unbonded for zero existential deposit
+title: Fix dust unbonded for zero existential deposit
 
 doc:
   - audience: Runtime Dev
