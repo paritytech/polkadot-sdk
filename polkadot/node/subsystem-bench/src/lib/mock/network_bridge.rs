@@ -109,8 +109,15 @@ impl MockNetworkBridgeTx {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
 							gum::debug!(target: LOG_TARGET, request = ?request, "Processing request");
-							let peer_id =
-								request.authority_id().expect("all nodes are authorities").clone();
+							let peer_id = match request.authority_id() {
+								Some(v) => v.clone(),
+								None => self
+									.test_authorities
+									.peer_id_to_authority
+									.get(request.peer_id().expect("Should exist"))
+									.expect("Should exist")
+									.clone(),
+							};
 
 							if !self.network.is_peer_connected(&peer_id) {
 								// Attempting to send a request to a disconnected peer.

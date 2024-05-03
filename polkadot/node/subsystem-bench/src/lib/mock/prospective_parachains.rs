@@ -14,13 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A generic runtime api subsystem mockup suitable to be used in benchmarks.
+//! A generic prospective parachains subsystem mockup suitable to be used in benchmarks.
 
 use futures::FutureExt;
 use polkadot_node_subsystem::{
 	messages::ProspectiveParachainsMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
+use polkadot_primitives::Hash;
 
 const LOG_TARGET: &str = "subsystem-bench::prospective-parachains-mock";
 
@@ -58,8 +59,16 @@ impl MockProspectiveParachains {
 						ProspectiveParachainsMessage::GetMinimumRelayParents(_relay_parent, tx) => {
 							tx.send(vec![]).unwrap();
 						},
-						ProspectiveParachainsMessage::GetHypotheticalFrontier(_req, tx) => {
-							tx.send(vec![]).unwrap();
+						ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx) => {
+							tx.send(
+								req.candidates
+									.into_iter()
+									.map(|candidate| {
+										(candidate, vec![(Hash::repeat_byte(0), vec![0])])
+									})
+									.collect(),
+							)
+							.unwrap();
 						},
 						_ => {
 							unimplemented!("Unexpected chain-api message")

@@ -19,6 +19,7 @@ use crate::{
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
 	mock::{
+		candidate_backing::MockCandidateBacking,
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
 		prospective_parachains::MockProspectiveParachains,
@@ -30,14 +31,14 @@ use crate::{
 	NODE_UNDER_TEST,
 };
 use colored::Colorize;
+use futures::{channel::mpsc, StreamExt};
 use itertools::Itertools;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	request_response::{IncomingRequest, ReqProtocolNames},
-	view, View,
+	v3, view, Versioned, View,
 };
-use polkadot_node_primitives::{SignedFullStatementWithPVD, Statement};
 use polkadot_node_subsystem::messages::{
 	network_bridge_event::NewGossipTopology, AllMessages, NetworkBridgeEvent,
 	StatementDistributionMessage,
@@ -46,7 +47,8 @@ use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, Block, Hash, SigningContext, ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, Block, CompactStatement, Hash, SignedStatement, SigningContext,
+	ValidatorId, ValidatorIndex,
 };
 use polkadot_statement_distribution::StatementDistributionSubsystem;
 use rand::SeedableRng;
@@ -85,6 +87,7 @@ fn build_overseer(
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 	OverseerHandle,
 	Vec<ProtocolConfig>,
+	mpsc::UnboundedReceiver<AllMessages>,
 ) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
@@ -101,6 +104,11 @@ fn build_overseer(
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
 	let mock_prospective_parachains = MockProspectiveParachains::new();
+	let (tx, rx) = mpsc::unbounded();
+	let mock_candidate_backing = MockCandidateBacking::new(
+		tx,
+		state.validator_pairs.get(NODE_UNDER_TEST as usize).unwrap().clone(),
+	);
 	let (statement_req_receiver, statement_req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
 		sc_network::NetworkWorker<Block, Hash>,
@@ -121,6 +129,7 @@ fn build_overseer(
 		.replace_runtime_api(|_| mock_runtime_api)
 		.replace_chain_api(|_| mock_chain_api)
 		.replace_prospective_parachains(|_| mock_prospective_parachains)
+		.replace_candidate_backing(|_| mock_candidate_backing)
 		.replace_statement_distribution(|_| subsystem)
 		.replace_network_bridge_tx(|_| network_bridge.0)
 		.replace_network_bridge_rx(|_| network_bridge.1);
@@ -128,13 +137,13 @@ fn build_overseer(
 		dummy.build_with_connector(overseer_connector).expect("Should not fail");
 	let overseer_handle = OverseerHandle::new(raw_handle);
 
-	(overseer, overseer_handle, vec![statement_req_cfg, candidate_req_cfg])
+	(overseer, overseer_handle, vec![statement_req_cfg, candidate_req_cfg], rx)
 }
 
 pub fn prepare_test(
 	state: &TestState,
 	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, Vec<ProtocolConfig>) {
+) -> (TestEnvironment, Vec<ProtocolConfig>, mpsc::UnboundedReceiver<AllMessages>) {
 	let dependencies = TestEnvironmentDependencies::default();
 	let (network, network_interface, network_receiver) = new_network(
 		&state.config,
@@ -148,7 +157,7 @@ pub fn prepare_test(
 		state.test_authorities.clone(),
 	);
 	let network_bridge_rx = MockNetworkBridgeRx::new(network_receiver, None);
-	let (overseer, overseer_handle, cfg) =
+	let (overseer, overseer_handle, cfg, to_subsystems) =
 		build_overseer(state, (network_bridge_tx, network_bridge_rx), &dependencies);
 
 	(
@@ -162,6 +171,7 @@ pub fn prepare_test(
 			with_prometheus_endpoint,
 		),
 		cfg,
+		to_subsystems,
 	)
 }
 
@@ -215,6 +225,7 @@ pub async fn benchmark_statement_distribution(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	state: &TestState,
+	mut to_subsystems: mpsc::UnboundedReceiver<AllMessages>,
 ) -> BenchmarkUsage {
 	let config = env.config().clone();
 
@@ -232,7 +243,7 @@ pub async fn benchmark_statement_distribution(
 	for message in initialization_messages {
 		env.send_message(message).await;
 	}
-	let pair = state.validator_pairs.get(NODE_UNDER_TEST as usize).unwrap();
+	let pair = state.validator_pairs.get((NODE_UNDER_TEST + 1) as usize).unwrap();
 
 	let test_start = Instant::now();
 	for block_info in state.block_infos.iter() {
@@ -253,50 +264,34 @@ pub async fn benchmark_statement_distribution(
 			.get(&block_info.hash)
 			.expect("Pregenerated")
 			.clone();
+
+		let relay_parent = block_info.hash;
 		let candidate_hash = receipt.hash();
-		let statement = Statement::Seconded(receipt.clone());
-		let context = SigningContext { parent_hash: block_info.hash, session_index: 0 };
-		let payload = statement.to_compact().signing_payload(&context);
+		let statement = CompactStatement::Seconded(candidate_hash);
+		let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+		let payload = statement.signing_payload(&context);
 		let signature = pair.sign(&payload[..]);
-		let message = AllMessages::StatementDistribution(StatementDistributionMessage::Share(
-			block_info.hash,
-			SignedFullStatementWithPVD::new(
-				statement.supply_pvd(state.persisted_validation_data.clone()),
-				ValidatorIndex(0),
-				signature,
-				&context,
-				&pair.public(),
-			)
-			.unwrap(),
-		));
+		let statement = SignedStatement::new(
+			statement,
+			ValidatorIndex(NODE_UNDER_TEST + 1),
+			signature,
+			&context,
+			&pair.public(),
+		)
+		.unwrap()
+		.as_unchecked()
+		.to_owned();
+		let message = AllMessages::StatementDistribution(
+			StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
+				*state.test_authorities.peer_ids.get((NODE_UNDER_TEST + 1) as usize).unwrap(),
+				Versioned::V3(v3::StatementDistributionMessage::Statement(relay_parent, statement)),
+			)),
+		);
 		env.send_message(message).await;
 
-		loop {
-			let seconded_count = state
-				.seconded_count
-				.get(&candidate_hash)
-				.expect("Pregenerated")
-				.load(Ordering::SeqCst);
-			gum::info!(target: LOG_TARGET, seconded_count = ?seconded_count);
-			if seconded_count < 4 {
-				sleep(Duration::from_millis(50)).await;
-			} else {
-				break;
-			}
-		}
-
-		loop {
-			let statements_count = state
-				.statements_count
-				.get(&candidate_hash)
-				.expect("Pregenerated")
-				.load(Ordering::SeqCst);
-			gum::info!(target: LOG_TARGET, statements_count = ?statements_count);
-			if statements_count < 9 {
-				sleep(Duration::from_millis(50)).await;
-			} else {
-				break;
-			}
+		if let Some(msg) = to_subsystems.next().await {
+			gum::info!(msg = ?msg);
+			env.send_message(msg).await;
 		}
 
 		let message = AllMessages::StatementDistribution(StatementDistributionMessage::Backed(

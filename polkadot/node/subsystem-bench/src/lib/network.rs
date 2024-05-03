@@ -149,6 +149,7 @@ impl RateLimit {
 
 /// A wrapper for both gossip and request/response protocols along with the destination
 /// peer(`AuthorityDiscoveryId``).
+#[derive(Debug)]
 pub enum NetworkMessage {
 	/// A gossip message from peer to node.
 	MessageFromPeer(PeerId, VersionedValidationProtocol),
@@ -431,7 +432,7 @@ impl NetworkInterface {
 }
 
 /// A handle for controlling an emulated peer.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EmulatedPeerHandle {
 	/// Send messages to be processed by the peer.
 	messages_tx: UnboundedSender<NetworkMessage>,
@@ -693,7 +694,7 @@ impl PeerEmulatorStats {
 }
 
 /// The state of a peer on the emulated network.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum Peer {
 	Connected(EmulatedPeerHandle),
 	Disconnected(EmulatedPeerHandle),
@@ -1021,6 +1022,8 @@ impl Metrics {
 pub trait RequestExt {
 	/// Get the authority id if any from the request.
 	fn authority_id(&self) -> Option<&AuthorityDiscoveryId>;
+	/// Get the peer id if any from the request.
+	fn peer_id(&self) -> Option<&PeerId>;
 	/// Consume self and return the response sender.
 	fn into_response_sender(self) -> ResponseSender;
 	/// Allows to change the `ResponseSender` in place.
@@ -1046,8 +1049,22 @@ impl RequestExt for Requests {
 					None
 				}
 			},
+			// Requested by PeerId
+			Requests::AttestedCandidateV2(_) => None,
 			request => {
 				unimplemented!("RequestAuthority not implemented for {:?}", request)
+			},
+		}
+	}
+
+	fn peer_id(&self) -> Option<&PeerId> {
+		match self {
+			Requests::AttestedCandidateV2(request) => match &request.peer {
+				Recipient::Authority(_) => None,
+				Recipient::Peer(peer_id) => Some(peer_id),
+			},
+			request => {
+				unimplemented!("peer_id() is not implemented for {:?}", request)
 			},
 		}
 	}
@@ -1068,6 +1085,8 @@ impl RequestExt for Requests {
 				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
 			Requests::AvailableDataFetchingV1(outgoing_request) =>
 				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
+			Requests::AttestedCandidateV2(outgoing_request) =>
+				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
 			_ => unimplemented!("unsupported request type"),
 		}
 	}
@@ -1077,6 +1096,8 @@ impl RequestExt for Requests {
 		match self {
 			Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
 			Requests::AvailableDataFetchingV1(outgoing_request) =>
+				outgoing_request.payload.encoded_size(),
+			Requests::AttestedCandidateV2(outgoing_request) =>
 				outgoing_request.payload.encoded_size(),
 			_ => unimplemented!("received an unexpected request"),
 		}

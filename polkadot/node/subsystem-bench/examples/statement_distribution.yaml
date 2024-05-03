@@ -1,3 +1,4 @@
 TestConfiguration:
 - objective: StatementDistribution
   num_blocks: 10
+  connectivity: 100

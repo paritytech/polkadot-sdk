@@ -21,7 +21,9 @@ use crate::{
 use colored::Colorize;
 use futures::SinkExt;
 use itertools::Itertools;
+use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
+	request_response::{v2::AttestedCandidateResponse, Requests},
 	v3::{BackedCandidateAcknowledgement, StatementDistributionMessage, ValidationProtocol},
 	Versioned,
 };
@@ -31,11 +33,13 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CompactStatement,
-	Hash, HeadData, Header, PersistedValidationData, SignedStatement, SigningContext,
-	ValidatorIndex, ValidatorPair,
+	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, Header,
+	PersistedValidationData, ValidatorPair,
 };
-use polkadot_primitives_test_helpers::{dummy_committed_candidate_receipt, dummy_hash};
+use polkadot_primitives_test_helpers::{
+	dummy_committed_candidate_receipt, dummy_hash, dummy_head_data, dummy_pvd,
+};
+use sc_network::ProtocolName;
 use sp_core::{Pair, H256};
 use std::{
 	collections::HashMap,
@@ -80,12 +84,7 @@ impl TestState {
 			block_infos: Default::default(),
 			candidate_receipts: Default::default(),
 			commited_candidate_receipts: Default::default(),
-			persisted_validation_data: PersistedValidationData {
-				parent_head: HeadData(vec![7, 8, 9]),
-				relay_parent_number: Default::default(),
-				max_pov_size: 1024,
-				relay_parent_storage_root: Default::default(),
-			},
+			persisted_validation_data: dummy_pvd(dummy_head_data(), 0),
 			block_headers: Default::default(),
 			validator_pairs: Default::default(),
 			seconded_tracker: Default::default(),
@@ -117,6 +116,8 @@ impl TestState {
 			);
 
 			commited_candidate_receipt.descriptor.erasure_root = erasure_root;
+			commited_candidate_receipt.descriptor.persisted_validation_data_hash =
+				test_state.persisted_validation_data.hash();
 			commited_candidate_receipt_templates.push(commited_candidate_receipt);
 			pov_size_to_candidate.insert(pov_size, index);
 		}
@@ -165,10 +166,10 @@ impl TestState {
 				candidate_hash,
 				HashMap::from_iter(
 					(1..=config.max_validators_per_core)
-						.map(|index| (index as u32, Arc::new(AtomicBool::new(false)))),
+						.map(|index| (index as u32, Arc::new(AtomicBool::new(index == 1)))),
 				),
 			);
-			test_state.seconded_count.insert(candidate_hash, Arc::new(AtomicU32::new(1))); // one seconded in node under test
+			test_state.seconded_count.insert(candidate_hash, Arc::new(AtomicU32::new(1)));
 			test_state.statements_count.insert(candidate_hash, Arc::new(AtomicU32::new(0)));
 			test_state.known_count.insert(candidate_hash, Arc::new(AtomicU32::new(0)));
 		}
@@ -191,6 +192,24 @@ impl HandleNetworkMessage for TestState {
 		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
+			NetworkMessage::RequestFromNode(_authority_id, Requests::AttestedCandidateV2(req)) => {
+				let payload = req.payload;
+				let candidate_receipt = self
+					.commited_candidate_receipts
+					.values()
+					.find(|v| v.hash() == payload.candidate_hash)
+					.expect("Pregenerated")
+					.clone();
+				let persisted_validation_data = self.persisted_validation_data.clone();
+
+				let res = AttestedCandidateResponse {
+					candidate_receipt,
+					persisted_validation_data,
+					statements: vec![],
+				};
+				let _ = req.pending_response.send(Ok((res.encode(), ProtocolName::from(""))));
+				None
+			},
 			NetworkMessage::MessageFromNode(
 				authority_id,
 				Versioned::V3(ValidationProtocol::StatementDistribution(
@@ -202,7 +221,7 @@ impl HandleNetworkMessage for TestState {
 					.validator_authority_id
 					.iter()
 					.position(|v| v == &authority_id)
-					.expect("Should exist") as u32;
+					.expect("Should exist");
 				let candidate_hash = *statement.unchecked_payload().candidate_hash();
 				self.statements_count
 					.get(&candidate_hash)
@@ -214,7 +233,7 @@ impl HandleNetworkMessage for TestState {
 					.seconded_tracker
 					.get(&candidate_hash)
 					.expect("Pregenerated")
-					.get(&index)
+					.get(&(index as u32))
 					.expect("Pregenerated")
 					.as_ref();
 
@@ -223,26 +242,12 @@ impl HandleNetworkMessage for TestState {
 				} else {
 					known.store(true, Ordering::SeqCst);
 				}
-				let statement = CompactStatement::Seconded(candidate_hash);
-				let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
-				let payload = statement.signing_payload(&context);
-				let pair = self.validator_pairs.get(index as usize).expect("Must exist");
-				let signature = pair.sign(&payload[..]);
-				let statement = SignedStatement::new(
-					statement,
-					ValidatorIndex(index),
-					signature,
-					&context,
-					&pair.public(),
-				)
-				.unwrap();
-				let unchecked = statement.as_unchecked().clone();
 
 				node_sender
 					.start_send_unpin(NetworkMessage::MessageFromPeer(
-						*self.test_authorities.peer_ids.get(index as usize).expect("Must exist"),
+						*self.test_authorities.peer_ids.get(index).expect("Must exist"),
 						Versioned::V3(ValidationProtocol::StatementDistribution(
-							StatementDistributionMessage::Statement(relay_parent, unchecked),
+							StatementDistributionMessage::Statement(relay_parent, statement),
 						)),
 					))
 					.unwrap();
