@@ -38,6 +38,8 @@ use sp_core::Get;
 use serde::{Deserialize, Serialize};
 
 /// A type that wraps another type and provides a default value.
+///
+/// Passes through arithmetical and many other operations to the inner value.
 #[derive(Encode, Decode, TypeInfo, Debug, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TypeWithDefault<T, D: Get<T>>(T, PhantomData<D>);
