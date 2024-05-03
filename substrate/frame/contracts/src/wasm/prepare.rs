@@ -33,7 +33,7 @@ use sp_runtime::{traits::Hash, DispatchError};
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 use sp_std::prelude::Vec;
 use wasmi::{
-	core::ValueType as WasmiValueType, CompilationMode, Config as WasmiConfig, Engine, ExternType,
+	core::ValType as WasmiValueType, CompilationMode, Config as WasmiConfig, Engine, ExternType,
 	Module, StackLimits,
 };
 
@@ -72,7 +72,7 @@ impl LoadedModule {
 		determinism: Determinism,
 		stack_limits: Option<StackLimits>,
 		loading_mode: LoadingMode,
-		_compilation_mode: CompilationMode,
+		compilation_mode: CompilationMode,
 	) -> Result<Self, &'static str> {
 		// NOTE: wasmi does not support unstable WebAssembly features. The module is implicitly
 		// checked for not having those ones when creating `wasmi::Module` below.
@@ -87,10 +87,8 @@ impl LoadedModule {
 			.wasm_extended_const(false)
 			.wasm_saturating_float_to_int(false)
 			.floats(matches!(determinism, Determinism::Relaxed))
-			// TODO restore before merging PR
-			// .compilation_mode(compilation_mode)
-			.consume_fuel(true)
-			.compilation_mode(CompilationMode::Eager);
+			.compilation_mode(compilation_mode)
+			.consume_fuel(true);
 
 		if let Some(stack_limits) = stack_limits {
 			config.set_stack_limits(stack_limits);
@@ -100,10 +98,8 @@ impl LoadedModule {
 
 		let module = match loading_mode {
 			LoadingMode::Checked => Module::new(&engine, code),
-			LoadingMode::Unchecked => Module::new(&engine, code),
-			// TODO restore before merging PR
 			// Safety: The code has been validated, Therefore we know that it's a valid binary.
-			// LoadingMode::Unchecked => unsafe { Module::new_unchecked(&engine, code) },
+			LoadingMode::Unchecked => unsafe { Module::new_unchecked(&engine, code) },
 		}
 		.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Module creation failed: {:?}", err);
