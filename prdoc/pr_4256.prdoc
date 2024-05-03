@@ -1,4 +1,4 @@
-title: Bridges: Making relayer compatible with runtime upgrades
+title: "Bridges: Making relayer compatible with runtime upgrades"
 
 doc:
   - audience: Runtime Dev
@@ -10,21 +10,21 @@ doc:
       if relayer version stays the same.
 
 crates:
-  - name: bridge-runtime-common
-    bump: major
-  - name: pallet-bridge-grandpa
-    bump: major
-  - name: pallet-bridge-messages
-    bump: major
-  - name: pallet-bridge-parachains
-    bump: major
-  - name: bp-runtime
-    bump: major
-  - name: relay-substrate-client
-    bump: major
-  - name: substrate-relay-helper
-    bump: major
-  - name: bridge-hub-rococo-runtime
-    bump: major
-  - name: bridge-hub-westend-runtime
-    bump: major
+- name: bridge-runtime-common
+  bump: major
+- name: pallet-bridge-grandpa
+  bump: major
+- name: pallet-bridge-messages
+  bump: major
+- name: pallet-bridge-parachains
+  bump: major
+- name: bp-runtime
+  bump: major
+- name: relay-substrate-client
+  bump: major
+- name: substrate-relay-helper
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
