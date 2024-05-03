@@ -97,8 +97,8 @@ pub fn ticket_body_sign_data(ticket_body: &TicketBody, ticket_id_input: VrfInput
 /// Pre-output should have been obtained from the input directly using the vrf
 /// secret key or from the vrf signature pre-outputs.
 pub fn make_ticket_id(input: &VrfInput, pre_output: &VrfPreOutput) -> TicketId {
-	let bytes = pre_output.make_bytes::<16>(b"ticket-id", input);
-	u128::from_le_bytes(bytes)
+	let bytes = pre_output.make_bytes::<32>(b"ticket-id", input);
+	TicketId(bytes)
 }
 
 /// Make revealed key seed from a given VRF input and pre-output.

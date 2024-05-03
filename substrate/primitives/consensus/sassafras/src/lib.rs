@@ -39,8 +39,7 @@ pub mod ticket;
 pub mod vrf;
 
 pub use ticket::{
-	ticket_id_threshold, EphemeralPublic, EphemeralSignature, TicketBody, TicketClaim,
-	TicketEnvelope, TicketId,
+	ticket_id_threshold, EphemeralPublic, EphemeralSignature, TicketBody, TicketEnvelope, TicketId,
 };
 
 mod app {
@@ -115,8 +114,8 @@ pub struct Epoch {
 	pub start: Slot,
 	/// Number of slots in the epoch.
 	pub length: u32,
-	/// Randomness value.
-	pub randomness: Randomness,
+	/// Randomness accumulator.
+	pub randomness: [Randomness; 4],
 	/// Authorities list.
 	pub authorities: Vec<AuthorityId>,
 	/// Epoch configuration.
