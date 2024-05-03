@@ -565,6 +565,14 @@ pub struct RelayerVersion {
 	pub auto: H256,
 }
 
+impl RelayerVersion {
+	/// Create relayer version from `manual` value only. It MSUT NOT be used inside
+	/// runtime code.
+	pub const fn from_manual(manual: u32) -> Self {
+		Self { manual, Default::default() }
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
