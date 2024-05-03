@@ -569,7 +569,7 @@ impl RelayerVersion {
 	/// Create relayer version from `manual` value only. It MSUT NOT be used inside
 	/// runtime code.
 	pub const fn from_manual(manual: u32) -> Self {
-		Self { manual, Default::default() }
+		Self { manual, ..Default::default() }
 	}
 }
 
