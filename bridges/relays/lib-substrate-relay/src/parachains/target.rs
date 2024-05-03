@@ -180,10 +180,10 @@ where
 		proof: ParaHeadsProof,
 		is_free_execution_expected: bool,
 	) -> Result<Self::TransactionTracker, Self::Error> {
-		let best_block_id = self.client.best_header().await?.id();
+		let best_block_id = self.target_client.best_header().await?.id();
 		ensure_relayer_compatibility::<P::SourceParachain, P::TargetChain>(
 			"parachains",
-			&self.client,
+			&self.target_client,
 			best_block_id,
 			P::SourceParachain::WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD,
 			&P::RELAYER_VERSION,

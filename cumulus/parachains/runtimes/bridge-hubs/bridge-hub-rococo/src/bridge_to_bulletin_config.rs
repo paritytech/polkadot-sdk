@@ -114,7 +114,7 @@ parameter_types! {
 
 	pub const WithRococoBulletinCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("32fe8334c91604ec9c02e6c9581f3f2f6d430dc0f55ffd04f58acdf21f92f072")),
+		auto: H256(hex!("70eed2935a540a45fe0e94e5f24daf70e323061e60e3784c02b27151acf9a2b2")),
 	};
 }
 pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 0]);

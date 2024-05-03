@@ -104,7 +104,7 @@ parameter_types! {
 
 	pub const WithWestendCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("ec797ce348d5ce03001b3000f16b7623b0f6b654e441caf8289608e476223969")),
+		auto: H256(hex!("73545f1e73536fb3ac1b0fae47726b3f77931b8e76de8703f510366a86af177a")),
 	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([0, 0, 0, 2]);

@@ -259,98 +259,114 @@ where
 #[macro_export]
 macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 	($call:ty, $account_id:ty, $($filter_call:ty),*) => {
-		paste::paste! {
-			#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
-			pub struct BridgeRejectObsoleteHeadersAndMessages;
-			impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteHeadersAndMessages {
-				const IDENTIFIER: &'static str = stringify!([<"BridgeReject" $($filter_call)*>]);
-				type AccountId = $account_id;
-				type Call = $call;
-				type AdditionalSigned = ();
-				type Pre = (
-					$account_id,
-					( $(
-						<$filter_call as $crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
+		#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
+		pub struct BridgeRejectObsoleteHeadersAndMessages;
+		impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteHeadersAndMessages {
+			// What we do here is:
+			// - computing hash of all stringified **types**, passed to the macro
+			// - prefixing it with `BridgeReject_`
+			//
+			// So whenever any type passed to the `generate_bridge_reject_obsolete_headers_and_messages`
+			// changes, the `IDENTIFIER` is also changed. Keep in mind that it may change if the type
+			// stays the same, but e.g. name of type alias, used in type name changes:
+			// ```rust
+			// struct F<T>;
+			// type A = u32;
+			// type B = u32;
+			// ```
+			// Then `IDENTIFIER` of `F<A>` is not equal to `F<B>`, even though the type is the same.
+			const IDENTIFIER: &'static str = $crate::extensions::prelude::const_format::concatcp!(
+				"BridgeReject_",
+				$crate::extensions::prelude::const_fnv1a_hash::fnv1a_hash_str_128(
+					concat!($(stringify!($filter_call), )*)
+				)
+			);
+			type AccountId = $account_id;
+			type Call = $call;
+			type AdditionalSigned = ();
+			type Pre = (
+				$account_id,
+				( $(
+					<$filter_call as $crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
+						$account_id,
+						$call,
+					>>::ToPostDispatch,
+				)* ),
+			);
+
+			fn additional_signed(&self) -> sp_std::result::Result<
+				(),
+				sp_runtime::transaction_validity::TransactionValidityError,
+			> {
+				Ok(())
+			}
+
+			#[allow(unused_variables)]
+			fn validate(
+				&self,
+				who: &Self::AccountId,
+				call: &Self::Call,
+				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				_len: usize,
+			) -> sp_runtime::transaction_validity::TransactionValidity {
+				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
+				let to_prepare = ();
+				$(
+					let (from_validate, call_filter_validity) = <
+						$filter_call as
+						$crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
+							Self::AccountId,
+							$call,
+						>>::validate(&who, call);
+					let tx_validity = tx_validity.combine_with(call_filter_validity?);
+				)*
+				Ok(tx_validity)
+			}
+
+			#[allow(unused_variables)]
+			fn pre_dispatch(
+				self,
+				relayer: &Self::AccountId,
+				call: &Self::Call,
+				info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				len: usize,
+			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
+				use tuplex::PushBack;
+				let to_post_dispatch = ();
+				$(
+					let (from_validate, call_filter_validity) = <
+						$filter_call as
+						$crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
 							$account_id,
 							$call,
-						>>::ToPostDispatch,
-					)* ),
-				);
+						>>::validate(&relayer, call);
+					let _ = call_filter_validity?;
+					let to_post_dispatch = to_post_dispatch.push_back(from_validate);
+				)*
+				Ok((relayer.clone(), to_post_dispatch))
+			}
 
-				fn additional_signed(&self) -> sp_std::result::Result<
-					(),
-					sp_runtime::transaction_validity::TransactionValidityError,
-				> {
-					Ok(())
-				}
-
-				#[allow(unused_variables)]
-				fn validate(
-					&self,
-					who: &Self::AccountId,
-					call: &Self::Call,
-					_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-					_len: usize,
-				) -> sp_runtime::transaction_validity::TransactionValidity {
-					let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
-					let to_prepare = ();
-					$(
-						let (from_validate, call_filter_validity) = <
-							$filter_call as
-							$crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
-								Self::AccountId,
-								$call,
-							>>::validate(&who, call);
-						let tx_validity = tx_validity.combine_with(call_filter_validity?);
-					)*
-					Ok(tx_validity)
-				}
-
-				#[allow(unused_variables)]
-				fn pre_dispatch(
-					self,
-					relayer: &Self::AccountId,
-					call: &Self::Call,
-					info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-					len: usize,
-				) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-					use tuplex::PushBack;
-					let to_post_dispatch = ();
-					$(
-						let (from_validate, call_filter_validity) = <
-							$filter_call as
-							$crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
-								$account_id,
-								$call,
-							>>::validate(&relayer, call);
-						let _ = call_filter_validity?;
-						let to_post_dispatch = to_post_dispatch.push_back(from_validate);
-					)*
-					Ok((relayer.clone(), to_post_dispatch))
-				}
-
-				#[allow(unused_variables)]
-				fn post_dispatch(
-					to_post_dispatch: Option<Self::Pre>,
-					info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-					post_info: &sp_runtime::traits::PostDispatchInfoOf<Self::Call>,
-					len: usize,
-					result: &sp_runtime::DispatchResult,
-				) -> Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
-					use tuplex::PopFront;
-					let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(()) };
-					let has_failed = result.is_err();
-					$(
-						let (item, to_post_dispatch) = to_post_dispatch.pop_front();
-						<
-							$filter_call as
-							$crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
-								$account_id,
-								$call,
-							>>::post_dispatch(&relayer, has_failed, item);
-					)*
-					Ok(())
-				}
+			#[allow(unused_variables)]
+			fn post_dispatch(
+				to_post_dispatch: Option<Self::Pre>,
+				info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				post_info: &sp_runtime::traits::PostDispatchInfoOf<Self::Call>,
+				len: usize,
+				result: &sp_runtime::DispatchResult,
+			) -> Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
+				use tuplex::PopFront;
+				let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(()) };
+				let has_failed = result.is_err();
+				$(
+					let (item, to_post_dispatch) = to_post_dispatch.pop_front();
+					<
+						$filter_call as
+						$crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
+							$account_id,
+							$call,
+						>>::post_dispatch(&relayer, has_failed, item);
+				)*
+				Ok(())
 			}
 		}
 	};
@@ -462,7 +478,7 @@ mod tests {
 
 		assert_eq!(
 			BridgeRejectObsoleteHeadersAndMessages::IDENTIFIER,
-			"BridgeRejectFirstFilterCallSecondFilterCall"
+			"BridgeReject_163603100942600502516220926454699703369"
 		);
 
 		run_test(|| {

@@ -16,6 +16,12 @@
 
 //! Bridge-specific transaction extensions.
 
+/// All crates that we use in extensions macro.
+pub mod prelude {
+	pub use const_fnv1a_hash;
+	pub use const_format;
+}
+
 pub mod check_obsolete_extension;
 pub mod priority_calculator;
 pub mod refund_relayer_extension;

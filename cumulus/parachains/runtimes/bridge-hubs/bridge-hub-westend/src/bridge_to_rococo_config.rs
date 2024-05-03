@@ -109,15 +109,15 @@ parameter_types! {
 
 	pub const WithRococoCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("8ef000d4f0184c4751b9462471473368c4b4bdcf1f376264b254e2acf8f705c8")),
+		auto: H256(hex!("49191a792ed3ae0bb1b45cced35a916b153eefdf6805760a176b2dc3d0567d5e")),
 	};
 	pub const WithRococoCompatibleParachainsRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("938c8cddccea01a54fb58e8b949f501998f31c5d4edea176722c706b032e1ddd")),
+		auto: H256(hex!("4698a08e18d00a19a793397158d64d7074555eeb782282dda25ef4b1f4fa3a66")),
 	};
 	pub const WithRococoCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
 		manual: 0,
-		auto: H256(hex!("815e02321b71bf951f7054f78929c11be5b9056ffc954980d94931b4522a7f02")),
+		auto: H256(hex!("3531d22ffe925ea1cf562c5a59d7f5e220bc69351e1013ba2dbfdeda52f4e215")),
 	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);

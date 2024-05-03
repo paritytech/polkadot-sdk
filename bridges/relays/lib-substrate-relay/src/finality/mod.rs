@@ -24,12 +24,10 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use bp_header_chain::justification::{GrandpaJustification, JustificationVerificationContext};
 use bp_runtime::{HeaderIdProvider, RelayerVersion};
 use finality_relay::{
 	FinalityPipeline, FinalitySyncPipeline, HeadersToRelay, SourceClient, TargetClient,
 };
-use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
 	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
 	ChainWithTransactions, Client, HashOf, HeaderOf, SyncHeader,

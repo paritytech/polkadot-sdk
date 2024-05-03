@@ -147,7 +147,7 @@ pub async fn ensure_relayer_compatibility<SourceChain: Chain, TargetChain: Chain
 		.typed_state_call(onchain_relayer_version_method.into(), (), Some(at_target_block.hash()))
 		.await?;
 	// if they are the same => just return, we are safe to submit transactions
-	if onchain_relayer_version == *offchain_relayer_version {
+	if onchain_relayer_version.manual == offchain_relayer_version.manual {
 		return Ok(())
 	}
 
