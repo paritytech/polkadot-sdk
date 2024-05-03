@@ -120,7 +120,7 @@ substrate-build-script-utils = { path = "../../substrate/utils/build-script-util
 assert_cmd = "2.0"
 nix = { version = "0.26.1", features = ["signal"] }
 tempfile = "3.8.0"
-tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
+tokio = { version = "1.37", features = ["macros", "parking_lot", "time"] }
 wait-timeout = "0.2"
 
 [features]

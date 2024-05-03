@@ -27,7 +27,7 @@ sc-client-api = { path = "../../../substrate/client/api" }
 sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
 sc-service = { path = "../../../substrate/client/service" }
 
-tokio = { version = "1.32.0", features = ["sync"] }
+tokio = { version = "1.37", features = ["sync"] }
 tokio-util = { version = "0.7.8", features = ["compat"] }
 
 futures = "0.3.28"

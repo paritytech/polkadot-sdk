@@ -40,7 +40,7 @@ sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
 sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-tokio = { version = "1.32.0", features = ["macros"] }
+tokio = { version = "1.37", features = ["macros"] }
 
 # cumulus deps
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
