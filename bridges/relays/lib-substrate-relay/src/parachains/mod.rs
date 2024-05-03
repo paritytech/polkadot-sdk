@@ -19,8 +19,14 @@
 
 use async_trait::async_trait;
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
+use pallet_bridge_parachains::{
+	Call as BridgeParachainsCall, Config as BridgeParachainsConfig, RelayBlockHash,
+	RelayBlockHasher, RelayBlockNumber,
+};
 use parachains_relay::ParachainsPipeline;
-use relay_substrate_client::{CallOf, ChainWithTransactions, HeaderIdOf, Parachain, RelayChain};
+use relay_substrate_client::{
+	CallOf, Chain, ChainWithTransactions, HeaderIdOf, Parachain, RelayChain,
+};
 use std::{fmt::Debug, marker::PhantomData};
 
 pub mod source;
@@ -67,4 +73,38 @@ pub trait SubmitParachainHeadsCallBuilder<P: SubstrateParachainsPipeline>:
 		parachain_heads_proof: ParaHeadsProof,
 		is_free_execution_expected: bool,
 	) -> CallOf<P::TargetChain>;
+}
+
+/// Building `submit_parachain_heads` call when you have direct access to the target
+/// chain runtime.
+pub struct DirectSubmitParachainHeadsCallBuilder<P, R, I> {
+	_phantom: PhantomData<(P, R, I)>,
+}
+
+impl<P, R, I> SubmitParachainHeadsCallBuilder<P> for DirectSubmitParachainHeadsCallBuilder<P, R, I>
+where
+	P: SubstrateParachainsPipeline,
+	P::SourceRelayChain: Chain<Hash = RelayBlockHash, BlockNumber = RelayBlockNumber>,
+	R: BridgeParachainsConfig<I> + Send + Sync,
+	I: 'static + Send + Sync,
+	R::BridgedChain: bp_runtime::Chain<
+		BlockNumber = RelayBlockNumber,
+		Hash = RelayBlockHash,
+		Hasher = RelayBlockHasher,
+	>,
+	CallOf<P::TargetChain>: From<BridgeParachainsCall<R, I>>,
+{
+	fn build_submit_parachain_heads_call(
+		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
+		parachains: Vec<(ParaId, ParaHash)>,
+		parachain_heads_proof: ParaHeadsProof,
+		_is_free_execution_expected: bool,
+	) -> CallOf<P::TargetChain> {
+		BridgeParachainsCall::<R, I>::submit_parachain_heads {
+			at_relay_block: (at_relay_block.0, at_relay_block.1),
+			parachains,
+			parachain_heads_proof,
+		}
+		.into()
+	}
 }
