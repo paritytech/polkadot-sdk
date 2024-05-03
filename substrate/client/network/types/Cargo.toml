@@ -16,4 +16,4 @@ litep2p = { git = "https://github.com/paritytech/litep2p", rev = "e03a6023882db1
 multiaddr = "0.17.0"
 multihash = { version = "0.17.0", default-features = false, features = ["identity", "multihash-impl", "sha2", "std"] }
 rand = "0.8.5"
-thiserror = "1.0.48"
+thiserror = { workspace = true }
