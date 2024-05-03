@@ -16,8 +16,8 @@
 
 mod start_nodes;
 mod consensus;
+mod rpc_extensions;
 
-use crate::{fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi, rpc};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
@@ -54,6 +54,8 @@ pub use start_nodes::{
 	rococo_contracts::start_contracts_rococo_node, rococo_parachain::start_rococo_parachain_node,
 	shell::{start_shell_node, build_shell_import_queue},
 };
+
+pub use rpc_extensions::{build_contracts_rpc_extensions, build_parachain_rpc_extensions};
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = cumulus_client_service::ParachainHostFunctions;
@@ -370,35 +372,6 @@ where
 	start_network.start_network();
 
 	Ok((task_manager, client))
-}
-
-fn build_parachain_rpc_extensions<RuntimeApi>(
-	deny_unsafe: sc_rpc::DenyUnsafe,
-	client: Arc<ParachainClient<RuntimeApi>>,
-	backend: Arc<ParachainBackend>,
-	pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
-) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>
-where
-	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-		+ sp_block_builder::BlockBuilder<Block>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-{
-	let deps = rpc::FullDeps { client, pool, deny_unsafe };
-
-	rpc::create_full(deps, backend).map_err(Into::into)
-}
-
-fn build_contracts_rpc_extensions(
-	deny_unsafe: sc_rpc::DenyUnsafe,
-	client: Arc<ParachainClient<FakeRuntimeApi>>,
-	_backend: Arc<ParachainBackend>,
-	pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
-) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error> {
-	let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
-
-	crate::rpc::create_contracts_rococo(deps).map_err(Into::into)
 }
 
 /// Checks that the hardware meets the requirements and print a warning otherwise.
