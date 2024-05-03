@@ -15,10 +15,9 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::service::{
-	aura, build_parachain_rpc_extensions,
-	build_relay_to_aura_import_queue, start_node_impl, AuraParams,
-	ParachainClient,
-	common_types::{AccountId, Balance, Block, Hash, Nonce}
+	aura, build_parachain_rpc_extensions, build_relay_to_aura_import_queue,
+	common_types::{AccountId, Balance, Block, Hash, Nonce},
+	start_node_impl, AuraParams, ParachainClient,
 };
 use codec::{Codec, Decode};
 use cumulus_client_cli::CollatorOptions;
