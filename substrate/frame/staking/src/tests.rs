@@ -7015,7 +7015,7 @@ mod staking_interface {
 			);
 
 			// Unbond all of the funds in stash.
-			Staking::chill(RuntimeOrigin::signed(11));
+			Staking::chill(RuntimeOrigin::signed(11)).unwrap();
 			Staking::unbond(RuntimeOrigin::signed(11), 1000).unwrap();
 			assert_eq!(
 				Staking::ledger(11.into()).unwrap(),
