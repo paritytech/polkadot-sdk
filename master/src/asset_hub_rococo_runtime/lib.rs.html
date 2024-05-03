@@ -1970,8 +1970,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1819" id="1819">1819</a>
 <a href="#1820" id="1820">1820</a>
 <a href="#1821" id="1821">1821</a>
-<a href="#1822" id="1822">1822</a>
-<a href="#1823" id="1823">1823</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -3727,13 +3725,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_core::crypto::Ss58Codec;
 	<span class="kw">let </span>acc =
 		AccountId::from_ss58check(<span class="string">"5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD"</span>).unwrap();
-	<span class="comment">//panic!("{:x?}", acc);
-	</span><span class="macro">assert_eq!</span>(acc, MigController::sorted_members()[<span class="number">0</span>]);
+	<span class="macro">assert_eq!</span>(acc, MigController::sorted_members()[<span class="number">0</span>]);
 	<span class="kw">let </span>acc =
 		AccountId::from_ss58check(<span class="string">"5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD"</span>).unwrap();
 	<span class="macro">assert_eq!</span>(acc, RootMigController::sorted_members()[<span class="number">0</span>]);
-	<span class="comment">//panic!("{:x?}", acc);
-</span>}
+}
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {

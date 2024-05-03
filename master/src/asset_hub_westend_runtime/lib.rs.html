@@ -1959,6 +1959,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1808" id="1808">1808</a>
 <a href="#1809" id="1809">1809</a>
 <a href="#1810" id="1810">1810</a>
+<a href="#1811" id="1811">1811</a>
+<a href="#1812" id="1812">1812</a>
+<a href="#1813" id="1813">1813</a>
+<a href="#1814" id="1814">1814</a>
+<a href="#1815" id="1815">1815</a>
+<a href="#1816" id="1816">1816</a>
+<a href="#1817" id="1817">1817</a>
+<a href="#1818" id="1818">1818</a>
+<a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
+<a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
+<a href="#1823" id="1823">1823</a>
+<a href="#1824" id="1824">1824</a>
+<a href="#1825" id="1825">1825</a>
+<a href="#1826" id="1826">1826</a>
+<a href="#1827" id="1827">1827</a>
+<a href="#1828" id="1828">1828</a>
+<a href="#1829" id="1829">1829</a>
+<a href="#1830" id="1830">1830</a>
+<a href="#1831" id="1831">1831</a>
+<a href="#1832" id="1832">1832</a>
+<a href="#1833" id="1833">1833</a>
+<a href="#1834" id="1834">1834</a>
+<a href="#1835" id="1835">1835</a>
+<a href="#1836" id="1836">1836</a>
+<a href="#1837" id="1837">1837</a>
+<a href="#1838" id="1838">1838</a>
+<a href="#1839" id="1839">1839</a>
+<a href="#1840" id="1840">1840</a>
+<a href="#1841" id="1841">1841</a>
+<a href="#1842" id="1842">1842</a>
+<a href="#1843" id="1843">1843</a>
+<a href="#1844" id="1844">1844</a>
+<a href="#1845" id="1845">1845</a>
+<a href="#1846" id="1846">1846</a>
+<a href="#1847" id="1847">1847</a>
+<a href="#1848" id="1848">1848</a>
+<a href="#1849" id="1849">1849</a>
+<a href="#1850" id="1850">1850</a>
+<a href="#1851" id="1851">1851</a>
+<a href="#1852" id="1852">1852</a>
+<a href="#1853" id="1853">1853</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2078,7 +2121,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">15</span>,
-	state_version: <span class="number">0</span>,
+	state_version: <span class="number">1</span>,
 };
 
 <span class="doccomment">/// The version information used to identify this runtime when compiled natively.
@@ -2891,6 +2934,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		NftFractionalization: pallet_nft_fractionalization = <span class="number">54</span>,
 		PoolAssets: pallet_assets::&lt;Instance3&gt; = <span class="number">55</span>,
 		AssetConversion: pallet_asset_conversion = <span class="number">56</span>,
+
+		StateTrieMigration: pallet_state_trie_migration = <span class="number">70</span>,
 
 		<span class="comment">// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
@@ -3768,6 +3813,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">cumulus_pallet_parachain_system::register_validate_block! </span>{
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
+}
+
+<span class="macro">parameter_types! </span>{
+	<span class="comment">// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
+	</span><span class="kw">pub const </span>MigrationSignedDepositPerItem: Balance = CENTS;
+	<span class="kw">pub const </span>MigrationSignedDepositBase: Balance = <span class="number">2_000 </span>* CENTS;
+	<span class="kw">pub const </span>MigrationMaxKeyLen: u32 = <span class="number">512</span>;
+}
+
+<span class="kw">impl </span>pallet_state_trie_migration::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
+	<span class="kw">type </span>SignedDepositPerItem = MigrationSignedDepositPerItem;
+	<span class="kw">type </span>SignedDepositBase = MigrationSignedDepositBase;
+	<span class="comment">// An origin that can control the whole pallet: should be Root, or a part of your council.
+	</span><span class="kw">type </span>ControlOrigin = frame_system::EnsureSignedBy&lt;RootMigController, AccountId&gt;;
+	<span class="comment">// specific account for the migration, can trigger the signed migrations.
+	</span><span class="kw">type </span>SignedFilter = frame_system::EnsureSignedBy&lt;MigController, AccountId&gt;;
+
+	<span class="comment">// Replace this with weight based on your runtime.
+	</span><span class="kw">type </span>WeightInfo = pallet_state_trie_migration::weights::SubstrateWeight&lt;Runtime&gt;;
+
+	<span class="kw">type </span>MaxKeyLen = MigrationMaxKeyLen;
+}
+
+<span class="macro">frame_support::ord_parameter_types! </span>{
+	<span class="kw">pub const </span>MigController: AccountId = AccountId::from(<span class="macro">hex_literal::hex!</span>(<span class="string">"8458ed39dc4b6f6c7255f7bc42be50c2967db126357c999d44e12ca7ac80dc52"</span>));
+	<span class="kw">pub const </span>RootMigController: AccountId = AccountId::from(<span class="macro">hex_literal::hex!</span>(<span class="string">"8458ed39dc4b6f6c7255f7bc42be50c2967db126357c999d44e12ca7ac80dc52"</span>));
+}
+
+<span class="attr">#[test]
+</span><span class="kw">fn </span>ensure_key_ss58() {
+	<span class="kw">use </span>frame_support::traits::SortedMembers;
+	<span class="kw">use </span>sp_core::crypto::Ss58Codec;
+	<span class="kw">let </span>acc =
+		AccountId::from_ss58check(<span class="string">"5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD"</span>).unwrap();
+	<span class="macro">assert_eq!</span>(acc, MigController::sorted_members()[<span class="number">0</span>]);
+	<span class="kw">let </span>acc =
+		AccountId::from_ss58check(<span class="string">"5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD"</span>).unwrap();
+	<span class="macro">assert_eq!</span>(acc, RootMigController::sorted_members()[<span class="number">0</span>]);
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

@@ -1231,6 +1231,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1080" id="1080">1080</a>
 <a href="#1081" id="1081">1081</a>
 <a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1354,7 +1397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">6</span>,
-	state_version: <span class="number">0</span>,
+	state_version: <span class="number">1</span>,
 };
 
 <span class="doccomment">/// The version information used to identify this runtime when compiled natively.
@@ -1926,6 +1969,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		AmbassadorCore: pallet_core_fellowship::&lt;Instance2&gt; = <span class="number">73</span>,
 		AmbassadorSalary: pallet_salary::&lt;Instance2&gt; = <span class="number">74</span>,
 		AmbassadorContent: pallet_collective_content::&lt;Instance1&gt; = <span class="number">75</span>,
+
+		StateTrieMigration: pallet_state_trie_migration = <span class="number">80</span>,
 	}
 );
 
@@ -2312,6 +2357,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">cumulus_pallet_parachain_system::register_validate_block! </span>{
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
+}
+
+<span class="macro">parameter_types! </span>{
+	<span class="comment">// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
+	</span><span class="kw">pub const </span>MigrationSignedDepositPerItem: Balance = CENTS;
+	<span class="kw">pub const </span>MigrationSignedDepositBase: Balance = <span class="number">2_000 </span>* CENTS;
+	<span class="kw">pub const </span>MigrationMaxKeyLen: u32 = <span class="number">512</span>;
+}
+
+<span class="kw">impl </span>pallet_state_trie_migration::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
+	<span class="kw">type </span>SignedDepositPerItem = MigrationSignedDepositPerItem;
+	<span class="kw">type </span>SignedDepositBase = MigrationSignedDepositBase;
+	<span class="comment">// An origin that can control the whole pallet: should be Root, or a part of your council.
+	</span><span class="kw">type </span>ControlOrigin = frame_system::EnsureSignedBy&lt;RootMigController, AccountId&gt;;
+	<span class="comment">// specific account for the migration, can trigger the signed migrations.
+	</span><span class="kw">type </span>SignedFilter = frame_system::EnsureSignedBy&lt;MigController, AccountId&gt;;
+
+	<span class="comment">// Replace this with weight based on your runtime.
+	</span><span class="kw">type </span>WeightInfo = pallet_state_trie_migration::weights::SubstrateWeight&lt;Runtime&gt;;
+
+	<span class="kw">type </span>MaxKeyLen = MigrationMaxKeyLen;
+}
+
+<span class="macro">frame_support::ord_parameter_types! </span>{
+	<span class="kw">pub const </span>MigController: AccountId = AccountId::from(<span class="macro">hex_literal::hex!</span>(<span class="string">"8458ed39dc4b6f6c7255f7bc42be50c2967db126357c999d44e12ca7ac80dc52"</span>));
+	<span class="kw">pub const </span>RootMigController: AccountId = AccountId::from(<span class="macro">hex_literal::hex!</span>(<span class="string">"8458ed39dc4b6f6c7255f7bc42be50c2967db126357c999d44e12ca7ac80dc52"</span>));
+}
+
+<span class="attr">#[test]
+</span><span class="kw">fn </span>ensure_key_ss58() {
+	<span class="kw">use </span>frame_support::traits::SortedMembers;
+	<span class="kw">use </span>sp_core::crypto::Ss58Codec;
+	<span class="kw">let </span>acc =
+		AccountId::from_ss58check(<span class="string">"5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD"</span>).unwrap();
+	<span class="macro">assert_eq!</span>(acc, MigController::sorted_members()[<span class="number">0</span>]);
+	<span class="kw">let </span>acc =
+		AccountId::from_ss58check(<span class="string">"5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD"</span>).unwrap();
+	<span class="macro">assert_eq!</span>(acc, RootMigController::sorted_members()[<span class="number">0</span>]);
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
