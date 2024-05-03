@@ -238,27 +238,35 @@ include:
     file: /common/forklift.yml
 
 .codecov-cli:
-  script: 
-    - curl -s -o codecovcli https://cli.codecov.io/latest/linux/codecov
-    - chmod +x codecovcli
-    - mv codecovcli /usr/local/bin/codecovcli
+  script:
+    - >
+      if command -v codecovcli -h >/dev/null 2>&1; then
+        codecovcli --version;
+      else
+        echo "downloading codecovcli";
+        curl -s -o codecovcli https://cli.codecov.io/latest/linux/codecov;
+        chmod +x codecovcli;
+        mv codecovcli /usr/local/bin/codecovcli;
+      fi
+    #
     - codecovcli --version
 
 #
 #
 #
-coverage-result:
+codecov-finish:
   stage: test
   extends:
-    - .docker-env
+    - .kubernetes-env
     - .common-refs
     - .pipeline-stopper-artifacts  
   needs:
     - codecov-test-linux-stable
   script:
     - !reference [.codecov-cli, script]  
-    - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github
-    - codecovcli -v get-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github
+    - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
+    - codecovcli -v get-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
+    - codecovcli -v send-notifications -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
 
 #
 #
@@ -268,7 +276,7 @@ codecov-start:
   when: manual
   allow_failure: false
   extends:
-    - .docker-env
+    - .kubernetes-env
     - .common-refs
     - .pipeline-stopper-artifacts
   script:
