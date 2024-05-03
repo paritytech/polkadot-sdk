@@ -26,7 +26,6 @@ use jsonrpsee::RpcModule;
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
-
 use std::sync::Arc;
 
 /// Start a polkadot-shell parachain node.

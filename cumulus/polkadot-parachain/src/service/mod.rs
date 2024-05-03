@@ -27,17 +27,6 @@ use sc_service::{PartialComponents, TFullBackend, TFullClient};
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 use std::{sync::Arc};
 
-/// Module with common types.
-///
-/// The idea is to help downstream implementors who don't rely on `parachains_common` for types.
-/// Proxying the imports paths via this module makes it possible to only adjust imports here, as
-/// opposed to replacing `parachains_common` imports in every file.
-pub mod common_types {
- 	pub use parachains_common::{AuraId, AccountId, Balance, Block, Hash, Nonce, Header};
-}
-
-use common_types::Block;
-
 // Exports from the service module
 
 pub use start_nodes::{
@@ -54,6 +43,17 @@ pub use consensus::{
 };
 pub use new_partial::new_partial;
 pub use rpc_extensions::{build_contracts_rpc_extensions, build_parachain_rpc_extensions};
+
+/// Module with common types.
+///
+/// The idea is to help downstream implementors who don't rely on `parachains_common` for types.
+/// Proxying the imports paths via this module makes it possible to only adjust imports here, as
+/// opposed to replacing `parachains_common` imports in every file.
+pub mod common_types {
+	pub use parachains_common::{AuraId, AccountId, Balance, Block, Hash, Nonce, Header};
+}
+
+use common_types::Block;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = cumulus_client_service::ParachainHostFunctions;
