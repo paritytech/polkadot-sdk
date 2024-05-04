@@ -172,6 +172,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
+	/// Storage map storing the account which will pay for the core during auto-renewal.
+	///
+	/// If `None` the core doesn't have auto-renewal enabled.
+	//
+	// Safe to use `Twox64Concat` given that users have no real flexibility manipulating its value.
+	#[pallet::storage]
+	pub type AutoRenewals<T: Config> =
+		StorageMap<_, Twox64Concat, CoreIndex, T::AccountId, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -800,6 +809,29 @@ pub mod pallet {
 		pub fn notify_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_notify_core_count(core_count)?;
+			Ok(())
+		}
+
+		/// Extrinsic for enabling or disabling auto renewal by setting a target account which will get 
+		/// upon renewal.
+		///
+		/// If `target_account` is set to `None` the auto-renewal will be disabled.
+		#[pallet::call_index(20)]
+		#[pallet::weight(T::WeightInfo::notify_core_count())]
+		pub fn set_auto_renew(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			target_account: Option<T::AccountId>,
+		) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			if let Some(acc) = target_account {
+				// TODO: ensure origin is the parachain's sovereign account.
+				AutoRenewals::<T>::insert(core, acc);
+			}else {
+				// TODO: ensure origin is the parachain's sovereign account or the account itself.
+				AutoRenewals::<T>::remove(core);
+			}
+
 			Ok(())
 		}
 
