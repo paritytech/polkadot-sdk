@@ -77,15 +77,37 @@ pub trait TryAs<T> {
 }
 
 macro_rules! versioned_type {
-	// only impl `MaxEncodedLen` for enums without generic type parameters
 	(@internal $n:ident, $v3:ty, ) => {
+		// only impl `MaxEncodedLen` for enums without generic type parameters
 		impl MaxEncodedLen for $n {
 			fn max_encoded_len() -> usize {
 				<$v3>::max_encoded_len()
 			}
 		}
+		impl IntoVersion for $n {
+			fn into_version(self, n: Version) -> Result<Self, ()> {
+				Ok(match n {
+					1 | 2 => Self::V2(self.try_into()?),
+					3 => Self::V3(self.try_into()?),
+					4 => Self::V4(self.try_into()?),
+					_ => return Err(()),
+				})
+			}
+		}
 	};
-	(@internal $n:ident, $v3:ty, $t:ident) => {};
+	(@internal $n:ident, $v3:ty, $t:ident) => {
+		// `VersionedXcm` doesn't have version 1, so we don't need to handle it.
+		impl<$t> IntoVersion for $n<$t>{
+			fn into_version(self, n: Version) -> Result<Self, ()> {
+				Ok(match n {
+					2 => Self::V2(self.try_into()?),
+					3 => Self::V3(self.try_into()?),
+					4 => Self::V4(self.try_into()?),
+					_ => return Err(()),
+				})
+			}
+		}
+	};
 	($(#[$attr:meta])* pub enum $n:ident {
 		$(#[$index3:meta])+
 		V3($v3:ty),
@@ -240,16 +262,6 @@ macro_rules! versioned_type {
 					Self::V4(ref x) => Ok(x),
 					_ => Err(()),
 				}
-			}
-		}
-		impl$(<$($gen),+>)? IntoVersion for $n $(<$($gen),+>)?{
-			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					1 | 2 => Self::V2(self.try_into()?),
-					3 => Self::V3(self.try_into()?),
-					4 => Self::V4(self.try_into()?),
-					_ => return Err(()),
-				})
 			}
 		}
 		impl$(<$($gen),+>)? From<$v2> for $n $(<$($gen),+>)? {
