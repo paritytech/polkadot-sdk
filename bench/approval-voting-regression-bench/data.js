@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714756349618,
+  "lastUpdate": 1714806256337,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2161,6 +2161,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.551998903559989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c0234becc185f88445dd63105b6f363c9e5990ce",
+          "message": "Publish `polkadot-sdk-frame`  crate (#4370)",
+          "timestamp": "2024-05-04T05:36:19Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c0234becc185f88445dd63105b6f363c9e5990ce"
+        },
+        "date": 1714806231111,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63545.069999999985,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.032233782080004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.2852326877801703,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.403643804229962,
             "unit": "seconds"
           }
         ]
