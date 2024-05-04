@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714756954372,
+  "lastUpdate": 1714806869895,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -6677,6 +6677,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19150167073333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c0234becc185f88445dd63105b6f363c9e5990ce",
+          "message": "Publish `polkadot-sdk-frame`  crate (#4370)",
+          "timestamp": "2024-05-04T05:36:19Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c0234becc185f88445dd63105b6f363c9e5990ce"
+        },
+        "date": 1714806841458,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2351015968,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.088252197133334,
             "unit": "seconds"
           }
         ]
