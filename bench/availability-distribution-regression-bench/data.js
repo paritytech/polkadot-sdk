@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714756659869,
+  "lastUpdate": 1714806580302,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -8371,6 +8371,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1640376909333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c0234becc185f88445dd63105b6f363c9e5990ce",
+          "message": "Publish `polkadot-sdk-frame`  crate (#4370)",
+          "timestamp": "2024-05-04T05:36:19Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c0234becc185f88445dd63105b6f363c9e5990ce"
+        },
+        "date": 1714806554363,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.899999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16307975415333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012850937320000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010938801700000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02270302428666666,
             "unit": "seconds"
           }
         ]
