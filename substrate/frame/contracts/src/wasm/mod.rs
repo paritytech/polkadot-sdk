@@ -57,7 +57,7 @@ use frame_support::{
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
-use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+use wasmi::{CompilationMode, InstancePre, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 
@@ -208,10 +208,7 @@ impl<T: Config> WasmBlob<T> {
 		E: Environment<H>,
 	{
 		let mut store = Store::new(&contract.engine, host_state);
-		let mut linker = Linker::new(&contract.engine);
-		E::define(
-			&mut store,
-			&mut linker,
+		let builder = E::define(
 			if T::UnsafeUnstableInterface::get() {
 				AllowUnstableInterface::Yes
 			} else {
@@ -220,6 +217,8 @@ impl<T: Config> WasmBlob<T> {
 			allow_deprecated,
 		)
 		.map_err(|_| "can't define host functions to Linker")?;
+
+		let mut linker = builder.create(&contract.engine);
 
 		// Query wasmi for memory limits specified in the module's import entry.
 		let memory_limits = contract.scan_imports::<T>(schedule)?;

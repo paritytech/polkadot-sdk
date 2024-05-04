@@ -24,7 +24,10 @@ use crate::wasm::{
 	LoadingMode, WasmBlob,
 };
 use sp_core::Get;
-use wasmi::{errors::LinkerError, CompilationMode, Func, Linker, StackLimits, Store};
+use wasmi::{
+	errors::LinkerError, state::Ready, CompilationMode, Func, Linker, LinkerBuilder, StackLimits,
+	Store,
+};
 
 /// Minimal execution environment without any imported functions.
 pub struct Sandbox {
@@ -81,11 +84,9 @@ struct EmptyEnv;
 
 impl Environment<()> for EmptyEnv {
 	fn define(
-		_: &mut Store<()>,
-		_: &mut Linker<()>,
 		_: AllowUnstableInterface,
 		_: AllowDeprecatedInterface,
-	) -> Result<(), LinkerError> {
-		Ok(())
+	) -> Result<LinkerBuilder<Ready, ()>, LinkerError> {
+		Ok(Linker::build().finish())
 	}
 }

@@ -545,13 +545,12 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 		impl<'a, E: Ext> crate::wasm::Environment<crate::wasm::runtime::Runtime<'a, E>> for Env
 		{
 			fn define(
-				store: &mut ::wasmi::Store<crate::wasm::Runtime<E>>,
-				linker: &mut ::wasmi::Linker<crate::wasm::Runtime<E>>,
 				allow_unstable: AllowUnstableInterface,
 				allow_deprecated: AllowDeprecatedInterface,
-			) -> Result<(),::wasmi::errors::LinkerError> {
+			) -> Result<::wasmi::LinkerBuilder<::wasmi::state::Ready, crate::wasm::Runtime<'a, E>>, ::wasmi::errors::LinkerError> {
+				let mut linker_builder = ::wasmi::Linker::build();
 				#impls
-				Ok(())
+				Ok(linker_builder.finish())
 			}
 		}
 
@@ -566,13 +565,12 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 		impl crate::wasm::Environment<()> for Env
 		{
 			fn define(
-				store: &mut ::wasmi::Store<()>,
-				linker: &mut ::wasmi::Linker<()>,
 				allow_unstable: AllowUnstableInterface,
 				allow_deprecated: AllowDeprecatedInterface,
-			) -> Result<(), ::wasmi::errors::LinkerError> {
+			) -> Result<::wasmi::LinkerBuilder<::wasmi::state::Ready, ()>, ::wasmi::errors::LinkerError> {
+				let mut linker_builder = ::wasmi::Linker::build();
 				#dummy_impls
-				Ok(())
+				Ok(linker_builder.finish())
 			}
 		}
 	}
@@ -754,13 +752,13 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 						((#is_stable || __allow_unstable__) && (#not_deprecated || __allow_deprecated__))
 					{
 						#allow_unused
-						linker.define(#module, #name, ::wasmi::Func::wrap(&mut*store, |mut __caller__: ::wasmi::Caller<#host_state>, #( #params, )*| -> #wasm_output {
+						linker_builder.func_wrap(#module, #name, |mut __caller__: ::wasmi::Caller<#host_state>, #( #params, )*| -> #wasm_output {
 							#sync_gas_before
 							let mut func = #inner;
 							let result = func().map_err(#into_host).map(::core::convert::Into::into);
 							#sync_gas_after
 							result
-						}))?;
+						})?;
 					}
 				}
 			},

@@ -41,7 +41,7 @@ use sp_runtime::{
 	DispatchError, RuntimeDebug,
 };
 use sp_std::{fmt, prelude::*};
-use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
+use wasmi::{core::HostError, errors::LinkerError, state::Ready, LinkerBuilder, Memory};
 use xcm::VersionedXcm;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
@@ -68,14 +68,11 @@ pub enum AllowUnstableInterface {
 /// Trait implemented by the [`define_env`](pallet_contracts_proc_macro::define_env) macro for the
 /// emitted `Env` struct.
 pub trait Environment<HostState> {
-	/// Adds all declared functions to the supplied [`Linker`](wasmi::Linker) and
-	/// [`Store`](wasmi::Store).
+	/// Returns a [`LinkerBuilder`] initialized with all declared functions.
 	fn define(
-		store: &mut Store<HostState>,
-		linker: &mut Linker<HostState>,
 		allow_unstable: AllowUnstableInterface,
 		allow_deprecated: AllowDeprecatedInterface,
-	) -> Result<(), LinkerError>;
+	) -> Result<LinkerBuilder<Ready, HostState>, LinkerError>;
 }
 
 /// Type of a storage key.
