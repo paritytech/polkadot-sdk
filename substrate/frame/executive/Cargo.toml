@@ -30,14 +30,10 @@ sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-tracing = { path = "../../primitives/tracing", default-features = false }
-
-[dev-dependencies]
 array-bytes = "6.1"
 pallet-balances = { path = "../balances" }
 pallet-transaction-payment = { path = "../transaction-payment" }
-sp-core = { path = "../../primitives/core" }
 sp-inherents = { path = "../../primitives/inherents" }
-sp-io = { path = "../../primitives/io" }
 sp-version = { path = "../../primitives/version" }
 
 [features]
