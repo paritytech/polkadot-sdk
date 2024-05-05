@@ -20,7 +20,7 @@ prost-build = { workspace = true }
 
 [dependencies]
 async-channel = "1.8.0"
-array-bytes = { workspace = true }
+array-bytes = { workspace = true, default-features = true }
 codec = { workspace = true, features = [
 	"derive",
 ] }

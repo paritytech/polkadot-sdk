@@ -32,7 +32,7 @@ sp-api = { path = "../../primitives/api", default-features = false }
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false }
 
 [dev-dependencies]
-array-bytes = { workspace = true }
+array-bytes = { workspace = true, default-features = true }
 sp-staking = { path = "../../primitives/staking" }
 
 [features]

@@ -47,7 +47,7 @@ cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 cumulus-relay-chain-rpc-interface = { path = "../relay-chain-rpc-interface" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 
-array-bytes = { workspace = true }
+array-bytes = { workspace = true, default-features = true }
 tracing = { workspace = true }
 async-trait = "0.1.79"
 futures = { workspace = true }

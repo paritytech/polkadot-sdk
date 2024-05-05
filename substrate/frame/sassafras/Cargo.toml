@@ -29,7 +29,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
-array-bytes = { workspace = true }
+array-bytes = { workspace = true, default-features = true }
 sp-core = { path = "../../primitives/core" }
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 

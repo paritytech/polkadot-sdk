@@ -47,7 +47,7 @@ paste = "1.0.7"
 itertools = { workspace = true, optional = true }
 
 # full crypto
-array-bytes = { workspace = true }
+array-bytes = { workspace = true, default-features = true }
 ed25519-zebra = { version = "4.0.3", default-features = false }
 blake2 = { version = "0.10.4", default-features = false, optional = true }
 libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"] }

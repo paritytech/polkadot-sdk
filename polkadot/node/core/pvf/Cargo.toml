@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 always-assert = "0.1"
-array-bytes = { workspace = true }
+array-bytes = { workspace = true, default-features = true }
 blake3 = "1.5"
 cfg-if = "1.0"
 futures = { workspace = true }

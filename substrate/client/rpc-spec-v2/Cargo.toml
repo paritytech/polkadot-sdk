@@ -38,7 +38,7 @@ futures = { workspace = true }
 parking_lot = "0.12.1"
 tokio-stream = { workspace = true, features = ["sync"] }
 tokio = { workspace = true, features = ["sync"] }
-array-bytes = { workspace = true }
+array-bytes = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 futures-util = { workspace = true, default-features = false }
 rand = { workspace = true }
