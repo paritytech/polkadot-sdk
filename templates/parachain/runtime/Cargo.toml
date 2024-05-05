@@ -23,7 +23,7 @@ codec = { package = "parity-scale-codec", version = "3.6.4", default-features = 
 	"derive",
 ] }
 hex-literal = { version = "0.4.1", optional = true }
-log = { workspace = true }
+log = { version = "0.4.21" }
 scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 ] }
