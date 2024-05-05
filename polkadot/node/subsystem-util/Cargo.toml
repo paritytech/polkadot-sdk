@@ -14,7 +14,7 @@ async-trait = "0.1.79"
 futures = { workspace = true }
 futures-channel = "0.3.23"
 itertools = { workspace = true }
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { workspace = true, default-features = false, features = ["derive"] }
 parking_lot = "0.12.1"
 pin-project = "1.0.9"
 rand = { workspace = true }

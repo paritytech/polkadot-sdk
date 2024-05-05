@@ -42,7 +42,7 @@ crate-type = ["cdylib", "rlib"]
 # third-party dependencies
 array-bytes = { workspace = true }
 clap = { version = "4.5.3", features = ["derive"], optional = true }
-codec = { workspace = true }
+codec = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 jsonrpsee = { workspace = true, features = ["server"] }
 futures = { workspace = true }

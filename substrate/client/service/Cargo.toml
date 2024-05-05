@@ -63,7 +63,7 @@ sc-chain-spec = { path = "../chain-spec" }
 sc-client-api = { path = "../api" }
 sp-api = { path = "../../primitives/api" }
 sc-client-db = { path = "../db", default-features = false }
-codec = { workspace = true }
+codec = { workspace = true, default-features = true }
 sc-executor = { path = "../executor" }
 sc-transaction-pool = { path = "../transaction-pool" }
 sp-transaction-pool = { path = "../../primitives/transaction-pool" }

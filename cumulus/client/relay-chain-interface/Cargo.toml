@@ -23,4 +23,4 @@ futures = { workspace = true }
 async-trait = "0.1.79"
 thiserror = { workspace = true }
 jsonrpsee-core = { workspace = true }
-parity-scale-codec = { workspace = true }
+parity-scale-codec = { workspace = true, default-features = true }

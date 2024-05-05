@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 clap = { version = "4.5.3", features = ["derive"] }
-codec = { workspace = true }
+codec = { workspace = true, default-features = true }
 url = "2.4.0"
 
 # Substrate

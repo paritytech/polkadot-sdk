@@ -20,7 +20,7 @@ array-bytes = { workspace = true }
 fdlimit = "0.3.0"
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-parity-scale-codec = "3.6.1"
+parity-scale-codec = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 tempfile = "3.1.0"
 tokio = { workspace = true, features = ["time"] }

@@ -10,7 +10,7 @@ version = "7.0.0"
 workspace = true
 
 [dependencies]
-codec = { workspace = true }
+codec = { workspace = true, default-features = true }
 scale-info = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 

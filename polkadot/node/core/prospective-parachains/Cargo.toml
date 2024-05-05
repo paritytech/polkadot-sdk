@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
-parity-scale-codec = "3.6.4"
+parity-scale-codec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 fatality = "0.0.6"
 bitvec = "1"

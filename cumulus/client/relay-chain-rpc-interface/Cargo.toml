@@ -32,7 +32,7 @@ tokio-util = { workspace = true, features = ["compat"] }
 
 futures = { workspace = true }
 futures-timer = { workspace = true }
-parity-scale-codec = { workspace = true }
+parity-scale-codec = { workspace = true, default-features = true }
 jsonrpsee = { workspace = true, features = ["ws-client"] }
 tracing = { workspace = true }
 async-trait = "0.1.79"

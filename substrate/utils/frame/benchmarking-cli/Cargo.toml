@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 array-bytes = { workspace = true }
 chrono = "0.4"
 clap = { version = "4.5.3", features = ["derive"] }
-codec = { workspace = true }
+codec = { workspace = true, default-features = true }
 comfy-table = { version = "7.1.0", default-features = false }
 handlebars = "5.1.0"
 Inflector = "0.11.4"

@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-codec = { workspace = true }
+codec = { workspace = true, default-features = true }
 paste = "1.0.7"
 
 frame-support = { path = "../../../substrate/frame/support" }

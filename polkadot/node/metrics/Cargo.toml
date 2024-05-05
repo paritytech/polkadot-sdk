@@ -21,7 +21,7 @@ sc-cli = { path = "../../../substrate/client/cli" }
 
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 sc-tracing = { path = "../../../substrate/client/tracing" }
-codec = { workspace = true }
+codec = { workspace = true, default-features = true }
 primitives = { package = "polkadot-primitives", path = "../../primitives" }
 bs58 = { workspace = true, features = ["alloc"] }
 log = { workspace = true, default-features = true }

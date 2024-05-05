@@ -22,7 +22,7 @@ sp-tracing = { path = "../../tracing" }
 sp-runtime = { path = "../../runtime" }
 sp-consensus = { path = "../../consensus/common" }
 sc-block-builder = { path = "../../../client/block-builder" }
-codec = { workspace = true }
+codec = { workspace = true, default-features = true }
 sp-state-machine = { path = "../../state-machine" }
 trybuild = "1.0.88"
 rustversion = "1.0.6"

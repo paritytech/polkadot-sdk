@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { workspace = true }
+codec = { workspace = true, default-features = true }
 paste = "1.0.14"
 log = { workspace = true }
 lazy_static = "1.4.0"
