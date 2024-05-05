@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 substrate-rpc-client = { path = "../../utils/frame/rpc/client" }
 sp-rpc = { path = "../../primitives/rpc" }
 assert_cmd = "2.0.10"
-nix = "0.27.1"
+nix = { workspace = true }
 regex = "1.7.3"
 tokio = { workspace = true, features = ["full"] }
 node-primitives = { path = "../../bin/node/primitives" }

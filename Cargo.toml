@@ -570,6 +570,7 @@ codec = { version = "3.6.4", package = "parity-scale-codec", default-features = 
 scale-codec = { version = "3.6.4", package = "parity-scale-codec", default-features = false }
 parity-scale-codec = { version = "3.6.4", default-features = false }
 scale-info = { version = "2.11.1", default-features = false }
+nix = "0.27.1"
 polkavm = "0.9.3"
 polkavm-linker = "0.9.2"
 polkavm-derive = "0.9.1"
