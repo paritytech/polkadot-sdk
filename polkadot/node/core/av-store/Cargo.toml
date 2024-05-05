@@ -29,7 +29,7 @@ polkadot-node-jaeger = { path = "../../jaeger" }
 
 [dev-dependencies]
 log = { workspace = true, default-features = true }
-env_logger = "0.11"
+env_logger = { workspace = true }
 assert_matches = { workspace = true }
 kvdb-memorydb = "0.13.0"
 

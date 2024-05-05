@@ -48,7 +48,7 @@ hex = { workspace = true, default-features = true }
 gum = { package = "tracing-gum", path = "../gum" }
 polkadot-erasure-coding = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
 log = { workspace = true, default-features = true }
-env_logger = "0.11"
+env_logger = { workspace = true }
 rand = { workspace = true, default-features = true }
 # `rand` only supports uniform distribution, we need normal distribution for latency.
 rand_distr = "0.4.3"

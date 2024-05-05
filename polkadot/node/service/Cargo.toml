@@ -148,7 +148,7 @@ xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api" }
 polkadot-test-client = { path = "../test/client" }
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
-env_logger = "0.11"
+env_logger = { workspace = true }
 assert_matches = { workspace = true }
 serial_test = "2.0.0"
 tempfile = "3.2"

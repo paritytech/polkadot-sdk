@@ -17,5 +17,5 @@ frame-benchmarking-cli = { path = "../benchmarking-cli", default-features = fals
 sc-cli = { path = "../../../client/cli" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
-env_logger = "0.11.2"
+env_logger = { workspace = true }
 log = { workspace = true }

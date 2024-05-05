@@ -18,7 +18,7 @@ hash-db = { version = "0.16.0", default-features = false }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-env_logger = "0.11"
+env_logger = { workspace = true }
 sp-core = { path = "../../primitives/core" }
 sp-runtime = { path = "../../primitives/runtime" }
 
