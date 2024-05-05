@@ -20,7 +20,7 @@ async-trait = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
 futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
-mockall = "0.11.3"
+mockall = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }

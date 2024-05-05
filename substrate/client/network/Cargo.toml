@@ -35,7 +35,7 @@ ip_network = "0.4.1"
 libp2p = { version = "0.51.4", features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"] }
 linked_hash_set = "0.1.4"
 log = { workspace = true, default-features = true }
-mockall = "0.11.3"
+mockall = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 partial_sort = "0.2.0"
 pin-project = "1.0.12"
@@ -66,7 +66,7 @@ schnellru = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-mockall = "0.11.3"
+mockall = { workspace = true }
 multistream-select = "0.12.1"
 rand = { workspace = true, default-features = true }
 tempfile = { workspace = true }
