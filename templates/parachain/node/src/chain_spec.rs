@@ -13,13 +13,6 @@ pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
-/// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
 #[serde(deny_unknown_fields)]
@@ -54,7 +47,7 @@ pub fn development_config() -> ChainSpec {
 	ChainSpec::builder(
 		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions {
-			relay_chain: "rococo-local".into(),
+			relay_chain: "rococo_local_testnet".into(),
 			// You MUST set this to the correct network!
 			para_id: 2000,
 		},
@@ -89,7 +82,7 @@ pub fn development_config() -> ChainSpec {
 			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
 		utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-		1000.into(),
+		2000.into(),
 	))
 	.build()
 }
@@ -104,27 +97,17 @@ pub fn local_testnet_config() -> ChainSpec {
 	#[allow(deprecated)]
 	ChainSpec::builder(
 		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions {
-			relay_chain: "rococo-local".into(),
-			// You MUST set this to the correct network!
-			para_id: 2000,
-		},
+		Extensions { relay_chain: "rococo_local_testnet".into(), para_id: 2000 },
 	)
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(testnet_genesis(
 		// initial collators.
-		vec![
-			(
-				utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-				utils::get_collator_keys_from_seed("Alice"),
-			),
-			(
-				utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
-				utils::get_collator_keys_from_seed("Bob"),
-			),
-		],
+		vec![(
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			utils::get_collator_keys_from_seed("Charlie"),
+		)],
 		vec![
 			utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
 			utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -140,7 +123,7 @@ pub fn local_testnet_config() -> ChainSpec {
 			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
 		utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-		1000.into(),
+		2000.into(),
 	))
 	.with_protocol_id("template-local")
 	.with_properties(properties)
@@ -149,23 +132,24 @@ pub fn local_testnet_config() -> ChainSpec {
 
 fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
-	endowed_accounts: Vec<AccountId>,
+	mut endowed_accounts: Vec<AccountId>,
 	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
 	let staking_gen = staking_genesis::generate(10, 10, 16, 20);
-	let stakers = staking_gen.stakers.iter().map(|(k, _, _, _)| k).collect::<Vec<_>>();
-
-	let endowed_accounts = endowed_accounts
-		.iter()
-		.cloned()
-		.zip(stakers.iter().cloned())
-		.map(|k| (k, 1u64 << 60))
-		.collect::<Vec<_>>();
+	endowed_accounts.append(
+		&mut staking_gen
+			.stakers
+			.iter()
+			.cloned()
+			.map(|(k, _, _, _)| k)
+			.rev()
+			.collect::<Vec<_>>(),
+	);
 
 	serde_json::json!({
 		"balances": {
-			"balances": endowed_accounts,
+			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 		},
 		"parachainInfo": {
 			"parachainId": id,
@@ -190,7 +174,7 @@ fn testnet_genesis(
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
 		"sudo": { "key": Some(root) },
-		"staking": staking_gen,
+		"staking": staking_gen
 	})
 }
 
@@ -210,7 +194,7 @@ mod staking_genesis {
 		for i in 0..validators {
 			let stash =
 				utils::get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "validator"));
-			let stake = 1u128 << 20;
+			let stake = 1u128 << 50;
 			targets.push(stash.clone());
 
 			stakers.push((stash.clone(), stash, stake, StakerStatus::Validator));
@@ -219,7 +203,7 @@ mod staking_genesis {
 		for i in 0..nominators {
 			let stash =
 				utils::get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "nominator"));
-			let stake = 1u128 << 20;
+			let stake = 1u128 << 50;
 			let nominations = utils::select_targets(edges, targets.clone());
 
 			stakers.push((stash.clone(), stash, stake, StakerStatus::Nominator(nominations)));
@@ -234,6 +218,13 @@ mod utils {
 	use rand::prelude::*;
 
 	type AccountPublic = <Signature as Verify>::Signer;
+
+	/// Helper function to generate a crypto pair from seed
+	pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+		TPublic::Pair::from_string(&format!("//{}", seed), None)
+			.expect("static values are valid; qed")
+			.public()
+	}
 
 	/// Generate collator keys from seed.
 	///
