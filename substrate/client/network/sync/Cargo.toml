@@ -30,7 +30,7 @@ log = { workspace = true, default-features = true }
 mockall = "0.11.3"
 prost = { workspace = true }
 schnellru = { workspace = true }
-smallvec = "1.11.0"
+smallvec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio-stream = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["macros", "time"] }

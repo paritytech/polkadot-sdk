@@ -27,7 +27,7 @@ codec = { workspace = true, default-features = false, features = [
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 log = { workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-smallvec = { version = "1", default-features = false, features = [
+smallvec = { workspace = true, default-features = false, features = [
 	"const_generics",
 ] }
 wasmi = { version = "0.31", default-features = false }

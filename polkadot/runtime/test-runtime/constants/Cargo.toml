@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-smallvec = "1.8.0"
+smallvec = { workspace = true, default-features = true }
 
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../../primitives", default-features = false }

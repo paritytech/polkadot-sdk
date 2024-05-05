@@ -51,7 +51,7 @@ paste = { workspace = true, default-features = true }
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false, optional = true }
 bitflags = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
-smallvec = "1.11.0"
+smallvec = { workspace = true, default-features = true }
 log = { workspace = true }
 sp-crypto-hashing-proc-macro = { path = "../../primitives/crypto/hashing/proc-macro" }
 k256 = { version = "0.13.1", default-features = false, features = ["ecdsa"] }

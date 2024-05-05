@@ -42,7 +42,7 @@ pin-project = "1.0.12"
 rand = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-smallvec = "1.11.0"
+smallvec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["macros", "sync"] }
 tokio-stream = { workspace = true }

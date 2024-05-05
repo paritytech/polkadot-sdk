@@ -18,7 +18,7 @@ log = { workspace = true }
 rustc-hex = { workspace = true, default-features = false }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
-smallvec = "1.8.0"
+smallvec = { workspace = true, default-features = true }
 
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/primitives/consensus/babe", default-features = false }
