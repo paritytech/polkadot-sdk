@@ -65,7 +65,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executo
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 
 [dev-dependencies]
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 sp-trie = { path = "../../../substrate/primitives/trie" }

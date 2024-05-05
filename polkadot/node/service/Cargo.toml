@@ -79,7 +79,7 @@ frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
 # External Crates
 async-trait = { workspace = true }
 futures = { workspace = true }
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 is_executable = "1.0.1"
 gum = { package = "tracing-gum", path = "../gum" }
 log = { workspace = true, default-features = true }

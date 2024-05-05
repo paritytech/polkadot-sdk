@@ -19,7 +19,7 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
-hex-literal = { version = "0.4.1", optional = true }
+hex-literal = { workspace = true, optional = true }
 log = { workspace = true }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 smallvec = "1.11.0"

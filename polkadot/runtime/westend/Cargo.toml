@@ -103,7 +103,7 @@ pallet-election-provider-support-benchmarking = { path = "../../../substrate/fra
 pallet-nomination-pools-benchmarking = { path = "../../../substrate/frame/nomination-pools/benchmarking", default-features = false, optional = true }
 pallet-offences-benchmarking = { path = "../../../substrate/frame/offences/benchmarking", default-features = false, optional = true }
 pallet-session-benchmarking = { path = "../../../substrate/frame/session/benchmarking", default-features = false, optional = true }
-hex-literal = { version = "0.4.1", optional = true }
+hex-literal = { workspace = true, optional = true }
 
 runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
@@ -116,7 +116,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder",
 xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 [dev-dependencies]
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 serde_json = { workspace = true, default-features = true }

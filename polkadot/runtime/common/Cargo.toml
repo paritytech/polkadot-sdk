@@ -61,7 +61,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executo
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 frame-support-test = { path = "../../../substrate/frame/support/test" }
 pallet-babe = { path = "../../../substrate/frame/babe" }
 pallet-treasury = { path = "../../../substrate/frame/treasury" }

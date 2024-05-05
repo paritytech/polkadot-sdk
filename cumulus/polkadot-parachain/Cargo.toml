@@ -19,7 +19,7 @@ async-trait = { workspace = true }
 clap = { version = "4.5.3", features = ["derive"] }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

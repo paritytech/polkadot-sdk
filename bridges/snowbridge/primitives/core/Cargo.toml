@@ -15,7 +15,7 @@ workspace = true
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 codec = { workspace = true, default-features = false }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
-hex-literal = { version = "0.4.1" }
+hex-literal = { workspace = true }
 
 polkadot-parachain-primitives = { path = "../../../../polkadot/parachain", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }

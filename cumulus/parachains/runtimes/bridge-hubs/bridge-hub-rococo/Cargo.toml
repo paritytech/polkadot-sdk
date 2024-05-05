@@ -16,7 +16,7 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 codec = { workspace = true, default-features = false, features = [
 	"derive",
 ] }
-hex-literal = { version = "0.4.1" }
+hex-literal = { workspace = true }
 log = { workspace = true }
 scale-info = { workspace = true, default-features = false, features = [
 	"derive",

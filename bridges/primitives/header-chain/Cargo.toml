@@ -31,7 +31,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 [dev-dependencies]
 bp-test-utils = { path = "../test-utils" }
 hex = "0.4"
-hex-literal = "0.4"
+hex-literal = { workspace = true }
 
 [features]
 default = ["std"]

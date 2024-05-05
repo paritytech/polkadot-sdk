@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 codec = { workspace = true, default-features = false }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 
 # Substrate
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }

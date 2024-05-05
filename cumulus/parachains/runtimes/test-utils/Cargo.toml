@@ -41,7 +41,7 @@ pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = 
 polkadot-parachain-primitives = { path = "../../../../polkadot/parachain", default-features = false }
 
 [dev-dependencies]
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }

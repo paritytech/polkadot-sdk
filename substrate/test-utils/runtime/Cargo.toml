@@ -52,7 +52,7 @@ sp-externalities = { path = "../../primitives/externalities", default-features =
 array-bytes = { workspace = true, optional = true }
 serde_json = { workspace = true, features = ["alloc"] }
 log = { workspace = true }
-hex-literal = { version = "0.4.1" }
+hex-literal = { workspace = true }
 
 [dev-dependencies]
 futures = { workspace = true }

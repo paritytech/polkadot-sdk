@@ -26,7 +26,7 @@ environmental = { version = "1.1.4", default-features = false }
 [dev-dependencies]
 sp-io = { path = "../../substrate/primitives/io" }
 hex = "0.4.3"
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 
 [features]
 default = ["std"]

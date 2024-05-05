@@ -19,7 +19,7 @@ serde = { optional = true, workspace = true, default-features = true }
 serde_json = { optional = true, workspace = true, default-features = true }
 codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
-hex-literal = { version = "0.4.1", optional = true }
+hex-literal = { workspace = true, optional = true }
 log = { workspace = true }
 
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -41,7 +41,7 @@ pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-fea
 rand = { workspace = true, default-features = true }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 serde_json = { workspace = true, default-features = true }
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 pallet-timestamp = { path = "../../../../substrate/frame/timestamp" }
 snowbridge-pallet-ethereum-client-fixtures = { path = "fixtures" }
 sp-io = { path = "../../../../substrate/primitives/io" }
