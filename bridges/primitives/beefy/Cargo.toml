@@ -12,7 +12,7 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.4", default-features = false, features = ["bit-vec", "derive"] }
+codec = { workspace = true, default-features = false, features = ["bit-vec", "derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive"] }
 serde = { default-features = false, features = ["alloc", "derive"], workspace = true }
 

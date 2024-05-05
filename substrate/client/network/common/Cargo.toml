@@ -21,7 +21,7 @@ prost-build = { workspace = true }
 [dependencies]
 async-trait = "0.1.79"
 bitflags = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.4", features = [
+codec = { workspace = true, features = [
 	"derive",
 ] }
 futures = "0.3.30"

@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.4" }
+codec = { workspace = true }
 paste = "1.0.7"
 
 frame-support = { path = "../../../substrate/frame/support" }

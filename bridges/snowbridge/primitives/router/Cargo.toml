@@ -12,7 +12,7 @@ categories = ["cryptography::cryptocurrencies"]
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.4", default-features = false }
+codec = { workspace = true, default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 log = { workspace = true }
 

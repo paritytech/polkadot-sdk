@@ -12,7 +12,7 @@ homepage = "https://substrate.io"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.4", features = ["derive"] }
+codec = { workspace = true, features = ["derive"] }
 futures = "0.3.30"
 jsonrpsee = { workspace = true, features = ["client-core", "macros", "server-core"] }
 log = { workspace = true, default-features = true }
