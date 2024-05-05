@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [build-dependencies]
-prost-build = "0.12.4"
+prost-build = { workspace = true }
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
@@ -28,7 +28,7 @@ libp2p = { version = "0.51.4", features = ["ed25519", "kad"] }
 multihash = { version = "0.17.0", default-features = false, features = ["sha2", "std"] }
 linked_hash_set = "0.1.4"
 log = { workspace = true, default-features = true }
-prost = "0.12.4"
+prost = { workspace = true }
 rand = "0.8.5"
 thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
