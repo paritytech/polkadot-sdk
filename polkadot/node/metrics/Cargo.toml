@@ -23,7 +23,7 @@ substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 sc-tracing = { path = "../../../substrate/client/tracing" }
 codec = { workspace = true, default-features = true }
 primitives = { package = "polkadot-primitives", path = "../../primitives" }
-bs58 = { workspace = true, features = ["alloc"] }
+bs58 = { workspace = true, default-features = true, features = ["alloc"] }
 log = { workspace = true, default-features = true }
 
 [dev-dependencies]
