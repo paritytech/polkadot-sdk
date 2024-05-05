@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 ansi_term = "0.12"
 anyhow = "1.0"
-async-std = "1.9.0"
+async-std = { workspace = true }
 async-trait = "0.1.79"
 backoff = "0.4"
 isahc = "1.2"

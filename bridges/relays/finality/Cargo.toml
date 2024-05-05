@@ -12,7 +12,7 @@ publish = false
 workspace = true
 
 [dependencies]
-async-std = "1.9.0"
+async-std = { workspace = true }
 async-trait = "0.1.79"
 backoff = "0.4"
 bp-header-chain = { path = "../../primitives/header-chain" }

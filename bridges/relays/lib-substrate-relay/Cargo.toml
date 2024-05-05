@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 anyhow = "1.0"
-async-std = "1.9.0"
+async-std = { workspace = true }
 async-trait = "0.1.79"
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
