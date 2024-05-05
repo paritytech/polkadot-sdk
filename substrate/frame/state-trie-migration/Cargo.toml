@@ -32,7 +32,7 @@ sp-std = { path = "../../primitives/std", default-features = false }
 substrate-state-trie-migration-rpc = { path = "../../utils/frame/rpc/state-trie-migration-rpc", optional = true }
 
 [dev-dependencies]
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true, features = ["macros"] }
 pallet-balances = { path = "../balances" }
 sp-tracing = { path = "../../primitives/tracing" }

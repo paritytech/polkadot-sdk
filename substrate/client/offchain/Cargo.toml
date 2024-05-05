@@ -27,7 +27,7 @@ hyper-rustls = { version = "0.24.0", features = ["http2"] }
 libp2p = "0.51.4"
 num_cpus = "1.13"
 once_cell = "1.19"
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 threadpool = "1.7"
 tracing = { workspace = true, default-features = true }

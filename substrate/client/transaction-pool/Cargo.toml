@@ -22,7 +22,7 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 linked-hash-map = "0.5.4"
 log = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }

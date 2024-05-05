@@ -42,7 +42,7 @@ rand = { workspace = true, default-features = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../../substrate/primitives/core" }

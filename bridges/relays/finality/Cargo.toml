@@ -22,4 +22,4 @@ num-traits = { workspace = true, default-features = true }
 relay-utils = { path = "../utils" }
 
 [dev-dependencies]
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }

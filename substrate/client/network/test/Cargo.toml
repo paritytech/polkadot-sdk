@@ -22,7 +22,7 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 libp2p = "0.51.4"
 log = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 sc-block-builder = { path = "../../block-builder" }
 sc-client-api = { path = "../../api" }

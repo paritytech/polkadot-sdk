@@ -23,7 +23,7 @@ codec = { workspace = true, default-features = true }
 lazy_static = { workspace = true }
 libc = "0.2.152"
 log = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 regex = "1.6.0"
 rustc-hash = "1.1.0"
 serde = { workspace = true, default-features = true }

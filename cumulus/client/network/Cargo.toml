@@ -14,7 +14,7 @@ async-trait = { workspace = true }
 codec = { workspace = true, default-features = true, features = ["derive"] }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 
 # Substrate

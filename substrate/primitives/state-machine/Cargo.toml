@@ -20,7 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, default-features = false }
 hash-db = { version = "0.16.0", default-features = false }
 log = { workspace = true }
-parking_lot = { version = "0.12.1", optional = true }
+parking_lot = { workspace = true, default-features = true, optional = true }
 rand = { workspace = true, default-features = true, optional = true }
 smallvec = "1.11.0"
 thiserror = { optional = true, workspace = true }

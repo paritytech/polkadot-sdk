@@ -32,7 +32,7 @@ jsonrpsee = { workspace = true, features = ["server"] }
 thiserror = { workspace = true }
 futures = { workspace = true }
 rand = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 exit-future = "0.2.0"

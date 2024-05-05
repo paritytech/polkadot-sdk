@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 mick-jaeger = "0.1.8"
 lazy_static = { workspace = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 sc-network = { path = "../../../substrate/client/network" }

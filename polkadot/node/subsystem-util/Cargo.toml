@@ -15,7 +15,7 @@ futures = { workspace = true }
 futures-channel = "0.3.23"
 itertools = { workspace = true }
 parity-scale-codec = { workspace = true, default-features = false, features = ["derive"] }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 pin-project = "1.0.9"
 rand = { workspace = true, default-features = true }
 thiserror = { workspace = true }

@@ -51,4 +51,4 @@ array-bytes = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }

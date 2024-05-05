@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
-parking_lot = { version = "0.12.1", default-features = false, optional = true }
+parking_lot = { workspace = true, default-features = false, optional = true }
 sp-core = { path = "../core", default-features = false }
 sp-externalities = { path = "../externalities", default-features = false }
 

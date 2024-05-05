@@ -20,7 +20,7 @@ codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
 log = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sc-block-builder = { path = "../block-builder" }
 sc-chain-spec = { path = "../chain-spec" }

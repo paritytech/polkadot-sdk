@@ -33,7 +33,7 @@ sp-inherents = { path = "../../primitives/inherents" }
 sp-runtime = { path = "../../primitives/runtime" }
 
 [dev-dependencies]
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 sc-client-api = { path = "../api" }
 sc-transaction-pool = { path = "../transaction-pool" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

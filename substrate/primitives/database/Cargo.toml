@@ -15,4 +15,4 @@ workspace = true
 
 [dependencies]
 kvdb = "0.13.0"
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }

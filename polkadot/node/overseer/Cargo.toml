@@ -14,7 +14,7 @@ client = { package = "sc-client-api", path = "../../../substrate/client/api" }
 sp-api = { path = "../../../substrate/primitives/api" }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { path = "../network/protocol" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }

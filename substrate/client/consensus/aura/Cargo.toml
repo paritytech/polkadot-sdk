@@ -40,7 +40,7 @@ sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }
 
 [dev-dependencies]
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 tempfile = "3.1.0"
 sc-keystore = { path = "../../keystore" }
 sc-network = { path = "../../network" }

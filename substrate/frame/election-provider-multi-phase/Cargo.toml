@@ -41,7 +41,7 @@ rand = { workspace = true, default-features = false, features = ["alloc", "small
 strum = { version = "0.26.2", default-features = false, features = ["derive"], optional = true }
 
 [dev-dependencies]
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io" }

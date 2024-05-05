@@ -35,7 +35,7 @@ thiserror = { workspace = true }
 serde = { workspace = true, default-features = true }
 hex = "0.4"
 futures = { workspace = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 tokio-stream = { workspace = true, features = ["sync"] }
 tokio = { workspace = true, default-features = true, features = ["sync"] }
 array-bytes = { workspace = true, default-features = true }

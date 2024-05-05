@@ -21,7 +21,7 @@ fdlimit = "0.3.0"
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-scale-codec = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 tempfile = "3.1.0"
 tokio = { workspace = true, default-features = true, features = ["time"] }
 sc-block-builder = { path = "../../block-builder" }

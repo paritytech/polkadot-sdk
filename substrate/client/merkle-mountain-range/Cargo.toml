@@ -28,7 +28,7 @@ sc-offchain = { path = "../offchain" }
 sp-runtime = { path = "../../primitives/runtime" }
 
 [dev-dependencies]
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 sc-block-builder = { path = "../block-builder" }
 sp-tracing = { path = "../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

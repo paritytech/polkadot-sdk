@@ -20,7 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, default-features = false, features = ["derive"] }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 thiserror = { workspace = true }
 sp-api = { path = "../api" }

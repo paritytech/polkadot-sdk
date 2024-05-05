@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true, default-features = true }
 cfg-if = "1.0"
 libc = "0.2.152"
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 
 # When bumping wasmtime do not forget to also bump rustix
 # to exactly the same version as used by wasmtime!
