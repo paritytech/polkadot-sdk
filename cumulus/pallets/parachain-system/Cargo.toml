@@ -51,7 +51,7 @@ hex-literal = "0.4.1"
 lazy_static = "1.4"
 trie-standardmap = "0.16.0"
 rand = { workspace = true }
-futures = "0.3.28"
+futures = { workspace = true }
 
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }

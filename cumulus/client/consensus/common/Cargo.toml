@@ -13,7 +13,7 @@ workspace = true
 async-trait = "0.1.79"
 codec = { workspace = true, features = ["derive"] }
 dyn-clone = "1.0.16"
-futures = "0.3.28"
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
 tracing = { workspace = true }
 

@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 cpu-time = "1.0.0"
-futures = "0.3.30"
+futures = { workspace = true }
 gum = { package = "tracing-gum", path = "../../../gum" }
 libc = "0.2.152"
 nix = { workspace = true, features = ["resource", "sched"] }

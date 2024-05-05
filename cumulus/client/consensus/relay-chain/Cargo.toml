@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 async-trait = "0.1.79"
-futures = "0.3.28"
+futures = { workspace = true }
 parking_lot = "0.12.1"
 tracing = { workspace = true }
 

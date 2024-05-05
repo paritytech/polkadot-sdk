@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 async-trait = "0.1.79"
-futures = "0.3.28"
+futures = { workspace = true }
 futures-timer = "3.0.2"
 
 # Substrate

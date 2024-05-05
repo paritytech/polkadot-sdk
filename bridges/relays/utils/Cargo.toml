@@ -18,7 +18,7 @@ async-trait = "0.1.79"
 backoff = "0.4"
 isahc = "1.2"
 env_logger = "0.11.3"
-futures = "0.3.30"
+futures = { workspace = true }
 jsonpath_lib = "0.3"
 log = { workspace = true }
 num-traits = "0.2"

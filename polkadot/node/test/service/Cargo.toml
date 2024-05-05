@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
+futures = { workspace = true }
 hex = "0.4.3"
 gum = { package = "tracing-gum", path = "../../gum" }
 rand = { workspace = true }

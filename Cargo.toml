@@ -563,6 +563,7 @@ array-bytes = { version = "6.2.2", default-features = false }
 bitflags = { version = "1.3.2" }
 bs58 = { version = "0.5.0", default-features = false }
 criterion = { version = "0.5.1", default-features = false }
+futures = "0.3.30"
 itertools = "0.11.0"
 jsonrpsee = { version = "0.22.5" }
 jsonrpsee-core = { version = "0.22.5" }

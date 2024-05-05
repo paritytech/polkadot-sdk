@@ -90,7 +90,7 @@ cumulus-primitives-storage-weight-reclaim = { path = "../../primitives/storage-w
 pallet-timestamp = { path = "../../../substrate/frame/timestamp" }
 
 [dev-dependencies]
-futures = "0.3.28"
+futures = { workspace = true }
 portpicker = "0.1.1"
 rococo-parachain-runtime = { path = "../../parachains/runtimes/testing/rococo-parachain" }
 sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }

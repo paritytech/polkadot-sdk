@@ -21,7 +21,7 @@ codec = { workspace = true, default-features = false, features = [
 	"derive",
 ] }
 fnv = "1.0.6"
-futures = "0.3.30"
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }

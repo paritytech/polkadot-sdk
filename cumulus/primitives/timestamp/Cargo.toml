@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
-futures = "0.3.28"
+futures = { workspace = true }
 
 # Substrate
 sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false }

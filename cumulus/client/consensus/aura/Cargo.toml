@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 async-trait = "0.1.79"
 codec = { workspace = true, features = ["derive"] }
-futures = "0.3.28"
+futures = { workspace = true }
 tracing = { workspace = true }
 schnellru = { workspace = true }
 

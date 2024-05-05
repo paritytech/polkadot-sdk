@@ -22,7 +22,7 @@ sc-network-types = { path = "../../../../substrate/client/network/types" }
 sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 strum = { version = "0.26.2", features = ["derive"] }
-futures = "0.3.30"
+futures = { workspace = true }
 thiserror = { workspace = true }
 fatality = "0.0.6"
 rand = { workspace = true }

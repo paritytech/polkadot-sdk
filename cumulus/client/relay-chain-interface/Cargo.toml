@@ -19,7 +19,7 @@ sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
 sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 sc-client-api = { path = "../../../substrate/client/api" }
 
-futures = "0.3.28"
+futures = { workspace = true }
 async-trait = "0.1.79"
 thiserror = { workspace = true }
 jsonrpsee-core = { workspace = true }

@@ -14,7 +14,7 @@ workspace = true
 codec = { workspace = true }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system" }
-futures = "0.3.30"
+futures = { workspace = true }
 pallet-transaction-payment = { path = "../../../../substrate/frame/transaction-payment" }
 pallet-xcm = { path = "../../pallet-xcm" }
 polkadot-test-client = { path = "../../../node/test/client" }

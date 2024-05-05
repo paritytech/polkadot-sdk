@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
-futures = "0.3.28"
+futures = { workspace = true }
 futures-timer = "3.0.2"
 rand = { workspace = true }
 tracing = { workspace = true }

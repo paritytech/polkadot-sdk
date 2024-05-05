@@ -34,7 +34,7 @@ codec = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = true }
 hex = "0.4"
-futures = "0.3.30"
+futures = { workspace = true }
 parking_lot = "0.12.1"
 tokio-stream = { workspace = true, features = ["sync"] }
 tokio = { workspace = true, features = ["sync"] }

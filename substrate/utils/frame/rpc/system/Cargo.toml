@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 jsonrpsee = { workspace = true, features = ["client-core", "macros", "server-core"] }
-futures = "0.3.30"
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
 frame-system-rpc-runtime-api = { path = "../../../../frame/system/rpc/runtime-api" }
 sc-rpc-api = { path = "../../../../client/rpc-api" }

@@ -30,7 +30,7 @@ sc-service = { path = "../../../substrate/client/service" }
 tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
 
-futures = "0.3.28"
+futures = { workspace = true }
 futures-timer = "3.0.2"
 parity-scale-codec = { workspace = true }
 jsonrpsee = { workspace = true, features = ["ws-client"] }

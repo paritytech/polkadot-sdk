@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-futures = "0.3.28"
+futures = { workspace = true }
 
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }

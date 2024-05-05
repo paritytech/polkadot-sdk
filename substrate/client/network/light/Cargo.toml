@@ -24,7 +24,7 @@ array-bytes = { workspace = true }
 codec = { workspace = true, features = [
 	"derive",
 ] }
-futures = "0.3.30"
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
 prost = { workspace = true }
 sp-blockchain = { path = "../../../primitives/blockchain" }
