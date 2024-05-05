@@ -110,7 +110,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder",
 xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 [dev-dependencies]
-tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+tiny-keccak = { workspace = true, features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities" }
 sp-trie = { path = "../../../substrate/primitives/trie" }

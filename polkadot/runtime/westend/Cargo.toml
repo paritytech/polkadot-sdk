@@ -117,7 +117,7 @@ xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api", 
 
 [dev-dependencies]
 hex-literal = { workspace = true }
-tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+tiny-keccak = { workspace = true, features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 serde_json = { workspace = true, default-features = true }
 remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities" }

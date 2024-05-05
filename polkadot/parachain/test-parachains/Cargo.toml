@@ -11,7 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
-tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+tiny-keccak = { workspace = true, features = ["keccak"] }
 parity-scale-codec = { workspace = true, default-features = false, features = ["derive"] }
 
 adder = { package = "test-parachain-adder", path = "adder" }

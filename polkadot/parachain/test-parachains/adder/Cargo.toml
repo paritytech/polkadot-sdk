@@ -15,7 +15,7 @@ workspace = true
 parachain = { package = "polkadot-parachain-primitives", path = "../..", default-features = false, features = ["wasm-api"] }
 parity-scale-codec = { workspace = true, default-features = false, features = ["derive"] }
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+tiny-keccak = { workspace = true, features = ["keccak"] }
 dlmalloc = { version = "0.2.4", features = ["global"] }
 
 # We need to make sure the global allocator is disabled until we have support of full substrate externalities
