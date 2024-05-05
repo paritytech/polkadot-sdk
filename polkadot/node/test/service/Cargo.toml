@@ -13,7 +13,7 @@ workspace = true
 futures = "0.3.30"
 hex = "0.4.3"
 gum = { package = "tracing-gum", path = "../../gum" }
-rand = "0.8.5"
+rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 tempfile = "3.2.0"
 tokio = "1.37"

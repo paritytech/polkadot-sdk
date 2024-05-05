@@ -27,7 +27,7 @@ itertools = { workspace = true }
 lazy_static = "1.4.0"
 linked-hash-map = "0.5.4"
 log = { workspace = true, default-features = true }
-rand = { version = "0.8.5", features = ["small_rng"] }
+rand = { workspace = true, default-features = true, features = ["small_rng"] }
 rand_pcg = "0.3.1"
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

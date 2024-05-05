@@ -19,7 +19,7 @@ futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 is_executable = { version = "1.0.1", optional = true }
 pin-project = "1.0.9"
-rand = "0.8.5"
+rand = { workspace = true, default-features = true }
 slotmap = "1.0"
 tempfile = "3.3.0"
 thiserror = { workspace = true }

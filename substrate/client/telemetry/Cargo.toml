@@ -25,7 +25,7 @@ parking_lot = "0.12.1"
 pin-project = "1.0.12"
 sc-utils = { path = "../utils" }
 sc-network = { path = "../network" }
-rand = "0.8.5"
+rand = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }

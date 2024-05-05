@@ -38,7 +38,7 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 # rand_core should match schnorrkel
 rand_core = "0.6.2"
 rand_chacha = { version = "0.3.1" }
-rand = "0.8.5"
+rand = { workspace = true, default-features = false }
 
 [dev-dependencies]
 async-trait = "0.1.79"

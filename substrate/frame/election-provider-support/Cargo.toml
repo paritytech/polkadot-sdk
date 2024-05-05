@@ -27,7 +27,7 @@ sp-std = { path = "../../primitives/std", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 
 [dev-dependencies]
-rand = { version = "0.8.5", features = ["small_rng"] }
+rand = { workspace = true, default-features = true, features = ["small_rng"] }
 sp-io = { path = "../../primitives/io" }
 sp-npos-elections = { path = "../../primitives/npos-elections" }
 

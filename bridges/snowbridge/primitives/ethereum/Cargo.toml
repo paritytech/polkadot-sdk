@@ -30,7 +30,7 @@ ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = fals
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.19"
-rand = "0.8.5"
+rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 [features]

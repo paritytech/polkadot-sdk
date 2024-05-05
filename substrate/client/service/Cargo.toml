@@ -31,7 +31,7 @@ runtime-benchmarks = [
 jsonrpsee = { version = "0.22", features = ["server"] }
 thiserror = { workspace = true }
 futures = "0.3.30"
-rand = "0.8.5"
+rand = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 log = { workspace = true, default-features = true }
 futures-timer = "3.0.1"

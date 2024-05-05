@@ -47,7 +47,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
 futures = "0.3.30"
 log = { workspace = true, default-features = true }
-rand = "0.8"
+rand = { workspace = true, default-features = true }
 
 # primitives
 sp-authority-discovery = { path = "../../../primitives/authority-discovery" }

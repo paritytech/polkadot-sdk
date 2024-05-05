@@ -21,7 +21,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 hash-db = { version = "0.16.0", default-features = false }
 log = { workspace = true }
 parking_lot = { version = "0.12.1", optional = true }
-rand = { version = "0.8.5", optional = true }
+rand = { workspace = true, default-features = true, optional = true }
 smallvec = "1.11.0"
 thiserror = { optional = true, workspace = true }
 tracing = { workspace = true, default-features = true, optional = true }
@@ -34,7 +34,7 @@ trie-db = { version = "0.29.0", default-features = false }
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 pretty_assertions = "1.2.1"
-rand = "0.8.5"
+rand = { workspace = true, default-features = true }
 sp-runtime = { path = "../runtime" }
 assert_matches = "1.5"
 

@@ -23,7 +23,7 @@ futures-timer = "3.0.1"
 libp2p = "0.51.4"
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
-rand = "0.8.5"
+rand = { workspace = true, default-features = true }
 sc-block-builder = { path = "../../block-builder" }
 sc-client-api = { path = "../../api" }
 sc-consensus = { path = "../../consensus/common" }

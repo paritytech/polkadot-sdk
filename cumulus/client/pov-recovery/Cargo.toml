@@ -13,7 +13,7 @@ workspace = true
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 futures = "0.3.28"
 futures-timer = "3.0.2"
-rand = "0.8.5"
+rand = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 
 # Substrate
