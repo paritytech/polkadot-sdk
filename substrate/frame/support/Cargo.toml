@@ -65,7 +65,7 @@ aquamarine = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-pretty_assertions = "1.2.1"
+pretty_assertions = { workspace = true }
 sp-timestamp = { path = "../../primitives/timestamp", default-features = false }
 frame-system = { path = "../system" }
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }

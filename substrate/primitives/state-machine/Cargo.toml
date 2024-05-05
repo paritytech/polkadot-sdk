@@ -33,7 +33,7 @@ trie-db = { version = "0.29.0", default-features = false }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-pretty_assertions = "1.2.1"
+pretty_assertions = { workspace = true }
 rand = { workspace = true, default-features = true }
 sp-runtime = { path = "../runtime" }
 assert_matches = { workspace = true }

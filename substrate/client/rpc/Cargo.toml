@@ -54,7 +54,7 @@ sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 tokio = { workspace = true, default-features = true }
 sp-io = { path = "../../primitives/io" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-pretty_assertions = "1.2.1"
+pretty_assertions = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [features]

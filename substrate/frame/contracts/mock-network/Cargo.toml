@@ -45,7 +45,7 @@ xcm-simulator = { path = "../../../../polkadot/xcm/xcm-simulator" }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-pretty_assertions = "1"
+pretty_assertions = { workspace = true }
 pallet-contracts-fixtures = { path = "../fixtures" }
 
 [features]

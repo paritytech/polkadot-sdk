@@ -57,5 +57,5 @@ sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 sc-block-builder = { path = "../block-builder" }
 sc-service = { path = "../service", features = ["test-helpers"] }
 assert_matches = { workspace = true }
-pretty_assertions = "1.2.1"
+pretty_assertions = { workspace = true }
 sc-transaction-pool = { path = "../transaction-pool" }
