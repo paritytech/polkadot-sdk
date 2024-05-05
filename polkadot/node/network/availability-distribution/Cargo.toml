@@ -23,7 +23,7 @@ sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 thiserror = { workspace = true }
 rand = { workspace = true, default-features = true }
-derive_more = "0.99.17"
+derive_more = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 fatality = "0.0.6"
 

@@ -13,7 +13,7 @@ workspace = true
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
-derive_more = "0.99.17"
+derive_more = { workspace = true, default-features = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-erasure-coding = { path = "../../../erasure-coding" }

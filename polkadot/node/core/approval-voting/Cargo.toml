@@ -19,7 +19,7 @@ schnellru = { workspace = true }
 merlin = "3.0"
 schnorrkel = "0.11.4"
 kvdb = "0.13.0"
-derive_more = "0.99.17"
+derive_more = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 itertools = { workspace = true }
 

@@ -20,7 +20,7 @@ sp-runtime = { path = "../../substrate/primitives/runtime", default-features = f
 sp-core = { path = "../../substrate/primitives/core", default-features = false, features = ["serde"] }
 sp-weights = { path = "../../substrate/primitives/weights", default-features = false }
 polkadot-core-primitives = { path = "../core-primitives", default-features = false }
-derive_more = "0.99.11"
+derive_more = { workspace = true, default-features = true }
 bounded-collections = { version = "0.2.0", default-features = false, features = ["serde"] }
 
 # all optional crates.

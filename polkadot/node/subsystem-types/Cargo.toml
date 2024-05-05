@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-derive_more = "0.99.17"
+derive_more = { workspace = true, default-features = true }
 futures = { workspace = true }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }

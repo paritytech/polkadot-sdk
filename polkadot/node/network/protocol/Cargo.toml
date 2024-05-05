@@ -26,7 +26,7 @@ futures = { workspace = true }
 thiserror = { workspace = true }
 fatality = "0.0.6"
 rand = { workspace = true, default-features = true }
-derive_more = "0.99"
+derive_more = { workspace = true, default-features = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 bitvec = "1"
 
