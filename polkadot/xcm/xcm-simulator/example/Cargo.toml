@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-scale-info = { version = "2.11.1", features = ["derive"] }
+scale-info = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 
 frame-system = { path = "../../../../substrate/frame/system" }

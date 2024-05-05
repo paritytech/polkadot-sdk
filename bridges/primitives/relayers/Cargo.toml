@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["bit-vec", "derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive"] }
+scale-info = { workspace = true, default-features = false, features = ["bit-vec", "derive"] }
 
 # Bridge Dependencies
 

@@ -16,7 +16,7 @@ workspace = true
 codec = { workspace = true, default-features = false }
 finality-grandpa = { version = "0.16.2", default-features = false }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 
 # Bridge Dependencies
 

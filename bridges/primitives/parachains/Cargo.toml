@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2"
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 
 # Bridge dependencies
 

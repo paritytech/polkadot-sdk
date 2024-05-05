@@ -18,7 +18,7 @@ codec = { workspace = true, default-features = false, features = [
 ] }
 hex-literal = { version = "0.4.1" }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = [
+scale-info = { workspace = true, default-features = false, features = [
 	"derive",
 ] }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }

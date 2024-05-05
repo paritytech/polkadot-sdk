@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
 frame = { package = "polkadot-sdk-frame", path = "../../..", default-features = false, features = ["experimental", "runtime"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 
 [features]
 default = ["std"]

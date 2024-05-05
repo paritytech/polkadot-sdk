@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 pallet-session = { path = "../session", default-features = false, features = [

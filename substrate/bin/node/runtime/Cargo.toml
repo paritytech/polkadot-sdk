@@ -23,7 +23,7 @@ codec = { workspace = true, default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
+scale-info = { workspace = true, default-features = false, features = ["derive", "serde"] }
 static_assertions = "1.1.0"
 log = { workspace = true }
 serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }

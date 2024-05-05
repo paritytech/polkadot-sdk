@@ -20,7 +20,7 @@ array-bytes = { version = "6.2.2", optional = true }
 log = { workspace = true }
 
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }

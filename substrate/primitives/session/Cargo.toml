@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 sp-api = { path = "../api", default-features = false }
 sp-core = { path = "../core", default-features = false }
 sp-runtime = { path = "../runtime", optional = true, default-features = false }
