@@ -25,7 +25,7 @@ polkadot-primitives = { path = "../../../primitives" }
 futures = "0.3.30"
 futures-timer = "3.0.2"
 rand = { workspace = true, default-features = false }
-rand_chacha = { version = "0.3.1", default-features = false }
+rand_chacha = { workspace = true, default-features = false }
 gum = { package = "tracing-gum", path = "../../gum" }
 
 [dev-dependencies]

@@ -52,7 +52,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executo
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 
 rand = { workspace = true, default-features = false }
-rand_chacha = { version = "0.3.1", default-features = false }
+rand_chacha = { workspace = true, default-features = false }
 static_assertions = { version = "1.1.0", optional = true }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 polkadot-runtime-metrics = { path = "../metrics", default-features = false }
