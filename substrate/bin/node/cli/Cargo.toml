@@ -131,7 +131,7 @@ sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 futures = { workspace = true }
 tempfile = "3.1.0"
-assert_cmd = "2.0.2"
+assert_cmd = { workspace = true }
 nix = { workspace = true, features = ["signal"] }
 regex = "1.6.0"
 platforms = "3.0"

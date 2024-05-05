@@ -117,7 +117,7 @@ color-print = "0.3.4"
 substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }
 
 [dev-dependencies]
-assert_cmd = "2.0"
+assert_cmd = { workspace = true }
 nix = { workspace = true, features = ["signal"] }
 tempfile = "3.8.0"
 tokio = { workspace = true, default-features = true, features = ["macros", "parking_lot", "time"] }

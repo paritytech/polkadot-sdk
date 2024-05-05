@@ -27,7 +27,7 @@ bs58 = { workspace = true, default-features = true, features = ["alloc"] }
 log = { workspace = true, default-features = true }
 
 [dev-dependencies]
-assert_cmd = "2.0.4"
+assert_cmd = { workspace = true }
 tempfile = "3.2.0"
 hyper = { version = "0.14.20", default-features = false, features = ["http1", "tcp"] }
 tokio = { workspace = true, default-features = true }

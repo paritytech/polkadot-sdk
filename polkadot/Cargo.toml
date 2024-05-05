@@ -42,7 +42,7 @@ polkadot-node-core-pvf-execute-worker = { path = "node/core/pvf/execute-worker" 
 tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_supported_platforms"] }
 
 [dev-dependencies]
-assert_cmd = "2.0.4"
+assert_cmd = { workspace = true }
 nix = { workspace = true, features = ["signal"] }
 tempfile = "3.2.0"
 tokio = { workspace = true, default-features = true }
