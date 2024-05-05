@@ -19,5 +19,5 @@ finality-relay = { path = "../finality" }
 frame-support = { path = "../../../substrate/frame/support" }
 futures = { workspace = true }
 log = { workspace = true }
-num-traits = "0.2"
+num-traits = { workspace = true, default-features = true }
 relay-utils = { path = "../utils" }

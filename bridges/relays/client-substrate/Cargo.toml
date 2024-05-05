@@ -17,7 +17,7 @@ codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 jsonrpsee = { workspace = true, features = ["macros", "ws-client"] }
 log = { workspace = true }
-num-traits = "0.2"
+num-traits = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 scale-info = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, default-features = true, features = ["rt-multi-thread"] }
