@@ -77,7 +77,7 @@ sc-telemetry = { path = "../telemetry" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
 sc-tracing = { path = "../tracing" }
 sc-sysinfo = { path = "../sysinfo" }
-tracing = "0.1.29"
+tracing = { workspace = true, default-features = true }
 tracing-futures = { version = "0.2.4" }
 async-trait = "0.1.79"
 tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "time"] }

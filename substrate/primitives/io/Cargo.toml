@@ -32,7 +32,7 @@ sp-externalities = { path = "../externalities", default-features = false }
 sp-tracing = { path = "../tracing", default-features = false }
 log = { optional = true, workspace = true, default-features = true }
 secp256k1 = { version = "0.28.0", features = ["global-context", "recovery"], optional = true }
-tracing = { version = "0.1.29", default-features = false }
+tracing = { workspace = true, default-features = false }
 tracing-core = { version = "0.1.32", default-features = false }
 
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
