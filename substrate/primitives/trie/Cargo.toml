@@ -39,7 +39,7 @@ sp-externalities = { path = "../externalities", default-features = false }
 schnellru = { version = "0.2.1", optional = true }
 
 [dev-dependencies]
-array-bytes = "6.2.2"
+array-bytes = { workspace = true }
 criterion = { workspace = true }
 trie-bench = "0.39.0"
 trie-standardmap = "0.16.0"

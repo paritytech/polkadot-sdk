@@ -36,7 +36,7 @@ pallet-identity = { path = "../identity", default-features = false }
 pallet-collective = { path = "../collective", default-features = false, optional = true }
 
 [dev-dependencies]
-array-bytes = "6.2.2"
+array-bytes = { workspace = true }
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false }
 pallet-balances = { path = "../balances" }
 pallet-collective = { path = "../collective" }
