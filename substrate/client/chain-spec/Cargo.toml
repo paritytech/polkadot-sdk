@@ -34,7 +34,7 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
 log = { workspace = true }
 sp-tracing = { path = "../../primitives/tracing" }
-array-bytes = "6.2.2"
+array-bytes = { workspace = true, default-features = true }
 docify = "0.2.8"
 
 [dev-dependencies]
