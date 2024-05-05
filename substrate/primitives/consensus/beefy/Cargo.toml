@@ -27,7 +27,7 @@ sp-mmr-primitives = { path = "../../merkle-mountain-range", default-features = f
 sp-runtime = { path = "../../runtime", default-features = false }
 sp-keystore = { path = "../../keystore", default-features = false }
 strum = { version = "0.26.2", features = ["derive"], default-features = false }
-lazy_static = { version = "1.4.0", optional = true }
+lazy_static = { workspace = true, optional = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }

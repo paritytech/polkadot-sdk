@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 mick-jaeger = "0.1.8"
-lazy_static = "1.4"
+lazy_static = { workspace = true }
 parking_lot = "0.12.1"
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }

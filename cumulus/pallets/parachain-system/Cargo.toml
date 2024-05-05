@@ -48,7 +48,7 @@ cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-si
 [dev-dependencies]
 assert_matches = "1.5"
 hex-literal = "0.4.1"
-lazy_static = "1.4"
+lazy_static = { workspace = true }
 trie-standardmap = "0.16.0"
 rand = { workspace = true, default-features = true }
 futures = { workspace = true }

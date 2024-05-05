@@ -40,7 +40,7 @@ hash-db = "0.16.0"
 tempfile = "3.1.0"
 fs_extra = "1"
 rand = { workspace = true, default-features = true, features = ["small_rng"] }
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
 parity-db = "0.4.12"
 sc-transaction-pool = { path = "../../../client/transaction-pool" }
 sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }

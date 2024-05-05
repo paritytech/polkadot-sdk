@@ -11,7 +11,7 @@ workspace = true
 cargo-fuzz = true
 
 [dependencies]
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
 libfuzzer-sys = "0.4"
 regex = "1.10.2"
 

@@ -48,7 +48,7 @@ env_logger = "0.11"
 futures = { workspace = true, features = ["thread-pool"] }
 log = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 kvdb-shared-tests = "0.11.0"
 tempfile = "3.1.0"

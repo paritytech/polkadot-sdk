@@ -20,7 +20,7 @@ ansi_term = "0.12.1"
 is-terminal = "0.4.9"
 chrono = "0.4.31"
 codec = { workspace = true, default-features = true }
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
 libc = "0.2.152"
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"

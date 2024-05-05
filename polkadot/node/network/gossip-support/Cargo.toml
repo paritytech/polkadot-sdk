@@ -39,5 +39,5 @@ polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 assert_matches = "1.4.0"
 async-trait = { workspace = true }
 parking_lot = "0.12.1"
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
 quickcheck = "1.0.3"

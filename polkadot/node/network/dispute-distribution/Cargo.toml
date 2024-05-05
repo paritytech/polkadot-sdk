@@ -38,5 +38,5 @@ sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 sc-keystore = { path = "../../../../substrate/client/keystore" }
 futures-timer = { workspace = true }
 assert_matches = "1.4.0"
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

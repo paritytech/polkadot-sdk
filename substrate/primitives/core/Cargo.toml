@@ -68,7 +68,7 @@ bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "e9782f9", 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
 regex = "1.6.0"
 
 [[bench]]
