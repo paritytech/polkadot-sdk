@@ -17,7 +17,7 @@ parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
-frame = { path = "../../../substrate/frame", default-features = false, features = [
+frame = { package = "polkadot-sdk-frame", path = "../../../substrate/frame", default-features = false, features = [
 	"experimental",
 	"runtime",
 ] }
@@ -29,7 +29,7 @@ pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-featur
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
 
-# genesis builder that allows us to interacto with runtime genesis config
+# genesis builder that allows us to interact with runtime genesis config
 sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
 
 # local pallet templates

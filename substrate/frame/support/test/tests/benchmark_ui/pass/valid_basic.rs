@@ -24,7 +24,7 @@ use frame_support_test::Config;
 mod benches {
 	use super::*;
 
-	#[benchmark(skip_meta, extra)]
+	#[benchmark(skip_meta, pov_mode = Measured, extra)]
 	fn bench() {
 		let a = 2 + 2;
 		#[block]

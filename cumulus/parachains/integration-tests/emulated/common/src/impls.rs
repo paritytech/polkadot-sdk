@@ -114,7 +114,7 @@ where
 					.expect("Bridge message does not exist")
 					.into();
 				let payload = Vec::<u8>::decode(&mut &encoded_payload[..])
-					.expect("Decodign XCM message failed");
+					.expect("Decoding XCM message failed");
 				let id: u32 = LaneIdWrapper(*lane).into();
 				let message = BridgeMessage { id, nonce, payload };
 
@@ -265,7 +265,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							// XCM is successfully received and proccessed
+							// XCM is successfully received and processed
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								origin: $crate::impls::AggregateMessageOrigin::Ump($crate::impls::UmpQueueId::Para(id)),
 								weight_used,
@@ -343,7 +343,7 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 							<Self as Chain>::Runtime,
 						>::contains_key(&channel_id);
 
-						// Check the HRMP channel has been successfully registrered
+						// Check the HRMP channel has been successfully registered
 						assert!(hrmp_channel_exist)
 					});
 				}
@@ -362,7 +362,7 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 					recipient: $crate::impls::ParaId,
 					call: $crate::impls::DoubleEncoded<()>
 				) {
-					use $crate::impls::{bx, Chain, RelayChain};
+					use $crate::impls::{bx, Chain, RelayChain, Encode};
 
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						let root_origin = <Self as Chain>::RuntimeOrigin::root();
@@ -370,10 +370,10 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 						let xcm = $crate::impls::xcm_transact_unpaid_execution(call, $crate::impls::OriginKind::Superuser);
 
 						// Send XCM `Transact`
-						$crate::impls::assert_ok!(<Self as [<$chain RelayPallet>]>::XcmPallet::send(
+						$crate::impls::assert_ok!(<Self as [<$chain RelayPallet>]>::XcmPallet::send_blob(
 							root_origin,
 							bx!(destination.into()),
-							bx!(xcm),
+							xcm.encode().try_into().unwrap(),
 						));
 						Self::assert_xcm_pallet_sent();
 					});

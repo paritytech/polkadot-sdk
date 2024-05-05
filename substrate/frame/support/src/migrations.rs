@@ -43,19 +43,19 @@ use sp_runtime::traits::Zero;
 /// It takes 5 type parameters:
 /// - `From`: The version being upgraded from.
 /// - `To`: The version being upgraded to.
-/// - `Inner`: An implementation of `OnRuntimeUpgrade`.
+/// - `Inner`: An implementation of `UncheckedOnRuntimeUpgrade`.
 /// - `Pallet`: The Pallet being upgraded.
 /// - `Weight`: The runtime's RuntimeDbWeight implementation.
 ///
 /// When a [`VersionedMigration`] `on_runtime_upgrade`, `pre_upgrade`, or `post_upgrade` method is
 /// called, the on-chain version of the pallet is compared to `From`. If they match, the `Inner`
-/// equivalent is called and the pallets on-chain version is set to `To` after the migration.
-/// Otherwise, a warning is logged notifying the developer that the upgrade was a noop and should
-/// probably be removed.
+/// `UncheckedOnRuntimeUpgrade` is called and the pallets on-chain version is set to `To`
+/// after the migration. Otherwise, a warning is logged notifying the developer that the upgrade was
+/// a noop and should probably be removed.
 ///
-/// It is STRONGLY RECOMMENDED to write the unversioned migration logic in a private module and
-/// only export the versioned migration logic to prevent accidentally using the unversioned
-/// migration in any runtimes.
+/// By not bounding `Inner` with `OnRuntimeUpgrade`, we prevent developers from
+/// accidentally using the unchecked version of the migration in a runtime upgrade instead of
+/// [`VersionedMigration`].
 ///
 /// ### Examples
 /// ```ignore
@@ -73,9 +73,9 @@ use sp_runtime::traits::Zero;
 /// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
 /// mod version_unchecked {
 /// 	use super::*;
-/// 	pub struct MigrateV5ToV6<T>(core::marker::PhantomData<T>);
-/// 	impl<T: Config> OnRuntimeUpgrade for  VersionUncheckedMigrateV5ToV6<T> {
-/// 		// OnRuntimeUpgrade implementation...
+/// 	pub struct VersionUncheckedMigrateV5ToV6<T>(core::marker::PhantomData<T>);
+/// 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
+/// 		// `UncheckedOnRuntimeUpgrade` implementation...
 /// 	}
 /// }
 ///
@@ -118,7 +118,7 @@ pub enum VersionedPostUpgradeData {
 impl<
 		const FROM: u16,
 		const TO: u16,
-		Inner: crate::traits::OnRuntimeUpgrade,
+		Inner: crate::traits::UncheckedOnRuntimeUpgrade,
 		Pallet: GetStorageVersion<InCodeStorageVersion = StorageVersion> + PalletInfoAccess,
 		DbWeight: Get<RuntimeDbWeight>,
 	> crate::traits::OnRuntimeUpgrade for VersionedMigration<FROM, TO, Inner, Pallet, DbWeight>

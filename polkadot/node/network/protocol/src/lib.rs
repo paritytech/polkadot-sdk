@@ -871,7 +871,7 @@ pub mod v2 {
 }
 
 /// v3 network protocol types.
-/// Purpose is for chaning ApprovalDistributionMessage to
+/// Purpose is for changing ApprovalDistributionMessage to
 /// include more than one assignment and approval in a message.
 pub mod v3 {
 	use parity_scale_codec::{Decode, Encode};

@@ -79,7 +79,7 @@ pub struct StateStrategy<B: BlockT> {
 	state_sync: Box<dyn StateSyncProvider<B>>,
 	peers: HashMap<PeerId, Peer<B>>,
 	actions: Vec<StateStrategyAction<B>>,
-	succeded: bool,
+	succeeded: bool,
 }
 
 impl<B: BlockT> StateStrategy<B> {
@@ -110,7 +110,7 @@ impl<B: BlockT> StateStrategy<B> {
 			)),
 			peers,
 			actions: Vec::new(),
-			succeded: false,
+			succeeded: false,
 		}
 	}
 
@@ -129,7 +129,7 @@ impl<B: BlockT> StateStrategy<B> {
 				})
 				.collect(),
 			actions: Vec::new(),
-			succeded: false,
+			succeeded: false,
 		}
 	}
 
@@ -260,7 +260,7 @@ impl<B: BlockT> StateStrategy<B> {
 					"Failed to import target block with state: {e:?}."
 				);
 			});
-			self.succeded |= results.into_iter().any(|result| result.is_ok());
+			self.succeeded |= results.into_iter().any(|result| result.is_ok());
 			self.actions.push(StateStrategyAction::Finished);
 		}
 	}
@@ -342,10 +342,10 @@ impl<B: BlockT> StateStrategy<B> {
 		std::mem::take(&mut self.actions).into_iter()
 	}
 
-	/// Check if state sync has succeded.
+	/// Check if state sync has succeeded.
 	#[must_use]
-	pub fn is_succeded(&self) -> bool {
-		self.succeded
+	pub fn is_succeeded(&self) -> bool {
+		self.succeeded
 	}
 }
 
@@ -669,7 +669,7 @@ mod test {
 	}
 
 	#[test]
-	fn succesfully_importing_target_block_finishes_strategy() {
+	fn successfully_importing_target_block_finishes_strategy() {
 		let target_hash = Hash::random();
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);

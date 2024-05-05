@@ -47,7 +47,7 @@ pub struct NoOpenTransaction;
 #[cfg_attr(test, derive(PartialEq))]
 pub struct AlreadyInRuntime;
 
-/// Error when calling `exit_runtime` when not being in runtime exection mdde.
+/// Error when calling `exit_runtime` when not being in runtime execution mode.
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct NotInRuntime;
@@ -269,7 +269,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	///
 	/// Panics:
 	/// Panics if there are open transactions: `transaction_depth() > 0`
-	pub fn drain_commited(self) -> impl Iterator<Item = (K, V)> {
+	pub fn drain_committed(self) -> impl Iterator<Item = (K, V)> {
 		assert!(self.transaction_depth() == 0, "Drain is not allowed with open transactions.");
 		self.changes.into_iter().map(|(k, mut v)| (k, v.pop_transaction().value))
 	}
@@ -281,7 +281,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 		self.dirty_keys.len()
 	}
 
-	/// Call this before transfering control to the runtime.
+	/// Call this before transferring control to the runtime.
 	///
 	/// This protects all existing transactions from being removed by the runtime.
 	/// Calling this while already inside the runtime will return an error.
@@ -471,7 +471,7 @@ mod test {
 	}
 
 	fn assert_drained_changes(is: OverlayedChangeSet, expected: Changes) {
-		let is = is.drain_commited().collect::<Vec<_>>();
+		let is = is.drain_committed().collect::<Vec<_>>();
 		let expected = expected
 			.iter()
 			.map(|(k, v)| (k.to_vec(), v.0.map(From::from)))
@@ -480,7 +480,7 @@ mod test {
 	}
 
 	fn assert_drained(is: OverlayedChangeSet, expected: Drained) {
-		let is = is.drain_commited().collect::<Vec<_>>();
+		let is = is.drain_committed().collect::<Vec<_>>();
 		let expected = expected
 			.iter()
 			.map(|(k, v)| (k.to_vec(), v.map(From::from)))
@@ -526,7 +526,7 @@ mod test {
 		changeset.set(b"key0".to_vec(), Some(b"val0-rolled".to_vec()), Some(1000));
 		changeset.set(b"key5".to_vec(), Some(b"val5-rolled".to_vec()), None);
 
-		// changes contain all changes not only the commmited ones.
+		// changes contain all changes not only the committed ones.
 		let all_changes: Changes = vec![
 			(b"key0", (Some(b"val0-rolled"), vec![1, 10, 1000])),
 			(b"key1", (Some(b"val1"), vec![1])),
@@ -807,7 +807,7 @@ mod test {
 	fn drain_with_open_transaction_panics() {
 		let mut changeset = OverlayedChangeSet::default();
 		changeset.start_transaction();
-		let _ = changeset.drain_commited();
+		let _ = changeset.drain_committed();
 	}
 
 	#[test]

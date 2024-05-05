@@ -1,0 +1,25 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add the ability for MessageQueue to process enqueued messages on idle
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        Add the option to use remaining weight on idle for processing enqueued messages.
+        This will increase the chances of the messages enqueued during inherent extrinsics to be processed in the same block. 
+        New config types is added on the message-queue `Config` trait:
+        - `IdleMaxServiceWeight`
+
+        example:
+            ```rust
+            parameter_types! {
+                // The maximum weight to be used from remaining weight for processing enqueued messages on idle
+                pub const IdleMaxServiceWeight: Weight = Some(Weight);
+            }
+
+            type IdleMaxServiceWeight = IdleMaxServiceWeight; // or `()` to not use this feature
+            ```
+
+crates:
+    - name: pallet-message-queue

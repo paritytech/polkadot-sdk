@@ -832,7 +832,7 @@ fn restore_limit_monitor() {
 		.collect::<Vec<_>>();
 
 	// Scenario before limit application (with B11 imported as best)
-	// Import order (freshess): B00, B10, B11, B12, B20, B21
+	// Import order (freshness): B00, B10, B11, B12, B20, B21
 	//
 	//   B00 --+-- B10 --+-- B20
 	//         |         +-- B21

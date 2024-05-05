@@ -14,7 +14,7 @@ workspace = true
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 honggfuzz = "0.5.55"
 arbitrary = "1.3.2"
-scale-info = { version = "2.10.0", features = ["derive"] }
+scale-info = { version = "2.11.1", features = ["derive"] }
 
 frame-system = { path = "../../../../substrate/frame/system" }
 frame-support = { path = "../../../../substrate/frame/support" }

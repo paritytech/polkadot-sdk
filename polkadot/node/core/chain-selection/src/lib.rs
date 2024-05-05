@@ -51,7 +51,7 @@ type Timestamp = u64;
 // If a block isn't approved in 120 seconds, nodes will abandon it
 // and begin building on another chain.
 const STAGNANT_TIMEOUT: Timestamp = 120;
-// Delay prunning of the stagnant keys in prune only mode by 25 hours to avoid interception with the
+// Delay pruning of the stagnant keys in prune only mode by 25 hours to avoid interception with the
 // finality
 const STAGNANT_PRUNE_DELAY: Timestamp = 25 * 60 * 60;
 // Maximum number of stagnant entries cleaned during one `STAGNANT_TIMEOUT` iteration
@@ -237,7 +237,7 @@ impl Clock for SystemClock {
 		//
 		// The exact time that a block becomes stagnant in the local node is always expected
 		// to differ from other nodes due to network asynchrony and delays in block propagation.
-		// Non-monotonicity exarcerbates that somewhat, but not meaningfully.
+		// Non-monotonicity exacerbates that somewhat, but not meaningfully.
 
 		match SystemTime::now().duration_since(UNIX_EPOCH) {
 			Ok(d) => d.as_secs(),

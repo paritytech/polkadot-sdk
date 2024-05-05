@@ -170,7 +170,7 @@ where
 			.flatten()
 			.and_then(|hash| self.client.justifications(hash).ok().flatten())
 			.and_then(|justifs| justifs.get(BEEFY_ENGINE_ID).cloned())
-			.ok_or_else(|| reputation_changes.push(cost::UNKOWN_PROOF_REQUEST));
+			.ok_or_else(|| reputation_changes.push(cost::UNKNOWN_PROOF_REQUEST));
 		request
 			.pending_response
 			.send(netconfig::OutgoingResponse {

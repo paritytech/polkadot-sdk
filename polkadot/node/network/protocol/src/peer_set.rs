@@ -234,7 +234,7 @@ pub enum ValidationVersion {
 	/// The second version.
 	V2 = 2,
 	/// The third version where changes to ApprovalDistributionMessage had been made.
-	/// The changes are translatable to V2 format untill assignments v2 and approvals
+	/// The changes are translatable to V2 format until assignments v2 and approvals
 	/// coalescing is enabled through a runtime upgrade.
 	V3 = 3,
 }

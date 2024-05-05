@@ -52,7 +52,7 @@ enum GenesisSource<G> {
 	File(PathBuf),
 	Binary(Cow<'static, [u8]>),
 	/// factory function + code
-	//Factory and G type parameter shall be removed togheter with `ChainSpec::from_genesis`
+	//Factory and G type parameter shall be removed together with `ChainSpec::from_genesis`
 	Factory(Arc<dyn Fn() -> G + Send + Sync>, Vec<u8>),
 	Storage(Storage),
 	/// build action + code
@@ -264,7 +264,7 @@ struct RuntimeInnerWrapper<G> {
 enum Genesis<G> {
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
-	/// without the runtime code. It is required to deserialize the legacy chainspecs genereted
+	/// without the runtime code. It is required to deserialize the legacy chainspecs generated
 	/// with `ChainsSpec::from_genesis` method.
 	Runtime(G),
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
@@ -276,13 +276,13 @@ enum Genesis<G> {
 	Raw(RawGenesis),
 	/// State root hash of the genesis storage.
 	StateRootHash(StorageData),
-	/// Represents the runtime genesis config in JSON format toghether with runtime code.
+	/// Represents the runtime genesis config in JSON format together with runtime code.
 	RuntimeGenesis(RuntimeGenesisInner),
 }
 
 /// A configuration of a client. Does not include runtime storage initialization.
 /// Note: `genesis` field is ignored due to way how the chain specification is serialized into
-/// JSON file. Refer to [`ChainSpecJsonContainer`], which flattens [`ClientSpec`] and denies uknown
+/// JSON file. Refer to [`ChainSpecJsonContainer`], which flattens [`ClientSpec`] and denies unknown
 /// fields.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -508,7 +508,7 @@ impl<G, E, EHF> ChainSpec<G, E, EHF> {
 		self.client_spec.fork_id.as_deref()
 	}
 
-	/// Additional loosly-typed properties of the chain.
+	/// Additional loosely-typed properties of the chain.
 	///
 	/// Returns an empty JSON object if 'properties' not defined in config
 	pub fn properties(&self) -> Properties {

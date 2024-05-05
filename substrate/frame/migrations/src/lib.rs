@@ -35,7 +35,7 @@
 //! succeeding after two steps. A runtime upgrade is then enacted and the block number is advanced
 //! until all migrations finish executing. Afterwards, the recorded historic migrations are
 //! checked and events are asserted.
-#![doc = docify::embed!("substrate/frame/migrations/src/tests.rs", simple_works)]
+#![doc = docify::embed!("src/tests.rs", simple_works)]
 //!
 //! ## Pallet API
 //!

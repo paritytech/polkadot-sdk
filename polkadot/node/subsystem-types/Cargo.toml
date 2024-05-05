@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 derive_more = "0.99.17"
-futures = "0.3.21"
+futures = "0.3.30"
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
@@ -29,5 +29,5 @@ sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/a
 smallvec = "1.8.0"
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 thiserror = { workspace = true }
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }

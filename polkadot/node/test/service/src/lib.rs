@@ -410,7 +410,7 @@ pub fn construct_extrinsic(
 	UncheckedExtrinsic::new_signed(
 		function.clone(),
 		polkadot_test_runtime::Address::Id(caller.public().into()),
-		polkadot_primitives::Signature::Sr25519(signature.clone()),
+		polkadot_primitives::Signature::Sr25519(signature),
 		extra.clone(),
 	)
 }

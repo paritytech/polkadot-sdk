@@ -111,7 +111,7 @@ where
 	L: primitives::FullLeaf,
 {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
-		Ok(<Nodes<T, I>>::get(pos).map(Node::Hash))
+		Ok(Nodes::<T, I>::get(pos).map(Node::Hash))
 	}
 
 	fn append(&mut self, pos: NodeIndex, elems: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
@@ -147,7 +147,7 @@ where
 		for elem in elems {
 			// On-chain we are going to only store new peaks.
 			if peaks_to_store.next_if_eq(&node_index).is_some() {
-				<Nodes<T, I>>::insert(node_index, elem.hash());
+				Nodes::<T, I>::insert(node_index, elem.hash());
 			}
 			// We are storing full node off-chain (using indexing API).
 			Self::store_to_offchain(node_index, parent_hash, &elem);
@@ -164,7 +164,7 @@ where
 
 		// And remove all remaining items from `peaks_before` collection.
 		for pos in peaks_to_prune {
-			<Nodes<T, I>>::remove(pos);
+			Nodes::<T, I>::remove(pos);
 		}
 
 		Ok(())

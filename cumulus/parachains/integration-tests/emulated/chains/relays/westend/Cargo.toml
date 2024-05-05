@@ -11,7 +11,6 @@ publish = false
 workspace = true
 
 [dependencies]
-
 # Substrate
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
@@ -27,5 +26,5 @@ westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/west
 westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
 
 # Cumulus
-parachains-common = { path = "../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../common" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }

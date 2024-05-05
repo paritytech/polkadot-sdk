@@ -874,7 +874,7 @@ macro_rules! impl_bench_name_tests {
 								$crate::BenchmarkError::Override(_) => {
 									// This is still considered a success condition.
 									$crate::__private::log::error!(
-										"WARNING: benchmark error overrided - {}",
+										"WARNING: benchmark error overridden - {}",
 										stringify!($name),
 									);
 								},
@@ -1185,7 +1185,7 @@ macro_rules! impl_benchmark {
 			/// author chooses not to implement benchmarks.
 			#[allow(unused)]
 			fn test_bench_by_name(name: &[u8]) -> Result<(), $crate::BenchmarkError> {
-				let name = alloc::str::from_utf8(name)
+				let name = ::alloc::str::from_utf8(name)
 					.map_err(|_| -> $crate::BenchmarkError { "`name` is not a valid utf8 string!".into() })?;
 				match name {
 					$( stringify!($name) => {
@@ -1225,7 +1225,7 @@ macro_rules! impl_benchmark_test {
 					>::components(&selected_benchmark);
 
 					let execute_benchmark = |
-						c: alloc::vec::Vec<($crate::BenchmarkParameter, u32)>
+						c: ::alloc::vec::Vec<($crate::BenchmarkParameter, u32)>
 					| -> Result<(), $crate::BenchmarkError> {
 						// Always reset the state after the benchmark.
 						$crate::__private::defer!($crate::benchmarking::wipe_db());
@@ -1266,7 +1266,7 @@ macro_rules! impl_benchmark_test {
 							// and up to num_values-2 more equidistant values in between.
 							// For 0..10 and num_values=6 this would mean: [0, 2, 4, 6, 8, 10]
 
-							let mut values = alloc::vec![low];
+							let mut values = ::alloc::vec![low];
 							let diff = (high - low).min(num_values - 1);
 							let slope = (high - low) as f32 / diff as f32;
 
@@ -1278,7 +1278,7 @@ macro_rules! impl_benchmark_test {
 
 							for component_value in values {
 								// Select the max value for all the other components.
-								let c: alloc::vec::Vec<($crate::BenchmarkParameter, u32)> = components
+								let c: ::alloc::vec::Vec<($crate::BenchmarkParameter, u32)> = components
 									.iter()
 									.map(|(n, _, h)|
 										if *n == name {
@@ -1684,7 +1684,7 @@ macro_rules! impl_test_function {
 							Err(err) => {
 								println!(
 									"{}: {:?}",
-									alloc::str::from_utf8(benchmark_name)
+									::alloc::str::from_utf8(benchmark_name)
 										.expect("benchmark name is always a valid string!"),
 									err,
 								);
@@ -1695,7 +1695,7 @@ macro_rules! impl_test_function {
 									$crate::BenchmarkError::Stop(err) => {
 										println!(
 											"{}: {:?}",
-											alloc::str::from_utf8(benchmark_name)
+											::alloc::str::from_utf8(benchmark_name)
 												.expect("benchmark name is always a valid string!"),
 											err,
 										);
@@ -1704,8 +1704,8 @@ macro_rules! impl_test_function {
 									$crate::BenchmarkError::Override(_) => {
 										// This is still considered a success condition.
 										$crate::__private::log::error!(
-											"WARNING: benchmark error overrided - {}",
-												alloc::str::from_utf8(benchmark_name)
+											"WARNING: benchmark error overridden - {}",
+												::alloc::str::from_utf8(benchmark_name)
 													.expect("benchmark name is always a valid string!"),
 											);
 									},
@@ -1713,7 +1713,7 @@ macro_rules! impl_test_function {
 										// This is considered a success condition.
 										$crate::__private::log::error!(
 											"WARNING: benchmark error skipped - {}",
-											alloc::str::from_utf8(benchmark_name)
+											::alloc::str::from_utf8(benchmark_name)
 												.expect("benchmark name is always a valid string!"),
 										);
 									}
@@ -1721,7 +1721,7 @@ macro_rules! impl_test_function {
 										// This is considered a success condition.
 										$crate::__private::log::error!(
 											"WARNING: benchmark weightless skipped - {}",
-											alloc::str::from_utf8(benchmark_name)
+											::alloc::str::from_utf8(benchmark_name)
 												.expect("benchmark name is always a valid string!"),
 										);
 									}
@@ -1851,8 +1851,8 @@ macro_rules! add_benchmark {
 				Err($crate::BenchmarkError::Override(mut result)) => {
 					// Insert override warning as the first storage key.
 					$crate::__private::log::error!(
-						"WARNING: benchmark error overrided - {}",
-						alloc::str::from_utf8(benchmark)
+						"WARNING: benchmark error overridden - {}",
+						::alloc::str::from_utf8(benchmark)
 							.expect("benchmark name is always a valid string!")
 					);
 					result.keys.insert(0, (b"Benchmark Override".to_vec(), 0, 0, false));

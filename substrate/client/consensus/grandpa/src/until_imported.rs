@@ -1002,7 +1002,7 @@ mod tests {
 	}
 
 	#[test]
-	fn block_global_message_wait_completed_return_none_on_block_number_missmatch() {
+	fn block_global_message_wait_completed_return_none_on_block_number_mismatch() {
 		let msg_inner = test_catch_up();
 
 		let waiting_block_1 =

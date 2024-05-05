@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Inspect and Mutate traits for Asset metadata
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use crate::dispatch::DispatchResult;
 #[cfg(not(feature = "std"))]

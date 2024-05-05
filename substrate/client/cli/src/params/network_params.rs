@@ -310,7 +310,7 @@ mod tests {
 	}
 
 	#[test]
-	fn sync_ingores_case() {
+	fn sync_ignores_case() {
 		let params = Cli::try_parse_from(["", "--sync", "wArP"]).expect("Parses network params");
 
 		assert_eq!(SyncMode::Warp, params.network_params.sync);

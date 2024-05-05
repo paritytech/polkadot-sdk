@@ -99,7 +99,7 @@ mod cost {
 	// On-demand request was refused by peer.
 	pub(super) const REFUSAL_RESPONSE: Rep = Rep::new(-100, "BEEFY: Proof request refused");
 	// On-demand request for a proof that can't be found in the backend.
-	pub(super) const UNKOWN_PROOF_REQUEST: Rep = Rep::new(-150, "BEEFY: Unknown proof request");
+	pub(super) const UNKNOWN_PROOF_REQUEST: Rep = Rep::new(-150, "BEEFY: Unknown proof request");
 }
 
 // benefit scalars for reporting peers.

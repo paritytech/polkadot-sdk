@@ -836,7 +836,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 
 		// #26
 		now += 1;
-		// Run to block #n but this time have group 1 conclude the availabilty.
+		// Run to block #n but this time have group 1 conclude the availability.
 		for n in now..=(now + max_timeouts + 1) {
 			// #n
 			run_to_block(n, |_| None);

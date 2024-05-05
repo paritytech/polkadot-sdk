@@ -38,7 +38,7 @@ frame-benchmarking = { path = "../../../../substrate/frame/benchmarking" }
 
 [dev-dependencies]
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-futures = "0.3.21"
+futures = "0.3.30"
 
 [features]
 runtime-benchmarks = [

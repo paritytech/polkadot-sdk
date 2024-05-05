@@ -2441,16 +2441,10 @@ mod claim_payout {
 			// given
 			assert_eq!(Currency::free_balance(&10), 35);
 
-			// Permissioned by default
-			assert_noop!(
-				Pools::claim_payout_other(RuntimeOrigin::signed(80), 10),
-				Error::<Runtime>::DoesNotHavePermission
-			);
+			// when
 
-			assert_ok!(Pools::set_claim_permission(
-				RuntimeOrigin::signed(10),
-				ClaimPermission::PermissionlessWithdraw
-			));
+			// NOTE: Claim permission of `PermissionlessWithdraw` allows payout claiming as default,
+			// so a claim permission does not need to be set for non-pool members prior to claiming.
 			assert_ok!(Pools::claim_payout_other(RuntimeOrigin::signed(80), 10));
 
 			// then
@@ -2489,7 +2483,6 @@ mod unbond {
 				);
 
 				// Make permissionless
-				assert_eq!(ClaimPermissions::<Runtime>::get(10), ClaimPermission::Permissioned);
 				assert_ok!(Pools::set_claim_permission(
 					RuntimeOrigin::signed(20),
 					ClaimPermission::PermissionlessAll
@@ -4563,12 +4556,11 @@ mod withdraw_unbonded {
 			CurrentEra::set(1);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
 
-			assert_ok!(Pools::set_claim_permission(
-				RuntimeOrigin::signed(20),
-				ClaimPermission::PermissionlessAll
-			));
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 20));
-			assert_eq!(ClaimPermissions::<Runtime>::get(20), ClaimPermission::PermissionlessAll);
+			assert_eq!(
+				ClaimPermissions::<Runtime>::get(20),
+				ClaimPermission::PermissionlessWithdraw
+			);
 
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -4792,7 +4784,7 @@ mod create {
 }
 
 #[test]
-fn set_claimable_actor_works() {
+fn set_claim_permission_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
 		Currency::set_balance(&11, ExistentialDeposit::get() + 2);
@@ -4811,22 +4803,19 @@ fn set_claimable_actor_works() {
 			]
 		);
 
-		// Make permissionless
-		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::Permissioned);
+		// Make permissioned
+		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::PermissionlessWithdraw);
 		assert_noop!(
-			Pools::set_claim_permission(
-				RuntimeOrigin::signed(12),
-				ClaimPermission::PermissionlessAll
-			),
+			Pools::set_claim_permission(RuntimeOrigin::signed(12), ClaimPermission::Permissioned),
 			Error::<T>::PoolMemberNotFound
 		);
 		assert_ok!(Pools::set_claim_permission(
 			RuntimeOrigin::signed(11),
-			ClaimPermission::PermissionlessAll
+			ClaimPermission::Permissioned
 		));
 
 		// then
-		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::PermissionlessAll);
+		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::Permissioned);
 	});
 }
 
@@ -5224,7 +5213,7 @@ mod bond_extra {
 
 			assert_ok!(Pools::set_claim_permission(
 				RuntimeOrigin::signed(10),
-				ClaimPermission::PermissionlessAll
+				ClaimPermission::PermissionlessCompound
 			));
 			assert_ok!(Pools::bond_extra_other(RuntimeOrigin::signed(50), 10, BondExtra::Rewards));
 			assert_eq!(Currency::free_balance(&default_reward_account()), 7);

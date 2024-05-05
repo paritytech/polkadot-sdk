@@ -2668,7 +2668,7 @@ mod tests {
 		//
 		// there is not straight-forward way of adding backoff to `PeerState::Disabled`
 		// so manually adjust the value in order to progress on to the next stage.
-		// This modification together with `ConnectionClosed` will conver the peer
+		// This modification together with `ConnectionClosed` will convert the peer
 		// state into `PeerState::Backoff`.
 		if let Some(PeerState::Disabled { ref mut backoff_until, .. }) =
 			notif.peers.get_mut(&(peer, set_id))

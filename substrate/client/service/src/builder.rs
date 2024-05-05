@@ -64,7 +64,9 @@ use sc_rpc::{
 	DenyUnsafe, SubscriptionTaskExecutor,
 };
 use sc_rpc_spec_v2::{
-	archive::ArchiveApiServer, chain_head::ChainHeadApiServer, transaction::TransactionApiServer,
+	archive::ArchiveApiServer,
+	chain_head::ChainHeadApiServer,
+	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
 };
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
@@ -653,6 +655,13 @@ where
 		(chain, state, child_state)
 	};
 
+	let transaction_broadcast_rpc_v2 = sc_rpc_spec_v2::transaction::TransactionBroadcast::new(
+		client.clone(),
+		transaction_pool.clone(),
+		task_executor.clone(),
+	)
+	.into_rpc();
+
 	let transaction_v2 = sc_rpc_spec_v2::transaction::Transaction::new(
 		client.clone(),
 		transaction_pool.clone(),
@@ -708,6 +717,9 @@ where
 
 	// Part of the RPC v2 spec.
 	rpc_api.merge(transaction_v2).map_err(|e| Error::Application(e.into()))?;
+	rpc_api
+		.merge(transaction_broadcast_rpc_v2)
+		.map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
 
 	// Part of the old RPC spec.

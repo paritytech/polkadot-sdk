@@ -27,7 +27,7 @@ use crate::{
 	common::events::StorageQuery,
 };
 use jsonrpsee::{proc_macros::rpc, server::ResponsePayload};
-use sp_rpc::list::ListOrValue;
+pub use sp_rpc::list::ListOrValue;
 
 #[rpc(client, server)]
 pub trait ChainHeadApi<Hash> {
@@ -54,8 +54,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_body", blocking)]
-	fn chain_head_unstable_body(
+	#[method(name = "chainHead_unstable_body", raw_method)]
+	async fn chain_head_unstable_body(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
@@ -73,8 +73,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_header", blocking)]
-	fn chain_head_unstable_header(
+	#[method(name = "chainHead_unstable_header", raw_method)]
+	async fn chain_head_unstable_header(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
@@ -85,8 +85,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_storage", blocking)]
-	fn chain_head_unstable_storage(
+	#[method(name = "chainHead_unstable_storage", raw_method)]
+	async fn chain_head_unstable_storage(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
@@ -99,8 +99,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_call", blocking)]
-	fn chain_head_unstable_call(
+	#[method(name = "chainHead_unstable_call", raw_method)]
+	async fn chain_head_unstable_call(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
@@ -118,8 +118,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_unpin", blocking)]
-	fn chain_head_unstable_unpin(
+	#[method(name = "chainHead_unstable_unpin", raw_method)]
+	async fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
 		hash_or_hashes: ListOrValue<Hash>,
@@ -131,8 +131,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_continue", blocking)]
-	fn chain_head_unstable_continue(
+	#[method(name = "chainHead_unstable_continue", raw_method)]
+	async fn chain_head_unstable_continue(
 		&self,
 		follow_subscription: String,
 		operation_id: String,
@@ -145,8 +145,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_stopOperation", blocking)]
-	fn chain_head_unstable_stop_operation(
+	#[method(name = "chainHead_unstable_stopOperation", raw_method)]
+	async fn chain_head_unstable_stop_operation(
 		&self,
 		follow_subscription: String,
 		operation_id: String,

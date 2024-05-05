@@ -188,7 +188,7 @@ where
 	}
 }
 
-/// Yielded by the [`NotificationsIn`] after a successfuly upgrade.
+/// Yielded by the [`NotificationsIn`] after a successfully upgrade.
 pub struct NotificationsInOpen<TSubstream> {
 	/// Handshake sent by the remote.
 	pub handshake: Vec<u8>,
@@ -415,7 +415,7 @@ where
 	}
 }
 
-/// Yielded by the [`NotificationsOut`] after a successfuly upgrade.
+/// Yielded by the [`NotificationsOut`] after a successfully upgrade.
 pub struct NotificationsOutOpen<TSubstream> {
 	/// Handshake returned by the remote.
 	pub handshake: Vec<u8>,

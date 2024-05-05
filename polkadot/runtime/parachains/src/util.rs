@@ -21,7 +21,7 @@
 use alloc::vec::Vec;
 use alloc::{collections::btree_set::BTreeSet};
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{Id as ParaId, PersistedValidationData, ValidatorIndex};
+use primitives::{HeadData, Id as ParaId, PersistedValidationData, ValidatorIndex};
 
 use crate::{configuration, hrmp, paras};
 
@@ -42,6 +42,23 @@ pub fn make_persisted_validation_data<T: paras::Config + hrmp::Config>(
 		relay_parent_storage_root,
 		max_pov_size: config.max_pov_size,
 	})
+}
+
+/// Make the persisted validation data for a particular parachain, a specified relay-parent, its
+/// storage root and parent head data.
+pub fn make_persisted_validation_data_with_parent<T: configuration::Config>(
+	relay_parent_number: BlockNumberFor<T>,
+	relay_parent_storage_root: T::Hash,
+	parent_head: HeadData,
+) -> PersistedValidationData<T::Hash, BlockNumberFor<T>> {
+	let config = <configuration::Pallet<T>>::config();
+
+	PersistedValidationData {
+		parent_head,
+		relay_parent_number,
+		relay_parent_storage_root,
+		max_pov_size: config.max_pov_size,
+	}
 }
 
 /// Take an active subset of a set containing all validators.

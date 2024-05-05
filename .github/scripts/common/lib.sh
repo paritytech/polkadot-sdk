@@ -237,7 +237,7 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
-# Fetch the release artifacts like binary and sigantures from S3. Assumes the ENV are set:
+# Fetch the release artifacts like binary and signatures from S3. Assumes the ENV are set:
 # - RELEASE_ID
 # - GITHUB_TOKEN
 # - REPO in the form paritytech/polkadot

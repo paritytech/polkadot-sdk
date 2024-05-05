@@ -117,7 +117,7 @@ mod rep {
 	/// Reputation change for peers which send us a block with bad justifications.
 	pub const BAD_JUSTIFICATION: Rep = Rep::new(-(1 << 16), "Bad justification");
 
-	/// Reputation change when a peer sent us invlid ancestry result.
+	/// Reputation change when a peer sent us invalid ancestry result.
 	pub const UNKNOWN_ANCESTOR: Rep = Rep::new(-(1 << 16), "DB Error");
 
 	/// Peer response data does not have requested bits.
@@ -1334,7 +1334,7 @@ where
 				PeerSyncState::DownloadingJustification(_) => {
 					// Peers that were downloading justifications
 					// should be kept in that state.
-					// We make sure our commmon number is at least something we have.
+					// We make sure our common number is at least something we have.
 					trace!(
 						target: LOG_TARGET,
 						"Keeping peer {} after restart, updating common number from={} => to={} (our best).",

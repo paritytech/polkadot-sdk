@@ -10,7 +10,7 @@ It is used by the parachains light client (bridge parachains pallet) and by mess
 ## A Brief Introduction into GRANDPA Finality
 
 You can find detailed information on GRANDPA, by exploring its [repository](https://github.com/paritytech/finality-grandpa).
-Here is the minimal reqiuired GRANDPA information to understand how pallet works.
+Here is the minimal required GRANDPA information to understand how pallet works.
 
 Any Substrate chain may use different block authorship algorithms (like BABE or Aura) to determine block producers and
 generate blocks. This has nothing common with finality, though - the task of block authorship is to coordinate

@@ -285,7 +285,6 @@ No finalization routine runs for this module.
   - This clears them from `Scheduled` and marks each corresponding `core` in the `AvailabilityCores` as occupied.
   - Since both the availability cores and the newly-occupied cores lists are sorted ascending, this method can be
     implemented efficiently.
-- `core_para(CoreIndex) -> ParaId`: return the currently-scheduled or occupied ParaId for the given core.
 - `group_validators(GroupIndex) -> Option<Vec<ValidatorIndex>>`: return all validators in a given group, if the group
   index is valid for this session.
 - `availability_timeout_predicate() -> Option<impl Fn(CoreIndex, BlockNumber) -> bool>`: returns an optional predicate

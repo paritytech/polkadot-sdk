@@ -131,7 +131,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 			let module = CodeStorage::<T>::get(&code_hash).unwrap();
 			ensure!(
 				module.instruction_weights_version == old.instruction_weights_version,
-				"invalid isntruction weights version"
+				"invalid instruction weights version"
 			);
 			ensure!(module.determinism == Determinism::Enforced, "invalid determinism");
 			ensure!(module.initial == old.initial, "invalid initial");

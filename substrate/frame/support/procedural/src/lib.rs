@@ -137,7 +137,7 @@ fn counter_prefix(prefix: &str) -> String {
 ///   - `Call` - If the pallet has callable functions
 ///   - `Storage` - If the pallet uses storage
 ///   - `Event` or `Event<T>` (if the event is generic) - If the pallet emits events
-///   - `Origin` or `Origin<T>` (if the origin is generic) - If the pallet has instanciable origins
+///   - `Origin` or `Origin<T>` (if the origin is generic) - If the pallet has instantiable origins
 ///   - `Config` or `Config<T>` (if the config is generic) - If the pallet builds the genesis
 ///     storage with `GenesisConfig`
 ///   - `Inherent` - If the pallet provides/can check inherents.
@@ -166,7 +166,7 @@ fn counter_prefix(prefix: &str) -> String {
 ///   and `Event` are encoded, and to define the ModuleToIndex value.
 ///
 ///   if `= $n` is not given, then index is resolved in the same way as fieldless enum in Rust
-///   (i.e. incrementedly from previous index):
+///   (i.e. incrementally from previous index):
 ///   ```nocompile
 ///   pallet1 .. = 2,
 ///   pallet2 .., // Here pallet2 is given index 3
@@ -460,7 +460,7 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 }
 
 /// This attribute can be used to derive a full implementation of a trait based on a local partial
-/// impl and an external impl containing defaults that can be overriden in the local impl.
+/// impl and an external impl containing defaults that can be overridden in the local impl.
 ///
 /// For a full end-to-end example, see [below](#use-case-auto-derive-test-pallet-config-traits).
 ///
@@ -665,9 +665,9 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
         "{}::macro_magic",
         match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_access_from_frame_or_crate("frame"),
+            Err(_) => generate_access_from_frame_or_crate("polkadot-sdk-frame"),
         }
-        .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
+        .expect("Failed to find either `frame-support` or `polkadot-sdk-frame` in `Cargo.toml` dependencies.")
         .to_token_stream()
         .to_string()
     )
@@ -1181,9 +1181,9 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
         "{}::macro_magic",
         match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_access_from_frame_or_crate("frame"),
+            Err(_) => generate_access_from_frame_or_crate("polkadot-sdk-frame"),
         }
-        .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
+        .expect("Failed to find either `frame-support` or `polkadot-sdk-frame` in `Cargo.toml` dependencies.")
         .to_token_stream()
         .to_string()
     )

@@ -236,7 +236,7 @@ impl Configuration {
 		ProtocolId::from(protocol_id_full)
 	}
 
-	/// Returns true if the genesis state writting will be skipped while initializing the genesis
+	/// Returns true if the genesis state writing will be skipped while initializing the genesis
 	/// block.
 	pub fn no_genesis(&self) -> bool {
 		matches!(self.network.sync_mode, SyncMode::LightState { .. } | SyncMode::Warp { .. })

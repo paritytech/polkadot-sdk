@@ -541,7 +541,7 @@ fn suspended_candidate_rejected_works() {
 			assert_ok!(Society::vote(Origin::signed(30), x, true));
 		}
 
-		// Voting continues, as no canidate is clearly accepted yet and the founder chooses not to
+		// Voting continues, as no candidate is clearly accepted yet and the founder chooses not to
 		// act.
 		conclude_intake(false, None);
 		assert_eq!(members(), vec![10, 20, 30]);

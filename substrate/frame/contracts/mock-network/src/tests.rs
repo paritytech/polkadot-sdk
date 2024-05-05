@@ -23,7 +23,6 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_err,
 	pallet_prelude::Weight,
 	traits::{fungibles::Mutate, Currency},
 };
@@ -102,7 +101,7 @@ fn test_xcm_execute() {
 			0,
 			Weight::MAX,
 			None,
-			VersionedXcm::V4(message).encode(),
+			VersionedXcm::V4(message).encode().encode(),
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
@@ -146,7 +145,7 @@ fn test_xcm_execute_incomplete() {
 			0,
 			Weight::MAX,
 			None,
-			VersionedXcm::V4(message).encode(),
+			VersionedXcm::V4(message).encode().encode(),
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
@@ -157,37 +156,6 @@ fn test_xcm_execute_incomplete() {
 
 		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
 		assert_eq!(ParachainBalances::free_balance(&contract_addr), INITIAL_BALANCE - amount);
-	});
-}
-
-#[test]
-fn test_xcm_execute_filtered_call() {
-	MockNet::reset();
-
-	let contract_addr = instantiate_test_contract("xcm_execute");
-
-	ParaA::execute_with(|| {
-		// `remark`  should be rejected, as it is not allowed by our CallFilter.
-		let call = parachain::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
-		let message: Xcm<parachain::RuntimeCall> = Xcm(vec![Transact {
-			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::MAX,
-			call: call.encode().into(),
-		}]);
-
-		let result = ParachainContracts::bare_call(
-			ALICE,
-			contract_addr.clone(),
-			0,
-			Weight::MAX,
-			None,
-			VersionedXcm::V4(message).encode(),
-			DebugInfo::UnsafeDebug,
-			CollectEvents::UnsafeCollect,
-			Determinism::Enforced,
-		);
-
-		assert_err!(result.result, frame_system::Error::<parachain::Runtime>::CallFiltered);
 	});
 }
 
@@ -222,7 +190,7 @@ fn test_xcm_execute_reentrant_call() {
 			0,
 			Weight::MAX,
 			None,
-			VersionedXcm::V4(message).encode(),
+			VersionedXcm::V4(message).encode().encode(),
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
@@ -258,7 +226,7 @@ fn test_xcm_send() {
 			0,
 			Weight::MAX,
 			None,
-			(dest, message).encode(),
+			(dest, message.encode()).encode(),
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,

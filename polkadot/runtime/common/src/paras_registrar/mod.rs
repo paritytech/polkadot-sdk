@@ -35,7 +35,7 @@ use parity_scale_codec::{Decode, Encode};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, OnNewHead, ParaGenesisArgs, ParaKind, SetGoAhead},
+	paras::{self, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
 };
 use scale_info::TypeInfo;
@@ -408,6 +408,13 @@ pub mod pallet {
 
 		/// Schedule a parachain upgrade.
 		///
+		/// This will kick off a check of `new_code` by all validators. After the majority of the
+		/// validators have reported on the validity of the code, the code will either be enacted
+		/// or the upgrade will be rejected. If the code will be enacted, the current code of the
+		/// parachain will be overwritten directly. This means that any PoV will be checked by this
+		/// new code. The parachain itself will not be informed explictely that the validation code
+		/// has changed.
+		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
 		#[pallet::call_index(7)]
@@ -418,7 +425,11 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
-			runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
+			runtime_parachains::schedule_code_upgrade::<T>(
+				para,
+				new_code,
+				UpgradeStrategy::ApplyAtExpectedBlock,
+			)?;
 			Ok(())
 		}
 

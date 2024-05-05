@@ -238,7 +238,7 @@ mod v_coretime {
 					return None
 				},
 			};
-			// We assume the coretime chain set this parameter to the recommened value in RFC-1:
+			// We assume the coretime chain set this parameter to the recommended value in RFC-1:
 			const TIME_SLICE_PERIOD: u32 = 80;
 			let round_up = if valid_until % TIME_SLICE_PERIOD > 0 { 1 } else { 0 };
 			let time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;

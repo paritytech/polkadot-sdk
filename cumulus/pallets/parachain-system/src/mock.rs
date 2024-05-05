@@ -126,6 +126,7 @@ impl pallet_message_queue::Config for Test {
 	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MaxWeight;
+	type IdleMaxServiceWeight = ();
 	type WeightInfo = ();
 }
 

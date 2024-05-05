@@ -31,7 +31,7 @@ benchmarks! {
 		// NOTE: generated with the test below `test_generate_equivocation_report_blob`.
 		// the output is not deterministic since keys are generated randomly (and therefore
 		// signature content changes). it should not affect the benchmark.
-		// with the current benchmark setup it is not possible to generate this programatically
+		// with the current benchmark setup it is not possible to generate this programmatically
 		// from the benchmark setup.
 		const EQUIVOCATION_PROOF_BLOB: [u8; 416] = [
 			222, 241, 46, 66, 243, 228, 135, 233, 177, 64, 149, 170, 141, 92, 193, 106, 51, 73, 31,

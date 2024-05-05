@@ -22,7 +22,7 @@
 //! access to any clock from the runtime the timestamp is always passed as an inherent into the
 //! runtime. To check this inherent when validating the block, we will use the relay chain slot. As
 //! the relay chain slot is derived from a timestamp, we can easily convert it back to a timestamp
-//! by muliplying it with the slot duration. By comparing the relay chain slot derived timestamp
+//! by multiplying it with the slot duration. By comparing the relay chain slot derived timestamp
 //! with the timestamp we can ensure that the parachain timestamp is reasonable.
 
 #![cfg_attr(not(feature = "std"), no_std)]
