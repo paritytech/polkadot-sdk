@@ -39,7 +39,7 @@ sp-state-machine = { path = "../../primitives/state-machine" }
 sp-trie = { path = "../../primitives/trie" }
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = { workspace = true, default-features = true }
 kvdb-rocksdb = "0.19.0"
 rand = "0.8.5"
 tempfile = "3.1.0"
