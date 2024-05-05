@@ -27,7 +27,7 @@ codec = { workspace = true, default-features = false, features = ["bytes"] }
 static_assertions = { workspace = true, default-features = true }
 primitive-types = { workspace = true, default-features = false }
 sp-storage = { path = "../storage", default-features = false }
-impl-trait-for-tuples = "0.2.2"
+impl-trait-for-tuples = { workspace = true }
 
 [target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
 polkavm-derive = { workspace = true }

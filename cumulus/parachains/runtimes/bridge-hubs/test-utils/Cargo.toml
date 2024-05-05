@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive", "max-encoded-len"] }
-impl-trait-for-tuples = "0.2"
+impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 
 # Substrate

@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 codec = { workspace = true, default-features = false }
 hash-db = { version = "0.16.0", default-features = false }
-impl-trait-for-tuples = "0.2.2"
+impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 num-traits = { workspace = true, default-features = false}
 scale-info = { workspace = true, default-features = false, features = ["derive"] }

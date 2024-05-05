@@ -21,7 +21,7 @@ codec = { workspace = true, default-features = false, features = [
 	"max-encoded-len",
 ] }
 docify = { workspace = true }
-impl-trait-for-tuples = "0.2.2"
+impl-trait-for-tuples = { workspace = true }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }

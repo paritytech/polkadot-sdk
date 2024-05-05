@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-impl-trait-for-tuples = "0.2.2"
+impl-trait-for-tuples = { workspace = true }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { workspace = true, default-features = false, features = ["derive"] }
 log = { workspace = true }

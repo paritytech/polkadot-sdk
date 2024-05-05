@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
-impl-trait-for-tuples = "0.2.2"
+impl-trait-for-tuples = { workspace = true }
 
 sp-core = { path = "../core", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }

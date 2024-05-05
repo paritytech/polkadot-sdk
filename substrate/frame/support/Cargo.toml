@@ -50,7 +50,7 @@ frame-support-procedural = { path = "procedural", default-features = false }
 paste = "1.0"
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false, optional = true }
 bitflags = { workspace = true }
-impl-trait-for-tuples = "0.2.2"
+impl-trait-for-tuples = { workspace = true }
 smallvec = "1.11.0"
 log = { workspace = true }
 sp-crypto-hashing-proc-macro = { path = "../../primitives/crypto/hashing/proc-macro" }

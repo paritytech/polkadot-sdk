@@ -14,7 +14,7 @@ codec = { workspace = true, default-features = true }
 paste = "1.0.14"
 log = { workspace = true }
 lazy_static = "1.4.0"
-impl-trait-for-tuples = "0.2.2"
+impl-trait-for-tuples = { workspace = true }
 
 # Substrate
 frame-support = { path = "../../../substrate/frame/support" }
