@@ -48,7 +48,7 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-consensus-babe = { path = "../../../../substrate/primitives/consensus/babe" }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 kvdb-memorydb = "0.13.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
 log = { workspace = true, default-features = true }

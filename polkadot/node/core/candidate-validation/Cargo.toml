@@ -32,7 +32,7 @@ polkadot-node-core-pvf = { path = "../pvf" }
 [dev-dependencies]
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 futures = { workspace = true, features = ["thread-pool"] }
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }

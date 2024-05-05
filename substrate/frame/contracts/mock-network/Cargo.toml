@@ -44,7 +44,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/
 xcm-simulator = { path = "../../../../polkadot/xcm/xcm-simulator" }
 
 [dev-dependencies]
-assert_matches = "1"
+assert_matches = { workspace = true }
 pretty_assertions = "1"
 pallet-contracts-fixtures = { path = "../fixtures" }
 

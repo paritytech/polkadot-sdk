@@ -46,7 +46,7 @@ cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inh
 cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction", default-features = false }
 
 [dev-dependencies]
-assert_matches = "1.5"
+assert_matches = { workspace = true }
 hex-literal = { workspace = true }
 lazy_static = { workspace = true }
 trie-standardmap = "0.16.0"

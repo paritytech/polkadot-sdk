@@ -25,6 +25,6 @@ parity-scale-codec = { workspace = true, default-features = false, features = ["
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 rstest = "0.18.2"
 sp-keyring = { path = "../../../substrate/primitives/keyring" }

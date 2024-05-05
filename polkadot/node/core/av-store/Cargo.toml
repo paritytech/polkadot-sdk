@@ -30,7 +30,7 @@ polkadot-node-jaeger = { path = "../../jaeger" }
 [dev-dependencies]
 log = { workspace = true, default-features = true }
 env_logger = "0.11"
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 kvdb-memorydb = "0.13.0"
 
 sp-core = { path = "../../../../substrate/primitives/core" }

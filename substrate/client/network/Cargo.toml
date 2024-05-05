@@ -65,7 +65,7 @@ void = "1.0.2"
 schnellru = { workspace = true }
 
 [dev-dependencies]
-assert_matches = "1.3"
+assert_matches = { workspace = true }
 mockall = "0.11.3"
 multistream-select = "0.12.1"
 rand = { workspace = true, default-features = true }

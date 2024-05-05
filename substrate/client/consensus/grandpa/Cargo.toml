@@ -56,7 +56,7 @@ sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }
 
 [dev-dependencies]
-assert_matches = "1.3.0"
+assert_matches = { workspace = true }
 finality-grandpa = { version = "0.16.2", features = ["derive-codec", "test-helpers"] }
 serde = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true }

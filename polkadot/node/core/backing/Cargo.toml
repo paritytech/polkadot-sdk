@@ -31,7 +31,7 @@ sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sc-keystore = { path = "../../../../substrate/client/keystore" }
 sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 futures = { workspace = true, features = ["thread-pool"] }
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 rstest = "0.18.2"
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }

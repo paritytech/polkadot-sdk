@@ -28,7 +28,7 @@ fatality = "0.0.6"
 thiserror = { workspace = true }
 
 [dev-dependencies]
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 sp-core = { path = "../../../../substrate/primitives/core" }

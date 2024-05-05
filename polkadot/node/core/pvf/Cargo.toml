@@ -43,7 +43,7 @@ polkadot-node-core-pvf-prepare-worker = { path = "prepare-worker", optional = tr
 polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = true }
 
 [dev-dependencies]
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = false, features = [
 	"async_tokio",
 	"cargo_bench_support",

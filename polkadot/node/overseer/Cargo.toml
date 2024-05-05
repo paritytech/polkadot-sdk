@@ -31,7 +31,7 @@ metered = { package = "prioritized-metered-channel", version = "0.6.1", default-
 sp-core = { path = "../../../substrate/primitives/core" }
 futures = { workspace = true, features = ["thread-pool"] }
 femme = "2.2.1"
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 node-test-helpers = { package = "polkadot-node-subsystem-test-helpers", path = "../subsystem-test-helpers" }
 

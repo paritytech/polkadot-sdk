@@ -32,7 +32,7 @@ polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
 futures-timer = { workspace = true }
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }

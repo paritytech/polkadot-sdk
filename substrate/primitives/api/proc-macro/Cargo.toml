@@ -28,7 +28,7 @@ expander = "2.0.0"
 Inflector = "0.11.4"
 
 [dev-dependencies]
-assert_matches = "1.3.0"
+assert_matches = { workspace = true }
 
 [features]
 # Required for the doc tests

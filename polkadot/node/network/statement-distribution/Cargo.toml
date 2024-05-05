@@ -29,7 +29,7 @@ bitvec = "1"
 
 [dev-dependencies]
 async-channel = { workspace = true }
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }

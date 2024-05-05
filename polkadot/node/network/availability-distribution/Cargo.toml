@@ -34,7 +34,7 @@ sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 sc-network = { path = "../../../../substrate/client/network" }
 futures-timer = { workspace = true }
-assert_matches = "1.4.0"
+assert_matches = { workspace = true }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 polkadot-subsystem-bench = { path = "../../subsystem-bench" }
 

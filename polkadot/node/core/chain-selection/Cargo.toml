@@ -25,5 +25,5 @@ parity-scale-codec = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 parking_lot = { workspace = true, default-features = true }
-assert_matches = "1"
+assert_matches = { workspace = true }
 kvdb-memorydb = "0.13.0"
