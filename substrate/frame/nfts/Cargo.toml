@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = false }
-enumflags2 = { version = "0.7.7" }
+enumflags2 = { workspace = true }
 log = { workspace = true }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
