@@ -18,7 +18,7 @@ pallet-migrations = { path = "../../migrations", default-features = false }
 frame-support = { path = "../../support", default-features = false }
 frame-system = { path = "../../system", default-features = false }
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true, default-features = false }
 scale-info = { version = "2.10.0", default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }
 

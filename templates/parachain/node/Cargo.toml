@@ -18,7 +18,7 @@ workspace = true
 
 [dependencies]
 clap = { version = "4.5.3", features = ["derive"] }
-log = { version = "0.4.21", default-features = true }
+log = { workspace = true, default-features = true }
 codec = { package = "parity-scale-codec", version = "3.6.4" }
 serde = { version = "1.0.197", features = ["derive"], default-features = true }
 jsonrpsee = { version = "0.22.5", features = ["server"] }
