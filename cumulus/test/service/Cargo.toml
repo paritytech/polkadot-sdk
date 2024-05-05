@@ -24,7 +24,7 @@ serde_json = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true, features = ["macros"] }
 tracing = { workspace = true, default-features = true }
 url = "2.4.0"
-tempfile = "3.8.0"
+tempfile = { workspace = true }
 
 # Substrate
 frame-system = { path = "../../../substrate/frame/system" }

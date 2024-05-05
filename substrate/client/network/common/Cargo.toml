@@ -33,4 +33,4 @@ sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
 sp-runtime = { path = "../../../primitives/runtime" }
 
 [dev-dependencies]
-tempfile = "3.1.0"
+tempfile = { workspace = true }

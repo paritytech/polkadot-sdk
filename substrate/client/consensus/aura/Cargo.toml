@@ -41,7 +41,7 @@ sp-runtime = { path = "../../../primitives/runtime" }
 
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 sc-keystore = { path = "../../keystore" }
 sc-network = { path = "../../network" }
 sc-network-test = { path = "../../network/test" }

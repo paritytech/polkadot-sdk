@@ -22,7 +22,7 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-scale-codec = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["time"] }
 sc-block-builder = { path = "../../block-builder" }
 sc-client-api = { path = "../../api" }

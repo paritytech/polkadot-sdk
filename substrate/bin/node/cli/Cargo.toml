@@ -130,7 +130,7 @@ sp-tracing = { path = "../../../primitives/tracing" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 futures = { workspace = true }
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 assert_cmd = { workspace = true }
 nix = { workspace = true, features = ["signal"] }
 regex = { workspace = true }

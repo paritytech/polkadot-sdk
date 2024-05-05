@@ -37,7 +37,7 @@ sp-inherents = { path = "../../../primitives/inherents" }
 sp-timestamp = { path = "../../../primitives/timestamp", default-features = false }
 sp-tracing = { path = "../../../primitives/tracing" }
 hash-db = "0.16.0"
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 fs_extra = "1"
 rand = { workspace = true, default-features = true, features = ["small_rng"] }
 lazy_static = { workspace = true }

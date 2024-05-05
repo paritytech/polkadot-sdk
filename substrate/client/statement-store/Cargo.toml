@@ -30,5 +30,5 @@ sc-client-api = { path = "../api" }
 sc-keystore = { path = "../keystore" }
 
 [dev-dependencies]
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 env_logger = { workspace = true }

@@ -20,7 +20,7 @@ codec = { workspace = true, default-features = true }
 fs_extra = "1"
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 frame-system = { path = "../../../frame/system" }
 node-cli = { package = "staging-node-cli", path = "../cli" }
 node-primitives = { path = "../primitives" }

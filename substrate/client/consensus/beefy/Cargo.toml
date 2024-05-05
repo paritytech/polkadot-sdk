@@ -45,7 +45,7 @@ tokio = { workspace = true, default-features = true }
 
 [dev-dependencies]
 serde = { workspace = true, default-features = true }
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 sc-block-builder = { path = "../../block-builder" }
 sc-network-test = { path = "../../network/test" }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }

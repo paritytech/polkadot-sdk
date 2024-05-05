@@ -21,7 +21,7 @@ is_executable = { version = "1.0.1", optional = true }
 pin-project = "1.0.9"
 rand = { workspace = true, default-features = true }
 slotmap = "1.0"
-tempfile = "3.3.0"
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["fs", "process"] }
 

@@ -15,7 +15,7 @@ hex = { workspace = true, default-features = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-tempfile = "3.2.0"
+tempfile = { workspace = true }
 tokio = { workspace = true, default-features = true }
 
 # Polkadot dependencies

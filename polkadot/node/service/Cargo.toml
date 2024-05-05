@@ -151,7 +151,7 @@ test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../pri
 env_logger = { workspace = true }
 assert_matches = { workspace = true }
 serial_test = "2.0.0"
-tempfile = "3.2"
+tempfile = { workspace = true }
 
 [features]
 default = ["db", "full-node"]

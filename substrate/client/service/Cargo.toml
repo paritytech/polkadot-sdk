@@ -81,7 +81,7 @@ tracing = { workspace = true, default-features = true }
 tracing-futures = { version = "0.2.4" }
 async-trait = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["parking_lot", "rt-multi-thread", "time"] }
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 directories = "5.0.1"
 static_init = "1.0.3"
 schnellru = { workspace = true }

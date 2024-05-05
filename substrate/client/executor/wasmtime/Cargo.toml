@@ -48,7 +48,7 @@ rustix = { version = "0.36.7", default-features = false, features = ["fs", "mm",
 wat = "1.0"
 sc-runtime-test = { path = "../runtime-test" }
 sp-io = { path = "../../../primitives/io" }
-tempfile = "3.3.0"
+tempfile = { workspace = true }
 paste = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 cargo_metadata = "0.15.4"

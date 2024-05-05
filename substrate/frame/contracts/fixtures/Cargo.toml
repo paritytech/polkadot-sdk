@@ -17,7 +17,7 @@ anyhow = "1.0.81"
 
 [build-dependencies]
 parity-wasm = "0.45.0"
-tempfile = "3.8.1"
+tempfile = { workspace = true }
 toml = "0.8.2"
 twox-hash = "1.6.3"
 polkavm-linker = { workspace = true, optional = true }

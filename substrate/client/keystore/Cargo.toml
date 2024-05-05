@@ -26,7 +26,7 @@ sp-core = { path = "../../primitives/core" }
 sp-keystore = { path = "../../primitives/keystore" }
 
 [dev-dependencies]
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 
 [features]
 # This feature adds BLS crypto primitives.

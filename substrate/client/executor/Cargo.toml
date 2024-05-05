@@ -53,7 +53,7 @@ regex = { workspace = true }
 criterion = { workspace = true, default-features = true }
 env_logger = { workspace = true }
 num_cpus = "1.13.1"
-tempfile = "3.3.0"
+tempfile = { workspace = true }
 
 [[bench]]
 name = "bench"
