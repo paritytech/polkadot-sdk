@@ -589,6 +589,7 @@ parking_lot = { version = "0.12.1", default-features = false }
 paste = { version = "1.0.14", default-features = false }
 prost = "0.12.4"
 prost-build = "0.12.4"
+proc-macro2 = "1.0.75"
 log = { version = "0.4.21", default-features = false }
 primitive-types = { version = "0.12.1", default-features = false }
 quote = "1.0.33"

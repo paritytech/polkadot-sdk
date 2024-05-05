@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 proc-macro-crate = "3.0.0"
-proc-macro2 = "1.0.56"
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { features = ["extra-traits", "full", "visit"], workspace = true }
 frame-support-procedural-tools-derive = { path = "derive" }

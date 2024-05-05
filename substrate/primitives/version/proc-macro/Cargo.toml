@@ -20,7 +20,7 @@ proc-macro = true
 
 [dependencies]
 codec = { workspace = true, default-features = true, features = ["derive"] }
-proc-macro2 = "1.0.56"
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { features = ["extra-traits", "fold", "full", "visit"], workspace = true }
 

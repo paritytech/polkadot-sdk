@@ -19,6 +19,6 @@ proc-macro = true
 
 [dependencies]
 proc-macro-crate = "3.0.0"
-proc-macro2 = "1.0.56"
+proc-macro2 = { workspace = true }
 quote = { features = ["proc-macro"], workspace = true }
 syn = { features = ["extra-traits", "full", "parsing", "proc-macro"], workspace = true }
