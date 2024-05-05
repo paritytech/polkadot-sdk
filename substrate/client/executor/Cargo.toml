@@ -48,7 +48,7 @@ sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 sc-tracing = { path = "../tracing" }
 sp-tracing = { path = "../../primitives/tracing" }
 tracing-subscriber = { workspace = true }
-paste = "1.0"
+paste = { workspace = true, default-features = true }
 regex = "1.6.0"
 criterion = { workspace = true, default-features = true }
 env_logger = "0.11"

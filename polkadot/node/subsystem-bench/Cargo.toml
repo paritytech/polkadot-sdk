@@ -84,7 +84,7 @@ schnorrkel = { version = "0.11.4", default-features = false }
 # rand_core should match schnorrkel
 rand_core = "0.6.2"
 rand_chacha = { workspace = true, default-features = true }
-paste = "1.0.14"
+paste = { workspace = true, default-features = true }
 orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
 pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"

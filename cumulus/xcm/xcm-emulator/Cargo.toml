@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-paste = "1.0.14"
+paste = { workspace = true, default-features = true }
 log = { workspace = true }
 lazy_static = { workspace = true }
 impl-trait-for-tuples = { workspace = true }

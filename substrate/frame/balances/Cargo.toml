@@ -31,7 +31,7 @@ pallet-transaction-payment = { path = "../transaction-payment" }
 frame-support = { path = "../support", features = ["experimental"] }
 sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io" }
-paste = "1.0.12"
+paste = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

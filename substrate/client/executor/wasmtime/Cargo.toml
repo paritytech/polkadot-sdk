@@ -49,6 +49,6 @@ wat = "1.0"
 sc-runtime-test = { path = "../runtime-test" }
 sp-io = { path = "../../../primitives/io" }
 tempfile = "3.3.0"
-paste = "1.0"
+paste = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 cargo_metadata = "0.15.4"

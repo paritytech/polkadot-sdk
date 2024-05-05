@@ -10,7 +10,7 @@ description = "Helper crate for generating slot ranges for the Polkadot runtime.
 workspace = true
 
 [dependencies]
-paste = "1.0"
+paste = { workspace = true, default-features = true }
 enumn = "0.1.12"
 parity-scale-codec = { workspace = true, default-features = false, features = ["derive"] }
 sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", default-features = false }
