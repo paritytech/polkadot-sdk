@@ -40,7 +40,7 @@ tokio-stream = { workspace = true, features = ["sync"] }
 tokio = { workspace = true, features = ["sync"] }
 array-bytes = { workspace = true }
 log = { workspace = true, default-features = true }
-futures-util = { version = "0.3.30", default-features = false }
+futures-util = { workspace = true, default-features = false }
 rand = { workspace = true }
 schnellru = { workspace = true }
 
