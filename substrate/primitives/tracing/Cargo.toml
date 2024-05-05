@@ -24,7 +24,7 @@ targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-gnu"]
 codec = { workspace = true, default-features = false, features = [
 	"derive",
 ] }
-tracing = { version = "0.1.29", default-features = false }
+tracing = { workspace = true, default-features = false }
 tracing-core = { version = "0.1.32", default-features = false }
 tracing-subscriber = { workspace = true, optional = true, features = [
 	"env-filter",

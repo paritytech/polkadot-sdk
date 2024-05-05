@@ -34,7 +34,7 @@ futures = "0.3.28"
 futures-timer = "3.0.2"
 parity-scale-codec = { workspace = true }
 jsonrpsee = { workspace = true, features = ["ws-client"] }
-tracing = "0.1.37"
+tracing = { workspace = true }
 async-trait = "0.1.79"
 url = "2.4.0"
 serde_json = { workspace = true, default-features = true }
