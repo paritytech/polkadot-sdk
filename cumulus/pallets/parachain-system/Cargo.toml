@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-bytes = { version = "1.4.0", default-features = false }
+bytes = { workspace = true, default-features = false }
 codec = { workspace = true, default-features = false, features = ["derive"] }
 environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = { workspace = true }

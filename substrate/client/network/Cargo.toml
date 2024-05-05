@@ -24,7 +24,7 @@ array-bytes = { workspace = true, default-features = true }
 async-channel = { workspace = true }
 async-trait = { workspace = true }
 asynchronous-codec = "0.6"
-bytes = "1"
+bytes = { workspace = true, default-features = true }
 cid = "0.9.0"
 codec = { workspace = true, default-features = true, features = ["derive"] }
 either = "1.5.3"

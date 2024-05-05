@@ -23,7 +23,7 @@ polkadot-node-network-protocol = { path = "../protocol" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-overseer = { path = "../../overseer" }
 parking_lot = { workspace = true, default-features = true }
-bytes = "1"
+bytes = { workspace = true, default-features = true }
 fatality = "0.0.6"
 thiserror = { workspace = true }
 
