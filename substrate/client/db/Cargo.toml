@@ -29,7 +29,7 @@ parity-db = "0.4.12"
 parking_lot = "0.12.1"
 sc-client-api = { path = "../api" }
 sc-state-db = { path = "../state-db" }
-schnellru = "0.2.1"
+schnellru = { workspace = true }
 sp-arithmetic = { path = "../../primitives/arithmetic" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }

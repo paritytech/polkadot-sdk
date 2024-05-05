@@ -576,6 +576,7 @@ prost = "0.12.4"
 prost-build = "0.12.4"
 log = { version = "0.4.21", default-features = false }
 quote = { version = "1.0.33" }
+schnellru = "0.2.1"
 serde = { version = "1.0.197", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }

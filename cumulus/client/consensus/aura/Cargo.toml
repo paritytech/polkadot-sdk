@@ -14,7 +14,7 @@ async-trait = "0.1.79"
 codec = { workspace = true, features = ["derive"] }
 futures = "0.3.28"
 tracing = { workspace = true }
-schnellru = "0.2.1"
+schnellru = { workspace = true }
 
 # Substrate
 sc-client-api = { path = "../../../../substrate/client/api" }

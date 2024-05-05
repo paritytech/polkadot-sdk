@@ -20,7 +20,7 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 futures-timer = "3.0.2"
 fatality = "0.0.6"
-schnellru = "0.2.1"
+schnellru = { workspace = true }
 
 [dev-dependencies]
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }

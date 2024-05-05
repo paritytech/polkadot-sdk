@@ -42,7 +42,7 @@ array-bytes = { workspace = true }
 log = { workspace = true, default-features = true }
 futures-util = { version = "0.3.30", default-features = false }
 rand = "0.8.5"
-schnellru = "0.2.1"
+schnellru = { workspace = true }
 
 [dev-dependencies]
 jsonrpsee = { workspace = true, features = ["server", "ws-client"] }

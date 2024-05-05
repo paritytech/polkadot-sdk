@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 futures = "0.3.30"
 tokio = "1.37"
-schnellru = "0.2.1"
+schnellru = { workspace = true }
 rand = "0.8.5"
 fatality = "0.0.6"
 thiserror = { workspace = true }

@@ -83,7 +83,7 @@ hex-literal = "0.4.1"
 is_executable = "1.0.1"
 gum = { package = "tracing-gum", path = "../gum" }
 log = { workspace = true, default-features = true }
-schnellru = "0.2.1"
+schnellru = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }

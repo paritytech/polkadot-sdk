@@ -22,7 +22,7 @@ thiserror = { workspace = true }
 fatality = "0.0.6"
 gum = { package = "tracing-gum", path = "../gum" }
 derive_more = "0.99.17"
-schnellru = "0.2.1"
+schnellru = { workspace = true }
 
 polkadot-node-subsystem = { path = "../subsystem" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }

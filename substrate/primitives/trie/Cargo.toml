@@ -36,7 +36,7 @@ trie-db = { version = "0.29.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 sp-core = { path = "../core", default-features = false }
 sp-externalities = { path = "../externalities", default-features = false }
-schnellru = { version = "0.2.1", optional = true }
+schnellru = { workspace = true, optional = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true }

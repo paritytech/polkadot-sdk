@@ -24,7 +24,7 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 thiserror = { workspace = true }
 rand = "0.8.5"
 derive_more = "0.99.17"
-schnellru = "0.2.1"
+schnellru = { workspace = true }
 fatality = "0.0.6"
 
 [dev-dependencies]
