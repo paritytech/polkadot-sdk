@@ -21,7 +21,7 @@ jsonrpsee = { workspace = true, features = ["server"] }
 rand = "0.8.5"
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-tokio = { version = "1.37", features = ["macros"] }
+tokio = { workspace = true, features = ["macros"] }
 tracing = { workspace = true }
 url = "2.4.0"
 tempfile = "3.8.0"

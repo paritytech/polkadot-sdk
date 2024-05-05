@@ -40,7 +40,7 @@ sp-core = { path = "../../../primitives/core" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }
-tokio = "1.37"
+tokio = { workspace = true }
 
 
 [dev-dependencies]

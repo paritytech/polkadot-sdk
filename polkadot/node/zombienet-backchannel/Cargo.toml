@@ -12,7 +12,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-tokio = { version = "1.37", default-features = false, features = ["macros", "net", "rt-multi-thread", "sync"] }
+tokio = { workspace = true, default-features = false, features = ["macros", "net", "rt-multi-thread", "sync"] }
 url = "2.3.1"
 tokio-tungstenite = "0.20.1"
 futures-util = "0.3.30"
