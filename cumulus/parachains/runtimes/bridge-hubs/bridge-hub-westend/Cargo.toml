@@ -101,7 +101,7 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", de
 bridge-hub-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
-static_assertions = "1.1"
+static_assertions = { workspace = true, default-features = true }
 bridge-hub-test-utils = { path = "../test-utils" }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", features = ["integrity-test"] }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }

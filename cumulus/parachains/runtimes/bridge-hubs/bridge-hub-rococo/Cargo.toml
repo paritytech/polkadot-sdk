@@ -123,7 +123,7 @@ snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/
 bridge-hub-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
-static_assertions = "1.1"
+static_assertions = { workspace = true, default-features = true }
 bridge-hub-test-utils = { path = "../test-utils" }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", features = [
 	"integrity-test",

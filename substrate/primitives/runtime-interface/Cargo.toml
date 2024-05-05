@@ -24,7 +24,7 @@ sp-tracing = { path = "../tracing", default-features = false }
 sp-runtime-interface-proc-macro = { path = "proc-macro" }
 sp-externalities = { path = "../externalities", default-features = false }
 codec = { workspace = true, default-features = false, features = ["bytes"] }
-static_assertions = "1.0.0"
+static_assertions = { workspace = true, default-features = true }
 primitive-types = { workspace = true, default-features = false }
 sp-storage = { path = "../storage", default-features = false }
 impl-trait-for-tuples = "0.2.2"

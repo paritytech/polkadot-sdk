@@ -59,7 +59,7 @@ environmental = { version = "1.1.4", default-features = false }
 sp-genesis-builder = { path = "../../primitives/genesis-builder", default-features = false }
 serde_json = { features = ["alloc"], workspace = true }
 docify = "0.2.8"
-static_assertions = "1.1.0"
+static_assertions = { workspace = true, default-features = true }
 
 aquamarine = { workspace = true }
 

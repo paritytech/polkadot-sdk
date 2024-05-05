@@ -15,7 +15,7 @@ codec = { workspace = true, default-features = false, features = ["derive"] }
 hash-db = { version = "0.16.0", default-features = false }
 log = { workspace = true }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
-static_assertions = { version = "1.1", optional = true }
+static_assertions = { workspace = true, default-features = true, optional = true }
 tuplex = { version = "0.1", default-features = false }
 
 # Bridge dependencies

@@ -33,7 +33,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-runtime-interface = { path = "../../primitives/runtime-interface", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-storage = { path = "../../primitives/storage", default-features = false }
-static_assertions = "1.1.0"
+static_assertions = { workspace = true, default-features = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }

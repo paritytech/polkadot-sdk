@@ -18,7 +18,7 @@ rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 serde = { features = ["alloc"], workspace = true }
 serde_derive = { workspace = true }
-static_assertions = "1.1.0"
+static_assertions = { workspace = true, default-features = true }
 
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }

@@ -33,7 +33,7 @@ criterion = { workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 sp-core = { path = "../../core" }
-static_assertions = "1.1.0"
+static_assertions = { workspace = true, default-features = true }
 
 [[bench]]
 name = "bench"
