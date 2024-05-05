@@ -20,7 +20,7 @@ codec = { workspace = true, default-features = false, features = ["derive", "max
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 log = { workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
-bounded-collections = { version = "0.2.0", default-features = false }
+bounded-collections = { workspace = true, default-features = false }
 primitive-types = { workspace = true, default-features = false, features = ["codec", "scale-info"] }
 impl-serde = { workspace = true, default-features = false, optional = true }
 hash-db = { version = "0.16.0", default-features = false }
