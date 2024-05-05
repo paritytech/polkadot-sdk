@@ -61,7 +61,7 @@ serde_json = { features = ["alloc"], workspace = true }
 docify = "0.2.8"
 static_assertions = "1.1.0"
 
-aquamarine = { version = "0.5.0" }
+aquamarine = { workspace = true }
 
 [dev-dependencies]
 assert_matches = "1.3.0"
