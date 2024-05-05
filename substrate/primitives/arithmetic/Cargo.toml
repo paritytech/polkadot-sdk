@@ -27,7 +27,7 @@ scale-info = { workspace = true, default-features = false, features = ["derive"]
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 static_assertions = { workspace = true, default-features = true }
 sp-std = { path = "../std", default-features = false }
-docify = "0.2.8"
+docify = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }

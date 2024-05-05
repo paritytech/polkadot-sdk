@@ -50,7 +50,7 @@ sp-inherents = { default-features = false, path = "../primitives/inherents", opt
 frame-executive = { default-features = false, path = "../frame/executive", optional = true }
 frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
 
-docify = "0.2.8"
+docify = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]

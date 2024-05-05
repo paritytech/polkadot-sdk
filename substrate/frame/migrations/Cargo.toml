@@ -12,7 +12,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
-docify = "0.2.8"
+docify = { workspace = true }
 impl-trait-for-tuples = "0.2.2"
 log = "0.4.21"
 scale-info = { workspace = true, default-features = false, features = ["derive"] }

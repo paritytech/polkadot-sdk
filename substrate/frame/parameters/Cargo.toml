@@ -12,7 +12,7 @@ codec = { workspace = true, default-features = false, features = ["max-encoded-l
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 paste = { version = "1.0.14", default-features = false }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
-docify = "0.2.8"
+docify = { workspace = true }
 
 frame-support = { path = "../support", default-features = false, features = ["experimental"] }
 frame-system = { path = "../system", default-features = false }
