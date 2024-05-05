@@ -27,7 +27,7 @@ log = { workspace = true, default-features = true }
 names = { version = "0.14.0", default-features = false }
 parity-scale-codec = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
-regex = "1.6.0"
+regex = { workspace = true }
 rpassword = "7.0.0"
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

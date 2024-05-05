@@ -20,7 +20,7 @@ substrate-rpc-client = { path = "../../utils/frame/rpc/client" }
 sp-rpc = { path = "../../primitives/rpc" }
 assert_cmd = { workspace = true }
 nix = { workspace = true }
-regex = "1.7.3"
+regex = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["full"] }
 node-primitives = { path = "../../bin/node/primitives" }
 node-cli = { package = "staging-node-cli", path = "../../bin/node/cli" }

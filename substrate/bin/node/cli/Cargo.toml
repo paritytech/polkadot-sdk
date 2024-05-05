@@ -133,7 +133,7 @@ futures = { workspace = true }
 tempfile = "3.1.0"
 assert_cmd = { workspace = true }
 nix = { workspace = true, features = ["signal"] }
-regex = "1.6.0"
+regex = { workspace = true }
 platforms = "3.0"
 soketto = "0.7.1"
 criterion = { workspace = true, default-features = true, features = ["async_tokio"] }

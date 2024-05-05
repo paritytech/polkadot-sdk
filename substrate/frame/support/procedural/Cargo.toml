@@ -32,7 +32,7 @@ expander = "2.0.0"
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing", default-features = false }
 
 [dev-dependencies]
-regex = "1"
+regex = { workspace = true }
 
 [features]
 default = ["std"]

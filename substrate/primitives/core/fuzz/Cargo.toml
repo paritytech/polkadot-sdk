@@ -13,7 +13,7 @@ cargo-fuzz = true
 [dependencies]
 lazy_static = { workspace = true }
 libfuzzer-sys = "0.4"
-regex = "1.10.2"
+regex = { workspace = true }
 
 sp-core = { path = ".." }
 
