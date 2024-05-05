@@ -565,6 +565,8 @@ jsonrpsee-core = { version = "0.22.5" }
 polkavm = "0.9.3"
 polkavm-linker = "0.9.2"
 polkavm-derive = "0.9.1"
+prost = "0.12.4"
+prost-build = "0.12.4"
 log = { version = "0.4.21", default-features = false }
 quote = { version = "1.0.33" }
 serde = { version = "1.0.197", default-features = false }
