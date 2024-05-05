@@ -13,7 +13,7 @@ workspace = true
 codec = { workspace = true, default-features = true, features = ["derive"] }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-rand = { workspace = true }
+rand = { workspace = true, default-features = true }
 tracing = { workspace = true }
 
 # Substrate

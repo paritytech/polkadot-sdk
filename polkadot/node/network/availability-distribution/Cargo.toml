@@ -22,7 +22,7 @@ polkadot-node-primitives = { path = "../../primitives" }
 sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 thiserror = { workspace = true }
-rand = { workspace = true }
+rand = { workspace = true, default-features = true }
 derive_more = "0.99.17"
 schnellru = { workspace = true }
 fatality = "0.0.6"

@@ -14,7 +14,7 @@ workspace = true
 
 [dependencies]
 honggfuzz = "0.5"
-rand = { workspace = true, features = ["small_rng", "std"] }
+rand = { workspace = true, default-features = true, features = ["small_rng", "std"] }
 frame-election-provider-support = { path = "../../election-provider-support", features = ["fuzz"] }
 pallet-bags-list = { path = "..", features = ["fuzz"] }
 

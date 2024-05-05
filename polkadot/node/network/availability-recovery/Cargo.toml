@@ -13,7 +13,7 @@ workspace = true
 futures = { workspace = true }
 tokio = { workspace = true }
 schnellru = { workspace = true }
-rand = { workspace = true }
+rand = { workspace = true, default-features = true }
 fatality = "0.0.6"
 thiserror = { workspace = true }
 async-trait = "0.1.79"

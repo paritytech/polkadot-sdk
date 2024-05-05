@@ -15,4 +15,4 @@ sp-application-crypto = { package = "sp-application-crypto", path = "../../../su
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-core = { path = "../../../substrate/primitives/core", features = ["std"] }
 polkadot-primitives = { path = ".." }
-rand = { workspace = true }
+rand = { workspace = true, default-features = true }

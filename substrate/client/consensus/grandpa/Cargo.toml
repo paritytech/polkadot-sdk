@@ -27,7 +27,7 @@ futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-scale-codec = { workspace = true, default-features = true, features = ["derive"] }
 parking_lot = "0.12.1"
-rand = { workspace = true }
+rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 fork-tree = { path = "../../../utils/fork-tree" }

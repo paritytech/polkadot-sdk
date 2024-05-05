@@ -49,7 +49,7 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { package = "tracing-gum", path = "../gum" }
 erasure = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
-rand = { workspace = true }
+rand = { workspace = true, default-features = true }
 
 # Required for worker binaries to build.
 polkadot-node-core-pvf-common = { path = "../core/pvf/common" }

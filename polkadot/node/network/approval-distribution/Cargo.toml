@@ -17,7 +17,7 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-jaeger = { path = "../../jaeger" }
-rand = { workspace = true }
+rand = { workspace = true, default-features = true }
 itertools = { workspace = true }
 
 futures = { workspace = true }
