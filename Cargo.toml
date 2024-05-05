@@ -558,6 +558,7 @@ extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
 
 [workspace.dependencies]
+aquamarine = "0.5.0"
 array-bytes = { version = "6.2.2", default-features = false }
 criterion = { version = "0.5.1", default-features = false }
 polkavm = "0.9.3"
