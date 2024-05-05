@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-hex = "0.4.3"
+hex = { workspace = true, default-features = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

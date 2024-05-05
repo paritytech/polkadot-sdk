@@ -33,7 +33,7 @@ sc-rpc = { path = "../rpc" }
 codec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = true }
-hex = "0.4"
+hex = { workspace = true, default-features = true }
 futures = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 tokio-stream = { workspace = true, features = ["sync"] }

@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 async-channel = { workspace = true }
 async-trait = { workspace = true }
-hex = "0.4.3"
+hex = { workspace = true, default-features = true }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-jaeger = { path = "../../jaeger" }

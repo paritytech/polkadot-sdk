@@ -27,7 +27,7 @@ sp-core = { path = "../../../substrate/primitives/core", default-features = fals
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 [dev-dependencies]
-hex = "0.4"
+hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true }
 
 [features]

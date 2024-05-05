@@ -570,6 +570,7 @@ docify = "0.2.8"
 futures = "0.3.30"
 futures-timer  = "3.0.2"
 futures-util = { version = "0.3.30", default-features = false }
+hex = { version = "0.4.3", default-features = false }
 hex-literal = "0.4.1"
 impl-serde = { version = "0.4.0", default-features = false }
 impl-trait-for-tuples = "0.2.2"

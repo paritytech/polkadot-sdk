@@ -34,7 +34,7 @@ snowbridge-beacon-primitives = { path = "../beacon", default-features = false }
 ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
 
 [dev-dependencies]
-hex = { version = "0.4.3" }
+hex = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

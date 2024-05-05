@@ -16,7 +16,7 @@ async-std = { workspace = true }
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
-hex = "0.4"
+hex = { workspace = true, default-features = true }
 log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
 rbtag = "0.3"

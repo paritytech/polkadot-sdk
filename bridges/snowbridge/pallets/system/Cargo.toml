@@ -35,7 +35,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/
 snowbridge-core = { path = "../../primitives/core", default-features = false }
 
 [dev-dependencies]
-hex = "0.4.1"
+hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true }
 pallet-balances = { path = "../../../../substrate/frame/balances" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
