@@ -15,7 +15,7 @@ codec = { workspace = true, default-features = true, features = ["derive"] }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 parking_lot = "0.12.1"
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }

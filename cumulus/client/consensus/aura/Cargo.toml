@@ -13,7 +13,7 @@ workspace = true
 async-trait = "0.1.79"
 codec = { workspace = true, default-features = true, features = ["derive"] }
 futures = { workspace = true }
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 
 # Substrate

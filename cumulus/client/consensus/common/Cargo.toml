@@ -15,7 +15,7 @@ codec = { workspace = true, default-features = true, features = ["derive"] }
 dyn-clone = "1.0.16"
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 
 # Substrate
 sc-client-api = { path = "../../../../substrate/client/api" }

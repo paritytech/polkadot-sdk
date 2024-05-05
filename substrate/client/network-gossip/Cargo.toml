@@ -23,7 +23,7 @@ futures-timer = { workspace = true }
 libp2p = "0.51.4"
 log = { workspace = true, default-features = true }
 schnellru = { workspace = true }
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
 sc-network = { path = "../network" }
 sc-network-common = { path = "../network/common" }

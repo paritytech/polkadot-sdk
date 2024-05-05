@@ -22,7 +22,7 @@ rand = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["macros"] }
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 url = "2.4.0"
 tempfile = "3.8.0"
 

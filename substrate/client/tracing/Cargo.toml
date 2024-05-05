@@ -28,7 +28,7 @@ regex = "1.6.0"
 rustc-hash = "1.1.0"
 serde = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 tracing-log = "0.2.0"
 tracing-subscriber = { workspace = true, features = ["env-filter", "parking_lot"] }
 sc-client-api = { path = "../api" }

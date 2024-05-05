@@ -10,7 +10,7 @@ license = "Apache-2.0"
 async-trait = "0.1.79"
 codec = { workspace = true, default-features = true, features = ["derive"] }
 scale-info = { workspace = true, default-features = true, features = ["derive"] }
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }

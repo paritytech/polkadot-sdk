@@ -13,7 +13,7 @@ workspace = true
 async-trait = "0.1.79"
 futures = { workspace = true }
 parking_lot = "0.12.1"
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 
 # Substrate
 sc-consensus = { path = "../../../../substrate/client/consensus/common" }
