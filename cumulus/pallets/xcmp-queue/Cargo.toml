@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { workspace = true, features = ["derive"], default-features = false }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 log = { workspace = true }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 
