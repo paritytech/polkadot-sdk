@@ -16,7 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait = { workspace = true }
-clap = { version = "4.5.3", features = ["derive"] }
+clap = { workspace = true, features = ["derive"] }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 hex-literal = { workspace = true }

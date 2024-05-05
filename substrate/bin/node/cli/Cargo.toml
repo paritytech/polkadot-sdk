@@ -41,7 +41,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # third-party dependencies
 array-bytes = { workspace = true, default-features = true }
-clap = { version = "4.5.3", features = ["derive"], optional = true }
+clap = { workspace = true, features = ["derive"], optional = true }
 codec = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 jsonrpsee = { workspace = true, features = ["server"] }
@@ -165,7 +165,7 @@ sp-trie = { path = "../../../primitives/trie" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 
 [build-dependencies]
-clap = { version = "4.5.3", optional = true }
+clap = { workspace = true, optional = true }
 clap_complete = { version = "4.0.2", optional = true }
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
