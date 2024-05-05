@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 futures = { workspace = true }
-futures-timer = "3"
+futures-timer = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 
 sp-core = { path = "../../../../substrate/primitives/core" }

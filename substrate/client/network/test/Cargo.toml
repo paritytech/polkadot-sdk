@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 tokio = { workspace = true }
 async-trait = "0.1.79"
 futures = { workspace = true }
-futures-timer = "3.0.1"
+futures-timer = { workspace = true }
 libp2p = "0.51.4"
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"

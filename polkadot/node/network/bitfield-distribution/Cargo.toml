@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 always-assert = "0.1"
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }

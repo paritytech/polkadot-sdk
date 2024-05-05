@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 kvdb = "0.13.0"
 thiserror = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }

@@ -33,5 +33,5 @@ polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-futures-timer = "3"
+futures-timer = { workspace = true }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

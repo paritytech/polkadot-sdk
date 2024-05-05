@@ -18,7 +18,7 @@ polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 fatality = "0.0.6"
 schnellru = { workspace = true }
 

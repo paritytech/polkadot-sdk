@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 async-trait = "0.1.79"
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 
 sp-maybe-compressed-blob = { package = "sp-maybe-compressed-blob", path = "../../../../substrate/primitives/maybe-compressed-blob" }

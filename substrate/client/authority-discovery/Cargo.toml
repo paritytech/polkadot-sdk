@@ -22,7 +22,7 @@ prost-build = { workspace = true }
 [dependencies]
 codec = { workspace = true, default-features = false }
 futures = { workspace = true }
-futures-timer = "3.0.1"
+futures-timer = { workspace = true }
 ip_network = "0.4.1"
 libp2p = { version = "0.51.4", features = ["ed25519", "kad"] }
 multihash = { version = "0.17.0", default-features = false, features = ["sha2", "std"] }

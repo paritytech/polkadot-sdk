@@ -21,7 +21,7 @@ bytes = "1.1"
 codec = { workspace = true, features = ["derive"] }
 fnv = "1.0.6"
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 hyper = { version = "0.14.16", features = ["http2", "stream"] }
 hyper-rustls = { version = "0.24.0", features = ["http2"] }
 libp2p = "0.51.4"

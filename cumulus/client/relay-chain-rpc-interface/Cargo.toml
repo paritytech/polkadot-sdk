@@ -31,7 +31,7 @@ tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
 
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 parity-scale-codec = { workspace = true }
 jsonrpsee = { workspace = true, features = ["ws-client"] }
 tracing = { workspace = true }

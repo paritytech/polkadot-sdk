@@ -22,7 +22,7 @@ blake2 = "0.10.4"
 bytes = "1"
 codec = { workspace = true, default-features = false, features = ["derive"] }
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 mixnet = "0.7.0"
 multiaddr = "0.17.1"

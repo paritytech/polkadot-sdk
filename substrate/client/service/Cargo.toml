@@ -34,7 +34,7 @@ futures = { workspace = true }
 rand = { workspace = true }
 parking_lot = "0.12.1"
 log = { workspace = true, default-features = true }
-futures-timer = "3.0.1"
+futures-timer = { workspace = true }
 exit-future = "0.2.0"
 pin-project = "1.0.12"
 serde = { workspace = true, default-features = true }

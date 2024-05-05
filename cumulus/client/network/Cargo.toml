@@ -13,7 +13,7 @@ workspace = true
 async-trait = "0.1.79"
 codec = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 parking_lot = "0.12.1"
 tracing = { workspace = true }
 

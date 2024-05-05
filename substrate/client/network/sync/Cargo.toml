@@ -24,7 +24,7 @@ async-channel = "1.8.0"
 async-trait = "0.1.79"
 codec = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 libp2p = "0.51.4"
 log = { workspace = true, default-features = true }
 mockall = "0.11.3"

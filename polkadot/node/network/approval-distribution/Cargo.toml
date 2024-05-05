@@ -21,7 +21,7 @@ rand = { workspace = true }
 itertools = { workspace = true }
 
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 

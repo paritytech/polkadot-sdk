@@ -20,7 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 async-trait = "0.1.79"
 codec = { workspace = true }
 futures = { workspace = true }
-futures-timer = "3.0.1"
+futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 sc-client-api = { path = "../../api" }
 sc-consensus = { path = "../common" }

@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 derive_more = "0.99.17"
 parity-scale-codec = { version = "3.6.1", features = ["std"] }
@@ -36,7 +36,7 @@ polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 sc-keystore = { path = "../../../../substrate/client/keystore" }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 assert_matches = "1.4.0"
 lazy_static = "1.4.0"
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

@@ -23,7 +23,7 @@ async-trait = "0.1.79"
 dyn-clone = "1.0"
 finality-grandpa = { version = "0.16.2", features = ["derive-codec"] }
 futures = { workspace = true }
-futures-timer = "3.0.1"
+futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-scale-codec = { version = "3.6.1", features = ["derive"] }
 parking_lot = "0.12.1"

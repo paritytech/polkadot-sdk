@@ -54,7 +54,7 @@ sp-version = { path = "../../primitives/version" }
 
 [dev-dependencies]
 tempfile = "3.1.0"
-futures-timer = "3.0.1"
+futures-timer = { workspace = true }
 sp-tracing = { path = "../../primitives/tracing" }
 
 [features]

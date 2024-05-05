@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 ansi_term = "0.12.1"
 futures = { workspace = true }
-futures-timer = "3.0.1"
+futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 sc-client-api = { path = "../api" }
 sc-network-common = { path = "../network/common" }

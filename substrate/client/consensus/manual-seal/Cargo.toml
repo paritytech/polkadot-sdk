@@ -21,7 +21,7 @@ assert_matches = "1.3.0"
 async-trait = "0.1.79"
 codec = { workspace = true }
 futures = { workspace = true }
-futures-timer = "3.0.1"
+futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }

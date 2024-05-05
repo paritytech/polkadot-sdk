@@ -23,7 +23,7 @@ polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-primitives = { path = "../../../primitives" }
 
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 rand = { workspace = true, default-features = false }
 rand_chacha = { workspace = true, default-features = false }
 gum = { package = "tracing-gum", path = "../../gum" }

@@ -30,7 +30,7 @@ codec = { workspace = true, features = ["derive"] }
 either = "1.5.3"
 fnv = "1.0.6"
 futures = { workspace = true }
-futures-timer = "3.0.2"
+futures-timer = { workspace = true }
 ip_network = "0.4.1"
 libp2p = { version = "0.51.4", features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"] }
 linked_hash_set = "0.1.4"
