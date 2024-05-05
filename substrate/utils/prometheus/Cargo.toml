@@ -20,8 +20,8 @@ hyper = { version = "0.14.16", default-features = false, features = ["http1", "s
 log = { workspace = true, default-features = true }
 prometheus = { version = "0.13.0", default-features = false }
 thiserror = { workspace = true }
-tokio = { version = "1.22.0", features = ["parking_lot"] }
+tokio = { workspace = true, default-features = true, features = ["parking_lot"] }
 
 [dev-dependencies]
 hyper = { version = "0.14.16", features = ["client"] }
-tokio = { version = "1.22.0", features = ["rt-multi-thread"] }
+tokio = { workspace = true, default-features = true, features = ["rt-multi-thread"] }

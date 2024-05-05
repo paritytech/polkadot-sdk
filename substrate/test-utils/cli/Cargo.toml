@@ -21,7 +21,7 @@ sp-rpc = { path = "../../primitives/rpc" }
 assert_cmd = "2.0.10"
 nix = { workspace = true, features = ["signal"] }
 regex = "1.7.3"
-tokio = { version = "1.22.0", features = ["full"] }
+tokio = { workspace = true, default-features = true, features = ["full"] }
 node-primitives = { path = "../../bin/node/primitives" }
 node-cli = { package = "staging-node-cli", path = "../../bin/node/cli" }
 sc-cli = { path = "../../client/cli" }

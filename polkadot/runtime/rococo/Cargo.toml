@@ -117,7 +117,7 @@ sp-trie = { path = "../../../substrate/primitives/trie" }
 separator = "0.4.1"
 serde_json = { workspace = true, default-features = true }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
-tokio = { version = "1.24.2", features = ["macros"] }
+tokio = { workspace = true, default-features = true, features = ["macros"] }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }

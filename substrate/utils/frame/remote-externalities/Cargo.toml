@@ -24,7 +24,7 @@ sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 sp-io = { path = "../../../primitives/io" }
 sp-runtime = { path = "../../../primitives/runtime" }
-tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, default-features = true, features = ["macros", "rt-multi-thread"] }
 substrate-rpc-client = { path = "../rpc/client" }
 futures = "0.3.30"
 indicatif = "0.17.7"
