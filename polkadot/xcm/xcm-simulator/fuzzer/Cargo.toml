@@ -14,7 +14,7 @@ workspace = true
 codec = { workspace = true, default-features = true }
 honggfuzz = "0.5.55"
 arbitrary = "1.3.2"
-scale-info = { workspace = true, features = ["derive"] }
+scale-info = { workspace = true, default-features = true, features = ["derive"] }
 
 frame-system = { path = "../../../../substrate/frame/system" }
 frame-support = { path = "../../../../substrate/frame/support" }

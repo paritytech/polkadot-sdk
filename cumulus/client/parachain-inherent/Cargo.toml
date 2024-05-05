@@ -9,7 +9,7 @@ license = "Apache-2.0"
 [dependencies]
 async-trait = "0.1.79"
 codec = { workspace = true, default-features = true, features = ["derive"] }
-scale-info = { workspace = true, features = ["derive"] }
+scale-info = { workspace = true, default-features = true, features = ["derive"] }
 tracing = { workspace = true }
 
 # Substrate
