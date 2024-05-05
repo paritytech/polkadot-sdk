@@ -6,7 +6,7 @@ use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types};
 use pallet_timestamp;
 use primitives::{Fork, ForkVersions};
 use snowbridge_core::inbound::{Log, Proof};
-use sp_std::default::Default;
+use core::default::Default;
 use std::{fs::File, path::PathBuf};
 
 type Block = frame_system::mocking::MockBlock<Test>;

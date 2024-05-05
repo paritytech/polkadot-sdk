@@ -41,7 +41,7 @@ mod v0 {
 ///
 /// In this migration, update the on-chain storage for the pallet to reflect the new storage
 /// layout.
-pub struct InnerMigrateV0ToV1<T: crate::Config>(sp_std::marker::PhantomData<T>);
+pub struct InnerMigrateV0ToV1<T: crate::Config>(core::marker::PhantomData<T>);
 
 impl<T: crate::Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 	/// Return the existing [`crate::Value`] so we can check that it was correctly set in

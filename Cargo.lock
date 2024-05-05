@@ -13249,7 +13249,6 @@ dependencies = [
  "sp-offchain",
  "sp-runtime",
  "sp-session",
- "sp-std 14.0.0",
  "sp-transaction-pool",
  "sp-version",
 ]
@@ -18219,7 +18218,6 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-crypto-hashing",
- "sp-std 14.0.0",
  "static_assertions",
 ]
 
@@ -22265,7 +22263,6 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-runtime",
- "sp-std 14.0.0",
  "sp-weights",
  "staging-xcm",
 ]

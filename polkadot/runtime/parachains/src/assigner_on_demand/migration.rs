@@ -23,7 +23,7 @@ use frame_support::{
 
 mod v0 {
 	use super::*;
-	use sp_std::collections::vec_deque::VecDeque;
+	use alloc::collections::vec_deque::VecDeque;
 
 	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone)]
 	pub(super) struct EnqueuedOrder {
@@ -50,7 +50,7 @@ mod v1 {
 	use crate::assigner_on_demand::LOG_TARGET;
 
 	/// Migration to V1
-	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct UncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();

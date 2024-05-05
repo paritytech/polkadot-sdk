@@ -35,7 +35,7 @@ use parity_scale_codec::{Decode, Encode};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, ParaGenesisArgs, UpgradeStrategy},
+	paras::{self, OnNewHead, ParaGenesisArgs, ParaKind, UpgradeStrategy},
 	Origin, ParaLifecycle,
 };
 use scale_info::TypeInfo;

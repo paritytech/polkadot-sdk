@@ -18,9 +18,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
-use sp_std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use sp_weights::Weight;
 use xcm::{Version, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 
