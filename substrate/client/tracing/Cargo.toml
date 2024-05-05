@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 ansi_term = "0.12.1"
 is-terminal = "0.4.9"
-chrono = "0.4.31"
+chrono = { workspace = true }
 codec = { workspace = true, default-features = true }
 lazy_static = { workspace = true }
 libc = "0.2.152"

@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
-chrono = "0.4.31"
+chrono = { workspace = true }
 clap = { workspace = true, features = ["derive", "string", "wrap_help"] }
 fdlimit = "0.3.0"
 futures = { workspace = true }
