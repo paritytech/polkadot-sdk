@@ -24,7 +24,7 @@ sp-core = { path = "../core", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
 
 [dev-dependencies]
-rand = "0.8.5"
+rand = { workspace = true }
 substrate-test-utils = { path = "../../test-utils" }
 
 [features]

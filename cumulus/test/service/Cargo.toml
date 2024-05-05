@@ -18,7 +18,7 @@ clap = { version = "4.5.3", features = ["derive"] }
 codec = { workspace = true }
 criterion = { workspace = true, features = ["async_tokio"] }
 jsonrpsee = { workspace = true, features = ["server"] }
-rand = "0.8.5"
+rand = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["macros"] }

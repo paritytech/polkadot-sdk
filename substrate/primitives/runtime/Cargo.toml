@@ -24,7 +24,7 @@ impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 num-traits = { version = "0.2.17", default-features = false }
 paste = "1.0"
-rand = { version = "0.8.5", optional = true }
+rand = { workspace = true, optional = true }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 sp-application-crypto = { path = "../application-crypto", default-features = false }
@@ -38,7 +38,7 @@ docify = "0.2.8"
 simple-mermaid = { version = "0.1.1", optional = true }
 
 [dev-dependencies]
-rand = "0.8.5"
+rand = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 zstd = { version = "0.12.4", default-features = false }
 sp-api = { path = "../api" }

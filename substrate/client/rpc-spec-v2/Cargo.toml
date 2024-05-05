@@ -41,7 +41,7 @@ tokio = { workspace = true, features = ["sync"] }
 array-bytes = { workspace = true }
 log = { workspace = true, default-features = true }
 futures-util = { version = "0.3.30", default-features = false }
-rand = "0.8.5"
+rand = { workspace = true }
 schnellru = { workspace = true }
 
 [dev-dependencies]

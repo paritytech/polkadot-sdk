@@ -35,7 +35,7 @@ sp-consensus-beefy = { path = "../../../substrate/primitives/consensus/beefy" }
 mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.5.2" }
 pallet-beefy-mmr = { path = "../../../substrate/frame/beefy-mmr" }
 pallet-mmr = { path = "../../../substrate/frame/merkle-mountain-range" }
-rand = "0.8.5"
+rand = { workspace = true }
 sp-io = { path = "../../../substrate/primitives/io" }
 bp-test-utils = { path = "../../primitives/test-utils" }
 

@@ -26,7 +26,7 @@ impl-serde = { version = "0.4.0", default-features = false, optional = true }
 hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 bs58 = { workspace = true, default-features = false, optional = true }
-rand = { version = "0.8.5", features = ["small_rng"], optional = true }
+rand = { workspace = true, features = ["small_rng"], optional = true }
 substrate-bip39 = { path = "../../utils/substrate-bip39", default-features = false }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false, features = ["alloc"] }

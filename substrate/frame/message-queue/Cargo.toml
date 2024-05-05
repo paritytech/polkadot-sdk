@@ -32,7 +32,7 @@ frame-system = { path = "../system", default-features = false }
 [dev-dependencies]
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-tracing = { path = "../../primitives/tracing" }
-rand = "0.8.5"
+rand = { workspace = true }
 rand_distr = "0.4.3"
 
 [features]

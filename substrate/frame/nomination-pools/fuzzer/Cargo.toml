@@ -28,7 +28,7 @@ sp-runtime = { path = "../../../primitives/runtime" }
 sp-io = { path = "../../../primitives/io" }
 sp-tracing = { path = "../../../primitives/tracing" }
 
-rand = { version = "0.8.5", features = ["small_rng"] }
+rand = { workspace = true, features = ["small_rng"] }
 log = { workspace = true, default-features = true }
 
 [[bin]]

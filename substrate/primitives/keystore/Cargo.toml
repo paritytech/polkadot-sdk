@@ -22,7 +22,7 @@ sp-core = { path = "../core", default-features = false }
 sp-externalities = { path = "../externalities", default-features = false }
 
 [dev-dependencies]
-rand = "0.8.5"
+rand = { workspace = true }
 rand_chacha = "0.3.1"
 
 [features]
