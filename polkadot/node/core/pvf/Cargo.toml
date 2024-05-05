@@ -23,7 +23,7 @@ rand = { workspace = true, default-features = true }
 slotmap = "1.0"
 tempfile = "3.3.0"
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["fs", "process"] }
+tokio = { workspace = true, default-features = true, features = ["fs", "process"] }
 
 parity-scale-codec = { workspace = true, default-features = false, features = [
 	"derive",

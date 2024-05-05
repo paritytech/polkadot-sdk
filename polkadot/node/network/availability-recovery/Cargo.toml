@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 rand = { workspace = true, default-features = true }
 fatality = "0.0.6"

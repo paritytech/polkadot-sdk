@@ -33,7 +33,7 @@ schnellru = { workspace = true }
 smallvec = "1.11.0"
 thiserror = { workspace = true }
 tokio-stream = { workspace = true }
-tokio = { workspace = true, features = ["macros", "time"] }
+tokio = { workspace = true, default-features = true, features = ["macros", "time"] }
 fork-tree = { path = "../../../utils/fork-tree" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }

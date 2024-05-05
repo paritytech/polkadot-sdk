@@ -48,7 +48,7 @@ log = { workspace = true, default-features = true }
 [dev-dependencies]
 async-trait = "0.1"
 lazy_static = "1.4.0"
-tokio = { workspace = true }
+tokio = { workspace = true, default-features = true }
 sc-block-builder = { path = "../block-builder" }
 sc-client-db = { path = "../db", default-features = true }
 sc-transaction-pool = { path = "../transaction-pool" }

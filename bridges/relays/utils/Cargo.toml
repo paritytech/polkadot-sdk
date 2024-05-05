@@ -25,7 +25,7 @@ num-traits = "0.2"
 serde_json = { workspace = true, default-features = true }
 sysinfo = "0.30"
 time = { version = "0.3", features = ["formatting", "local-offset", "std"] }
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, default-features = true, features = ["rt"] }
 thiserror = { workspace = true }
 
 # Bridge dependencies

@@ -23,7 +23,7 @@ log = { workspace = true, default-features = true }
 parity-scale-codec = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 tempfile = "3.1.0"
-tokio = { workspace = true, features = ["time"] }
+tokio = { workspace = true, default-features = true, features = ["time"] }
 sc-block-builder = { path = "../../block-builder" }
 sc-client-api = { path = "../../api" }
 sc-client-db = { path = "../../db", default-features = false }

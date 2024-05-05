@@ -37,7 +37,7 @@ hex = "0.4"
 futures = { workspace = true }
 parking_lot = "0.12.1"
 tokio-stream = { workspace = true, features = ["sync"] }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, default-features = true, features = ["sync"] }
 array-bytes = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 futures-util = { workspace = true, default-features = false }
@@ -47,7 +47,7 @@ schnellru = { workspace = true }
 [dev-dependencies]
 jsonrpsee = { workspace = true, features = ["server", "ws-client"] }
 serde_json = { workspace = true, default-features = true }
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, default-features = true, features = ["macros"] }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }
 substrate-test-runtime-transaction-pool = { path = "../../test-utils/runtime/transaction-pool" }

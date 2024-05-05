@@ -121,7 +121,7 @@ tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 serde_json = { workspace = true, default-features = true }
 remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities" }
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, default-features = true, features = ["macros"] }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 
 [build-dependencies]

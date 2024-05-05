@@ -41,4 +41,4 @@ substrate-test-utils = { path = "../../../../../substrate/test-utils" }
 sc-service = { path = "../../../../../substrate/client/service" }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, default-features = true, features = ["macros"] }

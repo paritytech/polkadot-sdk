@@ -32,4 +32,4 @@ parking_lot = "0.12.1"
 sc-block-builder = { path = "../block-builder" }
 sp-tracing = { path = "../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-tokio = { workspace = true }
+tokio = { workspace = true, default-features = true }

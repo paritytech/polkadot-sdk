@@ -44,7 +44,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 smallvec = "1.11.0"
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["macros", "sync"] }
+tokio = { workspace = true, default-features = true, features = ["macros", "sync"] }
 tokio-stream = { workspace = true }
 unsigned-varint = { version = "0.7.2", features = ["asynchronous_codec", "futures"] }
 zeroize = "1.4.3"
@@ -70,7 +70,7 @@ mockall = "0.11.3"
 multistream-select = "0.12.1"
 rand = { workspace = true, default-features = true }
 tempfile = "3.1.0"
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, default-features = true, features = ["macros"] }
 tokio-util = { workspace = true, features = ["compat"] }
 tokio-test = { workspace = true }
 sc-block-builder = { path = "../block-builder" }

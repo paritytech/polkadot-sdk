@@ -49,4 +49,4 @@ sp-keyring = { path = "../../../primitives/keyring" }
 sp-timestamp = { path = "../../../primitives/timestamp" }
 sp-tracing = { path = "../../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
-tokio = { workspace = true }
+tokio = { workspace = true, default-features = true }

@@ -33,7 +33,7 @@ substrate-state-trie-migration-rpc = { path = "../../utils/frame/rpc/state-trie-
 
 [dev-dependencies]
 parking_lot = "0.12.1"
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, default-features = true, features = ["macros"] }
 pallet-balances = { path = "../balances" }
 sp-tracing = { path = "../../primitives/tracing" }
 
