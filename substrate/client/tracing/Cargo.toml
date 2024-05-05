@@ -41,7 +41,7 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-tracing = { path = "../../primitives/tracing" }
 
 [dev-dependencies]
-criterion = { workspace = true }
+criterion = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true, features = ["chrono", "parking_lot"] }
 
 [[bench]]

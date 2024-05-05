@@ -16,7 +16,7 @@ path = "src/main.rs"
 async-trait = "0.1.79"
 clap = { version = "4.5.3", features = ["derive"] }
 codec = { workspace = true, default-features = true }
-criterion = { workspace = true, features = ["async_tokio"] }
+criterion = { workspace = true, default-features = true, features = ["async_tokio"] }
 jsonrpsee = { workspace = true, features = ["server"] }
 rand = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }

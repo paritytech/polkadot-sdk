@@ -24,7 +24,7 @@ sha3 = { version = "0.10.0", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false, features = ["digest_0_10"] }
 
 [dev-dependencies]
-criterion = { workspace = true }
+criterion = { workspace = true, default-features = true }
 sp-crypto-hashing-proc-macro = { path = "proc-macro" }
 
 [[bench]]

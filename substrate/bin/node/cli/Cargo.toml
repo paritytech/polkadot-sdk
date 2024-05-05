@@ -136,7 +136,7 @@ nix = { workspace = true, features = ["signal"] }
 regex = "1.6.0"
 platforms = "3.0"
 soketto = "0.7.1"
-criterion = { workspace = true, features = ["async_tokio"] }
+criterion = { workspace = true, default-features = true, features = ["async_tokio"] }
 tokio = { workspace = true, features = ["macros", "parking_lot", "time"] }
 tokio-util = { workspace = true, features = ["compat"] }
 wait-timeout = "0.2"
