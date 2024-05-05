@@ -15,7 +15,7 @@ gum = { package = "tracing-gum", path = "../../gum" }
 parity-scale-codec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 fatality = "0.0.6"
-bitvec = "1"
+bitvec = { workspace = true, default-features = true }
 
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }

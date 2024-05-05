@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true }
 codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
-bitvec = { version = "1.0.0", default-features = false }
+bitvec = { workspace = true, default-features = false }
 sp-api = { path = "../../primitives/api", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }

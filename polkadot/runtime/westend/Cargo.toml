@@ -11,7 +11,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+bitvec = { workspace = true, default-features = false, features = ["alloc"] }
 parity-scale-codec = { workspace = true, default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 log = { workspace = true }

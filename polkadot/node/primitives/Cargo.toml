@@ -23,7 +23,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime" }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 schnorrkel = "0.11.4"
 thiserror = { workspace = true }
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+bitvec = { workspace = true, default-features = false, features = ["alloc"] }
 serde = { features = ["derive"], workspace = true, default-features = true }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]

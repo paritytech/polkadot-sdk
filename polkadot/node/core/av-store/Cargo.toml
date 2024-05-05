@@ -15,7 +15,7 @@ futures-timer = { workspace = true }
 kvdb = "0.13.0"
 thiserror = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
-bitvec = "1.0.0"
+bitvec = { workspace = true, default-features = true }
 
 parity-scale-codec = { workspace = true, default-features = true, features = ["derive"] }
 erasure = { package = "polkadot-erasure-coding", path = "../../../erasure-coding" }

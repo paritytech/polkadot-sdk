@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+bitvec = { workspace = true, default-features = false, features = ["alloc"] }
 futures = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 thiserror = { workspace = true }

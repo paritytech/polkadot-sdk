@@ -10,7 +10,7 @@ description = "Shared primitives used by Polkadot runtime"
 workspace = true
 
 [dependencies]
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc", "serde"] }
+bitvec = { workspace = true, default-features = false, features = ["alloc", "serde"] }
 hex-literal = { workspace = true }
 parity-scale-codec = { workspace = true, default-features = false, features = ["bit-vec", "derive"] }
 scale-info = { workspace = true, default-features = false, features = ["bit-vec", "derive", "serde"] }

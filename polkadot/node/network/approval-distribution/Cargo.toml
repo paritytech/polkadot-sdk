@@ -23,7 +23,7 @@ itertools = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+bitvec = { workspace = true, default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }

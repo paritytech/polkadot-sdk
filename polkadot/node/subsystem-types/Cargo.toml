@@ -31,4 +31,4 @@ smallvec = { workspace = true, default-features = true }
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+bitvec = { workspace = true, default-features = false, features = ["alloc"] }
