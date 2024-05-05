@@ -19,7 +19,7 @@ frame-support = { path = "../../support", default-features = false }
 frame-system = { path = "../../system", default-features = false }
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
 log = { workspace = true, default-features = false }
-scale-info = { version = "2.10.0", default-features = false }
+scale-info = { workspace = true, default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }
 
 [features]
