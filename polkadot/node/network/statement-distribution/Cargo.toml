@@ -41,4 +41,4 @@ sc-keystore = { path = "../../../../substrate/client/keystore" }
 sc-network = { path = "../../../../substrate/client/network" }
 futures-timer = { workspace = true }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-rand_chacha = { workspace = true }
+rand_chacha = { workspace = true, default-features = true }
