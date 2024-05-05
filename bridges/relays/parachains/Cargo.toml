@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 async-std = { workspace = true }
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true }
 relay-utils = { path = "../utils" }

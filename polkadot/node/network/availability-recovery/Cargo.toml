@@ -16,7 +16,7 @@ schnellru = { workspace = true }
 rand = { workspace = true, default-features = true }
 fatality = "0.0.6"
 thiserror = { workspace = true }
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 
 polkadot-erasure-coding = { path = "../../../erasure-coding" }

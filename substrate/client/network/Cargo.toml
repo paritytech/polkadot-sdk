@@ -22,7 +22,7 @@ prost-build = { workspace = true }
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
 async-channel = "1.8.0"
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 asynchronous-codec = "0.6"
 bytes = "1"
 cid = "0.9.0"

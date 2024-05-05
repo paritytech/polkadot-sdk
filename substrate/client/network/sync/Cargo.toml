@@ -21,7 +21,7 @@ prost-build = { workspace = true }
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
 async-channel = "1.8.0"
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 codec = { workspace = true, default-features = true, features = ["derive"] }
 futures = { workspace = true }
 futures-timer = { workspace = true }

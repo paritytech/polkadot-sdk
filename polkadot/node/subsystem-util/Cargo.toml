@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 futures = { workspace = true }
 futures-channel = "0.3.23"
 itertools = { workspace = true }

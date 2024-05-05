@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 codec = { workspace = true, default-features = true, features = ["derive"] }
 futures = { workspace = true }
 tracing = { workspace = true, default-features = true }

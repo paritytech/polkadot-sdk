@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = { version = "0.1.79", optional = true }
+async-trait = { workspace = true, optional = true }
 codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"

@@ -12,7 +12,7 @@ description = "Transaction pool client facing API."
 workspace = true
 
 [dependencies]
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }

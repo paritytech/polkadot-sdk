@@ -7,7 +7,7 @@ description = "Inherent that needs to be present in every parachain block. Conta
 license = "Apache-2.0"
 
 [dependencies]
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 codec = { workspace = true, default-features = true, features = ["derive"] }
 scale-info = { workspace = true, default-features = true, features = ["derive"] }
 tracing = { workspace = true, default-features = true }

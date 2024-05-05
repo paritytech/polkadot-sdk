@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-async-trait = { version = "0.1.79", optional = true }
+async-trait = { workspace = true, optional = true }
 codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 

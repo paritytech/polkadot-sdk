@@ -13,7 +13,7 @@ name = "test-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 clap = { version = "4.5.3", features = ["derive"] }
 codec = { workspace = true, default-features = true }
 criterion = { workspace = true, default-features = true, features = ["async_tokio"] }

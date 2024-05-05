@@ -20,7 +20,7 @@ sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 sc-client-api = { path = "../../../substrate/client/api" }
 
 futures = { workspace = true }
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 thiserror = { workspace = true }
 jsonrpsee-core = { workspace = true }
 parity-scale-codec = { workspace = true, default-features = true }
