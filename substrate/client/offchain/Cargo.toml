@@ -22,7 +22,7 @@ codec = { workspace = true, default-features = true, features = ["derive"] }
 fnv = "1.0.6"
 futures = { workspace = true }
 futures-timer = { workspace = true }
-hyper = { version = "0.14.16", features = ["http2", "stream"] }
+hyper = { workspace = true, default-features = true, features = ["http2", "stream"] }
 hyper-rustls = { version = "0.24.0", features = ["http2"] }
 libp2p = "0.51.4"
 num_cpus = "1.13"

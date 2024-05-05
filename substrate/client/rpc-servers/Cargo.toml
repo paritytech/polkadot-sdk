@@ -24,6 +24,6 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../..
 tower-http = { version = "0.4.0", features = ["cors"] }
 tower = { version = "0.4.13", features = ["util"] }
 http = "0.2.8"
-hyper = "0.14.27"
+hyper = { workspace = true, default-features = true }
 futures = { workspace = true }
 governor = "0.6.0"
