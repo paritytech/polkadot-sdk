@@ -17,7 +17,7 @@ zeroize = { version = "1.4.3", default-features = false }
 
 [dev-dependencies]
 bip39 = "2.0.0"
-rustc-hex = "2.1.0"
+rustc-hex = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

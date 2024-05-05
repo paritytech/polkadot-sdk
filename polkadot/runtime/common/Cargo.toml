@@ -14,7 +14,7 @@ impl-trait-for-tuples = { workspace = true }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { workspace = true, default-features = false, features = ["derive"] }
 log = { workspace = true }
-rustc-hex = { version = "2.1.0", default-features = false }
+rustc-hex = { workspace = true, default-features = false }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 serde = { features = ["alloc"], workspace = true }
 serde_derive = { workspace = true }

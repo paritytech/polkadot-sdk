@@ -597,6 +597,7 @@ primitive-types = { version = "0.12.1", default-features = false }
 quote = "1.0.33"
 rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
+rustc-hex = { version = "2.1.0", default-features = false }
 schnellru = "0.2.1"
 serde = { version = "1.0.197", default-features = false }
 serde-big-array = "0.3.2"
