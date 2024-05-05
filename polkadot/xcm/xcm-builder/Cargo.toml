@@ -29,7 +29,7 @@ log = { workspace = true }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 
 [dev-dependencies]
-primitive-types = "0.12.1"
+primitive-types = { workspace = true, default-features = true }
 pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-xcm = { path = "../pallet-xcm" }
 pallet-salary = { path = "../../../substrate/frame/salary" }
