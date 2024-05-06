@@ -54,10 +54,7 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
-	sync::{
-		atomic::{AtomicBool, Ordering},
-		Arc,
-	},
+	sync::Arc,
 };
 
 use crate::graph::{ExtrinsicFor, ExtrinsicHash, IsValidator};
@@ -92,7 +89,6 @@ pub(crate) const LOG_TARGET: &str = "txpool";
 pub struct View<PoolApi: graph::ChainApi> {
 	pool: graph::Pool<PoolApi>,
 	at: HashAndNumber<PoolApi::Block>,
-	accept_xts: AtomicBool,
 }
 
 impl<PoolApi> View<PoolApi>
@@ -109,30 +105,16 @@ where
 			ban_time: core::time::Duration::from_secs(60 * 30),
 		};
 
-		Self {
-			pool: graph::Pool::new(options, true.into(), api),
-			at,
-			accept_xts: AtomicBool::new(true),
-		}
+		Self { pool: graph::Pool::new(options, true.into(), api), at }
 	}
 
 	fn new_from_other(&self, at: &HashAndNumber<PoolApi::Block>) -> Self {
-		View { at: at.clone(), pool: self.pool.deep_clone(), accept_xts: AtomicBool::new(true) }
+		View { at: at.clone(), pool: self.pool.deep_clone() }
 	}
 
 	async fn finalize(&self, finalized: graph::BlockHash<PoolApi>) {
 		log::debug!("View::finalize: {:?} {:?}", self.at, finalized);
-		self.disable();
 		let _ = self.pool.validated_pool().on_block_finalized(finalized).await;
-	}
-
-	fn accept_xts(&self) -> bool {
-		self.accept_xts.load(Ordering::Relaxed)
-		// true
-	}
-
-	fn disable(&self) {
-		self.accept_xts.store(false, Ordering::Relaxed);
 	}
 
 	pub async fn submit_many(
@@ -206,7 +188,6 @@ where
 			log::debug!("submit_one: read: took:{:?}", s.elapsed());
 			let futs = views
 				.iter()
-				.filter(|v| v.1.accept_xts())
 				.map(|(hash, view)| {
 					let view = view.clone();
 					//todo: remove this clone (Arc?)
@@ -258,7 +239,6 @@ where
 			let views = self.views.read();
 			let futs = views
 				.iter()
-				.filter(|v| v.1.accept_xts())
 				.map(|(hash, view)| {
 					let view = view.clone();
 					let xt = xt.clone();
@@ -358,21 +338,40 @@ where
 			.map(|v| v.pool.validated_pool().pool.read().futures().cloned().collect())
 	}
 
-	async fn finalize_route(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
+	async fn finalize_route(
+		&self,
+		finalized_hash: Block::Hash,
+		tree_route: &[Block::Hash],
+	) -> Vec<ExtrinsicHash<PoolApi>> {
 		log::debug!(target: LOG_TARGET, "finalize_route finalized_hash:{finalized_hash:?} tree_route: {tree_route:?}");
-		let mut no_view_blocks = vec![];
-		for hash in tree_route.iter().chain(std::iter::once(&finalized_hash)) {
-			let finalized_view = { self.views.read().get(&hash).map(|v| v.clone()) };
-			log::trace!(target: LOG_TARGET, "finalize_route block_hash:{hash:?} {no_view_blocks:?} fv:{:#?}", finalized_view.is_some());
-			if let Some(finalized_view) = finalized_view {
-				for h in no_view_blocks.iter().chain(std::iter::once(hash)) {
-					finalized_view.finalize(*h).await;
-				}
-				no_view_blocks.clear();
-			} else {
-				no_view_blocks.push(*hash);
-			}
+
+		let mut finalized_transactions = Vec::new();
+
+		for block in tree_route.iter().chain(std::iter::once(&finalized_hash)) {
+			let extrinsics = self
+				.api
+				.block_body(*block)
+				.await
+				.unwrap_or_else(|e| {
+					log::warn!("Finalize route: error request: {}", e);
+					None
+				})
+				.unwrap_or_default()
+				.iter()
+				.map(|e| self.api.hash_and_length(e).0)
+				.collect::<Vec<_>>();
+
+			let futs = extrinsics
+				.iter()
+				.enumerate()
+				.map(|(i, tx_hash)| self.listener.finalize_transaction(*tx_hash, *block, i))
+				.collect::<Vec<_>>();
+
+			finalized_transactions.extend(extrinsics);
+			future::join_all(futs).await;
 		}
+
+		finalized_transactions
 	}
 
 	fn ready_transaction(
@@ -533,6 +532,16 @@ where
 		invalid_hashes
 	}
 
+	async fn purge_finalized_transactions(&self, finalized_xts: Vec<ExtrinsicHash<PoolApi>>) {
+		log::info!("purge_finalized_transactions count:{:?}", finalized_xts.len());
+		self.xts
+			.write()
+			.retain(|xt| !finalized_xts.contains(&self.api.hash_and_length(xt).0));
+		self.watched_xts
+			.write()
+			.retain(|xt| !finalized_xts.contains(&self.api.hash_and_length(xt).0));
+	}
+
 	async fn purge_transactions(&self, finalized_block: Block::Hash) {
 		let invalid_hashes = self
 			.validate_array(self.clone_unwatched().into_iter(), finalized_block, 0)
@@ -673,21 +682,15 @@ where
 	}
 
 	pub fn views_accpeting_len(&self) -> usize {
-		self.view_store
-			.views
-			.read()
-			.iter()
-			.filter(|v| v.1.accept_xts())
-			.collect::<Vec<_>>()
-			.len()
+		self.view_store.views.read().iter().collect::<Vec<_>>().len()
 	}
 
-	pub fn views_numbers(&self) -> Vec<(NumberFor<Block>, usize, usize, bool)> {
+	pub fn views_numbers(&self) -> Vec<(NumberFor<Block>, usize, usize)> {
 		self.view_store
 			.views
 			.read()
 			.iter()
-			.map(|v| (v.1.at.number, v.1.status().ready, v.1.status().future, v.1.accept_xts()))
+			.map(|v| (v.1.at.number, v.1.status().ready, v.1.status().future))
 			.collect()
 	}
 
@@ -1163,7 +1166,6 @@ where
 		};
 
 		if let Some(view) = new_view {
-			self.most_recent_view.write().replace(view.at.hash);
 			// self.revalidation_queue.revalidate_later(view).await;
 		}
 	}
@@ -1199,8 +1201,14 @@ where
 		let duration = start.elapsed();
 		log::info!("update_view_fork: at {at:?} took {duration:?}");
 
-		let view = Arc::new(view);
-		self.view_store.views.write().insert(at.hash, view.clone());
+		//todo: refactor this: maybe single object with one mutex?
+		let view = {
+			let view = Arc::new(view);
+			let mut most_recent_view_lock = self.most_recent_view.write();
+			self.view_store.views.write().insert(at.hash, view.clone());
+			most_recent_view_lock.replace(view.at.hash);
+			view
+		};
 
 		{
 			let view = view.clone();
@@ -1242,7 +1250,10 @@ where
 		let duration = start.elapsed();
 		log::info!("update_view_fork: at {at:?} took {duration:?}");
 
-		{
+		//todo: refactor this: maybe single object with one mutex?
+		// shall be property of views_store + insert/remove/get wrappers?
+		let view = {
+			let mut most_recent_view_lock = self.most_recent_view.write();
 			let views_to_be_removed = {
 				let views = self.view_store.views.read();
 				std::iter::once(tree_route.common_block())
@@ -1250,16 +1261,13 @@ where
 					.map(|block| block.hash)
 					.collect::<Vec<_>>()
 			};
-			// self.view_store.views.write().for_each(|v, _| !views_to_be_removed.contains(v));
-			for (_, view) in self.view_store.views.write().iter_mut() {
-				if views_to_be_removed.contains(&view.at.hash) {
-					(*view).disable();
-				}
-			}
-		}
+			self.view_store.views.write().retain(|v, _| !views_to_be_removed.contains(v));
 
-		let view = Arc::from(view);
-		self.view_store.views.write().insert(new_block_hash, view.clone());
+			let view = Arc::from(view);
+			self.view_store.views.write().insert(new_block_hash, view.clone());
+			most_recent_view_lock.replace(view.at.hash);
+			view
+		};
 
 		{
 			let view = view.clone();
@@ -1477,7 +1485,7 @@ where
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 		log::info!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?}");
 
-		self.view_store.finalize_route(finalized_hash, tree_route).await;
+		let finalized_xts = self.view_store.finalize_route(finalized_hash, tree_route).await;
 		log::debug!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_len());
 		{
 			//clean up older then finalized
@@ -1488,6 +1496,8 @@ where
 				Ok(Some(n)) => v.at.number > n,
 			})
 		}
+
+		self.mempool.purge_finalized_transactions(finalized_xts).await;
 
 		self.revalidation_queue
 			.purge_transactions_later(self.mempool.clone(), finalized_hash)
@@ -1537,12 +1547,13 @@ where
 			},
 			Ok(EnactmentAction::Skip) => return,
 			Ok(EnactmentAction::HandleFinalization) => {
-				let hash = event.hash();
-				if !self.has_view(hash) {
-					if let Ok(tree_route) = compute_tree_route(prev_finalized_block, hash) {
-						self.handle_new_block(&tree_route).await;
-					}
-				}
+				// todo: in some cases handle_new_block is actually needed (new_num > tips_of_forks)
+				// let hash = event.hash();
+				// if !self.has_view(hash) {
+				// 	if let Ok(tree_route) = compute_tree_route(prev_finalized_block, hash) {
+				// 		self.handle_new_block(&tree_route).await;
+				// 	}
+				// }
 			},
 			Ok(EnactmentAction::HandleEnactment(tree_route)) =>
 				self.handle_new_block(&tree_route).await,
