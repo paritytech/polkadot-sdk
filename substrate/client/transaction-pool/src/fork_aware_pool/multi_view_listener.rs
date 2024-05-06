@@ -62,6 +62,7 @@ pub struct MultiViewListener<PoolApi: ChainApi> {
 }
 
 struct ExternalWatcherContext<PoolApi: ChainApi> {
+	tx_hash: TxHash<PoolApi>,
 	fused: futures::stream::Fuse<StreamMap<BlockHash<PoolApi>, TxStatusStream<PoolApi>>>,
 	rx: mpsc::Receiver<ListenerAction<PoolApi>>,
 	terminate: bool,
@@ -77,11 +78,12 @@ impl<PoolApi: ChainApi> ExternalWatcherContext<PoolApi>
 where
 	<<PoolApi as ChainApi>::Block as BlockT>::Hash: Unpin,
 {
-	fn new(rx: mpsc::Receiver<ListenerAction<PoolApi>>) -> Self {
+	fn new(tx_hash: TxHash<PoolApi>, rx: mpsc::Receiver<ListenerAction<PoolApi>>) -> Self {
 		let mut stream_map: StreamMap<BlockHash<PoolApi>, TxStatusStream<PoolApi>> =
 			StreamMap::new();
 		stream_map.insert(Default::default(), stream::pending().boxed());
 		Self {
+			tx_hash,
 			fused: futures::StreamExt::fuse(stream_map),
 			rx,
 			terminate: false,
@@ -100,6 +102,11 @@ where
 	) -> bool {
 		// todo: full termination logic: count invalid status events
 		// self.terminate = matches!(status,TransactionStatus::Finalized(_));
+
+		trace!(
+			target: LOG_TARGET, "[{:?}] handle event from {hash:?}: {status:?} views:{:#?}", self.tx_hash,
+			self.fused.get_ref().keys().collect::<Vec<_>>()
+		);
 		match status {
 			TransactionStatus::Future => {
 				self.views_keeping_tx_valid.insert(hash);
@@ -140,7 +147,7 @@ where
 		let keys =
 			HashSet::<BlockHash<PoolApi>>::from_iter(self.fused.get_ref().keys().map(Clone::clone));
 		trace!(
-		target: LOG_TARGET, "got invalidate_transaction: streams:{:#?}",
+		target: LOG_TARGET, "[{:?}] got invalidate_transaction: views:{:#?}", self.tx_hash,
 		self.fused.get_ref().keys().collect::<Vec<_>>()
 		);
 		if self.views_keeping_tx_valid.is_disjoint(&keys) {
@@ -152,8 +159,9 @@ where
 	}
 
 	fn add_stream(&mut self, block_hash: BlockHash<PoolApi>, stream: TxStatusStream<PoolApi>) {
-		trace!(target: LOG_TARGET, "got ViewAdded {:#?} streams:{:#?}", block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
+		trace!(target: LOG_TARGET, "[{:?}] ViewAdded view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
 		self.fused.get_mut().insert(block_hash, stream);
+		trace!(target: LOG_TARGET, "[{:?}] after: ViewAdded view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
 	}
 }
 
@@ -171,17 +179,18 @@ where
 		&self,
 		tx_hash: TxHash<PoolApi>,
 	) -> Option<TxStatusStream<PoolApi>> {
-		trace!(target: LOG_TARGET, "create_external_watcher_for_tx: 1: {}", tx_hash);
 		if self.controllers.read().await.contains_key(&tx_hash) {
 			return None;
 		}
-		trace!(target: LOG_TARGET, "create_external_watcher_for_tx: 2: {}", tx_hash);
+
+		trace!(target: LOG_TARGET, "[{:?}] create_external_watcher_for_tx", tx_hash);
 
 		//todo: bounded?
 		let (tx, rx) = mpsc::channel(32);
+		//todo: controllers cannot grow - remove staff at some point!
 		self.controllers.write().await.insert(tx_hash, tx);
 
-		let ctx = ExternalWatcherContext::new(rx);
+		let ctx = ExternalWatcherContext::new(tx_hash, rx);
 
 		Some(
 			futures::stream::unfold(ctx, |mut ctx| async move {
@@ -192,23 +201,23 @@ where
 					tokio::select! {
 					biased;
 					v =  futures::StreamExt::select_next_some(&mut ctx.fused) => {
-						trace!(
-							target: LOG_TARGET, "got value: {v:#?} streams:{:#?}",
-							ctx.fused.get_ref().keys().collect::<Vec<_>>()
-						);
-						let (hash, status) = v;
+						log::trace!(target: LOG_TARGET, "[{:?}] select::map views:{:?}", ctx.tx_hash, ctx.fused.get_ref().keys().collect::<Vec<_>>());
+						let (view_hash, status) = v;
 
-						if ctx.handle(&status, hash) {
+						if ctx.handle(&status, view_hash) {
+							log::debug!(target: LOG_TARGET, "[{:?}] sending out: {status:?}", ctx.tx_hash);
 							return Some((status, ctx));
 						}
 					},
 					cmd = ctx.rx.recv() => {
+						log::trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}", ctx.tx_hash, ctx.fused.get_ref().keys().collect::<Vec<_>>());
 						match cmd {
 							Some(ListenerAction::ViewAdded(h,stream)) => {
 								ctx.add_stream(h, stream);
 							},
 							Some(ListenerAction::InvalidateTransaction) => {
 								if ctx.handle_invalidate_transaction() {
+									log::debug!(target: LOG_TARGET, "[{:?}] sending out: Invalid", ctx.tx_hash);
 									return Some((TransactionStatus::Invalid, ctx))
 								}
 							},
@@ -233,10 +242,9 @@ where
 	) {
 		let mut controllers = self.controllers.write().await;
 		if let Some(tx) = controllers.get(&tx_hash) {
-			trace!(target: LOG_TARGET, "add_view_watcher_for_tx {:#?}: sent viewEvent", tx_hash);
 			match tx.send(ListenerAction::ViewAdded(block_hash, stream)).await {
 				Err(mpsc::error::SendError(e)) => {
-					trace!(target: LOG_TARGET, "add_view_watcher_for_tx: SendError: {:?}", e);
+					trace!(target: LOG_TARGET, "[{:?}] add_view_watcher_for_tx: SendError: {:?}", tx_hash, e);
 					controllers.remove(&tx_hash);
 				},
 				Ok(_) => {},
@@ -250,7 +258,7 @@ where
 
 		let futs = invalid_hashes.into_iter().filter_map(|tx_hash| {
 			if let Some(tx) = controllers.get(&tx_hash) {
-				trace!(target: LOG_TARGET, "invalidate_transaction {:#?}", tx_hash);
+				trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction", tx_hash);
 				Some(
 					tx.send(ListenerAction::InvalidateTransaction)
 						.map(move |result| (result, tx_hash)),
