@@ -293,6 +293,7 @@ where
 			r
 		});
 		if let Some(Err(err)) = maybe_error {
+			log::debug!("[{:?}] submit_and_watch: err: {}", tx_hash, err);
 			return Err(err);
 		};
 
@@ -309,7 +310,8 @@ where
 
 	/// Finds the best existing view to clone from along the path.
 	/// Allows to include all the transactions from the imported blocks (that are on the retracted
-	/// path). Tip of retracted fork is usually most recent block processed by txpool.
+	/// path) without additional validation. Tip of retracted fork is usually most recent block
+	/// processed by txpool.
 	///
 	/// ```text
 	/// Tree route from R1 to E2.
@@ -667,6 +669,25 @@ where
 	//todo:naming? maybe just views()
 	pub fn views_len(&self) -> usize {
 		self.view_store.views.read().len()
+	}
+
+	pub fn views_accpeting_len(&self) -> usize {
+		self.view_store
+			.views
+			.read()
+			.iter()
+			.filter(|v| v.1.accept_xts())
+			.collect::<Vec<_>>()
+			.len()
+	}
+
+	pub fn views_numbers(&self) -> Vec<(NumberFor<Block>, usize, usize, bool)> {
+		self.view_store
+			.views
+			.read()
+			.iter()
+			.map(|v| (v.1.at.number, v.1.status().ready, v.1.status().future, v.1.accept_xts()))
+			.collect()
 	}
 
 	pub fn has_view(&self, hash: Block::Hash) -> bool {
