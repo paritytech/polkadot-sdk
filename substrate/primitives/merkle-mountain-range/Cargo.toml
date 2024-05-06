@@ -27,7 +27,7 @@ sp-runtime = { path = "../runtime", default-features = false }
 thiserror = { optional = true, workspace = true }
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 
 [features]
 default = ["std"]
