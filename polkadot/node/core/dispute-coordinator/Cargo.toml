@@ -27,7 +27,7 @@ sc-keystore = { path = "../../../../substrate/client/keystore" }
 
 
 [dev-dependencies]
-kvdb-memorydb = "0.13.0"
+kvdb-memorydb = { workspace = true }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-core = { path = "../../../../substrate/primitives/core" }

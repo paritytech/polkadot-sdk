@@ -31,7 +31,7 @@ polkadot-node-jaeger = { path = "../../jaeger" }
 log = { workspace = true, default-features = true }
 env_logger = { workspace = true }
 assert_matches = { workspace = true }
-kvdb-memorydb = "0.13.0"
+kvdb-memorydb = { workspace = true }
 
 sp-core = { path = "../../../../substrate/primitives/core" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }

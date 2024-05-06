@@ -53,7 +53,7 @@ rand = { workspace = true, default-features = true }
 # `rand` only supports uniform distribution, we need normal distribution for latency.
 rand_distr = "0.4.3"
 bitvec = { workspace = true, default-features = true }
-kvdb-memorydb = "0.13.0"
+kvdb-memorydb = { workspace = true }
 
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 tokio = { workspace = true, default-features = true, features = ["parking_lot", "rt-multi-thread"] }
