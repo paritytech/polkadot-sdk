@@ -215,8 +215,12 @@ impl<B: ChainApi> ValidatedPool<B> {
 					return Err(error::Error::Unactionable.into())
 				}
 
+				let s = std::time::Instant::now();
+				let tx_hash = tx.hash;
 				let imported = self.pool.write().import(tx)?;
+				log::debug!("[{:?}] submit_one: vp::import: {:?}", tx_hash, s.elapsed());
 
+				let s = std::time::Instant::now();
 				if let base::Imported::Ready { ref hash, .. } = imported {
 					let sinks = &mut self.import_notification_sinks.lock();
 					sinks.retain_mut(|sink| match sink.try_send(*hash) {
@@ -234,9 +238,12 @@ impl<B: ChainApi> ValidatedPool<B> {
 							},
 					});
 				}
+				log::debug!("[{:?}] submit_one: vp::submit_one::sinks: {:?}", tx_hash, s.elapsed());
 
+				let s = std::time::Instant::now();
 				let mut listener = self.listener.write();
 				fire_events(&mut *listener, &imported);
+				log::debug!("[{:?}] submit_one: vp::submit_one::sinks: {:?}", tx_hash, s.elapsed());
 				Ok(*imported.hash())
 			},
 			ValidatedTransaction::Invalid(hash, err) => {
@@ -516,7 +523,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 	) {
 		debug_assert_eq!(pruned_hashes.len(), pruned_xts.len());
 		let known_imported_hashes = known_imported_hashes.into_iter().collect::<Vec<_>>();
-		log::info!(
+		log::debug!(
 			"ValidatedPool::resubmit_pruned: known_imported_hashes: {:?}, pruned_hashes: {:?}, pruned_xts: {:?}",
 			known_imported_hashes.clone(),
 			pruned_hashes,
@@ -539,7 +546,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		// `known_imported_hashes` since they were just imported as part of the block.
 		let hashes = hashes.chain(known_imported_hashes.into_iter());
 		let v = hashes.collect::<Vec<_>>();
-		log::info!("resubmit: {:#?}", v.clone());
+		log::debug!("resubmit: {:#?}", v.clone());
 		self.fire_pruned(at, v.into_iter());
 
 		// perform regular cleanup of old transactions in the pool
