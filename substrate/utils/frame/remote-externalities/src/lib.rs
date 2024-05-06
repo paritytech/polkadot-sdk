@@ -1039,10 +1039,10 @@ where
 				Some(self.as_online().at_expected()),
 			)
 		};
-		Ok(Retry::spawn(retry_strategy, get_header_closure)
+		Retry::spawn(retry_strategy, get_header_closure)
 			.await
 			.map_err(|_| "Failed to fetch header for block from network")?
-			.ok_or("Network returned None block header")?)
+			.ok_or("Network returned None block header")
 	}
 
 	/// Load the data from a remote server. The main code path is calling into `load_top_remote` and
