@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714806256337,
+  "lastUpdate": 1714973936451,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2208,6 +2208,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.403643804229962,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "73c89d308fefcedfc3619f0273e13b6623766b81",
+          "message": "Introduces `TypeWithDefault<T, D: Get<T>>` (#4034)\n\nNeeded for: https://github.com/polkadot-fellows/runtimes/issues/248\n\nThis PR introduces a new type `TypeWithDefault<T, D: Get<T>>` to be able\nto provide a custom default for any type. This can, then, be used to\nprovide the nonce type that returns the current block number as the\ndefault, to avoid replay of immortal transactions.\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-05-06T03:59:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/73c89d308fefcedfc3619f0273e13b6623766b81"
+        },
+        "date": 1714973910563,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63546.06000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.080053513599918,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.632035481910163,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.501562840889955,
             "unit": "seconds"
           }
         ]
