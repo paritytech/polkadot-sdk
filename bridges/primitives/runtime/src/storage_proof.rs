@@ -111,7 +111,7 @@ where
 		// LayoutV1 or LayoutV0 is identical for proof that only read values.
 		read_trie_value::<LayoutV1<H, ()>, _>(
 			&self.db,
-			&self.root,
+			&(self.root, Default::default()),
 			key,
 			Some(&mut self.recorder),
 			None,

@@ -200,7 +200,7 @@ where
 			let raw_key_values =
 				mdb.drain().into_iter().collect::<Vec<(Vec<u8>, (Vec<u8>, i32))>>();
 
-			(raw_key_values, *self.backend.root())
+			(raw_key_values, self.backend.root().0)
 		} else {
 			Default::default()
 		}

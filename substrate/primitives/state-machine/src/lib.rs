@@ -39,6 +39,7 @@ mod trie_backend;
 mod trie_backend_essence;
 
 pub use trie_backend::TrieCacheProvider;
+pub use trie_backend_essence::Root;
 
 #[cfg(feature = "std")]
 pub use std_reexport::*;
@@ -1602,7 +1603,7 @@ mod tests {
 
 			let trie: InMemoryBackend<BlakeTwo256> =
 				(storage.clone(), StateVersion::default()).into();
-			let trie_root = *trie.root();
+			let trie_root = trie.root().0;
 			let backend = trie.with_temp_recorder(Default::default());
 			let mut queries = Vec::new();
 			for c in 0..(5 + nb_child_trie / 2) {

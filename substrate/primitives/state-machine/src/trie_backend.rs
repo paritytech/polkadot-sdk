@@ -21,7 +21,7 @@
 use crate::backend::AsTrieBackend;
 use crate::{
 	backend::{BackendTransaction, DBLocation, IterArgs, StorageIterator},
-	trie_backend_essence::{RawIter, TrieBackendEssence},
+	trie_backend_essence::{RawIter, Root, TrieBackendEssence},
 	Backend, StorageKey, StorageValue,
 };
 
@@ -274,7 +274,7 @@ type DefaultRecorder<H> = UnimplementedRecorderProvider<H>;
 /// Builder for creating a [`TrieBackend`].
 pub struct TrieBackendBuilder<H: Hasher, C = DefaultCache<H, DBLocation>, R = DefaultRecorder<H>> {
 	storage: Box<dyn AsDB<H>>,
-	root: H::Out,
+	root: Root<H>,
 	recorder: Option<R>,
 	cache: Option<C>,
 }
@@ -285,6 +285,11 @@ where
 {
 	/// Create a new builder instance.
 	pub fn new(storage: Box<dyn AsDB<H>>, root: H::Out) -> Self {
+		Self { storage, root: (root, Default::default()), recorder: None, cache: None }
+	}
+
+	/// Create a new builder instance.
+	pub fn new_with_location(storage: Box<dyn AsDB<H>>, root: Root<H>) -> Self {
 		Self { storage, root, recorder: None, cache: None }
 	}
 }
@@ -296,7 +301,7 @@ where
 {
 	/// Create a new builder instance.
 	pub fn new_with_cache(storage: Box<dyn AsDB<H>>, root: H::Out, cache: C) -> Self {
-		Self { storage, root, recorder: None, cache: Some(cache) }
+		Self { storage, root: (root, Default::default()), recorder: None, cache: Some(cache) }
 	}
 
 	/// Use the given optional `recorder` for the to be configured [`TrieBackend`].
@@ -416,12 +421,12 @@ where
 	}
 
 	/// Set trie root.
-	pub fn set_root(&mut self, root: H::Out) {
+	pub fn set_root(&mut self, root: Root<H>) {
 		self.essence.set_root(root)
 	}
 
 	/// Get trie root.
-	pub fn root(&self) -> &H::Out {
+	pub fn root(&self) -> &Root<H> {
 		self.essence.root()
 	}
 
@@ -651,6 +656,8 @@ impl<H: Hasher> AsTrieBackend<H> for TrieBackend<H> {
 }
 
 /// Create a backend used for checking the proof, using `H` as hasher.
+///
+/// Note that this checks on a `MemoryDB` and can be use safely with default location.
 ///
 /// `proof` and `root` must match, i.e. `root` must be the correct root of `proof` nodes.
 #[cfg(feature = "std")]

@@ -80,10 +80,10 @@ where
 	pub fn apply_transaction(&mut self, transaction: BackendTransaction<H::Out>) {
 		if let Some(mut mdb) = self.backend_storage_mut().as_mem_db_mut() {
 			let root = transaction.apply_to(&mut mdb);
-			self.set_root(root);
+			self.set_root((root, Default::default()));
 		} else if let Some(mut mdb) = self.backend_storage_mut().as_prefixed_mem_db_mut() {
 			let root = transaction.apply_to(&mut mdb);
-			self.set_root(root);
+			self.set_root((root, Default::default()));
 		} else {
 			unreachable!()
 		}
@@ -98,9 +98,9 @@ where
 	/// Note that this will clone the underlying storage.
 	pub fn clone_in_mem(&self) -> Option<Self> {
 		if let Some(db) = self.backend_storage().as_mem_db() {
-			Some(TrieBackendBuilder::new(Box::new(db.clone()), *self.root()).build())
+			Some(TrieBackendBuilder::new_with_location(Box::new(db.clone()), *self.root()).build())
 		} else if let Some(db) = self.backend_storage().as_prefixed_mem_db() {
-			Some(TrieBackendBuilder::new(Box::new(db.clone()), *self.root()).build())
+			Some(TrieBackendBuilder::new_with_location(Box::new(db.clone()), *self.root()).build())
 		} else {
 			None
 		}

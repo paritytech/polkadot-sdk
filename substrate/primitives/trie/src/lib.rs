@@ -344,12 +344,12 @@ pub fn read_trie_value<
 	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 >(
 	db: &DB,
-	root: &TrieHash<L>,
+	root: &Root<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<Vec<u8>>, Box<TrieError<L>>> {
-	TrieDBBuilder::<L>::new(db, root)
+	TrieDBBuilder::<L>::new_with_db_location(db, &root.0, root.1)
 		.with_optional_cache(cache)
 		.with_optional_recorder(recorder)
 		.build()
@@ -362,12 +362,12 @@ pub fn read_trie_value_with_location<
 	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 >(
 	db: &DB,
-	root: &TrieHash<L>,
+	root: &Root<L>,
 	root_key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<(Vec<u8>, L::Location)>, Box<TrieError<L>>> {
-	let trie = TrieDBBuilder::<L>::new(db, root)
+	let trie = TrieDBBuilder::<L>::new_with_db_location(db, &root.0, root.1)
 		.with_optional_cache(cache)
 		.with_optional_recorder(recorder)
 		.build();
@@ -381,7 +381,6 @@ pub fn read_trie_value_with_location<
 	let location = node.node_plan().additional_ref_location(node.locations());
 	let Some(root) = iter.item_from_raw(&item) else { return Ok(None) };
 	let (root_key2, root) = root?;
-	// TODO should be a debug_assert
 	if root_key2.as_slice() != root_key {
 		return Ok(None);
 	}
@@ -392,7 +391,7 @@ pub fn read_trie_value_with_location<
 /// the provided key.
 pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
 	db: &DB,
-	root: &TrieHash<L>,
+	root: &Root<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
@@ -400,7 +399,7 @@ pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
 where
 	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 {
-	TrieDBBuilder::<L>::new(db, root)
+	TrieDBBuilder::<L>::new_with_db_location(db, &root.0, root.1)
 		.with_optional_cache(cache)
 		.with_optional_recorder(recorder)
 		.build()

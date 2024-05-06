@@ -205,7 +205,7 @@ impl RelayStateSproofBuilder {
 			}
 		}
 
-		let root = *backend.root();
+		let root = backend.root().0;
 		let proof = sp_state_machine::prove_read(backend, relevant_keys).expect("prove read");
 		(root, proof)
 	}

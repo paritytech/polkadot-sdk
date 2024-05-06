@@ -46,7 +46,8 @@ use trie_db::node_db::{Hasher, NodeDB, Prefix};
 // where V1 and V0 are equivalent.
 use sp_trie::LayoutV1 as Layout;
 
-type Root<H> = sp_trie::Root<Layout<H, DBLocation>>;
+/// Alias of root with location for a given hasher.
+pub type Root<H> = sp_trie::Root<Layout<H, DBLocation>>;
 
 #[cfg(not(feature = "std"))]
 macro_rules! format {
@@ -204,7 +205,7 @@ where
 /// Patricia trie-based pairs storage essence.
 pub struct TrieBackendEssence<H: Hasher, C, R> {
 	pub(crate) storage: Box<dyn AsDB<H>>,
-	root: H::Out,
+	root: Root<H>,
 	// TODO would make sense to have root_location
 	empty: H::Out,
 	#[cfg(feature = "std")]
@@ -228,12 +229,12 @@ where
 	R: TrieRecorderProvider<H, DBLocation>,
 {
 	/// Create new trie-based backend.
-	pub fn new(storage: Box<dyn AsDB<H>>, root: H::Out) -> Self {
+	pub fn new(storage: Box<dyn AsDB<H>>, root: Root<H>) -> Self {
 		Self::new_with_cache(storage, root, None)
 	}
 
 	/// Create new trie-based backend.
-	pub fn new_with_cache(storage: Box<dyn AsDB<H>>, root: H::Out, cache: Option<C>) -> Self {
+	pub fn new_with_cache(storage: Box<dyn AsDB<H>>, root: Root<H>, cache: Option<C>) -> Self {
 		TrieBackendEssence {
 			storage,
 			root,
@@ -251,7 +252,7 @@ where
 	/// Create new trie-based backend.
 	pub fn new_with_cache_and_recorder(
 		storage: Box<dyn AsDB<H>>,
-		root: H::Out,
+		root: Root<H>,
 		cache: Option<C>,
 		recorder: Option<R>,
 	) -> Self {
@@ -278,12 +279,12 @@ where
 		&mut *self.storage
 	}
 	/// Get trie root.
-	pub fn root(&self) -> &H::Out {
+	pub fn root(&self) -> &Root<H> {
 		&self.root
 	}
 
 	/// Set trie root. This is useful for testing.
-	pub fn set_root(&mut self, root: H::Out) {
+	pub fn set_root(&mut self, root: Root<H>) {
 		// If root did change so can have cached content.
 		self.reset_cache();
 		self.root = root;
@@ -292,7 +293,6 @@ where
 	/// Set recorder. Returns old recorder if any.
 	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {
 		if recorder.is_some() {
-			// TODO try without reset.
 			self.reset_cache();
 		}
 		#[cfg(feature = "std")]
@@ -329,7 +329,7 @@ where
 			Option<&mut dyn TrieCache<NodeCodec<H>, DBLocation>>,
 		) -> RE,
 	) -> RE {
-		let storage_root = storage_root.unwrap_or_else(|| self.root);
+		let storage_root = storage_root.unwrap_or_else(|| self.root.0);
 		let mut cache = self.trie_node_cache.as_ref().map(|c| c.as_trie_db_cache(storage_root));
 		let cache = cache.as_mut().map(|c| c as _);
 
@@ -360,7 +360,7 @@ where
 			Option<&mut dyn TrieCache<NodeCodec<H>, DBLocation>>,
 		) -> (Option<H::Out>, RE),
 	) -> RE {
-		let storage_root = storage_root.unwrap_or_else(|| self.root);
+		let storage_root = storage_root.unwrap_or_else(|| self.root.0);
 		#[cfg(feature = "std")]
 		let recorder = self.recorder.read();
 		#[cfg(not(feature = "std"))]
@@ -429,7 +429,7 @@ where
 	/// the next key through an iterator.
 	#[cfg(debug_assertions)]
 	pub fn next_storage_key_slow(&self, key: &[u8]) -> Result<Option<StorageKey>> {
-		self.next_storage_key_from_root(&(self.root, Default::default()), None, key)
+		self.next_storage_key_from_root(&self.root, None, key)
 	}
 
 	/// Access the root of the child storage in its parent trie
@@ -525,7 +525,7 @@ where
 		let map_e = |e| format!("Trie lookup error: {}", e);
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			TrieDBBuilder::new(self, &self.root)
+			TrieDBBuilder::new_with_db_location(self, &self.root.0, self.root.1)
 				.with_optional_cache(cache)
 				.with_optional_recorder(recorder)
 				.build()
@@ -636,7 +636,7 @@ where
 			};
 			root
 		} else {
-			(self.root, Default::default())
+			self.root
 		};
 
 		if self.root == Default::default() {
@@ -681,21 +681,11 @@ where
 			let commit = match state_version {
 				StateVersion::V0 =>
 					delta_trie_root::<sp_trie::LayoutV0<H, DBLocation>, _, _, _, _>(
-						backend,
-						(self.root, Default::default()),
-						delta,
-						recorder,
-						cache,
-						None,
+						backend, self.root, delta, recorder, cache, None,
 					),
 				StateVersion::V1 =>
 					delta_trie_root::<sp_trie::LayoutV1<H, DBLocation>, _, _, _, _>(
-						backend,
-						(self.root, Default::default()),
-						delta,
-						recorder,
-						cache,
-						None,
+						backend, self.root, delta, recorder, cache, None,
 					),
 			};
 
@@ -703,7 +693,7 @@ where
 				Ok(commit) => (Some(commit.root_hash()), commit),
 				Err(e) => {
 					warn!(target: "trie", "Failed to write to trie: {}", e);
-					(None, BackendTransaction::unchanged(self.root, Default::default()))
+					(None, BackendTransaction::unchanged(self.root.0, self.root.1))
 				},
 			}
 		})
@@ -757,7 +747,7 @@ where
 					Ok(commit) => (Some(commit.root_hash()), commit),
 					Err(e) => {
 						warn!(target: "trie", "Failed to write to trie: {}", e);
-						(None, BackendTransaction::unchanged(self.root, Default::default()))
+						(None, BackendTransaction::unchanged(self.root.0, self.root.1))
 					},
 				}
 			});
@@ -806,7 +796,6 @@ mod test {
 
 	#[test]
 	fn next_storage_key_and_next_child_storage_key_work() {
-		// TODO also test on mem-tree-db
 		let child_info = ChildInfo::new_default(b"MyChild");
 		let child_info = &child_info;
 		// Contains values
@@ -836,7 +825,7 @@ mod test {
 			_,
 			LocalTrieCache<_, _>,
 			sp_trie::recorder::Recorder<_, _>,
-		>::new(Box::new(mdb), root_1);
+		>::new(Box::new(mdb), (root_1, Default::default()));
 		let essence_1 = TrieBackend::from_essence(essence_1);
 
 		assert_eq!(essence_1.next_storage_key(b"2"), Ok(Some(b"3".to_vec())));
@@ -850,7 +839,7 @@ mod test {
 			_,
 			LocalTrieCache<_, DBLocation>,
 			sp_trie::recorder::Recorder<_, _>,
-		>::new(Box::new(mdb), root_2);
+		>::new(Box::new(mdb), (root_2, Default::default()));
 
 		assert_eq!(essence_2.next_child_storage_key(child_info, b"2"), Ok(Some(b"3".to_vec())));
 		assert_eq!(essence_2.next_child_storage_key(child_info, b"3"), Ok(Some(b"4".to_vec())));

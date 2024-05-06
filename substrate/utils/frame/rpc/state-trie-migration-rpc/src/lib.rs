@@ -81,7 +81,7 @@ where
 	let trie_backend = backend.as_trie_backend();
 	let essence = trie_backend.essence();
 	let (top_remaining_to_migrate, total_top, trie) =
-		count_migrate(essence, essence.root(), Default::default())?;
+		count_migrate(essence, &essence.root().0, Default::default())?;
 
 	let mut child_remaining_to_migrate = 0;
 	let mut total_child = 0;
