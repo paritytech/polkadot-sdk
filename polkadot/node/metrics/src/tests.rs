@@ -45,8 +45,14 @@ async fn runtime_can_publish_metrics() {
 	// Start validator Alice.
 	let alice = run_validator_node(alice_config, None);
 
-	let bob_config =
-		node_config(|| {}, tokio::runtime::Handle::current(), Bob, vec![alice.addr.clone()], true, false);
+	let bob_config = node_config(
+		|| {},
+		tokio::runtime::Handle::current(),
+		Bob,
+		vec![alice.addr.clone()],
+		true,
+		false,
+	);
 
 	// Start validator Bob.
 	let _bob = run_validator_node(bob_config, None);
