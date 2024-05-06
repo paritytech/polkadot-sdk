@@ -510,7 +510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">crate</span>::Account::&lt;Test&gt;::insert(
 				<span class="number">1</span>,
 				<span class="kw">crate</span>::AccountInfo {
-					nonce: <span class="number">1</span>,
+					nonce: <span class="number">1u64</span>.into(),
 					consumers: <span class="number">0</span>,
 					providers: <span class="number">1</span>,
 					sufficients: <span class="number">0</span>,
@@ -521,20 +521,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 			<span class="comment">// stale
 			</span><span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">0</span>).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
+				CheckNonce::&lt;Test&gt;(<span class="number">0u64</span>.into()).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
 				InvalidTransaction::Stale
 			);
 			<span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">0</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
+				CheckNonce::&lt;Test&gt;(<span class="number">0u64</span>.into()).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
 				InvalidTransaction::Stale
 			);
 			<span class="comment">// correct
-			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
-			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1u64</span>.into()).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1u64</span>.into()).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
 			<span class="comment">// future
-			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">5</span>).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">5u64</span>.into()).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len));
 			<span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">5</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
+				CheckNonce::&lt;Test&gt;(<span class="number">5u64</span>.into()).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
 				InvalidTransaction::Future
 			);
 		})
@@ -546,7 +546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">crate</span>::Account::&lt;Test&gt;::insert(
 				<span class="number">2</span>,
 				<span class="kw">crate</span>::AccountInfo {
-					nonce: <span class="number">1</span>,
+					nonce: <span class="number">1u64</span>.into(),
 					consumers: <span class="number">0</span>,
 					providers: <span class="number">1</span>,
 					sufficients: <span class="number">0</span>,
@@ -556,7 +556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">crate</span>::Account::&lt;Test&gt;::insert(
 				<span class="number">3</span>,
 				<span class="kw">crate</span>::AccountInfo {
-					nonce: <span class="number">1</span>,
+					nonce: <span class="number">1u64</span>.into(),
 					consumers: <span class="number">0</span>,
 					providers: <span class="number">0</span>,
 					sufficients: <span class="number">1</span>,
@@ -567,19 +567,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 			<span class="comment">// Both providers and sufficients zero
 			</span><span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
+				CheckNonce::&lt;Test&gt;(<span class="number">1u64</span>.into()).validate(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
 				InvalidTransaction::Payment
 			);
 			<span class="macro">assert_noop!</span>(
-				CheckNonce::&lt;Test&gt;(<span class="number">1</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
+				CheckNonce::&lt;Test&gt;(<span class="number">1u64</span>.into()).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">1</span>, CALL, <span class="kw-2">&amp;</span>info, len),
 				InvalidTransaction::Payment
 			);
 			<span class="comment">// Non-zero providers
-			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate(<span class="kw-2">&amp;</span><span class="number">2</span>, CALL, <span class="kw-2">&amp;</span>info, len));
-			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">2</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1u64</span>.into()).validate(<span class="kw-2">&amp;</span><span class="number">2</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1u64</span>.into()).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">2</span>, CALL, <span class="kw-2">&amp;</span>info, len));
 			<span class="comment">// Non-zero sufficients
-			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).validate(<span class="kw-2">&amp;</span><span class="number">3</span>, CALL, <span class="kw-2">&amp;</span>info, len));
-			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1</span>).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">3</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			</span><span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1u64</span>.into()).validate(<span class="kw-2">&amp;</span><span class="number">3</span>, CALL, <span class="kw-2">&amp;</span>info, len));
+			<span class="macro">assert_ok!</span>(CheckNonce::&lt;Test&gt;(<span class="number">1u64</span>.into()).pre_dispatch(<span class="kw-2">&amp;</span><span class="number">3</span>, CALL, <span class="kw-2">&amp;</span>info, len));
 		})
 	}
 }
