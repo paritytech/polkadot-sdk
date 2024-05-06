@@ -900,7 +900,9 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-scheduler",
  "pallet-treasury",
+ "pallet-utility",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
@@ -910,6 +912,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "westend-runtime",
+ "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
 
@@ -954,7 +957,9 @@ dependencies = [
  "pallet-nft-fractionalization",
  "pallet-nfts",
  "pallet-nfts-runtime-api",
+ "pallet-preimage",
  "pallet-proxy",
+ "pallet-scheduler",
  "pallet-session",
  "pallet-state-trie-migration",
  "pallet-timestamp",

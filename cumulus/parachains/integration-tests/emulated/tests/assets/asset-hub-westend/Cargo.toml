@@ -22,6 +22,8 @@ pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-
 pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
 pallet-treasury = { path = "../../../../../../../substrate/frame/treasury", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
+pallet-utility = { path = "../../../../../../../substrate/frame/utility", default-features = false }
+pallet-scheduler = { path = "../../../../../../../substrate/frame/scheduler", default-features = false }
 
 # Polkadot
 polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common" }
@@ -29,6 +31,7 @@ xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", def
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
 westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
+westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants" }
 
 # Cumulus
 parachains-common = { path = "../../../../../common" }

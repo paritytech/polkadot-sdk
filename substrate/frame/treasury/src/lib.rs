@@ -812,7 +812,11 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::payout())]
 		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResult {
-			ensure_signed(origin)?;
+			match ensure_signed(origin.clone()) {
+				Err(e) if T::SpendOrigin::ensure_origin(origin).is_err() => Err(e),
+				_ => Ok(()),
+			}?;
+
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
 			let now = frame_system::Pallet::<T>::block_number();
 			ensure!(now >= spend.valid_from, Error::<T, I>::EarlyPayout);
