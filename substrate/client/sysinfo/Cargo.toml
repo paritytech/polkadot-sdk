@@ -21,7 +21,7 @@ futures = "0.3.30"
 libc = "0.2"
 log = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
-rand_pcg = "0.3.1"
+rand_pcg = { workspace = true }
 derive_more = "0.99"
 regex = "1"
 serde = { features = ["derive"], workspace = true, default-features = true }
