@@ -73,9 +73,6 @@ pub trait TrieCacheProvider<H: Hasher> {
 	fn merge<'a>(&'a self, other: Self::Cache<'a>, new_root: H::Out);
 }
 
-// TODO pass DBLocation from backend (no use of having
-// something u64 in structs for rocksdb or old paritydb).
-// (for no_std it is ()).
 #[cfg(feature = "std")]
 impl<H: Hasher> TrieCacheProvider<H> for LocalTrieCache<H, DBLocation> {
 	type Cache<'a> = TrieCache<'a, H, DBLocation> where H: 'a;

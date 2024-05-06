@@ -206,7 +206,6 @@ where
 pub struct TrieBackendEssence<H: Hasher, C, R> {
 	pub(crate) storage: Box<dyn AsDB<H>>,
 	root: Root<H>,
-	// TODO would make sense to have root_location
 	empty: H::Out,
 	#[cfg(feature = "std")]
 	pub(crate) cache: RwLock<Cache<H::Out>>,
