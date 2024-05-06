@@ -1164,7 +1164,7 @@ where
 
 		if let Some(view) = new_view {
 			self.most_recent_view.write().replace(view.at.hash);
-			self.revalidation_queue.revalidate_later(view).await;
+			// self.revalidation_queue.revalidate_later(view).await;
 		}
 	}
 
