@@ -26,7 +26,7 @@ use futures::{
 	stream::{self, Fuse, StreamExt},
 	Future, FutureExt,
 };
-use log::info;
+use log::{debug, info, trace};
 use std::{
 	collections::HashSet,
 	fmt::{self, Debug, Formatter},
@@ -74,27 +74,28 @@ where
 		let ctx = Self { stream_map: stream_map.fuse(), controller: receiver };
 
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
-            loop {
-                tokio::select! {
+			loop {
+				tokio::select! {
 					biased;
-                    cmd = ctx.controller.recv() => {
-						info!("Cmd: {:#?}", cmd);
-                        match cmd {
-                            Some(Command::AddView(key,stream)) => {info!("addView {key:?}"); ctx.stream_map.get_mut().insert(key,stream);},
+					cmd = ctx.controller.recv() => {
+						match cmd {
+							Some(Command::AddView(key,stream)) => {
+								debug!("Command::addView {key:?}");
+								ctx.stream_map.get_mut().insert(key,stream);
+							},
 							//controller sender is terminated, terminate the map as well
-                            None => { return None }
-                        }
+							None => { return None }
+						}
+					},
 
-                    },
-
-                    event = futures::StreamExt::select_next_some(&mut ctx.stream_map) => {
-						info!("sm -> {:#?}", event);
+					event = futures::StreamExt::select_next_some(&mut ctx.stream_map) => {
+						trace!("sm -> {:#?}", event);
 						return Some((event.1, ctx));
-                    }
-                }
-            }
-        })
-        .boxed();
+					}
+				}
+			}
+		})
+		.boxed();
 
 		(stream_map, sender)
 	}
@@ -127,10 +128,9 @@ where
 				async move {
 					if filter.write().await.insert(event.clone()) {
 						for sink in &mut *external_sinks.write().await {
-							info!("b XXXX -> {event:#?}");
+							debug!("import_sink_worker sending out event: {event:?}");
 							//todo: log/handle error
 							let _ = sink.try_send(event.clone());
-							info!("a XXXX -> {event:#?}");
 						}
 					}
 				}
