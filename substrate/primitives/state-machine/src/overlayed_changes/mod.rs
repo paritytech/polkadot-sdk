@@ -132,9 +132,7 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			transaction_index_ops: self.transaction_index_ops.clone(),
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
-			storage_transaction_cache: None, /* TODO try tests with old code (very important).
-			                                  * storage_transaction_cache:
-			                                  * self.storage_transaction_cache.clone(), */
+			storage_transaction_cache: self.storage_transaction_cache.clone(),
 		}
 	}
 }
@@ -246,7 +244,6 @@ impl<H: Hasher> StorageTransactionCache<H> {
 	}
 }
 
-/*
 impl<H: Hasher> Clone for StorageTransactionCache<H> {
 	fn clone(&self) -> Self {
 		Self {
@@ -254,7 +251,6 @@ impl<H: Hasher> Clone for StorageTransactionCache<H> {
 		}
 	}
 }
-*/
 
 impl<H: Hasher> core::fmt::Debug for StorageTransactionCache<H> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
