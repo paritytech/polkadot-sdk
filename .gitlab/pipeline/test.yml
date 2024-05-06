@@ -48,7 +48,7 @@ codecov-finish:
     - .common-refs
     - .pipeline-stopper-artifacts  
   needs:
-    - codecov-test-linux-stable
+    - test-linux-stable-codecov
   script:
     - !reference [.codecov-check, script]  
     - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
