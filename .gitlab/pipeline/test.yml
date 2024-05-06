@@ -72,7 +72,7 @@ test-linux-stable-codecov:
     RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
     LLVM_PROFILE_FILE: "target/coverage/cargo-test-${CI_NODE_INDEX}-%p-%m.profraw"
     CARGO_INCREMENTAL: 0    
-    FORKLIFT_BYPASS: true  
+    FORKLIFT_BYPASS: "true"  
   parallel: 2
   script:
     # tools
