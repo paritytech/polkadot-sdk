@@ -24,7 +24,7 @@ sp-state-machine = { path = "../../../../primitives/state-machine" }
 sp-trie = { path = "../../../../primitives/trie" }
 trie-db = { package = "subtrie", version = "0.0.1" }
 
-jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
+jsonrpsee = { version = "0.22.5", features = ["client-core", "macros", "server-core"] }
 
 # Substrate Dependencies
 sc-client-api = { path = "../../../../client/api" }

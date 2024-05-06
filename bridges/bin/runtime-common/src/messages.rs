@@ -34,7 +34,7 @@ use codec::{Decode, Encode};
 use frame_support::{traits::Get, weights::Weight};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::{convert::TryFrom, marker::PhantomData, vec::Vec};
+use sp_std::{marker::PhantomData, vec::Vec};
 use trie_db::node_db::Hasher;
 
 /// Bidirectional message bridge.

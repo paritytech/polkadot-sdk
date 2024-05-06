@@ -58,10 +58,12 @@ sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-version = { path = "../../../substrate/primitives/version" }
+sp-consensus-slots = { path = "../../../substrate/primitives/consensus/slots" }
 
 # Cumulus
 cumulus-test-client = { path = "../../test/client" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+cumulus-test-runtime = { path = "../../test/runtime" }
 
 [features]
 default = ["std"]

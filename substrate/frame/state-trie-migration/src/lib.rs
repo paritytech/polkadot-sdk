@@ -1698,8 +1698,10 @@ pub(crate) mod remote_tests {
 	///
 	/// This will print some very useful statistics, make sure [`crate::LOG_TARGET`] is enabled.
 	#[allow(dead_code)]
-	pub(crate) async fn run_with_limits<Runtime, Block>(limits: MigrationLimits, mode: Mode<Block>)
-	where
+	pub(crate) async fn run_with_limits<Runtime, Block>(
+		limits: MigrationLimits,
+		mode: Mode<Block::Hash>,
+	) where
 		Runtime: crate::Config<Hash = H256>,
 		Block: BlockT<Hash = H256> + DeserializeOwned,
 		Block::Header: serde::de::DeserializeOwned,

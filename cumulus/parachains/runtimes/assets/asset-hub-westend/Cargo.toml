@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
-hex-literal = { version = "0.4.1", optional = true }
+hex-literal = { version = "0.4.1" }
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
@@ -23,6 +23,7 @@ frame-system = { path = "../../../../../substrate/frame/system", default-feature
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
 frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false }
 frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true }
+pallet-asset-conversion-ops = { path = "../../../../../substrate/frame/asset-conversion/ops", default-features = false }
 pallet-asset-conversion-tx-payment = { path = "../../../../../substrate/frame/transaction-payment/asset-conversion-tx-payment", default-features = false }
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
 pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
@@ -35,6 +36,7 @@ pallet-nfts = { path = "../../../../../substrate/frame/nfts", default-features =
 pallet-nfts-runtime-api = { path = "../../../../../substrate/frame/nfts/runtime-api", default-features = false }
 pallet-proxy = { path = "../../../../../substrate/frame/proxy", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
+pallet-state-trie-migration = { path = "../../../../../substrate/frame/state-trie-migration", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
@@ -65,6 +67,7 @@ westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/co
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
@@ -76,6 +79,7 @@ cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-f
 cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
+cumulus-primitives-storage-weight-reclaim = { path = "../../../../primitives/storage-weight-reclaim", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
@@ -90,7 +94,6 @@ bp-bridge-hub-rococo = { path = "../../../../../bridges/chains/chain-bridge-hub-
 bp-bridge-hub-westend = { path = "../../../../../bridges/chains/chain-bridge-hub-westend", default-features = false }
 
 [dev-dependencies]
-hex-literal = "0.4.1"
 asset-test-utils = { path = "../test-utils" }
 
 [build-dependencies]
@@ -109,7 +112,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"hex-literal",
+	"pallet-asset-conversion-ops/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -119,6 +122,7 @@ runtime-benchmarks = [
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -141,6 +145,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-asset-conversion-ops/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
 	"pallet-assets/try-runtime",
@@ -154,6 +159,7 @@ try-runtime = [
 	"pallet-nfts/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-state-trie-migration/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-uniques/try-runtime",
@@ -178,6 +184,7 @@ std = [
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
@@ -187,6 +194,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime?/std",
 	"log/std",
+	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
 	"pallet-assets/std",
@@ -201,6 +209,7 @@ std = [
 	"pallet-nfts/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
+	"pallet-state-trie-migration/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -233,6 +242,7 @@ std = [
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm-fee-payment-runtime-api/std",
 	"xcm/std",
 ]
 

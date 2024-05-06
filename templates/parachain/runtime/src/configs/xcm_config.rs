@@ -26,6 +26,8 @@ parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
+	// For the real deployment, it is recommended to set `RelayNetwork` according to the relay chain
+	// and prepend `UniversalLocation` with `GlobalConsensus(RelayNetwork::get())`.
 	pub UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 }
 

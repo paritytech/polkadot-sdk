@@ -53,3 +53,14 @@ kvdb-memorydb = "0.13.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
 log = { workspace = true, default-features = true }
 env_logger = "0.11"
+
+polkadot-subsystem-bench = { path = "../../subsystem-bench" }
+
+[[bench]]
+name = "approval-voting-regression-bench"
+path = "benches/approval-voting-regression-bench.rs"
+harness = false
+required-features = ["subsystem-benchmarks"]
+
+[features]
+subsystem-benchmarks = []

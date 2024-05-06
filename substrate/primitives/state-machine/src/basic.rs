@@ -32,7 +32,6 @@ use sp_trie::{empty_child_trie_root, LayoutV0, LayoutV1, TrieConfiguration};
 use std::{
 	any::{Any, TypeId},
 	collections::BTreeMap,
-	iter::FromIterator,
 };
 use trie_db::node_db::Hasher;
 

@@ -23,7 +23,7 @@
 //! On completion of reading this doc, you should have a good understanding of:
 //! - The distinction between token traits and trait implementations in FRAME, and why this
 //!   distinction is helpful
-//! - Token-related traits avaliable in FRAME
+//! - Token-related traits available in FRAME
 //! - Token-related trait implementations in FRAME
 //! - How to choose the right trait or trait implementation for your use case
 //! - Where to go next
@@ -38,7 +38,7 @@
 //! [tightly coupling](crate::reference_docs::frame_pallet_coupling#tight-coupling-pallets) your
 //! custom pallet to [`pallet_balances`].
 //!
-//! However, to keep pallets flexible and modular, it is often prefered to
+//! However, to keep pallets flexible and modular, it is often preferred to
 //! [loosely couple](crate::reference_docs::frame_pallet_coupling#loosely--coupling-pallets).
 //!
 //! To achieve loose coupling,
@@ -87,7 +87,7 @@
 //! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`) is not some arcane knowledge
 //! that you have to know by heart or memorize. One can simply look at the list of the implementors
 //! of any trait in the Rust Doc to find all implementors (e.g.
-//! <https://paritytech.github.io/polkadot-sdk/master/frame/traits/tokens/fungible/trait.Mutate.html#implementors>),
+//! <https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/trait.Mutate.html#implementors>),
 //! or use the `rust-analyzer` `Implementations` action.
 //!
 //! ## Fungible Token Traits in FRAME

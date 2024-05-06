@@ -54,14 +54,12 @@ use trie_db::proof::{generate_proof, verify_proof};
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
-	CError, Changenode, Changeset, DBValue, ExistingChangesetNode, Location, NewChangesetNode,
-	Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator,
-	TrieDBRawIterator, TrieLayout, TrieRecorder,
-};
-pub use trie_db::{
 	node_db::{Hasher, Prefix},
 	proof::VerifyError,
-	MerkleValue,
+	CError, Changenode, Changeset, DBValue, ExistingChangesetNode, Location, MerkleValue,
+	NewChangesetNode, Query, Recorder, Trie, TrieCache, TrieConfiguration,
+	TrieDBDoubleEndedIterator, TrieDBIterator, TrieDBKeyDoubleEndedIterator, TrieDBKeyIterator,
+	TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
 };
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
@@ -201,18 +199,17 @@ pub trait ProofSizeProvider {
 /// TrieDB error over `TrieConfiguration` trait.
 pub type TrieError<L> = trie_db::TrieError<TrieHash<L>, CError<L>>;
 /// Reexport from `trie_db`, with genericity set for `Hasher` trait.
-pub type NodeDB<'a, H, L> = dyn trie_db::node_db::NodeDB<H, trie_db::DBValue, L> + 'a;
+pub type NodeDB<'a, H, L> = dyn trie_db::node_db::NodeDB<H, DBValue, L> + 'a;
 /// Reexport from `trie_db`, with genericity set for `Hasher` trait.
 /// This uses a noops `KeyFunction` (key addressing must be hashed or using
 /// an encoding scheme that avoid key conflict).
-pub type MemoryDB<H> =
-	trie_db::memory_db::MemoryDB<H, trie_db::memory_db::HashKey<H>, trie_db::DBValue>;
+pub type MemoryDB<H> = trie_db::memory_db::MemoryDB<H, trie_db::memory_db::HashKey<H>, DBValue>;
 /// Reexport from `trie_db`, with genericity set for `Hasher` trait.
 /// This uses a prefixed `KeyFunction`
 pub type PrefixedMemoryDB<H> =
-	trie_db::memory_db::MemoryDB<H, trie_db::memory_db::PrefixedKey<H>, trie_db::DBValue>;
+	trie_db::memory_db::MemoryDB<H, trie_db::memory_db::PrefixedKey<H>, DBValue>;
 /// Reexport from `trie_db`, with genericity set for `Hasher` trait.
-pub type GenericMemoryDB<H, KF> = trie_db::memory_db::MemoryDB<H, KF, trie_db::DBValue>;
+pub type GenericMemoryDB<H, KF> = trie_db::memory_db::MemoryDB<H, KF, DBValue>;
 
 /// Persistent trie database read-access interface for the a given hasher.
 pub type TrieDB<'a, 'cache, L> = trie_db::TrieDB<'a, 'cache, L>;
@@ -279,7 +276,7 @@ where
 	L: TrieConfiguration,
 	I: IntoIterator<Item = &'a K>,
 	K: 'a + AsRef<[u8]>,
-	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 {
 	generate_proof::<_, L, _, _>(db, &root, keys)
 }
@@ -308,7 +305,7 @@ where
 
 /// Determine a trie root given a hash DB and delta values.
 pub fn delta_trie_root<L: TrieConfiguration, I, A, B, V>(
-	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 	root: Root<L>,
 	delta: I,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>, L::Location>>,
@@ -345,7 +342,7 @@ where
 /// Read a value from the trie.
 pub fn read_trie_value<
 	L: TrieLayout,
-	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 >(
 	db: &DB,
 	root: &TrieHash<L>,
@@ -363,7 +360,7 @@ pub fn read_trie_value<
 /// Read a value from the trie, get db location if db uses it.
 pub fn read_trie_value_with_location<
 	L: TrieLayout,
-	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 >(
 	db: &DB,
 	root: &TrieHash<L>,
@@ -402,7 +399,7 @@ pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
 where
-	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 {
 	TrieDBBuilder::<L>::new(db, root)
 		.with_optional_cache(cache)
@@ -415,7 +412,7 @@ where
 pub fn read_trie_value_with<
 	L: TrieLayout,
 	Q: Query<L::Hash, Item = Vec<u8>>,
-	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 >(
 	db: &DB,
 	root: &TrieHash<L>,
@@ -450,7 +447,7 @@ where
 /// but a generic implementation may ignore this type parameter and use other hashers.
 pub fn child_delta_trie_root<L: TrieConfiguration, I, A, B, RD, V>(
 	keyspace: &[u8],
-	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 	root_data: RD,
 	root_location: L::Location,
 	delta: I,
@@ -483,7 +480,7 @@ where
 /// Read a value from the child trie.
 pub fn read_child_trie_value<L: TrieConfiguration>(
 	keyspace: &[u8],
-	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 	root: &Root<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
@@ -501,7 +498,7 @@ pub fn read_child_trie_value<L: TrieConfiguration>(
 /// Read a hash from the child trie.
 pub fn read_child_trie_hash<L: TrieConfiguration>(
 	keyspace: &[u8],
-	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 	root: &Root<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
@@ -526,7 +523,7 @@ pub fn read_child_trie_first_descendant_value<L: TrieConfiguration, DB>(
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
 where
-	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 {
 	let db = KeySpacedDB::new(db, keyspace);
 	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, root.1)
@@ -539,7 +536,7 @@ where
 /// Read a value from the child trie with given query.
 pub fn read_child_trie_value_with<L, Q, DB>(
 	keyspace: &[u8],
-	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 	root_slice: &[u8],
 	root_location: L::Location,
 	key: &[u8],
@@ -548,7 +545,7 @@ pub fn read_child_trie_value_with<L, Q, DB>(
 where
 	L: TrieConfiguration,
 	Q: Query<L::Hash, Item = DBValue>,
-	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, DBValue, L::Location>,
 {
 	let mut root = TrieHash::<L>::default();
 	// root is fetched from DB, not writable by runtime, so it's always valid.
@@ -629,7 +626,7 @@ mod tests {
 	type MemoryDBMeta = trie_db::memory_db::MemoryDB<
 		Blake2Hasher,
 		trie_db::memory_db::HashKey<Blake2Hasher>,
-		trie_db::DBValue,
+		DBValue,
 	>;
 
 	type MemTreeDBMeta = trie_db::mem_tree_db::MemTreeDB<Blake2Hasher>;

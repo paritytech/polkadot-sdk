@@ -11,13 +11,13 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 num-traits = { version = "0.2", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { features = ["alloc", "derive"], workspace = true }
+trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
 
 # Substrate Dependencies
 

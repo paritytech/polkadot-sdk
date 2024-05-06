@@ -38,7 +38,7 @@ use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
@@ -64,7 +64,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiAddress, Perbill,
+	ApplyExtrinsicResult, DispatchError, MultiAddress, Perbill,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -99,6 +99,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -107,7 +108,9 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
+	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	pallet_broker::migration::MigrateV0ToV1<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -133,10 +136,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("coretime-rococo"),
 	impl_name: create_runtime_str!("coretime-rococo"),
 	authoring_version: 1,
-	spec_version: 1_009_000,
+	spec_version: 1_011_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 0,
+	transaction_version: 1,
 	state_version: 1,
 };
 
@@ -243,7 +246,7 @@ parameter_types! {
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -592,6 +595,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_broker::runtime_api::BrokerApi<Block, Balance> for Runtime {
+		fn sale_price() -> Result<Balance, DispatchError> {
+			Broker::current_price()
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(
 			uxt: <Block as BlockT>::Extrinsic,
@@ -712,11 +721,20 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					>,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					>
+				);
 
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
@@ -734,8 +752,21 @@ impl_runtime_apis! {
 				}
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
-					// Reserve transfers are disabled
-					None
+					// Coretime chain can reserve transfer regions to some random parachain.
+
+					// Properties of a mock region:
+					let core = 0;
+					let begin = 0;
+					let end = 42;
+
+					let region_id = pallet_broker::Pallet::<Runtime>::issue(core, begin, end, None, None);
+					Some((
+						Asset {
+							fun: NonFungible(Index(region_id.into())),
+							id: AssetId(xcm_config::BrokerPalletLocation::get())
+						},
+						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
+					))
 				}
 
 				fn get_asset() -> Asset {
@@ -751,15 +782,25 @@ impl_runtime_apis! {
 					RocRelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
+				pub const RandomParaId: ParaId = ParaId::new(43211234);
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					>,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					>
+				);
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(RocRelayLocation::get())
@@ -877,12 +918,16 @@ impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+		}
+
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+			vec![]
 		}
 	}
 }

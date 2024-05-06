@@ -16,6 +16,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 static_assertions = { version = "1.1", optional = true }
+tuplex = { version = "0.1", default-features = false }
 
 # Bridge dependencies
 
@@ -82,6 +83,7 @@ std = [
 	"sp-std/std",
 	"sp-trie/std",
 	"trie-db/std",
+	"tuplex/std",
 	"xcm-builder/std",
 	"xcm/std",
 ]

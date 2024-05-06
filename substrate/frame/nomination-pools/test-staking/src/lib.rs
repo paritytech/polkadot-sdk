@@ -413,7 +413,7 @@ fn pool_slash_e2e() {
 			]
 		);
 
-		// At this point, 20 are safe from slash, 30 are unlocking but vulnerable to slash, and and
+		// At this point, 20 are safe from slash, 30 are unlocking but vulnerable to slash, and
 		// another 30 are active and vulnerable to slash. Let's slash half of them.
 		pallet_staking::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
