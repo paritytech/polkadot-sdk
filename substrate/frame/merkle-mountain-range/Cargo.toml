@@ -28,9 +28,9 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 env_logger = "0.11"
-itertools = "0.10.3"
+itertools = "0.11"
 
 [features]
 default = ["std"]

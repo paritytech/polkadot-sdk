@@ -193,6 +193,34 @@ where
 	}
 }
 
+/// Verifies that relayer balance is equal to given value.
+pub struct VerifyRelayerBalance<Runtime: pallet_balances::Config> {
+	relayer: Runtime::AccountId,
+	balance: Runtime::Balance,
+}
+
+impl<Runtime> VerifyRelayerBalance<Runtime>
+where
+	Runtime: pallet_balances::Config,
+{
+	/// Expect given relayer balance after transaction.
+	pub fn expect_relayer_balance(
+		relayer: Runtime::AccountId,
+		balance: Runtime::Balance,
+	) -> Box<dyn VerifyTransactionOutcome> {
+		Box::new(Self { relayer, balance })
+	}
+}
+
+impl<Runtime> VerifyTransactionOutcome for VerifyRelayerBalance<Runtime>
+where
+	Runtime: pallet_balances::Config,
+{
+	fn verify_outcome(&self) {
+		assert_eq!(pallet_balances::Pallet::<Runtime>::free_balance(&self.relayer), self.balance,);
+	}
+}
+
 /// Initialize bridge GRANDPA pallet.
 pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 	init_data: bp_header_chain::InitializationData<BridgedHeader<Runtime, GPI>>,
