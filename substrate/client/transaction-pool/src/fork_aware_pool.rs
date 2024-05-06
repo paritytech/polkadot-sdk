@@ -1231,8 +1231,32 @@ where
 			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed())
 			.await;
 
+		let start = Instant::now();
 		self.update_view(&mut view).await;
+		let duration = start.elapsed();
+		log::info!("update_view_pool: at {at:?} took {duration:?}");
+
+		let start = Instant::now();
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
+		let duration = start.elapsed();
+		log::info!("update_view_fork: at {at:?} took {duration:?}");
+
+		{
+			let views_to_be_removed = {
+				let views = self.view_store.views.read();
+				std::iter::once(tree_route.common_block())
+					.chain(tree_route.enacted().iter())
+					.map(|block| block.hash)
+					.collect::<Vec<_>>()
+			};
+			// self.view_store.views.write().for_each(|v, _| !views_to_be_removed.contains(v));
+			for (_, view) in self.view_store.views.write().iter_mut() {
+				if views_to_be_removed.contains(&view.at.hash) {
+					(*view).disable();
+				}
+			}
+		}
+
 		let view = Arc::from(view);
 		self.view_store.views.write().insert(new_block_hash, view.clone());
 
