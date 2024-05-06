@@ -20,7 +20,7 @@ proc-macro = true
 
 [dependencies]
 Inflector = { workspace = true }
-proc-macro-crate = "3.0.0"
+proc-macro-crate = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 expander = "2.0.0"
