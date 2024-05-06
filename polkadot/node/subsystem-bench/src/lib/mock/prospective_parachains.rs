@@ -18,18 +18,21 @@
 
 use futures::FutureExt;
 use polkadot_node_subsystem::{
-	messages::ProspectiveParachainsMessage, overseer, SpawnedSubsystem, SubsystemError,
+	messages::{HypotheticalCandidate, ProspectiveParachainsMessage},
+	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::Hash;
 
 const LOG_TARGET: &str = "subsystem-bench::prospective-parachains-mock";
 
-pub struct MockProspectiveParachains {}
+pub struct MockProspectiveParachains {
+	candidates: Vec<HypotheticalCandidate>,
+}
 
 impl MockProspectiveParachains {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(candidates: Vec<HypotheticalCandidate>) -> Self {
+		Self { candidates }
 	}
 }
 
@@ -59,10 +62,11 @@ impl MockProspectiveParachains {
 						ProspectiveParachainsMessage::GetMinimumRelayParents(_relay_parent, tx) => {
 							tx.send(vec![]).unwrap();
 						},
-						ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx) => {
+						ProspectiveParachainsMessage::GetHypotheticalFrontier(_req, tx) => {
 							tx.send(
-								req.candidates
-									.into_iter()
+								self.candidates
+									.iter()
+									.cloned()
 									.map(|candidate| {
 										(candidate, vec![(Hash::repeat_byte(0), vec![0])])
 									})

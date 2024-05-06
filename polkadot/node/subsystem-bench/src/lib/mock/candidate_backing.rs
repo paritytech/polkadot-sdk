@@ -95,7 +95,7 @@ impl MockCandidateBacking {
 									let _ = self.to_subsystems.send(message).await;
 								},
 								StatementWithPVD::Valid(candidate_hash) => {
-									let statement = Statement::Valid(candidate_hash.clone());
+									let statement = Statement::Valid(*candidate_hash);
 									let context = SigningContext {
 										parent_hash: relay_parent,
 										session_index: 0,

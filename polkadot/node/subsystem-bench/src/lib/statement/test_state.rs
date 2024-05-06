@@ -17,14 +17,19 @@
 use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	network::{HandleNetworkMessage, NetworkMessage},
+	NODE_UNDER_TEST,
 };
+use bitvec::order::Lsb0;
 use colored::Colorize;
 use futures::SinkExt;
 use itertools::Itertools;
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
 	request_response::{v2::AttestedCandidateResponse, Requests},
-	v3::{BackedCandidateAcknowledgement, StatementDistributionMessage, ValidationProtocol},
+	v3::{
+		BackedCandidateAcknowledgement, StatementDistributionMessage, StatementFilter,
+		ValidationProtocol,
+	},
 	Versioned,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
@@ -34,8 +39,8 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CompactStatement,
-	Hash, Header, PersistedValidationData, SignedStatement, SigningContext, ValidatorIndex,
-	ValidatorPair,
+	Hash, Header, PersistedValidationData, SignedStatement, SigningContext, UncheckedSigned,
+	ValidatorIndex, ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, dummy_head_data, dummy_pvd,
@@ -72,6 +77,8 @@ pub struct TestState {
 	pub validator_pairs: Vec<ValidatorPair>,
 	// TODO
 	pub statements_tracker: HashMap<CandidateHash, HashMap<u32, Arc<AtomicBool>>>,
+	// TODO
+	pub seconded: Vec<UncheckedSigned<CompactStatement>>,
 }
 
 impl TestState {
@@ -86,6 +93,7 @@ impl TestState {
 			block_headers: Default::default(),
 			validator_pairs: Default::default(),
 			statements_tracker: Default::default(),
+			seconded: Default::default(),
 		};
 
 		// For each unique pov we create a candidate receipt.
@@ -141,6 +149,16 @@ impl TestState {
 			})
 			.collect::<HashMap<_, _>>();
 
+		test_state.validator_pairs = test_state
+			.test_authorities
+			.key_seeds
+			.iter()
+			.map(|seed| ValidatorPair::from_string_with_seed(seed, None).unwrap().0)
+			.collect();
+
+		let pair = test_state.validator_pairs.get((NODE_UNDER_TEST + 1) as usize).unwrap();
+		let validator_index = ValidatorIndex(NODE_UNDER_TEST + 1);
+
 		for (index, info) in test_state.block_infos.iter().enumerate() {
 			let pov_size = pov_sizes.get(index % pov_sizes.len()).expect("This is a cycle; qed");
 			let candidate_index =
@@ -152,7 +170,7 @@ impl TestState {
 			let descriptor = receipt.descriptor.clone();
 			let commitments_hash = receipt.commitments.hash();
 			let candidate_hash = receipt.hash();
-			test_state.commited_candidate_receipts.insert(info.hash, receipt);
+			test_state.commited_candidate_receipts.insert(info.hash, receipt.clone());
 			test_state
 				.candidate_receipts
 				.insert(info.hash, vec![CandidateReceipt { descriptor, commitments_hash }]);
@@ -164,14 +182,25 @@ impl TestState {
 						.map(|index| (index as u32, Arc::new(AtomicBool::new(index <= 1)))),
 				),
 			);
-		}
 
-		test_state.validator_pairs = test_state
-			.test_authorities
-			.key_seeds
-			.iter()
-			.map(|seed| ValidatorPair::from_string_with_seed(seed, None).unwrap().0)
-			.collect();
+			let relay_parent = info.hash;
+			let candidate_hash = receipt.hash();
+			let statement = CompactStatement::Seconded(candidate_hash);
+			let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+			let payload = statement.signing_payload(&context);
+			let signature = pair.sign(&payload[..]);
+			let statement = SignedStatement::new(
+				statement,
+				validator_index,
+				signature,
+				&context,
+				&pair.public(),
+			)
+			.unwrap()
+			.as_unchecked()
+			.to_owned();
+			test_state.seconded.push(statement);
+		}
 
 		test_state
 	}
@@ -193,6 +222,12 @@ impl HandleNetworkMessage for TestState {
 					.expect("Pregenerated")
 					.clone();
 				let persisted_validation_data = self.persisted_validation_data.clone();
+				let seconded = self
+					.seconded
+					.iter()
+					.find(|v| *v.unchecked_payload().candidate_hash() == payload.candidate_hash)
+					.unwrap()
+					.to_owned();
 
 				let res = AttestedCandidateResponse {
 					candidate_receipt,
@@ -215,6 +250,7 @@ impl HandleNetworkMessage for TestState {
 					.position(|v| v == &authority_id)
 					.expect("Should exist");
 				let candidate_hash = *statement.unchecked_payload().candidate_hash();
+				gum::debug!("ValidatorIndex({}) received {:?}", index, statement);
 
 				let sent = self
 					.statements_tracker
@@ -228,6 +264,10 @@ impl HandleNetworkMessage for TestState {
 					return None
 				} else {
 					sent.store(true, Ordering::SeqCst);
+				}
+
+				if index > self.config.max_validators_per_core - 1 {
+					return None
 				}
 
 				let statement = CompactStatement::Valid(candidate_hash);
@@ -270,8 +310,12 @@ impl HandleNetworkMessage for TestState {
 					.expect("Should exist");
 				let ack = BackedCandidateAcknowledgement {
 					candidate_hash: manifest.candidate_hash,
-					statement_knowledge: manifest.statement_knowledge,
+					statement_knowledge: StatementFilter {
+						seconded_in_group: bitvec::bitvec![u8, Lsb0; 0,1,0,0,0],
+						validated_in_group: bitvec::bitvec![u8, Lsb0; 0,0,1,0,0],
+					},
 				};
+				gum::debug!("ValidatorIndex({}) sends {:?}", index, ack);
 				node_sender
 					.start_send_unpin(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).expect("Must exist"),

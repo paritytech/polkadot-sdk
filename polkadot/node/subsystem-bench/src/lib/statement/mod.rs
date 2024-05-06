@@ -40,23 +40,19 @@ use polkadot_node_network_protocol::{
 	v3, view, Versioned, View,
 };
 use polkadot_node_subsystem::messages::{
-	network_bridge_event::NewGossipTopology, AllMessages, NetworkBridgeEvent,
-	StatementDistributionMessage,
+	network_bridge_event::NewGossipTopology, AllMessages, HypotheticalCandidate,
+	NetworkBridgeEvent, StatementDistributionMessage,
 };
 use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
-use polkadot_primitives::{
-	AuthorityDiscoveryId, Block, CompactStatement, Hash, SignedStatement, SigningContext,
-	ValidatorId, ValidatorIndex,
-};
+use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash, ValidatorId, ValidatorIndex};
 use polkadot_statement_distribution::StatementDistributionSubsystem;
 use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
 use sc_network::request_responses::ProtocolConfig;
 use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
-use sp_core::Pair;
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::RuntimeAppPublic;
 use std::{
@@ -103,7 +99,17 @@ fn build_overseer(
 	);
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
-	let mock_prospective_parachains = MockProspectiveParachains::new();
+	let mock_prospective_parachains = MockProspectiveParachains::new(
+		state
+			.commited_candidate_receipts
+			.values()
+			.map(|receipt| HypotheticalCandidate::Complete {
+				candidate_hash: receipt.hash(),
+				receipt: Arc::new(receipt.clone()),
+				persisted_validation_data: state.persisted_validation_data.clone(),
+			})
+			.collect(),
+	);
 	let (tx, rx) = mpsc::unbounded();
 	let mock_candidate_backing = MockCandidateBacking::new(
 		tx,
@@ -244,10 +250,9 @@ pub async fn benchmark_statement_distribution(
 	for message in initialization_messages {
 		env.send_message(message).await;
 	}
-	let pair = state.validator_pairs.get((NODE_UNDER_TEST + 1) as usize).unwrap();
 
 	let test_start = Instant::now();
-	for block_info in state.block_infos.iter() {
+	for (index, block_info) in state.block_infos.iter().enumerate() {
 		let block_num = block_info.number as usize;
 		gum::info!(target: LOG_TARGET, "Current block {}/{} {}", block_num, config.num_blocks, block_info.hash);
 		env.metrics().set_current_block(block_num);
@@ -260,32 +265,15 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(update).await;
 		}
 
-		let receipt = state
-			.commited_candidate_receipts
-			.get(&block_info.hash)
-			.expect("Pregenerated")
-			.clone();
-
-		let relay_parent = block_info.hash;
-		let candidate_hash = receipt.hash();
-		let statement = CompactStatement::Seconded(candidate_hash);
-		let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
-		let payload = statement.signing_payload(&context);
-		let signature = pair.sign(&payload[..]);
-		let statement = SignedStatement::new(
-			statement,
-			ValidatorIndex(NODE_UNDER_TEST + 1),
-			signature,
-			&context,
-			&pair.public(),
-		)
-		.unwrap()
-		.as_unchecked()
-		.to_owned();
+		let statement = state.seconded.get(index).unwrap().to_owned();
+		let candidate_hash = *statement.unchecked_payload().candidate_hash();
 		let message = AllMessages::StatementDistribution(
 			StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				*state.test_authorities.peer_ids.get((NODE_UNDER_TEST + 1) as usize).unwrap(),
-				Versioned::V3(v3::StatementDistributionMessage::Statement(relay_parent, statement)),
+				Versioned::V3(v3::StatementDistributionMessage::Statement(
+					block_info.hash,
+					statement,
+				)),
 			)),
 		);
 		env.send_message(message).await;
