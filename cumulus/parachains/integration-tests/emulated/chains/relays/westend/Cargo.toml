@@ -11,6 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
+
 # Substrate
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }

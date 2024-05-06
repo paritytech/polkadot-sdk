@@ -55,13 +55,13 @@ use polkadot_primitives::{
 
 use crate::{
 	error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
-	fragment_tree::{
+	fragment_chain::{
 		CandidateStorage, CandidateStorageInsertionError, FragmentTree, Scope as TreeScope,
 	},
 };
 
 mod error;
-mod fragment_tree;
+mod fragment_chain;
 #[cfg(test)]
 mod tests;
 
@@ -349,7 +349,7 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 struct ImportablePendingAvailability {
 	candidate: CommittedCandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
-	compact: crate::fragment_tree::PendingAvailability,
+	compact: crate::fragment_chain::PendingAvailability,
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -394,7 +394,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 				relay_parent_number: relay_parent.number,
 				relay_parent_storage_root: relay_parent.storage_root,
 			},
-			compact: crate::fragment_tree::PendingAvailability {
+			compact: crate::fragment_chain::PendingAvailability {
 				candidate_hash: pending.candidate_hash,
 				relay_parent,
 			},
@@ -675,7 +675,7 @@ fn answer_hypothetical_frontier_request(
 			let candidate_hash = c.candidate_hash();
 			let hypothetical = match c {
 				HypotheticalCandidate::Complete { receipt, persisted_validation_data, .. } =>
-					fragment_tree::HypotheticalCandidate::Complete {
+					fragment_chain::HypotheticalCandidate::Complete {
 						receipt: Cow::Borrowed(receipt),
 						persisted_validation_data: Cow::Borrowed(persisted_validation_data),
 					},
@@ -683,7 +683,7 @@ fn answer_hypothetical_frontier_request(
 					parent_head_data_hash,
 					candidate_relay_parent,
 					..
-				} => fragment_tree::HypotheticalCandidate::Incomplete {
+				} => fragment_chain::HypotheticalCandidate::Incomplete {
 					relay_parent: *candidate_relay_parent,
 					parent_head_data_hash: *parent_head_data_hash,
 				},
