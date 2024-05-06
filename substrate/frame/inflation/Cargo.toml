@@ -23,17 +23,13 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 	"serde",
 ] }
-
-# we use frame only for the inflation pallet for now
 frame = { package = "polkadot-sdk-frame", path = "..", default-features = false, features = [
 	"experimental",
 	"runtime",
 ] }
 
-docify = "0.2.8"
-
 pallet-staking-reward-fn = { path = "../staking/reward-fn", default-features = false }
-pallet-staking-reward-curve = { path = "../staking/reward-curve" }
+docify = "0.2.8"
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
@@ -43,6 +39,17 @@ sp-tracing = { path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
-std = ["codec/std", "scale-info/std", "frame/std"]
-runtime-benchmarks = []
-try-runtime = []
+std = [
+	"codec/std",
+	"scale-info/std",
+	"frame/std",
+	"pallet-staking-reward-fn/std",
+]
+runtime-benchmarks = [
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks"
+]
+try-runtime = [
+	"pallet-balances/try-runtime",
+	"pallet-timestamp/try-runtime"
+]

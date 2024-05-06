@@ -7344,6 +7344,7 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
+ "pallet-inflation",
  "pallet-insecure-randomness-collective-flip",
  "pallet-lottery",
  "pallet-membership",
@@ -10590,7 +10591,6 @@ version = "28.0.0"
 dependencies = [
  "docify",
  "pallet-balances",
- "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
  "pallet-timestamp",
  "parity-scale-codec",

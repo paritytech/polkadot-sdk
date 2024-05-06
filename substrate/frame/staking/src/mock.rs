@@ -301,9 +301,9 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub Recipients: Vec<pallet_inflation::InflationStep<Test>> = vec![
+	pub Distribution: Vec<pallet_inflation::DistributionStep<Test>> = vec![
 		Box::new(
-			pallet_inflation::inflation_actions::polkadot_staking_income::<
+			pallet_inflation::inflation_step_prelude::polkadot_staking_income::<
 				Test,
 				IdealStakingRate,
 				Falloff,
@@ -322,7 +322,7 @@ impl pallet_inflation::Config for Test {
 	type CurrencyBalance = Balance;
 
 	type InflationSource = pallet_inflation::FixedRatioAnnualInflation<Test, MaxInflation>;
-	type Recipients = Recipients;
+	type Distribution = Distribution;
 	type InflationOrigin = EnsureRoot<AccountId>;
 }
 

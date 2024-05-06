@@ -34,7 +34,7 @@
 //! ## Overview
 //!
 //! The pallet performs inflation in two steps, abstracted by [`Config::InflationSource`] and
-//! [`Config::Recipients`] respectively.
+//! [`Config::Distribution`] respectively.
 //!
 //! * At arbitrary points in time, this pallet is instructed to inflate. At the moment, this is
 //!   exposed as a standalone pallet function [`Pallet::inflate`] and a dispatchable with custom
@@ -44,12 +44,11 @@
 //!   and [`FixedRatioAnnualInflation`]. The latter is what Polkadot relay chain uses today. This
 //!   function yields an amount, for example `i`. At this stage, `i` is determined, but is not fully
 //!   minted yet, as it is not clear "_where_" it should be minted. This is determined in the next
-//!   step, the minting step.
+//!   step.
 //! * Then, the pallet allows the runtime parameterize what should happen with `i` through a
-//!   sequence of payouts. The set of payout provided at the moment are fairly simple, see
-//!   [`InflationPayout`]. The `payout` has access to the maximum amount that it can consume. it is
-//!   at this step that the pallet can decide to distribute the inflation amount between multiple
-//!   recipients (which is why the config type is called [`Config::Recipients`]).
+//!   sequence of "steps". Each step takes an amount out of the aforementioned `i`, and possibly
+//!   mints it into an account through [`Action`]. The set of actions provided at the moment are
+//!   fairly simple. The `steps` has access to the maximum amount that it can consume.
 //!
 //! ### Example
 //!
@@ -186,8 +185,7 @@ pub mod pallet {
 		Burn,
 	}
 
-	/// A function that calculates the next payout that needs to be made as a part of the inflation
-	/// recipients.
+	/// A step in the process of [`Config::Distribution`].
 	///
 	/// The inputs are:
 	///
@@ -200,7 +198,7 @@ pub mod pallet {
 	/// * `balance`: a subset of the input balance that should be paid out. This amount should
 	///   always be less than or equal to the input balance.
 	/// * [`Action`]: an action to be made.
-	pub type InflationStep<T> = Box<
+	pub type DistributionStep<T> = Box<
 		dyn Fn(
 			BalanceOf<T>,
 			Perquintill,
@@ -226,8 +224,9 @@ pub mod pallet {
 		/// `From<u64>`.
 		type CurrencyBalance: frame::traits::tokens::Balance + From<u64>;
 
-		/// The recipients of the inflation, as a sequence of items described by [`InflationStep`]
-		type Recipients: Get<Vec<InflationStep<Self>>>;
+		/// How the inflation amount, specified by [`Config::InflationSource`] should be
+		/// distributed.
+		type Distribution: Get<Vec<DistributionStep<Self>>>;
 
 		/// An origin that can trigger an inflation at any point in time via
 		/// [`Call::force_inflate`].
@@ -343,17 +342,17 @@ pub mod pallet {
 
 			crate::log!(
 				info,
-				"inflating at {:?}, annual proportion {:?}, issuance {:?}, last inflated {:?}, max inflation {:?}, distributing among {} recipients",
+				"inflating at {:?}, annual proportion {:?}, issuance {:?}, last inflated {:?}, max inflation {:?}, distributing among {}",
 				now,
 				Perquintill::from_rational(now.saturating_sub(last_inflated), MILLISECONDS_PER_YEAR),
 				adjusted_total_issuance,
 				last_inflated,
 				max_payout,
-				T::Recipients::get().len()
+				T::Distribution::get().len()
 			);
 			Self::deposit_event(Event::PossiblyInflated { amount: max_payout });
 
-			for payout_fn in T::Recipients::get() {
+			for payout_fn in T::Distribution::get() {
 				let (amount, payout) = payout_fn(max_payout, staked_ratio);
 				debug_assert!(amount <= max_payout, "payout exceeds max");
 				let amount = amount.min(max_payout);
@@ -406,8 +405,9 @@ pub mod pallet {
 	}
 
 	/// A set of inflation functions provided by this pallet.
-	pub mod inflation_actions {
+	pub mod inflation_step_prelude {
 		use super::*;
+
 		pub fn polkadot_staking_income<
 			T: Config,
 			IdealStakingRate: Get<Perquintill>,
@@ -427,7 +427,7 @@ pub mod pallet {
 			(staking_income, Action::Pay(StakingPayoutAccount::get()))
 		}
 
-		pub fn burn_ratio<T: Config, BurnRate: Get<Percent>>(
+		pub fn burn<T: Config, BurnRate: Get<Perquintill>>(
 			max_inflation: BalanceOf<T>,
 			_staking_ratio: Perquintill,
 		) -> (BalanceOf<T>, Action<T::AccountId>) {
@@ -435,7 +435,7 @@ pub mod pallet {
 			(burn, Action::Burn)
 		}
 
-		pub fn pay<T: Config, To: Get<T::AccountId>, Ratio: Get<Percent>>(
+		pub fn pay<T: Config, To: Get<T::AccountId>, Ratio: Get<Perquintill>>(
 			max_inflation: BalanceOf<T>,
 			_staking_ratio: Perquintill,
 		) -> (BalanceOf<T>, Action<T::AccountId>) {
@@ -443,7 +443,7 @@ pub mod pallet {
 			(payout, Action::Pay(To::get()))
 		}
 
-		pub fn split_equal<T: Config, To: Get<Vec<T::AccountId>>, Ratio: Get<Percent>>(
+		pub fn split_equal<T: Config, To: Get<Vec<T::AccountId>>, Ratio: Get<Perquintill>>(
 			max_inflation: BalanceOf<T>,
 			_staking_ratio: Perquintill,
 		) -> (BalanceOf<T>, Action<T::AccountId>) {
@@ -459,6 +459,7 @@ mod mock {
 	use core::cell::RefCell;
 	use frame::{arithmetic::*, prelude::*, testing_prelude::*, traits::fungible::Mutate};
 
+	// TODO: update to `frame::runtime`.
 	construct_runtime!(
 		pub struct Runtime {
 			System: frame_system,
@@ -492,34 +493,34 @@ mod mock {
 		pub static AnnualInflation: Perquintill = Perquintill::from_percent(10);
 
 		// burn 20% of the inflation..
-		pub static BurnRatio: Percent = Percent::from_percent(20);
+		pub static BurnRatio: Perquintill = Perquintill::from_percent(20);
 
 		// Then give half of the rest to 1..
 		pub static OneRecipient: AccountId = 1;
-		pub static OneRatio: Percent = Percent::from_percent(50);
+		pub static OneRatio: Perquintill = Perquintill::from_percent(50);
 
 		// and split all of the rest between 2 and 3.
 		pub static DividedRecipients: Vec<AccountId> = vec![2, 3];
-		pub static DividedRatio: Percent = Percent::from_percent(100);
+		pub static DividedRatio: Perquintill = Perquintill::from_percent(100);
 	}
 
 	#[docify::export(fns)]
 	thread_local! {
-		static RECIPIENTS: RefCell<Vec<InflationStep<Runtime>>> = RefCell::new(vec![
-			Box::new(inflation_actions::burn_ratio::<Runtime, BurnRatio>),
-			Box::new(inflation_actions::pay::<Runtime, OneRecipient, OneRatio>),
-			Box::new(inflation_actions::split_equal::<Runtime, DividedRecipients, DividedRatio>),
+		static RECIPIENTS: RefCell<Vec<DistributionStep<Runtime>>> = RefCell::new(vec![
+			Box::new(inflation_step_prelude::burn::<Runtime, BurnRatio>),
+			Box::new(inflation_step_prelude::pay::<Runtime, OneRecipient, OneRatio>),
+			Box::new(inflation_step_prelude::split_equal::<Runtime, DividedRecipients, DividedRatio>),
 		]);
 	}
 
 	pub struct Recipients;
-	impl Get<Vec<InflationStep<Runtime>>> for Recipients {
-		fn get() -> Vec<InflationStep<Runtime>> {
+	impl Get<Vec<DistributionStep<Runtime>>> for Recipients {
+		fn get() -> Vec<DistributionStep<Runtime>> {
 			RECIPIENTS.with(|v| {
 				let v_borrowed = v.borrow();
 				let mut cloned = Vec::with_capacity(v_borrowed.len());
 				for fn_box in &*v_borrowed {
-					let fn_clone: InflationStep<Runtime> = unsafe { core::ptr::read(fn_box) };
+					let fn_clone: DistributionStep<Runtime> = unsafe { core::ptr::read(fn_box) };
 					cloned.push(fn_clone);
 				}
 				cloned
@@ -528,7 +529,7 @@ mod mock {
 	}
 
 	impl Recipients {
-		pub(crate) fn add(new_fn: InflationStep<Runtime>) {
+		pub(crate) fn add(new_fn: DistributionStep<Runtime>) {
 			RECIPIENTS.with(|v| v.borrow_mut().push(new_fn));
 		}
 		pub(crate) fn clear() {
@@ -541,7 +542,7 @@ mod mock {
 
 	impl pallet_inflation::Config for Runtime {
 		type RuntimeEvent = RuntimeEvent;
-		type Recipients = Recipients;
+		type Distribution = Recipients;
 		type Currency = Balances;
 		type CurrencyBalance = Balance;
 		type InflationSource = FixedRatioAnnualInflation<Runtime, AnnualInflation>;
