@@ -599,7 +599,8 @@ fn fap_linear_progress() {
 	log::info!(target:LOG_TARGET, "event: {:#?}", event);
 	block_on(pool.maintain(event));
 
-	assert_pool_status!(f11, &pool, 0, 1);
+	//note: we only keep tip of the fork
+	assert_eq!(pool.views_len(), 1);
 	assert_pool_status!(f13, &pool, 1, 0);
 }
 
@@ -965,7 +966,8 @@ fn fap_fork_finalization_removes_stale_views() {
 	let event = new_best_block_event(&pool, Some(f00), f02);
 	block_on(pool.maintain(event));
 
-	assert_eq!(pool.views_len(), 3);
+	//only views at the tip of forks are kept
+	assert_eq!(pool.views_len(), 2);
 
 	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
 
@@ -1424,8 +1426,9 @@ fn fap_watcher_in_block_across_many_blocks() {
 	block_on(pool.maintain(event));
 
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
-	//note: transaction is not submitted to views that are not at the tip of the fork
-	assert_pool_status!(header01.hash(), &pool, 2, 0);
+	//note 1: transaction is not submitted to views that are not at the tip of the fork
+	//note 2: only views at tip of the fork are kept
+	assert_eq!(pool.views_len(), 1);
 	assert_pool_status!(header02.hash(), &pool, 3, 0);
 
 	let header03 = api.push_block(3, vec![xt0.clone()], true);
@@ -2042,7 +2045,7 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 	);
 
 	//todo: shall revalidation check finalized (fork's tip) view?
-	assert_eq!(pool.status_all()[&header02b.hash()].ready, 1);
+	assert_eq!(pool.status_all()[&header02b.hash()].ready, 0);
 }
 
 #[test]
