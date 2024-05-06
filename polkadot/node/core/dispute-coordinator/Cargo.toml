@@ -13,7 +13,7 @@ workspace = true
 futures = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 parity-scale-codec = { workspace = true, default-features = true }
-kvdb = "0.13.0"
+kvdb = { workspace = true }
 thiserror = { workspace = true }
 schnellru = { workspace = true }
 fatality = "0.0.6"

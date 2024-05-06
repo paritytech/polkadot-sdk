@@ -14,5 +14,5 @@ readme = "README.md"
 workspace = true
 
 [dependencies]
-kvdb = "0.13.0"
+kvdb = { workspace = true }
 parking_lot = { workspace = true, default-features = true }

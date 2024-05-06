@@ -27,7 +27,7 @@ sp-state-machine = { path = "../../../primitives/state-machine" }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 derive_more = { workspace = true, default-features = false, features = ["display"] }
-kvdb = "0.13.0"
+kvdb = { workspace = true }
 kvdb-rocksdb = "0.19.0"
 sp-trie = { path = "../../../primitives/trie" }
 sp-core = { path = "../../../primitives/core" }

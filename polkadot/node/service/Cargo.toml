@@ -87,7 +87,7 @@ schnellru = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-kvdb = "0.13.0"
+kvdb = { workspace = true }
 kvdb-rocksdb = { version = "0.19.0", optional = true }
 parity-db = { version = "0.4.12", optional = true }
 codec = { workspace = true, default-features = true }
