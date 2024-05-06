@@ -478,6 +478,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -590,7 +592,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Returns true if the signature is good.
 	</span><span class="kw">fn </span>verify&lt;M: AsRef&lt;[u8]&gt;&gt;(sig: <span class="kw-2">&amp;</span>Signature, message: M, public: <span class="kw-2">&amp;</span>Public) -&gt; bool {
 		<span class="kw">let </span><span class="prelude-val">Ok</span>(public) = VerificationKey::try_from(public.as_slice()) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
-		<span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = ed25519_zebra::Signature::try_from(sig.as_ref()) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+		<span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = ed25519_zebra::Signature::try_from(sig.as_slice()) <span class="kw">else </span>{
+			<span class="kw">return </span><span class="bool-val">false
+		</span>};
 		public.verify(<span class="kw-2">&amp;</span>signature, message.as_ref()).is_ok()
 	}
 
