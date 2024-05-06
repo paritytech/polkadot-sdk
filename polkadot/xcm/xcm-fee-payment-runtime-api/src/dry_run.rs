@@ -32,7 +32,7 @@ pub struct ExtrinsicDryRunEffects<Event> {
 	/// The list of events fired by the extrinsic.
 	pub emitted_events: Vec<Event>,
 	/// The local XCM that was attempted to be executed, if any.
-	pub local_xcm: VersionedXcm<()>,
+	pub local_xcm: Option<VersionedXcm<()>>,
 	/// The list of XCMs that were queued for sending.
 	pub forwarded_xcms: Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>,
 }

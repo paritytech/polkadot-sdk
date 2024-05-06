@@ -3135,8 +3135,8 @@ impl<T: Config> xcm_executor::traits::RecordXcm for Pallet<T> {
 		ShouldRecordXcm::<T>::put(enabled);
 	}
 
-	fn recorded_xcm() -> Xcm<()> {
-		RecordedXcm::<T>::get().unwrap_or(Xcm::default())
+	fn recorded_xcm() -> Option<Xcm<()>> {
+		RecordedXcm::<T>::get()
 	}
 
 	fn record(xcm: Xcm<()>) {

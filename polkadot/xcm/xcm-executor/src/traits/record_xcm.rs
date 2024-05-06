@@ -25,7 +25,8 @@ pub trait RecordXcm {
 	/// Enable or disable recording.
 	fn set_record_xcm(enabled: bool);
 	/// Get recorded XCM.
-	fn recorded_xcm() -> Xcm<()>;
+	/// Returns `None` if no message was sent, or if recording was off.
+	fn recorded_xcm() -> Option<Xcm<()>>;
 	/// Record `xcm`.
 	fn record(xcm: Xcm<()>);
 }
@@ -37,8 +38,8 @@ impl RecordXcm for () {
 
 	fn set_record_xcm(_: bool) {}
 
-	fn recorded_xcm() -> Xcm<()> {
-		Xcm::default()
+	fn recorded_xcm() -> Option<Xcm<()>> {
+		None
 	}
 
 	fn record(_: Xcm<()>) {}

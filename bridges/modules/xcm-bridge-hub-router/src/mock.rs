@@ -104,7 +104,7 @@ pub struct TestToBridgeHubSender;
 
 impl TestToBridgeHubSender {
 	pub fn is_message_sent() -> bool {
-		frame_support::storage::unhashed::get_or_default(b"TestToBridgeHubSender.Sent")
+		!Self::get_messages().is_empty()
 	}
 }
 
@@ -124,7 +124,6 @@ impl SendXcm for TestToBridgeHubSender {
 	}
 
 	fn deliver(pair: Self::Ticket) -> Result<XcmHash, SendError> {
-		frame_support::storage::unhashed::put(b"TestToBridgeHubSender.Sent", &true);
 		let hash = fake_message_hash(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)

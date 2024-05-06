@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests to ensure correct XCM fee estimation between Asset Hub Westend and the Westend relay
-//! chain.
+//! Tests to ensure correct XCM fee estimation for cross-chain asset transfers.
 
 use crate::imports::*;
 
@@ -24,8 +23,6 @@ use xcm_fee_payment_runtime_api::{
 	dry_run::runtime_decl_for_xcm_dry_run_api::XcmDryRunApiV1,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
 };
-
-type RelayToAssetHubTest = Test<Westend, AssetHubWestend>;
 
 /// We are able to dry-run and estimate the fees for a teleport between relay and system para.
 /// Scenario: Alice on Westend relay chain wants to teleport WND to Asset Hub.
@@ -56,13 +53,14 @@ fn teleport_relay_system_para_works() {
 		let sender = Alice; // Is the same as `WestendSender`.
 		let extrinsic = construct_extrinsic_westend(sender, call);
 		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
+		assert_eq!(result.forwarded_xcms.len(), 1);
 		let (destination_to_query, messages_to_query) = &result.forwarded_xcms[0];
+		assert_eq!(messages_to_query.len(), 1);
 		remote_message = messages_to_query[0].clone();
 		let delivery_fees =
 			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
 				.unwrap();
 		delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
-		assert_eq!(delivery_fees_amount, 39_700_000_000);
 	});
 
 	// This is set in the AssetHubWestend closure.
@@ -81,7 +79,7 @@ fn teleport_relay_system_para_works() {
 		receiver: AssetHubWestendReceiver::get(), // Bob in Asset Hub.
 		args: TestArgs::new_relay(destination, beneficiary_id, teleport_amount),
 	};
-	let mut test = RelayToAssetHubTest::new(test_args);
+	let mut test = RelayToSystemParaTest::new(test_args);
 
 	let sender_balance_before = test.sender.balance;
 	let receiver_balance_before = test.receiver.balance;
@@ -155,13 +153,14 @@ fn multi_hop_works() {
 		let sender = Alice; // Same as `PenpalASender`.
 		let extrinsic = construct_extrinsic_penpal(sender, call);
 		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
+		assert_eq!(result.forwarded_xcms.len(), 1);
 		let (destination_to_query, messages_to_query) = &result.forwarded_xcms[0];
+		assert_eq!(messages_to_query.len(), 1);
 		remote_message = messages_to_query[0].clone();
 		let delivery_fees =
 			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
 				.unwrap();
 		delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
-		assert_eq!(delivery_fees_amount, 31_180_000_000);
 	});
 
 	// This is set in the Westend closure.
@@ -197,7 +196,6 @@ fn multi_hop_works() {
 		)
 		.unwrap();
 		intermediate_delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
-		assert_eq!(intermediate_delivery_fees_amount, 39_700_000_000);
 	});
 
 	// Get the final execution fees in the destination.
@@ -209,7 +207,6 @@ fn multi_hop_works() {
 		final_execution_fees =
 			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::V4(Parent.into()))
 				.unwrap();
-		assert_eq!(final_execution_fees, 3_276_800_000);
 	});
 
 	// Dry-running is done.
@@ -286,7 +283,7 @@ fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
 	amount
 }
 
-fn transfer_assets(test: RelayToAssetHubTest) -> DispatchResult {
+fn transfer_assets(test: RelayToSystemParaTest) -> DispatchResult {
 	<Westend as WestendPallet>::XcmPallet::transfer_assets(
 		test.signed_origin,
 		bx!(test.args.dest.into()),
