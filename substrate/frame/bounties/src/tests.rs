@@ -545,7 +545,10 @@ fn propose_bounty_works() {
 			}
 		);
 
-		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), b"1234567890".to_vec());
+		assert_eq!(
+			pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(),
+			b"1234567890".to_vec()
+		);
 
 		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
 	});

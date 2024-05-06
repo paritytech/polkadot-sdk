@@ -278,7 +278,10 @@ fn add_child_bounty() {
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 1);
 
 		// Check the child-bounty description status.
-		assert_eq!(pallet_child_bounties::ChildBountyDescriptions::<Test>::get(0).unwrap(), b"12345-p1".to_vec(),);
+		assert_eq!(
+			pallet_child_bounties::ChildBountyDescriptions::<Test>::get(0).unwrap(),
+			b"12345-p1".to_vec(),
+		);
 	});
 }
 
