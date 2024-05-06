@@ -108,8 +108,6 @@ pub struct EpochConfiguration {
 /// Sassafras epoch information
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
 pub struct Epoch {
-	/// Epoch index.
-	pub index: u64,
 	/// Starting slot of the epoch.
 	pub start: Slot,
 	/// Number of slots in the epoch.

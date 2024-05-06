@@ -503,20 +503,20 @@ pub mod ring_vrf {
 	pub(crate) const RING_SIGNATURE_SERIALIZED_SIZE: usize = 755;
 
 	/// remove as soon as soon as serialization is implemented by the backend
-	pub struct RingVerifierData {
+	pub struct RingVerifierKey {
 		/// Domain size.
 		pub domain_size: u32,
 		/// Verifier key.
 		pub verifier_key: VerifierKey,
 	}
 
-	impl From<RingVerifierData> for RingVerifier {
-		fn from(vd: RingVerifierData) -> RingVerifier {
+	impl From<RingVerifierKey> for RingVerifier {
+		fn from(vd: RingVerifierKey) -> RingVerifier {
 			bandersnatch_vrfs::ring::make_ring_verifier(vd.verifier_key, vd.domain_size as usize)
 		}
 	}
 
-	impl Encode for RingVerifierData {
+	impl Encode for RingVerifierKey {
 		fn encode(&self) -> Vec<u8> {
 			const ERR_STR: &str = "serialization length is constant and checked by test; qed";
 			let mut buf = [0; RING_VERIFIER_DATA_SERIALIZED_SIZE];
@@ -526,7 +526,7 @@ pub mod ring_vrf {
 		}
 	}
 
-	impl Decode for RingVerifierData {
+	impl Decode for RingVerifierKey {
 		fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
 			const ERR_STR: &str = "serialization length is constant and checked by test; qed";
 			let buf = <[u8; RING_VERIFIER_DATA_SERIALIZED_SIZE]>::decode(i)?;
@@ -535,19 +535,19 @@ pub mod ring_vrf {
 					.expect(ERR_STR);
 			let verifier_key = <bandersnatch_vrfs::ring::VerifierKey as CanonicalDeserialize>::deserialize_compressed_unchecked(&mut &buf[4..]).expect(ERR_STR);
 
-			Ok(RingVerifierData { domain_size, verifier_key })
+			Ok(RingVerifierKey { domain_size, verifier_key })
 		}
 	}
 
-	impl EncodeLike for RingVerifierData {}
+	impl EncodeLike for RingVerifierKey {}
 
-	impl MaxEncodedLen for RingVerifierData {
+	impl MaxEncodedLen for RingVerifierKey {
 		fn max_encoded_len() -> usize {
 			<[u8; RING_VERIFIER_DATA_SERIALIZED_SIZE]>::max_encoded_len()
 		}
 	}
 
-	impl TypeInfo for RingVerifierData {
+	impl TypeInfo for RingVerifierKey {
 		type Identity = [u8; RING_VERIFIER_DATA_SERIALIZED_SIZE];
 
 		fn type_info() -> scale_info::Type {
@@ -601,13 +601,13 @@ pub mod ring_vrf {
 		}
 
 		/// Information required for a lazy construction of a ring verifier.
-		pub fn verifier_data(&self, public_keys: &[Public]) -> Option<RingVerifierData> {
+		pub fn verifier_key(&self, public_keys: &[Public]) -> Option<RingVerifierKey> {
 			let mut pks = Vec::with_capacity(public_keys.len());
 			for public_key in public_keys {
 				let pk = PublicKey::deserialize_compressed_unchecked(public_key.as_slice()).ok()?;
 				pks.push(pk.0.into());
 			}
-			Some(RingVerifierData {
+			Some(RingVerifierKey {
 				verifier_key: self.0.verifier_key(pks),
 				domain_size: self.0.domain_size,
 			})
@@ -1070,19 +1070,19 @@ mod tests {
 	}
 
 	#[test]
-	fn encode_decode_verifier_data() {
+	fn encode_decode_verifier_key() {
 		let ring_ctx = TestRingContext::new_testing();
 
 		let pks: Vec<_> = (0..16).map(|i| Pair::from_seed(&[i as u8; 32]).public()).collect();
 		assert!(pks.len() <= ring_ctx.max_keyset_size());
 
-		let verifier_data = ring_ctx.verifier_data(&pks).unwrap();
-		let enc1 = verifier_data.encode();
+		let verifier_key = ring_ctx.verifier_key(&pks).unwrap();
+		let enc1 = verifier_key.encode();
 
 		assert_eq!(enc1.len(), RING_VERIFIER_DATA_SERIALIZED_SIZE);
-		assert_eq!(RingVerifierData::max_encoded_len(), RING_VERIFIER_DATA_SERIALIZED_SIZE);
+		assert_eq!(RingVerifierKey::max_encoded_len(), RING_VERIFIER_DATA_SERIALIZED_SIZE);
 
-		let vd2 = RingVerifierData::decode(&mut enc1.as_slice()).unwrap();
+		let vd2 = RingVerifierKey::decode(&mut enc1.as_slice()).unwrap();
 		let enc2 = vd2.encode();
 
 		assert_eq!(enc1, enc2);

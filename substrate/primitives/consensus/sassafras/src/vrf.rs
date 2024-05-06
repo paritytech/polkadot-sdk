@@ -24,7 +24,7 @@ use scale_codec::Encode;
 use sp_consensus_slots::Slot;
 
 pub use sp_core::bandersnatch::{
-	ring_vrf::{RingProver, RingVerifier, RingVerifierData, RingVrfSignature},
+	ring_vrf::{RingProver, RingVerifier, RingVerifierKey, RingVrfSignature},
 	vrf::{VrfInput, VrfPreOutput, VrfSignData, VrfSignature},
 };
 
@@ -49,16 +49,13 @@ fn vrf_input_from_data(
 }
 
 /// VRF input to claim slot ownership during block production.
-pub fn slot_claim_input(randomness: &Randomness, slot: Slot, epoch: u64) -> VrfInput {
-	vrf_input_from_data(
-		b"sassafras-claim-v1.0",
-		[randomness.as_slice(), &slot.to_le_bytes(), &epoch.to_le_bytes()],
-	)
+pub fn slot_claim_input(randomness: &Randomness, slot: Slot) -> VrfInput {
+	vrf_input_from_data(b"sassafras-claim-v1.0", [randomness.as_slice(), &slot.to_le_bytes()])
 }
 
 /// Signing-data to claim slot ownership during block production.
-pub fn slot_claim_sign_data(randomness: &Randomness, slot: Slot, epoch: u64) -> VrfSignData {
-	let input = slot_claim_input(randomness, slot, epoch);
+pub fn slot_claim_sign_data(randomness: &Randomness, slot: Slot) -> VrfSignData {
+	let input = slot_claim_input(randomness, slot);
 	VrfSignData::new_unchecked(
 		b"sassafras-slot-claim-transcript-v1.0",
 		Option::<&[u8]>::None,
@@ -67,19 +64,13 @@ pub fn slot_claim_sign_data(randomness: &Randomness, slot: Slot, epoch: u64) -> 
 }
 
 /// VRF input to generate the ticket id.
-pub fn ticket_id_input(randomness: &Randomness, attempt: u32, epoch: u64) -> VrfInput {
-	vrf_input_from_data(
-		b"sassafras-ticket-v1.0",
-		[randomness.as_slice(), &attempt.to_le_bytes(), &epoch.to_le_bytes()],
-	)
+pub fn ticket_id_input(randomness: &Randomness, attempt: u32) -> VrfInput {
+	vrf_input_from_data(b"sassafras-ticket-v1.0", [randomness.as_slice(), &attempt.to_le_bytes()])
 }
 
 /// VRF input to generate the revealed key.
-pub fn revealed_key_input(randomness: &Randomness, attempt: u32, epoch: u64) -> VrfInput {
-	vrf_input_from_data(
-		b"sassafras-revealed-v1.0",
-		[randomness.as_slice(), &attempt.to_le_bytes(), &epoch.to_le_bytes()],
-	)
+pub fn revealed_key_input(randomness: &Randomness, attempt: u32) -> VrfInput {
+	vrf_input_from_data(b"sassafras-revealed-v1.0", [randomness.as_slice(), &attempt.to_le_bytes()])
 }
 
 /// Data to be signed via ring-vrf.

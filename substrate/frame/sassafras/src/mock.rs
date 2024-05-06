@@ -62,6 +62,8 @@ impl pallet_sassafras::Config for Test {
 	type SubmitMax = ConstU32<16>;
 	type RedundancyFactor = ConstU32<2>;
 	type AttemptsNumber = ConstU32<2>;
+	type EpochChangeTrigger = EpochChangeInternalTrigger;
+	type WeightInfo = ();
 }
 
 frame_support::construct_runtime!(
@@ -119,17 +121,8 @@ pub fn new_test_ext_with_pairs(
 }
 
 fn slot_claim_vrf_signature(slot: Slot, pair: &AuthorityPair) -> VrfSignature {
-	let mut epoch = Sassafras::epoch_index();
-	let mut randomness = Sassafras::randomness();
-
-	// Check if epoch is going to change on initialization.
-	let epoch_start = Sassafras::current_epoch_start();
-	let epoch_length = EPOCH_LENGTH.into();
-	if epoch_start != 0_u64 && slot >= epoch_start + epoch_length {
-		epoch += slot.saturating_sub(epoch_start).saturating_div(epoch_length);
-	}
-
-	let data = vrf::slot_claim_sign_data(&randomness[0], slot, epoch);
+	let randomness = Sassafras::randomness(0);
+	let data = vrf::slot_claim_sign_data(&randomness, slot);
 	pair.as_ref().vrf_sign(&data)
 }
 
@@ -149,12 +142,11 @@ pub fn make_digest(authority_idx: AuthorityIndex, slot: Slot, pair: &AuthorityPa
 	Digest { logs: vec![DigestItem::from(&claim)] }
 }
 
+/// Make a ticket which is claimable during the next epoch.
 pub fn make_ticket_body(attempt_idx: u32, pair: &AuthorityPair) -> (TicketId, TicketBody) {
-	// Values are referring to the next epoch
-	let epoch = Sassafras::epoch_index() + 1;
-	let randomness = Sassafras::randomness()[1];
+	let randomness = Sassafras::next_randomness();
 
-	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt_idx, epoch);
+	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt_idx);
 	let ticket_id_pre_output = pair.as_inner_ref().vrf_pre_output(&ticket_id_input);
 
 	let id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
@@ -206,4 +198,31 @@ pub fn initialize_block(
 pub fn finalize_block(number: u64) -> Header {
 	Sassafras::on_finalize(number);
 	System::finalize()
+}
+
+/// Progress the pallet state up to the given block `number` and `slot`.
+pub fn go_to_block(number: u64, slot: Slot, pair: &AuthorityPair) -> Digest {
+	Sassafras::on_finalize(System::block_number());
+	let parent_hash = System::finalize().hash();
+
+	let digest = make_digest(0, slot, pair);
+
+	System::reset_events();
+	System::initialize(&number, &parent_hash, &digest);
+	Sassafras::on_initialize(number);
+
+	digest
+}
+
+/// Progress the pallet state up to the given block `number`.
+/// Slots will grow linearly accordingly to blocks.
+pub fn progress_to_block(number: u64, pair: &AuthorityPair) -> Option<Digest> {
+	let mut slot = Sassafras::current_slot() + 1;
+	let mut digest = None;
+	for i in System::block_number() + 1..=number {
+		let dig = go_to_block(i, slot, pair);
+		digest = Some(dig);
+		slot = slot + 1;
+	}
+	digest
 }
