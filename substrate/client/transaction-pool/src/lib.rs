@@ -587,7 +587,7 @@ async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block = B
 
 	let hashes = extrinsics.iter().map(|tx| pool.hash_of(tx)).collect::<Vec<_>>();
 
-	log::info!(target: LOG_TARGET, "Pruning transactions: {:?}", hashes);
+	log::trace!(target: LOG_TARGET, "Pruning transactions: {:?}", hashes);
 
 	let header = match api.block_header(at.hash) {
 		Ok(Some(h)) => h,
