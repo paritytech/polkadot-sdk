@@ -348,8 +348,7 @@ where
 	fn futures(
 		&self,
 		at: Block::Hash,
-	) -> Option<Vec<graph::base_pool::Transaction<graph::ExtrinsicHash<PoolApi>, Block::Extrinsic>>>
-	{
+	) -> Option<Vec<graph::base_pool::Transaction<ExtrinsicHash<PoolApi>, Block::Extrinsic>>> {
 		self.views
 			.read()
 			.get(&at)
@@ -357,22 +356,32 @@ where
 	}
 
 	async fn finalize_route(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
-		log::info!(target: LOG_TARGET, "finalize_route {finalized_hash:?} tree_route: {tree_route:?}");
+		log::debug!(target: LOG_TARGET, "finalize_route finalized_hash:{finalized_hash:?} tree_route: {tree_route:?}");
 		let mut no_view_blocks = vec![];
 		for hash in tree_route.iter().chain(std::iter::once(&finalized_hash)) {
 			let finalized_view = { self.views.read().get(&hash).map(|v| v.clone()) };
-			log::info!(target: LOG_TARGET, "finalize_route --> {hash:?} {no_view_blocks:?} fv:{:#?}", finalized_view.is_some());
+			log::trace!(target: LOG_TARGET, "finalize_route block_hash:{hash:?} {no_view_blocks:?} fv:{:#?}", finalized_view.is_some());
 			if let Some(finalized_view) = finalized_view {
 				for h in no_view_blocks.iter().chain(std::iter::once(hash)) {
-					log::info!(target: LOG_TARGET, "finalize_route --> {h:?}");
 					finalized_view.finalize(*h).await;
 				}
 				no_view_blocks.clear();
 			} else {
-				log::info!(target: LOG_TARGET, "finalize_route --> push {hash:?} {no_view_blocks:?}");
 				no_view_blocks.push(*hash);
 			}
 		}
+	}
+
+	fn ready_transaction(
+		&self,
+		at: Block::Hash,
+		tx_hash: &ExtrinsicHash<PoolApi>,
+	) -> Option<Arc<graph::base_pool::Transaction<ExtrinsicHash<PoolApi>, Block::Extrinsic>>> {
+		self.views
+			.read()
+			.get(&at)
+			.map(|v| v.pool.validated_pool().ready_by_hash(tx_hash))
+			.flatten()
 	}
 }
 
@@ -1026,9 +1035,19 @@ where
 	}
 
 	// todo: api change?
-	fn ready_transaction(&self, hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
-		// self.pool.validated_pool().ready_by_hash(hash)
-		unimplemented!()
+	fn ready_transaction(&self, tx_hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
+		// unimplemented!()
+		let result = self
+			.most_recent_view
+			.read()
+			.map(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash))
+			.flatten();
+		log::debug!(
+			"{tx_hash:?} ready_transaction: {} {:?}",
+			result.is_some(),
+			self.most_recent_view.read()
+		);
+		result
 	}
 
 	// todo: API change? ready at hash (not number)?
