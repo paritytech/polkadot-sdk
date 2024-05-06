@@ -51,7 +51,7 @@ pub struct FullChainApi<Client, Block> {
 	client: Arc<Client>,
 	_marker: PhantomData<Block>,
 	metrics: Option<Arc<ApiMetrics>>,
-	validation_pool: Arc<Mutex<mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>>>,
+	validation_pool: mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>,
 }
 
 /// Spawn a validation task that will be used by the transaction pool to validate transactions.
@@ -95,18 +95,13 @@ impl<Client, Block> FullChainApi<Client, Block> {
 			Ok(api) => Some(Arc::new(api)),
 		});
 
-		let (sender, receiver) = mpsc::channel(0);
+		let (sender, receiver) = mpsc::channel(2);
 
 		let receiver = Arc::new(Mutex::new(receiver));
 		spawn_validation_pool_task("transaction-pool-task-0", receiver.clone(), spawner);
 		spawn_validation_pool_task("transaction-pool-task-1", receiver, spawner);
 
-		FullChainApi {
-			client,
-			validation_pool: Arc::new(Mutex::new(sender)),
-			_marker: Default::default(),
-			metrics,
-		}
+		FullChainApi { client, validation_pool: sender, _marker: Default::default(), metrics }
 	}
 }
 
@@ -139,30 +134,59 @@ where
 	) -> Self::ValidationFuture {
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
-		let validation_pool = self.validation_pool.clone();
+		let mut validation_pool = self.validation_pool.clone();
 		let metrics = self.metrics.clone();
 
+		let hash = uxt
+			.clone()
+			.using_encoded(|x| <traits::HashingFor<Block> as traits::Hash>::hash(x));
+
+		let s0 = std::time::Instant::now();
 		async move {
+			let s1 = std::time::Instant::now();
 			metrics.report(|m| m.validations_scheduled.inc());
 
-			validation_pool
-				.lock()
-				.await
-				.send(
-					async move {
-						let res = validate_transaction_blocking(&*client, at, source, uxt);
-						let _ = tx.send(res);
-						metrics.report(|m| m.validations_finished.inc());
-					}
-					.boxed(),
-				)
-				.await
-				.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
+			{
+				// let s = std::time::Instant::now();
+				// let mut guard = validation_pool.lock().await;
+				// log::debug!(
+				// 	"[{hash:?}] submit_one: api.validate_transaction lock: {:?}",
+				// 	s.elapsed()
+				// );
 
-			match rx.await {
+				let s2 = std::time::Instant::now();
+				validation_pool
+					.send(
+						async move {
+							let res = validate_transaction_blocking(&*client, at, source, uxt);
+							let _ = tx.send(res);
+							metrics.report(|m| m.validations_finished.inc());
+						}
+						.boxed(),
+					)
+					.await
+					.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
+				log::debug!(
+					"[{hash:?}] submit_one: validate_transaction: vp.send: {:?}",
+					s2.elapsed()
+				);
+			}
+
+			let s = std::time::Instant::now();
+			let result = match rx.await {
 				Ok(r) => r,
 				Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
-			}
+			};
+			log::debug!("[{hash:?}] submit_one: validate_transaction: rx.await: {:?}", s.elapsed());
+			log::debug!(
+				"[{hash:?}] submit_one: validate_transaction: async-total-outer: {:?}",
+				s0.elapsed()
+			);
+			log::debug!(
+				"[{hash:?}] submit_one: validate_transaction: async-total-inner: {:?}",
+				s1.elapsed()
+			);
+			result
 		}
 		.boxed()
 	}
@@ -222,7 +246,12 @@ where
 	Client: Send + Sync + 'static,
 	Client::Api: TaggedTransactionQueue<Block>,
 {
-	sp_tracing::within_span!(sp_tracing::Level::TRACE, "validate_transaction";
+	let s = std::time::Instant::now();
+	let h = uxt
+		.clone()
+		.using_encoded(|x| <traits::HashingFor<Block> as traits::Hash>::hash(x));
+
+	let r = sp_tracing::within_span!(sp_tracing::Level::TRACE, "validate_transaction";
 	{
 		let runtime_api = client.runtime_api();
 		let api_version = sp_tracing::within_span! { sp_tracing::Level::TRACE, "check_version";
@@ -240,8 +269,13 @@ where
 			sp_tracing::Level::TRACE, "runtime::validate_transaction";
 		{
 			if api_version >= 3 {
-				runtime_api.validate_transaction(at, source, uxt, at)
-					.map_err(|e| Error::RuntimeApi(e.to_string()))
+				let s = std::time::Instant::now();
+				let r = runtime_api.validate_transaction(at, source, uxt.clone(), at)
+					.map_err(|e| Error::RuntimeApi(e.to_string()));
+
+				let h = uxt.using_encoded(|x| <traits::HashingFor<Block> as traits::Hash>::hash(x));
+				log::debug!("[{h:?}] submit_one: runtime_api.validate_transaction: {:?}", s.elapsed());
+				r
 			} else {
 				let block_number = client.to_number(&BlockId::Hash(at))
 					.map_err(|e| Error::RuntimeApi(e.to_string()))?
@@ -269,7 +303,10 @@ where
 				}
 			}
 		})
-	})
+	});
+	log::debug!("[{h:?}] submit_one: validate_transaction_blocking: {:?}", s.elapsed());
+
+	r
 }
 
 impl<Client, Block> FullChainApi<Client, Block>
