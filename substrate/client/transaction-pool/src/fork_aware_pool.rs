@@ -1288,6 +1288,8 @@ where
 		let _ = view.submit_many(source, xts).await;
 		let view = Arc::from(view);
 
+		//todo: some filtering can be applied - do not submit all txs, only those which are not in
+		//the pool (meaning: future + ready)
 		let results = self
 			.mempool
 			.watched_xts()
