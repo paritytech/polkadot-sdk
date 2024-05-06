@@ -13,6 +13,7 @@ env:
   FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
   FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
   FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
+  FORKLIFT_general_logLevel: "standard_role_attempt_1"
 
 jobs:
   set-image:
@@ -44,9 +45,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: |
-          sleep 1800
-          WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
+        run: WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
   quick-benchmarks:
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
