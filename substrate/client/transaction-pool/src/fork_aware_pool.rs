@@ -1298,15 +1298,29 @@ where
 								) => Err((error.expect("already in Ok arm. qed."), tx_hash, t)),
 								//todo: panic while testing
 								_ => {
-									panic!("txpool: update_view: somehing went wrong: {error:?}");
+									// Err(crate::error::Error::RuntimeApi(_)) => {
+									//todo:
+									//Err(RuntimeApi("Api called for an unknown Block: State
+									// already discarded for
+									// 0x881b8b0e32780e99c1dfb353f6850cdd8271e05b551f0f29d3e12dd09520efda"
+									// ))',
+									log::error!("[{:?}] txpool: update_view: somehing went wrong: {error:?}", tx_hash);
+									Err((
+										Error::UnknownTransaction(UnknownTransaction::CannotLookup),
+										tx_hash,
+										t,
+									))
 								},
+								// _ => {
+								// 	panic!("[{:?}] txpool: update_view: somehing went wrong:
+								// {error:?}", tx_hash); },
 							}
 						},
 						|x| Ok(x),
 					);
 
 					if let Ok(watcher) = result {
-						log::info!("adding watcher {:#?}", tx_hash);
+						log::trace!("[{:?}] adding watcher {:?}", tx_hash, view.at.hash);
 						self.view_store
 							.listener
 							.add_view_watcher_for_tx(
