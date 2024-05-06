@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714974233220,
+  "lastUpdate": 1715002203382,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -8475,6 +8475,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009711134373333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jun Jiang",
+            "username": "jasl",
+            "email": "jasl9187@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6e3059a873b78c7a4e2da18b4c298847713140ee",
+          "message": "Upgrade a few deps (#4381)\n\nSplit from #4374\n\nThis PR helps to reduce dependencies and align versions, which would\nhelp to move them to workspace dep",
+          "timestamp": "2024-05-06T11:49:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e3059a873b78c7a4e2da18b4c298847713140ee"
+        },
+        "date": 1715002176619,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666662,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011055315660000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02275195401333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013274935653333325,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16429059974666665,
             "unit": "seconds"
           }
         ]
