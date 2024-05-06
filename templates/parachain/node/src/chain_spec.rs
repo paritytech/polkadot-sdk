@@ -136,7 +136,12 @@ fn testnet_genesis(
 	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
-	let staking_gen = staking_genesis::generate(10, 10, 16, 20);
+	let validators = 1_000;
+	let nominators = 5_000;
+	let edges = 16;
+
+	let staking_gen = staking_genesis::generate(validators, nominators, edges, validators / 2);
+
 	endowed_accounts.append(
 		&mut staking_gen
 			.stakers
@@ -182,6 +187,8 @@ mod staking_genesis {
 	use super::*;
 	use pallet_staking::StakerStatus;
 
+	use rand::Rng;
+
 	pub(crate) fn generate(
 		validators: u32,
 		nominators: u32,
@@ -203,7 +210,7 @@ mod staking_genesis {
 		for i in 0..nominators {
 			let stash =
 				utils::get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "nominator"));
-			let stake = 1u128 << 50;
+			let stake = rand::thread_rng().gen_range((1u128 << 50)..(2u128 << 50));
 			let nominations = utils::select_targets(edges, targets.clone());
 
 			stakers.push((stash.clone(), stash, stake, StakerStatus::Nominator(nominations)));

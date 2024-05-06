@@ -353,10 +353,9 @@ parameter_types! {
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxExposurePageSize: u32 = 64;
-	pub const MaxNominators: u32 = 64;
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
-	pub const MaxValidatorSet: u32 = 500;
+	pub const MaxValidatorSet: u32 = 1_000;
 }
 
 // Disabling threshold for `UpToLimitDisablingStrategy`
@@ -412,7 +411,7 @@ parameter_types! {
 
 impl pallet_nomination_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = (); // weights::pallet_nomination_pools::WeightInfo<Self>;
+	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = sp_runtime::FixedU128;
@@ -429,22 +428,23 @@ impl pallet_nomination_pools::Config for Runtime {
 }
 
 parameter_types! {
+	// npos_solution
 	pub MaxVoters: u32 = VoterSnapshotPerBlock::get() * Pages::get();
 
 	// phase boundaries.
-	pub SignedPhase: u32 = (1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2);
-	pub UnsignedPhase: u32 = (5 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2);
-	pub SignedValidationPhase: BlockNumber = Pages::get(); // * SignedMaxSubmissions::get();
+	pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	pub UnsignedPhase: u32 = (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	pub SignedValidationPhase: BlockNumber = 0; // Pages::get() * SignedMaxSubmissions::get();
 	pub Lookhaead: BlockNumber = Pages::get();
 	pub ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 
-	pub Pages: PageIndex = 5;
-	pub MaxWinnersPerPage: u32 = 10;
-	pub MaxBackersPerWinner: u32 = 12;
-	pub VoterSnapshotPerBlock: VoterIndex = 10;
-	pub TargetSnapshotPerBlock: TargetIndex = 10;
+	pub Pages: PageIndex = 1;
+	pub MaxWinnersPerPage: u32 = 1_000;
+	pub MaxBackersPerWinner: u32 = 3_000;
+	pub VoterSnapshotPerBlock: VoterIndex = 3_000;
+	pub TargetSnapshotPerBlock: TargetIndex = 1_000;
 
-	pub const SignedMaxSubmissions: u32 = 128;
+	pub const SignedMaxSubmissions: u32 = 32;
 	pub const SignedMaxRefunds: u32 = 128 / 4;
 	pub const SignedFixedDeposit: Balance = 10;
 	pub const SignedDepositByte: Balance = 10;
@@ -470,8 +470,8 @@ parameter_types! {
 
 	pub OffchainRepeatInterval: BlockNumber = 10;
 	pub MinerTxPriority: u64 = 0;
-	pub MinerSolutionMaxLength: u32 = 100;
-	pub MinerSolutionMaxWeight: Weight = Default::default();
+	pub MinerSolutionMaxLength: u32 = u32::MAX;
+	pub MinerSolutionMaxWeight: Weight = Weight::MAX;
 }
 
 // solution type.
