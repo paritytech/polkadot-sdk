@@ -1549,7 +1549,7 @@ where
 		use sp_runtime::traits::CheckedSub;
 		match event {
 			ChainEvent::NewBestBlock { hash, .. } => {},
-			ChainEvent::Finalized { hash, tree_route } => {
+			ChainEvent::Finalized { hash, ref tree_route } => {
 				self.handle_finalized(hash, &*tree_route).await;
 
 				log::trace!(
