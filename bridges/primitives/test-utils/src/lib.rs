@@ -181,8 +181,8 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 		let storage_key =
 			parachain_head_storage_key_at_source(PARAS_PALLET_NAME, ParaId(parachain));
 		trie.insert(&storage_key.0, &head.encode())
-			.map_err(|_| "TrieMut::insert has failed")
-			.expect("TrieMut::insert should not fail in tests");
+			.map_err(|_| "TrieDBMut::insert has failed")
+			.expect("TrieDBMut::insert should not fail in tests");
 		parachains.push((ParaId(parachain), head.hash()));
 	}
 	let root = trie.commit().apply_to(&mut mdb);

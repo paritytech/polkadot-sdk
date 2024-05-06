@@ -58,8 +58,8 @@ pub use trie_db::{
 	proof::VerifyError,
 	CError, Changenode, Changeset, DBValue, ExistingChangesetNode, Location, MerkleValue,
 	NewChangesetNode, Query, Recorder, Trie, TrieCache, TrieConfiguration,
-	TrieDBDoubleEndedIterator, TrieDBIterator, TrieDBKeyDoubleEndedIterator, TrieDBKeyIterator,
-	TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
+	TrieDoubleEndedIterator, TrieDBNodeDoubleEndedIterator, TrieDBIterator,
+	TrieDBRawIterator, TrieLayout, TrieRecorder,
 };
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;

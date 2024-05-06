@@ -66,8 +66,8 @@ where
 			parachain_head.encode()
 		};
 		trie.insert(&storage_key.0, &leaf_data)
-			.map_err(|_| "TrieMut::insert has failed")
-			.expect("TrieMut::insert should not fail in benchmarks");
+			.map_err(|_| "TrieDBMut::insert has failed")
+			.expect("TrieDBMut::insert should not fail in benchmarks");
 		storage_keys.push(storage_key);
 		parachain_heads.push((*parachain, parachain_head.hash()))
 	}
