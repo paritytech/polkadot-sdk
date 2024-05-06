@@ -28,7 +28,7 @@ serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 derive_more = { workspace = true, default-features = false, features = ["display"] }
 kvdb = { workspace = true }
-kvdb-rocksdb = "0.19.0"
+kvdb-rocksdb = { workspace = true }
 sp-trie = { path = "../../../primitives/trie" }
 sp-core = { path = "../../../primitives/core" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
