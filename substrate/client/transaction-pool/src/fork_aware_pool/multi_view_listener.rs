@@ -23,7 +23,7 @@ const LOG_TARGET: &str = "txpool::mvlistener";
 use crate::graph::{BlockHash, ChainApi, ExtrinsicHash as TxHash};
 use futures::{stream, StreamExt};
 use log::trace;
-use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream};
+use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
 use sp_runtime::traits::{Block as BlockT, Extrinsic, Hash as HashT};
 use std::{
 	collections::{HashMap, HashSet},
@@ -39,6 +39,7 @@ pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<TxHash<T>, BlockHas
 enum ListenerAction<PoolApi: ChainApi> {
 	ViewAdded(BlockHash<PoolApi>, TxStatusStream<PoolApi>),
 	InvalidateTransaction,
+	FinalizeTransaction(BlockHash<PoolApi>, TxIndex),
 }
 
 impl<PoolApi> std::fmt::Debug for ListenerAction<PoolApi>
@@ -50,6 +51,9 @@ where
 			ListenerAction::ViewAdded(h, _) => write!(f, "ListenerAction::ViewAdded({})", h),
 			ListenerAction::InvalidateTransaction => {
 				write!(f, "ListenerAction::InvalidateTransaction")
+			},
+			ListenerAction::FinalizeTransaction(h, i) => {
+				write!(f, "ListenerAction::FinalizeTransaction({},{})", h, i)
 			},
 		}
 	}
@@ -221,6 +225,11 @@ where
 									return Some((TransactionStatus::Invalid, ctx))
 								}
 							},
+							Some(ListenerAction::FinalizeTransaction(block, index)) => {
+								log::debug!(target: LOG_TARGET, "[{:?}] sending out: Finalized", ctx.tx_hash);
+								ctx.terminate = true;
+								return Some((TransactionStatus::Finalized((block, index)), ctx))
+							},
 
 							None => {},
 						}
@@ -278,6 +287,25 @@ where
 				},
 				Ok(_) => {},
 			});
+	}
+
+	pub(crate) async fn finalize_transaction(
+		&self,
+		tx_hash: TxHash<PoolApi>,
+		block: BlockHash<PoolApi>,
+		idx: TxIndex,
+	) {
+		use futures::future::FutureExt;
+		let mut controllers = self.controllers.write().await;
+
+		if let Some(tx) = controllers.get(&tx_hash) {
+			trace!(target: LOG_TARGET, "[{:?}] finalize_transaction", tx_hash);
+			let result = tx.send(ListenerAction::FinalizeTransaction(block, idx)).await;
+			if result.is_err() {
+				trace!(target: LOG_TARGET, "finalize_transaction: SendError: {:?}", result.unwrap_err());
+				controllers.remove(&tx_hash);
+			}
+		};
 	}
 }
 
