@@ -233,7 +233,13 @@ impl<H: ExHashT> TransactionsHandlerController<H> {
 	/// This transaction will be fetched from the `TransactionPool` that was passed at
 	/// initialization as part of the configuration and propagated to peers.
 	pub fn propagate_transaction(&self, hash: H) {
-		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransaction(hash));
+		let r = self.to_handler.unbounded_send(ToHandler::PropagateTransaction(hash.clone()));
+		if r.is_err() {
+			log::debug!(
+				"[{hash:?} ] import_notification_stream: sending failed {:?}",
+				r.unwrap_err()
+			);
+		}
 	}
 }
 
@@ -461,6 +467,8 @@ where
 		if let Some(transaction) = self.transaction_pool.transaction(hash) {
 			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
 			self.transaction_pool.on_broadcasted(propagated_to);
+		} else {
+			debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
 		}
 	}
 
@@ -489,7 +497,7 @@ where
 				for hash in hashes {
 					propagated_to.entry(hash).or_default().push(who.to_base58());
 				}
-				trace!(target: "sync", "Sending {} transactions to {}", to_send.len(), who);
+				debug!(target: "sync", "Sending {} transactions to {}", to_send.len(), who);
 				// Historically, the format of a notification of the transactions protocol
 				// consisted in a (SCALE-encoded) `Vec<Transaction>`.
 				// After RFC 56, the format was modified in a backwards-compatible way to be
