@@ -54,7 +54,10 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
-	sync::Arc,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
 
 use crate::graph::{ExtrinsicFor, ExtrinsicHash, IsValidator};
@@ -89,6 +92,7 @@ pub(crate) const LOG_TARGET: &str = "txpool";
 pub struct View<PoolApi: graph::ChainApi> {
 	pool: graph::Pool<PoolApi>,
 	at: HashAndNumber<PoolApi::Block>,
+	accept_xts: AtomicBool,
 }
 
 impl<PoolApi> View<PoolApi>
@@ -96,16 +100,39 @@ where
 	PoolApi: graph::ChainApi,
 {
 	fn new(api: Arc<PoolApi>, at: HashAndNumber<PoolApi::Block>) -> Self {
-		Self { pool: graph::Pool::new(Default::default(), true.into(), api), at }
+		//todo!!
+		use crate::graph::base_pool::Limit;
+		let options = graph::Options {
+			ready: Limit { count: 100000, total_bytes: 200 * 1024 * 1024 },
+			future: Limit { count: 100000, total_bytes: 200 * 1024 * 1024 },
+			reject_future_transactions: false,
+			ban_time: core::time::Duration::from_secs(60 * 30),
+		};
+
+		Self {
+			pool: graph::Pool::new(options, true.into(), api),
+			at,
+			accept_xts: AtomicBool::new(true),
+		}
 	}
 
 	fn new_from_other(&self, at: &HashAndNumber<PoolApi::Block>) -> Self {
-		View { at: at.clone(), pool: self.pool.deep_clone() }
+		View { at: at.clone(), pool: self.pool.deep_clone(), accept_xts: AtomicBool::new(true) }
 	}
 
 	async fn finalize(&self, finalized: graph::BlockHash<PoolApi>) {
-		log::info!("View::finalize: {:?} {:?}", self.at, finalized);
+		log::debug!("View::finalize: {:?} {:?}", self.at, finalized);
+		self.disable();
 		let _ = self.pool.validated_pool().on_block_finalized(finalized).await;
+	}
+
+	fn accept_xts(&self) -> bool {
+		self.accept_xts.load(Ordering::Relaxed)
+		// true
+	}
+
+	fn disable(&self) {
+		self.accept_xts.store(false, Ordering::Relaxed);
 	}
 
 	pub async fn submit_many(
@@ -174,14 +201,22 @@ where
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>> {
 		let results = {
+			let s = Instant::now();
 			let views = self.views.read();
+			log::debug!("submit_one: read: took:{:?}", s.elapsed());
 			let futs = views
 				.iter()
+				.filter(|v| v.1.accept_xts())
 				.map(|(hash, view)| {
 					let view = view.clone();
 					//todo: remove this clone (Arc?)
 					let xts = xts.clone();
-					async move { (view.at.hash, view.submit_many(source, xts.clone()).await) }
+					async move {
+						let s = Instant::now();
+						let r = (view.at.hash, view.submit_many(source, xts.clone()).await);
+						log::debug!("submit_one: submit_at: took:{:?}", s.elapsed());
+						r
+					}
 				})
 				.collect::<Vec<_>>();
 			futs
@@ -223,6 +258,7 @@ where
 			let views = self.views.read();
 			let futs = views
 				.iter()
+				.filter(|v| v.1.accept_xts())
 				.map(|(hash, view)| {
 					let view = view.clone();
 					let xt = xt.clone();
