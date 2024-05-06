@@ -253,6 +253,9 @@ where
 					.overseer_channel_capacity_override,
 				malus_finality_delay: maybe_malus_finality_delay,
 				hwbench,
+				execute_workers_max_num: cli.run.execute_workers_max_num,
+				prepare_workers_hard_max_num: cli.run.prepare_workers_hard_max_num,
+				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
 			},
 		)
 		.map(|full| full.task_manager)?;
