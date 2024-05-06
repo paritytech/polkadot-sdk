@@ -25,7 +25,7 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 hex-literal = { version = "0.4.1" }
 env_logger = "0.11"
 hex = "0.4"
-array-bytes = "4.1"
+array-bytes = "6.2.2"
 sp-crypto-hashing = { path = "../../../../../substrate/primitives/crypto/hashing" }
 
 [features]
