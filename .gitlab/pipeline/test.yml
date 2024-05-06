@@ -33,6 +33,7 @@ codecov-start:
     - .kubernetes-env
     - .common-refs
     - .pipeline-stopper-artifacts
+    - .run-immediately
   script:
     - !reference [.codecov-check, script]    
     - codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
