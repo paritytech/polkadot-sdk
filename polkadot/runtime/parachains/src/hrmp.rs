@@ -278,7 +278,12 @@ pub mod pallet {
 		/// parachain.
 		type DefaultChannelSizeAndCapacityWithSystem: Get<(u32, u32)>;
 
-		/// Means of converting an `Xcm` into a `VersionedXcm`.
+		/// Means of converting an `Xcm` into a `VersionedXcm`. This pallet sends HRMP XCM
+		/// notifications to the channel-related parachains, while the `WrapVersion` implementation
+		/// attempts to wrap them into the most suitable XCM version for the destination parachain.
+		///
+		/// NOTE: For example, `pallet_xcm` provides an accurate implementation (recommended), or
+		/// the default `()` implementation uses the latest XCM version for all parachains.
 		type VersionWrapper: xcm::WrapVersion;
 
 		/// Something that provides the weight of this pallet.
