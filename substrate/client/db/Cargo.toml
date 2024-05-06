@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, features = [
 	"derive",
 ] }
-hash-db = "0.16.0"
+hash-db = { workspace = true, default-features = true }
 kvdb = "0.13.0"
 kvdb-memorydb = "0.13.0"
 kvdb-rocksdb = { version = "0.19.0", optional = true }

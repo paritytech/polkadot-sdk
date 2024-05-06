@@ -23,7 +23,7 @@ serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 bounded-collections = { workspace = true, default-features = false }
 primitive-types = { workspace = true, default-features = false, features = ["codec", "scale-info"] }
 impl-serde = { workspace = true, default-features = false, optional = true }
-hash-db = { version = "0.16.0", default-features = false }
+hash-db = { workspace = true, default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 bs58 = { workspace = true, default-features = false, optional = true }
 rand = { workspace = true, default-features = false, features = ["small_rng"], optional = true }

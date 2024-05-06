@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
-hash-db = { version = "0.16.0", default-features = false }
+hash-db = { workspace = true, default-features = false }
 log = { workspace = true }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 static_assertions = { workspace = true, default-features = true, optional = true }
