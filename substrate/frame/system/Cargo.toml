@@ -31,7 +31,7 @@ sp-weights = { path = "../../primitives/weights", default-features = false, feat
 docify = "0.2.8"
 
 [dev-dependencies]
-criterion = "0.4.0"
+criterion = "0.5.1"
 sp-externalities = { path = "../../primitives/externalities" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
