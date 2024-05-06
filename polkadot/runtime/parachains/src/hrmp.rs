@@ -1629,9 +1629,9 @@ impl<T: Config> Pallet<T> {
 			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
 				Xcm(vec![HrmpChannelClosing {
-					initiator: u32::from(origin),
-					sender: u32::from(channel_id.sender),
-					recipient: u32::from(channel_id.recipient),
+					initiator: origin.into(),
+					sender: channel_id.sender.into(),
+					recipient: channel_id.recipient.into(),
 				}])
 			}),
 		);
