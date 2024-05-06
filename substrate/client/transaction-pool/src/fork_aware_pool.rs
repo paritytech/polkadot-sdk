@@ -322,7 +322,7 @@ where
 	/// ```
 	/// ```text
 	/// Search path is:
-	/// [R1, R2, R3, C, E1]
+	/// [E1, C, R3, R2, R1]
 	/// ```
 	fn find_best_view(&self, tree_route: &TreeRoute<Block>) -> Option<Arc<View<PoolApi>>> {
 		let views = self.views.read();
@@ -332,6 +332,7 @@ where
 				.iter()
 				.chain(std::iter::once(tree_route.common_block()))
 				.chain(tree_route.enacted().iter())
+				.rev()
 				.find(|block| views.contains_key(&block.hash))
 		};
 		best_view.map(|h| {
