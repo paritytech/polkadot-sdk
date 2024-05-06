@@ -27,7 +27,7 @@ const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 #[tokio::test(flavor = "multi_thread")]
 async fn runtime_can_publish_metrics() {
 	let mut alice_config =
-		node_config(|| {}, tokio::runtime::Handle::current(), Alice, Vec::new(), true);
+		node_config(|| {}, tokio::runtime::Handle::current(), Alice, Vec::new(), true, true);
 
 	// Enable Prometheus metrics for Alice.
 	alice_config.prometheus_config = Some(test_prometheus_config(DEFAULT_PROMETHEUS_PORT));
@@ -46,7 +46,7 @@ async fn runtime_can_publish_metrics() {
 	let alice = run_validator_node(alice_config, None);
 
 	let bob_config =
-		node_config(|| {}, tokio::runtime::Handle::current(), Bob, vec![alice.addr.clone()], true);
+		node_config(|| {}, tokio::runtime::Handle::current(), Bob, vec![alice.addr.clone()], true, false);
 
 	// Start validator Bob.
 	let _bob = run_validator_node(bob_config, None);

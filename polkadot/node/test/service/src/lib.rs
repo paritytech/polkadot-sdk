@@ -158,6 +158,7 @@ pub fn node_config(
 	key: Sr25519Keyring,
 	boot_nodes: Vec<MultiaddrWithPeerId>,
 	is_validator: bool,
+	multi_tree: bool,
 ) -> Configuration {
 	let base_path = BasePath::new_temp_dir().expect("could not create temporary directory");
 	let root = base_path.path().join(key.to_string());
@@ -195,9 +196,11 @@ pub fn node_config(
 		transaction_pool: Default::default(),
 		network: network_config,
 		keystore: KeystoreConfig::InMemory,
-		//database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 }, // TODO
-		// restore rocksdb?
-		database: DatabaseSource::ParityDb { path: root.join("db"), multi_tree: true },
+		database: if multi_tree {
+			DatabaseSource::ParityDb { path: root.join("db"), multi_tree: true }
+		} else {
+			DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 }
+		},
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
@@ -276,7 +279,7 @@ pub fn run_collator_node(
 	boot_nodes: Vec<MultiaddrWithPeerId>,
 	collator_pair: CollatorPair,
 ) -> PolkadotTestNode {
-	let config = node_config(storage_update_func, tokio_handle, key, boot_nodes, false);
+	let config = node_config(storage_update_func, tokio_handle, key, boot_nodes, false, false);
 	let multiaddr = config.network.listen_addresses[0].clone();
 	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } = new_full(
 		config,
