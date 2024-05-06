@@ -543,6 +543,7 @@ pub async fn propagate_transaction_notifications<Block, ExPool>(
 	transaction_pool
 		.import_notification_stream()
 		.for_each(move |hash| {
+			log::debug!("[{hash:?} ] import_notification_stream: received");
 			tx_handler_controller.propagate_transaction(hash);
 			let status = transaction_pool.status();
 			telemetry!(
