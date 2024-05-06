@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714973936451,
+  "lastUpdate": 1715001904159,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2255,6 +2255,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.501562840889955,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jun Jiang",
+            "username": "jasl",
+            "email": "jasl9187@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6e3059a873b78c7a4e2da18b4c298847713140ee",
+          "message": "Upgrade a few deps (#4381)\n\nSplit from #4374\n\nThis PR helps to reduce dependencies and align versions, which would\nhelp to move them to workspace dep",
+          "timestamp": "2024-05-06T11:49:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e3059a873b78c7a4e2da18b4c298847713140ee"
+        },
+        "date": 1715001877714,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63548.79,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.180909964369988,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.621565220630034,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.4189322805300955,
             "unit": "seconds"
           }
         ]
