@@ -232,6 +232,7 @@ fn measure_write<Block: BlockT>(
 	match db.state_capabilities() {
 		StateCapabilities::TreeColumn => {
 			let mut tx = Transaction::<DbHash>::default();
+			let new_root = stx.root_hash();
 			sc_client_db::apply_tree_commit::<HashingFor<Block>>(
 				stx,
 				db.state_capabilities(),
@@ -240,7 +241,11 @@ fn measure_write<Block: BlockT>(
 
 			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
 			let result = (new_v.len(), start.elapsed());
-			// TODO how to revert: do pruning??
+
+			// Now undo the changes by removing what was added.
+			let mut tx = Transaction::<DbHash>::default();
+			tx.release_tree(col, DbHash::from_slice(new_root.as_ref()));
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
 			Ok(result)
 		},
 		StateCapabilities::RefCounted => {
@@ -290,21 +295,10 @@ fn check_new_value<Block: BlockT>(
 		None => trie.storage_root(new_kv.iter().cloned().map(|(k, v)| (k, v, None)), version),
 	};
 	match db.state_capabilities() {
-		StateCapabilities::TreeColumn => {
-			unimplemented!()
-		},
-		StateCapabilities::RefCounted => {
-			let mut mdb = MemoryDB::<HashingFor<Block>>::default();
-			stx.apply_to(&mut mdb);
-			for (k, (_, rc)) in mdb.drain().into_iter() {
-				if rc > 0 {
-					if db.get(col, k.as_ref()).is_some() {
-						trace!("Benchmark-store key creation: Key collision detected, retry");
-						return false
-					}
-				}
-			}
-		},
+		// cannot have collision with `TreeColumn`.
+		StateCapabilities::TreeColumn => (),
+		// collision are not an issue with `RefCounted`.
+		StateCapabilities::RefCounted => (),
 		StateCapabilities::None => {
 			let mut mdb = PrefixedMemoryDB::<HashingFor<Block>>::default();
 			stx.apply_to(&mut mdb);
