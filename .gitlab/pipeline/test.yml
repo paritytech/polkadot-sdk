@@ -34,7 +34,7 @@ codecov-start:
     - .common-refs
     - .pipeline-stopper-artifacts
   script:
-    - !reference [.codecov-cli, script]    
+    - !reference [.codecov-check, script]    
     - codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
     - codecovcli -v create-report -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
 
@@ -50,7 +50,7 @@ codecov-finish:
   needs:
     - codecov-test-linux-stable
   script:
-    - !reference [.codecov-cli, script]  
+    - !reference [.codecov-check, script]  
     - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
     - codecovcli -v get-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
     - codecovcli -v send-notifications -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
@@ -71,11 +71,12 @@ test-linux-stable-codecov:
     RUST_TOOLCHAIN: stable
     RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
     LLVM_PROFILE_FILE: "target/coverage/cargo-test-${CI_NODE_INDEX}-%p-%m.profraw"
-    CARGO_INCREMENTAL: 0      
+    CARGO_INCREMENTAL: 0    
+    FORKLIFT_BYPASS: true  
   parallel: 2
   script:
     # tools
-    - !reference [.codecov-cli, script]    
+    - !reference [.codecov-check, script]    
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage/result/  
     # Place real test call here
