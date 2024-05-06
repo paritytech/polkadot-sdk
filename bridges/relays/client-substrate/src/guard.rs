@@ -104,7 +104,7 @@ impl<C: Chain> Environment<C> for Client<C> {
 
 	async fn runtime_version(&mut self) -> Result<RuntimeVersion, Self::Error> {
 		let best_block_id = self.best_header().await?.id();
-		Client::<C>::runtime_version(self, best_block_id).await
+		Client::<C>::runtime_version(self, best_block_id.hash()).await
 	}
 }
 

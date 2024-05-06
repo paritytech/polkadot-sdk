@@ -297,7 +297,7 @@ impl<C: Chain> Client<C> {
 
 impl<C: Chain> Client<C> {
 	/// Return simple runtime version, only include `spec_version` and `transaction_version`.
-	pub async fn simple_runtime_version(&self, at: HeaderIdOf<C>) -> Result<SimpleRuntimeVersion> {
+	pub async fn simple_runtime_version(&self, at: HashOf<C>) -> Result<SimpleRuntimeVersion> {
 		Ok(match &self.chain_runtime_version {
 			ChainRuntimeVersion::Auto => {
 				let runtime_version = self.runtime_version(at).await?;
@@ -403,9 +403,9 @@ impl<C: Chain> Client<C> {
 	}
 
 	/// Return runtime version.
-	pub async fn runtime_version(&self, at: HeaderIdOf<C>) -> Result<RuntimeVersion> {
+	pub async fn runtime_version(&self, at: HashOf<C>) -> Result<RuntimeVersion> {
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(SubstrateStateClient::<C>::runtime_version(&*client, Some(at.hash())).await?)
+			Ok(SubstrateStateClient::<C>::runtime_version(&*client, Some(at)).await?)
 		})
 		.await
 	}
@@ -491,7 +491,7 @@ impl<C: Chain> Client<C> {
 	async fn build_sign_params(
 		&self,
 		signer: AccountKeyPairOf<C>,
-		at: HeaderIdOf<C>,
+		at: HashOf<C>,
 	) -> Result<SignParam<C>>
 	where
 		C: ChainWithTransactions,
@@ -520,7 +520,7 @@ impl<C: Chain> Client<C> {
 		C::AccountId: From<<C::AccountKeyPair as Pair>::Public>,
 	{
 		let self_clone = self.clone();
-		let signing_data = self.build_sign_params(signer.clone(), best_header_id).await?;
+		let signing_data = self.build_sign_params(signer.clone(), best_header_id.hash()).await?;
 		let _guard = self.submit_signed_extrinsic_lock.lock().await;
 		let transaction_nonce = self.next_account_index(signer.public().into()).await?;
 

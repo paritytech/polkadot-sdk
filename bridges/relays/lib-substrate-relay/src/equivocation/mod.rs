@@ -76,7 +76,7 @@ pub trait SubstrateEquivocationDetectionPipeline:
 			let best_block_id = source_client.best_header().await?.id();
 			relay_substrate_client::guard::abort_on_spec_version_change(
 				source_client.clone(),
-				source_client.simple_runtime_version(best_block_id).await?.spec_version,
+				source_client.simple_runtime_version(best_block_id.hash()).await?.spec_version,
 			);
 		}
 		Ok(())

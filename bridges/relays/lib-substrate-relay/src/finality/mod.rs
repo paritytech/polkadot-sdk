@@ -90,7 +90,7 @@ pub trait SubstrateFinalitySyncPipeline: BaseSubstrateFinalitySyncPipeline {
 			let best_block_id = target_client.best_header().await?.id();
 			relay_substrate_client::guard::abort_on_spec_version_change(
 				target_client.clone(),
-				target_client.simple_runtime_version(best_block_id).await?.spec_version,
+				target_client.simple_runtime_version(best_block_id.hash()).await?.spec_version,
 			);
 		}
 		Ok(())
