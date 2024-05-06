@@ -139,7 +139,8 @@ where
 					data.at_source_block,
 				);
 				anyhow::format_err!("The command has failed")
-			})?.id();
+			})?
+			.id();
 
 		crate::messages_lane::relay_messages_range::<Self::MessagesLane>(
 			source_client,
