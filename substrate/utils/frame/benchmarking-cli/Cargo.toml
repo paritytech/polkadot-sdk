@@ -22,7 +22,7 @@ clap = { workspace = true, features = ["derive"] }
 codec = { workspace = true, default-features = true }
 comfy-table = { version = "7.1.0", default-features = false }
 handlebars = "5.1.0"
-Inflector = "0.11.4"
+Inflector = { workspace = true }
 itertools = { workspace = true }
 lazy_static = { workspace = true }
 linked-hash-map = "0.5.4"

@@ -17,7 +17,7 @@ proc-macro = true
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
-Inflector = "0.11.4"
+Inflector = { workspace = true }
 
 [dev-dependencies]
 trybuild = { version = "1.0.88", features = ["diff"] }
