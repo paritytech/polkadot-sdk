@@ -1509,7 +1509,7 @@ impl<T: Config> Pallet<T> {
 			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
 				Xcm(vec![HrmpNewChannelOpenRequest {
-					sender: u32::from(origin),
+					sender: origin.into(),
 					max_capacity: proposed_max_capacity,
 					max_message_size: proposed_max_message_size,
 				}])
