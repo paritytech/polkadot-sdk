@@ -19,6 +19,7 @@
 //! JSON-RPC specific middleware.
 
 use std::{
+	net::IpAddr,
 	num::NonZeroU32,
 	time::{Duration, Instant},
 };
@@ -41,26 +42,27 @@ const MAX_JITTER: Duration = Duration::from_millis(50);
 const MAX_RETRIES: usize = 10;
 
 /// JSON-RPC middleware layer.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct MiddlewareLayer {
 	rate_limit: Option<RateLimit>,
 	metrics: Option<Metrics>,
+	ip: IpAddr,
 }
 
 impl MiddlewareLayer {
 	/// Create an empty MiddlewareLayer.
-	pub fn new() -> Self {
-		Self::default()
+	pub fn new(ip: IpAddr) -> Self {
+		Self { rate_limit: None, metrics: None, ip }
 	}
 
 	/// Enable new rate limit middleware enforced per minute.
 	pub fn with_rate_limit_per_minute(self, n: NonZeroU32) -> Self {
-		Self { rate_limit: Some(RateLimit::per_minute(n)), metrics: self.metrics }
+		Self { rate_limit: Some(RateLimit::per_minute(n)), metrics: self.metrics, ip: self.ip }
 	}
 
 	/// Enable metrics middleware.
 	pub fn with_metrics(self, metrics: Metrics) -> Self {
-		Self { rate_limit: self.rate_limit, metrics: Some(metrics) }
+		Self { rate_limit: self.rate_limit, metrics: Some(metrics), ip: self.ip }
 	}
 
 	/// Register a new websocket connection.
@@ -78,7 +80,12 @@ impl<S> tower::Layer<S> for MiddlewareLayer {
 	type Service = Middleware<S>;
 
 	fn layer(&self, service: S) -> Self::Service {
-		Middleware { service, rate_limit: self.rate_limit.clone(), metrics: self.metrics.clone() }
+		Middleware {
+			service,
+			rate_limit: self.rate_limit.clone(),
+			metrics: self.metrics.clone(),
+			ip: self.ip,
+		}
 	}
 }
 
@@ -93,6 +100,7 @@ pub struct Middleware<S> {
 	service: S,
 	rate_limit: Option<RateLimit>,
 	metrics: Option<Metrics>,
+	ip: IpAddr,
 }
 
 impl<'a, S> RpcServiceT<'a> for Middleware<S>
@@ -109,6 +117,7 @@ where
 		let service = self.service.clone();
 		let rate_limit = self.rate_limit.clone();
 		let metrics = self.metrics.clone();
+		let ip = self.ip;
 
 		async move {
 			let mut is_rate_limited = false;
@@ -119,6 +128,7 @@ where
 
 				loop {
 					if attempts >= MAX_RETRIES {
+						log::debug!(target: "rpc", "Rate limit exceeded for ip={ip}");
 						return reject_too_many_calls(req.id);
 					}
 

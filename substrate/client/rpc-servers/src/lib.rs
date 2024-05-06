@@ -130,6 +130,8 @@ where
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = host_filtering(cors.is_some(), local_addr);
 
+	log::debug!(target: "rpc", "Whitelisted rate limit ips: {:?}", rate_limit_whitelisted_ips);
+
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
 		// Proxy `GET /health` requests to internal `system_health` method.
@@ -185,6 +187,10 @@ where
 
 				let rate_limit_cfg =
 					if rate_limit_whitelisted_ips.iter().any(|ip| ip.contains(remote_ip)) {
+						if !rate_limit_whitelisted_ips.is_empty() {
+							log::debug!(target: "rpc", "ip={remote_ip} is trusted, disabling rate-limit");
+						}
+
 						None
 					} else {
 						rate_limit
@@ -199,12 +205,13 @@ where
 				let middleware_layer = match (metrics, rate_limit_cfg) {
 					(None, None) => None,
 					(Some(metrics), None) => Some(
-						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
+						MiddlewareLayer::new(ip)
+							.with_metrics(Metrics::new(metrics, transport_label)),
 					),
 					(None, Some(rate_limit)) =>
-						Some(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit)),
+						Some(MiddlewareLayer::new(ip).with_rate_limit_per_minute(rate_limit)),
 					(Some(metrics), Some(rate_limit)) => Some(
-						MiddlewareLayer::new()
+						MiddlewareLayer::new(ip)
 							.with_metrics(Metrics::new(metrics, transport_label))
 							.with_rate_limit_per_minute(rate_limit),
 					),
