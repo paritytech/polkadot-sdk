@@ -36,7 +36,7 @@ sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots"
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto", default-features = false, features = ["full_crypto"] }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 # rand_core should match schnorrkel
-rand_core = "0.6.2"
+rand_core = { workspace = true }
 rand_chacha = { workspace = true, default-features = false }
 rand = { workspace = true, default-features = false }
 
