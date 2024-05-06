@@ -50,6 +50,6 @@ log = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 lazy_static = { workspace = true }
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
-kvdb-shared-tests = "0.11.0"
+kvdb-shared-tests = { workspace = true }
 tempfile = { workspace = true }
 kvdb-memorydb = { workspace = true }
