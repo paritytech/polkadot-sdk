@@ -19,10 +19,10 @@ use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::{DbHash, DbState, DbStateBuilder};
 use sp_blockchain::HeaderBackend;
-use sp_database::{ColumnId, Transaction};
+use sp_database::{ColumnId, StateCapabilities, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::Backend as StateBackend;
-use sp_trie::MemoryDB;
+use sp_trie::{MemoryDB, PrefixedMemoryDB};
 
 use log::{info, trace};
 use rand::prelude::*;
@@ -161,6 +161,54 @@ impl StorageCmd {
 	}
 }
 
+/// Converts a Trie transaction into a DB transaction.
+/// Removals are ignored and will not be included in the final tx.
+/// `invert_inserts` replaces all inserts with removals.
+fn convert_tx_prefixed<B: BlockT>(
+	mut tx: PrefixedMemoryDB<HashingFor<B>>,
+	invert_inserts: bool,
+	col: ColumnId,
+) -> Transaction<DbHash> {
+	let mut ret = Transaction::<DbHash>::default();
+
+	for (k, (v, rc)) in tx.drain().into_iter() {
+		if rc > 0 {
+			if invert_inserts {
+				ret.remove(col, &k);
+			} else {
+				ret.set(col, &k, &v);
+			}
+		}
+		// < 0 means removal - ignored.
+		// 0 means no modification.
+	}
+	ret
+}
+
+/// Converts a Trie transaction into a DB transaction.
+/// Removals are ignored and will not be included in the final tx.
+/// `invert_inserts` replaces all inserts with removals.
+fn convert_tx<B: BlockT>(
+	mut tx: MemoryDB<HashingFor<B>>,
+	invert_inserts: bool,
+	col: ColumnId,
+) -> Transaction<DbHash> {
+	let mut ret = Transaction::<DbHash>::default();
+
+	for (k, (v, rc)) in tx.drain().into_iter() {
+		if rc > 0 {
+			if invert_inserts {
+				ret.remove(col, k.as_ref());
+			} else {
+				ret.set(col, k.as_ref(), &v);
+			}
+		}
+		// < 0 means removal - ignored.
+		// 0 means no modification.
+	}
+	ret
+}
+
 /// Measures write benchmark
 /// if `child_info` exist then it means this is a child tree key
 fn measure_write<Block: BlockT>(
@@ -169,7 +217,7 @@ fn measure_write<Block: BlockT>(
 	key: Vec<u8>,
 	new_v: Vec<u8>,
 	version: StateVersion,
-	_col: ColumnId,
+	col: ColumnId,
 	child_info: Option<&ChildInfo>,
 ) -> Result<(usize, Duration)> {
 	let start = Instant::now();
@@ -181,24 +229,52 @@ fn measure_write<Block: BlockT>(
 		None => trie.storage_root(replace.iter().cloned().map(|(k, v)| (k, v, None)), version),
 	};
 
-	let mut tx = Transaction::<DbHash>::default();
-	sc_client_db::apply_tree_commit::<HashingFor<Block>>(stx, db.state_capabilities(), &mut tx);
+	match db.state_capabilities() {
+		StateCapabilities::TreeColumn => {
+			let mut tx = Transaction::<DbHash>::default();
+			sc_client_db::apply_tree_commit::<HashingFor<Block>>(
+				stx,
+				db.state_capabilities(),
+				&mut tx,
+			);
 
-	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	let result = (new_v.len(), start.elapsed());
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			let result = (new_v.len(), start.elapsed());
+			// TODO how to revert: do pruning??
+			Ok(result)
+		},
+		StateCapabilities::RefCounted => {
+			let mut mdb = MemoryDB::<HashingFor<Block>>::default();
+			stx.apply_to(&mut mdb);
+			// Only the keep the insertions, since we do not want to benchmark pruning.
+			let tx = convert_tx::<Block>(mdb.clone(), false, col);
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			let result = (new_v.len(), start.elapsed());
 
-	/*
-	// Now undo the changes by removing what was added.
-	let tx = convert_tx::<Block>(db.clone(), mdb.clone(), true, col);
-	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	*/
-	Ok(result)
+			// Now undo the changes by removing what was added.
+			let tx = convert_tx::<Block>(mdb, true, col);
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			Ok(result)
+		},
+		StateCapabilities::None => {
+			let mut mdb = PrefixedMemoryDB::<HashingFor<Block>>::default();
+			stx.apply_to(&mut mdb);
+			// Only the keep the insertions, since we do not want to benchmark pruning.
+			let tx = convert_tx_prefixed::<Block>(mdb.clone(), false, col);
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			let result = (new_v.len(), start.elapsed());
+
+			// Now undo the changes by removing what was added.
+			let tx = convert_tx_prefixed::<Block>(mdb, true, col);
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			Ok(result)
+		},
+	}
 }
 
 /// Checks if a new value causes any collision in tree updates
 /// returns true if there is no collision
 /// if `child_info` exist then it means this is a child tree key
-/// TODO variant with Prefixed or with location
 fn check_new_value<Block: BlockT>(
 	db: Arc<dyn sp_database::Database<DbHash>>,
 	trie: &DbState<HashingFor<Block>>,
@@ -213,16 +289,34 @@ fn check_new_value<Block: BlockT>(
 		Some(info) => trie.child_storage_root(info, new_kv.iter().cloned(), version).0,
 		None => trie.storage_root(new_kv.iter().cloned().map(|(k, v)| (k, v, None)), version),
 	};
-	let mut mdb = MemoryDB::<HashingFor<Block>>::default();
-	stx.apply_to(&mut mdb);
-	for (k, (_, rc)) in mdb.drain().into_iter() {
-		if rc > 0 {
-			//db.sanitize_key(&mut k);
-			if db.get(col, k.as_ref()).is_some() {
-				trace!("Benchmark-store key creation: Key collision detected, retry");
-				return false
+	match db.state_capabilities() {
+		StateCapabilities::TreeColumn => {
+			unimplemented!()
+		},
+		StateCapabilities::RefCounted => {
+			let mut mdb = MemoryDB::<HashingFor<Block>>::default();
+			stx.apply_to(&mut mdb);
+			for (k, (_, rc)) in mdb.drain().into_iter() {
+				if rc > 0 {
+					if db.get(col, k.as_ref()).is_some() {
+						trace!("Benchmark-store key creation: Key collision detected, retry");
+						return false
+					}
+				}
 			}
-		}
+		},
+		StateCapabilities::None => {
+			let mut mdb = PrefixedMemoryDB::<HashingFor<Block>>::default();
+			stx.apply_to(&mut mdb);
+			for (k, (_, rc)) in mdb.drain().into_iter() {
+				if rc > 0 {
+					if db.get(col, k.as_ref()).is_some() {
+						trace!("Benchmark-store key creation: Key collision detected, retry");
+						return false
+					}
+				}
+			}
+		},
 	}
 	true
 }

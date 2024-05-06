@@ -56,10 +56,9 @@ pub use trie_db::{
 	node::{NodePlan, ValuePlan},
 	node_db::{Hasher, Prefix},
 	proof::VerifyError,
-	CError, Changenode, Changeset, DBValue, ExistingChangesetNode, Location, MerkleValue,
-	NewChangesetNode, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
-	TrieDBNodeDoubleEndedIterator, TrieDBRawIterator, TrieDoubleEndedIterator, TrieLayout,
-	TrieRecorder,
+	CError, Changenode, Changeset, DBValue, Location, MerkleValue, NewChangesetNode, Query,
+	Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBNodeDoubleEndedIterator,
+	TrieDBRawIterator, TrieDoubleEndedIterator, TrieLayout, TrieRecorder,
 };
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
