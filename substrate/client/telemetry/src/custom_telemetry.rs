@@ -81,8 +81,8 @@ impl BlockMetrics {
 			return;
 		};
 
-		if lock.partial_intervals.len() >= MAXIMUM_INTERVALS_LENGTH {
-			lock.partial_intervals.remove(0);
+		if lock.intervals.len() >= MAXIMUM_INTERVALS_LENGTH {
+			lock.intervals.remove(0);
 		}
 
 		lock.intervals.push(value);
@@ -128,11 +128,7 @@ impl BlockMetrics {
 		let mut entry = lock.partial_intervals.remove(pos);
 		entry.end_timestamp = timestamp;
 
-		if lock.partial_intervals.len() >= MAXIMUM_INTERVALS_LENGTH {
-			lock.partial_intervals.remove(0);
-		}
-
-		lock.intervals.push(entry);
+		Self::observe_interval(entry);
 	}
 
 	///
