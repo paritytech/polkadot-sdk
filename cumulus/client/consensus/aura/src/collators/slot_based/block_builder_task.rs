@@ -14,28 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A collator for Aura that looks ahead of the most recently included parachain block
-//! when determining what to build upon.
-//!
-//! The block building mechanism consists of two parts:
-//! 	1. A block-builder task that builds parachain blocks at each of our slot.
-//! 	2. A collator task that transforms the blocks into a collation and submits them to the relay
-//!     chain.
-//!
-//! This collator also builds additional blocks when the maximum backlog is not saturated.
-//! The size of the backlog is determined by invoking a runtime API. If that runtime API
-//! is not supported, this assumes a maximum backlog size of 1.
-//!
-//! This takes more advantage of asynchronous backing, though not complete advantage.
-//! When the backlog is not saturated, this approach lets the backlog temporarily 'catch up'
-//! with periods of higher throughput. When the backlog is saturated, we typically
-//! fall back to the limited cadence of a single parachain block per relay-chain block.
-//!
-//! Despite this, the fact that there is a backlog at all allows us to spend more time
-//! building the block, as there is some buffer before it can get posted to the relay-chain.
-//! The main limitation is block propagation time - i.e. the new blocks created by an author
-//! must be propagated to the next author before their turn.
-
 use codec::{Codec, Encode};
 
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
