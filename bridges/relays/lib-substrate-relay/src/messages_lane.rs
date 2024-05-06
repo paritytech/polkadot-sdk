@@ -282,6 +282,7 @@ pub async fn relay_messages_range<P: SubstrateMessageLane>(
 	target_client: Client<P::TargetChain>,
 	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
+	at_source_block: HeaderIdOf<P::SourceChain>,
 	lane_id: LaneId,
 	range: RangeInclusive<MessageNonce>,
 	outbound_state_proof_required: bool,
@@ -309,6 +310,7 @@ where
 			target_transaction_params,
 			None,
 		),
+		at_source_block,
 		range,
 		outbound_state_proof_required,
 	)

@@ -27,9 +27,11 @@ use sp_core::Pair;
 use structopt::StructOpt;
 
 use bp_messages::MessageNonce;
+use bp_runtime::HeaderIdProvider;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, ChainWithRuntimeVersion, ChainWithTransactions,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion, ChainWithTransactions,
 };
+use relay_utils::UniqueSaturatedInto;
 
 /// Messages relaying params.
 #[derive(StructOpt)]
@@ -52,6 +54,10 @@ pub struct RelayMessagesParams {
 /// Messages range relaying params.
 #[derive(StructOpt)]
 pub struct RelayMessagesRangeParams {
+	/// Number of the source chain header that we will use to prepare a messages proof.
+	/// This header must be previously proved to the target chain.
+	#[structopt(long)]
+	at_source_block: u128,
 	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
 	#[structopt(long, default_value = "00000000")]
 	lane: HexLaneId,
@@ -122,11 +128,25 @@ where
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 		let target_transactions_mortality = data.target_sign.transactions_mortality()?;
 
+		let at_source_block = source_client
+			.header_by_number(data.at_source_block.unique_saturated_into())
+			.await
+			.map_err(|e| {
+				log::trace!(
+					target: "bridge",
+					"Failed to read {} header with number {}: {e:?}",
+					Self::Source::NAME,
+					data.at_source_block,
+				);
+				anyhow::format_err!("The command has failed")
+			})?.id();
+
 		crate::messages_lane::relay_messages_range::<Self::MessagesLane>(
 			source_client,
 			target_client,
 			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },
 			TransactionParams { signer: target_sign, mortality: target_transactions_mortality },
+			at_source_block,
 			data.lane.into(),
 			data.messages_start..=data.messages_end,
 			data.outbound_state_proof_required,

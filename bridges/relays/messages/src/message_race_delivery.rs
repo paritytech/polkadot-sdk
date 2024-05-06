@@ -81,22 +81,10 @@ pub async fn run<P: MessageLane>(
 pub async fn relay_messages_range<P: MessageLane>(
 	source_client: impl MessageLaneSourceClient<P>,
 	target_client: impl MessageLaneTargetClient<P>,
+	at: SourceHeaderIdOf<P>,
 	range: RangeInclusive<MessageNonce>,
 	outbound_state_proof_required: bool,
 ) -> Result<(), ()> {
-	// select best source chain header to use as anchor later
-	let at = source_client
-		.state()
-		.await
-		.map_err(|e| {
-			log::error!(
-				target: "bridge",
-				"Failed to get state of {}: {:?}",
-				P::SOURCE_NAME,
-				e,
-			);
-		})?
-		.best_self;
 	// compute cumulative dispatch weight of all messages in given range
 	let dispatch_weight = source_client
 		.generated_message_details(at.clone(), range.clone())
