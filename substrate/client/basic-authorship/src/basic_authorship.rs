@@ -568,13 +568,14 @@ where
 			"no extrinsics".to_string()
 		} else {
 			format!(
-				"extrinsics ({}): [{}]",
+				"extrinsics ({})",
+				// "extrinsics ({}): [{}]",
 				extrinsics.len(),
-				extrinsics
-					.iter()
-					.map(|xt| BlakeTwo256::hash_of(xt).to_string())
-					.collect::<Vec<_>>()
-					.join(", ")
+				// extrinsics
+				// 	.iter()
+				// 	.map(|xt| BlakeTwo256::hash_of(xt).to_string())
+				// 	.collect::<Vec<_>>()
+				// 	.join(", ")
 			)
 		};
 
