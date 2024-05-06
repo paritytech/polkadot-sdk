@@ -1562,7 +1562,7 @@ impl<T: Config> Pallet<T> {
 			sender,
 			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
-				Xcm(vec![HrmpChannelAccepted { recipient: u32::from(origin) }])
+				Xcm(vec![HrmpChannelAccepted { recipient: origin.into() }])
 			}),
 		);
 
