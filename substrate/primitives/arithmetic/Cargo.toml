@@ -30,7 +30,7 @@ sp-std = { path = "../std", default-features = false }
 docify = "0.2.8"
 
 [dev-dependencies]
-criterion = "0.4.0"
+criterion = "0.5.1"
 primitive-types = "0.12.0"
 sp-crypto-hashing = { path = "../crypto/hashing" }
 rand = "0.8.5"
