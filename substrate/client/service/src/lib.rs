@@ -502,6 +502,7 @@ where
 			},
 		};
 
+		let start = std::time::Instant::now();
 		let import_future = self.pool.submit_one(
 			self.client.info().best_hash,
 			sc_transaction_pool_api::TransactionSource::External,
@@ -509,7 +510,11 @@ where
 		);
 		Box::pin(async move {
 			match import_future.await {
-				Ok(_) => TransactionImport::NewGood,
+				Ok(_) => {
+					let elapsed = start.elapsed();
+					debug!("import transaction: {elapsed:?}");
+					TransactionImport::NewGood
+				},
 				Err(e) => match e.into_pool_error() {
 					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) =>
 						TransactionImport::KnownGood,
