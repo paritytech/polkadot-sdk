@@ -1,0 +1,47 @@
+{
+  "settings": {
+    "timeout": 1000
+  },
+  "relaychain": {
+    "default_image": "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}",
+    "chain": "local",
+    "default_command": "substrate",
+    "genesis": {
+      "runtimeGenesis": {
+	"patch": {
+          "balances": {
+            "balances": {% include "./funded-accounts.json" %}
+          }
+	}
+      }
+    },
+    "nodes": [
+      {
+	"name": "alice",
+	"validator": true,
+	"ws_port": 9944,
+	"args": [
+	  "--pool-limit=1000000000",
+	  "--pool-kbytes=10000000000",
+	  "-lbasic-authorship=info",
+	  "-ltxpool=info",
+	  "-ldebug",
+	  "--rpc-max-subscriptions-per-connection=128000"
+	]
+      },
+      {
+	"name": "bob",
+	"validator": true,
+	"ws_port": 9945,
+	"args": [
+	  "--pool-limit=1000000000",
+	  "--pool-kbytes=10000000000",
+	  "-lbasic-authorship=info",
+	  "-ltxpool=info",
+	  "-ldebug",
+	  "--rpc-max-subscriptions-per-connection=128000"
+	]
+      }
+    ]
+  }
+}
