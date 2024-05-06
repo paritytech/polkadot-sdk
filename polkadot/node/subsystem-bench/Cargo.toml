@@ -51,7 +51,7 @@ log = { workspace = true, default-features = true }
 env_logger = "0.11"
 rand = { workspace = true, default-features = true }
 # `rand` only supports uniform distribution, we need normal distribution for latency.
-rand_distr = "0.4.3"
+rand_distr = { workspace = true }
 bitvec = "1.0.1"
 kvdb-memorydb = "0.13.0"
 
