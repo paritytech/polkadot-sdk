@@ -24,10 +24,12 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use bp_header_chain::justification::{GrandpaJustification, JustificationVerificationContext};
 use bp_runtime::{HeaderIdProvider, RelayerVersion};
 use finality_relay::{
 	FinalityPipeline, FinalitySyncPipeline, HeadersToRelay, SourceClient, TargetClient,
 };
+use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
 	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain,
 	ChainWithTransactions, Client, HashOf, HeaderOf, SyncHeader,
@@ -125,6 +127,40 @@ pub trait SubmitFinalityProofCallBuilder<P: SubstrateFinalitySyncPipeline> {
 		is_free_execution_expected: bool,
 		context: <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<P::SourceChain>>::FinalityVerificationContext,
 	) -> CallOf<P::TargetChain>;
+}
+
+/// Building `submit_finality_proof` call when you have direct access to the target
+/// chain runtime.
+pub struct DirectSubmitGrandpaFinalityProofCallBuilder<P, R, I> {
+	_phantom: PhantomData<(P, R, I)>,
+}
+
+impl<P, R, I> SubmitFinalityProofCallBuilder<P>
+	for DirectSubmitGrandpaFinalityProofCallBuilder<P, R, I>
+where
+	P: SubstrateFinalitySyncPipeline,
+	R: BridgeGrandpaConfig<I>,
+	I: 'static,
+	R::BridgedChain: bp_runtime::Chain<Header = HeaderOf<P::SourceChain>>,
+	CallOf<P::TargetChain>: From<BridgeGrandpaCall<R, I>>,
+	P::FinalityEngine: Engine<
+		P::SourceChain,
+		FinalityProof = GrandpaJustification<HeaderOf<P::SourceChain>>,
+		FinalityVerificationContext = JustificationVerificationContext,
+	>,
+{
+	fn build_submit_finality_proof_call(
+		header: SyncHeader<HeaderOf<P::SourceChain>>,
+		proof: GrandpaJustification<HeaderOf<P::SourceChain>>,
+		_is_free_execution_expected: bool,
+		_context: JustificationVerificationContext,
+	) -> CallOf<P::TargetChain> {
+		BridgeGrandpaCall::<R, I>::submit_finality_proof {
+			finality_target: Box::new(header.into_inner()),
+			justification: proof,
+		}
+		.into()
+	}
 }
 
 /// Macro that generates `SubmitFinalityProofCallBuilder` implementation for the case when
