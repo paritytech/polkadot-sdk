@@ -36,7 +36,7 @@ sp-storage = { path = "../../primitives/storage", default-features = false }
 static_assertions = "1.1.0"
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 rusty-fork = { version = "0.3.0", default-features = false }
 sp-keystore = { path = "../../primitives/keystore" }
 

@@ -29,7 +29,7 @@ rustversion = "1.0.6"
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-criterion = "0.4.0"
+criterion = "0.5.1"
 futures = "0.3.30"
 log = { workspace = true, default-features = true }
 sp-core = { path = "../../core" }
