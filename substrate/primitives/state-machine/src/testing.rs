@@ -418,7 +418,47 @@ mod tests {
 		assert_eq!(H256::from_slice(ext.storage_root(Default::default()).as_slice()), root);
 	}
 
-	// TODO restore raw_storage_drain_and_restore()??
+	#[test]
+	fn raw_storage_drain_and_restore() {
+		// Create a TestExternalities with some data in it.
+		let mut original_ext =
+			TestExternalities::<BlakeTwo256>::from((Default::default(), Default::default()));
+		original_ext.insert(b"doe".to_vec(), b"reindeer".to_vec());
+		original_ext.insert(b"dog".to_vec(), b"puppy".to_vec());
+		original_ext.insert(b"dogglesworth".to_vec(), b"cat".to_vec());
+		let child_info = ChildInfo::new_default(&b"test_child"[..]);
+		original_ext.insert_child(child_info.clone(), b"cattytown".to_vec(), b"is_dark".to_vec());
+		original_ext.insert_child(child_info.clone(), b"doggytown".to_vec(), b"is_sunny".to_vec());
+
+		// Drain the raw storage and root.
+		let root = *original_ext.backend.root();
+		let (raw_storage, storage_root) = original_ext.into_raw_snapshot();
+
+		// Load the raw storage and root into a new TestExternalities.
+		let recovered_ext = TestExternalities::<BlakeTwo256>::from_raw_snapshot(
+			raw_storage,
+			storage_root,
+			Default::default(),
+		);
+
+		// Check the storage root is the same as the original
+		assert_eq!(root, *recovered_ext.backend.root());
+
+		// Check the original storage key/values were recovered correctly
+		assert_eq!(recovered_ext.backend.storage(b"doe").unwrap(), Some(b"reindeer".to_vec()));
+		assert_eq!(recovered_ext.backend.storage(b"dog").unwrap(), Some(b"puppy".to_vec()));
+		assert_eq!(recovered_ext.backend.storage(b"dogglesworth").unwrap(), Some(b"cat".to_vec()));
+
+		// Check the original child storage key/values were recovered correctly
+		assert_eq!(
+			recovered_ext.backend.child_storage(&child_info, b"cattytown").unwrap(),
+			Some(b"is_dark".to_vec())
+		);
+		assert_eq!(
+			recovered_ext.backend.child_storage(&child_info, b"doggytown").unwrap(),
+			Some(b"is_sunny".to_vec())
+		);
+	}
 
 	#[test]
 	fn set_and_retrieve_code() {
