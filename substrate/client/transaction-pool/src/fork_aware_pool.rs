@@ -247,7 +247,7 @@ where
 			futs
 		};
 		let maybe_watchers = futures::future::join_all(results).await;
-		log::info!("submit_and_watch: maybe_watchers: {}", maybe_watchers.len());
+		log::trace!("[{:?}] submit_and_watch: maybe_watchers: {}", tx_hash, maybe_watchers.len());
 
 		//todo: maybe try_fold + ControlFlow ?
 		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
@@ -440,18 +440,23 @@ where
 		&self,
 		xts: impl Iterator<Item = Block::Extrinsic>,
 		finalized_block: Block::Hash,
+		round: u32,
 	) -> Vec<Block::Hash> {
 		let xts = xts.map(|xt| (self.api.hash_and_length(&xt).0, xt)).collect::<Vec<_>>();
+		let count = xts.len();
 
 		// 	todo: source
 		let source = TransactionSource::External;
 
+		let start = Instant::now();
 		let validation_results = futures::future::join_all(xts.into_iter().map(|(xt_hash, xt)| {
 			self.api
 				.validate_transaction(finalized_block, source, xt)
 				.map(move |validation_result| (xt_hash, validation_result))
 		}))
 		.await;
+
+		let duration = start.elapsed();
 
 		let mut invalid_hashes = Vec::new();
 
@@ -473,19 +478,24 @@ where
 			}
 		}
 
+		log::info!(
+			"purge_transactions {round}: at {finalized_block:?} count:{count:?} purged:{:?} took {duration:?}", invalid_hashes.len()
+		);
+
 		invalid_hashes
 	}
 
 	async fn purge_transactions(&self, finalized_block: Block::Hash) {
-		let invalid_hashes =
-			self.validate_array(self.clone_unwatched().into_iter(), finalized_block).await;
+		let invalid_hashes = self
+			.validate_array(self.clone_unwatched().into_iter(), finalized_block, 0)
+			.await;
 
 		self.xts
 			.write()
 			.retain(|xt| !invalid_hashes.contains(&self.api.hash_and_length(xt).0));
 		self.listener.invalidate_transactions(invalid_hashes).await;
 
-		let invalid_hashes = self.validate_array(self.watched_xts(), finalized_block).await;
+		let invalid_hashes = self.validate_array(self.watched_xts(), finalized_block, 1).await;
 		self.watched_xts
 			.write()
 			.retain(|xt| !invalid_hashes.contains(&self.api.hash_and_length(xt).0));
@@ -873,6 +883,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
+		let start = Instant::now();
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 		let views = self.view_store.clone();
@@ -888,9 +899,13 @@ where
 			// .boxed()
 		}
 
+		let tx_hash = self.hash_of(&xt);
+		let view_count = self.views_len();
 		async move {
+			let s = Instant::now();
 			let results = views.submit_one(source, xt).await;
-			results
+			let d = s.elapsed();
+			let results = results
 				.into_values()
 				.reduce(|mut r, v| {
 					if r.is_err() && v.is_ok() {
@@ -898,7 +913,13 @@ where
 					}
 					r
 				})
-				.expect("there is at least one entry in input")
+				.expect("there is at least one entry in input");
+
+			let duration = start.elapsed();
+
+			log::debug!("[{tx_hash:?}] submit_one: views:{view_count} took {duration:?} {d:?}");
+
+			results
 		}
 		.boxed()
 	}
@@ -1091,8 +1112,15 @@ where
 			.await;
 
 		// we need to install listeners first
+		let start = Instant::now();
 		self.update_view(&mut view).await;
+		let duration = start.elapsed();
+		log::info!("update_view_pool: at {at:?} took {duration:?}");
+
+		let start = Instant::now();
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
+		let duration = start.elapsed();
+		log::info!("update_view_fork: at {at:?} took {duration:?}");
 
 		let view = Arc::new(view);
 		self.view_store.views.write().insert(at.hash, view.clone());
@@ -1113,7 +1141,12 @@ where
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
 	) -> Option<Arc<View<PoolApi>>> {
-		log::info!("build_cloned_view: for: {:?} from: {:?}", at.hash, origin_view.at.hash);
+		log::info!(
+			"build_cloned_view: for: {:?} from: {:?} tree_route: {:?}",
+			at.hash,
+			origin_view.at.hash,
+			tree_route
+		);
 		let new_block_hash = at.hash;
 		let mut view = View::new_from_other(&origin_view, at);
 
@@ -1138,7 +1171,7 @@ where
 	}
 
 	async fn update_view(&self, view: &mut View<PoolApi>) {
-		log::info!(
+		log::debug!(
 			"update_view: {:?} xts:{:?} v:{}",
 			view.at,
 			self.mempool.len(),
@@ -1165,9 +1198,10 @@ where
 					let result = result.map_or_else(
 						|error| {
 							let error = error.into_pool_error();
-							log::info!(
-								"update_view: submit_and_watch result: {:?} {:?}",
+							log::trace!(
+								"[{:?}] update_view: submit_and_watch result: {:?} {:?}",
 								tx_hash,
+								view.at.hash,
 								error,
 							);
 							match error {
@@ -1240,7 +1274,7 @@ where
 		tree_route: &TreeRoute<Block>,
 		hash_and_number: HashAndNumber<Block>,
 	) {
-		log::info!(target: LOG_TARGET, "update_view_with_fork tree_route: {tree_route:?}");
+		log::debug!(target: LOG_TARGET, "update_view_with_fork tree_route: {:?} {tree_route:?}", view.at);
 		let api = self.api.clone();
 
 		// We keep track of everything we prune so that later we won't add
@@ -1292,7 +1326,7 @@ where
 					resubmitted_to_report += 1;
 
 					if !contains {
-						log::debug!(
+						log::trace!(
 							target: LOG_TARGET,
 							"[{:?}]: Resubmitting from retracted block {:?}",
 							tx_hash,
@@ -1318,7 +1352,7 @@ where
 					resubmit_transactions,
 				)
 				.await;
-			log::info!("retracted resubmit: {:#?}", x);
+			log::trace!("retracted resubmit: {:#?}", x);
 		}
 	}
 
@@ -1327,7 +1361,7 @@ where
 		log::info!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?}");
 
 		self.view_store.finalize_route(finalized_hash, tree_route).await;
-		log::info!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_len());
+		log::debug!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_len());
 		{
 			//clean up older then finalized
 			let mut views = self.view_store.views.write();
@@ -1341,7 +1375,7 @@ where
 		self.revalidation_queue
 			.purge_transactions_later(self.mempool.clone(), finalized_hash)
 			.await;
-		log::info!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
+		log::debug!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
 	}
 }
 
@@ -1353,7 +1387,13 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		log::info!("maintain: {event:#?}");
+		let start = Instant::now();
+		// log::info!(
+		// 	"maintain: txs:{:?} views:[{};{:?}] event:{event:?}",
+		// 	self.mempool_len(),
+		// 	self.views_len(),
+		// 	self.views_numbers(),
+		// );
 		let prev_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
@@ -1404,6 +1444,14 @@ where
 				);
 			},
 		}
+
+		log::info!(
+			"maintain: txs:{:?} views:[{};{:?}] event:{event:?}  took:{:?}",
+			self.mempool_len(),
+			self.views_len(),
+			self.views_numbers(),
+			start.elapsed()
+		);
 
 		()
 	}
