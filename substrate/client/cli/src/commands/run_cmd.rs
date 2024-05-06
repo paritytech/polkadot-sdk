@@ -30,7 +30,9 @@ use crate::{
 use clap::Parser;
 use regex::Regex;
 use sc_service::{
-	config::{BasePath, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions},
+	config::{
+		BasePath, IpNetwork, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions,
+	},
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;
@@ -95,8 +97,10 @@ pub struct RunCmd {
 	pub rpc_rate_limit: Option<NonZeroU32>,
 
 	/// Disable RPC rate limiting for certain ip addresses.
+	///
+	/// Each IP address must be in CIDR notation such as `1.2.3.4/24`.
 	#[arg(long, num_args = 1..)]
-	pub rpc_rate_limit_whitelisted_ips: Vec<IpAddr>,
+	pub rpc_rate_limit_whitelisted_ips: Vec<IpNetwork>,
 
 	/// Trust proxy headers for disable rate limiting.
 	///
@@ -453,7 +457,7 @@ impl CliConfiguration for RunCmd {
 		Ok(self.rpc_rate_limit)
 	}
 
-	fn rpc_rate_limit_whitelisted_ips(&self) -> Result<Vec<IpAddr>> {
+	fn rpc_rate_limit_whitelisted_ips(&self) -> Result<Vec<IpNetwork>> {
 		Ok(self.rpc_rate_limit_whitelisted_ips.clone())
 	}
 

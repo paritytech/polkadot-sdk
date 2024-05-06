@@ -26,7 +26,7 @@ use log::warn;
 use names::{Generator, Name};
 use sc_service::{
 	config::{
-		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
+		BasePath, Configuration, DatabaseSource, IpNetwork, KeystoreConfig, NetworkConfiguration,
 		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
 		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
 		WasmExecutionMethod,
@@ -34,11 +34,7 @@ use sc_service::{
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{
-	net::{IpAddr, SocketAddr},
-	num::NonZeroU32,
-	path::PathBuf,
-};
+use std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -354,7 +350,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	}
 
 	/// RPC rate limit whitelisted ip addresses.
-	fn rpc_rate_limit_whitelisted_ips(&self) -> Result<Vec<IpAddr>> {
+	fn rpc_rate_limit_whitelisted_ips(&self) -> Result<Vec<IpNetwork>> {
 		Ok(vec![])
 	}
 

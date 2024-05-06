@@ -24,11 +24,7 @@ pub mod middleware;
 pub mod utils;
 
 use std::{
-	convert::Infallible,
-	error::Error as StdError,
-	net::{IpAddr, SocketAddr},
-	num::NonZeroU32,
-	time::Duration,
+	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
 };
 
 use hyper::{
@@ -46,6 +42,7 @@ use tokio::net::TcpListener;
 use tower::Service;
 use utils::{build_rpc_api, format_cors, get_proxy_ip, host_filtering, try_into_cors};
 
+pub use ip_network::IpNetwork;
 pub use jsonrpsee::{
 	core::{
 		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
@@ -90,7 +87,7 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	/// Rate limit calls per minute.
 	pub rate_limit: Option<NonZeroU32>,
 	/// Disable rate limit for certain ips.
-	pub rate_limit_whitelisted_ips: Vec<IpAddr>,
+	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
 	/// Trust proxy headers for rate limiting.
 	pub rate_limit_trust_proxy_headers: bool,
 }
@@ -186,12 +183,12 @@ where
 					ip
 				};
 
-				let rate_limit_cfg = if rate_limit_whitelisted_ips.iter().any(|ip| *ip == remote_ip)
-				{
-					None
-				} else {
-					rate_limit
-				};
+				let rate_limit_cfg =
+					if rate_limit_whitelisted_ips.iter().any(|ip| ip.contains(remote_ip)) {
+						None
+					} else {
+						rate_limit
+					};
 
 				let PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
 					cfg.clone();
