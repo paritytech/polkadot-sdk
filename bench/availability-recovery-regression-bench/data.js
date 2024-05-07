@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715076876821,
+  "lastUpdate": 1715083492472,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -6887,6 +6887,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18689803710000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "jimdssd",
+            "username": "jimdssd",
+            "email": "wqq1479791@163.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "29c8130bab0ed8216f48e47a78c602e7f0c5c1f2",
+          "message": "chore: fix typos (#4395)",
+          "timestamp": "2024-05-07T10:23:27Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29c8130bab0ed8216f48e47a78c602e7f0c5c1f2"
+        },
+        "date": 1715083465565,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.16671571089999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.806041489433335,
             "unit": "seconds"
           }
         ]
