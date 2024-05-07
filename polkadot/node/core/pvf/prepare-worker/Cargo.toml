@@ -41,7 +41,7 @@ jemalloc-allocator = [
 ]
 
 [dev-dependencies]
-criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support"] }
+criterion = { version = "0.5.1", default-features = false, features = ["cargo_bench_support"] }
 rococo-runtime = { path = "../../../../runtime/rococo" }
 sp-maybe-compressed-blob = { path = "../../../../../substrate/primitives/maybe-compressed-blob" }
 
