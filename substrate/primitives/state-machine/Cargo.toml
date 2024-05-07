@@ -31,7 +31,7 @@ sp-trie = { path = "../trie", default-features = false }
 trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 pretty_assertions = "1.2.1"
 rand = "0.8.5"
 sp-runtime = { path = "../runtime" }

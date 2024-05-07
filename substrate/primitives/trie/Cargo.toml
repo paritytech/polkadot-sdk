@@ -36,7 +36,7 @@ sp-externalities = { path = "../externalities", default-features = false }
 schnellru = { version = "0.2.1", optional = true }
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 criterion = "0.5.1"
 trie-db = { package = "subtrie", version = "0.0.1", features = ["bench"] }
 sp-runtime = { path = "../runtime" }

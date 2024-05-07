@@ -132,6 +132,7 @@ jobs:
   post_to_matrix:
     runs-on: ubuntu-latest
     needs: publish-release-draft
+    environment: release
     strategy:
       matrix:
         channel:
