@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715076575930,
+  "lastUpdate": 1715083193971,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -8631,6 +8631,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010238682626666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "jimdssd",
+            "username": "jimdssd",
+            "email": "wqq1479791@163.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "29c8130bab0ed8216f48e47a78c602e7f0c5c1f2",
+          "message": "chore: fix typos (#4395)",
+          "timestamp": "2024-05-07T10:23:27Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/29c8130bab0ed8216f48e47a78c602e7f0c5c1f2"
+        },
+        "date": 1715083166661,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.913333333327,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.021942102459999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011958841686666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009726702800000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15745662511333333,
             "unit": "seconds"
           }
         ]
