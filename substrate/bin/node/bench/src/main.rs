@@ -98,7 +98,7 @@ fn main() {
 			BlockType::RandomTransfersReaping,
 			BlockType::Noop,
 		] {
-			for database_type in [BenchDataBaseType::RocksDb, BenchDataBaseType::ParityDb, , BenchDataBaseType::ParityDbMulti] {
+			for database_type in [BenchDataBaseType::RocksDb, BenchDataBaseType::ParityDb, BenchDataBaseType::ParityDbMulti] {
 				import_benchmarks.push((size, block_type, database_type));
 			}
 		}

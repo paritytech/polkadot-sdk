@@ -168,7 +168,7 @@ impl core::Benchmark for TrieReadBenchmark {
 
 		let db = db.open(self.database_type);
 		let trie_backend =
-			sp_state_machine::TrieBackendBuilder::<_>::new_with_location(Box::new(db), self.root).build();
+			sp_state_machine::TrieBackendBuilder::<_>::new_with_location(Box::new(db), (self.root, Default::default())).build();
 		for (warmup_key, warmup_value) in self.warmup_keys.iter() {
 			let value = trie_backend
 				.storage(&warmup_key[..])
