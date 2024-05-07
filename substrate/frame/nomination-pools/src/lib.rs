@@ -2270,7 +2270,7 @@ pub mod pallet {
 						if Err(e) == no_pending_slash {
 							T::WeightInfo::apply_slash_fail()
 						} else {
-							// defensive-only: if we can't apply slash for some reason, we abort.
+							// defensive: if we can't apply slash for some reason, we abort.
 							return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
 						}
 					}
@@ -2284,7 +2284,7 @@ pub mod pallet {
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
 
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
-			// `transferrable_balance` is correct.
+			// `transferable_balance` is correct.
 			let stash_killed = T::StakeAdapter::withdraw_unbonded(
 				&bonded_pool.bonded_account(),
 				num_slashing_spans,

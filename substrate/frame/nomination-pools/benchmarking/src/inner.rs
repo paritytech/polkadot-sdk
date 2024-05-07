@@ -20,7 +20,7 @@
 use frame_benchmarking::v1::{account, whitelist_account};
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
-	assert_ok, ensure,
+	assert_noop, assert_ok, ensure,
 	traits::{
 		fungible::{Inspect, Mutate, Unbalanced},
 		tokens::Preservation,
@@ -31,9 +31,10 @@ use frame_system::RawOrigin as RuntimeOrigin;
 use pallet_nomination_pools::{
 	adapter::{StakeStrategy, StakeStrategyType},
 	BalanceOf, BondExtra, BondedPoolInner, BondedPools, ClaimPermission, ClaimPermissions,
-	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp, GlobalMaxCommission,
-	MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond, MinJoinBond,
-	Pallet as Pools, PoolId, PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
+	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp, Error,
+	GlobalMaxCommission, MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond,
+	MinJoinBond, Pallet as Pools, PoolId, PoolMembers, PoolRoles, PoolState, RewardPools,
+	SubPoolsStorage,
 };
 use pallet_staking::MaxNominationsOf;
 use sp_runtime::{
@@ -966,7 +967,7 @@ frame_benchmarking::benchmarks! {
 		whitelist_account!(joiner);
 
 	}: {
-		assert!(Pools::<T>::apply_slash(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone()).is_err());
+		assert_noop!(Pools::<T>::apply_slash(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone()), Error::<T>::NothingToSlash);
 	}
 
 
