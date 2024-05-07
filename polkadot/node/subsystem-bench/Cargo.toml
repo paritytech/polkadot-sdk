@@ -62,10 +62,11 @@ polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
 sc-network = { path = "../../../substrate/client/network" }
+sc-network-types = { path = "../../../substrate/client/network/types" }
 sc-service = { path = "../../../substrate/client/service" }
 sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 polkadot-node-metrics = { path = "../metrics" }
-itertools = "0.11.0"
+itertools = "0.11"
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 prometheus = { version = "0.13.0", default-features = false }

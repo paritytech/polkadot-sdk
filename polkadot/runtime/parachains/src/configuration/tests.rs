@@ -15,7 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::mock::{new_test_ext, Configuration, ParasShared, RuntimeOrigin, Test};
+use crate::{
+	configuration,
+	mock::{new_test_ext, Configuration, MockGenesisConfig, ParasShared, RuntimeOrigin, Test},
+};
 use bitvec::{bitvec, prelude::Lsb0};
 use frame_support::{assert_err, assert_noop, assert_ok};
 
@@ -30,7 +33,7 @@ fn on_new_session(session_index: SessionIndex) -> (HostConfiguration<u32>, HostC
 #[test]
 fn default_is_consistent() {
 	new_test_ext(Default::default()).execute_with(|| {
-		Configuration::config().panic_if_not_consistent();
+		configuration::ActiveConfig::<Test>::get().panic_if_not_consistent();
 	});
 }
 
@@ -63,7 +66,7 @@ fn initializer_on_new_session() {
 #[test]
 fn config_changes_after_2_session_boundary() {
 	new_test_ext(Default::default()).execute_with(|| {
-		let old_config = Configuration::config();
+		let old_config = configuration::ActiveConfig::<Test>::get();
 		let mut config = old_config.clone();
 		config.validation_upgrade_delay = 100;
 		assert!(old_config != config);
@@ -72,18 +75,18 @@ fn config_changes_after_2_session_boundary() {
 
 		// Verify that the current configuration has not changed and that there is a scheduled
 		// change for the SESSION_DELAY sessions in advance.
-		assert_eq!(Configuration::config(), old_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), old_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(2, config.clone())]);
 
 		on_new_session(1);
 
 		// One session has passed, we should be still waiting for the pending configuration.
-		assert_eq!(Configuration::config(), old_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), old_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(2, config.clone())]);
 
 		on_new_session(2);
 
-		assert_eq!(Configuration::config(), config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![]);
 	})
 }
@@ -91,7 +94,7 @@ fn config_changes_after_2_session_boundary() {
 #[test]
 fn consecutive_changes_within_one_session() {
 	new_test_ext(Default::default()).execute_with(|| {
-		let old_config = Configuration::config();
+		let old_config = configuration::ActiveConfig::<Test>::get();
 		let mut config = old_config.clone();
 		config.validation_upgrade_delay = 100;
 		config.validation_upgrade_cooldown = 100;
@@ -99,17 +102,17 @@ fn consecutive_changes_within_one_session() {
 
 		assert_ok!(Configuration::set_validation_upgrade_delay(RuntimeOrigin::root(), 100));
 		assert_ok!(Configuration::set_validation_upgrade_cooldown(RuntimeOrigin::root(), 100));
-		assert_eq!(Configuration::config(), old_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), old_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(2, config.clone())]);
 
 		on_new_session(1);
 
-		assert_eq!(Configuration::config(), old_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), old_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(2, config.clone())]);
 
 		on_new_session(2);
 
-		assert_eq!(Configuration::config(), config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![]);
 	});
 }
@@ -117,7 +120,7 @@ fn consecutive_changes_within_one_session() {
 #[test]
 fn pending_next_session_but_we_upgrade_once_more() {
 	new_test_ext(Default::default()).execute_with(|| {
-		let initial_config = Configuration::config();
+		let initial_config = configuration::ActiveConfig::<Test>::get();
 		let intermediate_config =
 			HostConfiguration { validation_upgrade_delay: 100, ..initial_config.clone() };
 		let final_config = HostConfiguration {
@@ -127,7 +130,7 @@ fn pending_next_session_but_we_upgrade_once_more() {
 		};
 
 		assert_ok!(Configuration::set_validation_upgrade_delay(RuntimeOrigin::root(), 100));
-		assert_eq!(Configuration::config(), initial_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), initial_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(2, intermediate_config.clone())]);
 
 		on_new_session(1);
@@ -137,7 +140,7 @@ fn pending_next_session_but_we_upgrade_once_more() {
 		assert_ok!(Configuration::set_validation_upgrade_cooldown(RuntimeOrigin::root(), 99));
 
 		// This should result in yet another configuration change scheduled.
-		assert_eq!(Configuration::config(), initial_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), initial_config);
 		assert_eq!(
 			PendingConfigs::<Test>::get(),
 			vec![(2, intermediate_config.clone()), (3, final_config.clone())]
@@ -145,12 +148,12 @@ fn pending_next_session_but_we_upgrade_once_more() {
 
 		on_new_session(2);
 
-		assert_eq!(Configuration::config(), intermediate_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), intermediate_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(3, final_config.clone())]);
 
 		on_new_session(3);
 
-		assert_eq!(Configuration::config(), final_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), final_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![]);
 	});
 }
@@ -158,7 +161,7 @@ fn pending_next_session_but_we_upgrade_once_more() {
 #[test]
 fn scheduled_session_config_update_while_next_session_pending() {
 	new_test_ext(Default::default()).execute_with(|| {
-		let initial_config = Configuration::config();
+		let initial_config = configuration::ActiveConfig::<Test>::get();
 		let intermediate_config =
 			HostConfiguration { validation_upgrade_delay: 100, ..initial_config.clone() };
 		let final_config = HostConfiguration {
@@ -169,7 +172,7 @@ fn scheduled_session_config_update_while_next_session_pending() {
 		};
 
 		assert_ok!(Configuration::set_validation_upgrade_delay(RuntimeOrigin::root(), 100));
-		assert_eq!(Configuration::config(), initial_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), initial_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(2, intermediate_config.clone())]);
 
 		on_new_session(1);
@@ -180,7 +183,7 @@ fn scheduled_session_config_update_while_next_session_pending() {
 		assert_ok!(Configuration::set_code_retention_period(RuntimeOrigin::root(), 98));
 
 		// This should result in yet another configuration change scheduled.
-		assert_eq!(Configuration::config(), initial_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), initial_config);
 		assert_eq!(
 			PendingConfigs::<Test>::get(),
 			vec![(2, intermediate_config.clone()), (3, final_config.clone())]
@@ -188,12 +191,12 @@ fn scheduled_session_config_update_while_next_session_pending() {
 
 		on_new_session(2);
 
-		assert_eq!(Configuration::config(), intermediate_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), intermediate_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(3, final_config.clone())]);
 
 		on_new_session(3);
 
-		assert_eq!(Configuration::config(), final_config);
+		assert_eq!(configuration::ActiveConfig::<Test>::get(), final_config);
 		assert_eq!(PendingConfigs::<Test>::get(), vec![]);
 	});
 }
@@ -261,14 +264,14 @@ fn consistency_bypass_works() {
 		assert_ok!(Configuration::set_max_code_size(RuntimeOrigin::root(), MAX_CODE_SIZE + 1));
 
 		assert_eq!(
-			Configuration::config().max_code_size,
+			configuration::ActiveConfig::<Test>::get().max_code_size,
 			HostConfiguration::<u32>::default().max_code_size
 		);
 
 		on_new_session(1);
 		on_new_session(2);
 
-		assert_eq!(Configuration::config().max_code_size, MAX_CODE_SIZE + 1);
+		assert_eq!(configuration::ActiveConfig::<Test>::get().max_code_size, MAX_CODE_SIZE + 1);
 	});
 }
 
@@ -543,4 +546,52 @@ fn verify_externally_accessible() {
 			},
 		);
 	});
+}
+
+#[test]
+fn active_config_hrmp_channel_size_and_capacity_ratio_works() {
+	frame_support::parameter_types! {
+		pub Ratio100: Percent = Percent::from_percent(100);
+		pub Ratio50: Percent = Percent::from_percent(50);
+	}
+
+	let mut genesis: MockGenesisConfig = Default::default();
+	genesis.configuration.config.hrmp_channel_max_message_size = 1024;
+	genesis.configuration.config.hrmp_channel_max_capacity = 100;
+
+	new_test_ext(genesis).execute_with(|| {
+		let active_config = configuration::ActiveConfig::<Test>::get();
+		assert_eq!(active_config.hrmp_channel_max_message_size, 1024);
+		assert_eq!(active_config.hrmp_channel_max_capacity, 100);
+
+		assert_eq!(
+			ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio100>::get(),
+			(1024, 100)
+		);
+		assert_eq!(ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio50>::get(), (512, 50));
+
+		// change ActiveConfig
+		assert_ok!(Configuration::set_hrmp_channel_max_message_size(
+			RuntimeOrigin::root(),
+			active_config.hrmp_channel_max_message_size * 4
+		));
+		assert_ok!(Configuration::set_hrmp_channel_max_capacity(
+			RuntimeOrigin::root(),
+			active_config.hrmp_channel_max_capacity * 4
+		));
+		on_new_session(1);
+		on_new_session(2);
+		let active_config = configuration::ActiveConfig::<Test>::get();
+		assert_eq!(active_config.hrmp_channel_max_message_size, 4096);
+		assert_eq!(active_config.hrmp_channel_max_capacity, 400);
+
+		assert_eq!(
+			ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio100>::get(),
+			(4096, 400)
+		);
+		assert_eq!(
+			ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio50>::get(),
+			(2048, 200)
+		);
+	})
 }

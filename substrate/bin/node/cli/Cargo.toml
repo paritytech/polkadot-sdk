@@ -40,7 +40,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # third-party dependencies
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 clap = { version = "4.5.3", features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 serde = { features = ["derive"], workspace = true, default-features = true }
@@ -58,6 +58,7 @@ sp-api = { path = "../../../primitives/api" }
 sp-core = { path = "../../../primitives/core" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-timestamp = { path = "../../../primitives/timestamp" }
+sp-genesis-builder = { path = "../../../primitives/genesis-builder" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-keystore = { path = "../../../primitives/keystore" }
@@ -115,7 +116,6 @@ node-primitives = { path = "../primitives" }
 sc-cli = { path = "../../../client/cli", optional = true }
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
-try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
 serde_json = { workspace = true, default-features = true }
 
 [dev-dependencies]
@@ -132,11 +132,11 @@ sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 futures = "0.3.30"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
-nix = { version = "0.26.1", features = ["signal"] }
+nix = { version = "0.27.1", features = ["signal"] }
 regex = "1.6.0"
 platforms = "3.0"
 soketto = "0.7.1"
-criterion = { version = "0.4.0", features = ["async_tokio"] }
+criterion = { version = "0.5.1", features = ["async_tokio"] }
 tokio = { version = "1.22.0", features = ["macros", "parking_lot", "time"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 wait-timeout = "0.2"
@@ -171,7 +171,6 @@ node-inspect = { package = "staging-node-inspect", path = "../inspect", optional
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
 substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true }
 substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true }
-try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
 sc-cli = { path = "../../../client/cli", optional = true }
 pallet-balances = { path = "../../../frame/balances" }
 sc-storage-monitor = { path = "../../../client/storage-monitor" }
@@ -187,7 +186,6 @@ cli = [
 	"sc-service/rocksdb",
 	"substrate-build-script-utils",
 	"substrate-frame-cli",
-	"try-runtime-cli",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
@@ -231,7 +229,6 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"sp-runtime/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
-	"try-runtime-cli/try-runtime",
 ]
 
 [[bench]]

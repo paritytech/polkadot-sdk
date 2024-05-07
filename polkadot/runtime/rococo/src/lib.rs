@@ -20,11 +20,20 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
+use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
+use beefy_primitives::{
+	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
+	mmr::{BeefyDataProvider, MmrLeafVersion},
+};
+use frame_support::{
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
+	traits::FromContains,
+};
 use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
 	slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
+	CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
 	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment,
 	NodeFeatures, Nonce, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
@@ -34,43 +43,46 @@ use rococo_runtime_constants::system_parachain::BROKER_ID;
 use runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
-		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedLocationConverter,
+		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
+		VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::{Leaser, OnSwap},
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
-use scale_info::TypeInfo;
-use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
-
 use runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime,
 	assigner_on_demand as parachains_assigner_on_demand, configuration as parachains_configuration,
+	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::v10 as parachains_runtime_api_impl,
+	runtime_api_impl::{
+		v10 as parachains_runtime_api_impl, vstaging as vstaging_parachains_runtime_api_impl,
+	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
-
-use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
-use beefy_primitives::{
-	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
-	mmr::{BeefyDataProvider, MmrLeafVersion},
+use scale_info::TypeInfo;
+use sp_genesis_builder::PresetId;
+use sp_std::{
+	cmp::Ordering,
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	prelude::*,
 };
 
 use frame_support::{
 	construct_runtime, derive_impl,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
-		ProcessMessageError, StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, Contains, EitherOf,
+		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EverythingBut, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
+		StorageMapShim, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -79,8 +91,8 @@ use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::historical as session_historical;
-use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
-use sp_core::{ConstU128, OpaqueMetadata, H256};
+use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
+use sp_core::{ConstU128, ConstU8, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -127,6 +139,7 @@ use xcm_fee_payment_runtime_api::Error as XcmPaymentApiError;
 #[cfg(test)]
 mod tests;
 
+mod genesis_config_presets;
 mod validator_manager;
 
 impl_runtime_weights!(rococo_runtime_constants);
@@ -149,10 +162,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_009_000,
+	spec_version: 1_011_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 24,
+	transaction_version: 25,
 	state_version: 1,
 };
 
@@ -228,6 +241,72 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 	}
 }
 
+/// Dynamic params that can be adjusted at runtime.
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
+pub mod dynamic_params {
+	use super::*;
+
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
+	pub mod nis {
+		use super::*;
+
+		#[codec(index = 0)]
+		pub static Target: Perquintill = Perquintill::zero();
+
+		#[codec(index = 1)]
+		pub static MinBid: Balance = 100 * UNITS;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod preimage {
+		use super::*;
+
+		#[codec(index = 0)]
+		pub static BaseDeposit: Balance = deposit(2, 64);
+
+		#[codec(index = 1)]
+		pub static ByteDeposit: Balance = deposit(0, 1);
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::Preimage(dynamic_params::preimage::Parameters::BaseDeposit(
+			dynamic_params::preimage::BaseDeposit,
+			Some(1u32.into()),
+		))
+	}
+}
+
+/// Defines what origin can modify which dynamic parameters.
+pub struct DynamicParameterOrigin;
+impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParameterOrigin {
+	type Success = ();
+
+	fn try_origin(
+		origin: RuntimeOrigin,
+		key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		use crate::{dynamic_params::*, governance::*, RuntimeParametersKey::*};
+
+		match key {
+			Nis(nis::ParametersKey::MinBid(_)) => StakingAdmin::ensure_origin(origin.clone()),
+			Nis(nis::ParametersKey::Target(_)) => GeneralAdmin::ensure_origin(origin.clone()),
+			Preimage(_) => frame_system::ensure_root(origin.clone()),
+		}
+		.map_err(|_| origin)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		// Provide the origin for the parameter returned by `Default`:
+		Ok(RuntimeOrigin::root())
+	}
+}
+
 impl pallet_scheduler::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
@@ -244,8 +323,6 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
-	pub const PreimageByteDeposit: Balance = deposit(0, 1);
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
@@ -258,7 +335,11 @@ impl pallet_preimage::Config for Runtime {
 		AccountId,
 		Balances,
 		PreimageHoldReason,
-		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+		LinearStoragePrice<
+			dynamic_params::preimage::BaseDeposit,
+			dynamic_params::preimage::ByteDeposit,
+			Balance,
+		>,
 	>;
 }
 
@@ -324,7 +405,7 @@ parameter_types! {
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, ToAuthor<Runtime>>;
+	type OnChargeTransaction = FungibleAdapter<Balances, ToAuthor<Runtime>>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -447,7 +528,15 @@ impl pallet_treasury::Config for Runtime {
 		LocatableAssetConverter,
 		VersionedLocationConverter,
 	>;
-	type BalanceConverter = AssetRate;
+	type BalanceConverter = UnityOrOuterConversion<
+		ContainsParts<
+			FromContains<
+				xcm_builder::IsChildSystemParachain<ParaId>,
+				xcm_builder::IsParentsOnly<ConstU8<1>>,
+			>,
+		>,
+		AssetRate,
+	>;
 	type PayoutPeriod = PayoutSpendPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = runtime_common::impls::benchmarks::TreasuryArguments;
@@ -944,11 +1033,20 @@ impl pallet_message_queue::Config for Runtime {
 
 impl parachains_dmp::Config for Runtime {}
 
+parameter_types! {
+	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
+}
+
 impl parachains_hrmp::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
+		Runtime,
+		HrmpChannelSizeAndCapacityWithSystemRatio,
+	>;
+	type VersionWrapper = crate::XcmPallet;
 	type WeightInfo = weights::runtime_parachains_hrmp::WeightInfo<Runtime>;
 }
 
@@ -964,6 +1062,7 @@ impl parachains_scheduler::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
 impl coretime::Config for Runtime {
@@ -973,6 +1072,7 @@ impl coretime::Config for Runtime {
 	type BrokerId = BrokerId;
 	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
 	type SendXcm = crate::xcm_config::XcmRouter;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 parameter_types! {
@@ -1117,12 +1217,10 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 
 parameter_types! {
 	pub const NisBasePeriod: BlockNumber = 30 * DAYS;
-	pub const MinBid: Balance = 100 * UNITS;
 	pub MinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64);
 	pub const IntakePeriod: BlockNumber = 5 * MINUTES;
 	pub MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
 	pub const ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
-	pub storage NisTarget: Perquintill = Perquintill::zero();
 	pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
 }
 
@@ -1136,18 +1234,27 @@ impl pallet_nis::Config for Runtime {
 	type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
 	type Deficit = (); // Mint
 	type IgnoredIssuance = ();
-	type Target = NisTarget;
+	type Target = dynamic_params::nis::Target;
 	type PalletId = NisPalletId;
 	type QueueCount = ConstU32<300>;
 	type MaxQueueLen = ConstU32<1000>;
 	type FifoQueueLen = ConstU32<250>;
 	type BasePeriod = NisBasePeriod;
-	type MinBid = MinBid;
+	type MinBid = dynamic_params::nis::MinBid;
 	type MinReceipt = MinReceipt;
 	type IntakePeriod = IntakePeriod;
 	type MaxIntakeWeight = MaxIntakeWeight;
 	type ThawThrottle = ThawThrottle;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = ();
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeParameters = RuntimeParameters;
+	type AdminOrigin = DynamicParameterOrigin;
+	type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1182,6 +1289,7 @@ impl pallet_mmr::Config for Runtime {
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
 	type WeightInfo = ();
 	type LeafData = pallet_beefy_mmr::Pallet<Runtime>;
+	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
 }
 
 parameter_types! {
@@ -1191,9 +1299,11 @@ parameter_types! {
 pub struct ParaHeadsRootProvider;
 impl BeefyDataProvider<H256> for ParaHeadsRootProvider {
 	fn extra_data() -> H256 {
-		let mut para_heads: Vec<(u32, Vec<u8>)> = Paras::parachains()
+		let mut para_heads: Vec<(u32, Vec<u8>)> = parachains_paras::Parachains::<Runtime>::get()
 			.into_iter()
-			.filter_map(|id| Paras::para_head(&id).map(|head| (id.into(), head.0)))
+			.filter_map(|id| {
+				parachains_paras::Heads::<Runtime>::get(&id).map(|head| (id.into(), head.0))
+			})
 			.collect();
 		para_heads.sort();
 		binary_merkle_tree::merkle_root::<mmr::Hashing, _>(
@@ -1275,6 +1385,7 @@ construct_runtime! {
 		Timestamp: pallet_timestamp = 2,
 		Indices: pallet_indices = 3,
 		Balances: pallet_balances = 4,
+		Parameters: pallet_parameters = 6,
 		TransactionPayment: pallet_transaction_payment = 33,
 
 		// Consensus support.
@@ -1438,7 +1549,7 @@ pub mod migrations {
 	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
 		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
 			let now = frame_system::Pallet::<Runtime>::block_number();
-			let lease = slots::Pallet::<Runtime>::lease(para);
+			let lease = slots::Leases::<Runtime>::get(para);
 			if lease.is_empty() {
 				return None;
 			}
@@ -1615,6 +1726,7 @@ mod benches {
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
+		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_ranked_collective, FellowshipCollective]
@@ -1654,24 +1766,32 @@ sp_api::impl_runtime_apis! {
 
 	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			if !matches!(xcm_version, 3 | 4) {
-				return Err(XcmPaymentApiError::UnhandledXcmVersion);
-			}
-			Ok([VersionedAssetId::V4(xcm_config::TokenLocation::get().into())]
+			let acceptable = vec![
+				// native token
+				VersionedAssetId::from(AssetId(xcm_config::TokenLocation::get()))
+			];
+
+			Ok(acceptable
 				.into_iter()
 				.filter_map(|asset| asset.into_version(xcm_version).ok())
 				.collect())
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let local_asset = VersionedAssetId::V4(xcm_config::TokenLocation::get().into());
-			let asset = asset
-				.into_version(4)
-				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
-
-			if  asset != local_asset { return Err(XcmPaymentApiError::AssetNotFound); }
-
-			Ok(WeightToFee::weight_to_fee(&weight))
+			match asset.try_as::<AssetId>() {
+				Ok(asset_id) if asset_id.0 == xcm_config::TokenLocation::get() => {
+					// for native token
+					Ok(WeightToFee::weight_to_fee(&weight))
+				},
+				Ok(asset_id) => {
+					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
+					Err(XcmPaymentApiError::AssetNotFound)
+				},
+				Err(_) => {
+					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
+					Err(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -1734,7 +1854,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(10)]
+	#[api_version(11)]
 	impl primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1780,6 +1900,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn candidate_pending_availability(para_id: ParaId) -> Option<CommittedCandidateReceipt<Hash>> {
+			#[allow(deprecated)]
 			parachains_runtime_api_impl::candidate_pending_availability::<Runtime>(para_id)
 		}
 
@@ -1889,6 +2010,14 @@ sp_api::impl_runtime_apis! {
 		fn node_features() -> NodeFeatures {
 			parachains_runtime_api_impl::node_features::<Runtime>()
 		}
+
+		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+			vstaging_parachains_runtime_api_impl::claim_queue::<Runtime>()
+		}
+
+		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
+			vstaging_parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
+		}
 	}
 
 	#[api_version(3)]
@@ -1902,7 +2031,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: beefy_primitives::EquivocationProof<
+			equivocation_proof: beefy_primitives::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
@@ -2363,12 +2492,22 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
+		}
+
+		fn preset_names() -> Vec<PresetId> {
+			vec![
+				PresetId::from("local_testnet"),
+				PresetId::from("development"),
+				PresetId::from("staging_testnet"),
+				PresetId::from("wococo_local_testnet"),
+				PresetId::from("versi_local_testnet"),
+			]
 		}
 	}
 }

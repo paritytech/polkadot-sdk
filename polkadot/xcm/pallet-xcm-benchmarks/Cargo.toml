@@ -29,7 +29,6 @@ log = { workspace = true, default-features = true }
 [dev-dependencies]
 pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-assets = { path = "../../../substrate/frame/assets" }
-sp-core = { path = "../../../substrate/primitives/core" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 xcm = { package = "staging-xcm", path = ".." }
 # temp

@@ -18,12 +18,7 @@ use crate::prepare::PrepareJobKind;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParams;
-use std::{
-	cmp::{Eq, PartialEq},
-	fmt,
-	sync::Arc,
-	time::Duration,
-};
+use std::{fmt, sync::Arc, time::Duration};
 
 /// A struct that carries the exhaustive set of data to prepare an artifact out of plain
 /// Wasm binary

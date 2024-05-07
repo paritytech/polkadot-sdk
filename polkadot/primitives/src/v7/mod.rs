@@ -62,7 +62,9 @@ pub mod executor_params;
 pub mod slashing;
 
 pub use async_backing::AsyncBackingParams;
-pub use executor_params::{ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash};
+pub use executor_params::{
+	ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash, ExecutorParamsPrepHash,
+};
 
 mod metrics;
 pub use metrics::{
@@ -1086,10 +1088,16 @@ pub enum CoreState<H = Hash, N = BlockNumber> {
 }
 
 impl<N> CoreState<N> {
-	/// If this core state has a `para_id`, return it.
+	/// Returns the scheduled `ParaId` for the core or `None` if nothing is scheduled.
+	///
+	/// This function is deprecated. `ClaimQueue` should be used to obtain the scheduled `ParaId`s
+	/// for each core.
+	#[deprecated(
+		note = "`para_id` will be removed. Use `ClaimQueue` to query the scheduled `para_id` instead."
+	)]
 	pub fn para_id(&self) -> Option<Id> {
 		match self {
-			Self::Occupied(ref core) => Some(core.para_id()),
+			Self::Occupied(ref core) => core.next_up_on_available.as_ref().map(|n| n.para_id),
 			Self::Scheduled(core) => Some(core.para_id),
 			Self::Free => None,
 		}

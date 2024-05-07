@@ -26,7 +26,9 @@ pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
-use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
+use xcm::prelude::{
+	send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm,
+};
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
@@ -110,6 +112,11 @@ pub mod pallet {
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 		type SendXcm: SendXcm;
+
+		/// Maximum weight for any XCM transact call that should be executed on the coretime chain.
+		///
+		/// Basically should be `max_weight(set_leases, reserve, notify_core_count)`.
+		type MaxXcmTransactWeight: Get<Weight>;
 	}
 
 	#[pallet::event]
@@ -225,7 +232,7 @@ impl<T: Config> Pallet<T> {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_coretime_call(crate::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
+				mk_coretime_call::<T>(crate::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
 			]);
 			if let Err(err) = send_xcm::<T::SendXcm>(
 				Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
@@ -244,7 +251,7 @@ impl<T: Config> Pallet<T> {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
 			},
-			mk_coretime_call(crate::coretime::CoretimeCalls::SwapLeases(one, other)),
+			mk_coretime_call::<T>(crate::coretime::CoretimeCalls::SwapLeases(one, other)),
 		]);
 		if let Err(err) = send_xcm::<T::SendXcm>(
 			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
@@ -261,12 +268,10 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 	}
 }
 
-fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
+fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		// Largest call is set_lease with 1526 byte:
-		// Longest call is reserve() with 31_000_000
-		require_weight_at_most: Weight::from_parts(170_000_000, 20_000),
+		require_weight_at_most: T::MaxXcmTransactWeight::get(),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }
