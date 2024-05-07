@@ -16,8 +16,7 @@ doc:
       disables offenders up to the configured threshold. Offending validators are not disabled for
       offences in previous eras. The threshold is controlled via `DISABLING_LIMIT_FACTOR` (a generic
       parameter of `UpToLimitDisablingStrategy`). Also offending validators are no longer chilled
-      after an offence is committed because a malicious validator can unchill itself and continue
-      committing offences.
+      after an offence is committed. This change is made to protect the network in case of honest nodes being slashed.
   - audience: RuntimeUser
     description: |
       Nominators should be aware that the validators are no longer chilled if they commit an offence.
