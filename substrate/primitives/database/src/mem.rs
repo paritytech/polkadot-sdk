@@ -46,13 +46,23 @@ where
 						.and_modify(|(c, _)| *c += 1)
 						.or_insert_with(|| (1, value));
 				},
+<<<<<<< HEAD
 				Change::Reference(col, hash) | Change::ReferenceTree(col, hash) =>
+=======
+				Change::Reference(col, hash) | Change::ReferenceTree(col, hash) => {
+>>>>>>> f544f79d22 (Fixes for parity-db)
 					if let Entry::Occupied(mut entry) =
 						s.entry(col).or_default().entry(hash.as_ref().to_vec())
 					{
 						entry.get_mut().0 += 1;
+<<<<<<< HEAD
 					},
 				Change::Release(col, hash) | Change::ReleaseTree(col, hash) =>
+=======
+					}
+				},
+				Change::Release(col, hash) | Change::ReleaseTree(col, hash) => {
+>>>>>>> f544f79d22 (Fixes for parity-db)
 					if let Entry::Occupied(mut entry) =
 						s.entry(col).or_default().entry(hash.as_ref().to_vec())
 					{
