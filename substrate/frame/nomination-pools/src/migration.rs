@@ -58,7 +58,6 @@ pub mod versioned {
 
 pub mod unversioned {
 	use super::*;
-	use crate::adapter::StakeStrategyType;
 
 	/// Checks and updates `TotalValueLocked` if out of sync.
 	pub struct TotalValueLockedSync<T>(sp_std::marker::PhantomData<T>);
@@ -122,7 +121,7 @@ pub mod unversioned {
 	impl<T: Config> OnRuntimeUpgrade for DelegationStakeMigration<T> {
 		fn on_runtime_upgrade() -> Weight {
 			if StrategyMigration::<T>::get() == Some(adapter::StakeStrategyType::Delegate) {
-				log!(info, "Already migrated. `pallet_nomination_pools::migration::unversioned::DelegationStakeMigration` can be removed.");
+				log!(info, "`pools::migration::unversioned::DelegationStakeMigration` already migrated and can be removed.");
 				return T::DbWeight::get().reads_writes(1, 0)
 			}
 
@@ -159,12 +158,12 @@ pub mod unversioned {
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			// if not set, then consider it as older strategy `Transfer`.
 			let current_strategy =
-				StrategyMigration::<T>::get().unwrap_or(StakeStrategyType::Transfer);
+				StrategyMigration::<T>::get().unwrap_or(adapter::StakeStrategyType::Transfer);
 			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
 
 			BondedPools::<T>::iter_keys().for_each(|id| {
 				let pool_account = Pallet::<T>::create_bonded_account(id);
-				let pool_balance = if current_strategy == StakeStrategyType::Transfer {
+				let pool_balance = if current_strategy == adapter::StakeStrategyType::Transfer {
 					T::Currency::total_balance(&pool_account)
 				} else {
 					T::StakeAdapter::total_balance(&pool_account)
