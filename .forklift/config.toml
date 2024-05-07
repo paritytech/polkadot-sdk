@@ -11,13 +11,13 @@ logLevel = "warn"
 threadsCount = 6
 
 [metrics]
-enabled = false
-#   pushEndpoint = "placeholder"
+enabled = true
+pushEndpoint = "placeholder"
 
 [metrics.extraLabels]
 environment = "production"
-#     job_name = "$CI_JOB_NAME"
-#     project_name = "$CI_PROJECT_PATH"
+job_name = "$CI_JOB_NAME"
+project_name = "$CI_PROJECT_PATH"
 
 [storage]
 type = "s3"
