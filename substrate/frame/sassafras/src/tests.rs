@@ -461,13 +461,13 @@ fn tickets_accumulator_works() {
 
 		// Progress to epoch's last block
 		let end_block = start_block + epoch_length - 2;
-		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
+		progress_to_block(end_block, &pairs[0]).unwrap();
 
 		let metadata = TicketsMeta::<Test>::get();
 		assert_eq!(metadata.tickets_count[epoch_tag as usize], 0);
 		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
 
-		let header = finalize_block(end_block);
+		finalize_block(end_block);
 
 		let metadata = TicketsMeta::<Test>::get();
 		assert_eq!(metadata.tickets_count[epoch_tag as usize], 0);
@@ -495,19 +495,17 @@ fn tickets_accumulator_works() {
 
 		// Progress to epoch's last block
 		let end_block = end_block + epoch_length;
-		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
+		progress_to_block(end_block, &pairs[0]).unwrap();
 
 		let metadata = TicketsMeta::<Test>::get();
 		assert_eq!(metadata.tickets_count[epoch_tag as usize], e1_count as u32);
 		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
 
-		let header = finalize_block(end_block);
+		finalize_block(end_block);
 
 		let metadata = TicketsMeta::<Test>::get();
 		assert_eq!(metadata.tickets_count[epoch_tag as usize], e1_count as u32);
 		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], e2_count as u32);
-
-		let metadata = TicketsMeta::<Test>::get();
 
 		// Start new epoch
 		initialize_block(

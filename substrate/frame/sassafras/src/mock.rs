@@ -26,11 +26,10 @@ use frame_support::{
 use sp_consensus_sassafras::{
 	digests::SlotClaim,
 	vrf::{RingProver, VrfSignature},
-	AuthorityIndex, AuthorityPair, Configuration, Slot, TicketBody, TicketEnvelope, TicketId,
+	AuthorityIndex, AuthorityPair, Slot, TicketBody, TicketEnvelope, TicketId,
 };
 use sp_core::{
-	crypto::{ByteArray, Pair, UncheckedFrom, VrfSecret, Wraps},
-	ed25519::Public as EphemeralPublic,
+	crypto::{ByteArray, Pair, VrfSecret, Wraps},
 	H256, U256,
 };
 use sp_runtime::{

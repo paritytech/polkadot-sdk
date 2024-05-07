@@ -41,8 +41,8 @@
 //! nominated validators".
 
 #![allow(unused)]
-// #![deny(warnings)]
-// #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
+#![deny(warnings)]
+#![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use log::{debug, warn};
@@ -669,6 +669,7 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_next_epoch_descriptor_digest(next_epoch);
 	}
 
+	/// Static protocol configuration.
 	pub fn protocol_config() -> Configuration {
 		Configuration {
 			epoch_length: T::EpochLength::get(),
