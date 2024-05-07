@@ -32,7 +32,7 @@ pub type Balance = u64;
 pub type Signature = MultiSignature;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-pub type TxExtension = (
+pub type Extension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -44,7 +44,7 @@ pub type TxExtension = (
 );
 
 pub type UncheckedExtrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, Signature, TxExtension>;
+	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, Signature, Extension>;
 
 pub type MetaTxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
@@ -60,8 +60,8 @@ impl Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Signature = Signature;
 	type PublicKey = <Signature as Verify>::Signer;
-	type TxContext = ();
-	type TxExtension = MetaTxExtension;
+	type Context = ();
+	type Extension = MetaTxExtension;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

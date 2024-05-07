@@ -9,6 +9,7 @@ repository.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["max-encoded-len"] }
+docify = "0.2.7"
 scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
 

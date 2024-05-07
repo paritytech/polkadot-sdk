@@ -10151,6 +10151,7 @@ dependencies = [
 name = "pallet-meta-tx"
 version = "0.0.1"
 dependencies = [
+ "docify 0.2.7",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

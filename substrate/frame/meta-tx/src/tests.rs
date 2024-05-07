@@ -20,12 +20,14 @@ use frame_support::traits::tokens::fungible::Inspect;
 use keyring::AccountKeyring;
 use mock::*;
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::Hash;
-use sp_runtime::traits::{Applyable, Checkable, IdentityLookup};
-use sp_runtime::MultiSignature;
+use sp_runtime::{
+	traits::{Applyable, Checkable, Hash, IdentityLookup},
+	MultiSignature,
+};
 
+#[docify::export]
 #[test]
-fn meta_tx_works() {
+fn sign_and_execute_meta_tx() {
 	new_test_ext().execute_with(|| {
 		// meta tx signer
 		let alice_keyring = AccountKeyring::Alice;
@@ -90,7 +92,7 @@ fn meta_tx_works() {
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
 		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: meta_tx.clone() });
-		let tx_ext: TxExtension = (
+		let tx_ext: Extension = (
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
