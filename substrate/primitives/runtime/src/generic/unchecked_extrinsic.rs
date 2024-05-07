@@ -391,7 +391,7 @@ impl<Address: Encode, Signature: Encode, Call: Encode, Extra: SignedExtension> s
 }
 
 #[cfg(feature = "serde")]
-impl<'a, Address: Decode, Signature: Decode, Call: Encode + Decode, Extra: SignedExtension>
+impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extra: SignedExtension>
 	serde::Deserialize<'a> for UncheckedExtrinsic<Address, Call, Signature, Extra>
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
