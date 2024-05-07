@@ -13,9 +13,7 @@ env:
   FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
   FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
   FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
-  FORKLIFT_general_packageSuffix: "custom_role_attempt_4"
-  FORKLIFT_storage_s3_concurrency: 1
-  FORKLIFT_general_logLevel: "trace"
+  FORKLIFT_general_packageSuffix: "custom_role_attempt_5"
 
 jobs:
   set-image:
