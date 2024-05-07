@@ -81,14 +81,18 @@ pub type EquivocationProof<H> = sp_consensus_slots::EquivocationProof<H, Authori
 /// Randomness required by some protocol's operations.
 pub type Randomness = [u8; RANDOMNESS_LENGTH];
 
-/// Protocol configuration that can be modified on epoch change.
-///
-/// Mostly tweaks to the ticketing system parameters.
+/// Protocol configuration.
 #[derive(
 	Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo, Default,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct EpochConfiguration {
+pub struct Configuration {
+	/// Epoch length.
+	pub epoch_length: u32,
+	/// Epoch's tail duration.
+	pub epoch_tail_length: u32,
+	/// Max number of authorities allowed.
+	pub max_authorities: u32,
 	/// Tickets redundancy factor.
 	///
 	/// Expected ratio between epoch's slots and the cumulative number of tickets which can
@@ -110,14 +114,10 @@ pub struct EpochConfiguration {
 pub struct Epoch {
 	/// Starting slot of the epoch.
 	pub start: Slot,
-	/// Number of slots in the epoch.
-	pub length: u32,
 	/// Randomness accumulator.
 	pub randomness: [Randomness; 4],
 	/// Authorities list.
 	pub authorities: Vec<AuthorityId>,
-	/// Epoch configuration.
-	pub config: EpochConfiguration,
 }
 
 /// An opaque type used to represent the key ownership proof at the runtime API boundary.

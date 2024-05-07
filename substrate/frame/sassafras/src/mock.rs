@@ -26,7 +26,7 @@ use frame_support::{
 use sp_consensus_sassafras::{
 	digests::SlotClaim,
 	vrf::{RingProver, VrfSignature},
-	AuthorityIndex, AuthorityPair, EpochConfiguration, Slot, TicketBody, TicketEnvelope, TicketId,
+	AuthorityIndex, AuthorityPair, Configuration, Slot, TicketBody, TicketEnvelope, TicketId,
 };
 use sp_core::{
 	crypto::{ByteArray, Pair, UncheckedFrom, VrfSecret, Wraps},
@@ -59,8 +59,7 @@ where
 impl pallet_sassafras::Config for Test {
 	type EpochLength = ConstU32<EPOCH_LENGTH>;
 	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
-	type SubmitMax = ConstU32<16>;
-	type RedundancyFactor = ConstU32<2>;
+	type RedundancyFactor = ConstU32<32>;
 	type AttemptsNumber = ConstU32<2>;
 	type EpochChangeTrigger = EpochChangeInternalTrigger;
 	type WeightInfo = ();
@@ -72,13 +71,6 @@ frame_support::construct_runtime!(
 		Sassafras: pallet_sassafras,
 	}
 );
-
-// Default used for most of the tests.
-//
-// The redundancy factor has been set to max value to accept all submitted
-// tickets without worrying about the threshold.
-pub const TEST_EPOCH_CONFIGURATION: EpochConfiguration =
-	EpochConfiguration { redundancy_factor: u32::MAX, attempts_number: 5 };
 
 pub fn new_test_ext(authorities_len: usize) -> sp_io::TestExternalities {
 	new_test_ext_with_pairs(authorities_len, false).1
@@ -100,7 +92,6 @@ pub fn new_test_ext_with_pairs(
 
 	pallet_sassafras::GenesisConfig::<Test> {
 		authorities: authorities.clone(),
-		epoch_config: TEST_EPOCH_CONFIGURATION,
 		_phantom: core::marker::PhantomData,
 	}
 	.assimilate_storage(&mut storage)

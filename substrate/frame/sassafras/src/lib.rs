@@ -64,8 +64,8 @@ use frame_system::{
 };
 use sp_consensus_sassafras::{
 	digests::{ConsensusLog, NextEpochDescriptor, SlotClaim},
-	vrf, AuthorityId, Epoch, EpochConfiguration, Randomness, Slot, TicketBody, TicketEnvelope,
-	TicketId, RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
+	vrf, AuthorityId, Configuration, Epoch, Randomness, Slot, TicketBody, TicketEnvelope, TicketId,
+	RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
 };
 use sp_io::hashing;
 use sp_runtime::{
@@ -142,9 +142,6 @@ pub mod pallet {
 		/// Amount of slots that each epoch should last.
 		#[pallet::constant]
 		type EpochLength: Get<u32>;
-
-		#[pallet::constant]
-		type SubmitMax: Get<u32>;
 
 		/// Max number of authorities allowed.
 		#[pallet::constant]
@@ -253,8 +250,6 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		/// Genesis authorities.
 		pub authorities: Vec<AuthorityId>,
-		/// Genesis epoch configuration.
-		pub epoch_config: EpochConfiguration,
 		/// Phantom config
 		#[serde(skip)]
 		pub _phantom: sp_std::marker::PhantomData<T>,
@@ -694,19 +689,24 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_next_epoch_descriptor_digest(next_epoch);
 	}
 
+	pub fn protocol_config() -> Configuration {
+		Configuration {
+			epoch_length: T::EpochLength::get(),
+			epoch_tail_length: T::EpochLength::get() / 6,
+			max_authorities: T::MaxAuthorities::get(),
+			redundancy_factor: T::RedundancyFactor::get(),
+			attempts_number: T::AttemptsNumber::get(),
+		}
+	}
+
 	/// Current epoch information.
 	pub fn current_epoch() -> Epoch {
 		let curr_slot = *Self::current_slot();
 		let epoch_start = curr_slot - curr_slot % Self::epoch_length() as u64;
 		Epoch {
 			start: epoch_start.into(),
-			length: T::EpochLength::get(),
 			authorities: Self::authorities().into_inner(),
 			randomness: Self::randomness_buf(),
-			config: EpochConfiguration {
-				redundancy_factor: T::RedundancyFactor::get(),
-				attempts_number: T::AttemptsNumber::get(),
-			},
 		}
 	}
 
