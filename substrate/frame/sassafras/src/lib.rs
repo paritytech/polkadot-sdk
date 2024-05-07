@@ -277,7 +277,6 @@ pub mod pallet {
 				.find_map(|item| item.pre_runtime_try_to::<SlotClaim>(&SASSAFRAS_ENGINE_ID))
 				.expect("Valid block must have a slot claim. qed");
 
-			println!("Processing block {}, slot {}", block_num, claim.slot);
 			CurrentSlot::<T>::put(claim.slot);
 
 			if block_num == One::one() {
@@ -396,7 +395,6 @@ pub mod pallet {
 				candidates.push((ticket_id, ticket.body));
 			}
 
-			println!("Depositing {} tickets", candidates.len());
 			Self::deposit_tickets(&candidates)?;
 
 			Ok(Pays::No.into())
@@ -500,7 +498,6 @@ impl<T: Config> Pallet<T> {
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
-		println!("ENACT EPOCH CHANGE!!!!!!!!!!!!!");
 		if next_authorities != authorities {
 			Self::update_ring_verifier(&next_authorities);
 		}
@@ -564,12 +561,10 @@ impl<T: Config> Pallet<T> {
 		}
 		let diff = count.saturating_sub(T::EpochLength::get());
 		if diff > 0 {
-			println!("REMOVING {:?}", diff);
 			let keys: Vec<_> = TicketsAccumulator::<T>::iter_keys().take(diff as usize).collect();
 			for key in keys {
 				let ticket_id = TicketId::from(key);
 				if tickets.binary_search_by_key(&&ticket_id, |(id, _)| id).is_ok() {
-					println!("Removed one new candidate");
 					return Err(Error::TicketInvalid)
 				}
 				TicketsAccumulator::<T>::remove(key);
@@ -873,11 +868,6 @@ pub struct EpochChangeInternalTrigger;
 impl EpochChangeTrigger for EpochChangeInternalTrigger {
 	fn trigger<T: Config>(block_num: BlockNumberFor<T>) -> Weight {
 		if Pallet::<T>::should_end_epoch(block_num) {
-			println!(
-				"CURRENT SLOT INDEX: {}, EPOCH LEN: {}",
-				Pallet::<T>::current_slot_index(),
-				T::EpochLength::get()
-			);
 			let authorities = Pallet::<T>::next_authorities();
 			let next_authorities = authorities.clone();
 			Pallet::<T>::enact_epoch_change(authorities, next_authorities);

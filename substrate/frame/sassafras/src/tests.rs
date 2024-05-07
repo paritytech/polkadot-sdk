@@ -102,7 +102,6 @@ fn deposit_tickets_failure() {
 		});
 
 		assert!(Sassafras::deposit_tickets(&tickets[7..]).is_err());
-		println!("ENTRIES: {}", TicketsAccumulator::<Test>::count());
 	});
 }
 
@@ -264,7 +263,6 @@ fn produce_epoch_change_digest() {
 		// We want to trigger an epoch change in this test.
 		let epoch_length = Sassafras::epoch_length() as u64;
 		let end_block = start_block + epoch_length - 1;
-		println!("END BLOCK: {}", end_block);
 
 		let common_assertions = |initialized| {
 			assert_eq!(Sassafras::current_slot(), GENESIS_SLOT + epoch_length);
@@ -585,7 +583,6 @@ fn data_read<T: Decode>(filename: &str) -> T {
 
 fn data_write<T: Encode>(filename: &str, data: T) {
 	use std::{fs::File, io::Write};
-	println!("Writing: {}", filename);
 	let mut file = File::create(filename).unwrap();
 	let buf = data.encode();
 	file.write_all(&buf).unwrap();

@@ -235,9 +235,8 @@ fn make_ticket_with_prover(
 	let signature = pair.as_ref().ring_vrf_sign(&sign_data, &prover);
 
 	let pre_output = &signature.pre_outputs[0];
-	let ticket_id = vrf::make_ticket_id(&ticket_id_input, pre_output);
-	println!("T: {:?}", ticket_id);
 
+	let ticket_id = vrf::make_ticket_id(&ticket_id_input, pre_output);
 	let envelope = TicketEnvelope { body, signature };
 
 	(ticket_id, envelope)
@@ -271,7 +270,6 @@ pub fn make_prover(pair: &AuthorityPair) -> RingProver {
 ///
 /// E.g. by passing an optional threshold
 pub fn make_tickets(attempts: u32, pair: &AuthorityPair) -> Vec<(TicketId, TicketEnvelope)> {
-	println!("MAKE TICKETS---");
 	let prover = make_prover(pair);
 	(0..attempts)
 		.into_iter()
