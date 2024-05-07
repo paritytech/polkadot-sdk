@@ -68,6 +68,8 @@ struct Snapshot<B: BlockT> {
 	state_version: StateVersion,
 	// <Vec<Key, (Value, MemoryDbRefCount)>>
 	raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
+	// The storage root of the state. This may vary from the storage root in the header, if not the
+	// entire state was fetched.
 	storage_root: B::Hash,
 	header: B::Header,
 }
@@ -105,21 +107,21 @@ impl<B: BlockT> Snapshot<B> {
 
 /// An externalities that acts exactly the same as [`sp_io::TestExternalities`] but has a few extra
 /// bits and pieces to it, and can be loaded remotely.
-pub struct RemoteExternalities<B: BlockT + DeserializeOwned> {
+pub struct RemoteExternalities<B: BlockT> {
 	/// The inner externalities.
 	pub inner_ext: TestExternalities<HashingFor<B>>,
 	/// The block header which we created this externality env.
 	pub header: B::Header,
 }
 
-impl<B: BlockT + DeserializeOwned> Deref for RemoteExternalities<B> {
+impl<B: BlockT> Deref for RemoteExternalities<B> {
 	type Target = TestExternalities<HashingFor<B>>;
 	fn deref(&self) -> &Self::Target {
 		&self.inner_ext
 	}
 }
 
-impl<B: BlockT + DeserializeOwned> DerefMut for RemoteExternalities<B> {
+impl<B: BlockT> DerefMut for RemoteExternalities<B> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.inner_ext
 	}
@@ -859,7 +861,7 @@ where
 	}
 }
 
-impl<B: BlockT + DeserializeOwned> Builder<B>
+impl<B: BlockT> Builder<B>
 where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
@@ -1164,7 +1166,7 @@ where
 }
 
 // Public methods
-impl<B: BlockT + DeserializeOwned> Builder<B>
+impl<B: BlockT> Builder<B>
 where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
