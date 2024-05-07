@@ -75,6 +75,8 @@ pub struct BuilderTaskParams<Block: BlockT, BI, CIDP, Client, Backend, RClient, 
 	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	/// Slot duration of the relay chain
 	pub relay_chain_slot_duration: Duration,
+	/// Drift every slot by this duration.
+	pub slot_drift: Duration,
 }
 
 #[derive(Debug)]
@@ -165,6 +167,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		authoring_duration,
 		para_backend,
 		relay_chain_slot_duration,
+		slot_drift,
 	} = params;
 
 	let slot_duration = match crate::slot_duration(&*para_client) {
@@ -175,7 +178,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		},
 	};
 
-	let slot_timer = SlotTimer::new_with_drift(slot_duration, Duration::from_secs(1));
+	let slot_timer = SlotTimer::new_with_drift(slot_duration, slot_drift);
 
 	let mut collator = {
 		let params = collator_util::Params {
