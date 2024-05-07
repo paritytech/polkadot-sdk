@@ -217,3 +217,65 @@ pub fn progress_to_block(number: u64, pair: &AuthorityPair) -> Option<Digest> {
 	}
 	digest
 }
+
+fn make_ticket_with_prover(
+	attempt: u32,
+	pair: &AuthorityPair,
+	prover: &RingProver,
+) -> (TicketId, TicketEnvelope) {
+	log::debug!("attempt: {}", attempt);
+
+	// Values are referring to the next epoch
+	let randomness = Sassafras::next_randomness();
+
+	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt);
+
+	let body = TicketBody { attempt_idx: attempt, extra: Default::default() };
+	let sign_data = vrf::ticket_body_sign_data(&body, ticket_id_input.clone());
+
+	let signature = pair.as_ref().ring_vrf_sign(&sign_data, &prover);
+
+	let pre_output = &signature.pre_outputs[0];
+	let ticket_id = vrf::make_ticket_id(&ticket_id_input, pre_output);
+	println!("T: {:?}", ticket_id);
+
+	let envelope = TicketEnvelope { body, signature };
+
+	(ticket_id, envelope)
+}
+
+pub fn make_prover(pair: &AuthorityPair) -> RingProver {
+	let public = pair.public();
+	let mut prover_idx = None;
+
+	let ring_ctx = Sassafras::ring_context().unwrap();
+
+	let pks: Vec<sp_core::bandersnatch::Public> = Sassafras::authorities()
+		.iter()
+		.enumerate()
+		.map(|(idx, auth)| {
+			if public == *auth {
+				prover_idx = Some(idx);
+			}
+			*auth.as_ref()
+		})
+		.collect();
+
+	log::debug!("Building prover. Ring size: {}", pks.len());
+	let prover = ring_ctx.prover(&pks, prover_idx.unwrap()).unwrap();
+	log::debug!("Done");
+
+	prover
+}
+
+/// Construct `attempts` tickets envelopes for the next epoch.
+///
+/// E.g. by passing an optional threshold
+pub fn make_tickets(attempts: u32, pair: &AuthorityPair) -> Vec<(TicketId, TicketEnvelope)> {
+	println!("MAKE TICKETS---");
+	let prover = make_prover(pair);
+	(0..attempts)
+		.into_iter()
+		.map(|attempt| make_ticket_with_prover(attempt, pair, &prover))
+		.collect()
+}

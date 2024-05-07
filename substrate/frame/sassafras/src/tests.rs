@@ -20,7 +20,10 @@
 use crate::*;
 use mock::*;
 
+use frame_support::dispatch::DispatchErrorWithPostInfo;
 use sp_consensus_sassafras::Slot;
+
+const TICKETS_FILE: &str = "src/data/tickets.bin";
 
 const GENESIS_SLOT: u64 = 100;
 
@@ -539,11 +542,17 @@ fn incremental_accumulator_drain() {
 			.iter()
 			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
 
+		let accumulator: Vec<_> = TicketsAccumulator::<Test>::iter()
+			.map(|(k, b)| (TicketId::from(k), b))
+			.collect();
+		// Assess accumulator expected order (bigger id first)
+		assert!(accumulator.windows(2).all(|chunk| chunk[0].0 > chunk[1].0));
+
 		Sassafras::consume_tickets_accumulator(5, 0);
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.tickets_count[0], 5);
 		assert_eq!(meta.tickets_count[1], 0);
-		tickets.iter().rev().take(5).enumerate().for_each(|(i, (id, _))| {
+		tickets.iter().enumerate().skip(5).for_each(|(i, (id, _))| {
 			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
 			assert_eq!(id, &id2);
 		});
@@ -552,7 +561,7 @@ fn incremental_accumulator_drain() {
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.tickets_count[0], 8);
 		assert_eq!(meta.tickets_count[1], 0);
-		tickets.iter().rev().take(8).enumerate().for_each(|(i, (id, _))| {
+		tickets.iter().enumerate().skip(2).for_each(|(i, (id, _))| {
 			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
 			assert_eq!(id, &id2);
 		});
@@ -561,9 +570,132 @@ fn incremental_accumulator_drain() {
 		let meta = TicketsMeta::<Test>::get();
 		assert_eq!(meta.tickets_count[0], 10);
 		assert_eq!(meta.tickets_count[1], 0);
-		tickets.iter().rev().enumerate().for_each(|(i, (id, _))| {
+		tickets.iter().enumerate().for_each(|(i, (id, _))| {
 			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
 			assert_eq!(id, &id2);
 		});
 	});
+}
+
+fn data_read<T: Decode>(filename: &str) -> T {
+	use std::{fs::File, io::Read};
+	let mut file = File::open(filename).unwrap();
+	let mut buf = Vec::new();
+	file.read_to_end(&mut buf).unwrap();
+	T::decode(&mut &buf[..]).unwrap()
+}
+
+fn data_write<T: Encode>(filename: &str, data: T) {
+	use std::{fs::File, io::Write};
+	println!("Writing: {}", filename);
+	let mut file = File::create(filename).unwrap();
+	let buf = data.encode();
+	file.write_all(&buf).unwrap();
+}
+
+#[test]
+fn submit_tickets_with_ring_proof_check_works() {
+	use sp_core::Pair as _;
+	let _ = env_logger::try_init();
+	let start_block = 1;
+	let start_slot = (GENESIS_SLOT + 1).into();
+
+	let (authorities, mut candidates): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
+		data_read(TICKETS_FILE);
+
+	// Also checks that duplicates are discarded
+
+	let (pairs, mut ext) = new_test_ext_with_pairs(authorities.len(), true);
+	let pair = &pairs[0];
+	// Check if deserialized data has been generated for the correct set of authorities...
+	assert!(authorities.iter().zip(pairs.iter()).all(|(auth, pair)| auth == &pair.public()));
+
+	ext.execute_with(|| {
+		initialize_block(start_block, start_slot, Default::default(), pair);
+
+		// Submit the tickets
+		let candidates_per_call = 4;
+		let chunks: Vec<_> = candidates
+			.chunks(candidates_per_call)
+			.map(|chunk| BoundedVec::truncate_from(chunk.to_vec()))
+			.collect();
+		assert_eq!(chunks.len(), 5);
+
+		// Submit an invalid candidate
+		let mut chunk = chunks[2].clone();
+		chunk[0].body.attempt_idx += 1;
+		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunk).unwrap_err();
+		assert_eq!(e, DispatchErrorWithPostInfo::from(Error::<Test>::TicketBadProof));
+		assert_eq!(TicketsAccumulator::<Test>::count(), 0);
+
+		// Start submitting from the mid valued chunks.
+		Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[2].clone()).unwrap();
+		assert_eq!(TicketsAccumulator::<Test>::count(), 4);
+
+		// Submit something bigger, but we have space for all the candidates.
+		Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[3].clone()).unwrap();
+		assert_eq!(TicketsAccumulator::<Test>::count(), 8);
+
+		// Try to submit duplicates
+		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[2].clone()).unwrap_err();
+		assert_eq!(e, DispatchErrorWithPostInfo::from(Error::<Test>::TicketDuplicate));
+		assert_eq!(TicketsAccumulator::<Test>::count(), 8);
+
+		// Submit something smaller. This is accepted (2 old tickets removed).
+		Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[1].clone()).unwrap();
+		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
+
+		// Try to submit a chunk with bigger tickets. This is discarded
+		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[4].clone()).unwrap_err();
+		assert_eq!(e, DispatchErrorWithPostInfo::from(Error::<Test>::TicketInvalid));
+		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
+
+		// Submit the smaller candidates chunks. This is accepted (4 old tickets removed).
+		Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[0].clone()).unwrap();
+		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
+
+		// NOTE (implementation detail): the accumulator internally saves bigger tickets first.
+		let tickets: Vec<_> = TicketsAccumulator::<Test>::iter_values().collect();
+		let expected: Vec<_> =
+			candidates.into_iter().take(10).rev().map(|candidate| candidate.body).collect();
+		assert_eq!(tickets, expected)
+	})
+}
+
+#[test]
+#[ignore = "test tickets generator"]
+fn generate_test_tickets() {
+	use super::*;
+	use sp_core::crypto::Pair;
+
+	let start_block = 1;
+	let start_slot = (GENESIS_SLOT + 1).into();
+
+	// Total number of authorities (the ring)
+	let authorities_count = 10;
+	let (pairs, mut ext) = new_test_ext_with_pairs(authorities_count, true);
+
+	let authorities: Vec<_> = pairs.iter().map(|sk| sk.public()).collect();
+
+	let mut tickets = Vec::new();
+	ext.execute_with(|| {
+		let config = Sassafras::protocol_config();
+		assert!(authorities_count < config.max_authorities as usize);
+
+		let tickets_count = authorities_count * config.attempts_number as usize;
+
+		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
+
+		println!("Constructing {} tickets", tickets_count);
+
+		pairs.iter().take(authorities_count).enumerate().for_each(|(i, pair)| {
+			let t = make_tickets(config.attempts_number, pair);
+			tickets.extend(t);
+			println!("{:.2}%", 100f32 * ((i + 1) as f32 / authorities_count as f32));
+		});
+	});
+
+	tickets.sort_unstable_by_key(|t| t.0);
+	let envelopes: Vec<_> = tickets.into_iter().map(|t| t.1).collect();
+	data_write(TICKETS_FILE, (authorities, envelopes));
 }

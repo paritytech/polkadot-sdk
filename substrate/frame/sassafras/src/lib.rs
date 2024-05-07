@@ -169,6 +169,8 @@ pub mod pallet {
 		TicketDuplicate,
 		/// Invalid ticket
 		TicketInvalid,
+		/// Invalid ticket signature
+		TicketBadProof,
 	}
 
 	/// Current epoch authorities.
@@ -373,7 +375,7 @@ pub mod pallet {
 
 				let Some(ticket_id_pre_output) = ticket.signature.pre_outputs.get(0) else {
 					debug!(target: LOG_TARGET, "Missing ticket VRF pre-output from ring signature");
-					panic!("TODO")
+					return Err(Error::<T>::TicketInvalid.into())
 				};
 				let ticket_id_input = vrf::ticket_id_input(&randomness, ticket.body.attempt_idx);
 
@@ -388,12 +390,13 @@ pub mod pallet {
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
 				if !ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					debug!(target: LOG_TARGET, "Proof verification failure for ticket ({:?})", ticket_id);
-					panic!("TODO")
+					return Err(Error::<T>::TicketBadProof.into())
 				}
 
 				candidates.push((ticket_id, ticket.body));
 			}
 
+			println!("Depositing {} tickets", candidates.len());
 			Self::deposit_tickets(&candidates)?;
 
 			Ok(Pays::No.into())
@@ -561,10 +564,12 @@ impl<T: Config> Pallet<T> {
 		}
 		let diff = count.saturating_sub(T::EpochLength::get());
 		if diff > 0 {
+			println!("REMOVING {:?}", diff);
 			let keys: Vec<_> = TicketsAccumulator::<T>::iter_keys().take(diff as usize).collect();
 			for key in keys {
 				let ticket_id = TicketId::from(key);
 				if tickets.binary_search_by_key(&&ticket_id, |(id, _)| id).is_ok() {
+					println!("Removed one new candidate");
 					return Err(Error::TicketInvalid)
 				}
 				TicketsAccumulator::<T>::remove(key);
@@ -575,13 +580,13 @@ impl<T: Config> Pallet<T> {
 
 	fn consume_tickets_accumulator(max_items: usize, epoch_tag: u8) {
 		let mut metadata = TicketsMeta::<T>::get();
-		let base = metadata.tickets_count[epoch_tag as usize];
-		let mut idx = 0;
+		let mut accumulator_count = TicketsAccumulator::<T>::count();
+		let mut idx = accumulator_count;
 		for (key, body) in TicketsAccumulator::<T>::drain().take(max_items) {
-			Tickets::<T>::insert((epoch_tag, base + idx), (TicketId::from(key), body));
-			idx += 1;
+			idx -= 1;
+			Tickets::<T>::insert((epoch_tag, idx), (TicketId::from(key), body));
 		}
-		metadata.tickets_count[epoch_tag as usize] += idx;
+		metadata.tickets_count[epoch_tag as usize] += (accumulator_count - idx);
 		TicketsMeta::<T>::set(metadata);
 	}
 
