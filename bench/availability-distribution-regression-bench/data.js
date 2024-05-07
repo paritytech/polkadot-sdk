@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715097010849,
+  "lastUpdate": 1715115100130,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -8735,6 +8735,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15920589665333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov",
+            "email": "tsvetomir@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b6dcd1b65436a6f7c087ad659617a9caf29a233a",
+          "message": "Update prdoc for 2226 (#4401)\n\nMention that offenders are no longer chilled and suggest node operators\nand nominators to monitor their nodes/nominees closely.\n\n---------\n\nCo-authored-by: Maciej <maciej.zyszkiewicz@parity.io>",
+          "timestamp": "2024-05-07T19:18:09Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6dcd1b65436a6f7c087ad659617a9caf29a233a"
+        },
+        "date": 1715115073488,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.89333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1589073715666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012187485553333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010101875520000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022024686833333328,
             "unit": "seconds"
           }
         ]
