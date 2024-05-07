@@ -942,7 +942,7 @@ fn recovers_from_only_chunks_if_pov_large() {
 			AllMessages::AvailabilityStore(
 				AvailabilityStoreMessage::QueryChunkSize(_, tx)
 			) => {
-				let _ = tx.send(Some(1000000));
+				let _ = tx.send(Some(crate::FETCH_CHUNKS_THRESHOLD + 1));
 			}
 		);
 
@@ -987,7 +987,7 @@ fn recovers_from_only_chunks_if_pov_large() {
 			AllMessages::AvailabilityStore(
 				AvailabilityStoreMessage::QueryChunkSize(_, tx)
 			) => {
-				let _ = tx.send(Some(1000000));
+				let _ = tx.send(Some(crate::FETCH_CHUNKS_THRESHOLD + 1));
 			}
 		);
 

@@ -78,7 +78,7 @@ const LRU_SIZE: u32 = 16;
 const COST_INVALID_REQUEST: Rep = Rep::CostMajor("Peer sent unparsable request");
 
 /// PoV size limit in bytes for which prefer fetching from backers.
-const SMALL_POV_LIMIT: usize = 128 * 1024;
+pub(crate) const FETCH_CHUNKS_THRESHOLD: usize = 4 * 1024 * 1024;
 
 #[derive(Clone, PartialEq)]
 /// The strategy we use to recover the PoV.
@@ -448,7 +448,7 @@ async fn handle_recover<Context>(
 				if let Some(backing_validators) = session_info.validator_groups.get(backing_group) {
 					let mut small_pov_size = true;
 
-					if let RecoveryStrategyKind::BackersFirstIfSizeLower(small_pov_limit) =
+					if let RecoveryStrategyKind::BackersFirstIfSizeLower(fetch_chunks_threshold) =
 						recovery_strategy_kind
 					{
 						// Get our own chunk size to get an estimate of the PoV size.
@@ -457,13 +457,13 @@ async fn handle_recover<Context>(
 						if let Ok(Some(chunk_size)) = chunk_size {
 							let pov_size_estimate =
 								chunk_size.saturating_mul(session_info.validators.len()) / 3;
-							small_pov_size = pov_size_estimate < small_pov_limit;
+							small_pov_size = pov_size_estimate < fetch_chunks_threshold;
 
 							gum::trace!(
 								target: LOG_TARGET,
 								?candidate_hash,
 								pov_size_estimate,
-								small_pov_limit,
+								fetch_chunks_threshold,
 								enabled = small_pov_size,
 								"Prefer fetch from backing group",
 							);
@@ -551,7 +551,9 @@ impl AvailabilityRecoverySubsystem {
 		metrics: Metrics,
 	) -> Self {
 		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(
+				FETCH_CHUNKS_THRESHOLD,
+			),
 			bypass_availability_store: true,
 			post_recovery_check: PostRecoveryCheck::PovHash,
 			req_receiver,
@@ -595,7 +597,9 @@ impl AvailabilityRecoverySubsystem {
 		metrics: Metrics,
 	) -> Self {
 		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(
+				FETCH_CHUNKS_THRESHOLD,
+			),
 			bypass_availability_store: false,
 			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
