@@ -544,6 +544,7 @@ mod tests {
 		value: u64,
 		data: Vec<u8>,
 		allows_reentry: bool,
+		allows_state_change: bool
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
@@ -611,8 +612,9 @@ mod tests {
 			value: u64,
 			data: Vec<u8>,
 			allows_reentry: bool,
+			allows_state_change: bool,
 		) -> Result<ExecReturnValue, ExecError> {
-			self.calls.push(CallEntry { to, value, data, allows_reentry });
+			self.calls.push(CallEntry { to, value, data, allows_reentry, allows_state_change });
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: call_return_data() })
 		}
 		fn delegate_call(
@@ -985,7 +987,7 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true }]
+			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true, allows_state_change: true }]
 		);
 	}
 
@@ -1082,7 +1084,7 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false }]
+			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false, allows_state_change: true }]
 		);
 	}
 
@@ -1137,7 +1139,7 @@ mod tests {
 		assert_eq!(result.data, input);
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: true }]
+			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: true, allows_state_change: true }]
 		);
 	}
 
@@ -1184,7 +1186,7 @@ mod tests {
 		assert_eq!(result.data, call_return_data());
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false }]
+			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false, allows_state_change: true }]
 		);
 	}
 
@@ -1425,7 +1427,7 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true }]
+			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true, allows_state_change: true }]
 		);
 	}
 

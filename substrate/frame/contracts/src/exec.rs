@@ -149,6 +149,7 @@ pub trait Ext: sealing::Sealed {
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
+		allows_state_change: bool,
 	) -> Result<ExecReturnValue, ExecError>;
 
 	/// Execute code in the current frame.
@@ -498,6 +499,8 @@ pub struct Frame<T: Config> {
 	nested_storage: storage::meter::NestedMeter<T>,
 	/// If `false` the contract enabled its defense against reentrance attacks.
 	allows_reentry: bool,
+	/// TODO
+	allows_state_change: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
 }
@@ -864,6 +867,7 @@ where
 			nested_gas: gas_meter.nested(gas_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
+			allows_state_change: true,
 		};
 
 		Ok((frame, executable, nonce))
@@ -1174,7 +1178,7 @@ where
 	/// Iterator over all frames.
 	///
 	/// The iterator starts with the top frame and ends with the root frame.
-	fn frames(&self) -> impl Iterator<Item = &Frame<T>> {
+	fn frames(&self) -> impl DoubleEndedIterator<Item = &Frame<T>> {
 		sp_std::iter::once(&self.first_frame).chain(&self.frames).rev()
 	}
 
@@ -1192,6 +1196,19 @@ where
 	/// Returns whether the specified contract allows to be reentered right now.
 	fn allows_reentry(&self, id: &AccountIdOf<T>) -> bool {
 		!self.frames().any(|f| &f.account_id == id && !f.allows_reentry)
+	}
+
+	/// Returns whether the state can be changed 
+	fn allows_state_change(&self) -> bool {
+		!self.frames().rev().any(|f| !f.allows_state_change)
+	}
+
+	/// Returns whether the state can be changed 
+	fn requires_state_change(&self) -> DispatchResult {
+		if !self.allows_state_change() {
+			return Err(<Error<T>>::StateChangeDenied.into())
+		}
+		Ok(())
 	}
 
 	/// Increments and returns the next nonce. Pulls it from storage if it isn't in cache.
@@ -1217,15 +1234,22 @@ where
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
+		allows_state_change: bool,
 	) -> Result<ExecReturnValue, ExecError> {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
 		self.top_frame_mut().allows_reentry = allows_reentry;
+		self.top_frame_mut().allows_state_change = allows_state_change;
 
 		let try_call = || {
 			if !self.allows_reentry(&to) {
 				return Err(<Error<T>>::ReentranceDenied.into())
+			}
+
+			// If the call value is non-zero and state change is not allowed, issue an error.
+			if !value.is_zero() {
+				self.requires_state_change()?;
 			}
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
@@ -1251,6 +1275,7 @@ where
 
 		// Protection is on a per call basis.
 		self.top_frame_mut().allows_reentry = true;
+		self.top_frame_mut().allows_state_change = true;
 
 		result
 	}
@@ -1352,6 +1377,7 @@ where
 		value: Option<Vec<u8>>,
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
+		self.requires_state_change()?;
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),
@@ -2122,7 +2148,7 @@ mod tests {
 		let value = Default::default();
 		let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 			// Try to call into yourself.
-			let r = ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true);
+			let r = ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true, true);
 
 			ReachedBottom::mutate(|reached_bottom| {
 				if !*reached_bottom {
@@ -2182,7 +2208,7 @@ mod tests {
 			// Call into CHARLIE contract.
 			assert_matches!(
 				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
+					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true),
 				Ok(_)
 			);
 			exec_success()
@@ -2329,7 +2355,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_origin());
 			// BOB calls CHARLIE
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2428,7 +2454,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_root());
 			// BOB calls CHARLIE.
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2463,7 +2489,7 @@ mod tests {
 			// Call into charlie contract.
 			assert_matches!(
 				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
+					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true),
 				Ok(_)
 			);
 			exec_success()
@@ -2831,6 +2857,7 @@ mod tests {
 						CHARLIE,
 						0,
 						vec![],
+						true,
 						true
 					),
 					exec_trapped()
@@ -2842,7 +2869,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true, true)
 				.is_ok());
 			exec_trapped()
 		});
@@ -2875,7 +2902,7 @@ mod tests {
 	fn recursive_call_during_constructor_fails() {
 		let code = MockLoader::insert(Constructor, |ctx, _| {
 			assert_matches!(
-				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), ctx.ext.address().clone(), 0, vec![], true),
+				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), ctx.ext.address().clone(), 0, vec![], true, true),
 				Err(ExecError{error, ..}) if error == <Error<Test>>::ContractNotFound.into()
 			);
 			exec_success()
@@ -3025,7 +3052,7 @@ mod tests {
 		// call the contract passed as input with disabled reentry
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			let dest = Decode::decode(&mut ctx.input_data.as_ref()).unwrap();
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false)
+			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false, true)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3075,7 +3102,7 @@ mod tests {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
 				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], false)
+					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], false, true)
 			} else {
 				exec_success()
 			}
@@ -3083,7 +3110,7 @@ mod tests {
 
 		// call BOB with input set to '1'
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true)
+			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, true)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3109,6 +3136,49 @@ mod tests {
 				)
 				.map_err(|e| e.error),
 				<Error<Test>>::ReentranceDenied,
+			);
+		});
+	}
+
+	#[test]
+	fn call_deny_state_change() {
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			if ctx.input_data[0] == 0 {
+				ctx.ext
+					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
+			} else {
+				exec_success()
+			}
+		});
+
+		// call BOB with input set to '1'
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			let schedule = <Test as Config>::Schedule::get();
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let contract_origin = Origin::from_account_id(ALICE);
+			let mut storage_meter =
+				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
+
+			// BOB -> CHARLIE -> BOB fails as BOB denies reentry.
+			assert_err!(
+				MockStack::run_call(
+					contract_origin,
+					BOB,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					&schedule,
+					0,
+					vec![0],
+					None,
+					Determinism::Enforced
+				)
+				.map_err(|e| e.error),
+				<Error<Test>>::StateChangeDenied,
 			);
 		});
 	}
@@ -3303,7 +3373,7 @@ mod tests {
 
 			// a plain call should not influence the account counter
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), account_id, 0, vec![], false)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), account_id, 0, vec![], false, true)
 				.unwrap();
 
 			exec_success()

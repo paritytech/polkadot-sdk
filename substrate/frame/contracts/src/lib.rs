@@ -1202,6 +1202,8 @@ pub mod pallet {
 		/// into `pallet-contracts`. This would make the whole pallet reentrant with regard to
 		/// contract code execution which is not supported.
 		ReentranceDenied,
+		/// A contract tried to invoke a call that disallows for state change.
+		StateChangeDenied,
 		/// Origin doesn't have enough balance to pay the required storage deposits.
 		StorageDepositNotEnoughFunds,
 		/// More storage was created than allowed by the storage deposit limit.

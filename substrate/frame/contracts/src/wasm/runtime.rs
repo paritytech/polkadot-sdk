@@ -851,10 +851,11 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 					value,
 					input_data,
 					flags.contains(CallFlags::ALLOW_REENTRY),
+					!flags.contains(CallFlags::STATIC_CALL),
 				)
 			},
 			CallType::DelegateCall { code_hash_ptr } => {
-				if flags.contains(CallFlags::ALLOW_REENTRY) {
+				if flags.contains(CallFlags::ALLOW_REENTRY | CallFlags::STATIC_CALL) {
 					return Err(Error::<E::T>::InvalidCallFlags.into())
 				}
 				let code_hash = self.read_sandbox_memory_as(memory, code_hash_ptr)?;
