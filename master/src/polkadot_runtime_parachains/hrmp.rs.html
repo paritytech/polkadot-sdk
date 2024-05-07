@@ -2026,6 +2026,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1875" id="1875">1875</a>
 <a href="#1876" id="1876">1876</a>
 <a href="#1877" id="1877">1877</a>
+<a href="#1878" id="1878">1878</a>
+<a href="#1879" id="1879">1879</a>
+<a href="#1880" id="1880">1880</a>
+<a href="#1881" id="1881">1881</a>
+<a href="#1882" id="1882">1882</a>
+<a href="#1883" id="1883">1883</a>
+<a href="#1884" id="1884">1884</a>
+<a href="#1885" id="1885">1885</a>
+<a href="#1886" id="1886">1886</a>
+<a href="#1887" id="1887">1887</a>
+<a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
+<a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2305,6 +2341,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The default channel size and capacity to use when opening a channel to a system
 		/// parachain.
 		</span><span class="kw">type </span>DefaultChannelSizeAndCapacityWithSystem: Get&lt;(u32, u32)&gt;;
+
+		<span class="doccomment">/// Means of converting an `Xcm` into a `VersionedXcm`. This pallet sends HRMP XCM
+		/// notifications to the channel-related parachains, while the `WrapVersion` implementation
+		/// attempts to wrap them into the most suitable XCM version for the destination parachain.
+		///
+		/// NOTE: For example, `pallet_xcm` provides an accurate implementation (recommended), or
+		/// the default `()` implementation uses the latest XCM version for all parachains.
+		</span><span class="kw">type </span>VersionWrapper: xcm::WrapVersion;
 
 		<span class="doccomment">/// Something that provides the weight of this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
@@ -3527,28 +3571,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		HrmpOpenChannelRequestsList::&lt;T&gt;::append(channel_id);
 
-		<span class="kw">let </span>notification_bytes = {
-			<span class="kw">use </span>parity_scale_codec::Encode <span class="kw">as _</span>;
-			<span class="kw">use </span>xcm::opaque::{latest::prelude::<span class="kw-2">*</span>, VersionedXcm};
-
-			VersionedXcm::from(Xcm(<span class="macro">vec!</span>[HrmpNewChannelOpenRequest {
-				sender: u32::from(origin),
-				max_capacity: proposed_max_capacity,
-				max_message_size: proposed_max_message_size,
-			}]))
-			.encode()
-		};
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, recipient, notification_bytes)
-		{
-			<span class="comment">// this should never happen unless the max downward message size is configured to a
-			// jokingly small number.
-			</span><span class="macro">log::error!</span>(
-				target: <span class="string">"runtime::hrmp"</span>,
-				<span class="string">"sending 'init_open_channel::notification_bytes' failed."
-			</span>);
-			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-		}
+		<span class="self">Self</span>::send_to_para(
+			<span class="string">"init_open_channel"</span>,
+			<span class="kw-2">&amp;</span>config,
+			recipient,
+			<span class="self">Self</span>::wrap_notification(|| {
+				<span class="kw">use </span>xcm::opaque::latest::{prelude::<span class="kw-2">*</span>, Xcm};
+				Xcm(<span class="macro">vec!</span>[HrmpNewChannelOpenRequest {
+					sender: origin.into(),
+					max_capacity: proposed_max_capacity,
+					max_message_size: proposed_max_message_size,
+				}])
+			}),
+		);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3590,23 +3625,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		HrmpOpenChannelRequests::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>channel_id, channel_req);
 		HrmpAcceptedChannelRequestCount::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>origin, accepted_cnt + <span class="number">1</span>);
 
-		<span class="kw">let </span>notification_bytes = {
-			<span class="kw">use </span>parity_scale_codec::Encode <span class="kw">as _</span>;
-			<span class="kw">use </span>xcm::opaque::{latest::prelude::<span class="kw-2">*</span>, VersionedXcm};
-			<span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[HrmpChannelAccepted { recipient: u32::from(origin) }]);
-			VersionedXcm::from(xcm).encode()
-		};
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, sender, notification_bytes)
-		{
-			<span class="comment">// this should never happen unless the max downward message size is configured to an
-			// jokingly small number.
-			</span><span class="macro">log::error!</span>(
-				target: <span class="string">"runtime::hrmp"</span>,
-				<span class="string">"sending 'accept_open_channel::notification_bytes' failed."
-			</span>);
-			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-		}
+		<span class="self">Self</span>::send_to_para(
+			<span class="string">"accept_open_channel"</span>,
+			<span class="kw-2">&amp;</span>config,
+			sender,
+			<span class="self">Self</span>::wrap_notification(|| {
+				<span class="kw">use </span>xcm::opaque::latest::{prelude::<span class="kw-2">*</span>, Xcm};
+				Xcm(<span class="macro">vec!</span>[HrmpChannelAccepted { recipient: origin.into() }])
+			}),
+		);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3661,30 +3688,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		HrmpCloseChannelRequestsList::&lt;T&gt;::append(channel_id.clone());
 
 		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
-		<span class="kw">let </span>notification_bytes = {
-			<span class="kw">use </span>parity_scale_codec::Encode <span class="kw">as _</span>;
-			<span class="kw">use </span>xcm::opaque::{latest::prelude::<span class="kw-2">*</span>, VersionedXcm};
-
-			VersionedXcm::from(Xcm(<span class="macro">vec!</span>[HrmpChannelClosing {
-				initiator: u32::from(origin),
-				sender: u32::from(channel_id.sender),
-				recipient: u32::from(channel_id.recipient),
-			}]))
-			.encode()
-		};
 		<span class="kw">let </span>opposite_party =
 			<span class="kw">if </span>origin == channel_id.sender { channel_id.recipient } <span class="kw">else </span>{ channel_id.sender };
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, opposite_party, notification_bytes)
-		{
-			<span class="comment">// this should never happen unless the max downward message size is configured to an
-			// jokingly small number.
-			</span><span class="macro">log::error!</span>(
-				target: <span class="string">"runtime::hrmp"</span>,
-				<span class="string">"sending 'close_channel::notification_bytes' failed."
-			</span>);
-			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-		}
+
+		<span class="self">Self</span>::send_to_para(
+			<span class="string">"close_channel"</span>,
+			<span class="kw-2">&amp;</span>config,
+			opposite_party,
+			<span class="self">Self</span>::wrap_notification(|| {
+				<span class="kw">use </span>xcm::opaque::latest::{prelude::<span class="kw-2">*</span>, Xcm};
+				Xcm(<span class="macro">vec!</span>[HrmpChannelClosing {
+					initiator: origin.into(),
+					sender: channel_id.sender.into(),
+					recipient: channel_id.recipient.into(),
+				}])
+			}),
+		);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3900,6 +3919,59 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">"duplicates removed implies existence of duplicates"
 				</span>);
 			}
+		}
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="doccomment">/// Wraps HRMP XCM notifications to the most suitable XCM version for the destination para.
+	/// If the XCM version is unknown, the latest XCM version is used as a best effort.
+	</span><span class="kw">fn </span>wrap_notification(
+		<span class="kw-2">mut </span>notification: <span class="kw">impl </span>FnMut() -&gt; xcm::opaque::latest::opaque::Xcm,
+	) -&gt; <span class="kw">impl </span>FnOnce(ParaId) -&gt; primitives::DownwardMessage {
+		<span class="kw">use </span>xcm::{
+			opaque::VersionedXcm,
+			prelude::{Junction, Location},
+			WrapVersion,
+		};
+
+		<span class="comment">// Return a closure that can prepare notifications.
+		</span><span class="kw">move </span>|dest| {
+			<span class="comment">// Attempt to wrap the notification for the destination parachain.
+			</span>T::VersionWrapper::wrap_version(
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">0</span>, [Junction::Parachain(dest.into())]),
+				notification(),
+			)
+			.unwrap_or_else(|<span class="kw">_</span>| {
+				<span class="comment">// As a best effort, if we cannot resolve the version, fallback to using the latest
+				// version.
+				</span>VersionedXcm::from(notification())
+			})
+			.encode()
+		}
+	}
+
+	<span class="doccomment">/// Sends/enqueues notification to the destination parachain.
+	</span><span class="kw">fn </span>send_to_para(
+		log_label: <span class="kw-2">&amp;</span>str,
+		config: <span class="kw-2">&amp;</span>HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
+		dest: ParaId,
+		notification_bytes_for: <span class="kw">impl </span>FnOnce(ParaId) -&gt; primitives::DownwardMessage,
+	) {
+		<span class="comment">// prepare notification
+		</span><span class="kw">let </span>notification_bytes = notification_bytes_for(dest);
+
+		<span class="comment">// try to enqueue
+		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
+			dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, dest, notification_bytes)
+		{
+			<span class="comment">// this should never happen unless the max downward message size is configured to a
+			// jokingly small number.
+			</span><span class="macro">log::error!</span>(
+				target: <span class="string">"runtime::hrmp"</span>,
+				<span class="string">"sending '{log_label}::notification_bytes' failed."
+			</span>);
+			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 		}
 	}
 }
