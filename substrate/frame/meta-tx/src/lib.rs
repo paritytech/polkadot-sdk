@@ -71,7 +71,7 @@ use frame_system::pallet_prelude::*;
 use sp_runtime::traits::{
 	Dispatchable, IdentifyAccount, TransactionExtension, TransactionExtensionBase, Verify,
 };
-use sp_std::boxed::Box;
+use sp_std::prelude::*;
 
 /// Meta Transaction type.
 ///
@@ -223,18 +223,18 @@ pub mod pallet {
 				extension.implicit().map_err(|_| Error::<T>::Invalid)?,
 				&call,
 			)
-			.map_err(|err| Error::<T>::from(err))?;
+			.map_err(Error::<T>::from)?;
 
 			let pre =
 				T::Extension::prepare(extension, val, &origin, &call, &info, meta_tx_size, &ctx)
-					.map_err(|err| Error::<T>::from(err))?;
+					.map_err(Error::<T>::from)?;
 
 			let res = call.dispatch(origin);
 			let post_info = res.unwrap_or_else(|err| err.post_info);
 			let pd_res = res.map(|_| ()).map_err(|e| e.error);
 
 			T::Extension::post_dispatch(pre, &info, &post_info, meta_tx_size, &pd_res, &ctx)
-				.map_err(|err| Error::<T>::from(err))?;
+				.map_err(Error::<T>::from)?;
 
 			Self::deposit_event(Event::Dispatched { result: res });
 
