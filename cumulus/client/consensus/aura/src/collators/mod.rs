@@ -195,13 +195,6 @@ where
 	// collator against chains which have not yet upgraded their runtime.
 	if parent_hash != included_block {
 		if !runtime_api.can_build_upon(parent_hash, included_block, slot).ok()? {
-			tracing::debug!(
-				target: crate::LOG_TARGET,
-				?parent_hash,
-				?included_block,
-				?slot,
-				"Cannot build on top of the current block, skipping slot."
-			);
 			return None
 		}
 	}

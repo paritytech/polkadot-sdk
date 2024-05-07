@@ -80,15 +80,17 @@ pub struct BuilderTaskParams<Block: BlockT, BI, CIDP, Client, Backend, RClient, 
 }
 
 #[derive(Debug)]
-struct SlotAndTime {
-	timestamp: Timestamp,
-	slot: Slot,
+struct SlotInfo {
+	pub timestamp: Timestamp,
+	pub slot: Slot,
+	pub slot_duration: SlotDuration,
 }
 
 #[derive(Debug)]
-struct SlotTimer {
-	slot_duration: SlotDuration,
+struct SlotTimer<Block, Client, P> {
+	client: Arc<Client>,
 	drift: Duration,
+	phantom: std::marker::PhantomData<(P, Block)>,
 }
 
 /// Returns current duration since unix epoch.
@@ -110,18 +112,33 @@ fn time_until_next_slot(slot_duration: Duration, drift: Duration) -> Duration {
 	Duration::from_millis(remaining_millis as u64)
 }
 
-impl SlotTimer {
-	pub fn new_with_drift(slot_duration: SlotDuration, drift: Duration) -> Self {
-		Self { slot_duration, drift }
+impl<Block, Client, P> SlotTimer<Block, Client, P>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static + UsageProvider<Block>,
+	Client::Api: AuraApi<Block, P::Public>,
+
+	P: Pair,
+	P::Public: AppPublic + Member + Codec,
+	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
+{
+	pub fn new_with_drift(client: Arc<Client>, drift: Duration) -> Self {
+		Self { client, drift, phantom: Default::default() }
 	}
 
 	/// Returns a future that resolves when the next slot arrives.
-	pub async fn wait_until_next_slot(&self) -> SlotAndTime {
-		let time_until_next_slot =
-			time_until_next_slot(self.slot_duration.as_duration(), self.drift);
+	pub async fn wait_until_next_slot(&self) -> SlotInfo {
+		let slot_duration = match crate::slot_duration(&*self.client) {
+			Ok(s) => s,
+			Err(e) => {
+				tracing::error!(target: crate::LOG_TARGET, ?e, "Failed to fetch slot duration from runtime. Killing collator task.");
+				todo!();
+			},
+		};
+		let time_until_next_slot = time_until_next_slot(slot_duration.as_duration(), self.drift);
 		tokio::time::sleep(time_until_next_slot).await;
 		let timestamp = sp_timestamp::Timestamp::current();
-		SlotAndTime { slot: Slot::from_timestamp(timestamp, self.slot_duration), timestamp }
+		SlotInfo { slot: Slot::from_timestamp(timestamp, slot_duration), timestamp, slot_duration }
 	}
 }
 
@@ -170,15 +187,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		slot_drift,
 	} = params;
 
-	let slot_duration = match crate::slot_duration(&*para_client) {
-		Ok(s) => s,
-		Err(e) => {
-			tracing::error!(target: crate::LOG_TARGET, ?e, "Failed to fetch slot duration from runtime. Killing collator task.");
-			return
-		},
-	};
-
-	let slot_timer = SlotTimer::new_with_drift(slot_duration, slot_drift);
+	let slot_timer = SlotTimer::<_, _, P>::new_with_drift(para_client.clone(), slot_drift);
 
 	let mut collator = {
 		let params = collator_util::Params {
@@ -194,17 +203,15 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 	};
 
-	let Ok(expected_cores) = u64::try_from(
-		relay_chain_slot_duration.as_millis() / slot_duration.as_duration().as_millis(),
-	) else {
-		tracing::error!(target: LOG_TARGET, ?relay_chain_slot_duration, ?slot_duration, "Unable to calculate expected parachain expected_cores.");
-		return;
-	};
-	let expected_cores = expected_cores.max(1);
-
 	loop {
 		// We wait here until the next slot arrives.
 		let para_slot = slot_timer.wait_until_next_slot().await;
+
+		let Ok(expected_cores) =
+			expected_core_count(relay_chain_slot_duration, para_slot.slot_duration)
+		else {
+			return
+		};
 
 		let Ok(relay_parent) = relay_client.best_block_hash().await else {
 			tracing::warn!("Unable to fetch latest relay chain block hash, skipping slot.");
@@ -271,13 +278,25 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		.await
 		{
 			Some(slot) => slot,
-			None => continue,
+			None => {
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					?core_index,
+					slot_info = ?para_slot,
+					unincluded_segment_len = parent.depth,
+					relay_parent = %relay_parent,
+					included = %included_block,
+					parent = %parent_hash,
+					"Not building block."
+				);
+				continue
+			},
 		};
 
 		tracing::debug!(
 			target: crate::LOG_TARGET,
 			?core_index,
-			slot = ?para_slot.slot,
+			slot_info = ?para_slot,
 			unincluded_segment_len = parent.depth,
 			relay_parent = %relay_parent,
 			included = %included_block,
@@ -353,4 +372,19 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 			tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 		}
 	}
+}
+
+/// Calculate the expected core count based on the slot duration of the relay and parachain.
+///
+/// If `slot_duration` is smaller than `relay_chain_slot_duration` that means that we produce more
+/// than one parachain block per relay chain block. In order to get these backed, we need multiple
+/// cores. This method calculates how many cores we should expect to have scheduled under the
+/// assumption that we have a fixed number of cores assigned to our parachain.
+fn expected_core_count(
+	relay_chain_slot_duration: Duration,
+	slot_duration: SlotDuration,
+) -> Result<u64, ()> {
+	u64::try_from(relay_chain_slot_duration.as_millis() / slot_duration.as_duration().as_millis())
+		.map_err(|e| tracing::error!("Unable to claculate expected parachain core count: {e}"))
+		.map(|expected_core_count| expected_core_count.max(1))
 }
