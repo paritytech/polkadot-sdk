@@ -38,30 +38,24 @@
 //! when submitting the ticket accompanies it with a SNARK of the statement: "Here's
 //! my VRF output that has been generated using the given VRF input and my secret
 //! key. I'm not telling you my keys, but my public key is among those of the
-//! nominated validators", that is validated before the lottery.
-//!
-//! To anonymously publish the ticket to the chain a validator sends their tickets
-//! to a random validator who later puts it on-chain as a transaction.
+//! nominated validators".
 
 #![allow(unused)]
 // #![deny(warnings)]
 // #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use log::{debug, error, trace, warn};
+use log::{debug, warn};
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
-	traits::{Defensive, Get},
+	traits::Get,
 	weights::Weight,
 	BoundedVec, WeakBoundedVec,
 };
-use frame_system::{
-	offchain::{SendTransactionTypes, SubmitTransaction},
-	pallet_prelude::BlockNumberFor,
-};
+use frame_system::{offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
 use sp_consensus_sassafras::{
 	digests::{ConsensusLog, NextEpochDescriptor, SlotClaim},
 	vrf, AuthorityId, Configuration, Epoch, Randomness, Slot, TicketBody, TicketEnvelope, TicketId,
@@ -320,20 +314,13 @@ pub mod pallet {
 			let epoch_length = T::EpochLength::get();
 			let current_slot_idx = Self::current_slot_index();
 			let mut outstanding_count = TicketsAccumulator::<T>::count() as usize;
-			println!(
-				"A: {}, B: {}",
-				current_slot_idx,
-				epoch_length - epoch_length / EPOCH_TAIL_FRACTION
-			);
 			if current_slot_idx >= epoch_length - epoch_length / EPOCH_TAIL_FRACTION &&
 				outstanding_count != 0
 			{
 				let slots_left = epoch_length.checked_sub(current_slot_idx + 1).unwrap_or(1);
-				println!("SLOTS LEFT: {}", slots_left);
 				if slots_left > 0 {
 					outstanding_count = outstanding_count.div_ceil(slots_left as usize);
 				}
-
 				let next_epoch_tag = (Self::curr_epoch_index() & 1) as u8 ^ 1;
 				Self::consume_tickets_accumulator(outstanding_count, next_epoch_tag);
 			}
@@ -482,23 +469,6 @@ impl<T: Config> Pallet<T> {
 		(*slot % <T as Config>::EpochLength::get() as u64) as u32
 	}
 
-	// /// Finds the start slot of the current epoch.
-	// ///
-	// /// Only guaranteed to give correct results after `initialize` of the first
-	// /// block in the chain (as its result is based off of `GenesisSlot`).
-	// fn current_epoch_start() -> Slot {
-	// 	Self::epoch_start(EpochIndex::<T>::get())
-	// }
-
-	// /// Get the epoch's first slot.
-	// fn epoch_start(epoch_index: u64) -> Slot {
-	// 	const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
-	// 						 if u64 is not enough we should crash for safety; qed.";
-
-	// 	let epoch_start = epoch_index.checked_mul(T::EpochLength::get() as u64).expect(PROOF);
-	// 	GenesisSlot::<T>::get().checked_add(epoch_start).expect(PROOF).into()
-	// }
-
 	pub(crate) fn update_ring_verifier(authorities: &[AuthorityId]) {
 		debug!(target: LOG_TARGET, "Loading ring context");
 		let Some(ring_ctx) = RingContext::<T>::get() else {
@@ -572,6 +542,11 @@ impl<T: Config> Pallet<T> {
 
 		let epoch_tag = (epoch_idx & 1) as u8;
 		Self::consume_tickets_accumulator(usize::MAX, epoch_tag);
+
+		// Reset next epoch counter as we're start accumulating.
+		let mut metadata = TicketsMeta::<T>::get();
+		metadata.tickets_count[(epoch_tag ^ 1) as usize] = 0;
+		TicketsMeta::<T>::set(metadata);
 	}
 
 	pub(crate) fn deposit_tickets(tickets: &[(TicketId, TicketBody)]) -> Result<(), Error<T>> {
@@ -602,7 +577,7 @@ impl<T: Config> Pallet<T> {
 		let mut metadata = TicketsMeta::<T>::get();
 		let base = metadata.tickets_count[epoch_tag as usize];
 		let mut idx = 0;
-		for (key, body) in TicketsAccumulator::<T>::iter().take(max_items) {
+		for (key, body) in TicketsAccumulator::<T>::drain().take(max_items) {
 			Tickets::<T>::insert((epoch_tag, base + idx), (TicketId::from(key), body));
 			idx += 1;
 		}
@@ -785,34 +760,32 @@ impl<T: Config> Pallet<T> {
 		Tickets::<T>::get((epoch_tag, ticket_idx))
 	}
 
-	/// Remove all tickets related data.
+	/// Reset tickets related data.
 	///
-	/// May not be efficient as the calling places may repeat some of this operations
-	/// but is a very extraordinary operation (hopefully never happens in production)
-	/// and better safe than sorry.
+	/// Optimization note: tickets are left in place, only the metadata which counts
+	/// their number is resetted.
 	fn reset_tickets_data() {
-		let metadata = TicketsMeta::<T>::get();
-
-		// Reset sorted candidates
-		// TODO: This can fail?
+		// Reset sorted candidates (TODO: How this can fail?)
 		let _ = TicketsAccumulator::<T>::clear(u32::MAX, None);
-
 		// Reset tickets metadata
 		TicketsMeta::<T>::kill();
 	}
 
 	/// Randomness buffer entries.
 	///
-	/// Assuming we're executing a block during epoch with index `N`. Entry values:
-	/// - 0 : randomness accumulator after last block execution.
+	/// Assuming we're executing a block during epoch with index `N`.
+	///
+	/// Entries:
+	/// - 0 : randomness accumulator after execution of previous block.
 	/// - 1 : randomness accumulator snapshot after execution of epoch `N-1` last block.
 	/// - 2 : randomness accumulator snapshot after execution of epoch `N-2` last block.
 	/// - 3 : randomness accumulator snapshot after execution of epoch `N-3` last block.
 	///
-	/// At a higher level, the semantic of these entries is defined as:
+	/// The semantic of these entries is defined as:
 	/// - 3 : epoch `N` randomness
 	/// - 2 : epoch `N+1` randomness
 	/// - 1 : epoch `N+2` randomness
+	/// - 0 : accumulator for epoch `N+3` randomness
 	///
 	/// If `index` is greater than 3 the `Default` is returned.
 	pub fn randomness(index: usize) -> Randomness {
@@ -834,10 +807,12 @@ impl<T: Config> Pallet<T> {
 		Self::randomness(0)
 	}
 
+	/// Current epoch index.
 	pub fn curr_epoch_index() -> u64 {
 		Self::epoch_index(Self::current_slot())
 	}
 
+	/// Epoch's index from slot.
 	pub fn epoch_index(slot: Slot) -> u64 {
 		*slot / <T as Config>::EpochLength::get() as u64
 	}
@@ -845,6 +820,18 @@ impl<T: Config> Pallet<T> {
 	/// Epoch length
 	pub fn epoch_length() -> u32 {
 		T::EpochLength::get()
+	}
+
+	/// Finds the start slot of the current epoch.
+	fn current_epoch_start() -> Slot {
+		Self::epoch_start(EpochIndex::<T>::get())
+	}
+
+	/// Get the epoch's first slot.
+	fn epoch_start(epoch_index: u64) -> Slot {
+		const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
+							 if u64 is not enough we should crash for safety; qed.";
+		epoch_index.checked_mul(T::EpochLength::get() as u64).expect(PROOF).into()
 	}
 }
 
@@ -887,9 +874,9 @@ impl EpochChangeTrigger for EpochChangeInternalTrigger {
 			);
 			let authorities = Pallet::<T>::next_authorities();
 			let next_authorities = authorities.clone();
-			let len = next_authorities.len() as u32;
 			Pallet::<T>::enact_epoch_change(authorities, next_authorities);
 			// TODO
+			// let len = next_authorities.len() as u32;
 			// T::WeightInfo::enact_epoch_change(len, T::EpochLength::get())
 			Weight::zero()
 		} else {

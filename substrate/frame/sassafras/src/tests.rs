@@ -376,57 +376,194 @@ fn slot_ticket_id_outside_in_fetch() {
 }
 
 #[test]
-fn tickets_accumulator_consume() {
-	let curr_count = 8;
-	let next_count = 6;
-	let accu_count = 10;
-
-	let tickets_count = curr_count + next_count + accu_count;
+fn slot_and_epoch_helpers_works() {
 	let start_block = 1;
 	let start_slot = (GENESIS_SLOT + 1).into();
 
-	let tickets: Vec<_> = (0..tickets_count)
+	let (pairs, mut ext) = new_test_ext_with_pairs(1, false);
+
+	ext.execute_with(|| {
+		let epoch_length = Sassafras::epoch_length() as u64;
+		assert_eq!(epoch_length, 10);
+
+		let check = |slot, slot_idx, epoch_slot, epoch_idx| {
+			assert_eq!(Sassafras::current_slot(), Slot::from(slot));
+			assert_eq!(Sassafras::current_slot_index(), slot_idx);
+			assert_eq!(Sassafras::current_epoch_start(), Slot::from(epoch_slot));
+			assert_eq!(Sassafras::curr_epoch_index(), epoch_idx);
+		};
+
+		// Post genesis state (before first initialization of epoch N)
+		check(0, 0, 0, 0);
+
+		// Epoch N first block
+		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
+		check(101, 1, 100, 10);
+
+		// Progress to epoch N last block
+		let end_block = start_block + epoch_length - 2;
+		progress_to_block(end_block, &pairs[0]).unwrap();
+		check(109, 9, 100, 10);
+
+		// Progres to epoch N+1 first block
+		progress_to_block(end_block + 1, &pairs[0]).unwrap();
+		check(110, 0, 110, 11);
+
+		// Progress to epoch N+1 last block
+		let end_block = end_block + epoch_length;
+		progress_to_block(end_block, &pairs[0]).unwrap();
+		check(119, 9, 110, 11);
+
+		// Progres to epoch N+2 first block
+		progress_to_block(end_block + 1, &pairs[0]).unwrap();
+		check(120, 0, 120, 12);
+	})
+}
+
+#[test]
+fn tickets_accumulator_works() {
+	let e1_count = 6;
+	let e2_count = 10;
+
+	let tot_count = e1_count + e2_count;
+	let start_block = 1;
+	let start_slot = (GENESIS_SLOT + 1).into();
+
+	let tickets: Vec<_> = (0..tot_count)
 		.map(|i| {
 			(TicketId([i as u8; 32]), TicketBody { attempt_idx: 0, extra: Default::default() })
 		})
 		.collect();
-	// Current epoch tickets
-	let curr_tickets = tickets[..curr_count].to_vec();
-	let next_tickets = tickets[curr_count..curr_count + next_count].to_vec();
-	let accu_tickets = tickets[curr_count + next_count..].to_vec();
+	let e1_tickets = tickets[..e1_count].to_vec();
+	let e2_tickets = tickets[e1_count..].to_vec();
 
-	let (pairs, mut ext) = new_test_ext_with_pairs(4, false);
+	let (pairs, mut ext) = new_test_ext_with_pairs(1, false);
 
 	ext.execute_with(|| {
-		curr_tickets
-			.iter()
-			.enumerate()
-			.for_each(|(i, t)| Tickets::<Test>::insert((0, i as u32), t));
+		let epoch_length = Sassafras::epoch_length() as u64;
 
-		next_tickets
-			.iter()
-			.enumerate()
-			.for_each(|(i, t)| Tickets::<Test>::insert((1, i as u32), t));
+		let epoch_idx = Sassafras::curr_epoch_index();
+		let epoch_tag = (epoch_idx % 2) as u8;
+		let next_epoch_tag = epoch_tag ^ 1;
 
-		TicketsMeta::<Test>::set(TicketsMetadata {
-			tickets_count: [curr_count as u32, next_count as u32],
-		});
+		let mut metadata = TicketsMetadata::default();
+		TicketsMeta::<Test>::set(metadata);
 
 		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
-		accu_tickets
+		// Append some tickets to the accumulator
+		e1_tickets
 			.iter()
 			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
 
-		// We don't want to trigger an epoch change in this test.
-		let epoch_length = Sassafras::epoch_length();
-
-		// Progress to block 2
-		let end_block =
-			start_block + (epoch_length - epoch_length / EPOCH_TAIL_FRACTION) as u64 - 1;
-		println!("ST: {}, EN: {}, L: {}", start_block, end_block, epoch_length);
+		// Progress to epoch's last block
+		let end_block = start_block + epoch_length - 2;
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
 
+		let metadata = TicketsMeta::<Test>::get();
+		assert_eq!(metadata.tickets_count[epoch_tag as usize], 0);
+		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
+
 		let header = finalize_block(end_block);
+
+		let metadata = TicketsMeta::<Test>::get();
+		assert_eq!(metadata.tickets_count[epoch_tag as usize], 0);
+		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], e1_count as u32);
+
+		// Start new epoch
+
+		initialize_block(
+			end_block + 1,
+			Sassafras::current_slot() + 1,
+			Default::default(),
+			&pairs[0],
+		);
+
+		let metadata = TicketsMeta::<Test>::get();
+		let next_epoch_tag = epoch_tag;
+		let epoch_tag = epoch_tag ^ 1;
+		assert_eq!(metadata.tickets_count[epoch_tag as usize], e1_count as u32);
+		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
+
+		// Append some tickets to the accumulator
+		e2_tickets
+			.iter()
+			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
+
+		// Progress to epoch's last block
+		let end_block = end_block + epoch_length;
+		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
+
+		let metadata = TicketsMeta::<Test>::get();
+		assert_eq!(metadata.tickets_count[epoch_tag as usize], e1_count as u32);
+		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
+
+		let header = finalize_block(end_block);
+
+		let metadata = TicketsMeta::<Test>::get();
+		assert_eq!(metadata.tickets_count[epoch_tag as usize], e1_count as u32);
+		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], e2_count as u32);
+
+		let metadata = TicketsMeta::<Test>::get();
+
+		// Start new epoch
+		initialize_block(
+			end_block + 1,
+			Sassafras::current_slot() + 1,
+			Default::default(),
+			&pairs[0],
+		);
+
+		let metadata = TicketsMeta::<Test>::get();
+		let next_epoch_tag = epoch_tag;
+		let epoch_tag = epoch_tag ^ 1;
+		assert_eq!(metadata.tickets_count[epoch_tag as usize], e2_count as u32);
+		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
+	});
+}
+
+#[test]
+fn incremental_accumulator_drain() {
+	let tot_count = 10;
+	let tickets: Vec<_> = (0..tot_count)
+		.map(|i| {
+			(TicketId([i as u8; 32]), TicketBody { attempt_idx: 0, extra: Default::default() })
+		})
+		.collect();
+
+	new_test_ext(0).execute_with(|| {
+		let mut metadata = TicketsMetadata::default();
+		TicketsMeta::<Test>::set(metadata);
+
+		tickets
+			.iter()
+			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
+
+		Sassafras::consume_tickets_accumulator(5, 0);
+		let meta = TicketsMeta::<Test>::get();
+		assert_eq!(meta.tickets_count[0], 5);
+		assert_eq!(meta.tickets_count[1], 0);
+		tickets.iter().rev().take(5).enumerate().for_each(|(i, (id, _))| {
+			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
+			assert_eq!(id, &id2);
+		});
+
+		Sassafras::consume_tickets_accumulator(3, 0);
+		let meta = TicketsMeta::<Test>::get();
+		assert_eq!(meta.tickets_count[0], 8);
+		assert_eq!(meta.tickets_count[1], 0);
+		tickets.iter().rev().take(8).enumerate().for_each(|(i, (id, _))| {
+			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
+			assert_eq!(id, &id2);
+		});
+
+		Sassafras::consume_tickets_accumulator(5, 0);
+		let meta = TicketsMeta::<Test>::get();
+		assert_eq!(meta.tickets_count[0], 10);
+		assert_eq!(meta.tickets_count[1], 0);
+		tickets.iter().rev().enumerate().for_each(|(i, (id, _))| {
+			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
+			assert_eq!(id, &id2);
+		});
 	});
 }
