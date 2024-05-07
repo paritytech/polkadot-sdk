@@ -237,7 +237,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		{
 			log::debug!(
 				target: LOG_TARGET,
-				"Enforcing limits ({}/{}kB ready, {}/{}kB future",
+				"Enforcing limits ({}/{}kB ready, {}/{}kB future)",
 				ready_limit.count,
 				ready_limit.total_bytes / 1024,
 				future_limit.count,
