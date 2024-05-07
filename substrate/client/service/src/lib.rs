@@ -40,7 +40,10 @@ use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
 use log::{debug, error, warn};
-use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
+use sc_client_api::{
+	backend, blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ClientImportOperation,
+	ProofProvider,
+};
 use sc_network::{
 	config::MultiaddrWithPeerId, NetworkBlock, NetworkPeers, NetworkStateInfo, PeerId,
 };
@@ -75,6 +78,7 @@ pub use sc_chain_spec::{
 	Properties, RuntimeGenesis,
 };
 
+use sc_consensus::BlockImportParams;
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
 pub use sc_network_sync::WarpSyncParams;
@@ -95,6 +99,19 @@ const DEFAULT_PROTOCOL_ID: &str = "sup";
 /// RPC handlers that can perform RPC queries.
 #[derive(Clone)]
 pub struct RpcHandlers(Arc<RpcModule<()>>);
+
+/// Provides extended functions for `Client` to enable fast-sync.
+pub trait ClientExt<Block: BlockT, B: backend::Backend<Block>> {
+	/// Apply a checked and validated block to an operation.
+	fn apply_block(
+		&self,
+		operation: &mut ClientImportOperation<Block, B>,
+		import_block: BlockImportParams<Block>,
+		storage_changes: Option<sc_consensus::StorageChanges<Block>>,
+	) -> sp_blockchain::Result<sc_consensus::ImportResult>;
+	/// Clear block gap after initial block insertion.
+	fn clear_block_gap(&self);
+}
 
 impl RpcHandlers {
 	/// Starts an RPC query.
