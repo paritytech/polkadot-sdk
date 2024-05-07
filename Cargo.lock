@@ -8190,7 +8190,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/litep2p?branch=lexnv/update-webrtc-crate#eaec7ceb50d658243509e704a9ee6e792f4ecef7"
+source = "git+https://github.com/paritytech/litep2p?branch=lexnv/test-webrtc#c132bb32c430a01ea7128ce1aa726ea9d188673b"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
