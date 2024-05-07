@@ -69,14 +69,14 @@ fn fee_estimation_for_teleport() {
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
-			VersionedXcm::V4(
+			Some(VersionedXcm::V4(
 				Xcm::builder_unsafe()
 					.withdraw_asset((Parent, 20u128))
 					.burn_asset((Parent, 20u128))
 					.withdraw_asset((Here, 100u128))
 					.burn_asset((Here, 100u128))
 					.build()
-			),
+			)),
 		);
 		let send_destination = Location::new(1, [Parachain(1000)]);
 		let send_message = Xcm::<()>::builder_unsafe()
@@ -142,7 +142,7 @@ fn fee_estimation_for_teleport() {
 		// Weighing the local program is not relevant for extrinsics that already
 		// take this weight into account.
 		// In this case, we really only care about delivery fees.
-		let local_xcm = dry_run_effects.local_xcm;
+		let local_xcm = dry_run_effects.local_xcm.unwrap();
 
 		// We get a double result since the actual call returns a result and the runtime api returns
 		// results.
@@ -231,12 +231,12 @@ fn dry_run_reserve_asset_transfer() {
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
-			VersionedXcm::V4(
+			Some(VersionedXcm::V4(
 				Xcm::builder_unsafe()
 					.withdraw_asset((Parent, 100u128))
 					.burn_asset((Parent, 100u128))
 					.build()
-			),
+			)),
 		);
 
 		// In this case, the transfer type is `DestinationReserve`, so the remote xcm just withdraws
