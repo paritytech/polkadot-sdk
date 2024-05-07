@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715114800059,
+  "lastUpdate": 1715121393124,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2537,6 +2537,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.45252866074019,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c91c13b9c1d6eaf12d89dbf088c1e16b25261822",
+          "message": "Generate XCM weights for coretimes (#4396)\n\nAddressing comment:\nhttps://github.com/paritytech/polkadot-sdk/pull/3455#issuecomment-2094829076\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-05-07T21:50:32Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c91c13b9c1d6eaf12d89dbf088c1e16b25261822"
+        },
+        "date": 1715121365215,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63547.67999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.255527307599957,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.820853044140153,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.793941075689942,
             "unit": "seconds"
           }
         ]
