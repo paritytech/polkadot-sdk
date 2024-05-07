@@ -1,5 +1,7 @@
 //! This file is in essence a code-level parameterization of the `service.rs` file.
 
+use cumulus_client_cli::CollatorOptions;
+
 use crate::command;
 
 type RpcTraitObj = ();
@@ -46,6 +48,10 @@ pub struct Builder {
 
 	authoring: Authoring,
 	finality: Finality,
+	parachain_consensus: ParachainConsensus,
+	on_load: Option<
+		Box<dyn FnOnce(sc_service::Configuration, CollatorOptions) -> Result<(), sc_cli::Error>>,
+	>,
 
 	extra_rpcs: Vec<Box<RpcTraitObj>>,
 
@@ -61,6 +67,8 @@ impl Default for Builder {
 			finality: Finality::None,
 
 			offchain_worker: false,
+			parachain_consensus: ParachainConsensus::Relay,
+			on_load: None,
 
 			prometheus: false,
 			telemetry: false,
@@ -71,34 +79,36 @@ impl Default for Builder {
 	}
 }
 
+pub enum ParachainConsensus {
+	Relay,
+	Aura,
+	RelayAndAura,
+	FreeForAll,
+}
+
 impl Builder {
 	// TODO: for now this is both `build` and `run`. `
-	pub fn build(self) -> sc_cli::Result<()> {
+	pub fn build_and_run(self) -> sc_cli::Result<()> {
 		self.validate();
 		command::run(self)
 	}
 
-	pub fn node_type(mut self, node_type: NodeType) -> Self {
-		self.node_type = node_type;
+	pub fn consensus(mut self, consensus: ParachainConsensus) -> Self {
+		self.parachain_consensus = consensus;
 		self
 	}
 
-	pub fn authoring(mut self, authoring: Authoring) -> Self {
-		self.authoring = authoring;
-		self
-	}
-
-	pub fn finality(mut self, finality: Finality) -> Self {
-		self.finality = finality;
-		self
-	}
-
-	pub fn extra_rpc(mut self, rpc: Box<RpcTraitObj>) -> Self {
-		self.extra_rpcs.push(rpc);
+	pub fn on_load(
+		mut self,
+		on_load: Box<
+			dyn FnOnce(sc_service::Configuration, CollatorOptions) -> Result<(), sc_cli::Error>,
+		>,
+	) -> Self {
+		self.on_load = Some(on_load);
 		self
 	}
 
 	fn validate(&self) -> Result<(), ()> {
-		todo!("validate the current `self` to be sane. Not all parameters go well with one another")
+		Ok(())
 	}
 }
