@@ -28,9 +28,6 @@ use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 use sp_core::traits::RuntimeCode;
 use trie_db::node_db::Hasher;
 
-// TODO should parameterized location from db
-// as we currently add overhead to rocksdb and old paritydb in the
-// struct size (not that much , not a priority)
 /// DB location hint for a trie node.
 pub type DBLocation = sp_trie::DBLocation;
 use sp_trie::{ChildChangeset, MerkleValue};

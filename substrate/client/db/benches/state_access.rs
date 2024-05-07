@@ -109,7 +109,7 @@ enum BenchmarkConfig {
 	TrieNodeCache,
 }
 
-fn create_backend(config: BenchmarkConfig, temp_dir: &TempDir) -> Backend<Block> {
+fn create_backend(config: BenchmarkConfig, temp_dir: &TempDir, multi_tree: bool) -> Backend<Block> {
 	let path = temp_dir.path().to_owned();
 
 	let trie_cache_maximum_size = match config {
@@ -120,8 +120,7 @@ fn create_backend(config: BenchmarkConfig, temp_dir: &TempDir) -> Backend<Block>
 	let settings = DatabaseSettings {
 		trie_cache_maximum_size,
 		state_pruning: Some(PruningMode::ArchiveAll),
-		source: DatabaseSource::ParityDb { path, multi_tree: true },
-		//source: DatabaseSource::ParityDb { path, multi_tree: false }, TODO both false and true?
+		source: DatabaseSource::ParityDb { path, multi_tree },
 		blocks_pruning: BlocksPruning::KeepAll,
 	};
 
@@ -158,13 +157,21 @@ fn generate_storage() -> (Vec<Vec<u8>>, Vec<(Vec<u8>, Vec<u8>)>) {
 }
 
 fn state_access_benchmarks(c: &mut Criterion) {
+	state_access_benchmarks_inner(c, false)
+}
+
+fn state_access_benchmarks_multi(c: &mut Criterion) {
+	state_access_benchmarks_inner(c, true)
+}
+
+fn state_access_benchmarks_inner(c: &mut Criterion, multi: bool) {
 	sp_tracing::try_init_simple();
 
 	let (keys, storage) = generate_storage();
 	let path = TempDir::new().expect("Creates temporary directory");
 
 	let block_hash = {
-		let backend = create_backend(BenchmarkConfig::NoCache, &path);
+		let backend = create_backend(BenchmarkConfig::NoCache, &path, multi);
 		insert_blocks(&backend, storage.clone())
 	};
 
@@ -172,7 +179,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 	group.sample_size(20);
 
 	let mut bench_multiple_values = |config, desc, multiplier| {
-		let backend = create_backend(config, &path);
+		let backend = create_backend(config, &path, multi);
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
@@ -210,7 +217,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 	let mut group = c.benchmark_group("Reading a single value");
 
 	let mut bench_single_value = |config, desc, multiplier| {
-		let backend = create_backend(config, &path);
+		let backend = create_backend(config, &path, multi);
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
@@ -248,7 +255,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 	let mut group = c.benchmark_group("Hashing a value");
 
 	let mut bench_single_value = |config, desc, multiplier| {
-		let backend = create_backend(config, &path);
+		let backend = create_backend(config, &path, multi);
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
@@ -309,4 +316,5 @@ fn state_access_benchmarks(c: &mut Criterion) {
 }
 
 criterion_group!(benches, state_access_benchmarks);
+criterion_group!(benches, state_access_benchmarks_multi);
 criterion_main!(benches);

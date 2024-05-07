@@ -457,12 +457,12 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		if let Some(state) = &mut *self.state.borrow_mut() {
 			if let Some(mut db) = state.backend_storage_mut().as_mem_db_mut() {
 				let root = transaction.apply_to(&mut db);
-				state.set_root(root);
+				state.set_root((root, Default::default()));
 			} else if let Some(mut db) = state.backend_storage_mut().as_prefixed_mem_db_mut() {
 				let root = transaction.apply_to(&mut db);
-				state.set_root(root);
+				state.set_root((root, Default::default()));
 			} else {
-				unreachable!()
+				unreachable!("multi")
 			}
 
 			// Track DB Writes
@@ -578,7 +578,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 				log::debug!(target: "benchmark", "Some proof size: {}", &proof_size);
 				proof_size
 			} else {
-				let root = if let Some(state) = self.state.borrow().as_ref().map(|s| *s.root()) {
+				let root = if let Some(state) = self.state.borrow().as_ref().map(|s| s.root().0) {
 					state
 				} else {
 					self.genesis_root
