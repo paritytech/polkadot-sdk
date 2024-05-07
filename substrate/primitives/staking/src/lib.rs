@@ -73,6 +73,24 @@ pub enum StakerStatus<AccountId> {
 	Nominator(Vec<AccountId>),
 }
 
+/// Wrapper of a staker, which includes the staker's ID and its current status.
+#[derive(RuntimeDebug, Clone, PartialEq)]
+pub struct Staker<AccountId> {
+	/// Staker's account ID.
+	pub who: AccountId,
+	/// Current status of the staker.
+	pub status: Result<StakerStatus<AccountId>, DispatchError>,
+}
+
+impl<AccountId> Staker<AccountId> {
+	pub fn from<Staking>(who: AccountId) -> Self
+	where
+		Staking: StakingInterface<AccountId = AccountId>,
+	{
+		Self { status: Staking::status(&who), who }
+	}
+}
+
 /// A struct that reflects stake that an account has in the staking system. Provides a set of
 /// methods to operate on it's properties. Aimed at making `StakingInterface` more concise.
 #[derive(RuntimeDebug, Clone, Copy, Eq, PartialEq, Default)]
@@ -110,7 +128,7 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// This is effectively any changes to the bond amount, such as bonding more funds, and
 	/// unbonding.
 	fn on_stake_update(
-		_who: &AccountId,
+		_staker: Staker<AccountId>,
 		_prev_stake: Option<Stake<Balance>>,
 		_stake: Stake<Balance>,
 	) {
@@ -119,7 +137,7 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when someone sets their intention to nominate.
 	///
 	/// This should never be fired for existing nominators.
-	fn on_nominator_add(_who: &AccountId, _nominations: Vec<AccountId>) {}
+	fn on_nominator_add(_staker: Staker<AccountId>, _nominations: Vec<AccountId>) {}
 
 	/// Fired when an existing nominator updates their nominations.
 	///
@@ -127,7 +145,7 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// `on_stake_update` should be used, followed by querying whether `who` was a validator or a
 	/// nominator.
 	fn on_nominator_update(
-		_who: &AccountId,
+		_staker: Staker<AccountId>,
 		_prev_nominations: Vec<AccountId>,
 		_nominations: Vec<AccountId>,
 	) {
@@ -136,37 +154,37 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when an existng nominator becomes idle.
 	///
 	///	An idle nominator stops nominating but its stake state should not be removed.
-	fn on_nominator_idle(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
+	fn on_nominator_idle(_staker: Staker<AccountId>, _prev_nominations: Vec<AccountId>) {}
 
 	/// Fired when someone removes their intention to nominate, either due to chill or validating.
 	///
 	/// The set of nominations at the time of removal is provided as it can no longer be fetched in
 	/// any way.
-	fn on_nominator_remove(_who: &AccountId, _nominations: Vec<AccountId>) {}
+	fn on_nominator_remove(_staker: Staker<AccountId>, _nominations: Vec<AccountId>) {}
 
 	/// Fired when someone sets their intention to validate.
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_add(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
+	fn on_validator_add(_staker: Staker<AccountId>, _self_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when an existing validator updates their preferences.
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_update(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
+	fn on_validator_update(_staker: Staker<AccountId>, _self_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when an existing validator becomes idle.
 	///
 	///	An idle validator stops validating but its stake state should not be removed.
-	fn on_validator_idle(_who: &AccountId) {}
+	fn on_validator_idle(_staker: Staker<AccountId>) {}
 
 	/// Fired when someone removes their intention to validate, either due to chill or nominating.
-	fn on_validator_remove(_who: &AccountId) {}
+	fn on_validator_remove(_staker: Staker<AccountId>) {}
 
 	/// Fired when a portion of a staker's balance has been withdrawn.
-	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
+	fn on_withdraw(_staker: Staker<AccountId>, _amount: Balance) {}
 
 	/// Fired when someone is fully unstaked.
-	fn on_unstake(_who: &AccountId) {}
+	fn on_unstake(_staker: Staker<AccountId>) {}
 
 	/// Fired when a staker is slashed.
 	///
@@ -176,7 +194,7 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	///   the slash is applied. Any era not present in the map is not affected at all.
 	/// * `slashed_total` - The aggregated balance that was lost due to the slash.
 	fn on_slash(
-		_stash: &AccountId,
+		_staker: Staker<AccountId>,
 		_slashed_active: Balance,
 		_slashed_unlocking: &BTreeMap<EraIndex, Balance>,
 		_slashed_total: Balance,
@@ -194,7 +212,7 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 #[derive(PartialEq, Clone, Debug)]
 pub enum OnStakingUpdateEvent<AccountId, Balance> {
 	StakeUpdate {
-		who: AccountId,
+		who: Staker<AccountId>,
 		prev_stake: Option<Stake<Balance>>,
 		stake: Stake<Balance>,
 	},

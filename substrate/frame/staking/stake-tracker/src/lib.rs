@@ -96,7 +96,8 @@ use frame_support::{
 };
 use sp_runtime::traits::Zero;
 use sp_staking::{
-	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
+	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, Staker, StakerStatus,
+	StakingInterface,
 };
 use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
@@ -248,15 +249,6 @@ pub mod pallet {
 			)
 		}
 
-		/// Returns whether a target should be removed from the target list.
-		///
-		/// A target should be removed from the target list at any point IFF:
-		/// * it's approvals are 0 AND
-		/// * it's state is dangling (ledger unbonded).
-		pub(crate) fn should_remove_target(who: &T::AccountId, score: BalanceOf<T>) -> bool {
-			score.is_zero() && T::Staking::status(who).is_err()
-		}
-
 		/// Updates a target's score by increasing/decreasing an imbalance of the current score in
 		/// the target list.
 		pub(crate) fn update_target_score(
@@ -266,33 +258,16 @@ pub mod pallet {
 			// ensure that the target list node exists if it does not yet and perform a few
 			// defensive checks.
 			if !T::TargetList::contains(who) {
-				match T::Staking::status(who) {
-					Err(_) | Ok(StakerStatus::Nominator(_)) => {
-						defensive!("update target score was called on an unbonded ledger or nominator, not expected.");
-						return
-					},
-					Ok(StakerStatus::Validator) => {
-						defensive!(
-							"active validator was not part of the target list, something is wrong."
-						);
-						return
-					},
-					Ok(StakerStatus::Idle) => {
-						// if stash is idle and not part of the target list yet, initialize it and
-						// proceed.
-						T::TargetList::on_insert(who.clone(), Zero::zero())
-							.expect("staker does not exist in the list as per check above; qed.");
-					},
-				}
+				// if stash is not in the target list yet, initialize it and proceed.
+				let _ = T::TargetList::on_insert(who.clone(), Zero::zero())
+					.expect("staker does not exist in the list as per check above; qed.");
 			}
 
 			// update target score.
 			let removed = match imbalance {
 				StakeImbalance::Positive(imbalance) => {
 					let _ = T::TargetList::on_increase(who, Self::to_currency(imbalance))
-						.defensive_proof(
-							"staker should exist in the list, otherwise returned earlier.",
-						);
+						.defensive_proof("staker is expected to exist in the target list.");
 					false
 				},
 				StakeImbalance::Negative(imbalance) => {
@@ -302,7 +277,8 @@ pub mod pallet {
 
 						// the target is removed from the list IFF score is 0 and the target is
 						// dangling (i.e. not bonded).
-						if Self::should_remove_target(who, Self::to_currency(balance)) {
+						if Self::to_currency(balance).is_zero() && T::Staking::status(who).is_err()
+						{
 							let _ = T::TargetList::on_remove(who).defensive_proof(
 								"staker exists in the list as per the check above; qed.",
 							);
@@ -563,11 +539,11 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Note: it is assumed that `who`'s staking ledger state is updated *before* this method is
 	/// called.
 	fn on_stake_update(
-		who: &T::AccountId,
+		staker: Staker<T::AccountId>,
 		prev_stake: Option<Stake<BalanceOf<T>>>,
 		stake: Stake<BalanceOf<T>>,
 	) {
-		match T::Staking::status(who) {
+		match staker.status {
 			Ok(StakerStatus::Nominator(nominations)) => {
 				// if voters are in lazy mode, return without updating the stake.
 				if VoterListMode::<T>::get().is_lazy_mode() {
@@ -576,7 +552,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 				let voter_weight = Self::weight_of(stake.active);
 
-				let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
+				let _ = T::VoterList::on_update(&staker.who, voter_weight).defensive_proof(
 					"staker should exist in VoterList, as per the contract \
                             with staking.",
 				);
@@ -599,10 +575,10 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 					voter_weight.into(),
 				);
 
-				Self::update_target_score(who, stake_imbalance);
+				Self::update_target_score(&staker.who, stake_imbalance);
 
 				// validator is both a target and a voter.
-				let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
+				let _ = T::VoterList::on_update(&staker.who, voter_weight).defensive_proof(
 					"the staker should exist in VoterList, as per the \
                             contract with staking.",
 				);
@@ -621,54 +597,51 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	//
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
 	/// method.
-	fn on_validator_add(who: &T::AccountId, self_stake: Option<Stake<BalanceOf<T>>>) {
+	fn on_validator_add(staker: Staker<T::AccountId>, self_stake: Option<Stake<BalanceOf<T>>>) {
 		let self_stake = self_stake.unwrap_or_default().active;
 
-		match T::TargetList::on_insert(who.clone(), self_stake) {
+		match T::TargetList::on_insert(staker.who.clone(), self_stake) {
 			Ok(_) => (),
 			Err(_) => {
 				// if the target already exists in the list, it means that the target is idle
 				// and/or is dangling.
-				debug_assert!(
-					T::Staking::status(who) == Ok(StakerStatus::Idle) ||
-						T::Staking::status(who).is_err()
-				);
+				debug_assert!(staker.status == Ok(StakerStatus::Idle) || staker.status.is_err());
 
 				let self_stake = Self::to_vote_extended(self_stake);
-				Self::update_target_score(who, StakeImbalance::Positive(self_stake));
+				Self::update_target_score(&staker.who, StakeImbalance::Positive(self_stake));
 			},
 		}
 
-		log!(debug, "on_validator_add: {:?}. role: {:?}", who, T::Staking::status(who),);
+		log!(debug, "on_validator_add: {:?}", staker);
 
 		// a validator is also a nominator.
-		Self::on_nominator_add(who, vec![])
+		Self::on_nominator_add(staker, vec![])
 	}
 
 	/// A validator has been chilled. The target node remains in the target list.
 	///
 	/// While idling, the target node is not removed from the target list but its score is
 	/// updated.
-	fn on_validator_idle(who: &T::AccountId) {
-		let self_stake = Self::weight_of(Self::active_vote_of(who));
-		Self::update_target_score(who, StakeImbalance::Negative(self_stake.into()));
+	fn on_validator_idle(staker: Staker<T::AccountId>) {
+		let self_stake = Self::weight_of(Self::active_vote_of(&staker.who));
+		Self::update_target_score(&staker.who, StakeImbalance::Negative(self_stake.into()));
+
+		log!(debug, "on_validator_idle: {:?}, decreased self-stake {}", staker, self_stake);
 
 		// validator is a nominator too.
-		Self::on_nominator_idle(who, vec![]);
-
-		log!(debug, "on_validator_idle: {:?}, decreased self-stake {}", who, self_stake);
+		Self::on_nominator_idle(staker, vec![]);
 	}
 
 	/// A validator has been set as inactive/removed from the staking POV. The target node is
 	/// removed from the target list IFF its score is 0. Otherwise, its score should be kept up to
 	/// date as if the validator was active.
-	fn on_validator_remove(who: &T::AccountId) {
-		log!(debug, "on_validator_remove: {:?} with status {:?}", who, T::Staking::status(who));
+	fn on_validator_remove(staker: Staker<T::AccountId>) {
+		log!(debug, "on_validator_remove: {:?}", staker);
 
 		// validator must be idle before removing completely. Perform some sanity checks too.
-		match T::Staking::status(who) {
+		match staker.status {
 			Ok(StakerStatus::Idle) => (), // proceed
-			Ok(StakerStatus::Validator) => Self::on_validator_idle(who),
+			Ok(StakerStatus::Validator) => Self::on_validator_idle(staker.clone()),
 			Ok(StakerStatus::Nominator(_)) => {
 				defensive!("on_validator_remove called on a nominator, unexpected.");
 				return
@@ -679,12 +652,12 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			},
 		};
 
-		if let Ok(score) = T::TargetList::get_score(who) {
+		if let Ok(score) = T::TargetList::get_score(&staker.who) {
 			// remove from target list IIF score is zero. If `score != 0`, the target still has
 			// active nominations, thus we keep it in the target list with corresponding approval
 			// stake.
 			if score.is_zero() {
-				T::TargetList::on_remove(who).expect("target exists as per above; qed");
+				T::TargetList::on_remove(&staker.who).expect("target exists as per above; qed");
 			}
 		} else {
 			// target is not part of the list. Given the contract with staking and the checks above,
@@ -694,16 +667,16 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* this method is
 	/// called.
-	fn on_nominator_add(who: &T::AccountId, nominations: Vec<AccountIdOf<T>>) {
-		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
+	fn on_nominator_add(staker: Staker<T::AccountId>, nominations: Vec<AccountIdOf<T>>) {
+		let nominator_vote = Self::weight_of(Self::active_vote_of(&staker.who));
 
-		let _ = T::VoterList::on_insert(who.clone(), nominator_vote).defensive_proof(
+		let _ = T::VoterList::on_insert(staker.who.clone(), nominator_vote).defensive_proof(
 			"the nominator must not exist in the list as per the contract with staking.",
 		);
 
 		// If who is a nominator, update the vote weight of the nominations if they exist. Note:
 		// this will update the score of up to `T::MaxNominations` validators.
-		match T::Staking::status(who).defensive() {
+		match staker.status {
 			Ok(StakerStatus::Nominator(_)) =>
 				for t in nominations {
 					Self::update_target_score(&t, StakeImbalance::Positive(nominator_vote.into()))
@@ -711,7 +684,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			Ok(StakerStatus::Idle) | Ok(StakerStatus::Validator) | Err(_) => (), // nada.
 		};
 
-		log!(debug, "on_nominator_add: {:?}. role: {:?}", who, T::Staking::status(who),);
+		log!(debug, "on_nominator_add: {:?}", staker);
 	}
 
 	/// A nominator has been idle. From the `T::VotertList` PoV, chilling a nominator is the same as
@@ -719,8 +692,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	///
 	/// Note: it is assumed that `who`'s staking ledger and `nominations` are up to date before
 	/// calling this method.
-	fn on_nominator_idle(who: &T::AccountId, nominations: Vec<T::AccountId>) {
-		Self::on_nominator_remove(who, nominations);
+	fn on_nominator_idle(staker: Staker<T::AccountId>, nominations: Vec<T::AccountId>) {
+		Self::on_nominator_remove(staker, nominations);
 	}
 
 	/// Fired when someone removes their intention to nominate and is completely removed from
@@ -728,13 +701,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	///
 	/// Note: the number of nodes that are updated is bounded by the maximum number of
 	/// nominators, which is defined in the staking pallet.
-	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
-		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
+	fn on_nominator_remove(staker: Staker<T::AccountId>, nominations: Vec<T::AccountId>) {
+		let nominator_vote = Self::weight_of(Self::active_vote_of(&staker.who));
 
 		log!(
 			debug,
 			"remove nominations from {:?} with {:?} weight. impacting {:?}.",
-			who,
+			staker,
 			nominator_vote,
 			nominations,
 		);
@@ -744,7 +717,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			Self::update_target_score(t, StakeImbalance::Negative(nominator_vote.into()))
 		}
 
-		let _ = T::VoterList::on_remove(who).defensive_proof(
+		let _ = T::VoterList::on_remove(&staker.who).defensive_proof(
 			"the nominator must exist in the list as per the contract with staking.",
 		);
 	}
@@ -756,16 +729,16 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
 	/// method.
 	fn on_nominator_update(
-		who: &T::AccountId,
+		staker: Staker<T::AccountId>,
 		prev_nominations: Vec<T::AccountId>,
 		nominations: Vec<T::AccountId>,
 	) {
-		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
+		let nominator_vote = Self::weight_of(Self::active_vote_of(&staker.who));
 
 		log!(
 			debug,
 			"on_nominator_update: {:?}, with {:?}. previous nominations: {:?} -> new nominations {:?}",
-			who, nominator_vote, prev_nominations, nominations,
+			staker, nominator_vote, prev_nominations, nominations,
 		);
 
 		// new nominations
@@ -786,16 +759,16 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	/// The score of the staker `who` is updated through the `on_stake_update` calls following the
 	/// full unstake (ledger kill).
-	fn on_unstake(_who: &T::AccountId) {}
+	fn on_unstake(_staker: Staker<T::AccountId>) {}
 
 	/// The score of the staker `who` is updated through the `on_stake_update` calls following the
 	/// withdraw.
-	fn on_withdraw(_who: &T::AccountId, _amount: BalanceOf<T>) {}
+	fn on_withdraw(_staker: Staker<T::AccountId>, _amount: BalanceOf<T>) {}
 
 	/// The score of the staker `who` is updated through the `on_stake_update` calls following the
 	/// slash.
 	fn on_slash(
-		_stash: &T::AccountId,
+		_staker: Staker<T::AccountId>,
 		_slashed_active: BalanceOf<T>,
 		_slashed_unlocking: &BTreeMap<sp_staking::EraIndex, BalanceOf<T>>,
 		_slashed_total: BalanceOf<T>,

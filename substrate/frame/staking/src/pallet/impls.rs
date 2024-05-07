@@ -44,7 +44,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake, Staker,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -224,7 +224,7 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: value });
 
 			// notify listeners.
-			T::EventListeners::on_withdraw(controller, value);
+			T::EventListeners::on_withdraw(Staker::from::<Self>(controller.clone()), value);
 		}
 
 		Ok(used_weight)
@@ -1131,12 +1131,19 @@ impl<T: Config> Pallet<T> {
 			Ok(StakerStatus::Idle) => {
 				// new nomination
 				Nominators::<T>::insert(who, nominations);
-				T::EventListeners::on_nominator_add(who, nomination_accounts);
+				T::EventListeners::on_nominator_add(
+					Staker::from::<Self>(who.clone()),
+					nomination_accounts,
+				);
 			},
 			Ok(StakerStatus::Nominator(prev_nominations)) => {
 				// update nominations or un-chill nominator.
 				Nominators::<T>::insert(who, nominations);
-				T::EventListeners::on_nominator_update(who, prev_nominations, nomination_accounts);
+				T::EventListeners::on_nominator_update(
+					Staker::from::<Self>(who.clone()),
+					prev_nominations,
+					nomination_accounts,
+				);
 			},
 			_ => {
 				defensive!("calling add_nominator on a validator or unbonded stash.");
@@ -1160,7 +1167,10 @@ impl<T: Config> Pallet<T> {
 	/// Returns `true` if the nominator was successfully chilled, `false` otherwise.
 	pub(crate) fn do_chill_nominator(who: &T::AccountId) -> bool {
 		Nominators::<T>::take(who).map_or(false, |nominations| {
-			T::EventListeners::on_nominator_remove(who, nominations.clone().targets.into());
+			T::EventListeners::on_nominator_remove(
+				Staker::from::<Self>(who.clone()),
+				nominations.clone().targets.into(),
+			);
 			true
 		})
 	}
@@ -1196,7 +1206,7 @@ impl<T: Config> Pallet<T> {
 		if !Validators::<T>::contains_key(who) {
 			let self_stake = Self::stake(who);
 			T::EventListeners::on_validator_add(
-				who,
+				Staker::from::<Self>(who.clone()),
 				Some(self_stake.defensive_unwrap_or_default().into()),
 			);
 		};
@@ -1218,7 +1228,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_chill_validator(who: &T::AccountId) -> bool {
 		if Validators::<T>::contains_key(who) {
 			Validators::<T>::remove(who);
-			T::EventListeners::on_validator_idle(who);
+			T::EventListeners::on_validator_idle(Staker::from::<Self>(who.clone()));
 			true
 		} else {
 			false
@@ -1234,7 +1244,7 @@ impl<T: Config> Pallet<T> {
 	/// wrong.
 	pub fn do_remove_validator(who: &T::AccountId) -> bool {
 		let outcome = Self::do_chill_validator(who);
-		T::EventListeners::on_validator_remove(who);
+		T::EventListeners::on_validator_remove(Staker::from::<Self>(who.clone()));
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
