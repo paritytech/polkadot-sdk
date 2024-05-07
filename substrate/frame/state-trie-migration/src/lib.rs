@@ -1741,7 +1741,7 @@ pub(crate) mod remote_tests {
 		);
 
 		loop {
-			let last_state_root = *ext.backend.root();
+			let last_state_root = ext.backend.root().0;
 			let ((finished, weight), proof) = ext.execute_and_prove(|| {
 				let weight = run_to_block::<Runtime>(now + One::one()).1;
 				if StateTrieMigration::<Runtime>::migration_process().finished() {
