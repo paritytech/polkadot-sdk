@@ -58,6 +58,7 @@ pub mod versioned {
 
 pub mod unversioned {
 	use super::*;
+	use crate::adapter::StakeStrategyType;
 
 	/// Checks and updates `TotalValueLocked` if out of sync.
 	pub struct TotalValueLockedSync<T>(sp_std::marker::PhantomData<T>);
@@ -121,7 +122,7 @@ pub mod unversioned {
 	impl<T: Config> OnRuntimeUpgrade for DelegationStakeMigration<T> {
 		fn on_runtime_upgrade() -> Weight {
 			if StrategyMigration::<T>::get() == Some(adapter::StakeStrategyType::Delegate) {
-				log!(info, "Already migrated to Delegate Strategy");
+				log!(info, "Already migrated. `pallet_nomination_pools::migration::unversioned::DelegationStakeMigration` can be removed.");
 				return T::DbWeight::get().reads_writes(1, 0)
 			}
 
@@ -156,15 +157,20 @@ pub mod unversioned {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			ensure!(
-				StrategyMigration::<T>::get().is_none(),
-				"Did not expect strategy migration to be already set."
-			);
-
+			// if not set, then consider it as older strategy `Transfer`.
+			let current_strategy =
+				StrategyMigration::<T>::get().unwrap_or(StakeStrategyType::Transfer);
 			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
+
 			BondedPools::<T>::iter_keys().for_each(|id| {
-				pool_balances
-					.push(T::Currency::total_balance(&Pallet::<T>::create_bonded_account(id)));
+				let pool_account = Pallet::<T>::create_bonded_account(id);
+				let pool_balance = if current_strategy == StakeStrategyType::Transfer {
+					T::Currency::total_balance(&pool_account)
+				} else {
+					T::StakeAdapter::total_balance(&pool_account)
+				};
+
+				pool_balances.push(pool_balance);
 			});
 
 			Ok(pool_balances.encode())
@@ -173,7 +179,7 @@ pub mod unversioned {
 		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			ensure!(
 				StrategyMigration::<T>::get() == Some(adapter::StakeStrategyType::Delegate),
-				"Could not migrated to Delegate Strategy"
+				"Failed to migrate to `DelegateStake` strategy"
 			);
 
 			let expected_pool_balances: Vec<BalanceOf<T>> = Decode::decode(&mut &data[..]).unwrap();

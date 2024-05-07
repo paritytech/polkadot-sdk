@@ -1143,9 +1143,7 @@ mod pool_integration {
 
 			assert_eq!(
 				pool_events_since_last_call(),
-				vec![
-					PoolsEvent::PoolSlashed { pool_id: 1, balance: 0 },
-				]
+				vec![PoolsEvent::PoolSlashed { pool_id: 1, balance: 0 },]
 			);
 
 			// slash is lazy and balance is still locked in user's accounts.
@@ -1155,16 +1153,10 @@ mod pool_integration {
 			}
 
 			// effective balance of agent is 0.
-			assert_eq!(
-				get_pool_agent(pool_id).ledger.effective_balance(),
-				0
-			);
+			assert_eq!(get_pool_agent(pool_id).ledger.effective_balance(), 0);
 
 			// agent not reaped in staking pallet
-			assert_eq!(
-				Staking::total_stake(&pool_acc).unwrap(),
-				0
-			);
+			assert_eq!(Staking::total_stake(&pool_acc).unwrap(), 0);
 
 			// and cannot no one can reap it directly as well in Staking pallet.
 			assert_noop!(
@@ -1205,7 +1197,7 @@ mod pool_integration {
 			// all slash should be applied now.
 			assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, 0);
 			// reporter gets 10% of total staked as reward.
-			assert_eq!(Balances::free_balance(slash_reporter), 100 + total_staked/10);
+			assert_eq!(Balances::free_balance(slash_reporter), 100 + total_staked / 10);
 
 			// try dissolving pool.
 			assert_ok!(Pools::set_state(
@@ -1257,7 +1249,6 @@ mod pool_integration {
 			}
 		});
 	}
-
 
 	fn create_pool(creator: AccountId, amount: Balance) -> u32 {
 		fund(&creator, amount * 2);
