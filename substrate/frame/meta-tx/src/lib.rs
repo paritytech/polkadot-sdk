@@ -54,7 +54,7 @@
 //! [frame_system::CheckGenesis], [frame_system::CheckMortality], [frame_system::CheckNonce], etc.,
 //! can be used and are generally relevant in the context of meta transactions.
 
-#![cfg_attr(not(feature = "std"), not_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
 mod mock;
@@ -71,6 +71,7 @@ use frame_system::pallet_prelude::*;
 use sp_runtime::traits::{
 	Dispatchable, IdentifyAccount, TransactionExtension, TransactionExtensionBase, Verify,
 };
+use sp_std::boxed::Box;
 
 /// Meta Transaction type.
 ///
