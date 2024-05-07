@@ -918,7 +918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>PeerMessagesGenerator {
 	<span class="doccomment">/// Generates messages by spawning a blocking task in the background which begins creating
-	/// the assignments/approvals and peer view changes at the begining of each block.
+	/// the assignments/approvals and peer view changes at the beginning of each block.
 	</span><span class="kw">pub fn </span>generate_messages(<span class="kw-2">mut </span><span class="self">self</span>, spawn_task_handle: <span class="kw-2">&amp;</span>SpawnTaskHandle) {
 		spawn_task_handle.spawn(<span class="string">"generate-messages"</span>, <span class="string">"generate-messages"</span>, <span class="kw">async move </span>{
 			<span class="kw">for </span>block_info <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.blocks {

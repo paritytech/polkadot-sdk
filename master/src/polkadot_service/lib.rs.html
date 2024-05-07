@@ -2619,7 +2619,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or_else(
 					|| <span class="kw">match </span>config.chain_spec.identify_chain() {
 						<span class="comment">// The intention is to use this logic for gradual increasing from 2 to 4
-						// of this configuration chain by chain untill it reaches production chain.
+						// of this configuration chain by chain until it reaches production chain.
 						</span>Chain::Polkadot | Chain::Kusama =&gt; <span class="number">2</span>,
 						Chain::Rococo | Chain::Westend | Chain::Unknown =&gt; <span class="number">4</span>,
 					},
