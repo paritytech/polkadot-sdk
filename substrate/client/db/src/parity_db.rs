@@ -118,17 +118,9 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 							not_ref_counted_column.push(col);
 						}
 						return None
-<<<<<<< HEAD
 					},
 				Change::ReferenceTree(col, key) =>
 					(col as u8, Operation::ReferenceTree(key.as_ref().to_vec())),
-=======
-					}
-				},
-				Change::ReferenceTree(col, key) => {
-					(col as u8, Operation::ReferenceTree(key.as_ref().to_vec()))
-				},
->>>>>>> f544f79d22 (Fixes for parity-db)
 				Change::Release(col, key) =>
 					if ref_counted_column(col) {
 						(col as u8, Operation::Dereference(key.as_ref().to_vec()))
@@ -140,14 +132,8 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 					},
 				Change::ReleaseTree(col, key) =>
 					(col as u8, Operation::DereferenceTree(key.as_ref().to_vec())),
-<<<<<<< HEAD
 				Change::StoreTree(col, key, tree) =>
 					(col as u8, Operation::InsertTree(key.as_ref().to_vec(), tree)),
-=======
-				Change::StoreTree(col, key, tree) => {
-					(col as u8, Operation::InsertTree(key.as_ref().to_vec(), tree))
-				},
->>>>>>> f544f79d22 (Fixes for parity-db)
 			})
 		}));
 

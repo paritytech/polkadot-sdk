@@ -1234,7 +1234,6 @@ pub fn apply_tree_commit<H: Hash>(
 		}
 	}
 
-<<<<<<< HEAD
 	match state_capabilities {
 		StateCapabilities::TreeColumn => {
 			let hash = commit.root_hash();
@@ -1243,27 +1242,6 @@ pub fn apply_tree_commit<H: Hash>(
 					tx.reference_tree(columns::STATE, DbHash::from_slice(hash.as_ref()));
 				},
 				new_node @ sp_trie::Changenode::New(_) => {
-=======
-	if db_tree_support {
-		let hash = commit.main.root_hash();
-		match commit.main.root {
-			sp_trie::ChangesetNodeRef::Existing(node) => {
-				tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
-			}
-			new_node @ sp_trie::ChangesetNodeRef::New(_) => {
-				if let sp_database::NodeRef::New(n) = convert::<H>(new_node) {
-					tx.insert_tree(columns::STATE, DbHash::from_slice(hash.as_ref()), n);
-				}
-			}
-		}
-		for (c, _) in commit.child {
-			let hash = c.root_hash();
-			match c.root {
-				sp_trie::ChangesetNodeRef::Existing(node) => {
-					tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
-				}
-				new_node @ sp_trie::ChangesetNodeRef::New(_) => {
->>>>>>> f544f79d22 (Fixes for parity-db)
 					if let sp_database::NodeRef::New(n) = convert::<H>(new_node) {
 						tx.insert_tree(columns::STATE, DbHash::from_slice(hash.as_ref()), n);
 					}
@@ -2189,14 +2167,9 @@ impl<Block: BlockT> Backend<Block> {
 		if clean_state {
 			match self.blockchain.header_metadata(hash) {
 				Ok(hdr) => {
-<<<<<<< HEAD
 					transaction
 						.release_tree(columns::STATE, DbHash::from_slice(hdr.state_root.as_ref()));
 				},
-=======
-					transaction.release_tree(columns::STATE, DbHash::from_slice(hdr.state_root.as_ref()));
-				}
->>>>>>> f544f79d22 (Fixes for parity-db)
 				Err(e) => {
 					log::debug!(target: "db", "Failed to get header metadata for block #{}: {:?}", id, e)
 				},
