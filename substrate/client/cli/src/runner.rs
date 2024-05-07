@@ -250,7 +250,7 @@ mod tests {
 				database: sc_client_db::DatabaseSource::ParityDb {
 					path: root.clone(),
 					multi_tree: false,
-				}, // TODO multitree here? likely no
+				},
 				trie_cache_maximum_size: None,
 				state_pruning: None,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,

@@ -293,7 +293,7 @@ fn state_access_benchmarks_inner(c: &mut Criterion, multi: bool) {
 	let mut group = c.benchmark_group("Hashing `:code`");
 
 	let mut bench_single_value = |config, desc| {
-		let backend = create_backend(config, &path);
+		let backend = create_backend(config, &path, multi);
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
@@ -315,6 +315,5 @@ fn state_access_benchmarks_inner(c: &mut Criterion, multi: bool) {
 	group.finish();
 }
 
-criterion_group!(benches, state_access_benchmarks);
-criterion_group!(benches, state_access_benchmarks_multi);
+criterion_group!(benches, state_access_benchmarks, state_access_benchmarks_multi);
 criterion_main!(benches);
