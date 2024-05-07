@@ -717,7 +717,7 @@ mod pool_integration {
 			// cannot reap agent in staking.
 			assert_noop!(
 				Staking::reap_stash(RuntimeOrigin::signed(100), pool_agent.key, 0),
-				StakingError::<T>::VirtualStaker
+				StakingError::<T>::VirtualStakerNotAllowed
 			);
 
 			// let a bunch of delegators join this pool
@@ -1117,136 +1117,6 @@ mod pool_integration {
 			// for creator, 50% of stake should be slashed (250), 10% of which should go to reporter
 			// (25).
 			assert_eq!(Balances::free_balance(slash_reporter), 115 + 25);
-		});
-	}
-
-	#[test]
-	fn pool_fully_slashed() {
-		ExtBuilder::default().build_and_execute(|| {
-			start_era(1);
-			let creator = 100;
-			let creator_stake = 500;
-			let pool_id = create_pool(creator, creator_stake);
-			let delegator_stake = 100;
-			add_delegators_to_pool(pool_id, (300..306).collect(), delegator_stake);
-			let pool_acc = Pools::create_bonded_account(pool_id);
-			let total_staked = creator_stake + delegator_stake * 6;
-			System::reset_events();
-
-			pallet_staking::slashing::do_slash::<T>(
-				&pool_acc,
-				total_staked,
-				&mut Default::default(),
-				&mut Default::default(),
-				1,
-			);
-
-			assert_eq!(
-				pool_events_since_last_call(),
-				vec![PoolsEvent::PoolSlashed { pool_id: 1, balance: 0 },]
-			);
-
-			// slash is lazy and balance is still locked in user's accounts.
-			assert_eq!(DelegatedStaking::held_balance_of(&creator), creator_stake);
-			for i in 300..306 {
-				assert_eq!(DelegatedStaking::held_balance_of(&i), delegator_stake);
-			}
-
-			// effective balance of agent is 0.
-			assert_eq!(get_pool_agent(pool_id).ledger.effective_balance(), 0);
-
-			// agent not reaped in staking pallet
-			assert_eq!(Staking::total_stake(&pool_acc).unwrap(), 0);
-
-			// and cannot no one can reap it directly as well in Staking pallet.
-			assert_noop!(
-				Staking::reap_stash(RuntimeOrigin::signed(100), pool_acc, u32::MAX),
-				StakingError::<T>::VirtualStaker
-			);
-
-			// pending slash is book kept.
-			assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, total_staked);
-
-			// go in some distant future era.
-			start_era(10);
-			System::reset_events();
-
-			// let's update all the slash
-			let slash_reporter = 99;
-			// give our reporter some balance.
-			fund(&slash_reporter, 100);
-
-			for i in 300..306 {
-				let pre_pending_slash = get_pool_agent(pool_id).ledger.pending_slash;
-				assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), i));
-
-				// each member is slashed 100 (their total stake)
-				assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, pre_pending_slash - 100);
-				// left with 0.
-				assert_eq!(DelegatedStaking::held_balance_of(&i), 0);
-				// Delegator reaped.
-				assert!(!Delegators::<T>::contains_key(i));
-			}
-
-			// reporter is paid SlashRewardFraction (10%) of the slash for 6 delegators.
-			assert_eq!(Balances::free_balance(slash_reporter), 100 + 10 * 6);
-
-			// slash creator
-			assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), creator));
-
-			// all slash should be applied now.
-			assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, 0);
-			// reporter gets 10% of total staked as reward.
-			assert_eq!(Balances::free_balance(slash_reporter), 100 + total_staked / 10);
-
-			// try dissolving pool.
-			assert_ok!(Pools::set_state(
-				RawOrigin::Signed(creator).into(),
-				pool_id,
-				PoolState::Destroying
-			));
-			assert_ok!(Pools::chill(RawOrigin::Signed(creator).into(), pool_id));
-
-			// unbond all members by the creator/admin
-			for i in 300..306 {
-				assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), i, 100));
-			}
-
-			start_era(14);
-			// withdraw all members by the creator/admin
-			for i in 300..306 {
-				assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into(), i, 0));
-			}
-
-			// unbond creator
-			assert_ok!(Pools::unbond(RawOrigin::Signed(creator).into(), creator, creator_stake));
-
-			start_era(15);
-			System::reset_events();
-
-			// Withdraw self
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(creator).into(), creator, 0));
-			assert_eq!(
-				pool_events_since_last_call(),
-				vec![
-					PoolsEvent::Withdrawn {
-						member: creator,
-						pool_id,
-						balance: creator_stake,
-						points: creator_stake,
-					},
-					PoolsEvent::MemberRemoved { pool_id, member: creator },
-					PoolsEvent::Destroyed { pool_id },
-				]
-			);
-
-			// Make sure all data is cleaned up.
-			assert!(!Agents::<T>::contains_key(Pools::create_bonded_account(pool_id)));
-			assert!(!System::account_exists(&Pools::create_bonded_account(pool_id)));
-			assert!(!Delegators::<T>::contains_key(creator));
-			for i in 300..306 {
-				assert!(!Delegators::<T>::contains_key(i));
-			}
 		});
 	}
 

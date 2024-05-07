@@ -1272,13 +1272,6 @@ impl<T: Config> BondedPool<T> {
 		Ok(points_issued)
 	}
 
-	/// Returns whether the pool nominator has some slashes not applied to the members.
-	///
-	/// Can only happen when slashes are lazy, such as in `delegate and stake` strategy.
-	fn has_pending_slash(&self) -> bool {
-		T::StakeAdapter::has_pending_slash(&self.bonded_account())
-	}
-
 	// Set the state of `self`, and deposit an event if the state changed. State should never be set
 	// directly in in order to ensure a state change event is always correctly deposited.
 	fn set_state(&mut self, state: PoolState) {
@@ -1973,6 +1966,8 @@ pub mod pallet {
 		BondedStashKilledPrematurely,
 		/// The delegation feature is unsupported.
 		DelegationUnsupported,
+		/// Unable to slash to the member of the pool.
+		SlashNotApplied,
 	}
 
 	impl<T> From<DefensiveError> for Error<T> {
@@ -2265,15 +2260,22 @@ pub mod pallet {
 			let mut sub_pools =
 				SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::SubPoolsNotFound)?;
 
-			let slash_weight = if bonded_pool.has_pending_slash() {
+			let slash_weight =
 				// apply slash if any before withdraw.
 				match Self::do_apply_slash(&member_account, None) {
 					Ok(_) => T::WeightInfo::apply_slash(),
-					Err(_) => T::WeightInfo::apply_slash_fail(),
-				}
-			} else {
-				Weight::default()
-			};
+					Err(e) => {
+						let no_pending_slash: DispatchResult = Err(Error::<T>::NothingToSlash.into());
+						// This is an expected error. We add appropriate fees and continue withdrawal.
+						if Err(e) == no_pending_slash {
+							T::WeightInfo::apply_slash_fail()
+						} else {
+							// defensive-only: if we can't apply slash for some reason, we abort.
+							return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
+						}
+					}
+
+				};
 
 			bonded_pool.ok_to_withdraw_unbonded_with(&caller, &member_account)?;
 
