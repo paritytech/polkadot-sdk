@@ -8,15 +8,25 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  CARGO_NET_GIT_FETCH_WITH_CLI: true
-
 jobs:
+  set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
   test-linux-stable-int:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
+    needs: [set-image]
     container:
-      image: "docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408"
+      image: ${{ needs.set-image.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-C debug-assertions -D warnings"
       RUST_BACKTRACE: 1
@@ -30,10 +40,11 @@ jobs:
       - name: script
         run: WASM_BUILD_NO_COLOR=1 time cargo test -p staging-node-cli --release --locked -- --ignored
   quick-benchmarks:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
+    needs: [set-image]
     container:
-      image: "docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408"
+      image: ${{ needs.set-image.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-C debug-assertions -D warnings"
       RUST_BACKTRACE: "full"
@@ -43,4 +54,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks --quiet -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
+        run: time cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet

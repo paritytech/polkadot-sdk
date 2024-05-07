@@ -176,6 +176,14 @@ zombienet-polkadot-elastic-scaling-0002-elastic-scaling-doesnt-break-parachains:
       --local-dir="${LOCAL_DIR}/elastic_scaling"
       --test="0002-elastic-scaling-doesnt-break-parachains.zndsl"
 
+zombienet-polkadot-functional-0012-spam-statement-distribution-requests:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0012-spam-statement-distribution-requests.zndsl"
+
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common

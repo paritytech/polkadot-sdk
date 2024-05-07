@@ -45,7 +45,7 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
-use std::{convert::TryFrom, ops::RangeInclusive};
+use std::ops::RangeInclusive;
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesDeliveryProof<C> =
