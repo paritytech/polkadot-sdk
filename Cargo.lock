@@ -7090,6 +7090,7 @@ dependencies = [
  "pallet-lottery",
  "pallet-membership",
  "pallet-message-queue",
+ "pallet-meta-tx",
  "pallet-migrations",
  "pallet-mixnet",
  "pallet-mmr",
@@ -10145,6 +10146,26 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "sp-weights",
+]
+
+[[package]]
+name = "pallet-meta-tx"
+version = "0.0.1"
+dependencies = [
+ "docify 0.2.7",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std 14.0.0",
 ]
 
 [[package]]

@@ -232,8 +232,13 @@ pub trait StaticLookup {
 }
 
 /// A lookup implementation returning the input value.
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct IdentityLookup<T>(PhantomData<T>);
+impl<T> Default for IdentityLookup<T> {
+	fn default() -> Self {
+		Self(Default::default())
+	}
+}
 impl<T: Codec + Clone + PartialEq + Debug + TypeInfo> StaticLookup for IdentityLookup<T> {
 	type Source = T;
 	type Target = T;
