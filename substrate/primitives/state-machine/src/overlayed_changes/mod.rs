@@ -246,9 +246,7 @@ impl<H: Hasher> StorageTransactionCache<H> {
 
 impl<H: Hasher> Clone for StorageTransactionCache<H> {
 	fn clone(&self) -> Self {
-		Self {
-			transaction: self.transaction.clone(),
-		}
+		Self { transaction: self.transaction.clone() }
 	}
 }
 
