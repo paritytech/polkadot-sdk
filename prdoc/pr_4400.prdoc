@@ -1,0 +1,10 @@
+title: Introduce connected_peers() API to sc-network
+
+doc:
+  - audience: Node Dev
+    description: |
+      The new change exposes a list of the currently connected peers to use in other parts of the system. A list of PeerId will be used by request-response protocol operations.
+
+crates:
+  - name: sc-network
+    bump: patch
