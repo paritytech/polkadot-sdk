@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715096743435,
+  "lastUpdate": 1715114800059,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2490,6 +2490,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.770008094350001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov",
+            "email": "tsvetomir@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b6dcd1b65436a6f7c087ad659617a9caf29a233a",
+          "message": "Update prdoc for 2226 (#4401)\n\nMention that offenders are no longer chilled and suggest node operators\nand nominators to monitor their nodes/nominees closely.\n\n---------\n\nCo-authored-by: Maciej <maciej.zyszkiewicz@parity.io>",
+          "timestamp": "2024-05-07T19:18:09Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6dcd1b65436a6f7c087ad659617a9caf29a233a"
+        },
+        "date": 1715114773510,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63545.05,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.751099255790104,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.244758526120053,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.45252866074019,
             "unit": "seconds"
           }
         ]
