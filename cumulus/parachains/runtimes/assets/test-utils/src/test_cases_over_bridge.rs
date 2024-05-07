@@ -409,7 +409,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			// ForeignAssets balances before
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					&foreign_asset_id_location.into(),
 					&target_account
 				),
 				0.into()
@@ -482,7 +482,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			// ForeignAssets balances after
 			assert!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					&foreign_asset_id_location.into(),
 					&target_account
 				) > 0.into()
 			);

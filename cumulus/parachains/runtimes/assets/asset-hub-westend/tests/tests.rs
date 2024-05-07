@@ -212,7 +212,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			// init asset, balances and pool.
 			assert_ok!(<Assets as Create<_>>::create(asset_1, bob.clone(), true, 10));
 
-			assert_ok!(Assets::mint_into(asset_1, &bob, initial_balance));
+			assert_ok!(Assets::mint_into(&asset_1, &bob, initial_balance));
 			assert_ok!(Balances::mint_into(&bob, initial_balance));
 			assert_ok!(Balances::mint_into(&staking_pot, initial_balance));
 
@@ -244,7 +244,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			));
 
 			// keep initial total issuance to assert later.
-			let asset_total_issuance = Assets::total_issuance(asset_1);
+			let asset_total_issuance = Assets::total_issuance(&asset_1);
 			let native_total_issuance = Balances::total_issuance();
 
 			// prepare input to buy weight.
@@ -265,14 +265,14 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			let unused_amount =
 				unused_asset.fungible.get(&asset_1_location.clone().into()).map_or(0, |a| *a);
 			assert_eq!(unused_amount, extra_amount);
-			assert_eq!(Assets::total_issuance(asset_1), asset_total_issuance + asset_fee);
+			assert_eq!(Assets::total_issuance(&asset_1), asset_total_issuance + asset_fee);
 
 			// prepare input to refund weight.
 			let refund_weight = Weight::from_parts(1_000_000_000, 0);
 			let refund = WeightToFee::weight_to_fee(&refund_weight);
 			let (reserve1, reserve2) = AssetConversion::get_reserves(
-				xcm::v3::Location::try_from(native_location).expect("conversion works"),
-				xcm::v3::Location::try_from(asset_1_location.clone()).expect("conversion works"),
+				&xcm::v3::Location::try_from(native_location).expect("conversion works"),
+				&xcm::v3::Location::try_from(asset_1_location.clone()).expect("conversion works"),
 			)
 			.unwrap();
 			let asset_refund =
@@ -289,7 +289,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			drop(trader);
 			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
 			assert_eq!(
-				Assets::total_issuance(asset_1),
+				Assets::total_issuance(&asset_1),
 				asset_total_issuance + asset_fee - asset_refund
 			);
 			assert_eq!(Balances::total_issuance(), native_total_issuance);
@@ -332,7 +332,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 				10
 			));
 
-			assert_ok!(ForeignAssets::mint_into(foreign_location, &bob, initial_balance));
+			assert_ok!(ForeignAssets::mint_into(&foreign_location, &bob, initial_balance));
 			assert_ok!(Balances::mint_into(&bob, initial_balance));
 			assert_ok!(Balances::mint_into(&staking_pot, initial_balance));
 
@@ -354,7 +354,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			));
 
 			// keep initial total issuance to assert later.
-			let asset_total_issuance = ForeignAssets::total_issuance(foreign_location);
+			let asset_total_issuance = ForeignAssets::total_issuance(&foreign_location);
 			let native_total_issuance = Balances::total_issuance();
 
 			let foreign_location_latest: Location = foreign_location.try_into().unwrap();
@@ -380,7 +380,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 				.map_or(0, |a| *a);
 			assert_eq!(unused_amount, extra_amount);
 			assert_eq!(
-				ForeignAssets::total_issuance(foreign_location),
+				ForeignAssets::total_issuance(&foreign_location),
 				asset_total_issuance + asset_fee
 			);
 
@@ -388,7 +388,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let refund_weight = Weight::from_parts(1_000_000_000, 0);
 			let refund = WeightToFee::weight_to_fee(&refund_weight);
 			let (reserve1, reserve2) =
-				AssetConversion::get_reserves(native_location, foreign_location).unwrap();
+				AssetConversion::get_reserves(&native_location, &foreign_location).unwrap();
 			let asset_refund =
 				AssetConversion::get_amount_out(&refund, &reserve1, &reserve2).unwrap();
 
@@ -403,7 +403,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			drop(trader);
 			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
 			assert_eq!(
-				ForeignAssets::total_issuance(foreign_location),
+				ForeignAssets::total_issuance(&foreign_location),
 				asset_total_issuance + asset_fee - asset_refund
 			);
 			assert_eq!(Balances::total_issuance(), native_total_issuance);
@@ -453,7 +453,7 @@ fn test_asset_xcm_take_first_trader() {
 			// Lets calculate amount needed
 			let asset_amount_needed =
 				AssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
-					local_asset_id,
+					&local_asset_id,
 					bought,
 				)
 				.expect("failed to compute");
@@ -476,13 +476,13 @@ fn test_asset_xcm_take_first_trader() {
 
 			// Make sure author(Alice) has received the amount
 			assert_eq!(
-				Assets::balance(local_asset_id, AccountId::from(ALICE)),
+				Assets::balance(&local_asset_id, AccountId::from(ALICE)),
 				minimum_asset_balance + asset_amount_needed
 			);
 
 			// We also need to ensure the total supply increased
 			assert_eq!(
-				Assets::total_supply(local_asset_id),
+				Assets::total_supply(&local_asset_id),
 				minimum_asset_balance + asset_amount_needed
 			);
 		});
@@ -534,7 +534,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 			let bought = Weight::from_parts(4_000_000_000u64, 0);
 
 			// Lets calculate amount needed
-			let asset_amount_needed = ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(foreign_location, bought)
+			let asset_amount_needed = ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(&foreign_location, bought)
 			.expect("failed to compute");
 
 			// Lets pay with: asset_amount_needed + asset_amount_extra
@@ -557,13 +557,13 @@ fn test_foreign_asset_xcm_take_first_trader() {
 
 			// Make sure author(Alice) has received the amount
 			assert_eq!(
-				ForeignAssets::balance(foreign_location, AccountId::from(ALICE)),
+				ForeignAssets::balance(&foreign_location, AccountId::from(ALICE)),
 				minimum_asset_balance + asset_amount_needed
 			);
 
 			// We also need to ensure the total supply increased
 			assert_eq!(
-				ForeignAssets::total_supply(foreign_location),
+				ForeignAssets::total_supply(&foreign_location),
 				minimum_asset_balance + asset_amount_needed
 			);
 		});
@@ -639,12 +639,12 @@ fn test_asset_xcm_take_first_trader_with_refund() {
 			let fees_paid = WeightToFee::weight_to_fee(&weight_used);
 
 			assert_eq!(
-				Assets::balance(1, AccountId::from(ALICE)),
+				Assets::balance(&1, AccountId::from(ALICE)),
 				ExistentialDeposit::get() + fees_paid
 			);
 
 			// We also need to ensure the total supply increased
-			assert_eq!(Assets::total_supply(1), ExistentialDeposit::get() + fees_paid);
+			assert_eq!(Assets::total_supply(&1), ExistentialDeposit::get() + fees_paid);
 		});
 }
 
@@ -693,10 +693,10 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
 
 			// not credited since the ED is higher than this value
-			assert_eq!(Assets::balance(1, AccountId::from(ALICE)), 0);
+			assert_eq!(Assets::balance(&1, AccountId::from(ALICE)), 0);
 
 			// We also need to ensure the total supply did not increase
-			assert_eq!(Assets::total_supply(1), 0);
+			assert_eq!(Assets::total_supply(&1), 0);
 		});
 }
 
@@ -757,10 +757,10 @@ fn test_that_buying_ed_refund_does_not_refund_for_take_first_trader() {
 			drop(trader);
 
 			// Make sure author(Alice) has received the amount
-			assert_eq!(Assets::balance(1, AccountId::from(ALICE)), ExistentialDeposit::get());
+			assert_eq!(Assets::balance(&1, AccountId::from(ALICE)), ExistentialDeposit::get());
 
 			// We also need to ensure the total supply increased
-			assert_eq!(Assets::total_supply(1), ExistentialDeposit::get());
+			assert_eq!(Assets::total_supply(&1), ExistentialDeposit::get());
 		});
 }
 
@@ -816,10 +816,10 @@ fn test_asset_xcm_take_first_trader_not_possible_for_non_sufficient_assets() {
 			drop(trader);
 
 			// Make sure author(Alice) has NOT received the amount
-			assert_eq!(Assets::balance(1, AccountId::from(ALICE)), minimum_asset_balance);
+			assert_eq!(Assets::balance(&1, AccountId::from(ALICE)), minimum_asset_balance);
 
 			// We also need to ensure the total supply NOT increased
-			assert_eq!(Assets::total_supply(1), minimum_asset_balance);
+			assert_eq!(Assets::total_supply(&1), minimum_asset_balance);
 		});
 }
 
@@ -847,9 +847,9 @@ fn test_assets_balances_api_works() {
 			};
 
 			// check before
-			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
+			assert_eq!(Assets::balance(&local_asset_id, AccountId::from(ALICE)), 0);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
+				ForeignAssets::balance(&foreign_asset_id_location, AccountId::from(ALICE)),
 				0
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
@@ -902,11 +902,11 @@ fn test_assets_balances_api_works() {
 
 			// check after
 			assert_eq!(
-				Assets::balance(local_asset_id, AccountId::from(ALICE)),
+				Assets::balance(&local_asset_id, AccountId::from(ALICE)),
 				minimum_asset_balance
 			);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
+				ForeignAssets::balance(&foreign_asset_id_location, AccountId::from(ALICE)),
 				6 * minimum_asset_balance
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
@@ -1165,7 +1165,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 				assert_eq!(Balances::free_balance(&staking_pot), ExistentialDeposit::get());
 				// check now foreign asset for staking pot
 				assert_eq!(
-					ForeignAssets::balance(
+					ForeignAssets::balance(&
 						foreign_asset_id_location.into(),
 						&staking_pot
 					),
@@ -1179,7 +1179,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 				);
 				// staking pot receives no foreign assets
 				assert_eq!(
-					ForeignAssets::balance(
+					ForeignAssets::balance(&
 						foreign_asset_id_location.into(),
 						&staking_pot
 					),
@@ -1225,7 +1225,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 		|| {
 			// check block author before
 			assert_eq!(
-				ForeignAssets::balance(
+				ForeignAssets::balance(&
 					foreign_asset_id_location.into(),
 					&block_author_account
 				),
@@ -1235,7 +1235,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 		|| {
 			// `TakeFirstAssetTrader` puts fees to the block author
 			assert!(
-				ForeignAssets::balance(
+				ForeignAssets::balance(&
 					foreign_asset_id_location.into(),
 					&block_author_account
 				) > 0

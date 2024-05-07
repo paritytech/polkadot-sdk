@@ -128,7 +128,7 @@ fn salary_pay_over_xcm_works() {
 		set_rank(recipient.clone(), 1);
 
 		// Check starting balance
-		assert_eq!(mock::Assets::balance(AssetIdGeneralIndex::get(), &recipient.clone()), 0);
+		assert_eq!(mock::Assets::balance(&AssetIdGeneralIndex::get(), &recipient.clone()), 0);
 
 		// Use salary pallet to call `PayOverXcm::pay`
 		assert_ok!(Salary::init(RuntimeOrigin::signed(recipient.clone())));
@@ -174,7 +174,7 @@ fn salary_pay_over_xcm_works() {
 
 		// Recipient receives the payment
 		assert_eq!(
-			mock::Assets::balance(AssetIdGeneralIndex::get(), &recipient),
+			mock::Assets::balance(&AssetIdGeneralIndex::get(), &recipient),
 			FixedSalaryAmount::get()
 		);
 	});

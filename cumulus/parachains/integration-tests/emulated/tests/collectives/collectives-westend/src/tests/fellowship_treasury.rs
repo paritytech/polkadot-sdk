@@ -37,7 +37,7 @@ fn fellowship_treasury_spend() {
 
 	let init_alice_balance = AssetHubWestend::execute_with(|| {
 		<<AssetHubWestend as AssetHubWestendPallet>::Balances as Inspect<_>>::balance(
-			&AssetHubWestend::account_id_of(ALICE),
+			&&AssetHubWestend::account_id_of(ALICE),
 		)
 	});
 

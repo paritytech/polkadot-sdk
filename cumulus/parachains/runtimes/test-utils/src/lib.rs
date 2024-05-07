@@ -534,9 +534,9 @@ pub fn assert_metadata<Fungibles, AccountId>(
 	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
 		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
-	assert_eq!(Fungibles::name(asset_id.clone().into()), Vec::from(expected_name),);
-	assert_eq!(Fungibles::symbol(asset_id.clone().into()), Vec::from(expected_symbol),);
-	assert_eq!(Fungibles::decimals(asset_id.into()), expected_decimals);
+	assert_eq!(Fungibles::name(&asset_id.clone().into()), Vec::from(expected_name),);
+	assert_eq!(Fungibles::symbol(&asset_id.clone().into()), Vec::from(expected_symbol),);
+	assert_eq!(Fungibles::decimals(&asset_id.into()), expected_decimals);
 }
 
 pub fn assert_total<Fungibles, AccountId>(
@@ -547,8 +547,8 @@ pub fn assert_total<Fungibles, AccountId>(
 	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
 		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
-	assert_eq!(Fungibles::total_issuance(asset_id.clone().into()), expected_total_issuance.into());
-	assert_eq!(Fungibles::active_issuance(asset_id.into()), expected_active_issuance.into());
+	assert_eq!(Fungibles::total_issuance(&asset_id.clone().into()), expected_total_issuance.into());
+	assert_eq!(Fungibles::active_issuance(&asset_id.into()), expected_active_issuance.into());
 }
 
 /// Helper function which emulates opening HRMP channel which is needed for `XcmpQueue` to pass.

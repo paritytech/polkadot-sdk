@@ -41,7 +41,7 @@ pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 
 	/// The amount of the balance which can become frozen. Defaults to `total_balance()`.
 	fn balance_freezable(asset: Self::AssetId, who: &AccountId) -> Self::Balance {
-		Self::total_balance(asset, who)
+		Self::total_balance(&asset, who)
 	}
 
 	/// Returns `true` if it's possible to introduce a freeze for the given `id` onto the

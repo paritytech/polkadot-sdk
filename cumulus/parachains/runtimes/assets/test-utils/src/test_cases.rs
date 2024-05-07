@@ -438,14 +438,14 @@ pub fn teleports_for_foreign_assets_works<
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					&foreign_asset_id_location.into(),
 					&target_account
 				),
 				0.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					&foreign_asset_id_location.into(),
 					&CheckingAccount::get()
 				),
 				0.into()
@@ -526,7 +526,7 @@ pub fn teleports_for_foreign_assets_works<
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					&foreign_asset_id_location.into(),
 					&target_account
 				),
 				teleported_foreign_asset_amount.into()
@@ -538,7 +538,7 @@ pub fn teleports_for_foreign_assets_works<
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					&foreign_asset_id_location.into(),
 					&CheckingAccount::get()
 				),
 				0.into()
@@ -566,7 +566,7 @@ pub fn teleports_for_foreign_assets_works<
 
 				let target_account_balance_before_teleport =
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-						foreign_asset_id_location.into(),
+						&foreign_asset_id_location.into(),
 						&target_account,
 					);
 				let asset_to_teleport_away = asset_minimum_asset_balance * 3;
@@ -606,14 +606,14 @@ pub fn teleports_for_foreign_assets_works<
 				// check balances
 				assert_eq!(
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-						foreign_asset_id_location.into(),
+						&foreign_asset_id_location.into(),
 						&target_account
 					),
 					(target_account_balance_before_teleport - asset_to_teleport_away.into())
 				);
 				assert_eq!(
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-						foreign_asset_id_location.into(),
+						&foreign_asset_id_location.into(),
 						&CheckingAccount::get()
 					),
 					0.into()
@@ -881,28 +881,28 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 			// check Assets before
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::balance(
-					asset_id.clone().into(),
+					&asset_id.clone().into(),
 					&alice_account
 				),
 				(6 * asset_minimum_asset_balance).into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::balance(
-					asset_id.clone().into(),
+					&asset_id.clone().into(),
 					&bob_account
 				),
 				0.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::balance(
-					asset_id.clone().into(),
+					&asset_id.clone().into(),
 					&charlie_account
 				),
 				0.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::balance(
-					asset_id.clone().into(),
+					&asset_id.clone().into(),
 					&asset_owner
 				),
 				0.into()
@@ -970,28 +970,28 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 			// check Assets after
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::balance(
-					asset_id.clone().into(),
+					&asset_id.clone().into(),
 					&alice_account
 				),
 				(5 * asset_minimum_asset_balance).into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::balance(
-					asset_id.clone().into(),
+					&asset_id.clone().into(),
 					&bob_account
 				),
 				asset_minimum_asset_balance.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::balance(
-					asset_id.clone().into(),
+					&asset_id.clone().into(),
 					&charlie_account
 				),
 				0.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::balance(
-					asset_id.into(),
+					&asset_id.into(),
 					&asset_owner
 				),
 				0.into()
@@ -1252,25 +1252,25 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 			use frame_support::traits::fungibles::roles::Inspect as InspectRoles;
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::owner(
-					asset_id.clone().into()
+					&asset_id.clone().into()
 				),
 				Some(foreign_creator_as_account_id.clone())
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::admin(
-					asset_id.clone().into()
+					&asset_id.clone().into()
 				),
 				Some(foreign_creator_as_account_id.clone())
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::issuer(
-					asset_id.clone().into()
+					&asset_id.clone().into()
 				),
 				Some(foreign_creator_as_account_id.clone())
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::freezer(
-					asset_id.clone().into()
+					&asset_id.clone().into()
 				),
 				Some(bob_account.clone())
 			);

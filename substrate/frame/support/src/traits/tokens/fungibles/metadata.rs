@@ -24,11 +24,11 @@ use sp_std::vec::Vec;
 
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	// Get name for an AssetId.
-	fn name(asset: Self::AssetId) -> Vec<u8>;
+	fn name(asset: &Self::AssetId) -> Vec<u8>;
 	// Get symbol for an AssetId.
-	fn symbol(asset: Self::AssetId) -> Vec<u8>;
+	fn symbol(asset: &Self::AssetId) -> Vec<u8>;
 	// Get decimals for an AssetId.
-	fn decimals(asset: Self::AssetId) -> u8;
+	fn decimals(asset: &Self::AssetId) -> u8;
 }
 
 pub trait Mutate<AccountId>: Inspect<AccountId> {

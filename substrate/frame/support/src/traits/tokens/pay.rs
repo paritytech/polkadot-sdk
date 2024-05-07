@@ -132,7 +132,7 @@ where
 		asset: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		<F as fungibles::Mutate<_>>::transfer(asset, &A::get(), who, amount, Expendable)?;
+		<F as fungibles::Mutate<_>>::transfer(&asset, &A::get(), who, amount, Expendable)?;
 		Ok(())
 	}
 	fn check_payment(_: ()) -> PaymentStatus {
@@ -141,7 +141,7 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: &Self::Beneficiary, asset: Self::AssetKind, amount: Self::Balance) {
 		<F as fungibles::Create<_>>::create(asset.clone(), A::get(), true, amount).unwrap();
-		<F as fungibles::Mutate<_>>::mint_into(asset, &A::get(), amount).unwrap();
+		<F as fungibles::Mutate<_>>::mint_into(&asset, &A::get(), amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(_: Self::Id) {}

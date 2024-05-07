@@ -174,8 +174,8 @@ fn transaction_payment_in_asset_possible() {
 			let caller = 1;
 			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
 			let balance = 100;
-			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_ok!(Assets::mint_into(&asset_id, &beneficiary, balance));
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 			let weight = 5;
 			let len = 10;
 			// we convert the from weight to fee based on the ratio between asset min balance and
@@ -187,8 +187,8 @@ fn transaction_payment_in_asset_possible() {
 			// assert that native balance is not used
 			assert_eq!(Balances::free_balance(caller), 10 * balance_factor);
 			// check that fee was charged in the given asset
-			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
-			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), 0);
+			assert_eq!(Assets::balance(&asset_id, caller), balance - fee);
+			assert_eq!(Assets::balance(&asset_id, BLOCK_AUTHOR), 0);
 
 			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdrawn {
 				asset_id,
@@ -203,9 +203,9 @@ fn transaction_payment_in_asset_possible() {
 				len,
 				&Ok(())
 			));
-			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
+			assert_eq!(Assets::balance(&asset_id, caller), balance - fee);
 			// check that the block author gets rewarded
-			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), fee);
+			assert_eq!(Assets::balance(&asset_id, BLOCK_AUTHOR), fee);
 
 			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Deposited {
 				asset_id,
@@ -239,8 +239,8 @@ fn transaction_payment_without_fee() {
 			let caller = 1;
 			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
 			let balance = 100;
-			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_ok!(Assets::mint_into(&asset_id.into(), &beneficiary, balance));
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 			let weight = 5;
 			let len = 10;
 			// we convert the from weight to fee based on the ratio between asset min balance and
@@ -252,8 +252,8 @@ fn transaction_payment_without_fee() {
 			// assert that native balance is not used
 			assert_eq!(Balances::free_balance(caller), 10 * balance_factor);
 			// check that fee was charged in the given asset
-			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
-			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), 0);
+			assert_eq!(Assets::balance(&asset_id, caller), balance - fee);
+			assert_eq!(Assets::balance(&asset_id, BLOCK_AUTHOR), 0);
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				Some(pre),
@@ -263,9 +263,9 @@ fn transaction_payment_without_fee() {
 				&Ok(())
 			));
 			// caller should be refunded
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 			// check that the block author did not get rewarded
-			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), 0);
+			assert_eq!(Assets::balance(&asset_id, BLOCK_AUTHOR), 0);
 		});
 }
 
@@ -294,8 +294,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let caller = 2;
 			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
 			let balance = 1000;
-			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_ok!(Assets::mint_into(&asset_id.into(), &beneficiary, balance));
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 			let weight = 100;
 			let tip = 5;
 			let len = 10;
@@ -306,7 +306,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let pre = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id))
 				.pre_dispatch(&caller, CALL, &info_from_weight(Weight::from_parts(weight, 0)), len)
 				.unwrap();
-			assert_eq!(Assets::balance(asset_id, caller), balance - fee_with_tip);
+			assert_eq!(Assets::balance(&asset_id, caller), balance - fee_with_tip);
 
 			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdrawn {
 				asset_id,
@@ -324,8 +324,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			));
 			let final_fee =
 				fee_with_tip - (weight - final_weight) * min_balance / ExistentialDeposit::get();
-			assert_eq!(Assets::balance(asset_id, caller), balance - (final_fee));
-			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), final_fee);
+			assert_eq!(Assets::balance(&asset_id, caller), balance - (final_fee));
+			assert_eq!(Assets::balance(&asset_id, BLOCK_AUTHOR), final_fee);
 
 			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Deposited {
 				asset_id,
@@ -358,8 +358,8 @@ fn payment_from_account_with_only_assets() {
 			let caller = 333;
 			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
 			let balance = 100;
-			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_ok!(Assets::mint_into(&asset_id.into(), &beneficiary, balance));
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 			// assert that native balance is not necessary
 			assert_eq!(Balances::free_balance(caller), 0);
 			let weight = 5;
@@ -372,7 +372,7 @@ fn payment_from_account_with_only_assets() {
 				.unwrap();
 			assert_eq!(Balances::free_balance(caller), 0);
 			// check that fee was charged in the given asset
-			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
+			assert_eq!(Assets::balance(&asset_id, caller), balance - fee);
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				Some(pre),
@@ -381,7 +381,7 @@ fn payment_from_account_with_only_assets() {
 				len,
 				&Ok(())
 			));
-			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
+			assert_eq!(Assets::balance(&asset_id, caller), balance - fee);
 			assert_eq!(Balances::free_balance(caller), 0);
 		});
 }
@@ -442,8 +442,8 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			let caller = 333;
 			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
 			let balance = 100;
-			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_ok!(Assets::mint_into(&asset_id.into(), &beneficiary, balance));
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 			let weight = 1;
 			let len = 1;
 			// we convert the from weight to fee based on the ratio between asset min balance and
@@ -456,7 +456,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 					.pre_dispatch(&caller, CALL, &info_from_pays(Pays::No), len)
 					.unwrap();
 				// `Pays::No` still implies no fees
-				assert_eq!(Assets::balance(asset_id, caller), balance);
+				assert_eq!(Assets::balance(&asset_id, caller), balance);
 
 				assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 					Some(pre),
@@ -465,13 +465,13 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 					len,
 					&Ok(())
 				));
-				assert_eq!(Assets::balance(asset_id, caller), balance);
+				assert_eq!(Assets::balance(&asset_id, caller), balance);
 			}
 			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
 				.pre_dispatch(&caller, CALL, &info_from_weight(Weight::from_parts(weight, 0)), len)
 				.unwrap();
 			// check that at least one coin was charged in the given asset
-			assert_eq!(Assets::balance(asset_id, caller), balance - 1);
+			assert_eq!(Assets::balance(&asset_id, caller), balance - 1);
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				Some(pre),
@@ -480,7 +480,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 				len,
 				&Ok(())
 			));
-			assert_eq!(Assets::balance(asset_id, caller), balance - 1);
+			assert_eq!(Assets::balance(&asset_id, caller), balance - 1);
 		});
 }
 
@@ -507,8 +507,8 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 			let caller = 333;
 			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
 			let balance = 100;
-			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_ok!(Assets::mint_into(&asset_id.into(), &beneficiary, balance));
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 			let weight = 1;
 			let len = 1;
 			// we convert the from weight to fee based on the ratio between asset min balance and
@@ -520,7 +520,7 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 				.pre_dispatch(&caller, CALL, &info_from_pays(Pays::No), len)
 				.unwrap();
 			// `Pays::No` implies no pre-dispatch fees
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 			let (_tip, _who, initial_payment, _asset_id) = &pre;
 			let not_paying = match initial_payment {
 				&InitialPayment::Nothing => true,
@@ -537,7 +537,7 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 				len,
 				&Ok(())
 			));
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 		});
 }
 
@@ -564,8 +564,8 @@ fn post_dispatch_fee_is_zero_if_unsigned_pre_dispatch_fee_is_zero() {
 			let caller = 333;
 			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
 			let balance = 100;
-			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_ok!(Assets::mint_into(&asset_id.into(), &beneficiary, balance));
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 			let weight = 1;
 			let len = 1;
 			ChargeAssetTxPayment::<Runtime>::pre_dispatch_unsigned(
@@ -575,7 +575,7 @@ fn post_dispatch_fee_is_zero_if_unsigned_pre_dispatch_fee_is_zero() {
 			)
 			.unwrap();
 
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 
 			// `Pays::Yes` on post-dispatch does not mean we pay (we never charge more than the
 			// initial fee)
@@ -586,6 +586,6 @@ fn post_dispatch_fee_is_zero_if_unsigned_pre_dispatch_fee_is_zero() {
 				len,
 				&Ok(())
 			));
-			assert_eq!(Assets::balance(asset_id, caller), balance);
+			assert_eq!(Assets::balance(&asset_id, caller), balance);
 		});
 }

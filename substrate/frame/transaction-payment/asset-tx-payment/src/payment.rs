@@ -125,7 +125,7 @@ where
 			.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?
 			.max(min_converted_fee);
 		let can_withdraw =
-			<T::Fungibles as Inspect<T::AccountId>>::can_withdraw(asset_id, who, converted_fee);
+			<T::Fungibles as Inspect<T::AccountId>>::can_withdraw(&asset_id, who, converted_fee);
 		if can_withdraw != WithdrawConsequence::Success {
 			return Err(InvalidTransaction::Payment.into())
 		}
