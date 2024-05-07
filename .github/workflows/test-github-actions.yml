@@ -13,8 +13,9 @@ env:
   FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
   FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
   FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
-  FORKLIFT_general_packageSuffix: "custom_role_attempt_3"
+  FORKLIFT_general_packageSuffix: "custom_role_attempt_4"
   FORKLIFT_storage_s3_concurrency: 1
+  FORKLIFT_general_logLevel: "trace"
 
 jobs:
   set-image:
@@ -47,7 +48,6 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: |
-          sleep 1800
           WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
   quick-benchmarks:
     runs-on: arc-runners-polkadot-sdk-beefy
