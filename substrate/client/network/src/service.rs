@@ -845,6 +845,21 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkService<B, H> {
 		}
 	}
 
+	/// Returns a collection of currently connected (open) peers.
+	pub async fn connected_peers(&self) -> Result<Vec<PeerId>, ()> {
+		let (tx, rx) = oneshot::channel();
+
+		let _ = self
+			.to_worker
+			.unbounded_send(ServiceToWorkerMsg::ConnectedPeers { pending_response: tx });
+
+		match rx.await {
+			Ok(v) => Ok(v),
+			// The channel can only be closed if the network worker no longer exists.
+			Err(_) => Err(()),
+		}
+	}
+
 	/// Utility function to extract `PeerId` from each `Multiaddr` for peer set updates.
 	///
 	/// Returns an `Err` if one of the given addresses is invalid or contains an
@@ -1312,6 +1327,9 @@ enum ServiceToWorkerMsg {
 	NetworkState {
 		pending_response: oneshot::Sender<Result<NetworkState, RequestFailure>>,
 	},
+	ConnectedPeers {
+		pending_response: oneshot::Sender<Vec<PeerId>>,
+	},
 	DisconnectPeer(PeerId, ProtocolName),
 }
 
@@ -1454,7 +1472,19 @@ where
 				.behaviour_mut()
 				.user_protocol_mut()
 				.disconnect_peer(&who, protocol_name),
+			ServiceToWorkerMsg::ConnectedPeers { pending_response } => {
+				let _ = pending_response.send(self.connected_peers());
+			},
 		}
+	}
+
+	fn connected_peers(&self) -> Vec<PeerId> {
+		self.network_service
+			.behaviour()
+			.user_protocol()
+			.open_peers()
+			.cloned()
+			.collect::<Vec<_>>()
 	}
 
 	/// Process the next event coming from `Swarm`.
