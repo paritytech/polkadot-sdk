@@ -173,7 +173,7 @@ impl QueueStatusType {
 	fn consume_index(&mut self, removed_index: QueueIndex) {
 		if removed_index != self.smallest_index {
 			self.freed_indices.push(removed_index.reverse());
-			return
+			return;
 		}
 		let mut index = self.smallest_index.0.overflowing_add(1).0;
 		// Even more to advance?
@@ -368,8 +368,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// An order was placed at some spot price amount.
-		OnDemandOrderPlaced { para_id: ParaId, spot_price: BalanceOf<T> },
+		/// An order was placed at some spot price amount by orderer ordered_by
+		OnDemandOrderPlaced { para_id: ParaId, spot_price: BalanceOf<T>, ordered_by: T::AccountId },
 		/// The value of the spot traffic multiplier changed.
 		SpotTrafficSet { traffic: FixedU128 },
 	}
@@ -415,7 +415,7 @@ pub mod pallet {
 		/// - `SpotPriceHigherThanMaxAmount`
 		///
 		/// Events:
-		/// - `SpotOrderPlaced`
+		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::place_order_allow_death(QueueStatus::<T>::get().size()))]
 		pub fn place_order_allow_death(
@@ -442,7 +442,7 @@ pub mod pallet {
 		/// - `SpotPriceHigherThanMaxAmount`
 		///
 		/// Events:
-		/// - `SpotOrderPlaced`
+		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::place_order_keep_alive(QueueStatus::<T>::get().size()))]
 		pub fn place_order_keep_alive(
@@ -544,7 +544,7 @@ where
 	/// - `SpotPriceHigherThanMaxAmount`
 	///
 	/// Events:
-	/// - `SpotOrderPlaced`
+	/// - `OnDemandOrderPlaced`
 	fn do_place_order(
 		sender: <T as frame_system::Config>::AccountId,
 		max_amount: BalanceOf<T>,
@@ -578,6 +578,12 @@ where
 				Error::<T>::QueueFull
 			);
 			Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
+
+			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced {
+				para_id,
+				spot_price,
+				ordered_by: sender,
+			});
 			Ok(())
 		})
 	}
@@ -599,6 +605,8 @@ where
 				// Only update storage on change
 				if new_traffic != old_traffic {
 					queue_status.traffic = new_traffic;
+
+					// emit the event for updating new price
 					Pallet::<T>::deposit_event(Event::<T>::SpotTrafficSet { traffic: new_traffic });
 				}
 			},
@@ -642,19 +650,19 @@ where
 	) -> Result<FixedU128, SpotTrafficCalculationErr> {
 		// Return early if queue has no capacity.
 		if queue_capacity == 0 {
-			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero)
+			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero);
 		}
 
 		// Return early if queue size is greater than capacity.
 		if queue_size > queue_capacity {
-			return Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity)
+			return Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity);
 		}
 
 		// (queue_size / queue_capacity) - target_queue_utilisation
 		let queue_util_ratio = FixedU128::from_rational(queue_size.into(), queue_capacity.into());
 		let positive = queue_util_ratio >= target_queue_utilisation.into();
-		let queue_util_diff = queue_util_ratio.max(target_queue_utilisation.into()) -
-			queue_util_ratio.min(target_queue_utilisation.into());
+		let queue_util_diff = queue_util_ratio.max(target_queue_utilisation.into())
+			- queue_util_ratio.min(target_queue_utilisation.into());
 
 		// variability * queue_util_diff
 		let var_times_qud = queue_util_diff.saturating_mul(variability.into());
@@ -705,8 +713,9 @@ where
 
 		match affinity {
 			None => FreeEntries::<T>::mutate(|entries| entries.push(order)),
-			Some(affinity) =>
-				AffinityEntries::<T>::mutate(affinity.core_index, |entries| entries.push(order)),
+			Some(affinity) => {
+				AffinityEntries::<T>::mutate(affinity.core_index, |entries| entries.push(order))
+			},
 		}
 	}
 
@@ -721,7 +730,7 @@ where
 			"Decreased affinity for a para that has not been served on a core?"
 		);
 		if affinity != Some(0) {
-			return
+			return;
 		}
 		// No affinity more for entries on this core, free any entries:
 		//
@@ -754,7 +763,7 @@ where
 				} else {
 					*maybe_affinity = None;
 				}
-				return Some(new_count)
+				return Some(new_count);
 			} else {
 				None
 			}
@@ -767,13 +776,14 @@ where
 	/// `CoreIndex`.
 	fn increase_affinity(para_id: ParaId, core_index: CoreIndex) {
 		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| match maybe_affinity {
-			Some(affinity) =>
+			Some(affinity) => {
 				if affinity.core_index == core_index {
 					*maybe_affinity = Some(CoreAffinityCount {
 						core_index,
 						count: affinity.count.saturating_add(1),
 					});
-				},
+				}
+			},
 			None => {
 				*maybe_affinity = Some(CoreAffinityCount { core_index, count: 1 });
 			},
