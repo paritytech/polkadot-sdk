@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715097314668,
+  "lastUpdate": 1715115467895,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -6971,6 +6971,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18793676800000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov",
+            "email": "tsvetomir@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b6dcd1b65436a6f7c087ad659617a9caf29a233a",
+          "message": "Update prdoc for 2226 (#4401)\n\nMention that offenders are no longer chilled and suggest node operators\nand nominators to monitor their nodes/nominees closely.\n\n---------\n\nCo-authored-by: Maciej <maciej.zyszkiewicz@parity.io>",
+          "timestamp": "2024-05-07T19:18:09Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b6dcd1b65436a6f7c087ad659617a9caf29a233a"
+        },
+        "date": 1715115440657,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.699614023066662,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1525231151666667,
             "unit": "seconds"
           }
         ]
