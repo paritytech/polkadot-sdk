@@ -190,7 +190,6 @@ pub mod pallet {
 		pub who: AccountId,
 		/// Reserved deposit.
 		pub deposit: Balance,
-		pub a: bool,
 	}
 
 	#[pallet::pallet]
@@ -336,8 +335,8 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(T::MinEligibleCollators::get() > 0, "chain must require at least one collator");
 			assert!(
-				T::MaxInvulnerables::get().saturating_add(T::MaxCandidates::get())
-					>= T::MinEligibleCollators::get(),
+				T::MaxInvulnerables::get().saturating_add(T::MaxCandidates::get()) >=
+					T::MinEligibleCollators::get(),
 				"invulnerables and candidates must be able to satisfy collator demand"
 			);
 		}
@@ -372,8 +371,8 @@ pub mod pallet {
 			if new.is_empty() {
 				// Casting `u32` to `usize` should be safe on all machines running this.
 				ensure!(
-					CandidateList::<T>::decode_len().unwrap_or_default()
-						>= T::MinEligibleCollators::get() as usize,
+					CandidateList::<T>::decode_len().unwrap_or_default() >=
+						T::MinEligibleCollators::get() as usize,
 					Error::<T>::TooFewEligibleCollators
 				);
 			}
@@ -398,7 +397,7 @@ pub mod pallet {
 							Self::deposit_event(Event::InvalidInvulnerableSkipped {
 								account_id: account_id.clone(),
 							});
-							continue;
+							continue
 						}
 						// else condition passes; key is registered
 					},
@@ -407,7 +406,7 @@ pub mod pallet {
 						Self::deposit_event(Event::InvalidInvulnerableSkipped {
 							account_id: account_id.clone(),
 						});
-						continue;
+						continue
 					},
 				}
 
@@ -537,7 +536,7 @@ pub mod pallet {
 					frame_system::Pallet::<T>::block_number() + T::KickThreshold::get(),
 				);
 				candidates
-					.try_insert(0, CandidateInfo { who: who.clone(), deposit, a: true })
+					.try_insert(0, CandidateInfo { who: who.clone(), deposit })
 					.map_err(|_| Error::<T>::InsertToCandidateListFailed)?;
 				Ok(())
 			})?;
@@ -680,13 +679,13 @@ pub mod pallet {
 					} else if new_deposit < old_deposit {
 						// Casting `u32` to `usize` should be safe on all machines running this.
 						ensure!(
-							idx.saturating_add(DesiredCandidates::<T>::get() as usize)
-								< candidate_count,
+							idx.saturating_add(DesiredCandidates::<T>::get() as usize) <
+								candidate_count,
 							Error::<T>::InvalidUnreserve
 						);
 						T::Currency::unreserve(&who, old_deposit - new_deposit);
 					} else {
-						return Err(Error::<T>::IdenticalDeposit.into());
+						return Err(Error::<T>::IdenticalDeposit.into())
 					}
 
 					// Update the deposit and insert the candidate in the correct spot in the list.
@@ -774,7 +773,7 @@ pub mod pallet {
 					let new_pos = new_info_idx
 						.map(|i| i.saturating_sub(1))
 						.unwrap_or_else(|| candidates.len());
-					let new_info = CandidateInfo { who: who.clone(), deposit, a: true };
+					let new_info = CandidateInfo { who: who.clone(), deposit };
 					// Insert the new candidate in the correct spot in the list.
 					candidates
 						.try_insert(new_pos, new_info)
