@@ -179,20 +179,21 @@ where
 			let rate_limit_whitelisted_ips = rate_limit_whitelisted_ips.clone();
 
 			Ok::<_, Infallible>(service_fn(move |req| {
-				let remote_ip = if rate_limit_trust_proxy_headers {
-					get_proxy_ip(&req).unwrap_or(ip)
+				let proxy_ip = if rate_limit_trust_proxy_headers {
+					get_proxy_ip(&req)
 				} else {
-					ip
+					None
 				};
 
 				let rate_limit_cfg =
-					if rate_limit_whitelisted_ips.iter().any(|ip| ip.contains(remote_ip)) {
-						if !rate_limit_whitelisted_ips.is_empty() {
-							log::debug!(target: "rpc", "ip={remote_ip} is trusted, disabling rate-limit");
-						}
-
+					if rate_limit_whitelisted_ips.iter().any(|ips| ips.contains(proxy_ip.unwrap_or(ip))) {
+						log::debug!(target: "rpc", "ip={ip}, proxy_ip={:?} is trusted, disabling rate-limit", proxy_ip);
 						None
 					} else {
+						if !rate_limit_whitelisted_ips.is_empty() {
+							log::debug!(target: "rpc", "ip={ip}, proxy_ip={:?} is not trusted, rate-limit enabled", proxy_ip);
+							log::debug!(target: "rpc", "whitelisted ips filter: {:?}", rate_limit_whitelisted_ips);
+						}
 						rate_limit
 					};
 
