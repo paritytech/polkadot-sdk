@@ -7090,6 +7090,7 @@ dependencies = [
  "pallet-lottery",
  "pallet-membership",
  "pallet-message-queue",
+ "pallet-meta-tx",
  "pallet-migrations",
  "pallet-mixnet",
  "pallet-mmr",
