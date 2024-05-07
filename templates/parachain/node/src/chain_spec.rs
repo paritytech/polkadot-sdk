@@ -136,11 +136,11 @@ fn testnet_genesis(
 	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
-	let validators = 1_000;
-	let nominators = 5_000;
-	let edges = 16;
+	let validators = 1_500;
+	let nominators = 30_000;
+	let edges = 8;
 
-	let staking_gen = staking_genesis::generate(validators, nominators, edges, validators / 2);
+	let staking_gen = staking_genesis::generate(validators, nominators, edges, validators);
 
 	endowed_accounts.append(
 		&mut staking_gen

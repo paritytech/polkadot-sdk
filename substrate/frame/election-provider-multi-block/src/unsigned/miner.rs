@@ -137,9 +137,6 @@ where
 		let all_voters: Vec<VoterOf<T>> =
 			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
-		sublog!(info, "unsigned::ocw-miner", "all voters: {:?}", all_voters);
-		sublog!(info, "unsigned::ocw-miner", "all targets: {:?}", all_targets);
-
 		// useless to proceed if the solution will not be feasible.
 		ensure!(all_targets.len() >= desired_targets as usize, MinerError::NotEnoughTargets);
 

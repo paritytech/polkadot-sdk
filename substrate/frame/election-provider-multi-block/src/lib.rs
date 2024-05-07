@@ -294,7 +294,8 @@ pub mod pallet {
 				Phase::Off
 					if remaining_blocks <= snapshot_deadline &&
 						remaining_blocks > signed_deadline =>
-					Self::try_progress_snapshot(Self::msp()),
+				// allocate one extra block for the target snapshot.
+					Self::try_progress_snapshot(T::Pages::get() + 1),
 
 				// continue snapshot.
 				Phase::Snapshot(x) if x > 0 => Self::try_progress_snapshot(x.saturating_sub(1)),
@@ -549,22 +550,21 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The first (and only) target page is fetched from the [`DataProvider`] at the same block when
 	/// the msp of the voter snaphot.
-	///
-	/// TODO: since the target snapshot is only one page at the moment, consider allocating one page
-	/// exclusively to fetch the target's snapshot instead of requesting the voters/targets first
-	/// page in parallel.
 	fn try_progress_snapshot(remaining_pages: PageIndex) -> Weight {
 		let _ = <T::DataProvider as LockableElectionDataProvider>::set_lock();
 
 		debug_assert!(
-			<CurrentPhase<T>>::get().is_snapshot() ||
-				<CurrentPhase<T>>::get().is_off() && (remaining_pages == Self::msp())
+			CurrentPhase::<T>::get().is_snapshot() ||
+				!Snapshot::<T>::targets_snapshot_exists() && remaining_pages == T::Pages::get(),
 		);
 
-		let target_snapshot_weight = if !Snapshot::<T>::targets_snapshot_exists() {
+		if !Snapshot::<T>::targets_snapshot_exists() {
+			// first block for single target snapshot.
 			match Self::create_targets_snapshot() {
 				Ok(target_count) => {
 					log!(info, "target snapshot created with {} targets", target_count);
+					Self::phase_transition(Phase::Snapshot(remaining_pages.saturating_sub(1)));
+
 					Weight::default()
 				},
 				Err(err) => {
@@ -573,36 +573,25 @@ impl<T: Config> Pallet<T> {
 				},
 			}
 		} else {
-			Weight::default()
-		};
+			// progress voter snapshot.
+			match Self::create_voters_snapshot(remaining_pages) {
+				Ok(voter_count) => {
+					log!(
+						info,
+						"voter snapshot progressed: page {} with {} voters",
+						remaining_pages,
+						voter_count,
+					);
+					Self::phase_transition(Phase::Snapshot(remaining_pages));
 
-		let voter_snapshot_weight = match Self::create_voters_snapshot(remaining_pages) {
-			Ok(voter_count) => {
-				log!(
-					info,
-					"voter snapshot progressed: page {} with {} voters",
-					remaining_pages,
-					voter_count,
-				);
-
-				Self::phase_transition(Phase::Snapshot(remaining_pages));
-				Weight::default() // weights
-			},
-			Err(err) => {
-				log!(error, "error preparing voter snapshot: {:?}", err);
-				Weight::default() // weights
-			},
-		};
-
-		log!(
-			trace,
-			"Snapshot progress {:?} - targets: {:?} | voters: {:?}",
-			remaining_pages,
-			Snapshot::<T>::targets(),
-			Snapshot::<T>::voters(remaining_pages),
-		);
-
-		target_snapshot_weight.saturating_add(voter_snapshot_weight)
+					Weight::default()
+				},
+				Err(err) => {
+					log!(error, "error preparing voter snapshot: {:?}", err);
+					Weight::default()
+				},
+			}
+		}
 	}
 
 	/// Performs all tasks required after a successful election:

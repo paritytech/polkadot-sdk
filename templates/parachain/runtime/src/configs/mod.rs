@@ -264,7 +264,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 
 parameter_types! {
 	// pub const Period: u32 = 6 * HOURS;
-	pub const Period: u32 = 5 * MINUTES;
+	pub const Period: u32 = 7 * MINUTES;
 	pub const Offset: u32 = 0;
 }
 
@@ -433,16 +433,16 @@ parameter_types! {
 
 	// phase boundaries.
 	pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
-	pub UnsignedPhase: u32 = (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	pub UnsignedPhase: u32 = (3 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
 	pub SignedValidationPhase: BlockNumber = 0; // Pages::get() * SignedMaxSubmissions::get();
-	pub Lookhaead: BlockNumber = Pages::get();
+	pub Lookhaead: BlockNumber = 5;
 	pub ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 
-	pub Pages: PageIndex = 1;
-	pub MaxWinnersPerPage: u32 = 1_000;
-	pub MaxBackersPerWinner: u32 = 3_000;
-	pub VoterSnapshotPerBlock: VoterIndex = 3_000;
-	pub TargetSnapshotPerBlock: TargetIndex = 1_000;
+	pub Pages: PageIndex = 3;
+	pub MaxWinnersPerPage: u32 = 10_000;
+	pub MaxBackersPerWinner: u32 = 10_000;
+	pub VoterSnapshotPerBlock: VoterIndex = 2_500;
+	pub TargetSnapshotPerBlock: TargetIndex = 10_000;
 
 	pub const SignedMaxSubmissions: u32 = 32;
 	pub const SignedMaxRefunds: u32 = 128 / 4;
