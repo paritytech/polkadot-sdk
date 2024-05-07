@@ -558,7 +558,6 @@ parameter_types! {
 impl parachains_dmp::Config for Runtime {}
 
 parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
 }
 
@@ -571,6 +570,7 @@ impl parachains_hrmp::Config for Runtime {
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,
 	>;
+	type VersionWrapper = crate::Xcm;
 	type WeightInfo = parachains_hrmp::TestWeightInfo;
 }
 
