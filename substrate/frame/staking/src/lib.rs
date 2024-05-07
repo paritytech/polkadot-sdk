@@ -321,7 +321,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
+	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex, Staker,
 	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
@@ -704,7 +704,7 @@ impl<T: Config> StakingLedger<T> {
 		let final_slashed_amount = pre_slash_total.saturating_sub(self.total);
 
 		T::EventListeners::on_slash(
-			&self.stash,
+			Staker::from::<Pallet<T>>(self.stash.clone()),
 			self.active,
 			&slashed_unlocking,
 			final_slashed_amount,

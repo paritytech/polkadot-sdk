@@ -107,7 +107,11 @@ fn on_stake_update_works() {
 			n.insert(1, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			staker(1),
+			stake_before,
+			new_stake,
+		);
 
 		assert_eq!(VoterBagsList::get_score(&1).unwrap(), new_stake.active);
 
@@ -139,7 +143,11 @@ fn on_stake_update_works() {
 
 		let stake_imbalance = stake_before.unwrap().active - new_stake.total;
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&10, stake_before, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			staker(10),
+			stake_before,
+			new_stake,
+		);
 
 		assert_eq!(VoterBagsList::get_score(&10).unwrap(), new_stake.active);
 		assert_eq!(StakingMock::stake(&10), Ok(new_stake));
@@ -173,7 +181,11 @@ fn on_stake_update_lazy_voters_works() {
 			n.insert(1, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			staker(1),
+			stake_before,
+			new_stake,
+		);
 
 		// score of voter did not update, since the voter list is lazily updated.
 		assert_eq!(VoterBagsList::get_score(&1).unwrap(), stake_before.unwrap().active);
@@ -230,7 +242,7 @@ fn on_stake_update_sorting_works() {
 		// noop, nothing changes.
 		let initial_stake = stake_of(11);
 		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
-			&11,
+			staker(11),
 			initial_stake,
 			initial_stake.unwrap(),
 		);
@@ -243,7 +255,11 @@ fn on_stake_update_sorting_works() {
 			n.insert(11, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, initial_stake, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			staker(11),
+			initial_stake,
+			new_stake,
+		);
 
 		// although the voter score of 11 is 1, the voter list sorting has not been updated
 		// automatically.
@@ -273,7 +289,7 @@ fn on_stake_update_defensive_not_in_list_works() {
 		// removes 1 from nominator's list manually, while keeping it as staker.
 		assert_ok!(VoterBagsList::on_remove(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(staker(1), None, Stake::default());
 	})
 }
 
@@ -283,7 +299,7 @@ fn on_stake_update_defensive_not_staker_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!VoterBagsList::contains(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(staker(1), None, Stake::default());
 	})
 }
 
@@ -331,7 +347,7 @@ fn on_nominator_add_already_exists_defensive_works() {
 
 		// noop.
 		let nominations = <StakingMock as StakingInterface>::nominations(&1).unwrap();
-		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_add(&1, nominations);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_add(staker(1), nominations);
 		assert!(VoterBagsList::contains(&1));
 		assert_eq!(VoterBagsList::count(), 4);
 		assert_eq!(<VoterBagsList as ScoreProvider<A>>::score(&1), 100);
@@ -354,7 +370,7 @@ fn on_validator_add_already_exists_works() {
 
 		// noop
 		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_add(
-			&10,
+			staker(10),
 			Some(Stake { total: 300, active: 300 }),
 		);
 		assert!(TargetBagsList::contains(&10));
@@ -376,7 +392,10 @@ fn on_nominator_remove_works() {
 		assert!(nominations.len() == 1);
 		let nomination_score_before = TargetBagsList::get_score(&nominations[0]).unwrap();
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_remove(&1, nominations.clone());
+		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_remove(
+			staker(1),
+			nominations.clone(),
+		);
 
 		// the nominator was removed from the voter list.
 		assert!(!VoterBagsList::contains(&1));
@@ -399,7 +418,7 @@ fn on_nominator_remove_defensive_works() {
 		// implementation.
 		assert_ok!(VoterBagsList::on_remove(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_remove(&1, vec![]);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_remove(staker(1), vec![]);
 	})
 }
 
@@ -408,7 +427,7 @@ fn on_nominator_remove_defensive_works() {
 fn on_validator_remove_defensive_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!TargetBagsList::contains(&1));
-		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_remove(&1);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_remove(staker(1));
 	})
 }
 

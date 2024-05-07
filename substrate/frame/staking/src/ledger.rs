@@ -35,13 +35,16 @@ use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, LockableCurrency},
 };
-use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingAccount, StakingInterface};
+use sp_staking::{OnStakingUpdate, Stake, Staker, StakerStatus, StakingAccount, StakingInterface};
 use sp_std::prelude::*;
 
 use crate::{
 	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
 	VirtualStakers, STAKING_ID,
 };
+
+// Type that implments the staking interface.
+type StakingOf<T> = crate::Pallet<T>;
 
 impl<T: Config> StakingLedger<T> {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
@@ -223,7 +226,11 @@ impl<T: Config> StakingLedger<T> {
 		// fire `on_stake_update` if there was a stake update.
 		let new_stake: Stake<_> = self.stake();
 		if new_stake != prev_stake.unwrap_or_default() {
-			T::EventListeners::on_stake_update(&self.stash, prev_stake, new_stake);
+			T::EventListeners::on_stake_update(
+				Staker::from::<StakingOf<T>>(self.stash),
+				prev_stake,
+				new_stake,
+			);
 		}
 
 		Ok(())
@@ -305,7 +312,7 @@ impl<T: Config> StakingLedger<T> {
 				T::Currency::remove_lock(STAKING_ID, &ledger.stash);
 			}
 
-			T::EventListeners::on_unstake(stash);
+			T::EventListeners::on_unstake(Staker::from::<StakingOf<T>>(stash.clone()));
 
 			Ok(())
 		})?

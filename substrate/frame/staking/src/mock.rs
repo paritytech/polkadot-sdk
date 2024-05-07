@@ -37,7 +37,7 @@ use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	OnStakingUpdate, OnStakingUpdateEvent, Stake, StakingInterface,
+	OnStakingUpdate, OnStakingUpdateEvent, Stake, Staker, StakingInterface,
 };
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
@@ -273,91 +273,95 @@ parameter_types! {
 pub struct SlashListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for SlashListenerMock {
 	fn on_slash(
-		pool_account: &AccountId,
+		staker: Staker<AccountId>,
 		slashed_bonded: Balance,
 		slashed_chunks: &BTreeMap<EraIndex, Balance>,
 		total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
 		SlashObserver::mutate(|map| {
-			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
+			map.insert(staker.who, map.get(&staker.who).unwrap_or(&0) + total_slashed)
 		});
 	}
 }
 
 pub struct EventTracker;
 impl OnStakingUpdate<AccountId, Balance> for EventTracker {
-	fn on_stake_update(who: &AccountId, prev_stake: Option<Stake<Balance>>, stake: Stake<Balance>) {
+	fn on_stake_update(
+		staker: Staker<AccountId>,
+		prev_stake: Option<Stake<Balance>>,
+		stake: Stake<Balance>,
+	) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::StakeUpdate { who: *who, prev_stake, stake });
+			v.push(OnStakingUpdateEvent::StakeUpdate { who: staker, prev_stake, stake });
 		})
 	}
-	fn on_nominator_add(who: &AccountId, nominations: Vec<AccountId>) {
+	fn on_nominator_add(staker: Staker<AccountId>, nominations: Vec<AccountId>) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::NominatorAdd { who: *who, nominations });
+			v.push(OnStakingUpdateEvent::NominatorAdd { who: staker.who, nominations });
 		})
 	}
 	fn on_nominator_update(
-		who: &AccountId,
+		staker: Staker<AccountId>,
 		prev_nominations: Vec<AccountId>,
 		nominations: Vec<AccountId>,
 	) {
 		EventsEmitted::mutate(|v| {
 			v.push(OnStakingUpdateEvent::NominatorUpdate {
-				who: *who,
+				who: staker.who,
 				prev_nominations,
 				nominations,
 			});
 		})
 	}
-	fn on_nominator_idle(who: &AccountId, prev_nominations: Vec<AccountId>) {
+	fn on_nominator_idle(staker: Staker<AccountId>, prev_nominations: Vec<AccountId>) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::NominatorIdle { who: *who, prev_nominations });
+			v.push(OnStakingUpdateEvent::NominatorIdle { who: staker.who, prev_nominations });
 		})
 	}
-	fn on_nominator_remove(who: &AccountId, nominations: Vec<AccountId>) {
+	fn on_nominator_remove(staker: Staker<AccountId>, nominations: Vec<AccountId>) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::NominatorRemove { who: *who, nominations });
+			v.push(OnStakingUpdateEvent::NominatorRemove { who: staker.who, nominations });
 		})
 	}
-	fn on_validator_add(who: &AccountId, self_stake: Option<Stake<Balance>>) {
+	fn on_validator_add(staker: Staker<AccountId>, self_stake: Option<Stake<Balance>>) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::ValidatorAdd { who: *who, self_stake });
+			v.push(OnStakingUpdateEvent::ValidatorAdd { who: staker.who, self_stake });
 		})
 	}
-	fn on_validator_update(who: &AccountId, self_stake: Option<Stake<Balance>>) {
+	fn on_validator_update(staker: Staker<AccountId>, self_stake: Option<Stake<Balance>>) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::ValidatorUpdate { who: *who, self_stake });
+			v.push(OnStakingUpdateEvent::ValidatorUpdate { who: staker.who, self_stake });
 		})
 	}
-	fn on_validator_idle(who: &AccountId) {
+	fn on_validator_idle(staker: Staker<AccountId>) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::ValidatorIdle { who: *who });
+			v.push(OnStakingUpdateEvent::ValidatorIdle { who: staker.who });
 		})
 	}
-	fn on_validator_remove(who: &AccountId) {
+	fn on_validator_remove(staker: Staker<AccountId>) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::ValidatorRemove { who: *who });
+			v.push(OnStakingUpdateEvent::ValidatorRemove { who: staker.who });
 		})
 	}
-	fn on_withdraw(who: &AccountId, amount: Balance) {
+	fn on_withdraw(staker: Staker<AccountId>, amount: Balance) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::Withdraw { who: *who, amount });
+			v.push(OnStakingUpdateEvent::Withdraw { who: staker.who, amount });
 		})
 	}
-	fn on_unstake(who: &AccountId) {
+	fn on_unstake(staker: Staker<AccountId>) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::Unstake { who: *who });
+			v.push(OnStakingUpdateEvent::Unstake { who: staker.who });
 		})
 	}
 	fn on_slash(
-		who: &AccountId,
+		staker: Staker<AccountId>,
 		slashed_active: Balance,
 		_slashed_unlocking: &BTreeMap<EraIndex, Balance>,
 		slashed_total: Balance,
 	) {
 		EventsEmitted::mutate(|v| {
-			v.push(OnStakingUpdateEvent::Slash { who: *who, slashed_active, slashed_total });
+			v.push(OnStakingUpdateEvent::Slash { who: staker.who, slashed_active, slashed_total });
 		})
 	}
 }
@@ -1056,7 +1060,7 @@ pub(crate) fn setup_dangling_target_for_nominators(target: AccountId, nominators
 			Nominations { targets: nominations.clone(), submitted_in: 0, suppressed: false },
 		);
 		<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_update(
-			&n,
+			staker(n),
 			prev_nominations.targets.to_vec(),
 			nominations.to_vec(),
 		);
@@ -1070,7 +1074,7 @@ pub(crate) fn setup_dangling_target_for_nominators(target: AccountId, nominators
 
 	// now remove all the self-stake score from the validator.
 	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_stake_update(
-		&target,
+		staker(target),
 		Some(stake),
 		stake_after_unbond,
 	);
@@ -1129,6 +1133,10 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+pub(crate) fn staker(who: AccountId) -> Staker<AccountId> {
+	Staker { who, status: Staking::status(&who) }
 }
 
 // this helper method also cleans the current state of `EventsEmtted`.

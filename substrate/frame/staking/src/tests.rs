@@ -7266,16 +7266,24 @@ mod on_staking_update_events {
 			bond_validator(11, 100);
 			bond_validator(12, 100);
 			ensure_on_staking_updates_emitted(vec![
-				StakeUpdate { who: 11, prev_stake: None, stake: Stake { total: 100, active: 100 } },
+				StakeUpdate {
+					who: staker(11),
+					prev_stake: None,
+					stake: Stake { total: 100, active: 100 },
+				},
 				ValidatorAdd { who: 11, self_stake: Some(Stake { total: 100, active: 100 }) },
-				StakeUpdate { who: 12, prev_stake: None, stake: Stake { total: 100, active: 100 } },
+				StakeUpdate {
+					who: staker(12),
+					prev_stake: None,
+					stake: Stake { total: 100, active: 100 },
+				},
 				ValidatorAdd { who: 12, self_stake: Some(Stake { total: 100, active: 100 }) },
 			]);
 
 			// bond staker 21.
 			bond(21, 100);
 			ensure_on_staking_updates_emitted(vec![StakeUpdate {
-				who: 21,
+				who: staker(21),
 				prev_stake: None,
 				stake: Stake { total: 100, active: 100 },
 			}]);
@@ -7298,7 +7306,7 @@ mod on_staking_update_events {
 			// 21 unbonds half of its stake.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(21), 50));
 			ensure_on_staking_updates_emitted(vec![StakeUpdate {
-				who: 21,
+				who: staker(21),
 				prev_stake: Some(Stake { total: 100, active: 100 }),
 				// 50 unlocking, 50 active.
 				stake: Stake { total: 100, active: 50 },
@@ -7314,7 +7322,7 @@ mod on_staking_update_events {
 			// 21 unbnonds completely.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(21), 50));
 			ensure_on_staking_updates_emitted(vec![StakeUpdate {
-				who: 21,
+				who: staker(21),
 				prev_stake: Some(Stake { total: 100, active: 50 }),
 				stake: Stake { total: 100, active: 0 },
 			}]);
@@ -7342,7 +7350,11 @@ mod on_staking_update_events {
 			// bond validator 42.
 			bond_validator(42, 100);
 			ensure_on_staking_updates_emitted(vec![
-				StakeUpdate { who: 42, prev_stake: None, stake: Stake { total: 100, active: 100 } },
+				StakeUpdate {
+					who: staker(42),
+					prev_stake: None,
+					stake: Stake { total: 100, active: 100 },
+				},
 				ValidatorAdd { who: 42, self_stake: Some(Stake { total: 100, active: 100 }) },
 			]);
 
@@ -7350,7 +7362,7 @@ mod on_staking_update_events {
 			let _ = Balances::make_free_balance_be(&42, 500);
 			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(42), 50));
 			ensure_on_staking_updates_emitted(vec![StakeUpdate {
-				who: 42,
+				who: staker(42),
 				prev_stake: Some(Stake { total: 100, active: 100 }),
 				stake: Stake { total: 150, active: 150 },
 			}]);
@@ -7358,7 +7370,7 @@ mod on_staking_update_events {
 			// 42 unbonds 50.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(42), 50));
 			ensure_on_staking_updates_emitted(vec![StakeUpdate {
-				who: 42,
+				who: staker(42),
 				prev_stake: Some(Stake { total: 150, active: 150 }),
 				stake: Stake { total: 150, active: 100 },
 			}]);
@@ -7379,7 +7391,7 @@ mod on_staking_update_events {
 			// 42 unbounds completely.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(42), 100));
 			ensure_on_staking_updates_emitted(vec![StakeUpdate {
-				who: 42,
+				who: staker(42),
 				prev_stake: Some(Stake { total: 150, active: 100 }),
 				stake: Stake { total: 150, active: 0 },
 			}]);
@@ -7446,14 +7458,14 @@ mod on_staking_update_events {
 				Slash { who: 11, slashed_active: 90, slashed_total: 10 },
 				// slash applied on the validator stake.
 				StakeUpdate {
-					who: 11,
+					who: staker(11),
 					prev_stake: Some(Stake { total: 100, active: 100 }),
 					stake: Stake { total: 90, active: 90 },
 				},
 				Slash { who: 101, slashed_active: 90, slashed_total: 10 },
 				// slash applied on the nominator stake.
 				StakeUpdate {
-					who: 101,
+					who: staker(101),
 					prev_stake: Some(Stake { total: 100, active: 100 }),
 					stake: Stake { total: 90, active: 90 },
 				},
