@@ -147,7 +147,7 @@ use frame_support::{
 			},
 			Balanced, Inspect as FunInspect, Mutate as FunMutate,
 		},
-		tokens::{fungible::Credit, Precision, Preservation},
+		tokens::{fungible::Credit, Fortitude, Precision, Preservation},
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };
@@ -301,14 +301,14 @@ pub mod pallet {
 		/// The origin needs to
 		/// - be a `Nominator` with [`Config::CoreStaking`],
 		/// - not already an `Agent`,
-		/// - have enough funds to transfer existential deposit to a delegator account created for
-		///   the migration.
 		///
 		/// This function will create a proxy account to the agent called `proxy_delegator` and
 		/// transfer the directly staked amount by the agent to it. The `proxy_delegator` delegates
 		/// the funds to the origin making origin an `Agent` account. The real `delegator`
 		/// accounts of the origin can later migrate their funds using [Self::migrate_delegation] to
 		/// claim back their share of delegated funds from `proxy_delegator` to self.
+		///
+		/// Any free fund in the agent's account will be marked as unclaimed withdrawal.
 		pub fn migrate_to_agent(
 			origin: OriginFor<T>,
 			reward_account: T::AccountId,
@@ -474,13 +474,33 @@ impl<T: Config> Pallet<T> {
 		// release funds from core staking.
 		T::CoreStaking::migrate_to_virtual_staker(who);
 
-		// transferring just released staked amount. This should never fail but if it does, it
-		// indicates bad state and we abort.
-		T::Currency::transfer(who, &proxy_delegator, stake.total, Preservation::Expendable)
-			.map_err(|_| Error::<T>::BadState)?;
+		// transfer just released staked amount plus any free amount.
+		let amount_to_transfer =
+			T::Currency::reducible_balance(who, Preservation::Expendable, Fortitude::Polite);
+
+		// This should never fail but if it does, it indicates bad state and we abort.
+		T::Currency::transfer(who, &proxy_delegator, amount_to_transfer, Preservation::Expendable)?;
 
 		T::CoreStaking::update_payee(who, reward_account)?;
-		Self::do_delegate(&proxy_delegator, who, stake.total)
+		// delegate all transferred funds back to agent.
+		Self::do_delegate(&proxy_delegator, who, amount_to_transfer)?;
+
+		// if the transferred/delegated amount was greater than the stake, mark the extra as
+		// unclaimed withdrawal.
+		let unclaimed_withdraws = amount_to_transfer
+			.checked_sub(&stake.total)
+			.defensive_ok_or(ArithmeticError::Underflow)?;
+
+		if !unclaimed_withdraws.is_zero() {
+			let mut ledger = AgentLedger::<T>::get(who).ok_or(Error::<T>::NotAgent)?;
+			ledger.unclaimed_withdrawals = ledger
+				.unclaimed_withdrawals
+				.checked_add(&unclaimed_withdraws)
+				.defensive_ok_or(ArithmeticError::Overflow)?;
+			ledger.update(who);
+		}
+
+		Ok(())
 	}
 
 	/// Bond `amount` to `agent_acc` in [`Config::CoreStaking`].

@@ -564,8 +564,10 @@ mod staking_integration {
 	fn migration_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// add a nominator
-			fund(&200, 5000);
 			let staked_amount = 4000;
+			let agent_amount = 5000;
+			fund(&200, agent_amount);
+
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(200),
 				staked_amount,
@@ -578,7 +580,7 @@ mod staking_integration {
 			// in equal parts. lets try to migrate this nominator into delegate based stake.
 
 			// all balance currently is in 200
-			assert_eq!(Balances::free_balance(200), 5000);
+			assert_eq!(Balances::free_balance(200), agent_amount);
 
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded
@@ -588,19 +590,20 @@ mod staking_integration {
 			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(200).into(), 201));
 
 			// verify all went well
-			let mut expected_proxy_delegated_amount = staked_amount;
+			let mut expected_proxy_delegated_amount = agent_amount;
 			assert_eq!(
 				Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &proxy_delegator),
 				expected_proxy_delegated_amount
 			);
 			// stake amount is transferred from delegate to proxy delegator account.
-			assert_eq!(Balances::free_balance(200), 5000 - staked_amount);
+			assert_eq!(Balances::free_balance(200), 0);
 			assert_eq!(Staking::stake(&200).unwrap(), init_stake);
-			assert_eq!(get_agent(&200).ledger.effective_balance(), 4000);
+			assert_eq!(get_agent(&200).ledger.effective_balance(), agent_amount);
 			assert_eq!(get_agent(&200).available_to_bond(), 0);
+			assert_eq!(get_agent(&200).ledger.unclaimed_withdrawals, agent_amount - staked_amount);
 
 			// now lets migrate the delegators
-			let delegator_share = staked_amount / 4;
+			let delegator_share = agent_amount / 4;
 			for delegator in 300..304 {
 				assert_eq!(Balances::free_balance(delegator), 0);
 				// fund them with ED
@@ -626,8 +629,12 @@ mod staking_integration {
 
 				// delegate stake is unchanged.
 				assert_eq!(Staking::stake(&200).unwrap(), init_stake);
-				assert_eq!(get_agent(&200).ledger.effective_balance(), 4000);
+				assert_eq!(get_agent(&200).ledger.effective_balance(), agent_amount);
 				assert_eq!(get_agent(&200).available_to_bond(), 0);
+				assert_eq!(
+					get_agent(&200).ledger.unclaimed_withdrawals,
+					agent_amount - staked_amount
+				);
 			}
 
 			// cannot use migrate delegator anymore

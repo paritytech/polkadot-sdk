@@ -124,7 +124,6 @@ impl pallet_staking::Config for Runtime {
 	type NextNewSession = ();
 	type HistoryDepth = ConstU32<84>;
 	type MaxExposurePageSize = ConstU32<64>;
-	type OffendingValidatorsThreshold = ();
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
@@ -135,6 +134,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = DelegatedStaking;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 parameter_types! {
