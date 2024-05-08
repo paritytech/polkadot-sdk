@@ -476,7 +476,7 @@ sp_api::mock_impl_runtime_apis! {
 				)).collect();
 			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(|xcm| VersionedXcm::<()>::V4(xcm)),
+				local_xcm: local_xcm.map(VersionedXcm::<()>::V4),
 				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,
