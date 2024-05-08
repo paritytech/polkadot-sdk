@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715161985632,
+  "lastUpdate": 1715174976131,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2725,6 +2725,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.8629673604801598,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "37b1544b51aeba183350d4c8d76987c32e6c9ca7",
+          "message": "Adds benchmarking and try-runtime support in frame crate (#4406)",
+          "timestamp": "2024-05-08T11:50:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/37b1544b51aeba183350d4c8d76987c32e6c9ca7"
+        },
+        "date": 1715174948896,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63552.96000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 11.50274803591998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.01244826689031,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.68367593888994,
             "unit": "seconds"
           }
         ]
