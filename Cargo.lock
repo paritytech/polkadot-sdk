@@ -13940,10 +13940,13 @@ name = "polkadot-sdk-frame"
 version = "0.1.0"
 dependencies = [
  "docify",
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "log",
  "pallet-examples",
  "parity-scale-codec",
@@ -13960,6 +13963,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-std 14.0.0",
+ "sp-storage 19.0.0",
  "sp-transaction-pool",
  "sp-version",
 ]
