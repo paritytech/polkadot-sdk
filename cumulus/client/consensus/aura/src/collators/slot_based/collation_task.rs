@@ -98,7 +98,7 @@ where
 	}
 }
 
-/// Handle an incoming collation message from the block builder task.
+/// Handles an incoming collation message from the block builder task.
 /// This builds the collation from the [`CollatorMessage`] and submits it to
 /// the collation-generation subsystem of the relay chain.
 fn handle_collation_message<Block: BlockT>(
