@@ -100,6 +100,16 @@ pub trait ForkBackend<Block: BlockT>:
 	/// to reconstruct the route anymore. In this case it will give up expanding the current fork,
 	/// move on to the next ones and at the end it will return an error that also contains
 	/// the partially expanded forks.
+	///
+	/// The first part (default path) of the function utilizes `tree_route` function and resorts to
+	/// the another algorithm when the default path fails. The difference between two is that
+	/// `tree_route` works with block hashes and the second algorithm works with block
+	/// numbers: in some cases with finalized blocks the result may differ.
+	/// Example:
+	///  G --- A1 --- A2 --- A3 --- A4           ( < fork1 )
+	///                       \-----C4 --- C5    ( < fork2 )
+	/// We finalize A3 and call expand_fork(C5). The first part of the algorithm will return (C5,
+	/// C4) and the second algorithm will return (C5).
 	fn expand_forks(
 		&self,
 		fork_heads: &[Block::Hash],
