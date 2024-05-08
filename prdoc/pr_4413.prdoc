@@ -1,0 +1,13 @@
+title: Backport `polkadot-sdk-frame` crate fixes 
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds benchmarking and try-runtime support in `polkadot-sdk-frame` crate. Also, fixes 
+      runtime macro usage with the `polkadot-sdk-frame` crate.
+
+crates:
+  - name: polkadot-sdk-frame
+    bump: minor
+  - name: frame-support-procedural
+    bump: patch
