@@ -45,15 +45,12 @@
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, Pays},
-	traits::Get,
-	weights::Weight,
-	BoundedVec, WeakBoundedVec,
+	dispatch::DispatchResult, traits::Get, weights::Weight, BoundedVec, WeakBoundedVec,
 };
 use frame_system::{offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
 use sp_consensus_sassafras::{
@@ -71,10 +68,15 @@ use sp_std::prelude::Vec;
 
 pub use pallet::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(all(feature = "std", test))]
 mod mock;
 #[cfg(all(feature = "std", test))]
 mod tests;
+
+pub mod weights;
+pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "sassafras::runtime";
 
@@ -156,8 +158,7 @@ pub mod pallet {
 		type EpochChangeTrigger: EpochChangeTrigger;
 
 		/// Weight information for all calls of this pallet.
-		// TODO: weights::WeigthInfo bound
-		type WeightInfo;
+		type WeightInfo: weights::WeightInfo;
 	}
 
 	/// Sassafras runtime errors.
@@ -291,10 +292,8 @@ pub mod pallet {
 			PostInitCache::<T>::put(randomness_pre_output);
 
 			let trigger_weight = T::EpochChangeTrigger::trigger::<T>(block_num);
-			Weight::zero() + trigger_weight
 
-			// TODO
-			// T::WeightInfo::on_initialize() + trigger_weight
+			T::WeightInfo::on_initialize() + trigger_weight
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {
@@ -334,12 +333,14 @@ pub mod pallet {
 		///
 		/// The number of tickets allowed to be submitted in one call is equal to the epoch length.
 		#[pallet::call_index(0)]
-		#[pallet::weight((Weight::zero(), DispatchClass::Mandatory))]
+		#[pallet::weight((
+			T::WeightInfo::submit_tickets(tickets.len() as u32),
+			DispatchClass::Mandatory
+		))]
 		pub fn submit_tickets(
 			origin: OriginFor<T>,
-			// TODO: change max length
 			tickets: BoundedVec<TicketEnvelope, EpochLengthFor<T>>,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			ensure_none(origin)?;
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
@@ -370,8 +371,6 @@ pub mod pallet {
 
 			let mut candidates = Vec::new();
 			for ticket in tickets {
-				debug!(target: LOG_TARGET, "Checking ring proof");
-
 				let Some(ticket_id_pre_output) = ticket.signature.pre_outputs.get(0) else {
 					debug!(target: LOG_TARGET, "Missing ticket VRF pre-output from ring signature");
 					return Err(Error::<T>::TicketInvalid.into())
@@ -380,6 +379,8 @@ pub mod pallet {
 
 				// Check threshold constraint
 				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
+				trace!(target: LOG_TARGET, "Checking ticket {:?}", ticket_id);
+
 				if ticket_id >= ticket_threshold {
 					debug!(target: LOG_TARGET, "Ticket over threshold ({:?} >= {:?})", ticket_id, ticket_threshold);
 					return Err(Error::<T>::TicketOverThreshold.into())
@@ -397,7 +398,7 @@ pub mod pallet {
 
 			Self::deposit_tickets(&candidates)?;
 
-			Ok(Pays::No.into())
+			Ok(())
 		}
 	}
 
@@ -498,6 +499,8 @@ impl<T: Config> Pallet<T> {
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
+		debug_assert_eq!(authorities, NextAuthorities::<T>::get());
+
 		if next_authorities != authorities {
 			Self::update_ring_verifier(&next_authorities);
 		}
@@ -512,7 +515,7 @@ impl<T: Config> Pallet<T> {
 
 		if epoch_idx < expected_epoch_idx {
 			panic!(
-				"Undexpected epoch value, expected: {} - found: {}, aborting",
+				"Unexpected epoch value, expected: {} - found: {}, aborting",
 				expected_epoch_idx, epoch_idx
 			);
 		}
@@ -871,7 +874,6 @@ impl EpochChangeTrigger for EpochChangeInternalTrigger {
 			let authorities = Pallet::<T>::next_authorities();
 			let next_authorities = authorities.clone();
 			Pallet::<T>::enact_epoch_change(authorities, next_authorities);
-			// TODO
 			// let len = next_authorities.len() as u32;
 			// T::WeightInfo::enact_epoch_change(len, T::EpochLength::get())
 			Weight::zero()

@@ -595,8 +595,11 @@ fn submit_tickets_with_ring_proof_check_works() {
 	let start_block = 1;
 	let start_slot = (GENESIS_SLOT + 1).into();
 
-	let (authorities, mut candidates): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
-		data_read(TICKETS_FILE);
+	let (randomness, authorities, mut candidates): (
+		Randomness,
+		Vec<AuthorityId>,
+		Vec<TicketEnvelope>,
+	) = data_read(TICKETS_FILE);
 
 	// Also checks that duplicates are discarded
 
@@ -607,6 +610,13 @@ fn submit_tickets_with_ring_proof_check_works() {
 
 	ext.execute_with(|| {
 		initialize_block(start_block, start_slot, Default::default(), pair);
+
+		// Use the same values as the pre-built tickets
+		Sassafras::update_ring_verifier(&authorities);
+		let mut randomness_buf = RandomnessBuf::<Test>::get();
+		randomness_buf[2] = randomness;
+		RandomnessBuf::<Test>::set(randomness_buf);
+		NextAuthorities::<Test>::set(WeakBoundedVec::force_from(authorities, None));
 
 		// Submit the tickets
 		let candidates_per_call = 4;
@@ -688,9 +698,13 @@ fn generate_test_tickets() {
 			tickets.extend(t);
 			println!("{:.2}%", 100f32 * ((i + 1) as f32 / authorities_count as f32));
 		});
-	});
 
-	tickets.sort_unstable_by_key(|t| t.0);
-	let envelopes: Vec<_> = tickets.into_iter().map(|t| t.1).collect();
-	data_write(TICKETS_FILE, (authorities, envelopes));
+		tickets.sort_unstable_by_key(|t| t.0);
+		let envelopes: Vec<_> = tickets.into_iter().map(|t| t.1).collect();
+
+		// Tickets were generated using `next_randomness`
+		let randomness = Sassafras::next_randomness();
+
+		data_write(TICKETS_FILE, (randomness, authorities, envelopes));
+	});
 }
