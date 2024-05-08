@@ -579,6 +579,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 parameter_types! {
 	pub const VoterBagThresholds: &'static [u64] = &bag_thresholds::VOTER_THRESHOLDS;
 	pub const TargetBagThresholds: &'static [u128] = &bag_thresholds::TARGET_THRESHOLDS;
+
+	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Strict;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -601,10 +603,10 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
 
 impl pallet_stake_tracker::Config for Runtime {
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterList;
 	type TargetList = TargetList;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 pallet_staking_reward_curve::build! {

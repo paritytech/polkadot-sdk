@@ -77,6 +77,8 @@ const TARGET_THRESHOLDS: [u128; 9] = [100, 200, 300, 400, 500, 600, 700, 800, 90
 parameter_types! {
 	pub static VoterBagThresholds: &'static [VoteWeight] = &VOTER_THRESHOLDS;
 	pub static TargetBagThresholds: &'static [u128] = &TARGET_THRESHOLDS;
+
+	pub static VoterUpdateMode: crate::VoterUpdateMode = crate::VoterUpdateMode::Strict;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -99,10 +101,10 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
 	type Staking = StakingMock;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 pub struct StakingMock {}
@@ -474,6 +476,11 @@ impl ExtBuilder {
 		self
 	}
 
+	pub fn voter_update_mode(self, mode: crate::VoterUpdateMode) -> Self {
+		VoterUpdateMode::set(mode);
+		self
+	}
+
 	#[allow(dead_code)]
 	pub fn try_state(self, enable: bool) -> Self {
 		DisableTryRuntimeChecks::set(!enable);
@@ -497,9 +504,8 @@ impl ExtBuilder {
 			}
 			// move past genesis to register events.
 			System::set_block_number(1);
-
-			test()
 		});
+		ext.execute_with(test);
 
 		if !DisableTryRuntimeChecks::get() {
 			ext.execute_with(|| {

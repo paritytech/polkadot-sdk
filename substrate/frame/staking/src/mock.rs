@@ -362,12 +362,16 @@ impl OnStakingUpdate<AccountId, Balance> for EventTracker {
 	}
 }
 
+parameter_types! {
+	pub static VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Strict;
+}
+
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 // Disabling threshold for `UpToLimitDisablingStrategy`
@@ -461,7 +465,6 @@ pub struct ExtBuilder {
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
 	balance_factor: Balance,
-	set_voter_list_lazy: bool,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
@@ -479,7 +482,6 @@ impl Default for ExtBuilder {
 			initialize_first_session: true,
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
-			set_voter_list_lazy: false,
 			status: Default::default(),
 			stakes: Default::default(),
 			stakers: Default::default(),
@@ -570,8 +572,8 @@ impl ExtBuilder {
 		SkipStakeTrackerTryStateCheck::set(!enable);
 		self
 	}
-	pub fn set_voter_list_lazy(mut self) -> Self {
-		self.set_voter_list_lazy = true;
+	pub fn set_voter_list_lazy(self) -> Self {
+		VoterUpdateMode::set(pallet_stake_tracker::VoterUpdateMode::Lazy);
 		self
 	}
 	pub fn max_winners(self, max: u32) -> Self {
@@ -690,13 +692,6 @@ impl ExtBuilder {
 			},
 		}
 		.assimilate_storage(&mut storage);
-
-		// set voter list sorting mode if set.
-		if self.set_voter_list_lazy {
-			pallet_stake_tracker::VoterListMode::<Test>::set(
-				pallet_stake_tracker::SortingMode::Lazy,
-			);
-		}
 
 		let mut ext = sp_io::TestExternalities::from(storage);
 

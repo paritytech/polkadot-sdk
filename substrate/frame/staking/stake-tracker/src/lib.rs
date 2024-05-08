@@ -27,11 +27,11 @@
 //! sorted list of targets by approval voting. This pallet may also update a voter list, based on
 //! the configurations.
 //!
-//! For the voter list, the [`crate::SortingMode`] defines the type of sortition of the list,
+//! For the voter list, the [`crate::VoterUpdateMode`] defines the type of sortition of the list,
 //! namely:
 //!
-//! - [`crate::SortingMode::Lazy`]: will skip the score update in the voter list.
-//! - [`crate::SortingMode::Strict`]: will ensure that the score updates are kept sorted
+//! - [`crate::VoterUpdateMode::Lazy`]: will skip the score update in the voter list.
+//! - [`crate::VoterUpdateMode::Strict`]: will ensure that the score updates are kept sorted
 //! for the corresponding list. In this case, the [`Config::VoterList`] is *strictly*
 //! sorted* by [`SortedListProvider::Score`] (note: from the time the sorting mode is strict).
 //!
@@ -41,14 +41,14 @@
 //! ## Goals
 //!
 //! Note: these goals are assuming the both target list and sorted lists have
-//! [`crate::SortingMode::Strict`] set.
+//! [`crate::VoterUpdateMode::Strict`] set.
 //!
 //! The [`OnStakingUpdate`] implementation (in strict mode) aims to achieve the following goals:
 //!
 //! * The [`Config::TargetList`] keeps a sorted list of validators, *strictly* sorted by approvals
 //! (which include self-vote and nominations' stake).
 //! * The [`Config::VoterList`] keeps a list of voters, *stricly* sorted by bonded stake if it has
-//! [`crate::SortingMode::strict`] mode enabled, otherwise the list is kept lazily sorted.
+//! [`crate::VoterUpdateMode::Strict`] mode enabled, otherwise the list is kept lazily sorted.
 //! * The [`Config::TargetList`] sorting must be *always* kept up to date, even in the event of new
 //! nomination updates, nominator/validator slashes and rewards. This pallet *must* ensure that the
 //! scores of the targets and voters are always up to date and thus, that the targets and voters in
@@ -63,7 +63,7 @@
 //! ## Staker status and list invariants
 //!
 //! Note: these goals are assuming the both target list and sorted lists have
-//! [`crate::SortingMode::Strict`] set.
+//! [`crate::VoterUpdateMode::Strict`] set.
 //!
 //! * A [`sp_staking::StakerStatus::Nominator`] is part of the voter list and its self-stake is the
 //! voter list's score. In addition, if the `VoterList` is in strict mode, the voters' scores are up
@@ -135,22 +135,16 @@ impl<Score: PartialOrd + DefensiveSaturating> StakeImbalance<Score> {
 }
 
 /// Defines the sorting mode of sorted list providers.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum SortingMode {
+#[derive(Copy, Clone, Debug)]
+pub enum VoterUpdateMode {
 	/// All score update events will be automatically reflected in the sorted list.
 	Strict,
 	/// Score update events are *not* be automatically reflected in the sorted list. Howeber, node
-    /// insertion and removals are reflected in the list.
+	/// insertion and removals are reflected in the list.
 	Lazy,
 }
 
-impl Default for SortingMode {
-	fn default() -> Self {
-		Self::Strict
-	}
-}
-
-impl SortingMode {
+impl VoterUpdateMode {
 	fn is_strict_mode(&self) -> bool {
 		matches!(self, Self::Strict)
 	}
@@ -174,25 +168,20 @@ pub mod pallet {
 		/// The stake balance.
 		type Currency: FnInspect<Self::AccountId, Balance = BalanceOf<Self>>;
 
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// The staking interface.
 		type Staking: StakingInterface<AccountId = Self::AccountId>;
 
-		/// Something that provides an *always* sorted list of voters.
+		/// A sorted list provider for staking voters that is kept up to date by this pallet. The
+		/// sorting by score depends on the sorting mode set by [`Self::VoterUpdateMode`].
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
-		/// Something that provides an *always* sorted list of targets by their approval stake.
+		/// A sorted list provider for staking targets that is ketp *always* sorted by the target's
+		/// stake approvals.
 		type TargetList: SortedListProvider<Self::AccountId, Score = ExtendedBalance>;
+
+		/// The voter list update mode.
+		type VoterUpdateMode: Get<VoterUpdateMode>;
 	}
-
-	/// Sets the current sorting mode for the voter list.
-	#[pallet::storage]
-	pub type VoterListMode<T> = StorageValue<_, SortingMode, ValueQuery>;
-
-	#[pallet::event]
-	pub enum Event<T: Config> {}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -213,7 +202,7 @@ pub mod pallet {
 			let voter_weight = Self::to_vote(stake.active);
 
 			// if voter list is in strict sorting mode, update the voter score too.
-			if VoterListMode::<T>::get().is_strict_mode() {
+			if T::VoterUpdateMode::get().is_strict_mode() {
 				let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
 					"staker should exist in VoterList, as per the contract \
                             with staking.",
@@ -248,7 +237,7 @@ pub mod pallet {
 
 			// validator is both a target and a voter. update the voter score if the voter list
 			// is in strict mode.
-			if VoterListMode::<T>::get().is_strict_mode() {
+			if T::VoterUpdateMode::get().is_strict_mode() {
 				let _ = T::VoterList::on_update(who, Self::to_vote(stake.active)).defensive_proof(
 					"the staker should exist in VoterList, as per the \
                             contract with staking.",
@@ -381,7 +370,7 @@ impl<T: Config> Pallet<T> {
 				// the approvals.
 				// * if the voter list is lazily sorted, use the active stake of the nominator to
 				// calculat the approvals.
-				let stake = if VoterListMode::<T>::get().is_strict_mode() {
+				let stake = if T::VoterUpdateMode::get().is_strict_mode() {
 					// voter list is strictly sorted, use the voter list score to calculate the
 					// target's approvals.
 					let score =
@@ -400,17 +389,15 @@ impl<T: Config> Pallet<T> {
 
 				// update the approvals map with the voter's active stake.
 				for nomination in nominations {
-					if let Some(current_stake) = approvals_map.get_mut(&nomination) {
-						*current_stake += stake as sp_npos_elections::ExtendedBalance;
-					} else {
-						approvals_map.insert(nomination, stake.into());
-					}
+					*approvals_map.entry(nomination).or_default() +=
+						stake as sp_npos_elections::ExtendedBalance;
 				}
 			} else {
 				// if it is in the voter list but it's not a nominator, it should be a validator
 				// and part of the target list.
 				frame_support::ensure!(
-					T::Staking::status(&voter) == Ok(StakerStatus::Validator),
+					T::Staking::status(&voter) == Ok(StakerStatus::Validator) &&
+						T::TargetList::contains(&voter),
 					"wrong state of voter"
 				);
 				frame_support::ensure!(
@@ -534,7 +521,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_try_state_voter_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
 		// if the voter list is in lazy mode, we don't expect the nodes to be sorted at all times.
 		// skip checks.
-		if VoterListMode::<T>::get().is_strict_mode() {
+		if T::VoterUpdateMode::get().is_strict_mode() {
 			return Ok(())
 		}
 
@@ -554,8 +541,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// accordingly.
 	///
 	/// The score of the node associated with `who` in the *VoterList* will be updated if the
-	/// the mode is [`SortingMode::Strict`]. The approvals of the nominated targets (by `who`) are
-	/// always updated.
+	/// the mode is [`VoterUpdateMode::Strict`]. The approvals of the nominated targets (by `who`)
+	/// are always updated.
 	fn on_stake_update(
 		who: &T::AccountId,
 		prev_stake: Option<Stake<BalanceOf<T>>>,
