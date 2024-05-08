@@ -148,8 +148,13 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 			}
 		}
 
-		// we do not check whether the header matches free submission criteria here - it is the
-		// relayer responsibility to check that
+		// let's also check whether the header submission fits the hardcoded limits. A normal
+		// relayer would check that before submitting a transaction (since limits are constants
+		// and do not depend on a volatile runtime state), but the ckeck itself is cheap, so
+		// let's do it here too
+		if !call_info.fits_limits() {
+			return Err(Error::<T, I>::HeaderOverflowLimits);
+		}
 
 		Ok(improved_by)
 	}
@@ -465,6 +470,64 @@ mod tests {
 				bridge_grandpa_call,
 			),)
 			.is_ok());
+		})
+	}
+
+	#[test]
+	fn extension_rejects_new_header_if_it_overflow_size_limits() {
+		run_test(|| {
+			let mut large_finality_target = test_header(10 + FreeHeadersInterval::get() as u64);
+			large_finality_target
+				.digest_mut()
+				.push(DigestItem::Other(vec![42u8; 1024 * 1024]));
+			let justification_params = JustificationGeneratorParams {
+				header: large_finality_target.clone(),
+				..Default::default()
+			};
+			let large_justification = make_justification_for_header(justification_params);
+
+			let bridge_grandpa_call = crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
+				finality_target: Box::new(large_finality_target),
+				justification: large_justification,
+				current_set_id: 0,
+				is_free_execution_expected: true,
+			};
+			sync_to_header_10();
+
+			// if overflow size limits => Err
+			FreeHeadersRemaining::<TestRuntime, ()>::put(2);
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call.clone(),
+			),)
+			.is_err());
+		})
+	}
+
+	#[test]
+	fn extension_rejects_new_header_if_it_overflow_weight_limits() {
+		run_test(|| {
+			let finality_target = test_header(10 + FreeHeadersInterval::get() as u64);
+			let justification_params = JustificationGeneratorParams {
+				header: finality_target.clone(),
+				ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY,
+				..Default::default()
+			};
+			let justification = make_justification_for_header(justification_params);
+
+			let bridge_grandpa_call = crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
+				finality_target: Box::new(finality_target),
+				justification,
+				current_set_id: 0,
+				is_free_execution_expected: true,
+			};
+			sync_to_header_10();
+
+			// if overflow weight limits => Err
+			FreeHeadersRemaining::<TestRuntime, ()>::put(2);
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call.clone(),
+			),)
+			.is_err());
 		})
 	}
 
