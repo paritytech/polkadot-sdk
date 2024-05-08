@@ -76,6 +76,6 @@ bitflags! {
 		/// 
 		/// For `seal_delegate_call` should be always unset, otherwise
 		/// [`Error::InvalidCallFlags`] is returned.
-		const STATIC_CALL = 0b0001_0000;
+		const READ_ONLY = 0b0001_0000;
 	}
 }

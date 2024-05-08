@@ -851,11 +851,11 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 					value,
 					input_data,
 					flags.contains(CallFlags::ALLOW_REENTRY),
-					!flags.contains(CallFlags::STATIC_CALL),
+					flags.contains(CallFlags::READ_ONLY),
 				)
 			},
 			CallType::DelegateCall { code_hash_ptr } => {
-				if flags.contains(CallFlags::ALLOW_REENTRY | CallFlags::STATIC_CALL) {
+				if flags.contains(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into())
 				}
 				let code_hash = self.read_sandbox_memory_as(memory, code_hash_ptr)?;
@@ -1906,9 +1906,7 @@ pub mod env {
 
 		let event_data = ctx.read_sandbox_memory(memory, data_ptr, data_len)?;
 
-		ctx.ext.deposit_event(topics, event_data);
-
-		Ok(())
+		Ok(ctx.ext.deposit_event(topics, event_data)?)
 	}
 
 	/// Stores the current block number of the current contract into the supplied buffer.
