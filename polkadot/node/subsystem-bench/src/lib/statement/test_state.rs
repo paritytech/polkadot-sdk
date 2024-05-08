@@ -21,7 +21,6 @@ use crate::{
 };
 use bitvec::order::Lsb0;
 use colored::Colorize;
-use futures::SinkExt;
 use itertools::Itertools;
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
@@ -222,13 +221,6 @@ impl HandleNetworkMessage for TestState {
 					.expect("Pregenerated")
 					.clone();
 				let persisted_validation_data = self.persisted_validation_data.clone();
-				let seconded = self
-					.seconded
-					.iter()
-					.find(|v| *v.unchecked_payload().candidate_hash() == payload.candidate_hash)
-					.unwrap()
-					.to_owned();
-
 				let res = AttestedCandidateResponse {
 					candidate_receipt,
 					persisted_validation_data,
@@ -287,7 +279,7 @@ impl HandleNetworkMessage for TestState {
 				.to_owned();
 
 				node_sender
-					.start_send_unpin(NetworkMessage::MessageFromPeer(
+					.start_send(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).expect("Must exist"),
 						Versioned::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::Statement(relay_parent, statement),
@@ -317,7 +309,7 @@ impl HandleNetworkMessage for TestState {
 				};
 				gum::debug!("ValidatorIndex({}) sends {:?}", index, ack);
 				node_sender
-					.start_send_unpin(NetworkMessage::MessageFromPeer(
+					.start_send(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).expect("Must exist"),
 						Versioned::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::BackedCandidateKnown(ack),
