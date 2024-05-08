@@ -1183,7 +1183,7 @@ where
 	/// Iterator over all frames.
 	///
 	/// The iterator starts with the top frame and ends with the root frame.
-	fn frames(&self) -> impl DoubleEndedIterator<Item = &Frame<T>> {
+	fn frames(&self) -> impl Iterator<Item = &Frame<T>> {
 		sp_std::iter::once(&self.first_frame).chain(&self.frames).rev()
 	}
 
@@ -1272,7 +1272,6 @@ where
 				gas_limit,
 				deposit_limit,
 			)?;
-
 			self.run(executable, input_data)
 		};
 
@@ -3234,6 +3233,50 @@ mod tests {
 					&schedule,
 					0,
 					vec![],
+					None,
+					Determinism::Enforced
+				)
+				.map_err(|e| e.error),
+				<Error<Test>>::StateChangeDenied,
+			);
+		});
+	} 
+
+	#[test]
+	fn read_only_subsequent_call_with_set_storage_fails() {
+		// Checks if the read only flag is kept for subsequent calls.
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			if ctx.input_data[0] == 0 {
+				ctx.ext
+					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
+			} else {
+				ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false)?;
+				exec_success()
+			}
+		});
+
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			let schedule = <Test as Config>::Schedule::get();
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let contract_origin = Origin::from_account_id(ALICE);
+			let mut storage_meter =
+				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
+
+			// If BOB calls CHARLIE with the read-only flag, CHARLIE cannot modify the storage, causing set_storage to fail.
+			assert_err!(
+				MockStack::run_call(
+					contract_origin,
+					BOB,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					&schedule,
+					0,
+					vec![0],
 					None,
 					Determinism::Enforced
 				)
