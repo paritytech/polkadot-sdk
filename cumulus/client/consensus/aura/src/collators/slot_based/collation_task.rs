@@ -75,19 +75,37 @@ where
 	.await;
 
 	let collator_service = params.collator_service;
+	let mut collations = vec![];
+
 	while let Some(collator_message) = params.collator_receiver.next().await {
-		handle_collation_message(collator_message, &collator_service, &mut overseer_handle).await;
+		if let Some(collation) =
+			handle_collation_message(collator_message, &collator_service, &mut overseer_handle)
+		{
+			collations.push(collation);
+
+			if collations.len() == 3 {
+				while collations.len() > 0 {
+					let collation = collations.remove(0);
+					overseer_handle
+						.send_msg(
+							CollationGenerationMessage::SubmitCollation(collation),
+							"SubmitCollation",
+						)
+						.await;
+				}
+			}
+		}
 	}
 }
 
 /// Handle an incoming collation message from the block builder task.
 /// This builds the collation from the [`CollatorMessage`] and submits it to
 /// the collation-generation subsystem of the relay chain.
-async fn handle_collation_message<Block: BlockT>(
+fn handle_collation_message<Block: BlockT>(
 	message: CollatorMessage<Block>,
 	collator_service: &impl CollatorServiceInterface<Block>,
 	overseer_handle: &mut OverseerHandle,
-) {
+) -> Option<SubmitCollationParams> {
 	let CollatorMessage {
 		parent_header,
 		parachain_candidate,
@@ -103,7 +121,7 @@ async fn handle_collation_message<Block: BlockT>(
 			Some(collation) => collation,
 			None => {
 				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build collation.");
-				return;
+				return None;
 			},
 		};
 
@@ -123,18 +141,27 @@ async fn handle_collation_message<Block: BlockT>(
 		);
 	}
 
-	tracing::debug!(target: LOG_TARGET, ?core_index, %hash, %number, "Submitting collation for core.");
-	overseer_handle
-		.send_msg(
-			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-				relay_parent,
-				collation,
-				parent_head: parent_header.encode().into(),
-				validation_code_hash,
-				core_index,
-				result_sender: None,
-			}),
-			"SubmitCollation",
-		)
-		.await;
+	// tracing::debug!(target: LOG_TARGET, ?core_index, %hash, %number, "Submitting collation for
+	// core."); overseer_handle
+	// 	.send_msg(
+	// 		CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+	// 			relay_parent,
+	// 			collation,
+	// 			parent_head: parent_header.encode().into(),
+	// 			validation_code_hash,
+	// 			core_index,
+	// 			result_sender: None,
+	// 		}),
+	// 		"SubmitCollation",
+	// 	)
+	// 	.await;
+
+	Some(SubmitCollationParams {
+		relay_parent,
+		collation,
+		parent_head: parent_header.encode().into(),
+		validation_code_hash,
+		core_index,
+		result_sender: None,
+	})
 }
