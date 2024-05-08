@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715159248322,
+  "lastUpdate": 1715161985632,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2678,6 +2678,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.850940871960126,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "17b56fae2d976a3df87f34076875de8c26da0355",
+          "message": "Bridge: check bridge GRANDPA pallet call limits from signed extension (#4385)\n\nsilent, because it'll be deployed with the\nhttps://github.com/paritytech/polkadot-sdk/pull/4102, where this code\nhas been introduced\n\nI've planned originally to avoid doing that check in the runtime code,\nbecause it **may be** checked offchain. But actually, the check is quite\ncheap and we could do that onchain too.",
+          "timestamp": "2024-05-08T08:26:57Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/17b56fae2d976a3df87f34076875de8c26da0355"
+        },
+        "date": 1715161958887,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63543.590000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.284690175330036,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.814637812119976,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.8629673604801598,
             "unit": "seconds"
           }
         ]
