@@ -12,3 +12,4 @@ doc:
 
 crates:
   - name: pallet-contracts
+    bump: minor
