@@ -17,10 +17,8 @@
 use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	network::{HandleNetworkMessage, NetworkMessage},
-	NODE_UNDER_TEST,
 };
 use bitvec::order::Lsb0;
-use colored::Colorize;
 use itertools::Itertools;
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
@@ -38,8 +36,8 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CompactStatement,
-	Hash, Header, PersistedValidationData, SignedStatement, SigningContext, UncheckedSigned,
-	ValidatorIndex, ValidatorPair,
+	Hash, Header, PersistedValidationData, SignedStatement, SigningContext, ValidatorIndex,
+	ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, dummy_head_data, dummy_pvd,
@@ -54,8 +52,6 @@ use std::{
 	},
 };
 
-const LOG_TARGET: &str = "subsystem-bench::statement::test_state";
-
 #[derive(Clone)]
 pub struct TestState {
 	// Full test config
@@ -67,142 +63,126 @@ pub struct TestState {
 	// Map from generated candidate receipts
 	pub candidate_receipts: HashMap<H256, Vec<CandidateReceipt>>,
 	// Map from generated commited candidate receipts
-	pub commited_candidate_receipts: HashMap<H256, CommittedCandidateReceipt>,
+	pub commited_candidate_receipts: HashMap<H256, Vec<CommittedCandidateReceipt>>,
 	// TODO
-	pub persisted_validation_data: PersistedValidationData,
+	pub pvd: PersistedValidationData,
 	// Relay chain block headers
 	pub block_headers: HashMap<H256, Header>,
 	// TODO
 	pub validator_pairs: Vec<ValidatorPair>,
 	// TODO
 	pub statements_tracker: HashMap<CandidateHash, HashMap<u32, Arc<AtomicBool>>>,
-	// TODO
-	pub seconded: Vec<UncheckedSigned<CompactStatement>>,
 }
 
 impl TestState {
 	pub fn new(config: &TestConfiguration) -> Self {
-		let mut test_state = Self {
+		let mut state = Self {
 			config: config.clone(),
 			test_authorities: config.generate_authorities(),
-			block_infos: Default::default(),
+			block_infos: (1..=config.num_blocks).map(generate_block_info).collect(),
 			candidate_receipts: Default::default(),
 			commited_candidate_receipts: Default::default(),
-			persisted_validation_data: dummy_pvd(dummy_head_data(), 0),
+			pvd: dummy_pvd(dummy_head_data(), 0),
 			block_headers: Default::default(),
 			validator_pairs: Default::default(),
 			statements_tracker: Default::default(),
-			seconded: Default::default(),
 		};
 
+		state.block_headers = state.block_infos.iter().map(generate_block_header).collect();
+		state.validator_pairs =
+			state.test_authorities.key_seeds.iter().map(generate_pair).collect();
+
 		// For each unique pov we create a candidate receipt.
-		let pov_sizes = Vec::from(config.pov_sizes());
-		let mut commited_candidate_receipt_templates: Vec<CommittedCandidateReceipt> =
-			Default::default();
-		let mut pov_size_to_candidate: HashMap<usize, usize> = Default::default();
-		for (index, pov_size) in pov_sizes.iter().cloned().unique().enumerate() {
-			gum::info!(target: LOG_TARGET, index, pov_size, "{}", "Generating template candidate".bright_blue());
+		let pov_sizes = Vec::from(config.pov_sizes()); // For n_cores
+		let pov_size_to_candidate = generate_pov_size_to_candidate(&pov_sizes);
+		let receipt_templates =
+			generate_receipt_templates(&pov_size_to_candidate, config.n_validators, &state.pvd);
 
-			let mut commited_candidate_receipt = dummy_committed_candidate_receipt(dummy_hash());
-			let pov = PoV { block_data: BlockData(vec![index as u8; pov_size]) };
+		for block_info in state.block_infos.iter() {
+			for core_idx in 0..config.n_cores {
+				let pov_size = pov_sizes.get(core_idx).expect("This is a cycle; qed");
+				let candidate_index =
+					*pov_size_to_candidate.get(pov_size).expect("pov_size always exists; qed");
+				let mut receipt = receipt_templates[candidate_index].clone();
+				receipt.descriptor.relay_parent = block_info.hash;
 
-			let new_available_data = AvailableData {
-				validation_data: test_state.persisted_validation_data.clone(),
-				pov: Arc::new(pov),
-			};
+				state.candidate_receipts.entry(block_info.hash).or_default().push(
+					CandidateReceipt {
+						descriptor: receipt.descriptor.clone(),
+						commitments_hash: receipt.commitments.hash(),
+					},
+				);
+				state.statements_tracker.entry(receipt.hash()).or_default().extend(
+					(0..config.n_validators)
+						.map(|index| (index as u32, Arc::new(AtomicBool::new(index <= 1))))
+						.collect::<HashMap<_, _>>(),
+				);
+				state
+					.commited_candidate_receipts
+					.entry(block_info.hash)
+					.or_default()
+					.push(receipt);
+			}
+		}
 
+		state
+	}
+}
+
+fn generate_block_info(block_num: usize) -> BlockInfo {
+	new_block_import_info(Hash::repeat_byte(block_num as u8), block_num as BlockNumber)
+}
+
+fn generate_block_header(info: &BlockInfo) -> (H256, Header) {
+	(
+		info.hash,
+		Header {
+			digest: Default::default(),
+			number: info.number,
+			parent_hash: info.parent_hash,
+			extrinsics_root: Default::default(),
+			state_root: Default::default(),
+		},
+	)
+}
+
+fn generate_pov_size_to_candidate(pov_sizes: &[usize]) -> HashMap<usize, usize> {
+	pov_sizes
+		.iter()
+		.cloned()
+		.unique()
+		.enumerate()
+		.map(|(index, pov_size)| (pov_size, index))
+		.collect()
+}
+
+fn generate_receipt_templates(
+	pov_size_to_candidate: &HashMap<usize, usize>,
+	n_validators: usize,
+	pvd: &PersistedValidationData,
+) -> Vec<CommittedCandidateReceipt> {
+	pov_size_to_candidate
+		.iter()
+		.map(|(&pov_size, &index)| {
+			let mut receipt = dummy_committed_candidate_receipt(dummy_hash());
 			let (_, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
-				config.n_validators,
-				&new_available_data,
+				n_validators,
+				&AvailableData {
+					validation_data: pvd.clone(),
+					pov: Arc::new(PoV { block_data: BlockData(vec![index as u8; pov_size]) }),
+				},
 				|_, _| {},
 			);
+			receipt.descriptor.persisted_validation_data_hash = pvd.hash();
+			receipt.descriptor.erasure_root = erasure_root;
+			receipt
+		})
+		.collect()
+}
 
-			commited_candidate_receipt.descriptor.erasure_root = erasure_root;
-			commited_candidate_receipt.descriptor.persisted_validation_data_hash =
-				test_state.persisted_validation_data.hash();
-			commited_candidate_receipt_templates.push(commited_candidate_receipt);
-			pov_size_to_candidate.insert(pov_size, index);
-		}
-
-		test_state.block_infos = (1..=config.num_blocks)
-			.map(|block_num| {
-				let relay_block_hash = Hash::repeat_byte(block_num as u8);
-				new_block_import_info(relay_block_hash, block_num as BlockNumber)
-			})
-			.collect();
-
-		test_state.block_headers = test_state
-			.block_infos
-			.iter()
-			.map(|info| {
-				(
-					info.hash,
-					Header {
-						digest: Default::default(),
-						number: info.number,
-						parent_hash: info.parent_hash,
-						extrinsics_root: Default::default(),
-						state_root: Default::default(),
-					},
-				)
-			})
-			.collect::<HashMap<_, _>>();
-
-		test_state.validator_pairs = test_state
-			.test_authorities
-			.key_seeds
-			.iter()
-			.map(|seed| ValidatorPair::from_string_with_seed(seed, None).unwrap().0)
-			.collect();
-
-		let pair = test_state.validator_pairs.get((NODE_UNDER_TEST + 1) as usize).unwrap();
-		let validator_index = ValidatorIndex(NODE_UNDER_TEST + 1);
-
-		for (index, info) in test_state.block_infos.iter().enumerate() {
-			let pov_size = pov_sizes.get(index % pov_sizes.len()).expect("This is a cycle; qed");
-			let candidate_index =
-				*pov_size_to_candidate.get(pov_size).expect("pov_size always exists; qed");
-			let mut receipt = commited_candidate_receipt_templates[candidate_index].clone();
-			receipt.descriptor.relay_parent = info.hash;
-			gum::debug!(target: LOG_TARGET, candidate_hash = ?receipt.hash(), "new candidate");
-
-			let descriptor = receipt.descriptor.clone();
-			let commitments_hash = receipt.commitments.hash();
-			let candidate_hash = receipt.hash();
-			test_state.commited_candidate_receipts.insert(info.hash, receipt.clone());
-			test_state
-				.candidate_receipts
-				.insert(info.hash, vec![CandidateReceipt { descriptor, commitments_hash }]);
-
-			test_state.statements_tracker.insert(
-				candidate_hash,
-				HashMap::from_iter(
-					(0..config.n_validators)
-						.map(|index| (index as u32, Arc::new(AtomicBool::new(index <= 1)))),
-				),
-			);
-
-			let relay_parent = info.hash;
-			let candidate_hash = receipt.hash();
-			let statement = CompactStatement::Seconded(candidate_hash);
-			let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
-			let payload = statement.signing_payload(&context);
-			let signature = pair.sign(&payload[..]);
-			let statement = SignedStatement::new(
-				statement,
-				validator_index,
-				signature,
-				&context,
-				&pair.public(),
-			)
-			.unwrap()
-			.as_unchecked()
-			.to_owned();
-			test_state.seconded.push(statement);
-		}
-
-		test_state
-	}
+#[allow(clippy::ptr_arg)]
+fn generate_pair(seed: &String) -> ValidatorPair {
+	ValidatorPair::from_string_with_seed(seed, None).unwrap().0
 }
 
 impl HandleNetworkMessage for TestState {
@@ -217,10 +197,11 @@ impl HandleNetworkMessage for TestState {
 				let candidate_receipt = self
 					.commited_candidate_receipts
 					.values()
+					.flatten()
 					.find(|v| v.hash() == payload.candidate_hash)
 					.expect("Pregenerated")
 					.clone();
-				let persisted_validation_data = self.persisted_validation_data.clone();
+				let persisted_validation_data = self.pvd.clone();
 				let res = AttestedCandidateResponse {
 					candidate_receipt,
 					persisted_validation_data,

@@ -40,19 +40,23 @@ use polkadot_node_network_protocol::{
 	v3, view, Versioned, View,
 };
 use polkadot_node_subsystem::messages::{
-	network_bridge_event::NewGossipTopology, AllMessages, HypotheticalCandidate,
-	NetworkBridgeEvent, StatementDistributionMessage,
+	network_bridge_event::NewGossipTopology, AllMessages, NetworkBridgeEvent,
+	StatementDistributionMessage,
 };
 use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
-use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash, ValidatorId, ValidatorIndex};
+use polkadot_primitives::{
+	AuthorityDiscoveryId, Block, CompactStatement, Hash, SignedStatement, SigningContext,
+	UncheckedSigned, ValidatorId, ValidatorIndex, ValidatorPair,
+};
 use polkadot_statement_distribution::StatementDistributionSubsystem;
 use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
 use sc_network::request_responses::ProtocolConfig;
 use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
+use sp_core::{Pair, H256};
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::RuntimeAppPublic;
 use std::{
@@ -99,22 +103,12 @@ fn build_overseer(
 	);
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
-	let mock_prospective_parachains = MockProspectiveParachains::new(
-		state
-			.commited_candidate_receipts
-			.values()
-			.map(|receipt| HypotheticalCandidate::Complete {
-				candidate_hash: receipt.hash(),
-				receipt: Arc::new(receipt.clone()),
-				persisted_validation_data: state.persisted_validation_data.clone(),
-			})
-			.collect(),
-	);
+	let mock_prospective_parachains = MockProspectiveParachains::new();
 	let (tx, rx) = mpsc::unbounded();
 	let mock_candidate_backing = MockCandidateBacking::new(
 		tx,
 		state.validator_pairs.get(NODE_UNDER_TEST as usize).unwrap().clone(),
-		state.persisted_validation_data.clone(),
+		state.pvd.clone(),
 	);
 	let (statement_req_receiver, statement_req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
@@ -228,6 +222,27 @@ pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopol
 	SessionGridTopology::new(shuffled, topology)
 }
 
+fn sign_statement(
+	statement: CompactStatement,
+	relay_parent: H256,
+	validator_index: ValidatorIndex,
+	pair: &ValidatorPair,
+) -> UncheckedSigned<CompactStatement> {
+	let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+	let payload = statement.signing_payload(&context);
+
+	SignedStatement::new(
+		statement,
+		validator_index,
+		pair.sign(&payload[..]),
+		&context,
+		&pair.public(),
+	)
+	.unwrap()
+	.as_unchecked()
+	.to_owned()
+}
+
 pub async fn benchmark_statement_distribution(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
@@ -252,7 +267,7 @@ pub async fn benchmark_statement_distribution(
 	}
 
 	let test_start = Instant::now();
-	for (index, block_info) in state.block_infos.iter().enumerate() {
+	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
 		gum::info!(target: LOG_TARGET, "Current block {}/{} {}", block_num, config.num_blocks, block_info.hash);
 		env.metrics().set_current_block(block_num);
@@ -265,8 +280,14 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(update).await;
 		}
 
-		let statement = state.seconded.get(index).unwrap().to_owned();
-		let candidate_hash = *statement.unchecked_payload().candidate_hash();
+		let candidate = state.candidate_receipts.get(&block_info.hash).unwrap().first().unwrap();
+		let candidate_hash = candidate.hash();
+		let statement = sign_statement(
+			CompactStatement::Seconded(candidate.hash()),
+			block_info.hash,
+			ValidatorIndex(1),
+			state.validator_pairs.get(1).unwrap(),
+		);
 		let message = AllMessages::StatementDistribution(
 			StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				*state.test_authorities.peer_ids.get((NODE_UNDER_TEST + 1) as usize).unwrap(),
