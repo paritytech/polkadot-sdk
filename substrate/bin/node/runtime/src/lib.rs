@@ -703,12 +703,16 @@ impl pallet_staking::Config for Runtime {
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
+parameter_types! {
+	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Strict;
+}
+
 impl pallet_stake_tracker::Config for Runtime {
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterList;
 	type TargetList = TargetList;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
