@@ -160,6 +160,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+        preservation: <a class="enum" href="../enum.Preservation.html" title="enum polkadot_sdk_frame::traits::tokens::Preservation">Preservation</a>,
         precision: <a class="enum" href="../enum.Precision.html" title="enum polkadot_sdk_frame::traits::tokens::Precision">Precision</a>,
         force: <a class="enum" href="../enum.Fortitude.html" title="enum polkadot_sdk_frame::traits::tokens::Fortitude">Fortitude</a>
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, <a class="enum" href="../../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt; { ... }
@@ -222,6 +223,7 @@ possible then an <code>Err</code> is returned and nothing is changed.</p>
     asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    preservation: <a class="enum" href="../enum.Preservation.html" title="enum polkadot_sdk_frame::traits::tokens::Preservation">Preservation</a>,
     precision: <a class="enum" href="../enum.Precision.html" title="enum polkadot_sdk_frame::traits::tokens::Precision">Precision</a>,
     force: <a class="enum" href="../enum.Fortitude.html" title="enum polkadot_sdk_frame::traits::tokens::Fortitude">Fortitude</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, <a class="enum" href="../../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Decrease the balance of <code>who</code> by at least <code>amount</code>, possibly slightly more in the case of

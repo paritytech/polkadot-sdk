@@ -1101,6 +1101,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#950" id="950">950</a>
 <a href="#951" id="951">951</a>
 <a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (Criterion) Parity Technologies (UK) Ltd.
@@ -1545,14 +1557,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		asset: <span class="self">Self</span>::AssetId,
 		who: <span class="kw-2">&amp;</span>AccountId,
 		amount: <span class="self">Self</span>::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
 		<span class="kw">match </span>Criterion::convert(asset) {
-			Left(()) =&gt;
-				&lt;Left <span class="kw">as </span>fungible::Mutate&lt;AccountId&gt;&gt;::burn_from(who, amount, precision, force),
-			Right(a) =&gt;
-				&lt;Right <span class="kw">as </span>fungibles::Mutate&lt;AccountId&gt;&gt;::burn_from(a, who, amount, precision, force),
+			Left(()) =&gt; &lt;Left <span class="kw">as </span>fungible::Mutate&lt;AccountId&gt;&gt;::burn_from(
+				who,
+				amount,
+				preservation,
+				precision,
+				force,
+			),
+			Right(a) =&gt; &lt;Right <span class="kw">as </span>fungibles::Mutate&lt;AccountId&gt;&gt;::burn_from(
+				a,
+				who,
+				amount,
+				preservation,
+				precision,
+				force,
+			),
 		}
 	}
 	<span class="kw">fn </span>shelve(

@@ -823,6 +823,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1108,16 +1110,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		asset: <span class="self">Self</span>::AssetId,
 		who: <span class="kw-2">&amp;</span>AccountId,
 		amount: <span class="self">Self</span>::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
-		<span class="kw">let </span>actual = <span class="self">Self</span>::reducible_balance(asset.clone(), who, Expendable, force).min(amount);
+		<span class="kw">let </span>actual = <span class="self">Self</span>::reducible_balance(asset.clone(), who, preservation, force).min(amount);
 		<span class="macro">ensure!</span>(actual == amount || precision == BestEffort, TokenError::FundsUnavailable);
 		<span class="self">Self</span>::total_issuance(asset.clone())
 			.checked_sub(<span class="kw-2">&amp;</span>actual)
 			.ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
 		<span class="kw">let </span>actual =
-			<span class="self">Self</span>::decrease_balance(asset.clone(), who, actual, BestEffort, Expendable, force)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::decrease_balance(asset.clone(), who, actual, BestEffort, preservation, force)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::set_total_issuance(
 			asset.clone(),
 			<span class="self">Self</span>::total_issuance(asset.clone()).saturating_sub(actual),
@@ -1217,7 +1220,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>set_balance(asset: <span class="self">Self</span>::AssetId, who: <span class="kw-2">&amp;</span>AccountId, amount: <span class="self">Self</span>::Balance) -&gt; <span class="self">Self</span>::Balance {
 		<span class="kw">let </span>b = <span class="self">Self</span>::balance(asset.clone(), who);
 		<span class="kw">if </span>b &gt; amount {
-			<span class="self">Self</span>::burn_from(asset, who, b - amount, BestEffort, Force).map(|d| b.saturating_sub(d))
+			<span class="self">Self</span>::burn_from(asset, who, b - amount, Expendable, BestEffort, Force)
+				.map(|d| b.saturating_sub(d))
 		} <span class="kw">else </span>{
 			<span class="self">Self</span>::mint_into(asset, who, amount - b).map(|d| b.saturating_add(d))
 		}

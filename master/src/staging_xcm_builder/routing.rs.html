@@ -324,6 +324,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -344,7 +369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>frame_system::unique;
 <span class="kw">use </span>parity_scale_codec::Encode;
-<span class="kw">use </span>sp_std::{marker::PhantomData, result::Result};
+<span class="kw">use </span>sp_std::{marker::PhantomData, result::Result, vec::Vec};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::{traits::FeeReason, FeesMode};
 
@@ -384,6 +409,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(ticket, unique_id) = ticket;
 		Inner::deliver(ticket)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(unique_id)
+	}
+}
+<span class="kw">impl</span>&lt;Inner: InspectMessageQueues&gt; InspectMessageQueues <span class="kw">for </span>WithUniqueTopic&lt;Inner&gt; {
+	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
+		Inner::get_messages()
 	}
 }
 
@@ -463,6 +493,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)* );
 		<span class="comment">// doing nothing
 		</span>(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+	}
+}
+
+<span class="doccomment">/// Inspects messages in queues.
+/// Meant to be used in runtime APIs, not in runtimes.
+</span><span class="kw">pub trait </span>InspectMessageQueues {
+	<span class="doccomment">/// Get queued messages and their destinations.
+	</span><span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt;;
+}
+
+<span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
+</span><span class="kw">impl </span>InspectMessageQueues <span class="kw">for </span>Tuple {
+	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>messages = Vec::new();
+
+		<span class="macro">for_tuples!</span>( #(
+			messages.append(<span class="kw-2">&amp;mut </span>Tuple::get_messages());
+		)* );
+
+		messages
 	}
 }
 

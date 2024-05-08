@@ -489,6 +489,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -509,7 +528,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>parity_scale_codec::Encode;
+<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>runtime_parachains::{
 	configuration::{<span class="self">self</span>, HostConfiguration},
@@ -518,6 +537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::FixedPointNumber;
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>xcm_builder::InspectMessageQueues;
 <span class="kw">use </span>SendError::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Simple value-bearing trait for determining/expressing the assets required to be paid for a
@@ -626,6 +646,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, para, blob)
 			.map(|()| hash)
 			.map_err(|<span class="kw">_</span>| SendError::Transport(<span class="kw-2">&amp;</span><span class="string">"Error placing into DMP queue"</span>))
+	}
+}
+
+<span class="kw">impl</span>&lt;T: dmp::Config, W, P&gt; InspectMessageQueues <span class="kw">for </span>ChildParachainRouter&lt;T, W, P&gt; {
+	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
+		dmp::DownwardMessageQueues::&lt;T&gt;::iter()
+			.map(|(para_id, messages)| {
+				<span class="kw">let </span>decoded_messages: Vec&lt;VersionedXcm&lt;()&gt;&gt; = messages
+					.iter()
+					.map(|downward_message| {
+						<span class="kw">let </span>message = VersionedXcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>downward_message.msg[..]).unwrap();
+						<span class="macro">log::trace!</span>(target: <span class="string">"xcm::DownwardMessageQueues::get_messages"</span>, <span class="string">"Message: {:?}, sent at: {:?}"</span>, message, downward_message.sent_at);
+						message
+					})
+					.collect();
+				(VersionedLocation::V4(Parachain(para_id.into()).into()), decoded_messages)
+			})
+			.collect()
 	}
 }
 

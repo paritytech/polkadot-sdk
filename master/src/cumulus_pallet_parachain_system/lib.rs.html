@@ -1910,6 +1910,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1759" id="1759">1759</a>
 <a href="#1760" id="1760">1760</a>
 <a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
+<a href="#1766" id="1766">1766</a>
+<a href="#1767" id="1767">1767</a>
+<a href="#1768" id="1768">1768</a>
+<a href="#1769" id="1769">1769</a>
+<a href="#1770" id="1770">1770</a>
+<a href="#1771" id="1771">1771</a>
+<a href="#1772" id="1772">1772</a>
+<a href="#1773" id="1773">1773</a>
+<a href="#1774" id="1774">1774</a>
+<a href="#1775" id="1775">1775</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1967,7 +1981,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 <span class="kw">use </span>sp_std::{cmp, collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
-<span class="kw">use </span>xcm::latest::XcmHash;
+<span class="kw">use </span>xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+<span class="kw">use </span>xcm_builder::InspectMessageQueues;
 
 <span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>migration;
@@ -3517,6 +3532,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; UpwardMessageSender <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>send_upward_message(message: UpwardMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(u32, XcmHash), MessageSendError&gt; {
 		<span class="self">Self</span>::send_upward_message(message)
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; InspectMessageQueues <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
+		<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
+
+		<span class="kw">let </span>messages: Vec&lt;VersionedXcm&lt;()&gt;&gt; = PendingUpwardMessages::&lt;T&gt;::get()
+			.iter()
+			.map(|encoded_message| VersionedXcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded_message[..]).unwrap())
+			.collect();
+
+		<span class="macro">vec!</span>[(VersionedLocation::V4(Parent.into()), messages)]
 	}
 }
 

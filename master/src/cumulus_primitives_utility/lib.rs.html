@@ -999,6 +999,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
 <a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1035,8 +1043,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SaturatedConversion,
 };
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
-<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, WrapVersion};
-<span class="kw">use </span>xcm_builder::TakeRevenue;
+<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedLocation, VersionedXcm, WrapVersion};
+<span class="kw">use </span>xcm_builder::{InspectMessageQueues, TakeRevenue};
 <span class="kw">use </span>xcm_executor::{
 	traits::{MatchesFungibles, TransactAsset, WeightTrader},
 	AssetsInHolding,
@@ -1091,6 +1099,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(hash)
+	}
+}
+
+<span class="kw">impl</span>&lt;T: UpwardMessageSender + InspectMessageQueues, W, P&gt; InspectMessageQueues
+	<span class="kw">for </span>ParentAsUmp&lt;T, W, P&gt;
+{
+	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
+		T::get_messages()
 	}
 }
 

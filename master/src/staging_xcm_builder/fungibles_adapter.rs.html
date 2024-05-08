@@ -551,6 +551,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -571,7 +576,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>frame_support::traits::{
 	tokens::{
-		fungibles, Fortitude::Polite, Precision::Exact, Preservation::Preserve, Provenance::Minted,
+		fungibles,
+		Fortitude::Polite,
+		Precision::Exact,
+		Preservation::{Expendable, Preserve},
+		Provenance::Minted,
 	},
 	Contains, Get,
 };
@@ -729,7 +738,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 	<span class="kw">fn </span>reduce_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
 		<span class="kw">let </span>checking_account = CheckingAccount::get();
-		<span class="kw">let </span>ok = Assets::burn_from(asset_id, <span class="kw-2">&amp;</span>checking_account, amount, Exact, Polite).is_ok();
+		<span class="kw">let </span>ok = Assets::burn_from(asset_id, <span class="kw-2">&amp;</span>checking_account, amount, Expendable, Exact, Polite)
+			.is_ok();
 		<span class="macro">debug_assert!</span>(ok, <span class="string">"`can_reduce_checked` must have returned `true` immediately prior; qed"</span>);
 	}
 }
@@ -848,7 +858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>(asset_id, amount) = Matcher::matches_fungibles(what)<span class="question-mark">?</span>;
 		<span class="kw">let </span>who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)<span class="question-mark">?</span>;
-		Assets::burn_from(asset_id, <span class="kw-2">&amp;</span>who, amount, Exact, Polite)
+		Assets::burn_from(asset_id, <span class="kw-2">&amp;</span>who, amount, Expendable, Exact, Polite)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(what.clone().into())
 	}

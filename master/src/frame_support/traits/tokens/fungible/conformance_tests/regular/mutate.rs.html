@@ -932,6 +932,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#781" id="781">781</a>
 <a href="#782" id="782">782</a>
 <a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1071,9 +1074,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Test: Burn an exact amount from the account
 	</span><span class="kw">let </span>amount_to_burn = T::Balance::from(<span class="number">5</span>);
+	<span class="kw">let </span>preservation = Preservation::Expendable;
 	<span class="kw">let </span>precision = Precision::Exact;
 	<span class="kw">let </span>force = Fortitude::Polite;
-	T::burn_from(<span class="kw-2">&amp;</span>account, amount_to_burn, precision, force).unwrap();
+	T::burn_from(<span class="kw-2">&amp;</span>account, amount_to_burn, preservation, precision, force).unwrap();
 
 	<span class="comment">// Verify: The balance and total issuance should be reduced by the burned amount
 	</span><span class="macro">assert_eq!</span>(T::balance(<span class="kw-2">&amp;</span>account), initial_balance - amount_to_burn);
@@ -1108,10 +1112,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Test: Burn a best effort amount from the account that is greater than the reducible
 	// balance
 	</span><span class="kw">let </span>amount_to_burn = reducible_balance + <span class="number">5</span>.into();
+	<span class="kw">let </span>preservation = Preservation::Expendable;
 	<span class="kw">let </span>precision = Precision::BestEffort;
 	<span class="macro">assert!</span>(amount_to_burn &gt; reducible_balance);
 	<span class="macro">assert!</span>(amount_to_burn &gt; T::balance(<span class="kw-2">&amp;</span>account));
-	T::burn_from(<span class="kw-2">&amp;</span>account, amount_to_burn, precision, force).unwrap();
+	T::burn_from(<span class="kw-2">&amp;</span>account, amount_to_burn, preservation, precision, force).unwrap();
 
 	<span class="comment">// Verify: The balance and total issuance should be reduced by the reducible_balance
 	</span><span class="macro">assert_eq!</span>(T::balance(<span class="kw-2">&amp;</span>account), initial_balance - reducible_balance);
@@ -1141,9 +1146,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Verify: Burn an amount greater than the account's balance with Exact precision returns
 	// Err
 	</span><span class="kw">let </span>amount_to_burn = initial_balance + <span class="number">10</span>.into();
+	<span class="kw">let </span>preservation = Preservation::Expendable;
 	<span class="kw">let </span>precision = Precision::Exact;
 	<span class="kw">let </span>force = Fortitude::Polite;
-	T::burn_from(<span class="kw-2">&amp;</span>account, amount_to_burn, precision, force).unwrap_err();
+	T::burn_from(<span class="kw-2">&amp;</span>account, amount_to_burn, preservation, precision, force).unwrap_err();
 
 	<span class="comment">// Verify: The balance and total issuance should remain unchanged
 	</span><span class="macro">assert_eq!</span>(T::balance(<span class="kw-2">&amp;</span>account), initial_balance);

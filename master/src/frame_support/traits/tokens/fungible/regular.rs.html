@@ -729,6 +729,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -985,19 +990,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(actual)
 	}
 
-	<span class="doccomment">/// Decrease the balance of `who` by at least `amount`, possibly slightly more in the case of
-	/// minimum-balance requirements, burning the tokens. If that isn't possible then an `Err` is
-	/// returned and nothing is changed. If successful, the amount of tokens reduced is returned.
+	<span class="doccomment">/// Attempt to decrease the balance of `who`, burning the tokens.
+	/// The actual amount burned is derived from the `amount`, `preservation`, `precision` and
+	/// `force`, and might end up being more, less or equal to the `amount` specified.
+	///
+	/// If the burn isn't possible then an `Err` is returned and nothing is changed.
+	/// If successful, the amount of tokens reduced is returned.
 	</span><span class="kw">fn </span>burn_from(
 		who: <span class="kw-2">&amp;</span>AccountId,
 		amount: <span class="self">Self</span>::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
-		<span class="kw">let </span>actual = <span class="self">Self</span>::reducible_balance(who, Expendable, force).min(amount);
+		<span class="kw">let </span>actual = <span class="self">Self</span>::reducible_balance(who, preservation, force).min(amount);
 		<span class="macro">ensure!</span>(actual == amount || precision == BestEffort, TokenError::FundsUnavailable);
 		<span class="self">Self</span>::total_issuance().checked_sub(<span class="kw-2">&amp;</span>actual).ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
-		<span class="kw">let </span>actual = <span class="self">Self</span>::decrease_balance(who, actual, BestEffort, Expendable, force)<span class="question-mark">?</span>;
+		<span class="kw">let </span>actual = <span class="self">Self</span>::decrease_balance(who, actual, BestEffort, preservation, force)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::set_total_issuance(<span class="self">Self</span>::total_issuance().saturating_sub(actual));
 		<span class="self">Self</span>::done_burn_from(who, actual);
 		<span class="prelude-val">Ok</span>(actual)
@@ -1073,7 +1082,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>set_balance(who: <span class="kw-2">&amp;</span>AccountId, amount: <span class="self">Self</span>::Balance) -&gt; <span class="self">Self</span>::Balance {
 		<span class="kw">let </span>b = <span class="self">Self</span>::balance(who);
 		<span class="kw">if </span>b &gt; amount {
-			<span class="self">Self</span>::burn_from(who, b - amount, BestEffort, Force).map(|d| b.saturating_sub(d))
+			<span class="self">Self</span>::burn_from(who, b - amount, Expendable, BestEffort, Force)
+				.map(|d| b.saturating_sub(d))
 		} <span class="kw">else </span>{
 			<span class="self">Self</span>::mint_into(who, amount - b).map(|d| b.saturating_add(d))
 		}

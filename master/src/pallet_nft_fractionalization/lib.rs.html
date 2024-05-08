@@ -633,7 +633,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				AssetId, Balance <span class="kw">as </span>AssetBalance,
 				Fortitude::Polite,
 				Precision::{BestEffort, Exact},
-				Preservation::Preserve,
+				Preservation::{Expendable, Preserve},
 			},
 		},
 		BoundedVec, PalletId,
@@ -932,7 +932,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			account: <span class="kw-2">&amp;</span>T::AccountId,
 			amount: AssetBalanceOf&lt;T&gt;,
 		) -&gt; DispatchResult {
-			T::Assets::burn_from(asset_id.clone(), account, amount, Exact, Polite)<span class="question-mark">?</span>;
+			T::Assets::burn_from(asset_id.clone(), account, amount, Expendable, Exact, Polite)<span class="question-mark">?</span>;
 			T::Assets::start_destroy(asset_id, <span class="prelude-val">None</span>)
 		}
 

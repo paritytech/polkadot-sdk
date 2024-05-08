@@ -1392,6 +1392,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1241" id="1241">1241</a>
 <a href="#1242" id="1242">1242</a>
 <a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
+<a href="#1245" id="1245">1245</a>
+<a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1430,6 +1439,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
 };
+
+<span class="kw">pub use </span>traits::RecordXcm;
 
 <span class="kw">mod </span>assets;
 <span class="kw">pub use </span>assets::AssetsInHolding;
@@ -1605,6 +1616,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"origin: {origin:?}, message: {message:?}, weight_credit: {weight_credit:?}"</span>,
 		);
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = Properties { weight_credit, message_id: <span class="prelude-val">None </span>};
+
+		<span class="comment">// We only want to record under certain conditions (mainly only during dry-running),
+		// so as to not degrade regular performance.
+		</span><span class="kw">if </span>Config::XcmRecorder::should_record() {
+			Config::XcmRecorder::record(message.clone().into());
+		}
+
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = Config::Barrier::should_execute(
 			<span class="kw-2">&amp;</span>origin,
 			message.inner_mut(),

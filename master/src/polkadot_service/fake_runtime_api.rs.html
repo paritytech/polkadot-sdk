@@ -567,6 +567,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -967,20 +977,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>query_acceptable_payment_assets(<span class="kw">_</span>: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, xcm_fee_payment_runtime_api::Error&gt; {
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>query_acceptable_payment_assets(<span class="kw">_</span>: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, xcm_fee_payment_runtime_api::fees::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>query_weight_to_asset_fee(<span class="kw">_</span>: Weight, <span class="kw">_</span>: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, xcm_fee_payment_runtime_api::Error&gt; {
+		<span class="kw">fn </span>query_weight_to_asset_fee(<span class="kw">_</span>: Weight, <span class="kw">_</span>: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, xcm_fee_payment_runtime_api::fees::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>query_xcm_weight(<span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, xcm_fee_payment_runtime_api::Error&gt; {
+		<span class="kw">fn </span>query_xcm_weight(<span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, xcm_fee_payment_runtime_api::fees::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>query_delivery_fees(<span class="kw">_</span>: VersionedLocation, <span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedAssets, xcm_fee_payment_runtime_api::Error&gt; {
+		<span class="kw">fn </span>query_delivery_fees(<span class="kw">_</span>: VersionedLocation, <span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedAssets, xcm_fee_payment_runtime_api::fees::Error&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+	}
+
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi&lt;Block, (), ()&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>dry_run_extrinsic(<span class="kw">_</span>: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_fee_payment_runtime_api::dry_run::ExtrinsicDryRunEffects&lt;()&gt;, xcm_fee_payment_runtime_api::dry_run::Error&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>dry_run_xcm(<span class="kw">_</span>: VersionedLocation, <span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_fee_payment_runtime_api::dry_run::XcmDryRunEffects&lt;()&gt;, xcm_fee_payment_runtime_api::dry_run::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 	}

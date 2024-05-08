@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"trait":["XcmPaymentApi"]};
+window.SIDEBAR_ITEMS = {"mod":["dry_run","fees"]};

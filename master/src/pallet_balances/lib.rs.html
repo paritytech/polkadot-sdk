@@ -1325,6 +1325,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1174" id="1174">1174</a>
 <a href="#1175" id="1175">1175</a>
 <a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2092,6 +2118,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::TotalIssuanceForced { old, new });
 
+			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="doccomment">/// Burn the specified liquid free balance from the origin account.
+		///
+		/// If the origin's account ends up below the existential deposit as a result
+		/// of the burn and `keep_alive` is false, the account will be reaped.
+		///
+		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
+		/// this `burn` operation will reduce total issuance by the amount _burned_.
+		</span><span class="attr">#[pallet::call_index(<span class="number">10</span>)]
+		#[pallet::weight(<span class="kw">if </span><span class="kw-2">*</span>keep_alive {T::WeightInfo::burn_allow_death() } <span class="kw">else </span>{T::WeightInfo::burn_keep_alive()})]
+		</span><span class="kw">pub fn </span>burn(
+			origin: OriginFor&lt;T&gt;,
+			<span class="attr">#[pallet::compact] </span>value: T::Balance,
+			keep_alive: bool,
+		) -&gt; DispatchResult {
+			<span class="kw">let </span>source = ensure_signed(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>preservation = <span class="kw">if </span>keep_alive { Preserve } <span class="kw">else </span>{ Expendable };
+			&lt;<span class="self">Self </span><span class="kw">as </span>fungible::Mutate&lt;<span class="kw">_</span>&gt;&gt;::burn_from(
+				<span class="kw-2">&amp;</span>source,
+				value,
+				preservation,
+				Precision::Exact,
+				Polite,
+			)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 	}

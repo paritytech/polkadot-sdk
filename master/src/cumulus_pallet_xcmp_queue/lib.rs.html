@@ -1121,6 +1121,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#970" id="970">970</a>
 <a href="#971" id="971">971</a>
 <a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1193,7 +1226,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::MAX_POSSIBLE_ALLOCATION;
 <span class="kw">use </span>sp_runtime::{FixedU128, RuntimeDebug, Saturating};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+<span class="kw">use </span>xcm_builder::InspectMessageQueues;
 <span class="kw">use </span>xcm_executor::traits::ConvertOrigin;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -2067,6 +2101,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(SendError::Transport(e.into()))
 			},
 		}
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; InspectMessageQueues <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
+		<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
+
+		OutboundXcmpMessages::&lt;T&gt;::iter()
+			.map(|(para_id, <span class="kw">_</span>, messages)| {
+				<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="kw-2">&amp;</span>messages[..];
+				<span class="kw">let </span>decoded_format =
+					XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, <span class="kw-2">&amp;mut </span>data)
+						.unwrap();
+				<span class="kw">if </span>decoded_format != XcmpMessageFormat::ConcatenatedVersionedXcm {
+					<span class="macro">panic!</span>(<span class="string">"Unexpected format."</span>)
+				}
+				<span class="kw">let </span><span class="kw-2">mut </span>decoded_messages = Vec::new();
+				<span class="kw">while </span>!data.is_empty() {
+					<span class="kw">let </span>decoded_message = VersionedXcm::&lt;()&gt;::decode_with_depth_limit(
+						MAX_XCM_DECODE_DEPTH,
+						<span class="kw-2">&amp;mut </span>data,
+					)
+					.unwrap();
+					decoded_messages.push(decoded_message);
+				}
+
+				(
+					VersionedLocation::V4((Parent, Parachain(para_id.into())).into()),
+					decoded_messages,
+				)
+			})
+			.collect()
 	}
 }
 

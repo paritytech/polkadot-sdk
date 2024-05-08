@@ -216,6 +216,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -267,7 +269,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>hrmp::{
 	HandleHrmpChannelAccepted, HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest,
 };
+<span class="kw">mod </span>record_xcm;
 <span class="kw">mod </span>weight;
+<span class="kw">pub use </span>record_xcm::RecordXcm;
 <span class="attr">#[deprecated = <span class="string">"Use `sp_runtime::traits::` instead"</span>]
 </span><span class="kw">pub use </span>sp_runtime::traits::{Identity, TryConvertInto <span class="kw">as </span>JustTry};
 <span class="kw">pub use </span>weight::{WeightBounds, WeightTrader};

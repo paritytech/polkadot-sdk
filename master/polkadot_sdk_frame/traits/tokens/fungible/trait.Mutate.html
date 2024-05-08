@@ -158,6 +158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="item-spacer"></span>    fn <a href="#method.burn_from" class="fn">burn_from</a>(
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>,
+        preservation: <a class="enum" href="../enum.Preservation.html" title="enum polkadot_sdk_frame::traits::tokens::Preservation">Preservation</a>,
         precision: <a class="enum" href="../enum.Precision.html" title="enum polkadot_sdk_frame::traits::tokens::Precision">Precision</a>,
         force: <a class="enum" href="../enum.Fortitude.html" title="enum polkadot_sdk_frame::traits::tokens::Fortitude">Fortitude</a>
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>, <a class="enum" href="../../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt; { ... }
@@ -194,11 +195,14 @@ possible then an <code>Err</code> is returned and nothing is changed.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.burn_from" class="method"><h4 class="code-header">fn <a href="#method.burn_from" class="fn">burn_from</a>(
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>,
+    preservation: <a class="enum" href="../enum.Preservation.html" title="enum polkadot_sdk_frame::traits::tokens::Preservation">Preservation</a>,
     precision: <a class="enum" href="../enum.Precision.html" title="enum polkadot_sdk_frame::traits::tokens::Precision">Precision</a>,
     force: <a class="enum" href="../enum.Fortitude.html" title="enum polkadot_sdk_frame::traits::tokens::Fortitude">Fortitude</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>, <a class="enum" href="../../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Decrease the balance of <code>who</code> by at least <code>amount</code>, possibly slightly more in the case of
-minimum-balance requirements, burning the tokens. If that isn’t possible then an <code>Err</code> is
-returned and nothing is changed. If successful, the amount of tokens reduced is returned.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>, <a class="enum" href="../../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Attempt to decrease the balance of <code>who</code>, burning the tokens.
+The actual amount burned is derived from the <code>amount</code>, <code>preservation</code>, <code>precision</code> and
+<code>force</code>, and might end up being more, less or equal to the <code>amount</code> specified.</p>
+<p>If the burn isn’t possible then an <code>Err</code> is returned and nothing is changed.
+If successful, the amount of tokens reduced is returned.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.shelve" class="method"><h4 class="code-header">fn <a href="#method.shelve" class="fn">shelve</a>(
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>

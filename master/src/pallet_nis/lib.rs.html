@@ -1305,6 +1305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1154" id="1154">1154</a>
 <a href="#1155" id="1155">1155</a>
 <a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2115,7 +2116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(summary.thawed &lt;= throttle, Error::&lt;T&gt;::Throttled);
 
 			<span class="kw">let </span>cp_amount = T::CounterpartAmount::convert(receipt.proportion);
-			T::Counterpart::burn_from(<span class="kw-2">&amp;</span>who, cp_amount, Exact, Polite)<span class="question-mark">?</span>;
+			T::Counterpart::burn_from(<span class="kw-2">&amp;</span>who, cp_amount, Expendable, Exact, Polite)<span class="question-mark">?</span>;
 
 			<span class="comment">// Multiply the proportion it is by the total issued.
 			</span><span class="kw">let </span>our_account = <span class="self">Self</span>::account_id();
@@ -2204,6 +2205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>T::Counterpart::burn_from(
 				<span class="kw-2">&amp;</span>who,
 				T::CounterpartAmount::convert(receipt.proportion),
+				Expendable,
 				Exact,
 				Polite,
 			)<span class="question-mark">?</span>;

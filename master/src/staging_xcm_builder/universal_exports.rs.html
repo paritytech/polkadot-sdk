@@ -847,6 +847,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#696" id="696">696</a>
 <a href="#697" id="697">697</a>
 <a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -865,7 +874,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Traits and utilities to help with origin mutation and bridging.
 
-</span><span class="kw">use </span>frame_support::{ensure, traits::Get};
+</span><span class="kw">use </span><span class="kw">crate</span>::InspectMessageQueues;
+<span class="kw">use </span>frame_support::{ensure, traits::Get};
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>sp_std::{convert::TryInto, marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
@@ -1181,6 +1191,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>deliver(ticket: Router::Ticket) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
 		Router::deliver(ticket)
+	}
+}
+
+<span class="kw">impl</span>&lt;Bridges, Router: InspectMessageQueues, UniversalLocation&gt; InspectMessageQueues
+	<span class="kw">for </span>SovereignPaidRemoteExporter&lt;Bridges, Router, UniversalLocation&gt;
+{
+	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
+		Router::get_messages()
 	}
 }
 

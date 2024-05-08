@@ -1468,6 +1468,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1317" id="1317">1317</a>
 <a href="#1318" id="1318">1318</a>
 <a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2066,7 +2073,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="comment">// burn the provided lp token amount that includes the fee
-			</span>T::PoolAssets::burn_from(pool.lp_token.clone(), <span class="kw-2">&amp;</span>sender, lp_token_burn, Exact, Polite)<span class="question-mark">?</span>;
+			</span>T::PoolAssets::burn_from(
+				pool.lp_token.clone(),
+				<span class="kw-2">&amp;</span>sender,
+				lp_token_burn,
+				Expendable,
+				Exact,
+				Polite,
+			)<span class="question-mark">?</span>;
 
 			T::Assets::transfer(<span class="kw-2">*</span>asset1, <span class="kw-2">&amp;</span>pool_account, <span class="kw-2">&amp;</span>withdraw_to, amount1, Expendable)<span class="question-mark">?</span>;
 			T::Assets::transfer(<span class="kw-2">*</span>asset2, <span class="kw-2">&amp;</span>pool_account, <span class="kw-2">&amp;</span>withdraw_to, amount2, Expendable)<span class="question-mark">?</span>;

@@ -631,7 +631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The downward messages addressed for a certain para.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>DownwardMessageQueues&lt;T: Config&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>DownwardMessageQueues&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		ParaId,

@@ -480,6 +480,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -730,6 +733,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::DepositAsset::burn_from(
 					<span class="kw-2">&amp;</span>depositor,
 					deposit + deposit_asset_ed,
+					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
 				)<span class="question-mark">?</span>;
@@ -742,6 +746,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::DepositAsset::burn_from(
 					<span class="kw-2">&amp;</span>depositor,
 					deposit + deposit_asset_ed,
+					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
 				)<span class="question-mark">?</span>;
@@ -754,6 +759,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::DepositAsset::burn_from(
 					<span class="kw-2">&amp;</span>depositor,
 					deposit + deposit_asset_ed,
+					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
 				)<span class="question-mark">?</span>;

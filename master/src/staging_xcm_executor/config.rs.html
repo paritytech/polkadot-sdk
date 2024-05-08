@@ -274,6 +274,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -293,8 +295,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::traits::{
 	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
 	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
-	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
-	VersionChangeNotifier, WeightBounds, WeightTrader,
+	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, RecordXcm, ShouldExecute,
+	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 <span class="kw">use </span>frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
@@ -398,6 +400,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
 	<span class="doccomment">/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
 	</span><span class="kw">type </span>HrmpChannelClosingHandler: HandleHrmpChannelClosing;
+	<span class="doccomment">/// Allows recording the last executed XCM (used by dry-run runtime APIs).
+	</span><span class="kw">type </span>XcmRecorder: RecordXcm;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
