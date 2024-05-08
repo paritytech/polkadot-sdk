@@ -27,6 +27,7 @@ use alloc::vec::Vec;
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::crypto::KeyTypeId;
+use sp_inherents::{InherentIdentifier, MakeFatalError};
 use sp_runtime::{ConsensusEngineId, RuntimeDebug};
 
 pub use sp_consensus_slots::{Slot, SlotDuration};
@@ -46,6 +47,15 @@ mod app {
 	use sp_application_crypto::{app_crypto, bandersnatch, key_types::SASSAFRAS};
 	app_crypto!(bandersnatch, SASSAFRAS);
 }
+
+/// Errors that can occur while checking the  inherent.
+pub type InherentError = MakeFatalError<()>;
+
+/// The type of the inherent
+pub type InherentType = Vec<TicketEnvelope>;
+
+/// The identifier for the protocol inherent.
+pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"SASSAFRA";
 
 /// Key type identifier.
 pub const KEY_TYPE: KeyTypeId = sp_application_crypto::key_types::SASSAFRAS;

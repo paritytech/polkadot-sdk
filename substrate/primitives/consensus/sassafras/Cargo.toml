@@ -25,6 +25,7 @@ sp-api = { path = "../../api", default-features = false }
 sp-application-crypto = { path = "../../application-crypto", default-features = false, features = ["bandersnatch-experimental"] }
 sp-consensus-slots = { path = "../slots", default-features = false }
 sp-core = { path = "../../core", default-features = false, features = ["bandersnatch-experimental"] }
+sp-inherents = { path = "../../inherents", default-features = false }
 sp-runtime = { path = "../../runtime", default-features = false }
 
 [features]
@@ -37,6 +38,7 @@ std = [
 	"sp-application-crypto/std",
 	"sp-consensus-slots/std",
 	"sp-core/std",
+	"sp-inherents/std",
 	"sp-runtime/std",
 ]
 

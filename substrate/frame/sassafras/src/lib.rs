@@ -55,8 +55,9 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_consensus_sassafras::{
 	digests::{ConsensusLog, NextEpochDescriptor, SlotClaim},
-	vrf, AuthorityId, Configuration, Epoch, Randomness, Slot, TicketBody, TicketEnvelope, TicketId,
-	RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
+	vrf, AuthorityId, Configuration, Epoch, InherentError, InherentType, Randomness, Slot,
+	TicketBody, TicketEnvelope, TicketId, INHERENT_IDENTIFIER, RANDOMNESS_LENGTH,
+	SASSAFRAS_ENGINE_ID,
 };
 use sp_io::hashing;
 use sp_runtime::{
@@ -402,42 +403,24 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
+	#[pallet::inherent]
+	impl<T: Config> ProvideInherent for Pallet<T> {
 		type Call = Call<T>;
+		type Error = InherentError;
+		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			let Call::submit_tickets { tickets } = call else {
-				return InvalidTransaction::Call.into()
-			};
+		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
+			let tickets = data
+				.get_data::<InherentType>(&INHERENT_IDENTIFIER)
+				.expect("Sassafras inherent data not correctly encoded")
+				.expect("Sassafras inherent data must be provided");
 
-			// Discard tickets not coming from the local node or that are not included in a block
-			if source == TransactionSource::External {
-				warn!(
-					target: LOG_TARGET,
-					"Rejecting unsigned `submit_tickets` transaction from external source",
-				);
-				return InvalidTransaction::BadSigner.into()
-			}
+			let tickets = BoundedVec::truncate_from(tickets);
+			Some(Call::submit_tickets { tickets })
+		}
 
-			// Current slot should be less than half of epoch length.
-			let epoch_length = T::EpochLength::get();
-			let current_slot_idx = Self::current_slot_index();
-			if current_slot_idx > epoch_length / 2 {
-				warn!(target: LOG_TARGET, "Tickets shall be proposed in the first epoch half",);
-				return InvalidTransaction::Stale.into()
-			}
-
-			// This should be set such that it is discarded after the first epoch half
-			let tickets_longevity = epoch_length / 2 - current_slot_idx;
-			let tickets_tag = tickets.using_encoded(|bytes| hashing::blake2_256(bytes));
-
-			ValidTransaction::with_tag_prefix("Sassafras")
-				.priority(TransactionPriority::max_value())
-				.longevity(tickets_longevity as u64)
-				.and_provides(tickets_tag)
-				.propagate(true)
-				.build()
+		fn is_inherent(call: &Self::Call) -> bool {
+			matches!(call, Call::submit_tickets { .. })
 		}
 	}
 }
