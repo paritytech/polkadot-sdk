@@ -1,7 +1,5 @@
-use crate::{
-	cli::{Cli, RelayChainCli, Subcommand},
-	service::parachain_service::new_partial,
-};
+use crate::cli::{Cli, RelayChainCli, Subcommand};
+use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::ParaId;
 use log::info;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
@@ -139,19 +137,8 @@ impl SubstrateCli for RelayChainCli {
 	}
 }
 
-macro_rules! construct_async_run {
-	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
-		let runner = $cli.create_runner($cmd)?;
-		runner.async_run(|$config| {
-			let $components = new_partial(&$config)?;
-			let task_manager = $components.task_manager;
-			{ $( $code )* }.map(|v| (v, task_manager))
-		})
-	}}
-}
-
 /// Parse command line arguments into service configuration.
-pub fn run(builder_info: crate::builder::Builder) -> Result<()> {
+pub fn run(builder_config: crate::builder::Builder) -> Result<()> {
 	let cli = Cli::from_args();
 
 	match &cli.subcommand {
@@ -160,29 +147,19 @@ pub fn run(builder_info: crate::builder::Builder) -> Result<()> {
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		},
 		Some(Subcommand::CheckBlock(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.import_queue))
-			})
+			todo!();
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, config.database))
-			})
+			todo!();
 		},
 		Some(Subcommand::ExportState(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, config.chain_spec))
-			})
+			todo!();
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.import_queue))
-			})
+			todo!();
 		},
 		Some(Subcommand::Revert(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.backend, None))
-			})
+			todo!();
 		},
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -206,8 +183,14 @@ pub fn run(builder_info: crate::builder::Builder) -> Result<()> {
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
-				let partials = new_partial(&config)?;
-
+				let partials = cumulus_service::new_partial(
+					&config,
+					cumulus_service::aura::build_import_queue::<
+						crate::service::parachain_service::Block,
+						crate::service::parachain_service::RuntimeApi,
+						crate::service::parachain_service::HostFunctions,
+					>,
+				)?;
 				cmd.run(partials.client)
 			})
 		},
@@ -223,6 +206,10 @@ pub fn run(builder_info: crate::builder::Builder) -> Result<()> {
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {
+				if let Some(on_load_fn) = builder_config.on_service_load {
+					on_load_fn(&config, Some(collator_options))?;
+				}
+
 				let hwbench = (!cli.no_hardware_benchmarks)
 					.then_some(config.database.path().map(|database_path| {
 						let _ = std::fs::create_dir_all(database_path);
@@ -240,6 +227,8 @@ pub fn run(builder_info: crate::builder::Builder) -> Result<()> {
 					[RelayChainCli::executable_name()].iter().chain(cli.relay_chain_args.iter()),
 				);
 
+				// TODO: for a parachain that does not use our `MultiAddress`, this will be an
+				// issue.
 				let parachain_account =
 					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
 						&id,
@@ -250,19 +239,31 @@ pub fn run(builder_info: crate::builder::Builder) -> Result<()> {
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
+				info!("Parachain id: {:?}", id);
 				info!("Parachain Account: {parachain_account}");
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				crate::service::parachain_service::start_parachain_node(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0)
-				.map_err(Into::into)
+				use crate::builder::{NodeType, ParachainConsensus, SolochainConsensus};
+				match builder_config.node_type {
+					NodeType::Parachain(parachain_builder_config) =>
+						match parachain_builder_config.consensus {
+							ParachainConsensus::Relay(block_time) => {
+								todo!("call into start_node_impl using fns from cumulus_service");
+							},
+							ParachainConsensus::Aura(block_time) => {
+								todo!("call into start_node_impl using fns from cumulus_service");
+							},
+							ParachainConsensus::AuraAsyncBacking(block_time) => {
+								todo!("call into start_node_impl using fns from cumulus_service");
+							},
+							ParachainConsensus::RelayToAura(block_time) => {
+								todo!("call into start_node_impl using fns from cumulus_service");
+							},
+						},
+					NodeType::Solochain(config) => {
+						todo!();
+					},
+				}
 			})
 		},
 	}

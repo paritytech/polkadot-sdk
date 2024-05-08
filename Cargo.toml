@@ -120,7 +120,6 @@ members = [
 	"cumulus/parachains/runtimes/test-utils",
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
-	"cumulus/polkadot-omni-parachain",
 	"cumulus/polkadot-parachain",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
@@ -518,6 +517,8 @@ members = [
 	"omni-nodes/solochain",
 	"omni-nodes/parachain",
 	"omni-nodes/common",
+
+	"cumulus/service",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]
 

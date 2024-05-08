@@ -6,6 +6,7 @@
 #![warn(missing_docs)]
 
 use crate::standards::{AccountId, Balance, Nonce, OpaqueBlock as Block};
+use jsonrpsee::RpcModule;
 pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;

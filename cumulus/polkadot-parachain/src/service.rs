@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi, rpc};
 use codec::{Codec, Decode};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
@@ -25,6 +26,7 @@ use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
 use cumulus_client_consensus_proposer::Proposer;
+use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::old_consensus;
 use cumulus_client_service::{
@@ -36,16 +38,10 @@ use cumulus_primitives_core::{
 	ParaId,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use sc_rpc::DenyUnsafe;
-use sp_core::Pair;
-
-use jsonrpsee::RpcModule;
-
-use crate::{fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi, rpc};
-pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Header, Nonce};
-
-use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use futures::{lock::Mutex, prelude::*};
+use jsonrpsee::RpcModule;
+pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Header, Nonce};
+use polkadot_primitives::CollatorPair;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, ImportQueue,
@@ -53,11 +49,12 @@ use sc_consensus::{
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBlock};
 use sc_network_sync::SyncingService;
+use sc_rpc::DenyUnsafe;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
 use sp_consensus_aura::AuraApi;
-use sp_core::traits::SpawnEssentialNamed;
+use sp_core::{traits::SpawnEssentialNamed, Pair};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	app_crypto::AppCrypto,
@@ -65,8 +62,6 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
-
-use polkadot_primitives::CollatorPair;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = cumulus_client_service::ParachainHostFunctions;

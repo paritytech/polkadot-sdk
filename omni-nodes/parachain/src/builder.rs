@@ -1,114 +1,128 @@
 //! This file is in essence a code-level parameterization of the `service.rs` file.
 
+use crate::{rpc::DenyUnsafe, standards::OpaqueBlock as Block};
 use cumulus_client_cli::CollatorOptions;
+use omni_node_common::fake_runtime::RuntimeApi;
+use std::sync::Arc;
 
-use crate::command;
+use crate::{command, rpc};
 
-type RpcTraitObj = ();
-
-/// Variants of the block authoring we can support.
-pub enum Authoring {
+pub enum SolochainConsensus {
 	ManualSeal(Option<u32>),
 	InstantSeal,
 	Aura,
 	Babe,
 	PoW,
-	FreeForAll,
 }
 
-pub enum Finality {
-	/// No finality.
+pub enum SolochainFinality {
 	None,
-	/// Grandpa finality.
 	Grandpa,
-	/// Relay chain finality is our finality.
-	RelayChain,
 }
 
-/// The types of node that can be produced. Some option might possibly not be compatible with
-/// [`NodeType`]s.
+pub struct SolochainConfig {
+	pub consensus: SolochainConsensus,
+	pub finality: SolochainFinality,
+	pub shared: SharedConfig,
+}
+
+pub enum ParachainConsensus {
+	Relay(u64),
+	Aura(u64),
+	AuraAsyncBacking(u64),
+	RelayToAura(u64),
+}
+
+pub struct ParachainConfig {
+	pub shared: SharedConfig,
+	pub consensus: ParachainConsensus,
+}
+
+pub struct SharedConfig {
+	pub rpc_extensions: Vec<RpcExtensionFn>,
+}
+
 pub enum NodeType {
-	/// A node that is a solochain. Standard, bare-bone blockchain stuff, fueled by the
-	/// polkadot-sdk crates.
-	Solochain,
-	/// A parachain node. This will run the node with all the cumulus related crates to make it a
-	/// collator.
-	Parachain,
+	Solochain(SolochainConfig),
+	Parachain(ParachainConfig),
 }
 
-/// Environment of the node. Helps heuristically prevent mistaken configurations, such as using
-/// [`Authoring::InstantSeal`] in [`Env::Production`].
-pub enum Env {
-	Testing,
-	Production,
-}
-
-pub struct Builder {
-	node_type: NodeType,
-
-	authoring: Authoring,
-	finality: Finality,
-	parachain_consensus: ParachainConsensus,
-	on_load: Option<
-		Box<dyn FnOnce(sc_service::Configuration, CollatorOptions) -> Result<(), sc_cli::Error>>,
+pub type RpcExtensionFn = Box<
+	dyn cumulus_service::BuildRpcExtension<
+		crate::service::parachain_service::Block,
+		crate::service::parachain_service::RuntimeApi,
+		crate::service::parachain_service::HostFunctions,
 	>,
+>;
 
-	extra_rpcs: Vec<Box<RpcTraitObj>>,
-
-	offchain_worker: bool,
-	prometheus: bool,
-	telemetry: bool,
+// TODO: for now it is all public, but then extend this with a nice "typed-builder" pattern
+pub struct Builder {
+	/// A hook injected into the service creation process.
+	pub on_service_load: Option<OnServiceLoadObj>,
+	pub node_type: NodeType,
 }
 
 impl Default for Builder {
 	fn default() -> Self {
 		Self {
-			authoring: Authoring::ManualSeal(Some(1000)),
-			finality: Finality::None,
-
-			offchain_worker: false,
-			parachain_consensus: ParachainConsensus::Relay,
-			on_load: None,
-
-			prometheus: false,
-			telemetry: false,
-
-			node_type: NodeType::Solochain,
-			extra_rpcs: Default::default(),
+			on_service_load: None,
+			node_type: NodeType::Parachain(ParachainConfig {
+				shared: SharedConfig { rpc_extensions: vec![] },
+				consensus: ParachainConsensus::Aura(12_000),
+			}),
 		}
 	}
 }
 
-pub enum ParachainConsensus {
-	Relay,
-	Aura,
-	RelayAndAura,
-	FreeForAll,
-}
+pub type OnServiceLoadObj = Box<
+	dyn FnOnce(&sc_service::Configuration, Option<CollatorOptions>) -> Result<(), sc_cli::Error>,
+>;
 
 impl Builder {
 	// TODO: for now this is both `build` and `run`. `
-	pub fn build_and_run(self) -> sc_cli::Result<()> {
-		self.validate();
-		command::run(self)
+	pub fn build(self) -> sc_cli::Result<Node> {
+		self.validate()?;
+		Ok(Node { builder: self })
 	}
 
-	pub fn consensus(mut self, consensus: ParachainConsensus) -> Self {
-		self.parachain_consensus = consensus;
+	pub fn on_service_load(mut self, on_load: OnServiceLoadObj) -> Self {
+		self.on_service_load = Some(on_load);
 		self
 	}
 
-	pub fn on_load(
-		mut self,
-		on_load: Box<
-			dyn FnOnce(sc_service::Configuration, CollatorOptions) -> Result<(), sc_cli::Error>,
-		>,
-	) -> Self {
-		self.on_load = Some(on_load);
+	pub fn node_type(mut self, node_type: NodeType) -> Self {
+		self.node_type = node_type;
 		self
 	}
 
-	fn validate(&self) -> Result<(), ()> {
+	pub fn extend_rpc(mut self, extension: RpcExtensionFn) -> Self {
+		match &mut self.node_type {
+			NodeType::Parachain(config) => {
+				config.shared.rpc_extensions.push(extension);
+			},
+			NodeType::Solochain(config) => {
+				config.shared.rpc_extensions.push(extension);
+			},
+		}
+		self
+	}
+
+	fn validate(&self) -> sc_cli::Result<()> {
+		// TODO: anything that might need checking here.
 		Ok(())
+	}
+}
+
+pub struct Node {
+	// TODO: this should be a subset of the `Builder` struct that we actually need, but for now
+	// lazily we pass it all here :D
+	pub builder: Builder,
+}
+
+impl Node {
+	pub fn run(self) -> sc_cli::Result<()> {
+		// TODO: similar to above, probably don't pass all of this in, but re-architect the `fn run`
+		// a bit nicer, probably more like `struct RunParams`.
+		command::run(self.builder)
 	}
 }
