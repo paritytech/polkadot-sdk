@@ -91,6 +91,10 @@ pub mod pallet {
 			ParachainId::<T>::get()
 		}
 
+		pub fn received_dmp() -> Vec<Xcm<T::RuntimeCall>> {
+			ReceivedDmp::<T>::get()
+		}
+
 		fn handle_xcmp_message(
 			sender: ParaId,
 			_sent_at: RelayBlockNumber,
