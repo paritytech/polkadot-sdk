@@ -4,10 +4,9 @@ version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "paritytech.github.io"
+homepage = "https://paritytech.github.io"
 repository.workspace = true
 description = "Experimental: The single package to get you started with building frame pallets and runtimes"
-publish = false
 
 [lints]
 workspace = true

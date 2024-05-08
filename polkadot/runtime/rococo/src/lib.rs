@@ -1046,6 +1046,7 @@ impl parachains_hrmp::Config for Runtime {
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,
 	>;
+	type VersionWrapper = crate::XcmPallet;
 	type WeightInfo = weights::runtime_parachains_hrmp::WeightInfo<Runtime>;
 }
 

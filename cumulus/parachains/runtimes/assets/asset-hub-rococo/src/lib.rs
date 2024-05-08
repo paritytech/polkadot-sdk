@@ -1753,12 +1753,10 @@ fn ensure_key_ss58() {
 	use sp_core::crypto::Ss58Codec;
 	let acc =
 		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
-	//panic!("{:x?}", acc);
 	assert_eq!(acc, MigController::sorted_members()[0]);
 	let acc =
 		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
 	assert_eq!(acc, RootMigController::sorted_members()[0]);
-	//panic!("{:x?}", acc);
 }
 
 #[cfg(test)]
