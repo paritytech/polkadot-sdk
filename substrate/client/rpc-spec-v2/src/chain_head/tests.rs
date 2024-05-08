@@ -3714,16 +3714,8 @@ async fn follow_unique_pruned_blocks() {
 	// The chainHead will see block 5 as the best block. However, the
 	// client will finalize the block 6, which is on another fork.
 	//
-	// When the block 6 is finalized, block 2 block 3 block 4 and block 5 are placed on an invalid
-	// fork. However, pruning of blocks happens on level N - 1.
-	// Therefore, no pruned blocks are reported yet.
+	// When the block 6 is finalized all blocks from the stale forks (2, 3, 4, 5) are pruned.
 	//
-	// When the block 7 is finalized, block 3 is detected as stale. At this step, block 2 and 3
-	// are reported as pruned.
-	//
-	// When the block 8 is finalized, block 5 block 4 and block 2 are detected as stale. However,
-	// only blocks 5 and 4 are reported as pruned. This is because the block 2 was previously
-	// reported.
 
 	// Initial setup steps:
 	let block_1_hash =
@@ -3776,7 +3768,7 @@ async fn follow_unique_pruned_blocks() {
 	});
 	assert_eq!(event, expected);
 
-	// Block 2 must be reported as pruned, even if it was the previous best.
+	// All blocks from stale forks are pruned when we finalize block 6.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
@@ -3784,7 +3776,12 @@ async fn follow_unique_pruned_blocks() {
 			format!("{:?}", block_2_f_hash),
 			format!("{:?}", block_6_hash),
 		],
-		pruned_block_hashes: vec![],
+		pruned_block_hashes: vec![
+			format!("{:?}", block_2_hash),
+			format!("{:?}", block_3_hash),
+			format!("{:?}", block_4_hash),
+			format!("{:?}", block_5_hash),
+		],
 	});
 	assert_eq!(event, expected);
 
@@ -3802,9 +3799,10 @@ async fn follow_unique_pruned_blocks() {
 	client.finalize_block(block_7_hash, None).unwrap();
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	// All necessary blocks were pruned on block 6 finalization.
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_7_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_2_hash), format!("{:?}", block_3_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 
@@ -3815,10 +3813,11 @@ async fn follow_unique_pruned_blocks() {
 	// Finalize the block 8.
 	client.finalize_block(block_8_hash, None).unwrap();
 
+	// All necessary blocks were pruned on block 6 finalization.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_8_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_4_hash), format!("{:?}", block_5_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 }
