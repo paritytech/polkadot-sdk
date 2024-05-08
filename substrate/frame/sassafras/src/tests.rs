@@ -20,8 +20,8 @@
 use crate::*;
 use mock::*;
 
-use frame_support::dispatch::DispatchErrorWithPostInfo;
 use sp_consensus_sassafras::Slot;
+use sp_runtime::DispatchError;
 
 const TICKETS_FILE: &str = "src/data/tickets.bin";
 
@@ -630,7 +630,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 		let mut chunk = chunks[2].clone();
 		chunk[0].body.attempt_idx += 1;
 		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunk).unwrap_err();
-		assert_eq!(e, DispatchErrorWithPostInfo::from(Error::<Test>::TicketBadProof));
+		assert_eq!(e, DispatchError::from(Error::<Test>::TicketBadProof));
 		assert_eq!(TicketsAccumulator::<Test>::count(), 0);
 
 		// Start submitting from the mid valued chunks.
@@ -643,7 +643,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 
 		// Try to submit duplicates
 		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[2].clone()).unwrap_err();
-		assert_eq!(e, DispatchErrorWithPostInfo::from(Error::<Test>::TicketDuplicate));
+		assert_eq!(e, DispatchError::from(Error::<Test>::TicketDuplicate));
 		assert_eq!(TicketsAccumulator::<Test>::count(), 8);
 
 		// Submit something smaller. This is accepted (2 old tickets removed).
@@ -652,7 +652,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 
 		// Try to submit a chunk with bigger tickets. This is discarded
 		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[4].clone()).unwrap_err();
-		assert_eq!(e, DispatchErrorWithPostInfo::from(Error::<Test>::TicketInvalid));
+		assert_eq!(e, DispatchError::from(Error::<Test>::TicketInvalid));
 		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
 
 		// Submit the smaller candidates chunks. This is accepted (4 old tickets removed).

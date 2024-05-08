@@ -52,7 +52,7 @@ use scale_info::TypeInfo;
 use frame_support::{
 	dispatch::DispatchResult, traits::Get, weights::Weight, BoundedVec, WeakBoundedVec,
 };
-use frame_system::{offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_consensus_sassafras::{
 	digests::{ConsensusLog, NextEpochDescriptor, SlotClaim},
 	vrf, AuthorityId, Configuration, Epoch, Randomness, Slot, TicketBody, TicketEnvelope, TicketId,
@@ -134,7 +134,7 @@ pub mod pallet {
 
 	/// Configuration parameters.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
+	pub trait Config: frame_system::Config {
 		/// Amount of slots that each epoch should last.
 		#[pallet::constant]
 		type EpochLength: Get<u32>;
