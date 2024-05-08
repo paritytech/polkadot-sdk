@@ -26,7 +26,9 @@ pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
-use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
+use xcm::prelude::{
+	send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm,
+};
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},

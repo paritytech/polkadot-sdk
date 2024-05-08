@@ -87,10 +87,12 @@ impl<T: Config> Pallet<T> {
 		StakingLedger::<T>::paired_account(Stash(stash.clone()))
 	}
 
-	/// Inspects and returns the corruption state of a ledger and bond, if any.
+	/// Inspects and returns the corruption state of a ledger and direct bond, if any.
 	///
 	/// Note: all operations in this method access directly the `Bonded` and `Ledger` storage maps
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
+	/// It is also meant to check state for direct bonds and may not work as expected for virtual
+	/// bonds.
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
@@ -196,8 +198,9 @@ impl<T: Config> Pallet<T> {
 		}
 		let new_total = ledger.total;
 
+		let ed = T::Currency::minimum_balance();
 		let used_weight =
-			if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
+			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.

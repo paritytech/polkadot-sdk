@@ -177,6 +177,7 @@ function run_finality_relay() {
         --only-free-headers \
         --source-host localhost \
         --source-port 9942 \
+        --source-version-mode Auto \
         --target-host localhost \
         --target-port 8945 \
         --target-version-mode Auto \
@@ -188,6 +189,7 @@ function run_finality_relay() {
         --only-free-headers \
         --source-host localhost \
         --source-port 9945 \
+        --source-version-mode Auto \
         --target-host localhost \
         --target-port 8943 \
         --target-version-mode Auto \
@@ -203,6 +205,7 @@ function run_parachains_relay() {
         --only-free-headers \
         --source-host localhost \
         --source-port 9942 \
+        --source-version-mode Auto \
         --target-host localhost \
         --target-port 8945 \
         --target-version-mode Auto \
@@ -214,6 +217,7 @@ function run_parachains_relay() {
         --only-free-headers \
         --source-host localhost \
         --source-port 9945 \
+        --source-version-mode Auto \
         --target-host localhost \
         --target-port 8943 \
         --target-version-mode Auto \
