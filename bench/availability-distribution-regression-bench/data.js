@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715162280446,
+  "lastUpdate": 1715175272439,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -8995,6 +8995,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009287894293333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "37b1544b51aeba183350d4c8d76987c32e6c9ca7",
+          "message": "Adds benchmarking and try-runtime support in frame crate (#4406)",
+          "timestamp": "2024-05-08T11:50:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/37b1544b51aeba183350d4c8d76987c32e6c9ca7"
+        },
+        "date": 1715175245017,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.89333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011888432413333339,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013755595126666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02291126784,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16939412632000003,
             "unit": "seconds"
           }
         ]
