@@ -23,7 +23,7 @@ use crate::{
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
 		prospective_parachains::MockProspectiveParachains,
-		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
+		runtime_api::{session_info_for_peers, MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
@@ -250,6 +250,12 @@ pub async fn benchmark_statement_distribution(
 	mut to_subsystems: mpsc::UnboundedReceiver<AllMessages>,
 ) -> BenchmarkUsage {
 	let config = env.config().clone();
+	let session_info = session_info_for_peers(&config, &state.test_authorities);
+	let groups = session_info.validator_groups;
+	let node_group = groups
+		.iter()
+		.find(|group| group.iter().any(|v| v.0 == NODE_UNDER_TEST))
+		.expect("Pregenerated");
 
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
@@ -280,17 +286,28 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(update).await;
 		}
 
+		let seconding = node_group
+			.iter()
+			.find(|v| {
+				let authority_id =
+					state.test_authorities.validator_authority_id.get(v.0 as usize).unwrap();
+				v.0 != NODE_UNDER_TEST && env.network().is_peer_connected(authority_id)
+			})
+			.expect("Validator group should contain enough connected validators")
+			.to_owned();
+		let seconding_idx = seconding.0 as usize;
+		let seconding_peer_id = *state.test_authorities.peer_ids.get(seconding_idx).unwrap();
 		let candidate = state.candidate_receipts.get(&block_info.hash).unwrap().first().unwrap();
 		let candidate_hash = candidate.hash();
 		let statement = sign_statement(
 			CompactStatement::Seconded(candidate.hash()),
 			block_info.hash,
-			ValidatorIndex(1),
-			state.validator_pairs.get(1).unwrap(),
+			seconding,
+			state.validator_pairs.get(seconding_idx).unwrap(),
 		);
 		let message = AllMessages::StatementDistribution(
 			StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
-				*state.test_authorities.peer_ids.get((NODE_UNDER_TEST + 1) as usize).unwrap(),
+				seconding_peer_id,
 				Versioned::V3(v3::StatementDistributionMessage::Statement(
 					block_info.hash,
 					statement,
