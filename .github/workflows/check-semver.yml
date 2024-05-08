@@ -38,11 +38,18 @@ jobs:
         run: |
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
-          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
-            echo "Help links: https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver"
+          if parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
+            cat <<EOF
+          👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
+
+          Please check the output above and see the following links for more help:
+          - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
+          - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
+
+          Otherwise feel free to ask in the Merge Request or in Matrix chat.
+          EOF
+
             exit 1
           fi
         env:
           PR: ${{ github.event.pull_request.number }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-          COMMITS: ${{ github.event.pull_request.commits }}taplo
