@@ -29,6 +29,7 @@ async fn ensure_test_service_build_blocks() {
 		Sr25519Keyring::Alice,
 		Vec::new(),
 		true,
+		false,
 	);
 	let mut alice = run_validator_node(alice_config, None);
 
@@ -37,6 +38,7 @@ async fn ensure_test_service_build_blocks() {
 		tokio::runtime::Handle::current(),
 		Sr25519Keyring::Bob,
 		vec![alice.addr.clone()],
+		true,
 		true,
 	);
 	let mut bob = run_validator_node(bob_config, None);

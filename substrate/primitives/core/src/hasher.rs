@@ -20,7 +20,7 @@
 pub mod blake2 {
 	use crate::hash::H256;
 	use hash256_std_hasher::Hash256StdHasher;
-	use hash_db::Hasher;
+	use trie_db::node_db::Hasher;
 
 	/// Concrete implementation of Hasher using Blake2b 256-bit hashes
 	#[derive(Debug)]
@@ -40,7 +40,7 @@ pub mod blake2 {
 pub mod keccak {
 	use crate::hash::H256;
 	use hash256_std_hasher::Hash256StdHasher;
-	use hash_db::Hasher;
+	use trie_db::node_db::Hasher;
 
 	/// Concrete implementation of Hasher using Keccak 256-bit hashes
 	#[derive(Debug)]
