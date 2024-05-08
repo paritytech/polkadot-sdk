@@ -262,7 +262,6 @@ codecov-start:
     - .kubernetes-env
     - .common-refs
     - .pipeline-stopper-artifacts
-    - .run-immediately
   script:
     - !reference [.codecov-check, script]
     - >
