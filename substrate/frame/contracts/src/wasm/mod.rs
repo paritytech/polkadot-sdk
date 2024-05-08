@@ -544,7 +544,7 @@ mod tests {
 		value: u64,
 		data: Vec<u8>,
 		allows_reentry: bool,
-		read_only: bool
+		read_only: bool,
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
@@ -792,17 +792,11 @@ mod tests {
 			Ok(())
 		}
 		fn decrement_refcount(_code_hash: CodeHash<Self::T>) {}
-		fn lock_delegate_dependency(
-			&mut self,
-			code: CodeHash<Self::T>,
-		) -> DispatchResult {
+		fn lock_delegate_dependency(&mut self, code: CodeHash<Self::T>) -> DispatchResult {
 			self.delegate_dependencies.borrow_mut().insert(code);
 			Ok(())
 		}
-		fn unlock_delegate_dependency(
-			&mut self,
-			code: &CodeHash<Self::T>,
-		) -> DispatchResult {
+		fn unlock_delegate_dependency(&mut self, code: &CodeHash<Self::T>) -> DispatchResult {
 			self.delegate_dependencies.borrow_mut().remove(code);
 			Ok(())
 		}
@@ -987,7 +981,13 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true, read_only: false }]
+			&[CallEntry {
+				to: ALICE,
+				value: 6,
+				data: vec![1, 2, 3, 4],
+				allows_reentry: true,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1084,7 +1084,13 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false, read_only: false }]
+			&[CallEntry {
+				to: ALICE,
+				value: 0x2a,
+				data: input,
+				allows_reentry: false,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1139,7 +1145,13 @@ mod tests {
 		assert_eq!(result.data, input);
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: true, read_only: false }]
+			&[CallEntry {
+				to: ALICE,
+				value: 0x2a,
+				data: input,
+				allows_reentry: true,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1186,7 +1198,13 @@ mod tests {
 		assert_eq!(result.data, call_return_data());
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false, read_only: false }]
+			&[CallEntry {
+				to: ALICE,
+				value: 0x2a,
+				data: input,
+				allows_reentry: false,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1427,7 +1445,13 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true, read_only: false }]
+			&[CallEntry {
+				to: ALICE,
+				value: 6,
+				data: vec![1, 2, 3, 4],
+				allows_reentry: true,
+				read_only: false
+			}]
 		);
 	}
 

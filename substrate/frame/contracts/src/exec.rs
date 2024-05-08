@@ -349,10 +349,7 @@ pub trait Ext: sealing::Sealed {
 	/// - [`Error::<T>::MaxDelegateDependenciesReached`]
 	/// - [`Error::<T>::CannotAddSelfAsDelegateDependency`]
 	/// - [`Error::<T>::DelegateDependencyAlreadyExists`]
-	fn lock_delegate_dependency(
-		&mut self,
-		code_hash: CodeHash<Self::T>,
-	) -> DispatchResult;
+	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
@@ -362,10 +359,7 @@ pub trait Ext: sealing::Sealed {
 	/// # Errors
 	///
 	/// - [`Error::<T>::DelegateDependencyNotFound`]
-	fn unlock_delegate_dependency(
-		&mut self,
-		code_hash: &CodeHash<Self::T>,
-	) -> DispatchResult;
+	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -779,7 +773,7 @@ where
 			storage_meter,
 			BalanceOf::<T>::zero(),
 			determinism,
-			false
+			false,
 		)?;
 
 		let stack = Self {
@@ -911,7 +905,7 @@ where
 			nested_storage,
 			deposit_limit,
 			self.determinism,
-			read_only
+			read_only,
 		)?;
 		self.frames.push(frame);
 		Ok(executable)
@@ -1242,7 +1236,7 @@ where
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
 		self.top_frame_mut().allows_reentry = allows_reentry;
-		
+
 		// Enable read-only access if requested; cannot disable it if already set.
 		let set_frame_read_only = read_only && !self.top_frame().read_only;
 		if set_frame_read_only {
@@ -1621,10 +1615,7 @@ where
 		});
 	}
 
-	fn lock_delegate_dependency(
-		&mut self,
-		code_hash: CodeHash<Self::T>,
-	) -> DispatchResult {
+	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult {
 		self.allows_state_change()?;
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
@@ -1641,10 +1632,7 @@ where
 		Ok(())
 	}
 
-	fn unlock_delegate_dependency(
-		&mut self,
-		code_hash: &CodeHash<Self::T>,
-	) -> DispatchResult {
+	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult {
 		self.allows_state_change()?;
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
@@ -2167,7 +2155,9 @@ mod tests {
 		let value = Default::default();
 		let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 			// Try to call into yourself.
-			let r = ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true, true);
+			let r =
+				ctx.ext
+					.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true, true);
 
 			ReachedBottom::mutate(|reached_bottom| {
 				if !*reached_bottom {
@@ -2226,8 +2216,15 @@ mod tests {
 
 			// Call into CHARLIE contract.
 			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					true
+				),
 				Ok(_)
 			);
 			exec_success()
@@ -2507,8 +2504,15 @@ mod tests {
 
 			// Call into charlie contract.
 			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					true
+				),
 				Ok(_)
 			);
 			exec_success()
@@ -3071,7 +3075,8 @@ mod tests {
 		// call the contract passed as input with disabled reentry
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			let dest = Decode::decode(&mut ctx.input_data.as_ref()).unwrap();
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false, false)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false, false)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3120,8 +3125,15 @@ mod tests {
 	fn call_deny_reentry() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], false, false)
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					false,
+					false,
+				)
 			} else {
 				exec_success()
 			}
@@ -3129,7 +3141,8 @@ mod tests {
 
 		// call BOB with input set to '1'
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3162,7 +3175,15 @@ mod tests {
 	#[test]
 	fn read_only_call_with_non_zero_value_fails() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
-				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, ctx.input_data[0] as u64, vec![], true, true)
+			ctx.ext.call(
+				Weight::zero(),
+				BalanceOf::<Test>::zero(),
+				CHARLIE,
+				ctx.input_data[0] as u64,
+				vec![],
+				true,
+				true,
+			)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3210,8 +3231,8 @@ mod tests {
 	#[test]
 	fn read_only_call_with_set_storage_fails() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
@@ -3227,7 +3248,8 @@ mod tests {
 			let mut storage_meter =
 				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
 
-			// If BOB calls CHARLIE with the read-only flag, CHARLIE cannot modify the storage, causing set_storage to fail.
+			// If BOB calls CHARLIE with the read-only flag, CHARLIE cannot modify the storage,
+			// causing set_storage to fail.
 			assert_err!(
 				MockStack::run_call(
 					contract_origin,
@@ -3244,15 +3266,22 @@ mod tests {
 				<Error<Test>>::StateChangeDenied,
 			);
 		});
-	} 
+	}
 
 	#[test]
 	fn read_only_subsequent_call_with_set_storage_fails() {
 		// Checks if the read-only flag is kept for subsequent calls.
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					true,
+				)
 			} else {
 				ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false)?;
 				exec_success()
@@ -3260,7 +3289,8 @@ mod tests {
 		});
 
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3271,7 +3301,7 @@ mod tests {
 			let mut storage_meter =
 				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
 
-			// If BOB calls CHARLIE with the read-only flag, and CHARLIE calls back BOB, 
+			// If BOB calls CHARLIE with the read-only flag, and CHARLIE calls back BOB,
 			// BOB cannot modify the storage, causing set_storage to fail.
 			assert_err!(
 				MockStack::run_call(
@@ -3289,7 +3319,7 @@ mod tests {
 				<Error<Test>>::StateChangeDenied,
 			);
 		});
-	} 
+	}
 
 	#[test]
 	fn call_runtime_works() {
