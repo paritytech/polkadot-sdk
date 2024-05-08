@@ -237,7 +237,7 @@ include:
     ref: main
     file: /common/forklift.yml
 
-.codecov-cli:
+.codecov-check:
   script:
     - >
       if command -v codecovcli -h >/dev/null 2>&1; then
@@ -251,24 +251,6 @@ include:
     #
     - codecovcli --version
 
-
-#
-#
-#
-codecov-finish:
-  stage: test
-  extends:
-    - .kubernetes-env
-    - .common-refs
-    - .pipeline-stopper-artifacts  
-  needs:
-    - codecov-test-linux-stable
-  script:
-    - !reference [.codecov-cli, script]  
-    - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
-    - codecovcli -v get-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
-    #- codecovcli -v send-notifications -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
-
 #
 #
 #  
@@ -280,15 +262,39 @@ codecov-start:
     - .kubernetes-env
     - .common-refs
     - .pipeline-stopper-artifacts
+    - .run-immediately
   script:
-    - !reference [.codecov-cli, script]    
-    - codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
-    - codecovcli -v create-report -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
+    - !reference [.codecov-check, script]
+    - >
+      if [ "$CI_COMMIT_REF_NAME" != "master" ]; then
+        codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github;
+        codecovcli -v create-report -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github;
+      else
+        codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
+        codecovcli -v create-report -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;      
+      fi
 
 #
 #
 #
-codecov-test-linux-stable:
+codecov-finish:
+  stage: test
+  extends:
+    - .kubernetes-env
+    - .common-refs
+    - .pipeline-stopper-artifacts  
+  needs:
+    - test-linux-stable-codecov
+  script:
+    - !reference [.codecov-check, script]  
+    - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
+    - codecovcli -v get-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
+    - codecovcli -v send-notifications -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
+
+#
+#
+#
+test-linux-stable-codecov:
   stage: test
   needs:
     - codecov-start
@@ -301,11 +307,12 @@ codecov-test-linux-stable:
     RUST_TOOLCHAIN: stable
     RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
     LLVM_PROFILE_FILE: "target/coverage/cargo-test-${CI_NODE_INDEX}-%p-%m.profraw"
-    CARGO_INCREMENTAL: 0      
+    CARGO_INCREMENTAL: 0    
+    FORKLIFT_BYPASS: "true"  
   parallel: 2
   script:
-    - !reference [.codecov-cli, script]    
     # tools
+    - !reference [.codecov-check, script]    
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage/result/  
     # Place real test call here
@@ -324,8 +331,13 @@ codecov-test-linux-stable:
         -t lcov \
         --branch \
         -o target/coverage/result/report-${CI_NODE_INDEX}.lcov
-    - ls -l target/coverage/result/    
-    - codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github
+    - ls -l target/coverage/result/  
+    - >
+      if [ "$CI_COMMIT_REF_NAME" != "master" ]; then  
+        codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github;
+      else
+        codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
+      fi      
   #  
 
 
