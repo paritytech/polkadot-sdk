@@ -1050,6 +1050,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "pallet-asset-conversion",
+ "pallet-assets",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
