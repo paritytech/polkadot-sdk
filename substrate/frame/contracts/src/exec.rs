@@ -149,7 +149,7 @@ pub trait Ext: sealing::Sealed {
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
-		allows_readonly: bool,
+		read_only: bool,
 	) -> Result<ExecReturnValue, ExecError>;
 
 	/// Execute code in the current frame.
@@ -1010,11 +1010,13 @@ where
 					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
-					let caller = self.caller();
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(&account_id)],
-						Event::Called { caller: caller.clone(), contract: account_id.clone() },
-					);
+					if !frame.read_only {
+						let caller = self.caller();
+						Contracts::<T>::deposit_event(
+							vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(&account_id)],
+							Event::Called { caller: caller.clone(), contract: account_id.clone() },
+						);
+					}
 				},
 			}
 
@@ -1241,9 +1243,9 @@ where
 		// is caught by it.
 		self.top_frame_mut().allows_reentry = allows_reentry;
 		
-		let frame_read_only = self.top_frame().read_only;
 		// Enable read-only access if requested; cannot disable it if already set.
-		if read_only && !frame_read_only {
+		let set_frame_read_only = read_only && !self.top_frame().read_only;
+		if set_frame_read_only {
 			self.top_frame_mut().read_only = read_only;
 		}
 
@@ -1281,8 +1283,10 @@ where
 		// Protection is on a per call basis.
 		self.top_frame_mut().allows_reentry = true;
 
-		// Revert to the previous setting.
-		self.top_frame_mut().read_only = frame_read_only;
+		if set_frame_read_only {
+			// Revert to the previous setting, if it was changed.
+			self.top_frame_mut().read_only = false;
+		}
 
 		result
 	}
@@ -3171,7 +3175,7 @@ mod tests {
 			let mut storage_meter =
 				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
 
-			// BOB calls CHARLIE with read only flag and zero value
+			// BOB calls CHARLIE with read-only flag and zero value
 			assert_ok!(MockStack::run_call(
 				contract_origin.clone(),
 				BOB,
@@ -3184,7 +3188,7 @@ mod tests {
 				Determinism::Enforced
 			));
 
-			// BOB calls CHARLIE with read only flag and non zero value
+			// BOB calls CHARLIE with read-only flag and non zero value
 			assert_err!(
 				MockStack::run_call(
 					contract_origin,
@@ -3244,7 +3248,7 @@ mod tests {
 
 	#[test]
 	fn read_only_subsequent_call_with_set_storage_fails() {
-		// Checks if the read only flag is kept for subsequent calls.
+		// Checks if the read-only flag is kept for subsequent calls.
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
 				ctx.ext
@@ -3267,7 +3271,8 @@ mod tests {
 			let mut storage_meter =
 				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
 
-			// If BOB calls CHARLIE with the read-only flag, CHARLIE cannot modify the storage, causing set_storage to fail.
+			// If BOB calls CHARLIE with the read-only flag, and CHARLIE calls back BOB, 
+			// BOB cannot modify the storage, causing set_storage to fail.
 			assert_err!(
 				MockStack::run_call(
 					contract_origin,
