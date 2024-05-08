@@ -99,6 +99,12 @@ pub mod pallet {
 		type ConvertBalance: Convert<BalanceOf<Self>, RelayBalanceOf<Self>>
 			+ ConvertBack<BalanceOf<Self>, RelayBalanceOf<Self>>;
 
+		/// Type used for getting the associated account of a task. This account is controlled by
+		/// the task itself.
+		//
+		// TODO: maybe rename this?
+		type SovereignAccountOf: Convert<TaskId, Self::AccountId>;
+
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -172,14 +178,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
-	/// Storage map storing the account which will pay for the core during auto-renewal.
+	/// Storage map storing the tasks for cores which have auto-renewal enabled.
 	///
-	/// If `None` the core doesn't have auto-renewal enabled.
+	/// If `None` auto-renewal is disabled.
 	//
 	// Safe to use `Twox64Concat` given that users have no real flexibility manipulating its value.
+	//
+	// TODO: Should probably make this a bounded vec instead.
 	#[pallet::storage]
-	pub type AutoRenewals<T: Config> =
-		StorageMap<_, Twox64Concat, CoreIndex, T::AccountId, OptionQuery>;
+	pub type AutoRenewals<T: Config> = StorageMap<_, Twox64Concat, CoreIndex, TaskId, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -812,26 +819,34 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Extrinsic for enabling or disabling auto renewal by setting a target account which will get 
-		/// upon renewal.
+		/// Extrinsic for enabling auto renewal.
 		///
-		/// If `target_account` is set to `None` the auto-renewal will be disabled.
+		/// Callable by the account associated with the task on the specified core. This account
+		/// will be charged at the start of every bulk period for renewing core time.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::notify_core_count())]
-		pub fn set_auto_renew(
-			origin: OriginFor<T>,
-			core: CoreIndex,
-			target_account: Option<T::AccountId>,
-		) -> DispatchResult {
+		pub fn enable_auto_renew(origin: OriginFor<T>, core: CoreIndex) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
-			if let Some(acc) = target_account {
-				// TODO: ensure origin is the parachain's sovereign account.
-				AutoRenewals::<T>::insert(core, acc);
-			}else {
-				// TODO: ensure origin is the parachain's sovereign account or the account itself.
-				AutoRenewals::<T>::remove(core);
-			}
 
+			let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+			let renewal_id = AllowedRenewalId { core, when: sale.region_begin };
+			let record = AllowedRenewals::<T>::get(renewal_id).ok_or(Error::<T>::NotAllowed)?;
+
+			let workload =
+				record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
+			// Given that only non-interlaced cores can be renewed, there should be only one
+			// assignment in the core's workload.
+			ensure!(workload.len() == 1, Error::<T>::IncompleteAssignment);
+			let schedule_item = &workload[0];
+			let CoreAssignment::Task(task_id) = schedule_item.assignment else {
+				todo!();
+			};
+
+			// TODO: ensure origin is the parachain's sovereign account.
+			AutoRenewals::<T>::insert(core, task_id);
+
+			// The caller must pay for the transaction otherwise spamming would be possible by
+			// turning auto-renewal on and off.
 			Ok(())
 		}
 
