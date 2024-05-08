@@ -3938,7 +3938,7 @@ dependencies = [
 name = "cumulus-pallet-parachain-system-proc-macro"
 version = "0.6.0"
 dependencies = [
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "syn 2.0.53",
@@ -5678,7 +5678,7 @@ dependencies = [
  "frame-election-provider-support",
  "frame-support",
  "parity-scale-codec",
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "scale-info",
@@ -5862,7 +5862,7 @@ name = "frame-support-procedural-tools"
 version = "10.0.0"
 dependencies = [
  "frame-support-procedural-tools-derive",
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "syn 2.0.53",
@@ -7109,7 +7109,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d0bb047e79a143b32ea03974a6bf59b62c2a4c5f5d42a381c907a8bbb3f75c0"
 dependencies = [
  "heck 0.4.1",
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "syn 2.0.53",
@@ -11264,7 +11264,7 @@ dependencies = [
 name = "pallet-staking-reward-curve"
 version = "11.0.0"
 dependencies = [
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "sp-runtime",
@@ -14602,9 +14602,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-crate"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b2685dd208a3771337d8d386a89840f0f43cd68be8dae90a5f8c2384effc9cd"
+checksum = "6d37c51ca738a55da99dc0c4a34860fd675453b8b36209178c2249bb13651284"
 dependencies = [
  "toml_edit 0.21.0",
 ]
@@ -16296,7 +16296,7 @@ dependencies = [
 name = "sc-chain-spec-derive"
 version = "11.0.0"
 dependencies = [
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "syn 2.0.53",
@@ -17589,7 +17589,7 @@ dependencies = [
 name = "sc-tracing-proc-macro"
 version = "11.0.0"
 dependencies = [
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "syn 2.0.53",
@@ -17680,7 +17680,7 @@ version = "2.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d35494501194174bda522a32605929eefc9ecf7e0a326c26db1fdd85881eb62"
 dependencies = [
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "syn 1.0.109",
@@ -18972,7 +18972,7 @@ dependencies = [
  "assert_matches",
  "blake2 0.10.6",
  "expander 2.0.0",
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "syn 2.0.53",
@@ -19667,7 +19667,7 @@ version = "17.0.0"
 dependencies = [
  "Inflector",
  "expander 2.0.0",
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "syn 2.0.53",
@@ -21625,7 +21625,7 @@ version = "5.0.0"
 dependencies = [
  "assert_matches",
  "expander 2.0.0",
- "proc-macro-crate 3.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.75",
  "quote 1.0.35",
  "syn 2.0.53",
