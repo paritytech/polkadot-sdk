@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{
-	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
+	AssetExchange, AssetConversion, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
 	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
 	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
 	VersionChangeNotifier, WeightBounds, WeightTrader,
@@ -122,4 +122,7 @@ pub trait Config {
 	type HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
 	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
 	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
+
+	/// Allows converting a balance of one asset into another.
+	type AssetConverter: AssetConversion;
 }
