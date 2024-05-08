@@ -20,6 +20,7 @@ frame-support = { path = "../../../../../substrate/frame/support", default-featu
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
 pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
 
 # Polkadot
@@ -42,6 +43,7 @@ std = [
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"log/std",
+	"pallet-assets/std",
 	"pallet-asset-conversion/std",
 	"pallet-xcm/std",
 	"parachains-common/std",
@@ -57,6 +59,7 @@ std = [
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",

@@ -30,7 +30,7 @@ use xcm::latest::prelude::*;
 
 pub mod traits;
 use traits::{
-	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
+	validate_export, AssetExchange, AssetConversion, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
 	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
@@ -78,6 +78,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	appendix_weight: Weight,
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
+	asset_for_fees: Option<AssetId>,
 	_config: PhantomData<Config>,
 }
 
@@ -245,12 +246,32 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		vm.post_process(xcm_weight)
 	}
 
-	fn charge_fees(origin: impl Into<Location>, fees: Assets) -> XcmResult {
+	fn charge_fees(origin: impl Into<Location>, fees: Assets, asset_for_fees: &AssetId) -> XcmResult {
 		let origin = origin.into();
 		if !Config::FeeManager::is_waived(Some(&origin), FeeReason::ChargeFees) {
-			for asset in fees.inner() {
-				Config::AssetTransactor::withdraw_asset(&asset, &origin, None)?;
-			}
+			// We allow only one asset for fee payment.
+			log::trace!(target: "xcm::charge_fees", "Fees: {:?}", fees);
+			let first = fees.get(0).ok_or(XcmError::AssetNotFound)?;
+			log::trace!(target: "xcm::charge_fees", "Old asset: {:?}", first);
+			// New config item, it will just return `first` unaffected if there's no
+			// way to convert it. This will result in an error later if they're not present.
+			log::trace!(target: "xcm::charge_fees", "Asset for fees: {:?}", asset_for_fees);
+			// If no conversion can be made, we use the original asset even if it's not
+			// the desired one, as best effort.
+			let actual_asset_to_use = match Config::AssetConverter::convert_asset(&first, asset_for_fees) {
+				Ok(new_asset) => new_asset,
+				Err(error) => {
+					log::error!(
+						target: "xcm::charge_fees",
+						"Could not convert fees to {:?}. Error: {:?}",
+						asset_for_fees,
+						error,
+					);
+					first.clone()
+				},
+			};
+			log::trace!(target: "xcm::charge_fees", "New asset: {:?}", actual_asset_to_use);
+			Config::AssetTransactor::withdraw_asset(&actual_asset_to_use, &origin, None)?;
 			Config::FeeManager::handle_fee(fees, None, FeeReason::ChargeFees);
 		}
 		Ok(())
@@ -301,6 +322,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			appendix_weight: Weight::zero(),
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
+			asset_for_fees: None,
 			_config: PhantomData,
 		}
 	}
@@ -435,26 +457,42 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
-	fn take_fee(&mut self, fee: Assets, reason: FeeReason) -> XcmResult {
+	fn take_fee(&mut self, fees: Assets, reason: FeeReason) -> XcmResult {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
 			return Ok(())
 		}
 		log::trace!(
 			target: "xcm::fees",
-			"taking fee: {:?} from origin_ref: {:?} in fees_mode: {:?} for a reason: {:?}",
-			fee,
+			"taking fees: {:?} from origin_ref: {:?} in fees_mode: {:?} for a reason: {:?}",
+			fees,
 			self.origin_ref(),
 			self.fees_mode,
 			reason,
 		);
+		let first = fees.get(0).ok_or(XcmError::AssetNotFound)?;
+		// TODO: The problem here is `asset_for_fees` is None since no `BuyExecution` was called.
+		let actual_asset_to_use = if let Some(asset_for_fees) = &self.asset_for_fees {
+			match Config::AssetConverter::convert_asset(&first, &asset_for_fees) {
+				Ok(new_asset) => new_asset,
+				Err(error) => {
+					log::error!(
+						target: "xcm::take_fee",
+						"Could not convert fees to {:?}. Error: {:?}",
+						asset_for_fees,
+						error,
+					);
+					first.clone()
+				},
+			}
+		} else {
+			first.clone()
+		};
 		let paid = if self.fees_mode.jit_withdraw {
 			let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
-			for asset in fee.inner() {
-				Config::AssetTransactor::withdraw_asset(&asset, origin, Some(&self.context))?;
-			}
-			fee
+			Config::AssetTransactor::withdraw_asset(&actual_asset_to_use, origin, Some(&self.context))?;
+			vec![actual_asset_to_use].into()
 		} else {
-			self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
+			self.holding.try_take(actual_asset_to_use.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
@@ -843,6 +881,16 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message_to_weigh.extend(xcm.0.clone().into_iter());
 					let (_, fee) =
 						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
+					let first = fee.get(0).ok_or(XcmError::AssetNotFound)?;
+					let asset_id = self.asset_for_fees.as_ref().unwrap_or(&first.id);
+					// TODO: Deal with this case.
+					// Need to make a test specifically for this.
+					let actual_asset_to_use = match Config::AssetConverter::convert_asset(&first, asset_id) {
+						Ok(new_asset) => new_asset,
+						Err(error) => {
+							todo!()
+						},
+					};
 					// set aside fee to be charged by XcmSender
 					let transport_fee = self.holding.saturating_take(fee.into());
 
@@ -937,6 +985,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let Some(weight) = Option::<Weight>::from(weight_limit) else { return Ok(()) };
 				let old_holding = self.holding.clone();
 				// pay for `weight` using up to `fees` of the holding register.
+				self.asset_for_fees = Some(fees.id.clone());
+				log::trace!(target: "xcm::executor::BuyExecution", "Asset for fees: {:?}", self.asset_for_fees);
 				let max_fee =
 					self.holding.try_take(fees.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				let result = || -> Result<(), XcmError> {

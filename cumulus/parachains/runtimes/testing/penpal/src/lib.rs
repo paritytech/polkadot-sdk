@@ -42,6 +42,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU8, Everything, TransformOrigin,
+		PalletInfoAccess,
 	},
 	weights::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, FeePolynomial,
@@ -80,7 +81,7 @@ pub use sp_runtime::BuildStorage;
 use parachains_common::{AccountId, Signature};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
-use xcm::latest::prelude::{AssetId as AssetLocationId, BodyId};
+use xcm::latest::prelude::{AssetId as AssetLocationId, BodyId, PalletInstance, Location};
 
 /// Balance of an account.
 pub type Balance = u128;
@@ -432,7 +433,9 @@ parameter_types! {
 // pub type AssetsForceOrigin =
 // 	EnsureOneOf<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<KsmLocation, ExecutiveBody>>>;
 
-impl pallet_assets::Config<pallet_assets::Instance1> for Runtime {
+pub type TrustBackedAssetsInstance = pallet_assets::Instance1;
+
+impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
@@ -628,9 +631,9 @@ impl pallet_asset_tx_payment::Config for Runtime {
 			Balances,
 			Runtime,
 			ConvertInto,
-			pallet_assets::Instance1,
+			TrustBackedAssetsInstance,
 		>,
-		AssetsToBlockAuthor<Runtime, pallet_assets::Instance1>,
+		AssetsToBlockAuthor<Runtime, TrustBackedAssetsInstance>,
 	>;
 }
 

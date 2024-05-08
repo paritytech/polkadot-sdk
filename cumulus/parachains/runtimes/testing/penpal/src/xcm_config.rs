@@ -26,9 +26,10 @@ use super::{
 	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Authorship, Balance,
 	Balances, ForeignAssets, ForeignAssetsInstance, NonZeroIssuance, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee,
-	XcmpQueue,
+	XcmpQueue, TrustBackedAssetsInstance,
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
+use assets_common::SufficientAssetConverter;
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
@@ -312,6 +313,20 @@ pub type TrustedReserves = (
 pub type TrustedTeleporters =
 	(AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,);
 
+/// `AssetId`/`Balance` converter for `TrustBackedAssets`.
+pub type TrustBackedAssetsConvertedConcreteId =
+	assets_common::TrustBackedAssetsConvertedConcreteId<AssetsPalletLocation, Balance>;
+
+/// Asset converter for trust-backed assets.
+/// Used to convert assets marked as `sufficient` into the asset needed for fee payment.
+/// This type allows paying fees in `sufficient` trust backed-assets.
+pub type TrustBackedSufficientAssetsConverter = SufficientAssetConverter<
+	Runtime,
+	TrustBackedAssetsConvertedConcreteId,
+	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, TrustBackedAssetsInstance>,
+	TrustBackedAssetsInstance,
+>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -362,6 +377,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type AssetConverter = TrustBackedSufficientAssetsConverter;
 }
 
 /// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.
