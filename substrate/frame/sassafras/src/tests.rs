@@ -68,9 +68,33 @@ fn dummy_tickets(count: usize) -> Vec<(TicketId, TicketBody)> {
 }
 
 #[test]
-fn genesis_values_assumptions_check() {
+fn assumptions_check() {
+	let mut tickets: Vec<_> = (0..100_u32)
+		.map(|i| {
+			let mut id = [0xff; 32];
+			id[..4].copy_from_slice(&i.to_be_bytes()[..]);
+			(TicketId(id), TicketBody { attempt_idx: 0, extra: Default::default() })
+		})
+		.collect();
+	shuffle(&mut tickets, 123);
+
 	new_test_ext(3).execute_with(|| {
 		assert_eq!(Sassafras::authorities().len(), 3);
+
+		// Check that entries are stored sorted (bigger first)
+		tickets
+			.iter()
+			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
+		assert_eq!(TicketsAccumulator::<Test>::count(), 100);
+		tickets.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+		let accumulator: Vec<_> = TicketsAccumulator::<Test>::iter()
+			.map(|(k, b)| (TicketId::from(k), b))
+			.collect();
+		assert_eq!(tickets, accumulator);
+
+		// Check accumulator clear
+		let _ = TicketsAccumulator::<Test>::clear(u32::MAX, None);
+		assert_eq!(TicketsAccumulator::<Test>::count(), 0);
 	});
 }
 
@@ -157,7 +181,7 @@ fn on_first_block() {
 		let common_assertions = |initialized| {
 			assert_eq!(Sassafras::current_slot(), start_slot);
 			assert_eq!(Sassafras::current_slot_index(), 1);
-			assert_eq!(PostInitCache::<Test>::exists(), initialized);
+			assert_eq!(TemporaryData::<Test>::exists(), initialized);
 		};
 
 		// Post-initialization status
@@ -221,7 +245,7 @@ fn on_normal_block() {
 		let common_assertions = |initialized| {
 			assert_eq!(Sassafras::current_slot(), start_slot + 1);
 			assert_eq!(Sassafras::current_slot_index(), 2);
-			assert_eq!(PostInitCache::<Test>::exists(), initialized);
+			assert_eq!(TemporaryData::<Test>::exists(), initialized);
 		};
 
 		// Post-initialization status
@@ -267,7 +291,7 @@ fn produce_epoch_change_digest() {
 		let common_assertions = |initialized| {
 			assert_eq!(Sassafras::current_slot(), GENESIS_SLOT + epoch_length);
 			assert_eq!(Sassafras::current_slot_index(), 0);
-			assert_eq!(PostInitCache::<Test>::exists(), initialized);
+			assert_eq!(TemporaryData::<Test>::exists(), initialized);
 		};
 
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
@@ -327,7 +351,7 @@ fn slot_ticket_id_outside_in_fetch() {
 			.for_each(|(i, t)| Tickets::<Test>::insert((1, i as u32), t));
 
 		TicketsCount::<Test>::set([curr_count as u32, next_count as u32]);
-		EpochIndex::<Test>::set(*genesis_slot / Sassafras::epoch_length() as u64);
+		CurrentSlot::<Test>::set(genesis_slot);
 
 		// Before importing the first block the pallet always return `None`
 		// This is a kind of special hardcoded case that should never happen in practice

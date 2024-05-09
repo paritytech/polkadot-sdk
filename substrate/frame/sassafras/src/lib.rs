@@ -86,6 +86,9 @@ const LOG_TARGET: &str = "sassafras::runtime";
 // Contextual string used by the VRF to generate per-block randomness.
 const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasOnChainRandomness";
 
+// Epoch tail is the section of the epoch when no tickets must be submitted.
+//
+// Length of the epoch tail is set to Config::EpochLength/EPOCH_TAIL_FRACTION
 const EPOCH_TAIL_FRACTION: u32 = 6;
 
 /// Max number of tickets that can be submitted in one block.
@@ -107,6 +110,15 @@ pub type TicketsVec = BoundedVec<TicketEnvelope, ConstU32<TICKETS_CHUNK_MAX_LENG
 /// The entry to be used for the current epoch is computed as epoch index modulo 2.
 pub type TicketsCounter = [u32; 2];
 
+/// Ephemeral data constructed by `on_initialize` and destroyed by `on_finalize`.
+///
+/// Contains some temporary data that may be useful later during code execution.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub struct EphemeralData {
+	prev_slot: Slot,
+	pre_output: vrf::VrfPreOutput,
+}
+
 /// Key used for the tickets accumulator map.
 ///
 /// Ticket keys are constructed by taking the bitwise negation of the ticket identifier.
@@ -118,7 +130,7 @@ pub type TicketsCounter = [u32; 2];
 /// completely absorbed by the accumulator, when this is already full and without loading
 /// the whole sequence in memory.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, MaxEncodedLen, TypeInfo)]
-struct TicketKey([u8; 32]);
+pub struct TicketKey([u8; 32]);
 
 impl From<TicketId> for TicketKey {
 	fn from(mut value: TicketId) -> Self {
@@ -199,10 +211,6 @@ pub mod pallet {
 	#[pallet::getter(fn current_slot)]
 	pub type CurrentSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
-	/// Current block slot number.
-	#[pallet::storage]
-	pub type EpochIndex<T> = StorageValue<_, u64, ValueQuery>;
-
 	/// Randomness buffer.
 	#[pallet::storage]
 	#[pallet::getter(fn randomness_buf)]
@@ -210,10 +218,12 @@ pub mod pallet {
 
 	/// Tickets accumulator.
 	#[pallet::storage]
-	pub(crate) type TicketsAccumulator<T> = CountedStorageMap<_, Identity, TicketKey, TicketBody>;
+	#[pallet::getter(fn tickets_accumulator)]
+	pub type TicketsAccumulator<T> = CountedStorageMap<_, Identity, TicketKey, TicketBody>;
 
 	/// Tickets counters for the current and next epoch.
 	#[pallet::storage]
+	#[pallet::getter(fn tickets_count)]
 	pub type TicketsCount<T> = StorageValue<_, TicketsCounter, ValueQuery>;
 
 	/// Tickets map.
@@ -234,6 +244,7 @@ pub mod pallet {
 	/// The number of tickets available for epoch `E` is stored in the `E mod 2` entry
 	/// of [`TicketsCount`].
 	#[pallet::storage]
+	#[pallet::getter(fn tickets)]
 	pub type Tickets<T> = StorageMap<_, Identity, (u8, u32), (TicketId, TicketBody)>;
 
 	/// Parameters used to construct the epoch's ring verifier.
@@ -245,13 +256,12 @@ pub mod pallet {
 
 	/// Ring verifier data for the current epoch.
 	#[pallet::storage]
+	#[pallet::getter(fn ring_verifier_key)]
 	pub type RingVerifierKey<T: Config> = StorageValue<_, vrf::RingVerifierKey>;
 
-	/// Slot claim VRF pre-output used to generate per-slot randomness.
-	///
-	/// The value is ephemeral and is cleared on block finalization.
+	/// Ephemeral data we retain until the block finalization.
 	#[pallet::storage]
-	pub(crate) type PostInitCache<T> = StorageValue<_, vrf::VrfPreOutput>;
+	pub(crate) type TemporaryData<T> = StorageValue<_, EphemeralData>;
 
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
@@ -290,18 +300,17 @@ pub mod pallet {
 				.find_map(|item| item.pre_runtime_try_to::<SlotClaim>(&SASSAFRAS_ENGINE_ID))
 				.expect("Valid block must have a slot claim. qed");
 
+			let ephemeral_data = EphemeralData {
+				prev_slot: CurrentSlot::<T>::get(),
+				pre_output: claim.vrf_signature.pre_outputs[0].clone(),
+			};
+			TemporaryData::<T>::put(ephemeral_data);
+
 			CurrentSlot::<T>::put(claim.slot);
 
 			if block_num == One::one() {
-				Self::post_genesis_initialize(claim.slot);
+				Self::post_genesis_initialize();
 			}
-
-			let randomness_pre_output = claim
-				.vrf_signature
-				.pre_outputs
-				.get(0)
-				.expect("Valid claim must have VRF signature; qed");
-			PostInitCache::<T>::put(randomness_pre_output);
 
 			let trigger_weight = T::EpochChangeTrigger::trigger::<T>(block_num);
 
@@ -315,8 +324,10 @@ pub mod pallet {
 			// (i.e. `enact_epoch_change` has already been called).
 			let randomness_input =
 				vrf::slot_claim_input(&Self::randomness_accumulator(), CurrentSlot::<T>::get());
-			let randomness_pre_output = PostInitCache::<T>::take()
-				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed");
+			let randomness_pre_output = TemporaryData::<T>::take()
+				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed")
+				.pre_output;
+
 			let randomness = randomness_pre_output
 				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
 			Self::deposit_randomness(randomness);
@@ -474,7 +485,9 @@ impl<T: Config> Pallet<T> {
 		NextAuthorities::<T>::put(&next_authorities);
 
 		// Update epoch index
-		let expected_epoch_idx = EpochIndex::<T>::get() + 1;
+		let expected_epoch_idx = TemporaryData::<T>::get()
+			.map(|cache| Self::epoch_index(cache.prev_slot) + 1)
+			.expect("Unconditionally populated in `on_initialize`; `enact_epoch_change` is always called after; qed");
 		let mut epoch_idx = Self::curr_epoch_index();
 
 		if epoch_idx < expected_epoch_idx {
@@ -496,8 +509,6 @@ impl<T: Config> Pallet<T> {
 				epoch_idx
 			);
 		}
-
-		EpochIndex::<T>::put(epoch_idx);
 
 		// After we update the current epoch, we signal the *next* epoch change
 		// so that nodes can track changes.
@@ -605,10 +616,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Method to be called on first block `on_initialize` to properly populate some key parameters.
-	fn post_genesis_initialize(slot: Slot) {
-		// Keep track of the actual first slot used (may not be zero based).
-		EpochIndex::<T>::put(Self::epoch_index(slot));
-
+	fn post_genesis_initialize() {
 		// Properly initialize randomness using genesis hash.
 		// This is important to guarantee that a different set of tickets are produced for
 		// different chains sharing the same ring parameters.
@@ -657,7 +665,7 @@ impl<T: Config> Pallet<T> {
 			return None
 		}
 
-		let curr_epoch_idx = EpochIndex::<T>::get();
+		let curr_epoch_idx = Self::curr_epoch_index();
 		let slot_epoch_idx = Self::epoch_index(slot);
 		if slot_epoch_idx < curr_epoch_idx || slot_epoch_idx > curr_epoch_idx + 1 {
 			return None
@@ -716,7 +724,7 @@ impl<T: Config> Pallet<T> {
 	pub fn protocol_config() -> Configuration {
 		Configuration {
 			epoch_length: T::EpochLength::get(),
-			epoch_tail_length: T::EpochLength::get() / 6,
+			epoch_tail_length: T::EpochLength::get() / EPOCH_TAIL_FRACTION,
 			max_authorities: T::MaxAuthorities::get(),
 			redundancy_factor: T::RedundancyFactor::get(),
 			attempts_number: T::AttemptsNumber::get(),
@@ -725,10 +733,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Current epoch information.
 	pub fn current_epoch() -> Epoch {
-		let curr_slot = *Self::current_slot();
-		let epoch_start = curr_slot - curr_slot % Self::epoch_length() as u64;
 		Epoch {
-			start: epoch_start.into(),
+			start: Self::current_epoch_start(),
 			authorities: Self::authorities().into_inner(),
 			randomness: Self::randomness_buf(),
 		}
@@ -805,7 +811,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Finds the start slot of the current epoch.
 	fn current_epoch_start() -> Slot {
-		Self::epoch_start(EpochIndex::<T>::get())
+		let curr_slot = *Self::current_slot();
+		let epoch_start = curr_slot - curr_slot % Self::epoch_length() as u64;
+		Slot::from(epoch_start)
 	}
 
 	/// Get the epoch's first slot.
@@ -850,10 +858,9 @@ impl EpochChangeTrigger for EpochChangeInternalTrigger {
 		if Pallet::<T>::should_end_epoch(block_num) {
 			let authorities = Pallet::<T>::next_authorities();
 			let next_authorities = authorities.clone();
+			let len = next_authorities.len() as u32;
 			Pallet::<T>::enact_epoch_change(authorities, next_authorities);
-			// let len = next_authorities.len() as u32;
-			// T::WeightInfo::enact_epoch_change(len, T::EpochLength::get())
-			Weight::zero()
+			T::WeightInfo::enact_epoch_change(len, T::EpochLength::get())
 		} else {
 			Weight::zero()
 		}
