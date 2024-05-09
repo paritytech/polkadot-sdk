@@ -11417,7 +11417,6 @@ dependencies = [
  "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-interface",
  "cumulus-service",
- "frame",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures",

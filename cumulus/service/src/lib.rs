@@ -21,13 +21,15 @@ pub type ParachainBlockImport<Block, RuntimeApi, HostFns> =
 		Arc<ParachainClient<Block, RuntimeApi, HostFns>>,
 		ParachainBackend<Block>,
 	>;
+pub type ParachainTransactionPool<Block, RuntimeApi, HostFns> =
+	sc_transaction_pool::FullPool<Block, ParachainClient<Block, RuntimeApi, HostFns>>;
 
 pub type ParachainService<Block, RuntimeApi, HostFns> = sc_service::PartialComponents<
 	ParachainClient<Block, RuntimeApi, HostFns>,
 	ParachainBackend<Block>,
 	(),
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::FullPool<Block, ParachainClient<Block, RuntimeApi, HostFns>>,
+	ParachainTransactionPool<Block, RuntimeApi, HostFns>,
 	(
 		ParachainBlockImport<Block, RuntimeApi, HostFns>,
 		Option<sc_telemetry::Telemetry>,
@@ -70,6 +72,14 @@ impl<
 {
 }
 
+/// Inputs to the RPC builder function.
+pub struct BuildRpcDeps<B, C, P> {
+	pub client: Arc<C>,
+	pub pool: Arc<P>,
+	pub backend: Arc<B>,
+	pub deny_unsafe: sc_rpc::DenyUnsafe,
+}
+
 pub trait BuildRpcExtension<
 	Block: sp_runtime::traits::Block,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, ParachainClient<Block, RuntimeApi, HostFns>>
@@ -79,10 +89,11 @@ pub trait BuildRpcExtension<
 	HostFns: sp_wasm_interface::HostFunctions,
 >:
 	Fn(
-		sc_rpc::DenyUnsafe,
-		Arc<ParachainClient<Block, RuntimeApi, HostFns>>,
-		Arc<ParachainBackend<Block>>,
-		Arc<sc_transaction_pool::FullPool<Block, ParachainClient<Block, RuntimeApi, HostFns>>>,
+		BuildRpcDeps<
+			ParachainBackend<Block>,
+			ParachainClient<Block, RuntimeApi, HostFns>,
+			ParachainTransactionPool<Block, RuntimeApi, HostFns>,
+		>,
 	) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>
 	+ 'static where
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
@@ -96,14 +107,10 @@ impl<
 		Block: sp_runtime::traits::Block,
 		HostFns: sp_wasm_interface::HostFunctions,
 		T: Fn(
-				sc_rpc::DenyUnsafe,
-				Arc<ParachainClient<Block, RuntimeApi, HostFns>>,
-				Arc<ParachainBackend<Block>>,
-				Arc<
-					sc_transaction_pool::FullPool<
-						Block,
-						ParachainClient<Block, RuntimeApi, HostFns>,
-					>,
+				BuildRpcDeps<
+					ParachainBackend<Block>,
+					ParachainClient<Block, RuntimeApi, HostFns>,
+					ParachainTransactionPool<Block, RuntimeApi, HostFns>,
 				>,
 			) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>
 			+ 'static,
@@ -121,7 +128,7 @@ pub trait StartConsensus<Block: sp_runtime::traits::Block, RuntimeApi, HostFns>:
 	Option<sc_telemetry::TelemetryHandle>,
 	&sc_service::TaskManager,
 	Arc<dyn cumulus_relay_chain_interface::RelayChainInterface>,
-	Arc<sc_transaction_pool::FullPool<Block, ParachainClient<Block, RuntimeApi, HostFns>>>,
+	Arc<ParachainTransactionPool<Block, RuntimeApi, HostFns>>,
 	Arc<sc_network_sync::SyncingService<Block>>,
 	sp_keystore::KeystorePtr,
 	std::time::Duration,
@@ -145,7 +152,7 @@ impl<
 			Option<sc_telemetry::TelemetryHandle>,
 			&sc_service::TaskManager,
 			Arc<dyn cumulus_relay_chain_interface::RelayChainInterface>,
-			Arc<sc_transaction_pool::FullPool<Block, ParachainClient<Block, RuntimeApi, HostFns>>>,
+			Arc<ParachainTransactionPool<Block, RuntimeApi, HostFns>>,
 			Arc<sc_network_sync::SyncingService<Block>>,
 			sp_keystore::KeystorePtr,
 			std::time::Duration,

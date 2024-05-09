@@ -2,4 +2,4 @@
 
 pub type Nonce = u32;
 pub type Balance = u128;
-pub use frame::runtime::types_common::{AccountId, Hash, OpaqueBlock};
+pub use polkadot_primitives::{AccountId, Block as OpaqueBlock, Hash};

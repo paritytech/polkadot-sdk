@@ -6,6 +6,7 @@
 #![warn(missing_docs)]
 
 use crate::standards::{AccountId, Balance, Nonce, OpaqueBlock as Block};
+use cumulus_service::BuildRpcDeps as FullDeps;
 use jsonrpsee::RpcModule;
 pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
@@ -17,20 +18,7 @@ use std::sync::Arc;
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
-/// Full client dependencies
-pub struct FullDeps<C, P> {
-	/// The client instance to use.
-	pub client: Arc<C>,
-	/// Transaction pool instance.
-	pub pool: Arc<P>,
-	/// Whether to deny unsafe calls
-	pub deny_unsafe: DenyUnsafe,
-}
-
-/// Instantiate all RPC extensions.
-pub fn create_full<C, P>(
-	deps: FullDeps<C, P>,
-) -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>>
+pub fn default_rpc<B, C, P>(deps: FullDeps<B, C, P>) -> Result<RpcExtension, sc_service::Error>
 where
 	C: ProvideRuntimeApi<Block>
 		+ HeaderBackend<Block>
@@ -47,9 +35,10 @@ where
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 
 	let mut module = RpcExtension::new(());
-	let FullDeps { client, pool, deny_unsafe } = deps;
+	let FullDeps { client, pool, backend, deny_unsafe } = deps;
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client).into_rpc())?;
+
 	Ok(module)
 }

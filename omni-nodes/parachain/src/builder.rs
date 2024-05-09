@@ -1,6 +1,6 @@
 //! This file is in essence a code-level parameterization of the `service.rs` file.
 
-use crate::{rpc::DenyUnsafe, standards::OpaqueBlock as Block};
+use crate::{rpc::DenyUnsafe, service::parachain_service, standards::OpaqueBlock as Block};
 use cumulus_client_cli::CollatorOptions;
 use omni_node_common::fake_runtime::RuntimeApi;
 use std::sync::Arc;
@@ -39,7 +39,7 @@ pub struct ParachainConfig {
 }
 
 pub struct SharedConfig {
-	pub rpc_extensions: Vec<RpcExtensionFn>,
+	pub rpc_extensions: RpcExtensionFn,
 }
 
 pub enum NodeType {
@@ -49,9 +49,9 @@ pub enum NodeType {
 
 pub type RpcExtensionFn = Box<
 	dyn cumulus_service::BuildRpcExtension<
-		crate::service::parachain_service::Block,
-		crate::service::parachain_service::RuntimeApi,
-		crate::service::parachain_service::HostFunctions,
+		parachain_service::Block,
+		parachain_service::RuntimeApi,
+		parachain_service::HostFunctions,
 	>,
 >;
 
@@ -67,7 +67,7 @@ impl Default for Builder {
 		Self {
 			on_service_load: None,
 			node_type: NodeType::Parachain(ParachainConfig {
-				shared: SharedConfig { rpc_extensions: vec![] },
+				shared: SharedConfig { rpc_extensions: Box::new(rpc::default_rpc) },
 				consensus: ParachainConsensus::Aura(12_000),
 			}),
 		}
@@ -95,14 +95,10 @@ impl Builder {
 		self
 	}
 
-	pub fn extend_rpc(mut self, extension: RpcExtensionFn) -> Self {
+	pub fn rpc_extensions(mut self, extension: RpcExtensionFn) -> Self {
 		match &mut self.node_type {
-			NodeType::Parachain(config) => {
-				config.shared.rpc_extensions.push(extension);
-			},
-			NodeType::Solochain(config) => {
-				config.shared.rpc_extensions.push(extension);
-			},
+			NodeType::Solochain(config) => config.shared.rpc_extensions = extension,
+			NodeType::Parachain(config) => config.shared.rpc_extensions = extension,
 		}
 		self
 	}

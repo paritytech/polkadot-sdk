@@ -1,4 +1,5 @@
 use crate::cli::{Cli, RelayChainCli, Subcommand};
+use clap::builder;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::ParaId;
 use log::info;
@@ -205,50 +206,68 @@ pub fn run(builder_config: crate::builder::Builder) -> Result<()> {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 			let collator_options = cli.run.collator_options();
 
-			runner.run_node_until_exit(|config| async move {
+			runner.run_node_until_exit(|parachain_config| async move {
 				if let Some(on_load_fn) = builder_config.on_service_load {
-					on_load_fn(&config, Some(collator_options))?;
+					on_load_fn(&parachain_config, Some(collator_options.clone()))?;
 				}
 
 				let hwbench = (!cli.no_hardware_benchmarks)
-					.then_some(config.database.path().map(|database_path| {
+					.then_some(parachain_config.database.path().map(|database_path| {
 						let _ = std::fs::create_dir_all(database_path);
 						sc_sysinfo::gather_hwbench(Some(database_path))
 					}))
 					.flatten();
 
-				let para_id = Extensions::try_get(&*config.chain_spec)
+				let para_id = Extensions::try_get(&*parachain_config.chain_spec)
 					.map(|e| e.para_id)
 					.ok_or("Could not find parachain ID in chain-spec.")?;
-				let id = ParaId::from(para_id);
+				let para_id = ParaId::from(para_id);
 
 				let polkadot_cli = RelayChainCli::new(
-					&config,
+					&parachain_config,
 					[RelayChainCli::executable_name()].iter().chain(cli.relay_chain_args.iter()),
 				);
 
-				// TODO: for a parachain that does not use our `MultiAddress`, this will be an
-				// issue.
 				let parachain_account =
-					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
-						&id,
+					AccountIdConversion::<crate::standards::AccountId>::into_account_truncating(
+						&para_id,
 					);
 
-				let tokio_handle = config.tokio_handle.clone();
+				let tokio_handle = parachain_config.tokio_handle.clone();
 				let polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-				info!("Parachain id: {:?}", id);
+				info!("Parachain id: {:?}", para_id);
 				info!("Parachain Account: {parachain_account}");
-				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
+				info!(
+					"Is collating: {}",
+					if parachain_config.role.is_authority() { "yes" } else { "no" }
+				);
 
-				use crate::builder::{NodeType, ParachainConsensus, SolochainConsensus};
+				use crate::{
+					builder::{NodeType, ParachainConsensus, SolochainConsensus},
+					service::parachain_service::start_node_impl,
+				};
 				match builder_config.node_type {
 					NodeType::Parachain(parachain_builder_config) =>
 						match parachain_builder_config.consensus {
 							ParachainConsensus::Relay(block_time) => {
-								todo!("call into start_node_impl using fns from cumulus_service");
+								use cumulus_service::relay::{build_import_queue, start_consensus};
+								start_node_impl(
+									parachain_config,
+									polkadot_config,
+									collator_options,
+									CollatorSybilResistance::Unresistant,
+									para_id,
+									parachain_builder_config.shared.rpc_extensions,
+									build_import_queue,
+									start_consensus,
+									hwbench,
+								)
+								.await
+								.map(|r| r.0)
+								.map_err(Into::into)
 							},
 							ParachainConsensus::Aura(block_time) => {
 								todo!("call into start_node_impl using fns from cumulus_service");

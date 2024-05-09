@@ -63,10 +63,6 @@ sp-offchain = { path = "../../substrate/primitives/offchain" }
 
 pallet-transaction-payment-rpc = { path = "../../substrate/frame/transaction-payment/rpc" }
 
-frame = { path = "../../substrate/frame", features = [
-	"experimental",
-	"runtime",
-] }
 frame-benchmarking = { path = "../../substrate/frame/benchmarking" }
 frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli" }
 substrate-frame-rpc-system = { path = "../../substrate/utils/frame/rpc/system" }
