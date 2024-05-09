@@ -326,9 +326,7 @@ fn slot_ticket_id_outside_in_fetch() {
 			.enumerate()
 			.for_each(|(i, t)| Tickets::<Test>::insert((1, i as u32), t));
 
-		TicketsMeta::<Test>::set(TicketsMetadata {
-			tickets_count: [curr_count as u32, next_count as u32],
-		});
+		TicketsCount::<Test>::set([curr_count as u32, next_count as u32]);
 		EpochIndex::<Test>::set(*genesis_slot / Sassafras::epoch_length() as u64);
 
 		// Before importing the first block the pallet always return `None`
@@ -447,9 +445,6 @@ fn tickets_accumulator_works() {
 		let epoch_tag = (epoch_idx % 2) as u8;
 		let next_epoch_tag = epoch_tag ^ 1;
 
-		let mut metadata = TicketsMetadata::default();
-		TicketsMeta::<Test>::set(metadata);
-
 		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
 		// Append some tickets to the accumulator
@@ -461,15 +456,15 @@ fn tickets_accumulator_works() {
 		let end_block = start_block + epoch_length - 2;
 		progress_to_block(end_block, &pairs[0]).unwrap();
 
-		let metadata = TicketsMeta::<Test>::get();
-		assert_eq!(metadata.tickets_count[epoch_tag as usize], 0);
-		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
+		let tickets_count = TicketsCount::<Test>::get();
+		assert_eq!(tickets_count[epoch_tag as usize], 0);
+		assert_eq!(tickets_count[next_epoch_tag as usize], 0);
 
 		finalize_block(end_block);
 
-		let metadata = TicketsMeta::<Test>::get();
-		assert_eq!(metadata.tickets_count[epoch_tag as usize], 0);
-		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], e1_count as u32);
+		let tickets_count = TicketsCount::<Test>::get();
+		assert_eq!(tickets_count[epoch_tag as usize], 0);
+		assert_eq!(tickets_count[next_epoch_tag as usize], e1_count as u32);
 
 		// Start new epoch
 
@@ -480,11 +475,11 @@ fn tickets_accumulator_works() {
 			&pairs[0],
 		);
 
-		let metadata = TicketsMeta::<Test>::get();
 		let next_epoch_tag = epoch_tag;
 		let epoch_tag = epoch_tag ^ 1;
-		assert_eq!(metadata.tickets_count[epoch_tag as usize], e1_count as u32);
-		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
+		let tickets_count = TicketsCount::<Test>::get();
+		assert_eq!(tickets_count[epoch_tag as usize], e1_count as u32);
+		assert_eq!(tickets_count[next_epoch_tag as usize], 0);
 
 		// Append some tickets to the accumulator
 		e2_tickets
@@ -495,15 +490,15 @@ fn tickets_accumulator_works() {
 		let end_block = end_block + epoch_length;
 		progress_to_block(end_block, &pairs[0]).unwrap();
 
-		let metadata = TicketsMeta::<Test>::get();
-		assert_eq!(metadata.tickets_count[epoch_tag as usize], e1_count as u32);
-		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
+		let tickets_count = TicketsCount::<Test>::get();
+		assert_eq!(tickets_count[epoch_tag as usize], e1_count as u32);
+		assert_eq!(tickets_count[next_epoch_tag as usize], 0);
 
 		finalize_block(end_block);
 
-		let metadata = TicketsMeta::<Test>::get();
-		assert_eq!(metadata.tickets_count[epoch_tag as usize], e1_count as u32);
-		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], e2_count as u32);
+		let tickets_count = TicketsCount::<Test>::get();
+		assert_eq!(tickets_count[epoch_tag as usize], e1_count as u32);
+		assert_eq!(tickets_count[next_epoch_tag as usize], e2_count as u32);
 
 		// Start new epoch
 		initialize_block(
@@ -513,11 +508,11 @@ fn tickets_accumulator_works() {
 			&pairs[0],
 		);
 
-		let metadata = TicketsMeta::<Test>::get();
 		let next_epoch_tag = epoch_tag;
 		let epoch_tag = epoch_tag ^ 1;
-		assert_eq!(metadata.tickets_count[epoch_tag as usize], e2_count as u32);
-		assert_eq!(metadata.tickets_count[next_epoch_tag as usize], 0);
+		let tickets_count = TicketsCount::<Test>::get();
+		assert_eq!(tickets_count[epoch_tag as usize], e2_count as u32);
+		assert_eq!(tickets_count[next_epoch_tag as usize], 0);
 	});
 }
 
@@ -531,9 +526,6 @@ fn incremental_accumulator_drain() {
 		.collect();
 
 	new_test_ext(0).execute_with(|| {
-		let mut metadata = TicketsMetadata::default();
-		TicketsMeta::<Test>::set(metadata);
-
 		tickets
 			.iter()
 			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
@@ -545,27 +537,27 @@ fn incremental_accumulator_drain() {
 		assert!(accumulator.windows(2).all(|chunk| chunk[0].0 > chunk[1].0));
 
 		Sassafras::consume_tickets_accumulator(5, 0);
-		let meta = TicketsMeta::<Test>::get();
-		assert_eq!(meta.tickets_count[0], 5);
-		assert_eq!(meta.tickets_count[1], 0);
+		let tickets_count = TicketsCount::<Test>::get();
+		assert_eq!(tickets_count[0], 5);
+		assert_eq!(tickets_count[1], 0);
 		tickets.iter().enumerate().skip(5).for_each(|(i, (id, _))| {
 			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
 			assert_eq!(id, &id2);
 		});
 
 		Sassafras::consume_tickets_accumulator(3, 0);
-		let meta = TicketsMeta::<Test>::get();
-		assert_eq!(meta.tickets_count[0], 8);
-		assert_eq!(meta.tickets_count[1], 0);
+		let tickets_count = TicketsCount::<Test>::get();
+		assert_eq!(tickets_count[0], 8);
+		assert_eq!(tickets_count[1], 0);
 		tickets.iter().enumerate().skip(2).for_each(|(i, (id, _))| {
 			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
 			assert_eq!(id, &id2);
 		});
 
 		Sassafras::consume_tickets_accumulator(5, 0);
-		let meta = TicketsMeta::<Test>::get();
-		assert_eq!(meta.tickets_count[0], 10);
-		assert_eq!(meta.tickets_count[1], 0);
+		let tickets_count = TicketsCount::<Test>::get();
+		assert_eq!(tickets_count[0], 10);
+		assert_eq!(tickets_count[1], 0);
 		tickets.iter().enumerate().for_each(|(i, (id, _))| {
 			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
 			assert_eq!(id, &id2);

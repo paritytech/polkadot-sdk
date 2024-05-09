@@ -95,16 +95,12 @@ pub type AuthoritiesVec<T> = WeakBoundedVec<AuthorityId, <T as Config>::MaxAutho
 /// Epoch length defined by the configuration.
 pub type EpochLengthFor<T> = <T as Config>::EpochLength;
 
-/// Tickets metadata.
-#[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy)]
-pub struct TicketsMetadata {
-	/// Number of tickets available for current and next epoch.
-	///
-	/// These tickets are held by the [`TicketsIds`] storage map.
-	///
-	/// The array entry to be used for the current epoch is computed as epoch index modulo 2.
-	pub tickets_count: [u32; 2],
-}
+/// Number of tickets available for current and next epoch.
+///
+/// These tickets are held by the [`Tickets`] storage map.
+///
+/// The entry to be used for the current epoch is computed as epoch index modulo 2.
+pub type TicketsCounter = [u32; 2];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, MaxEncodedLen, TypeInfo)]
 struct TicketKey([u8; 32]);
@@ -203,25 +199,27 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type TicketsAccumulator<T> = CountedStorageMap<_, Identity, TicketKey, TicketBody>;
 
-	/// Stored tickets metadata.
+	/// Tickets counters for the current and next epoch.
 	#[pallet::storage]
-	pub type TicketsMeta<T> = StorageValue<_, TicketsMetadata, ValueQuery>;
+	pub type TicketsCount<T> = StorageValue<_, TicketsCounter, ValueQuery>;
 
 	/// Tickets map.
 	///
-	/// The map holds tickets ids for the current and next epoch.
+	/// The map holds tickets identifiers for the current and next epoch.
 	///
 	/// The key is a tuple composed by:
-	/// - `u8` equal to epoch's index modulo 2;
+	/// - `u8`: equal to epoch's index modulo 2;
 	/// - `u32` equal to the ticket's index in an abstract sorted sequence of epoch's tickets.
 	///
-	/// For example, `N`-th ticket for epoch `E` has key: (E mod 2, N)
+	/// For example, the key for the `N`-th ticket for epoch `E` is `(E mod 2, N)`
 	///
 	/// Note that the ticket's index `N` doesn't correspond to the offset of the associated
-	/// slot within the epoch. The assignment is computed using an *outside-in* strategy.
+	/// slot within the epoch. The assignment is computed using an *outside-in* strategy
+	/// and correctly returned by the [`slot_ticket`] method.
 	///
 	/// Be aware that entries within this map are never removed, but only overwritten.
-	/// Last element index should be fetched from [`TicketsMeta`].
+	/// The number of tickets available for epoch `E` is stored in the `E mod 2` entry
+	/// of [`TicketsCount`].
 	#[pallet::storage]
 	pub type Tickets<T> = StorageMap<_, Identity, (u8, u32), (TicketId, TicketBody)>;
 
@@ -530,9 +528,9 @@ impl<T: Config> Pallet<T> {
 		Self::consume_tickets_accumulator(usize::MAX, epoch_tag);
 
 		// Reset next epoch counter as we're start accumulating.
-		let mut metadata = TicketsMeta::<T>::get();
-		metadata.tickets_count[(epoch_tag ^ 1) as usize] = 0;
-		TicketsMeta::<T>::set(metadata);
+		let mut tickets_count = TicketsCount::<T>::get();
+		tickets_count[(epoch_tag ^ 1) as usize] = 0;
+		TicketsCount::<T>::set(tickets_count);
 	}
 
 	pub(crate) fn deposit_tickets(tickets: &[(TicketId, TicketBody)]) -> Result<(), Error<T>> {
@@ -560,15 +558,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn consume_tickets_accumulator(max_items: usize, epoch_tag: u8) {
-		let mut metadata = TicketsMeta::<T>::get();
+		let mut tickets_count = TicketsCount::<T>::get();
 		let mut accumulator_count = TicketsAccumulator::<T>::count();
 		let mut idx = accumulator_count;
 		for (key, body) in TicketsAccumulator::<T>::drain().take(max_items) {
 			idx -= 1;
 			Tickets::<T>::insert((epoch_tag, idx), (TicketId::from(key), body));
 		}
-		metadata.tickets_count[epoch_tag as usize] += (accumulator_count - idx);
-		TicketsMeta::<T>::set(metadata);
+		tickets_count[epoch_tag as usize] += (accumulator_count - idx);
+		TicketsCount::<T>::set(tickets_count);
 	}
 
 	// Call this function on epoch change to enact current epoch randomness.
@@ -723,8 +721,8 @@ impl<T: Config> Pallet<T> {
 			return None
 		}
 
-		let mut metadata = TicketsMeta::<T>::get();
-		let tickets_count = metadata.tickets_count[epoch_tag as usize];
+		let mut tickets_count = TicketsCount::<T>::get();
+		let tickets_count = tickets_count[epoch_tag as usize];
 		if tickets_count <= slot_idx {
 			return None
 		}
@@ -749,13 +747,11 @@ impl<T: Config> Pallet<T> {
 
 	/// Reset tickets related data.
 	///
-	/// Optimization note: tickets are left in place, only the metadata which counts
-	/// their number is resetted.
+	/// Optimization note: tickets are left in place, only the associated counters are resetted.
 	fn reset_tickets_data() {
 		// Reset sorted candidates (TODO: How this can fail?)
+		TicketsCount::<T>::kill();
 		let _ = TicketsAccumulator::<T>::clear(u32::MAX, None);
-		// Reset tickets metadata
-		TicketsMeta::<T>::kill();
 	}
 
 	/// Randomness buffer entries.
