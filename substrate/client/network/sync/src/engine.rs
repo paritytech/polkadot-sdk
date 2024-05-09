@@ -916,6 +916,13 @@ where
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) =>
 				self.strategy.on_block_finalized(&hash, *header.number()),
+			ToServiceCommand::Restart(sync_restart_args, tx) => {
+				if let Some(number) = sync_restart_args.new_best_block {
+					self.strategy.update_common_number_for_peers(number);
+				}
+				self.strategy.on_restart(sync_restart_args.sync_mode.into());
+				let _ = tx.send(());
+			},
 		}
 	}
 

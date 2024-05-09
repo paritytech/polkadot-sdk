@@ -255,6 +255,9 @@ pub trait Backend<Block: BlockT>:
 	}
 
 	fn block_indexed_body(&self, hash: Block::Hash) -> Result<Option<Vec<Vec<u8>>>>;
+
+	/// Clears the block gap from DB after the fast-sync.
+	fn clear_block_gap(&self);
 }
 
 /// Blockchain info

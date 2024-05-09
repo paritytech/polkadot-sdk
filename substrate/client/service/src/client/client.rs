@@ -118,6 +118,34 @@ where
 	_phantom: PhantomData<RA>,
 }
 
+impl<B, E, Block, RA> crate::ClientExt<Block, B> for Client<B, E, Block, RA>
+where
+	B: backend::Backend<Block>,
+	E: CallExecutor<Block> + Send + Sync,
+	Block: BlockT,
+	Client<B, E, Block, RA>: ProvideRuntimeApi<Block>,
+	<Client<B, E, Block, RA> as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
+	RA: Sync + Send,
+{
+	/// Apply a checked and validated block to an operation.
+	fn apply_block(
+		&self,
+		operation: &mut ClientImportOperation<Block, B>,
+		import_block: BlockImportParams<Block>,
+		storage_changes: Option<sc_consensus::StorageChanges<Block>>,
+	) -> sp_blockchain::Result<ImportResult>
+	where
+		Self: ProvideRuntimeApi<Block>,
+		<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
+	{
+		self.apply_block(operation, import_block, storage_changes)
+	}
+
+	fn clear_block_gap(&self) {
+		self.backend.blockchain().clear_block_gap();
+	}
+}
+
 /// Used in importing a block, where additional changes are made after the runtime
 /// executed.
 enum PrePostHeader<H> {

@@ -40,7 +40,7 @@ type ResponseResult = Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, on
 type ResponseFuture = BoxFuture<'static, ResponseResult>;
 
 /// An event we receive once a pending response future resolves.
-pub(crate) struct ResponseEvent<B: BlockT> {
+pub struct ResponseEvent<B: BlockT> {
 	pub peer_id: PeerId,
 	pub key: StrategyKey,
 	pub request: PeerRequest<B>,
@@ -48,7 +48,7 @@ pub(crate) struct ResponseEvent<B: BlockT> {
 }
 
 /// Stream taking care of polling pending responses.
-pub(crate) struct PendingResponses<B: BlockT> {
+pub struct PendingResponses<B: BlockT> {
 	/// Pending responses
 	pending_responses:
 		StreamMap<(PeerId, StrategyKey), BoxStream<'static, (PeerRequest<B>, ResponseResult)>>,

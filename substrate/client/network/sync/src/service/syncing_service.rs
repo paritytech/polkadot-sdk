@@ -26,6 +26,7 @@ use sc_network::{NetworkBlock, NetworkSyncForkRequest};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
+use sc_network_common::sync::SyncMode;
 use std::{
 	pin::Pin,
 	sync::{
@@ -34,8 +35,17 @@ use std::{
 	},
 };
 
+/// Arguments for chain-sync restart.
+pub struct SyncRestartArgs<B: BlockT> {
+	/// Updates the common blocks for connected peers when set.
+	pub new_best_block: Option<NumberFor<B>>,
+	/// New sync mode for sync strategy restart.
+	pub sync_mode: SyncMode,
+}
+
 /// Commands send to `SyncingEngine`
 pub enum ToServiceCommand<B: BlockT> {
+	Restart(SyncRestartArgs<B>, oneshot::Sender<()>),
 	SetSyncForkRequest(Vec<PeerId>, B::Hash, NumberFor<B>),
 	RequestJustification(B::Hash, NumberFor<B>),
 	ClearJustificationRequests,
@@ -89,6 +99,14 @@ impl<B: BlockT> SyncingService<B> {
 		let _ = self.tx.unbounded_send(ToServiceCommand::NumActivePeers(tx));
 
 		rx.await
+	}
+
+	/// Restart the synchronization with new arguments.
+	pub async fn restart(&self, sync_restart_args: SyncRestartArgs<B>) {
+		let (tx, rx) = oneshot::channel();
+		let _ = self.tx.unbounded_send(ToServiceCommand::Restart(sync_restart_args, tx));
+
+		let _ = rx.await;
 	}
 
 	/// Get best seen block.
