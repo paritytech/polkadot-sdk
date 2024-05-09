@@ -826,11 +826,25 @@ pub mod pallet {
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::notify_core_count())]
 		pub fn enable_auto_renew(origin: OriginFor<T>, core: CoreIndex) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
+			// TODO: ensure origin is the parachain's sovereign account.
 
 			let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-			let renewal_id = AllowedRenewalId { core, when: sale.region_begin };
-			let record = AllowedRenewals::<T>::get(renewal_id).ok_or(Error::<T>::NotAllowed)?;
+
+			// If the core hasn't been renewed yet we will renew it now.
+			let record = if let Some(record) =
+				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_begin })
+			{
+				Self::do_renew(who, core)?;
+				record
+			} else {
+				// If we couldn't find the renewal record for the current bulk period we should be
+				// able to find it for the upcoming bulk period.
+				//
+				// If not the core is not eligable for renewal.
+				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_end })
+					.ok_or(Error::<T>::NotAllowed)?
+			};
 
 			let workload =
 				record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
@@ -839,10 +853,10 @@ pub mod pallet {
 			ensure!(workload.len() == 1, Error::<T>::IncompleteAssignment);
 			let schedule_item = &workload[0];
 			let CoreAssignment::Task(task_id) = schedule_item.assignment else {
+				// return an error.
 				todo!();
 			};
 
-			// TODO: ensure origin is the parachain's sovereign account.
 			AutoRenewals::<T>::insert(core, task_id);
 
 			// The caller must pay for the transaction otherwise spamming would be possible by

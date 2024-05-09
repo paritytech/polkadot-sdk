@@ -31,7 +31,7 @@ use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Identity},
+	traits::{BlockNumberProvider, Convert, Identity},
 	BuildStorage, Saturating,
 };
 use sp_std::collections::btree_map::BTreeMap;
@@ -187,6 +187,14 @@ ord_parameter_types! {
 }
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
+pub struct TaskToAccountId;
+// TODO
+impl Convert<TaskId, u64> for TaskToAccountId {
+	fn convert(_task: TaskId) -> u64 {
+		0
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = ItemOf<TestFungibles<(), u64, (), ConstU64<0>, ()>, (), u64>;
@@ -200,6 +208,7 @@ impl crate::Config for Test {
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
 	type PriceAdapter = Linear;
+	type SovereignAccountOf = TaskToAccountId;
 }
 
 pub fn advance_to(b: u64) {
