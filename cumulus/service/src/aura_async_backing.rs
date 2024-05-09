@@ -46,7 +46,7 @@ use sp_runtime::{
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
-fn start_consensus<Block, RuntimeApi, HostFns>(
+pub fn start_consensus<Block, RuntimeApi, HostFns>(
 	client: Arc<ParachainClient<Block, RuntimeApi, HostFns>>,
 	block_import: ParachainBlockImport<Block, RuntimeApi, HostFns>,
 	prometheus_registry: Option<&Registry>,

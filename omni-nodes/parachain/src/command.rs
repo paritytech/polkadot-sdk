@@ -1,5 +1,4 @@
 use crate::cli::{Cli, RelayChainCli, Subcommand};
-use clap::builder;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::ParaId;
 use log::info;
@@ -246,9 +245,10 @@ pub fn run(builder_config: crate::builder::Builder) -> Result<()> {
 				);
 
 				use crate::{
-					builder::{NodeType, ParachainConsensus, SolochainConsensus},
+					builder::{NodeType, ParachainConsensus},
 					service::parachain_service::start_node_impl,
 				};
+
 				match builder_config.node_type {
 					NodeType::Parachain(parachain_builder_config) =>
 						match parachain_builder_config.consensus {

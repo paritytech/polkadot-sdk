@@ -2,7 +2,6 @@
 
 use crate::{rpc::DenyUnsafe, service::parachain_service, standards::OpaqueBlock as Block};
 use cumulus_client_cli::CollatorOptions;
-use omni_node_common::fake_runtime::RuntimeApi;
 use std::sync::Arc;
 
 use crate::{command, rpc};
@@ -99,6 +98,14 @@ impl Builder {
 		match &mut self.node_type {
 			NodeType::Solochain(config) => config.shared.rpc_extensions = extension,
 			NodeType::Parachain(config) => config.shared.rpc_extensions = extension,
+		}
+		self
+	}
+
+	pub fn parachain_consensus(mut self, consensus: ParachainConsensus) -> Self {
+		match &mut self.node_type {
+			NodeType::Parachain(config) => config.consensus = consensus,
+			_ => panic!("Cannot set parachain consensus on a non-parachain node"),
 		}
 		self
 	}

@@ -11,9 +11,10 @@ mod standards;
 
 use crate::builder::Builder;
 
-// TODO: for statemint and statemine, inject a custon on_load that will rename some things.
-
 fn main() -> sc_cli::Result<()> {
-	let node = Builder::default().build()?;
+	let node = Builder::default()
+		// .parachain_consensus(builder::ParachainConsensus::Relay(12))
+		.parachain_consensus(builder::ParachainConsensus::Aura(12))
+		.build()?;
 	node.run()
 }

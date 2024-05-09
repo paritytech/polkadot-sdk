@@ -72,6 +72,8 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
+	// TODO: here and in other places, double check if all of these trait bounds are ndeded. Prob
+	// not. Is there a tool for this?
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 		+ sp_api::Metadata<Block>
 		+ sp_session::SessionKeys<Block>
@@ -79,7 +81,7 @@ where
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_block_builder::BlockBuilder<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
-		+ sp_consensus_aura::AuraApi<Block, sp_consensus_aura::sr25519::AuthorityId>, /* TODO: double check if needs to be generic. */
+		+ sp_consensus_aura::AuraApi<Block, sp_consensus_aura::sr25519::AuthorityId>, /* TODO: double check if needs to be generic, because of AH. */
 {
 	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
@@ -140,7 +142,7 @@ pub fn build_import_queue<Block: BlockT, RuntimeApi, HostFns>(
 	client: Arc<ParachainClient<Block, RuntimeApi, HostFns>>,
 	block_import: ParachainBlockImport<Block, RuntimeApi, HostFns>,
 	config: &Configuration,
-	_: Option<TelemetryHandle>,
+	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 ) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error>
 where
@@ -150,7 +152,35 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	RuntimeApi::RuntimeApi: sp_block_builder::BlockBuilder<Block>,
+	RuntimeApi::RuntimeApi: sp_block_builder::BlockBuilder<Block>
+		+ sp_consensus_aura::AuraApi<Block, sp_consensus_aura::sr25519::AuthorityId>,
 {
-	todo!();
+	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+
+	cumulus_client_consensus_aura::import_queue::<
+		sp_consensus_aura::sr25519::AuthorityPair,
+		_,
+		_,
+		_,
+		_,
+		_,
+	>(cumulus_client_consensus_aura::ImportQueueParams {
+		block_import,
+		client,
+		create_inherent_data_providers: move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+			let slot =
+				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
+				);
+
+			Ok((slot, timestamp))
+		},
+		registry: config.prometheus_registry(),
+		spawner: &task_manager.spawn_essential_handle(),
+		telemetry,
+	})
+	.map_err(Into::into)
 }
