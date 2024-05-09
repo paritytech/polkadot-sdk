@@ -13,6 +13,8 @@ jobs:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          depth: 2
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
@@ -31,18 +33,17 @@ jobs:
       - name: extra git setup
         run: |
           git config --global --add safe.directory '*'
-          git fetch --no-tags --no-recurse-submodules --depth=1 origin master
-          git branch old origin/master
 
       - name: check semver
         run: |
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
-          git log
-          parity-publish --color always semver --since old --toolchain nightly-2024-03-01 pallet-contracts pallet-contracts-uapi
+          git show --stat
+          git show --stat HEAD^1
+          parity-publish --color always semver --since HEAD^1 --toolchain nightly-2024-03-01 pallet-contracts pallet-contracts-uapi
 
 
-          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
+          if ! parity-publish --color always prdoc --since HEAD^1 --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
             cat <<EOF
           👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 
