@@ -51,19 +51,19 @@ impl Animal for FourLeggedAnimal {
 	}
 }
 
-pub struct AcquaticMammal {}
+pub struct AquaticMammal {}
 
 // without omitting the `as X`
 #[derive_impl(FourLeggedAnimal as Animal)]
-impl Animal for AcquaticMammal {
+impl Animal for AquaticMammal {
 	type Locomotion = (Swims, RunsOnFourLegs);
 	type Environment = (Land, Sea);
 }
 
-assert_type_eq_all!(<AcquaticMammal as Animal>::Locomotion, (Swims, RunsOnFourLegs));
-assert_type_eq_all!(<AcquaticMammal as Animal>::Environment, (Land, Sea));
-assert_type_eq_all!(<AcquaticMammal as Animal>::Diet, Omnivore);
-assert_type_eq_all!(<AcquaticMammal as Animal>::SleepingStrategy, Diurnal);
+assert_type_eq_all!(<AquaticMammal as Animal>::Locomotion, (Swims, RunsOnFourLegs));
+assert_type_eq_all!(<AquaticMammal as Animal>::Environment, (Land, Sea));
+assert_type_eq_all!(<AquaticMammal as Animal>::Diet, Omnivore);
+assert_type_eq_all!(<AquaticMammal as Animal>::SleepingStrategy, Diurnal);
 
 pub struct Lion {}
 

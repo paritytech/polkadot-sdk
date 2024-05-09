@@ -17,18 +17,13 @@
 
 //! Simple Ed25519 API.
 
-#[cfg(feature = "serde")]
-use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
-	Public as TraitPublic, PublicBytes, SecretStringError, SignatureBytes,
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+	PublicBytes, SecretStringError, SignatureBytes,
 };
 
 use ed25519_zebra::{SigningKey, VerificationKey};
-#[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
+
 use sp_std::vec::Vec;
 
 /// An identifier used to match public keys against ed25519 keys
@@ -51,104 +46,8 @@ pub struct Ed25519Tag;
 /// A public key.
 pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 
-impl TraitPublic for Public {}
-
-impl Derive for Public {}
-
-#[cfg(feature = "full_crypto")]
-impl From<Pair> for Public {
-	fn from(x: Pair) -> Self {
-		x.public()
-	}
-}
-
-#[cfg(feature = "std")]
-impl std::str::FromStr for Public {
-	type Err = crate::crypto::PublicError;
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Self::from_ss58check(s)
-	}
-}
-
-#[cfg(feature = "std")]
-impl std::fmt::Display for Public {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", self.to_ss58check())
-	}
-}
-
-impl sp_std::fmt::Debug for Public {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for Public {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Public {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		Public::from_ss58check(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
 /// A signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
-
-#[cfg(feature = "serde")]
-impl Serialize for Signature {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&array_bytes::bytes2hex("", self))
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Signature {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let signature_hex = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::try_from(signature_hex.as_ref())
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
-impl sp_std::fmt::Debug for Signature {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
 
 /// A key pair.
 #[derive(Copy, Clone)]
@@ -211,7 +110,9 @@ impl TraitPair for Pair {
 	/// Returns true if the signature is good.
 	fn verify<M: AsRef<[u8]>>(sig: &Signature, message: M, public: &Public) -> bool {
 		let Ok(public) = VerificationKey::try_from(public.as_slice()) else { return false };
-		let Ok(signature) = ed25519_zebra::Signature::try_from(sig.as_ref()) else { return false };
+		let Ok(signature) = ed25519_zebra::Signature::try_from(sig.as_slice()) else {
+			return false
+		};
 		public.verify(&signature, message.as_ref()).is_ok()
 	}
 
@@ -253,8 +154,10 @@ impl CryptoType for Pair {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
 	use super::*;
+	#[cfg(feature = "serde")]
+	use crate::crypto::Ss58Codec;
 	use crate::crypto::DEV_PHRASE;
 	use serde_json;
 

@@ -46,6 +46,7 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
 	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
+	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
@@ -58,6 +59,8 @@ use sp_keystore::KeystorePtr;
 use fatality::Nested;
 use futures::{
 	channel::{mpsc, oneshot},
+	future::FutureExt,
+	select,
 	stream::FuturesUnordered,
 	SinkExt, StreamExt,
 };
@@ -72,6 +75,7 @@ use std::{
 
 use crate::{
 	error::{JfyiError, JfyiErrorResult},
+	metrics::Metrics,
 	LOG_TARGET,
 };
 use candidates::{BadAdvertisement, Candidates, PostConfirmation};
@@ -112,7 +116,7 @@ const COST_EXCESSIVE_SECONDED: Rep = Rep::CostMinor("Sent Excessive `Seconded` S
 const COST_DISABLED_VALIDATOR: Rep = Rep::CostMinor("Sent a statement from a disabled validator");
 
 const COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE: Rep =
-	Rep::CostMinor("Unexpected Manifest, missing knowlege for relay parent");
+	Rep::CostMinor("Unexpected Manifest, missing knowledge for relay parent");
 const COST_UNEXPECTED_MANIFEST_DISALLOWED: Rep =
 	Rep::CostMinor("Unexpected Manifest, Peer Disallowed");
 const COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN: Rep =
@@ -149,10 +153,9 @@ pub(crate) const REQUEST_RETRY_DELAY: Duration = Duration::from_secs(1);
 struct PerRelayParentState {
 	local_validator: Option<LocalValidatorState>,
 	statement_store: StatementStore,
-	availability_cores: Vec<CoreState>,
-	group_rotation_info: GroupRotationInfo,
 	seconding_limit: usize,
 	session: SessionIndex,
+	groups_per_para: HashMap<ParaId, Vec<GroupIndex>>,
 }
 
 impl PerRelayParentState {
@@ -563,10 +566,12 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 	activated: &ActivatedLeaf,
 	leaf_mode: ProspectiveParachainsMode,
 ) -> JfyiErrorResult<()> {
-	let seconding_limit = match leaf_mode {
+	let max_candidate_depth = match leaf_mode {
 		ProspectiveParachainsMode::Disabled => return Ok(()),
-		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth + 1,
+		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth,
 	};
+
+	let seconding_limit = max_candidate_depth + 1;
 
 	state
 		.implicit_view
@@ -628,8 +633,8 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).await?;
 			let mut per_session_state =
 				PerSessionState::new(session_info, &state.keystore, minimum_backing_votes);
-			if let Some(toplogy) = state.unused_topologies.remove(&session_index) {
-				per_session_state.supply_topology(&toplogy.topology, toplogy.local_index);
+			if let Some(topology) = state.unused_topologies.remove(&session_index) {
+				per_session_state.supply_topology(&topology.topology, topology.local_index);
 			}
 			state.per_session.insert(session_index, per_session_state);
 		}
@@ -679,6 +684,13 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				.map_err(JfyiError::FetchValidatorGroups)?
 				.1;
 
+		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), new_relay_parent)
+		.await
+		.unwrap_or_else(|err| {
+				gum::debug!(target: LOG_TARGET, ?new_relay_parent, ?err, "handle_active_leaves_update: `claim_queue` API not available");
+				None
+			});
+
 		let local_validator = per_session.local_validator.and_then(|v| {
 			if let LocalValidatorIndex::Active(idx) = v {
 				find_active_validator_state(
@@ -686,22 +698,31 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 					&per_session.groups,
 					&availability_cores,
 					&group_rotation_info,
+					&maybe_claim_queue,
 					seconding_limit,
+					max_candidate_depth,
 				)
 			} else {
 				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
 			}
 		});
 
+		let groups_per_para = determine_groups_per_para(
+			availability_cores,
+			group_rotation_info,
+			&maybe_claim_queue,
+			max_candidate_depth,
+		)
+		.await;
+
 		state.per_relay_parent.insert(
 			new_relay_parent,
 			PerRelayParentState {
 				local_validator,
 				statement_store: StatementStore::new(&per_session.groups),
-				availability_cores,
-				group_rotation_info,
 				seconding_limit,
 				session: session_index,
+				groups_per_para,
 			},
 		);
 	}
@@ -742,7 +763,9 @@ fn find_active_validator_state(
 	groups: &Groups,
 	availability_cores: &[CoreState],
 	group_rotation_info: &GroupRotationInfo,
+	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
 	seconding_limit: usize,
+	max_candidate_depth: usize,
 ) -> Option<LocalValidatorState> {
 	if groups.all().is_empty() {
 		return None
@@ -750,18 +773,28 @@ fn find_active_validator_state(
 
 	let our_group = groups.by_validator_index(validator_index)?;
 
-	// note: this won't work well for on-demand parachains because it only works
-	// when core assignments to paras are static throughout the session.
-
-	let core = group_rotation_info.core_for_group(our_group, availability_cores.len());
-	let para = availability_cores.get(core.0 as usize).and_then(|c| c.para_id());
+	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
+	let para_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
+		claim_queue.get_claim_for(core_index, 0)
+	} else {
+		availability_cores
+			.get(core_index.0 as usize)
+			.and_then(|core_state| match core_state {
+				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
+				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
+					.next_up_on_available
+					.as_ref()
+					.map(|scheduled_core| scheduled_core.para_id),
+				CoreState::Free | CoreState::Occupied(_) => None,
+			})
+	};
 	let group_validators = groups.get(our_group)?.to_owned();
 
 	Some(LocalValidatorState {
 		active: Some(ActiveValidatorState {
 			index: validator_index,
 			group: our_group,
-			assignment: para,
+			assignment: para_assigned_to_core,
 			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
 				.expect("group is non-empty because we are in it; qed"),
 		}),
@@ -796,7 +829,16 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	// clean up sessions based on everything remaining.
 	let sessions: HashSet<_> = state.per_relay_parent.values().map(|r| r.session).collect();
 	state.per_session.retain(|s, _| sessions.contains(s));
-	state.unused_topologies.retain(|s, _| sessions.contains(s));
+
+	let last_session_index = state.unused_topologies.keys().max().copied();
+	// Do not clean-up the last saved toplogy unless we moved to the next session
+	// This is needed because handle_deactive_leaves, gets also called when
+	// prospective_parachains APIs are not present, so we would actually remove
+	// the topology without using it because `per_relay_parent` is empty until
+	// prospective_parachains gets enabled
+	state
+		.unused_topologies
+		.retain(|s, _| sessions.contains(s) || last_session_index == Some(*s));
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
@@ -2126,17 +2168,51 @@ async fn provide_candidate_to_grid<Context>(
 	}
 }
 
-fn group_for_para(
-	availability_cores: &[CoreState],
-	group_rotation_info: &GroupRotationInfo,
-	para_id: ParaId,
-) -> Option<GroupIndex> {
-	// Note: this won't work well for on-demand parachains as it assumes that core assignments are
-	// fixed across blocks.
-	let core_index = availability_cores.iter().position(|c| c.para_id() == Some(para_id));
+// Utility function to populate per relay parent `ParaId` to `GroupIndex` mappings.
+async fn determine_groups_per_para(
+	availability_cores: Vec<CoreState>,
+	group_rotation_info: GroupRotationInfo,
+	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
+	max_candidate_depth: usize,
+) -> HashMap<ParaId, Vec<GroupIndex>> {
+	let n_cores = availability_cores.len();
 
-	core_index
-		.map(|c| group_rotation_info.group_for_core(CoreIndex(c as _), availability_cores.len()))
+	// Determine the core indices occupied by each para at the current relay parent. To support
+	// on-demand parachains we also consider the core indices at next block if core has a candidate
+	// pending availability.
+	let para_core_indices: Vec<_> = if let Some(claim_queue) = maybe_claim_queue {
+		claim_queue
+			.iter_claims_at_depth(0)
+			.map(|(core_index, para)| (para, core_index))
+			.collect()
+	} else {
+		availability_cores
+			.into_iter()
+			.enumerate()
+			.filter_map(|(index, core)| match core {
+				CoreState::Scheduled(scheduled_core) =>
+					Some((scheduled_core.para_id, CoreIndex(index as u32))),
+				CoreState::Occupied(occupied_core) =>
+					if max_candidate_depth >= 1 {
+						occupied_core
+							.next_up_on_available
+							.map(|scheduled_core| (scheduled_core.para_id, CoreIndex(index as u32)))
+					} else {
+						None
+					},
+				CoreState::Free => None,
+			})
+			.collect()
+	};
+
+	let mut groups_per_para = HashMap::new();
+	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
+	for (para, core_index) in para_core_indices {
+		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
+		groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index)
+	}
+
+	groups_per_para
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
@@ -2192,18 +2268,23 @@ async fn fragment_tree_update_inner<Context>(
 			let confirmed_candidate = state.candidates.get_confirmed(&candidate_hash);
 			let prs = state.per_relay_parent.get_mut(&receipt.descriptor().relay_parent);
 			if let (Some(confirmed), Some(prs)) = (confirmed_candidate, prs) {
-				let group_index = group_for_para(
-					&prs.availability_cores,
-					&prs.group_rotation_info,
-					receipt.descriptor().para_id,
-				);
-
 				let per_session = state.per_session.get(&prs.session);
-				if let (Some(per_session), Some(group_index)) = (per_session, group_index) {
+				let group_index = confirmed.group_index();
+
+				// Sanity check if group_index is valid for this para at relay parent.
+				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor().para_id)
+				else {
+					continue
+				};
+				if !expected_groups.iter().any(|g| *g == group_index) {
+					continue
+				}
+
+				if let Some(per_session) = per_session {
 					send_backing_fresh_statements(
 						ctx,
 						candidate_hash,
-						group_index,
+						confirmed.group_index(),
 						&receipt.descriptor().relay_parent,
 						prs,
 						confirmed,
@@ -2311,13 +2392,12 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		Some(x) => x,
 	};
 
-	let expected_group = group_for_para(
-		&relay_parent_state.availability_cores,
-		&relay_parent_state.group_rotation_info,
-		para_id,
-	);
+	let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para_id) else {
+		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
+		return None
+	};
 
-	if expected_group != Some(manifest_summary.claimed_group_index) {
+	if !expected_groups.iter().any(|g| g == &manifest_summary.claimed_group_index) {
 		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
 		return None
 	}
@@ -3037,13 +3117,11 @@ pub(crate) async fn handle_response<Context>(
 			relay_parent_state.session,
 			|v| per_session.session_info.validators.get(v).map(|x| x.clone()),
 			|para, g_index| {
-				let expected_group = group_for_para(
-					&relay_parent_state.availability_cores,
-					&relay_parent_state.group_rotation_info,
-					para,
-				);
+				let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para) else {
+					return false
+				};
 
-				Some(g_index) == expected_group
+				expected_groups.iter().any(|g| g == &g_index)
 			},
 			disabled_mask,
 		);
@@ -3348,35 +3426,61 @@ pub(crate) struct ResponderMessage {
 pub(crate) async fn respond_task(
 	mut receiver: IncomingRequestReceiver<AttestedCandidateRequest>,
 	mut sender: mpsc::Sender<ResponderMessage>,
+	metrics: Metrics,
 ) {
 	let mut pending_out = FuturesUnordered::new();
+	let mut active_peers = HashSet::new();
+
 	loop {
-		// Ensure we are not handling too many requests in parallel.
-		if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
-			// Wait for one to finish:
-			pending_out.next().await;
-		}
+		select! {
+			// New request
+			request_result = receiver.recv(|| vec![COST_INVALID_REQUEST]).fuse() => {
+				let request = match request_result.into_nested() {
+					Ok(Ok(v)) => v,
+					Err(fatal) => {
+						gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
+						return
+					},
+					Ok(Err(jfyi)) => {
+						gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
+						continue
+					},
+				};
 
-		let req = match receiver.recv(|| vec![COST_INVALID_REQUEST]).await.into_nested() {
-			Ok(Ok(v)) => v,
-			Err(fatal) => {
-				gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
-				return
-			},
-			Ok(Err(jfyi)) => {
-				gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
-				continue
-			},
-		};
+				// If peer currently being served drop request
+				if active_peers.contains(&request.peer) {
+					gum::trace!(target: LOG_TARGET, "Peer already being served, dropping request");
+					metrics.on_request_dropped_peer_rate_limit();
+					continue
+				}
 
-		let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
-		if let Err(err) = sender
-			.feed(ResponderMessage { request: req, sent_feedback: pending_sent_tx })
-			.await
-		{
-			gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
-			return
+				// If we are over parallel limit wait for one to finish
+				if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+					gum::trace!(target: LOG_TARGET, "Over max parallel requests, waiting for one to finish");
+					metrics.on_max_parallel_requests_reached();
+					let (_, peer) = pending_out.select_next_some().await;
+					active_peers.remove(&peer);
+				}
+
+				// Start serving the request
+				let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
+				let peer = request.peer;
+				if let Err(err) = sender
+					.feed(ResponderMessage { request, sent_feedback: pending_sent_tx })
+					.await
+				{
+					gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
+					return
+				}
+				let future_with_peer = pending_sent_rx.map(move |result| (result, peer));
+				pending_out.push(future_with_peer);
+				active_peers.insert(peer);
+			},
+			// Request served/finished
+			result = pending_out.select_next_some() => {
+				let (_, peer) = result;
+				active_peers.remove(&peer);
+			},
 		}
-		pending_out.push(pending_sent_rx);
 	}
 }

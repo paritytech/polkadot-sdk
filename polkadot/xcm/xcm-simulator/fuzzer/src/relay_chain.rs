@@ -104,7 +104,7 @@ parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
 	pub const ThisNetwork: NetworkId = NetworkId::ByGenesis([0; 32]);
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub const UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 }
 
 pub type SovereignAccountOf =
@@ -191,10 +191,6 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
-parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
-}
-
 impl origin::Config for Runtime {}
 
 parameter_types! {
@@ -232,6 +228,7 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = MessageQueueHeapSize;
 	type MaxStale = MessageQueueMaxStale;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = ();
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MessageProcessor = MessageProcessor;
 	#[cfg(feature = "runtime-benchmarks")]

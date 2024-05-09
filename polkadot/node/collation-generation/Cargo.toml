@@ -10,7 +10,7 @@ description = "Collator-side subsystem that handles incoming candidate submissio
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../gum" }
 polkadot-erasure-coding = { path = "../../erasure-coding" }
 polkadot-node-primitives = { path = "../primitives" }

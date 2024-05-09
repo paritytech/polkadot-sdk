@@ -42,9 +42,6 @@ use sp_std::marker::PhantomData;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
 const LOG_TARGET: &'static str = "runtime::storage_reclaim";
 
 /// `StorageWeightReclaimer` is a mechanism for manually reclaiming storage weight.

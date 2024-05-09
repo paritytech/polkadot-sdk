@@ -26,9 +26,7 @@ use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, BackingState},
-	slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	CoreIndex,
+	slashing, ApprovalVotingParams, CoreIndex, NodeFeatures,
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sc_client_api::AuxStore;
@@ -452,6 +450,17 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		at: Hash,
 	) -> Result<BTreeMap<CoreIndex, VecDeque<cumulus_primitives_core::ParaId>>, ApiError> {
 		Ok(self.rpc_client.parachain_host_claim_queue(at).await?)
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		at: Hash,
+		para_id: cumulus_primitives_core::ParaId,
+	) -> Result<Vec<polkadot_primitives::CommittedCandidateReceipt<Hash>>, sp_api::ApiError> {
+		Ok(self
+			.rpc_client
+			.parachain_host_candidates_pending_availability(at, para_id)
+			.await?)
 	}
 }
 

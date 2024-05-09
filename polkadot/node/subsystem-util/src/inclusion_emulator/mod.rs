@@ -78,7 +78,7 @@
 ///
 /// 2. The root fragment is invalid under the new constraints because it has been subsumed by
 ///    the relay-chain. In this case, we can discard the root and split & re-root the fragment
-///    tree under its descendents and compare to the new constraints again. This is the
+///    tree under its descendants and compare to the new constraints again. This is the
 ///    "prediction came true" case.
 ///
 /// 3. The root fragment is invalid under the new constraints because a competing parachain

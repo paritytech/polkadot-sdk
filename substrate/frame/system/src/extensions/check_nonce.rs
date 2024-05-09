@@ -149,7 +149,7 @@ mod tests {
 			crate::Account::<Test>::insert(
 				1,
 				crate::AccountInfo {
-					nonce: 1,
+					nonce: 1u64.into(),
 					consumers: 0,
 					providers: 1,
 					sufficients: 0,
@@ -160,32 +160,42 @@ mod tests {
 			let len = 0_usize;
 			// stale
 			assert_eq!(
-				CheckNonce::<Test>(0)
-					.validate_only(Some(1).into(), CALL, &info, len,)
+				CheckNonce::<Test>(0u64.into())
+					.validate_only(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Stale)
 			);
 			assert_eq!(
-				CheckNonce::<Test>(0)
+				CheckNonce::<Test>(0u64.into())
 					.validate_and_prepare(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
-				InvalidTransaction::Stale.into()
+				TransactionValidityError::Invalid(InvalidTransaction::Stale)
 			);
 			// correct
-			assert_ok!(CheckNonce::<Test>(1).validate_only(Some(1).into(), CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).validate_and_prepare(
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
 				Some(1).into(),
 				CALL,
 				&info,
 				len
 			));
 			// future
-			assert_ok!(CheckNonce::<Test>(5).validate_only(Some(1).into(), CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(5u64.into()).validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len
+			));
 			assert_eq!(
-				CheckNonce::<Test>(5)
+				CheckNonce::<Test>(5u64.into())
 					.validate_and_prepare(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
-				InvalidTransaction::Future.into()
+				TransactionValidityError::Invalid(InvalidTransaction::Future)
 			);
 		})
 	}
@@ -196,7 +206,7 @@ mod tests {
 			crate::Account::<Test>::insert(
 				2,
 				crate::AccountInfo {
-					nonce: 1,
+					nonce: 1u64.into(),
 					consumers: 0,
 					providers: 1,
 					sufficients: 0,
@@ -206,7 +216,7 @@ mod tests {
 			crate::Account::<Test>::insert(
 				3,
 				crate::AccountInfo {
-					nonce: 1,
+					nonce: 1u64.into(),
 					consumers: 0,
 					providers: 0,
 					sufficients: 1,
@@ -217,28 +227,38 @@ mod tests {
 			let len = 0_usize;
 			// Both providers and sufficients zero
 			assert_eq!(
-				CheckNonce::<Test>(1)
+				CheckNonce::<Test>(1u64.into())
 					.validate_only(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
 			assert_eq!(
-				CheckNonce::<Test>(1)
+				CheckNonce::<Test>(1u64.into())
 					.validate_and_prepare(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
 			// Non-zero providers
-			assert_ok!(CheckNonce::<Test>(1).validate_only(Some(2).into(), CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).validate_and_prepare(
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				Some(2).into(),
+				CALL,
+				&info,
+				len
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
 				Some(2).into(),
 				CALL,
 				&info,
 				len
 			));
 			// Non-zero sufficients
-			assert_ok!(CheckNonce::<Test>(1).validate_only(Some(3).into(), CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).validate_and_prepare(
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				Some(3).into(),
+				CALL,
+				&info,
+				len
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
 				Some(3).into(),
 				CALL,
 				&info,
@@ -252,8 +272,18 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
-			assert_ok!(CheckNonce::<Test>(1).validate_only(None.into(), CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).validate_and_prepare(None.into(), CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				None.into(),
+				CALL,
+				&info,
+				len
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
+				None.into(),
+				CALL,
+				&info,
+				len
+			));
 		})
 	}
 }
