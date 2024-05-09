@@ -33,15 +33,9 @@
 //! use substrate_wasm_builder::WasmBuilder;
 //!
 //! fn main() {
-//!     WasmBuilder::new()
-//!         // Tell the builder to build the project (crate) this `build.rs` is part of.
-//!         .with_current_project()
-//!         // Make sure to export the `heap_base` global, this is required by Substrate
-//!         .export_heap_base()
-//!         // Build the Wasm file so that it imports the memory (need to be provided by at instantiation)
-//!         .import_memory()
-//!         // Build it.
-//!         .build()
+//!     // Builds the WASM binary using the recommended defaults.
+//!     // If you need more control, you can call `new` or `init_with_defaults`.
+//!     WasmBuilder::build_using_defaults();
 //! }
 //! ```
 //!
@@ -207,7 +201,7 @@ fn get_cargo_command(target: RuntimeTarget) -> CargoCommand {
 	} else {
 		// If no command before provided us with a cargo that supports our Substrate wasm env, we
 		// try to search one with rustup. If that fails as well, we return the default cargo and let
-		// the prequisities check fail.
+		// the perquisites check fail.
 		get_rustup_command(target).unwrap_or(default_cargo)
 	}
 }

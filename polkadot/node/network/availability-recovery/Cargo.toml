@@ -10,13 +10,13 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
-tokio = "1.24.2"
+futures = "0.3.30"
+tokio = "1.37"
 schnellru = "0.2.1"
 rand = "0.8.5"
 fatality = "0.0.6"
 thiserror = { workspace = true }
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 gum = { package = "tracing-gum", path = "../../gum" }
 
 polkadot-erasure-coding = { path = "../../../erasure-coding" }

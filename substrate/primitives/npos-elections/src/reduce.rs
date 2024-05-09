@@ -319,7 +319,7 @@ fn reduce_all<A: IdentifierT>(assignments: &mut Vec<StakedAssignment<A>>) -> u32
 	let mut tree: BTreeMap<NodeId<A>, NodeRef<A>> = BTreeMap::new();
 
 	// NOTE: This code can heavily use an index cache. Looking up a pair of (voter, target) in the
-	// assignments happens numerous times and and we can save time. For now it is written as such
+	// assignments happens numerous times and we can save time. For now it is written as such
 	// because abstracting some of this code into a function/closure is super hard due to borrow
 	// checks (and most likely needs unsafe code at the end). For now I will keep it as it and
 	// refactor later.
@@ -393,7 +393,7 @@ fn reduce_all<A: IdentifierT>(assignments: &mut Vec<StakedAssignment<A>>) -> u32
 				// voter_root_path.last().unwrap()); TODO: @kian
 				// the common path must be non-void..
 				debug_assert!(common_count > 0);
-				// and smaller than btoh
+				// and smaller than both
 				debug_assert!(common_count <= voter_root_path.len());
 				debug_assert!(common_count <= target_root_path.len());
 

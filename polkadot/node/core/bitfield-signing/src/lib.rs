@@ -37,7 +37,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{AvailabilityBitfield, CoreState, Hash, ValidatorIndex};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
-use std::{collections::HashMap, iter::FromIterator, time::Duration};
+use std::{collections::HashMap, time::Duration};
 use wasm_timer::{Delay, Instant};
 
 mod metrics;

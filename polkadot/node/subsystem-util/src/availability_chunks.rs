@@ -15,10 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use erasure_coding::systematic_recovery_threshold;
-use polkadot_primitives::{
-	vstaging::{node_features, NodeFeatures},
-	ChunkIndex, CoreIndex, ValidatorIndex,
-};
+use polkadot_primitives::{node_features, ChunkIndex, CoreIndex, NodeFeatures, ValidatorIndex};
 
 /// Compute the per-validator availability chunk index.
 /// WARNING: THIS FUNCTION IS CRITICAL TO PARACHAIN CONSENSUS.

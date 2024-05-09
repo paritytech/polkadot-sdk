@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
 parity-scale-codec = { version = "3.6.1", features = ["std"] }
 polkadot-primitives = { path = "../../../primitives" }
@@ -41,9 +41,9 @@ rstest = "0.18.2"
 polkadot-subsystem-bench = { path = "../../subsystem-bench" }
 
 
-[[test]]
+[[bench]]
 name = "availability-distribution-regression-bench"
-path = "tests/availability-distribution-regression-bench.rs"
+path = "benches/availability-distribution-regression-bench.rs"
 harness = false
 required-features = ["subsystem-benchmarks"]
 

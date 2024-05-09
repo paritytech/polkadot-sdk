@@ -32,8 +32,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{database::Database, TimeoutExt};
 use polkadot_primitives::{
-	vstaging::node_features, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, HeadData,
-	Header, PersistedValidationData, ValidatorId,
+	node_features, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, HeadData, Header,
+	PersistedValidationData, ValidatorId,
 };
 use sp_keyring::Sr25519Keyring;
 

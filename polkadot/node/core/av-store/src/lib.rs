@@ -48,8 +48,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::{
-	vstaging::NodeFeatures, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt,
-	ChunkIndex, CoreIndex, Hash, Header, ValidatorIndex,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, Hash,
+	Header, NodeFeatures, ValidatorIndex,
 };
 use util::availability_chunks::availability_chunk_indices;
 
@@ -1233,7 +1233,7 @@ fn process_message(
 					// tx channel is dropped and that error is caught by the caller subsystem.
 					//
 					// We bubble up the specific error here so `av-store` logs still tell what
-					// happend.
+					// happened.
 					return Err(e.into())
 				},
 			}

@@ -85,7 +85,7 @@ disable_allocator = []
 # This gives the caller direct programmatic access to the error message.
 #
 # When disabled the error message will only be printed out in the
-# logs, with the caller receving a generic "wasm `unreachable` instruction executed"
+# logs, with the caller receiving a generic "wasm `unreachable` instruction executed"
 # error message.
 #
 # This has no effect if both `disable_panic_handler` and `disable_oom`

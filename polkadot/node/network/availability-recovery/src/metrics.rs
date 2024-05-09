@@ -40,7 +40,7 @@ struct MetricsInner {
 
 	/// Total number of bytes recovered
 	///
-	/// Gets incremented on each succesful recovery
+	/// Gets incremented on each successful recovery
 	recovered_bytes_total: Counter<U64>,
 
 	/// A counter for finished chunk requests.

@@ -22,10 +22,7 @@ use rstest::rstest;
 use polkadot_node_network_protocol::request_response::{
 	IncomingRequest, Protocol, ReqProtocolNames,
 };
-use polkadot_primitives::{
-	vstaging::{node_features, NodeFeatures},
-	CoreState, Hash,
-};
+use polkadot_primitives::{node_features, Block, CoreState, Hash, NodeFeatures};
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_subsystem_test_helpers as test_helpers;
@@ -49,11 +46,18 @@ fn test_harness<T: Future<Output = ()>>(
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
 
-	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (chunk_req_v1_receiver, chunk_req_v1_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (chunk_req_v2_receiver, chunk_req_v2_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (chunk_req_v1_receiver, chunk_req_v1_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (chunk_req_v2_receiver, chunk_req_v2_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let subsystem = AvailabilityDistributionSubsystem::new(
 		keystore,
 		IncomingRequestReceivers { pov_req_receiver, chunk_req_v1_receiver, chunk_req_v2_receiver },

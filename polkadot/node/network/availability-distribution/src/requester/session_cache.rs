@@ -22,7 +22,7 @@ use schnellru::{ByLength, LruMap};
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::runtime::{request_node_features, RuntimeInfo};
 use polkadot_primitives::{
-	vstaging::NodeFeatures, AuthorityDiscoveryId, GroupIndex, Hash, SessionIndex, ValidatorIndex,
+	AuthorityDiscoveryId, GroupIndex, Hash, NodeFeatures, SessionIndex, ValidatorIndex,
 };
 
 use crate::{

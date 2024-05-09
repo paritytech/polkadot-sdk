@@ -32,7 +32,7 @@ polkadot-primitives = { path = "../../../polkadot/primitives" }
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 
 [dev-dependencies]
 tokio = { version = "1.32.0", features = ["macros"] }

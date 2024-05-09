@@ -106,7 +106,7 @@ benchmarks! {
 		let slash_destination = RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
 		T::prepare_rewards_account(slash_destination, Zero::zero());
 	}: {
-		crate::Pallet::<T>::slash_and_deregister(&relayer, slash_destination)
+		crate::Pallet::<T>::slash_and_deregister(&relayer, slash_destination.into())
 	}
 	verify {
 		assert!(!crate::Pallet::<T>::is_registration_active(&relayer));

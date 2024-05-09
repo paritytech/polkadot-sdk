@@ -18,7 +18,7 @@
 use super::*;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
-	traits::OnRuntimeUpgrade, weights::Weight,
+	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 };
 
 mod v0 {
@@ -51,12 +51,12 @@ mod v1 {
 
 	/// Migration to V1
 	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV1<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 
 			// Migrate the current traffic value
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			QueueStatus::<T>::mutate(|mut queue_status| {
 				Pallet::<T>::update_spot_traffic(&config, &mut queue_status);
 
@@ -141,7 +141,7 @@ pub type MigrateV0ToV1<T> = VersionedMigration<
 
 #[cfg(test)]
 mod tests {
-	use super::{v0, v1, OnRuntimeUpgrade, Weight};
+	use super::{v0, v1, UncheckedOnRuntimeUpgrade, Weight};
 	use crate::mock::{new_test_ext, MockGenesisConfig, OnDemandAssigner, Test};
 	use primitives::Id as ParaId;
 
@@ -163,7 +163,7 @@ mod tests {
 
 			// For tests, db weight is zero.
 			assert_eq!(
-				<v1::UncheckedMigrateToV1<Test> as OnRuntimeUpgrade>::on_runtime_upgrade(),
+				<v1::UncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade(),
 				Weight::zero()
 			);
 
