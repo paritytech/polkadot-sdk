@@ -8,7 +8,7 @@ As established in the [approval process](protocol-approval.md) dealing with bad 
 1. Escalation
 1. Consequences
 
-The main system responsible for dispensing **consequences** for malicious actors is the [dispute system](protocol-disputes.md) which eventually dispenses slash events. It is important to note the **high latency** of the punishment as it is only effective after 27 eras (27 days in Polkadot). Dispute concluding by itself does not immediately remove the validator from the active validator set.
+The main system responsible for dispensing **consequences** for malicious actors is the [dispute system](protocol-disputes.md) which eventually dispenses slash events. The slashes itself can be dispensed quickly (a matter of blocks) but for an extra layer of auditing all slashes are deferred for 27 days (in Polkadot/Kusama) which gives time for Governance to investigate and potentially alter the punishment. Dispute concluding by itself does not immediately remove the validator from the active validator set.
 
 > **Note:** \
 > There was an additional mechanism of automatically chilling the validator which removed their intent to participate in the next election, but the removed validator could simply re-register his intent to validate.
@@ -16,10 +16,10 @@ The main system responsible for dispensing **consequences** for malicious actors
 There is a need to have a more immediate way to deal with malicious validators. This is where the validator disabling comes in. It is focused on dispensing **low latency** consequences for malicious actors. It is important to note that the validator disabling is not a replacement for the dispute or slashing systems. It is a complementary system that is focused on lighter but immediate consequences usually in the form of restricted validator privileges.
 
 The primary goals are:
-- Eliminate cases where attackers can get free attempts at attacking the network
-- Eliminate or minimize the risks of honest nodes being pushed out of consensus by getting unjustly slashed
+- Eliminate or minimize cases where attackers can get free attempts at attacking the network
+- Eliminate or minimize the risks of honest nodes being pushed out of consensus when getting unjustly slashed (defense in depth)
 
-The above three goals are generally at odds so a careful balance has to be struck between them. We will achieve them by sacrificing some **liveness** in favor of **soundness** when the network is under stress. Maintaining some liveness but absolute soundness is paramount.
+The above two goals are generally at odds so a careful balance has to be struck between them. We will achieve them by sacrificing some **liveness** in favor of **soundness** when the network is under stress. Maintaining some liveness but absolute soundness is paramount.
 
 > **Note:** \
 > Liveness = Valid candidates can go through (at a decent pace) \
@@ -40,17 +40,11 @@ High level assumptions and goals of the validator disabling system that will be 
 1. Disabled validators remain in the active validator set but have some limited permissions.
 1. Disabled validators can get re-elected.
 1. Disabled validators can participate in approval checking.
-1. Disabled validators can participate in GRANDPA, but equivocations cause disablement.
+1. Disabled validators can participate in GRANDPA/BEEFY, but equivocations cause disablement.
 1. Disabled validators cannot author blocks.
 1. Disabled validators cannot back candidates.
 1. Disabled validators cannot initiate disputes, but their votes are still counted if a dispute occurs.
 1. Disabled validators making dispute statements no-show in approval checking.
-
-
-Having the above elements allows us to simplify the current staking & slashing design: 
-- No automatic chilling of validators.
-- No force new era logic.
-- No slashing spans
 
 </br></br></br>
 
@@ -58,7 +52,7 @@ Having the above elements allows us to simplify the current staking & slashing d
 
 ## Risks of NOT having validator disabling
 
-Assume that if an offense is committed a slash is deposited but the perpetrator can still act normally. He will be slashed 100% with a long delay. This is akin to the current design.
+Assume that if an offense is committed a slash is deposited but the perpetrator can still act normally. He will be slashed 100% with a long delay (slash deferral duration which is 27 days). This is akin to the current design.
 
 A simple argument for disabling is that if someone is already slashed 100% and they have nothing to lose they could cause harm to the network and should be silenced.
 
@@ -87,10 +81,10 @@ The primary risk behind having any sort of disabling is that it is a double-edge
 
 Validators being pushed out of the validator set are an issue because that can greatly skew the numbers game in approval checking (% for 30-ish malicious in a row). 
 
-There are are also censorship or liveness issues if backing is suddenly dominate by malicious nodes but in general even if some honest blocks get backed liveness should be preserved.
+There are also censorship or liveness issues if backing is suddenly dominated by malicious nodes but in general even if some honest blocks get backed liveness should be preserved.
 
 > **Note:**
-> It is worth noting that is is fundamentally a defense in depth strategy because if we assume disputes are perfect it should not be a real concern. In reality disputes are difficult to get right, and non-determinism and happen so defense in depth is crucial when handling those subsystems.
+> It is worth noting that is is fundamentally a defense in depth strategy because if we assume disputes are perfect it should not be a real concern. In reality disputes and determinism are difficult to get right, and non-determinism and happen so defense in depth is crucial when handling those subsystems.
 
 </br></br></br>
 
@@ -105,7 +99,7 @@ Even in such a dire situation where more than 1/3 got disabled the most likely s
 > **Note:** \
 > System can be launched with re-enabling and will still provide some security improvements. Re-enabling will be launched in an upgrade after the initial deployment.
 
-Fully pushing out offending validator out of the validator set it too risky in case of a dispute bug, non-determinism or sacrifice attacks. Main issue lies in skewing the numbers in approval checking so instead of fully fully blocking disabled nodes a different approach can be taken - one were only some functionalities are disabled ([**Point 5.**](#system-overview)).
+Fully pushing out offending validator out of the validator set it too risky in case of a dispute bug, non-determinism or sacrifice attacks. Main issue lies in skewing the numbers in approval checking so instead of fully blocking disabled nodes a different approach can be taken - one were only some functionalities are disabled ([**Point 5.**](#system-overview)).
 Once of those functionalities can be approval voting which as pointed above is so crucial that even in a disabled state nodes should be able to participate in it ([**Point 7.**](#system-overview)).
 
 > **Note:** \
@@ -133,7 +127,7 @@ As a defense in depth measure dispute statements from disabled validators count 
 
 ## Context:
 
-A crucial point to understand is that as of the time of writing all slashing events as alluded to in the begging are delayed for 27 days before being executed. This is primarily because it gives governance enough time to investigate and potentially intervene. For that duration when the slash is pending the stake is locked and cannot be moved. Time to deposit is 28 days which ensures that the stake will eventually be slashed before being withdrawn. Disabling has to protect us for that whole period in between the offense and the actual execution.
+A crucial point to understand is that as of the time of writing all slashing events as alluded to in the begging are delayed for 27 days before being executed. This is primarily because it gives governance enough time to investigate and potentially intervene. For that duration when the slash is pending the stake is locked and cannot be moved. Time to unbond you stake is 28 days which ensures that the stake will eventually be slashed before being withdrawn.
 
 ## Design:
 
@@ -143,11 +137,11 @@ A few options for the duration of disablement were considered:
 - 2-26 eras
 - 27 eras
 
-1 epoch is a short period and between a few epochs the validator set might be exactly the same. It is also very difficult to fix any local node issues for honest validator in such a short time so the chance for a repeated offense is high.
+1 epoch is a short period and between a few epochs the validator will most likely be exactly the same. It is also very difficult to fix any local node issues for honest validator in such a short time so the chance for a repeated offense is high.
 
-1 era gives a bit more time to fix any minor issues. Additionally, it guarantees a validator set change at so many of the currently disabled validator might no longer be present anyway. ([**Point 4.**](#system-overview))
+1 era gives a bit more time to fix any minor issues. Additionally, it guarantees a validator set change at so many of the currently disabled validator might no longer be present anyway. It also gives the time for the validator to chill themselves if they have identified a cause and want to spend more time fixing it. ([**Point 4.**](#system-overview))
 
-Higher values could be considered and the main arguments for those are based around the fact that it reduces the number of repeated attacks that will be allowed before the slash execution. Generally 1 attack per era for 27 eras resulting in 27 attacks at most should not compromise oru safety assumptions. Although this direction could be further explored and might be parametrized for governance to decide. 
+Higher values could be considered and the main arguments for those are based around the fact that it reduces the number of repeated attacks that will be allowed before the slash execution. Generally 1 attack per era for 27 eras resulting in 27 attacks at most should not compromise our safety assumptions. Although this direction could be further explored and might be parametrized for governance to decide. 
 
 </br></br></br>
 
@@ -167,21 +161,24 @@ Anything higher than 0% will of course also lead to a disablement.
 
 # Redundancy
 
-Some systems can be greatly simplified or outright removed thanks to the above changes. This leads to reduced complexity around the systems that were hard to reason about and were sources of multiple bugs.
+Some systems can be greatly simplified or outright removed thanks to the above changes. This leads to reduced complexity around the systems that were hard to reason about and were sources of potential bugs or new attack vectors.
 
 ## Automatic Chilling
 
-Chilling is process of a validator dropping theirs intent to validate. This removes them from the upcoming NPoS solutions and effectively pushes them out of the validator set as quickly as of the next era (or 2 era in case of late offenses). All nominators of that validator were also getting unsubscribed from that validator. Validator could re-register their intent to validate at any time.
+Chilling is process of a validator dropping theirs intent to validate. This removes them from the upcoming NPoS elections and effectively pushes them out of the validator set as quickly as of the next era (or 2 era in case of late offenses). All nominators of that validator were also getting unsubscribed from that validator. Validator could re-register their intent to validate at any time. The intent behind this logic was to protect honest stakes from repeated slashes caused by unnoticed bugs. It would give time for validators to fix their issue before continuing as a validator.
 
-Chilling had a myriad of problems. It assumes that validators and nominators remain very active and monitor everything. If a validator got slashed he was getting automatically chilled and his nominators were getting unsubscribed. This was an issue because of minor non-malicious slashes due to node operator mistakes or small bugs. Validators got those bugs fixed quickly and were reimbursed but nominator had to manually re-subscribe to the validator, which they often postponed for very lengthy amounts of time most likely due to simply not checking their stake. This forced unsubscribing of nominators was later removed but it leads back to the original quoted issue of offending validators simply re-registering their interest and continuing to attack the network. 
+Chilling had a myriad of problems. It assumes that validators and nominators remain very active and monitor everything. If a validator got slashed he was getting automatically chilled and his nominators were getting unsubscribed. This was an issue because of minor non-malicious slashes due to node operator mistakes or small bugs. Validators got those bugs fixed quickly and were reimbursed but nominator had to manually re-subscribe to the validator, which they often postponed for very lengthy amounts of time most likely due to simply not checking their stake. **This forced unsubscribing of nominators was later disabled.**
 
-The biggest issue was that chilling in case of honest node slashes could lead to honest validators being somewhat quickly (next era) pushed out of the next validator set. This retains the validator set size but gives an edge to attackers as they can more easily win slots in the NPoS election.
+Automatic chilling was achieving its goals in ideal scenarios (no attackers, no lazy nominators) but it opened new vulnerabilities for attackers. The biggest issue was that chilling in case of honest node slashes could lead to honest validators being quickly pushed out of the next validator set within the next era. This retains the validator set size but gives an edge to attackers as they can more easily win slots in the NPoS election.
 
-Disabling generally makes automatic-chilling after slash events redundant and disabled nodes can be considered for re-election which ensures that we do not push honest validators out of the validator set. ([**Point 6.**](#system-overview))
+Disabling allows for punishment that limits the damages malicious actors can cause without having to resort to kicking them out of the validator set. This protects us from the edge case of honest validators getting quickly pushed out of the set by slashes. ([**Point 6.**](#system-overview))
+
+> **Notes:** \
+> As long as honest slashes absolutely cannot occur automatic chilling is a sensible and desirable. This means it could be re-enabled once PolkaVM introduces deterministic gas metering. Then best of both worlds could be achieved.
 
 ## Forcing New Era
 
-Previous implementation of disabling had some mechanisms allowing for temporarily fully disabling validators and if too many were disabled forcing a new era. Frame staking pallet offered the ability to force a new era but it was also deemed unsafe as it could be abused and compromised the security of the network for instance by weakening the randomness used throughout the protocol.
+Previous implementation of disabling had some limited mechanisms allowing for validators disablement and if too many were disabled forcing a new era (new election). Frame staking pallet offered the ability to force a new era but it was also deemed unsafe as it could be abused and compromised the security of the network for instance by weakening the randomness used throughout the protocol.
 
 </br></br></br>
 
@@ -189,9 +186,9 @@ Previous implementation of disabling had some mechanisms allowing for temporaril
 
 Above slashes were specifically referring to slashing events coming from disputes against candidates, but in Polkadot other types of offenses exist for example GRANDPA equivocations or block authoring offenses. Question is if the above defined design can handle those offenses.
 
-## GRANDPA Offenses
+## GRANDPA/BEEFY Offenses
 
-The only GRANDPA offense is an equivocation (as of now). It is not a very serious offense and some nodes committing do not endanger the system and performance is barely affected. If more than byzantine threshold of nodes equivocate it is a catastrophic failure potentially resulting in 2 finalized blocks on the same height. 
+The main offences for GRANDPA/BEEFY are equivocations. It is not a very serious offense and some nodes committing do not endanger the system and performance is barely affected. If more than byzantine threshold of nodes equivocate it is a catastrophic failure potentially resulting in 2 finalized blocks on the same height in the case of GRANDPA. 
 
 Honest nodes generally should not commit those offenses so the goal of protecting them does not apply here.
 
@@ -200,9 +197,9 @@ Honest nodes generally should not commit those offenses so the goal of protectin
 
 It's not a game of chance so giving attackers extra chances does not compromise soundness. Also it requires a supermajority of honest nodes to successfully finalize blocks so any disabling of honest nodes from GRANDPA might compromise liveness.
 
-Best approach is to allow disabled nodes to participate in GRANDPA as normal and as mentioned before GRANDPA equivocations should not happen to honest nodes so we can safely disable the offenders. ([**Point 8.**](#system-overview))
+Best approach is to allow disabled nodes to participate in GRANDPA/BEEFY as normal and as mentioned before GRANDPA/BABE/BEEFY equivocations should not happen to honest nodes so we can safely disable the offenders. Additionally the slashes for singular equivocations will be very low so those offenders would easily get re-enabled in the case of more serious offenders showing up. ([**Point 8.**](#system-overview))
 
-## Block Authoring Offenses
+## Block Authoring Offenses (BABE Equivocations)
 
 Even if all honest nodes are disabled in Block Authoring (BA) liveness is generally preserved. At least 50% of blocks produced should still be honest. Soundness wise disabled nodes can create a decent amount of wasted work by creating bad blocks but they only get to do it in bounded amounts. 
 
@@ -211,10 +208,6 @@ Disabling in BA is not a requirement as both liveness and soundness are preserve
 Offenses in BA just like in backing can be caused by faulty PVFs or bugs. They might happen to honest nodes and disabling here while not a requirement can also ensure that this node does not repeat the offense as it might not be trusted with it's PVF anymore. 
 
 Both points above don't present significant risks when disabling so the default behavior is to disable in BA and because of offenses in BA. ([**Point 9.**](#system-overview)) This filters out honest faulty nodes as well as protects from some attackers.
-
-## BEEFY
-
-Upcoming feature currently not in scope. It might require a brand new class of disablement with it's own separate rules.
 
 </br></br></br>
 
@@ -237,6 +230,15 @@ Validator disabling and getting forced ouf of NPoS elections (1 era) due to slas
 - **granularity** (validator disabling could remove only a portion of validator privileges instead of all)   
 
 Granularity is particularly crucial in the final design as only a few select functions are disabled while others remain.
+
+## Enabling Approval Voter Slashes
+
+The original Polkadot 1.0 design describes that all validators on the loosing side of the dispute are slashed. In the current system only the backers are slashed and any approval voters on the wrong side will not be slashed. This creates some undesirable incentives:
+
+- Lazy approval checkers (approvals yay`ing everything)
+- Spammy approval checkers (approval voters nay`ing everything)
+
+Initially those slashes were disabled to reduce the complexity and to minimize the risk surface in case the system malfunctioned. This is especially risky in case any nondeterministic bugs are present in the system. Once validator re-enabling is launched approval voter slashes can be re-instated. Numbers need to be further explored but slashes between 0-2% are reasonable. 0% would still disable which with the opportunity cost consideration should be enough.
 
 </br></br></br>
 
