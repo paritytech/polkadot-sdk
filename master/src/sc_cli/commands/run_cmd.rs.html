@@ -708,6 +708,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -740,7 +766,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>regex::Regex;
 <span class="kw">use </span>sc_service::{
-	config::{BasePath, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions},
+	config::{
+		BasePath, IpNetwork, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions,
+	},
 	ChainSpec, Role,
 };
 <span class="kw">use </span>sc_telemetry::TelemetryEndpoints;
@@ -803,6 +831,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 10 calls per minute per connection.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>rpc_rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
+
+	<span class="doccomment">/// Disable RPC rate limiting for certain ip addresses.
+	///
+	/// Each IP address must be in CIDR notation such as `1.2.3.4/24`.
+	</span><span class="attr">#[arg(long, num_args = <span class="number">1</span>..)]
+	</span><span class="kw">pub </span>rpc_rate_limit_whitelisted_ips: Vec&lt;IpNetwork&gt;,
+
+	<span class="doccomment">/// Trust proxy headers for disable rate limiting.
+	///
+	/// By default the rpc server will not trust headers such `X-Real-IP`, `X-Forwarded-For` and
+	/// `Forwarded` and this option will make the rpc server to trust these headers.
+	///
+	/// For instance this may be secure if the rpc server is behind a reverse proxy and that the
+	/// proxy always sets these headers.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>rpc_rate_limit_trust_proxy_headers: bool,
 
 	<span class="doccomment">/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	</span><span class="attr">#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
@@ -1147,6 +1191,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>rpc_rate_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_rate_limit)
+	}
+
+	<span class="kw">fn </span>rpc_rate_limit_whitelisted_ips(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;IpNetwork&gt;&gt; {
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_rate_limit_whitelisted_ips.clone())
+	}
+
+	<span class="kw">fn </span>rpc_rate_limit_trust_proxy_headers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_rate_limit_trust_proxy_headers)
 	}
 
 	<span class="kw">fn </span>transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>, is_dev: bool) -&gt; <span class="prelude-ty">Result</span>&lt;TransactionPoolOptions&gt; {

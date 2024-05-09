@@ -722,6 +722,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#571" id="571">571</a>
 <a href="#572" id="572">572</a>
 <a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -976,6 +978,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: <span class="prelude-val">None</span>,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: <span class="prelude-val">None</span>,
 		telemetry_endpoints: <span class="prelude-val">None</span>,
 		default_heap_pages: <span class="prelude-val">None</span>,

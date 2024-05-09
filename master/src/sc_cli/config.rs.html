@@ -846,6 +846,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#695" id="695">695</a>
 <a href="#696" id="696">696</a>
 <a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -874,7 +886,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>names::{Generator, Name};
 <span class="kw">use </span>sc_service::{
 	config::{
-		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
+		BasePath, Configuration, DatabaseSource, IpNetwork, KeystoreConfig, NetworkConfiguration,
 		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
 		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
 		WasmExecutionMethod,
@@ -1197,6 +1209,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 	}
 
+	<span class="doccomment">/// RPC rate limit whitelisted ip addresses.
+	</span><span class="kw">fn </span>rpc_rate_limit_whitelisted_ips(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;IpNetwork&gt;&gt; {
+		<span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[])
+	}
+
+	<span class="doccomment">/// RPC rate limit trust proxy headers.
+	</span><span class="kw">fn </span>rpc_rate_limit_trust_proxy_headers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+		<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+	}
+
 	<span class="doccomment">/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -1371,6 +1393,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			rpc_message_buffer_capacity: <span class="self">self</span>.rpc_buffer_capacity_per_connection()<span class="question-mark">?</span>,
 			rpc_batch_config: <span class="self">self</span>.rpc_batch_config()<span class="question-mark">?</span>,
 			rpc_rate_limit: <span class="self">self</span>.rpc_rate_limit()<span class="question-mark">?</span>,
+			rpc_rate_limit_whitelisted_ips: <span class="self">self</span>.rpc_rate_limit_whitelisted_ips()<span class="question-mark">?</span>,
+			rpc_rate_limit_trust_proxy_headers: <span class="self">self</span>.rpc_rate_limit_trust_proxy_headers()<span class="question-mark">?</span>,
 			prometheus_config: <span class="self">self
 				</span>.prometheus_config(DCV::prometheus_listen_port(), <span class="kw-2">&amp;</span>chain_spec)<span class="question-mark">?</span>,
 			telemetry_endpoints,

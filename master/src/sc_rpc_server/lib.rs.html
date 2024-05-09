@@ -404,34 +404,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -455,27 +427,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![warn(missing_docs)]
 
 </span><span class="kw">pub mod </span>middleware;
+<span class="kw">pub mod </span>utils;
 
 <span class="kw">use </span>std::{
 	convert::Infallible, error::Error <span class="kw">as </span>StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
 };
 
-<span class="kw">use </span>http::header::HeaderValue;
 <span class="kw">use </span>hyper::{
 	server::conn::AddrStream,
 	service::{make_service_fn, service_fn},
 };
 <span class="kw">use </span>jsonrpsee::{
 	server::{
-		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
-		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
+		middleware::http::ProxyGetRequestLayer, stop_channel, ws, PingConfig, StopHandle,
+		TowerServiceBuilder,
 	},
 	Methods, RpcModule,
 };
 <span class="kw">use </span>tokio::net::TcpListener;
 <span class="kw">use </span>tower::Service;
-<span class="kw">use </span>tower_http::cors::{AllowOrigin, CorsLayer};
+<span class="kw">use </span>utils::{build_rpc_api, format_cors, get_proxy_ip, host_filtering, try_into_cors};
 
+<span class="kw">pub use </span>ip_network::IpNetwork;
 <span class="kw">pub use </span>jsonrpsee::{
 	core::{
 		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
@@ -519,6 +492,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>batch_config: BatchRequestConfig,
 	<span class="doccomment">/// Rate limit calls per minute.
 	</span><span class="kw">pub </span>rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
+	<span class="doccomment">/// Disable rate limit for certain ips.
+	</span><span class="kw">pub </span>rate_limit_whitelisted_ips: Vec&lt;IpNetwork&gt;,
+	<span class="doccomment">/// Trust proxy headers for rate limiting.
+	</span><span class="kw">pub </span>rate_limit_trust_proxy_headers: bool,
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -551,11 +528,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tokio_handle,
 		rpc_api,
 		rate_limit,
+		rate_limit_whitelisted_ips,
+		rate_limit_trust_proxy_headers,
 	} = config;
 
 	<span class="kw">let </span>std_listener = TcpListener::bind(addrs.as_slice()).<span class="kw">await</span><span class="question-mark">?</span>.into_std()<span class="question-mark">?</span>;
 	<span class="kw">let </span>local_addr = std_listener.local_addr().ok();
-	<span class="kw">let </span>host_filter = hosts_filtering(cors.is_some(), local_addr);
+	<span class="kw">let </span>host_filter = host_filtering(cors.is_some(), local_addr);
 
 	<span class="kw">let </span>http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
@@ -594,20 +573,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		stop_handle: stop_handle.clone(),
 	};
 
-	<span class="kw">let </span>make_service = make_service_fn(<span class="kw">move </span>|_conn: <span class="kw-2">&amp;</span>AddrStream| {
+	<span class="kw">let </span>make_service = make_service_fn(<span class="kw">move </span>|addr: <span class="kw-2">&amp;</span>AddrStream| {
 		<span class="kw">let </span>cfg = cfg.clone();
+		<span class="kw">let </span>rate_limit_whitelisted_ips = rate_limit_whitelisted_ips.clone();
+		<span class="kw">let </span>ip = addr.remote_addr().ip();
 
 		<span class="kw">async move </span>{
 			<span class="kw">let </span>cfg = cfg.clone();
+			<span class="kw">let </span>rate_limit_whitelisted_ips = rate_limit_whitelisted_ips.clone();
 
 			<span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, Infallible&gt;(service_fn(<span class="kw">move </span>|req| {
+				<span class="kw">let </span>proxy_ip =
+					<span class="kw">if </span>rate_limit_trust_proxy_headers { get_proxy_ip(<span class="kw-2">&amp;</span>req) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
+
+				<span class="kw">let </span>rate_limit_cfg = <span class="kw">if </span>rate_limit_whitelisted_ips
+					.iter()
+					.any(|ips| ips.contains(proxy_ip.unwrap_or(ip)))
+				{
+					<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"ip={ip}, proxy_ip={:?} is trusted, disabling rate-limit"</span>, proxy_ip);
+					<span class="prelude-val">None
+				</span>} <span class="kw">else </span>{
+					<span class="kw">if </span>!rate_limit_whitelisted_ips.is_empty() {
+						<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"ip={ip}, proxy_ip={:?} is not trusted, rate-limit enabled"</span>, proxy_ip);
+					}
+					rate_limit
+				};
+
 				<span class="kw">let </span>PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
 					cfg.clone();
 
 				<span class="kw">let </span>is_websocket = ws::is_upgrade_request(<span class="kw-2">&amp;</span>req);
 				<span class="kw">let </span>transport_label = <span class="kw">if </span>is_websocket { <span class="string">"ws" </span>} <span class="kw">else </span>{ <span class="string">"http" </span>};
 
-				<span class="kw">let </span>middleware_layer = <span class="kw">match </span>(metrics, rate_limit) {
+				<span class="kw">let </span>middleware_layer = <span class="kw">match </span>(metrics, rate_limit_cfg) {
 					(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">None</span>,
 					(<span class="prelude-val">Some</span>(metrics), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Some</span>(
 						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
@@ -660,60 +658,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	<span class="prelude-val">Ok</span>(server_handle)
-}
-
-<span class="kw">fn </span>hosts_filtering(enabled: bool, addr: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;HostFilterLayer&gt; {
-	<span class="comment">// If the local_addr failed, fallback to wildcard.
-	</span><span class="kw">let </span>port = addr.map_or(<span class="string">"*"</span>.to_string(), |p| p.port().to_string());
-
-	<span class="kw">if </span>enabled {
-		<span class="comment">// NOTE: The listening addresses are whitelisted by default.
-		</span><span class="kw">let </span>hosts =
-			[<span class="macro">format!</span>(<span class="string">"localhost:{port}"</span>), <span class="macro">format!</span>(<span class="string">"127.0.0.1:{port}"</span>), <span class="macro">format!</span>(<span class="string">"[::1]:{port}"</span>)];
-		<span class="prelude-val">Some</span>(HostFilterLayer::new(hosts).expect(<span class="string">"Valid hosts; qed"</span>))
-	} <span class="kw">else </span>{
-		<span class="prelude-val">None
-	</span>}
-}
-
-<span class="kw">fn </span>build_rpc_api&lt;M: Send + Sync + <span class="lifetime">'static</span>&gt;(<span class="kw-2">mut </span>rpc_api: RpcModule&lt;M&gt;) -&gt; RpcModule&lt;M&gt; {
-	<span class="kw">let </span><span class="kw-2">mut </span>available_methods = rpc_api.method_names().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-	<span class="comment">// The "rpc_methods" is defined below and we want it to be part of the reported methods.
-	</span>available_methods.push(<span class="string">"rpc_methods"</span>);
-	available_methods.sort();
-
-	rpc_api
-		.register_method(<span class="string">"rpc_methods"</span>, <span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>| {
-			<span class="macro">serde_json::json!</span>({
-				<span class="string">"methods"</span>: available_methods,
-			})
-		})
-		.expect(<span class="string">"infallible all other methods have their own address space; qed"</span>);
-
-	rpc_api
-}
-
-<span class="kw">fn </span>try_into_cors(
-	maybe_cors: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;String&gt;&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;CorsLayer, Box&lt;<span class="kw">dyn </span>StdError + Send + Sync&gt;&gt; {
-	<span class="kw">if let </span><span class="prelude-val">Some</span>(cors) = maybe_cors {
-		<span class="kw">let </span><span class="kw-2">mut </span>list = Vec::new();
-		<span class="kw">for </span>origin <span class="kw">in </span>cors {
-			list.push(HeaderValue::from_str(origin)<span class="question-mark">?</span>);
-		}
-		<span class="prelude-val">Ok</span>(CorsLayer::new().allow_origin(AllowOrigin::list(list)))
-	} <span class="kw">else </span>{
-		<span class="comment">// allow all cors
-		</span><span class="prelude-val">Ok</span>(CorsLayer::permissive())
-	}
-}
-
-<span class="kw">fn </span>format_cors(maybe_cors: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;String&gt;&gt;) -&gt; String {
-	<span class="kw">if let </span><span class="prelude-val">Some</span>(cors) = maybe_cors {
-		<span class="macro">format!</span>(<span class="string">"{:?}"</span>, cors)
-	} <span class="kw">else </span>{
-		<span class="macro">format!</span>(<span class="string">"{:?}"</span>, [<span class="string">"*"</span>])
-	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

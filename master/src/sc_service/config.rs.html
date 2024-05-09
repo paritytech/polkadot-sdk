@@ -488,6 +488,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -524,6 +529,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	Multiaddr,
 };
+<span class="kw">pub use </span>sc_rpc_server::IpNetwork;
 <span class="kw">pub use </span>sc_telemetry::TelemetryEndpoints;
 <span class="kw">pub use </span>sc_transaction_pool::Options <span class="kw">as </span>TransactionPoolOptions;
 <span class="kw">use </span>sp_core::crypto::SecretString;
@@ -598,6 +604,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>rpc_batch_config: RpcBatchRequestConfig,
 	<span class="doccomment">/// RPC rate limit per minute.
 	</span><span class="kw">pub </span>rpc_rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
+	<span class="doccomment">/// RPC rate limit whitelisted ip addresses.
+	</span><span class="kw">pub </span>rpc_rate_limit_whitelisted_ips: Vec&lt;IpNetwork&gt;,
+	<span class="doccomment">/// RPC rate limit trust proxy headers.
+	</span><span class="kw">pub </span>rpc_rate_limit_trust_proxy_headers: bool,
 	<span class="doccomment">/// Prometheus endpoint configuration. `None` if disabled.
 	</span><span class="kw">pub </span>prometheus_config: <span class="prelude-ty">Option</span>&lt;PrometheusConfig&gt;,
 	<span class="doccomment">/// Telemetry service URL. `None` if disabled.

@@ -1113,6 +1113,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#962" id="962">962</a>
 <a href="#963" id="963">963</a>
 <a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1939,6 +1941,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: <span class="prelude-val">None</span>,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: <span class="prelude-val">None</span>,
 		telemetry_endpoints: <span class="prelude-val">None</span>,
 		default_heap_pages: <span class="prelude-val">None</span>,

@@ -148,95 +148,95 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sc_client_api/index.html">sc_client_api</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">StorageProvider</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.child_closest_merkle_value">child_closest_merkle_value</a></li><li><a href="#tymethod.child_storage">child_storage</a></li><li><a href="#tymethod.child_storage_hash">child_storage_hash</a></li><li><a href="#tymethod.child_storage_keys">child_storage_keys</a></li><li><a href="#tymethod.closest_merkle_value">closest_merkle_value</a></li><li><a href="#tymethod.storage">storage</a></li><li><a href="#tymethod.storage_hash">storage_hash</a></li><li><a href="#tymethod.storage_keys">storage_keys</a></li><li><a href="#tymethod.storage_pairs">storage_pairs</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sc_client_api::backend</a></h2></div></nav><div class="sidebar-resizer"></div>
-    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_client_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">sc_client_api</a>::<wbr><a href="index.html">backend</a>::<wbr><a class="trait" href="#">StorageProvider</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/sc_client_api/backend.rs.html#414-489">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait StorageProvider&lt;Block: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>, B: <a class="trait" href="trait.Backend.html" title="trait sc_client_api::backend::Backend">Backend</a>&lt;Block&gt;&gt; {
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_client_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">sc_client_api</a>::<wbr><a href="index.html">backend</a>::<wbr><a class="trait" href="#">StorageProvider</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/sc_client_api/backend.rs.html#414-489">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait StorageProvider&lt;Block: BlockT, B: <a class="trait" href="trait.Backend.html" title="trait sc_client_api::backend::Backend">Backend</a>&lt;Block&gt;&gt; {
     // Required methods
     fn <a href="#tymethod.storage" class="fn">storage</a>(
         &amp;self,
-        hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        hash: Block::Hash,
         key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
     ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.StorageData.html" title="struct sc_client_api::StorageData">StorageData</a>&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.storage_hash" class="fn">storage_hash</a>(
         &amp;self,
-        hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        hash: Block::Hash,
         key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
-    ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;&gt;;
+    ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::Hash&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.storage_keys" class="fn">storage_keys</a>(
         &amp;self,
-        hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        hash: Block::Hash,
         prefix: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;,
         start_key: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;
     ) -&gt; Result&lt;<a class="struct" href="struct.KeysIter.html" title="struct sc_client_api::backend::KeysIter">KeysIter</a>&lt;B::<a class="associatedtype" href="trait.Backend.html#associatedtype.State" title="type sc_client_api::backend::Backend::State">State</a>, Block&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.storage_pairs" class="fn">storage_pairs</a>(
         &amp;self,
-        hash: &lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        hash: &lt;Block as BlockT&gt;::Hash,
         prefix: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;,
         start_key: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;
     ) -&gt; Result&lt;<a class="struct" href="struct.PairsIter.html" title="struct sc_client_api::backend::PairsIter">PairsIter</a>&lt;B::<a class="associatedtype" href="trait.Backend.html#associatedtype.State" title="type sc_client_api::backend::Backend::State">State</a>, Block&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.child_storage" class="fn">child_storage</a>(
         &amp;self,
-        hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        hash: Block::Hash,
         child_info: &amp;<a class="enum" href="../enum.ChildInfo.html" title="enum sc_client_api::ChildInfo">ChildInfo</a>,
         key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
     ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.StorageData.html" title="struct sc_client_api::StorageData">StorageData</a>&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.child_storage_keys" class="fn">child_storage_keys</a>(
         &amp;self,
-        hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        hash: Block::Hash,
         child_info: <a class="enum" href="../enum.ChildInfo.html" title="enum sc_client_api::ChildInfo">ChildInfo</a>,
         prefix: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;,
         start_key: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;
     ) -&gt; Result&lt;<a class="struct" href="struct.KeysIter.html" title="struct sc_client_api::backend::KeysIter">KeysIter</a>&lt;B::<a class="associatedtype" href="trait.Backend.html#associatedtype.State" title="type sc_client_api::backend::Backend::State">State</a>, Block&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.child_storage_hash" class="fn">child_storage_hash</a>(
         &amp;self,
-        hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        hash: Block::Hash,
         child_info: &amp;<a class="enum" href="../enum.ChildInfo.html" title="enum sc_client_api::ChildInfo">ChildInfo</a>,
         key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
-    ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;&gt;;
+    ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::Hash&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.closest_merkle_value" class="fn">closest_merkle_value</a>(
         &amp;self,
-        hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        hash: Block::Hash,
         key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
-    ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.MerkleValue.html" title="enum sc_client_api::backend::MerkleValue">MerkleValue</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;&gt;&gt;;
+    ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.MerkleValue.html" title="enum sc_client_api::backend::MerkleValue">MerkleValue</a>&lt;Block::Hash&gt;&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.child_closest_merkle_value" class="fn">child_closest_merkle_value</a>(
         &amp;self,
-        hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        hash: Block::Hash,
         child_info: &amp;<a class="enum" href="../enum.ChildInfo.html" title="enum sc_client_api::ChildInfo">ChildInfo</a>,
         key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
-    ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.MerkleValue.html" title="enum sc_client_api::backend::MerkleValue">MerkleValue</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;&gt;&gt;;
+    ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.MerkleValue.html" title="enum sc_client_api::backend::MerkleValue">MerkleValue</a>&lt;Block::Hash&gt;&gt;&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Provides access to storage primitives</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.storage" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#416-420">source</a><h4 class="code-header">fn <a href="#tymethod.storage" class="fn">storage</a>(
     &amp;self,
-    hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    hash: Block::Hash,
     key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
 ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.StorageData.html" title="struct sc_client_api::StorageData">StorageData</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code> and a key, return the value under the key in that block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_hash" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#423-427">source</a><h4 class="code-header">fn <a href="#tymethod.storage_hash" class="fn">storage_hash</a>(
     &amp;self,
-    hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    hash: Block::Hash,
     key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
-) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code> and a key, return the value under the hash in that block.</p>
+) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::Hash&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code> and a key, return the value under the hash in that block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_keys" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#431-436">source</a><h4 class="code-header">fn <a href="#tymethod.storage_keys" class="fn">storage_keys</a>(
     &amp;self,
-    hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    hash: Block::Hash,
     prefix: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;,
     start_key: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;
 ) -&gt; Result&lt;<a class="struct" href="struct.KeysIter.html" title="struct sc_client_api::backend::KeysIter">KeysIter</a>&lt;B::<a class="associatedtype" href="trait.Backend.html#associatedtype.State" title="type sc_client_api::backend::Backend::State">State</a>, Block&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code> and a key prefix, returns a <code>KeysIter</code> iterates matching storage
 keys in that block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_pairs" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#440-445">source</a><h4 class="code-header">fn <a href="#tymethod.storage_pairs" class="fn">storage_pairs</a>(
     &amp;self,
-    hash: &lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    hash: &lt;Block as BlockT&gt;::Hash,
     prefix: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;,
     start_key: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;
 ) -&gt; Result&lt;<a class="struct" href="struct.PairsIter.html" title="struct sc_client_api::backend::PairsIter">PairsIter</a>&lt;B::<a class="associatedtype" href="trait.Backend.html#associatedtype.State" title="type sc_client_api::backend::Backend::State">State</a>, Block&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code> and a key prefix, returns an iterator over the storage keys and
 values in that block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_storage" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#449-454">source</a><h4 class="code-header">fn <a href="#tymethod.child_storage" class="fn">child_storage</a>(
     &amp;self,
-    hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    hash: Block::Hash,
     child_info: &amp;<a class="enum" href="../enum.ChildInfo.html" title="enum sc_client_api::ChildInfo">ChildInfo</a>,
     key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
 ) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.StorageData.html" title="struct sc_client_api::StorageData">StorageData</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code>, a key and a child storage key, return the value under the key in
 that block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_storage_keys" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#458-464">source</a><h4 class="code-header">fn <a href="#tymethod.child_storage_keys" class="fn">child_storage_keys</a>(
     &amp;self,
-    hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    hash: Block::Hash,
     child_info: <a class="enum" href="../enum.ChildInfo.html" title="enum sc_client_api::ChildInfo">ChildInfo</a>,
     prefix: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;,
     start_key: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>&gt;
@@ -244,22 +244,22 @@ that block.</p>
 returns a <code>KeysIter</code> that iterates matching storage keys in that block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_storage_hash" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#468-473">source</a><h4 class="code-header">fn <a href="#tymethod.child_storage_hash" class="fn">child_storage_hash</a>(
     &amp;self,
-    hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    hash: Block::Hash,
     child_info: &amp;<a class="enum" href="../enum.ChildInfo.html" title="enum sc_client_api::ChildInfo">ChildInfo</a>,
     key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
-) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code>, a key and a child storage key, return the hash under the key in that
+) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::Hash&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code>, a key and a child storage key, return the hash under the key in that
 block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.closest_merkle_value" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#476-480">source</a><h4 class="code-header">fn <a href="#tymethod.closest_merkle_value" class="fn">closest_merkle_value</a>(
     &amp;self,
-    hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    hash: Block::Hash,
     key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
-) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.MerkleValue.html" title="enum sc_client_api::backend::MerkleValue">MerkleValue</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code> and a key, return the closest merkle value.</p>
+) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.MerkleValue.html" title="enum sc_client_api::backend::MerkleValue">MerkleValue</a>&lt;Block::Hash&gt;&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code> and a key, return the closest merkle value.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_closest_merkle_value" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#483-488">source</a><h4 class="code-header">fn <a href="#tymethod.child_closest_merkle_value" class="fn">child_closest_merkle_value</a>(
     &amp;self,
-    hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    hash: Block::Hash,
     child_info: &amp;<a class="enum" href="../enum.ChildInfo.html" title="enum sc_client_api::ChildInfo">ChildInfo</a>,
     key: &amp;<a class="struct" href="../struct.StorageKey.html" title="struct sc_client_api::StorageKey">StorageKey</a>
-) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.MerkleValue.html" title="enum sc_client_api::backend::MerkleValue">MerkleValue</a>&lt;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code>, a key and a child storage key, return the closest merkle value.</p>
+) -&gt; Result&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.MerkleValue.html" title="enum sc_client_api::backend::MerkleValue">MerkleValue</a>&lt;Block::Hash&gt;&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a block’s <code>Hash</code>, a key and a child storage key, return the closest merkle value.</p>
 </div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/sc_client_api/backend/trait.StorageProvider.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
