@@ -41,9 +41,8 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	vstaging::{node_features, NodeFeatures},
-	AuthorityDiscoveryId, ExecutorParams, Hash, HeadData, IndexedVec, PersistedValidationData,
-	SessionInfo, ValidatorId,
+	node_features, AuthorityDiscoveryId, Block, ExecutorParams, Hash, HeadData, IndexedVec,
+	NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
@@ -143,7 +142,10 @@ const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
 fn request_receiver(
 	req_protocol_names: &ReqProtocolNames,
 ) -> IncomingRequestReceiver<AvailableDataFetchingRequest> {
-	let receiver = IncomingRequest::get_config_receiver(req_protocol_names);
+	let receiver = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(req_protocol_names);
 	// Don't close the sending end of the request protocol. Otherwise, the subsystem will terminate.
 	std::mem::forget(receiver.1.inbound_queue);
 	receiver.0

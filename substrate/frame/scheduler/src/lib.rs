@@ -46,7 +46,7 @@
 //! 1. Scheduling a runtime call at a specific block.
 #![doc = docify::embed!("src/tests.rs", basic_scheduling_works)]
 //!
-//! 2. Scheduling a preimage hash of a runtime call at a specifc block
+//! 2. Scheduling a preimage hash of a runtime call at a specific block
 #![doc = docify::embed!("src/tests.rs", scheduling_with_preimages_works)]
 
 //!
@@ -1267,6 +1267,17 @@ impl<T: Config> Pallet<T> {
 					id: task.maybe_id,
 				});
 
+				// It was not available when we needed it, so we don't need to have requested it
+				// anymore.
+				T::Preimages::drop(&task.call);
+
+				// We don't know why `peek` failed, thus we most account here for the "full weight".
+				let _ = weight.try_consume(T::WeightInfo::service_task(
+					task.call.lookup_len().map(|x| x as usize),
+					task.maybe_id.is_some(),
+					task.maybe_periodic.is_some(),
+				));
+
 				return Err((Unavailable, Some(task)))
 			},
 		};
@@ -1435,6 +1446,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+#[allow(deprecated)]
 impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
@@ -1469,6 +1481,8 @@ impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall
 	}
 }
 
+// TODO: migrate `schedule::v2::Anon` to `v3`
+#[allow(deprecated)]
 impl<T: Config> schedule::v2::Named<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {

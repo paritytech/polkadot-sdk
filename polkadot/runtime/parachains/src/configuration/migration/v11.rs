@@ -18,18 +18,19 @@
 
 use crate::configuration::{self, Config, Pallet};
 use frame_support::{
-	migrations::VersionedMigration, pallet_prelude::*, traits::Defensive, weights::Weight,
+	migrations::VersionedMigration,
+	pallet_prelude::*,
+	traits::{Defensive, UncheckedOnRuntimeUpgrade},
+	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::ApprovalVotingParams, AsyncBackingParams, ExecutorParams, SessionIndex,
+	ApprovalVotingParams, AsyncBackingParams, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_std::vec::Vec;
 
-use frame_support::traits::OnRuntimeUpgrade;
 use polkadot_core_primitives::Balance;
-use primitives::vstaging::NodeFeatures;
 use sp_arithmetic::Perbill;
 
 use super::v10::V10HostConfiguration;
@@ -177,7 +178,7 @@ pub type MigrateToV11<T> = VersionedMigration<
 >;
 
 pub struct UncheckedMigrateToV11<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV11<T> {
+impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV11<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV11");

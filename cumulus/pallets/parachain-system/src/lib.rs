@@ -55,7 +55,8 @@ use sp_runtime::{
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
-use xcm::latest::XcmHash;
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
 pub mod migration;
@@ -464,7 +465,7 @@ pub mod pallet {
 			// One complication here, is that the `host_configuration` is updated by an inherent
 			// and those are processed after the block initialization phase. Therefore, we have to
 			// be content only with the configuration as per the previous block. That means that
-			// the configuration can be either stale (or be abscent altogether in case of the
+			// the configuration can be either stale (or be absent altogether in case of the
 			// beginning of the chain).
 			//
 			// In order to mitigate this, we do the following. At the time, we are only concerned
@@ -1605,6 +1606,19 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> UpwardMessageSender for Pallet<T> {
 	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
+	}
+}
+
+impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		use xcm::prelude::*;
+
+		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
+			.iter()
+			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.collect();
+
+		vec![(VersionedLocation::V4(Parent.into()), messages)]
 	}
 }
 

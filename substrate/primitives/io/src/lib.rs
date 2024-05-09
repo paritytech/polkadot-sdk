@@ -182,7 +182,7 @@ impl From<MultiRemovalResults> for KillStorageResult {
 pub trait Storage {
 	/// Returns the data for `key` in the storage or `None` if the key can not be found.
 	fn get(&self, key: &[u8]) -> Option<bytes::Bytes> {
-		self.storage(key).map(|s| bytes::Bytes::from(s.to_vec()))
+		self.storage(key).map(bytes::Bytes::from)
 	}
 
 	/// Get `key` from storage, placing the value into `value_out` and return the number of
@@ -1081,7 +1081,7 @@ pub trait Crypto {
 	/// Register a `ecdsa` signature for batch verification.
 	///
 	/// Batch verification must be enabled by calling [`start_batch_verify`].
-	/// If batch verification is not enabled, the signature will be verified immediatley.
+	/// If batch verification is not enabled, the signature will be verified immediately.
 	/// To get the result of the batch verification, [`finish_batch_verify`]
 	/// needs to be called.
 	///
@@ -1696,9 +1696,9 @@ mod tracing_setup {
 
 	/// The PassingTracingSubscriber implements `tracing_core::Subscriber`
 	/// and pushes the information across the runtime interface to the host
-	struct PassingTracingSubsciber;
+	struct PassingTracingSubscriber;
 
-	impl tracing_core::Subscriber for PassingTracingSubsciber {
+	impl tracing_core::Subscriber for PassingTracingSubscriber {
 		fn enabled(&self, metadata: &Metadata<'_>) -> bool {
 			wasm_tracing::enabled(Crossing(metadata.into()))
 		}
@@ -1731,7 +1731,7 @@ mod tracing_setup {
 	/// set the global bridging subscriber once.
 	pub fn init_tracing() {
 		if TRACING_SET.load(Ordering::Relaxed) == false {
-			set_global_default(Dispatch::new(PassingTracingSubsciber {}))
+			set_global_default(Dispatch::new(PassingTracingSubscriber {}))
 				.expect("We only ever call this once");
 			TRACING_SET.store(true, Ordering::Relaxed);
 		}

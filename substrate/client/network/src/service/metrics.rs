@@ -16,11 +16,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::transport::BandwidthSinks;
+use crate::{service::traits::BandwidthSink, ProtocolName};
+
 use prometheus_endpoint::{
 	self as prometheus, Counter, CounterVec, Gauge, GaugeVec, HistogramOpts, MetricSource, Opts,
 	PrometheusError, Registry, SourcedCounter, SourcedGauge, U64,
 };
+
 use std::{
 	str,
 	sync::{
@@ -38,13 +40,30 @@ pub fn register(registry: &Registry, sources: MetricSources) -> Result<Metrics, 
 	Metrics::register(registry)
 }
 
+// Register `sc-network` metrics without bandwidth/connected peer sources.
+pub fn register_without_sources(registry: &Registry) -> Result<Metrics, PrometheusError> {
+	Metrics::register(registry)
+}
+
 /// Predefined metric sources that are fed directly into prometheus.
 pub struct MetricSources {
-	pub bandwidth: Arc<BandwidthSinks>,
+	pub bandwidth: Arc<dyn BandwidthSink>,
 	pub connected_peers: Arc<AtomicUsize>,
 }
 
+impl MetricSources {
+	pub fn register(
+		registry: &Registry,
+		bandwidth: Arc<dyn BandwidthSink>,
+		connected_peers: Arc<AtomicUsize>,
+	) -> Result<(), PrometheusError> {
+		BandwidthCounters::register(registry, bandwidth)?;
+		NumConnectedGauge::register(registry, connected_peers)
+	}
+}
+
 /// Dedicated metrics.
+#[derive(Clone)]
 pub struct Metrics {
 	// This list is ordered alphabetically
 	pub connections_closed_total: CounterVec<U64>,
@@ -208,12 +227,12 @@ impl Metrics {
 
 /// The bandwidth counter metric.
 #[derive(Clone)]
-pub struct BandwidthCounters(Arc<BandwidthSinks>);
+pub struct BandwidthCounters(Arc<dyn BandwidthSink>);
 
 impl BandwidthCounters {
 	/// Registers the `BandwidthCounters` metric whose values are
 	/// obtained from the given sinks.
-	fn register(registry: &Registry, sinks: Arc<BandwidthSinks>) -> Result<(), PrometheusError> {
+	fn register(registry: &Registry, sinks: Arc<dyn BandwidthSink>) -> Result<(), PrometheusError> {
 		prometheus::register(
 			SourcedCounter::new(
 				&Opts::new("substrate_sub_libp2p_network_bytes_total", "Total bandwidth usage")
@@ -261,5 +280,117 @@ impl MetricSource for NumConnectedGauge {
 
 	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
 		set(&[], self.0.load(Ordering::Relaxed) as u64);
+	}
+}
+
+/// Notification metrics.
+///
+/// Wrapper over `Option<InnerNotificationMetrics>` to make metrics reporting code cleaner.
+#[derive(Debug, Clone)]
+pub struct NotificationMetrics {
+	/// Metrics, if enabled.
+	metrics: Option<InnerNotificationMetrics>,
+}
+
+impl NotificationMetrics {
+	/// Create new [`NotificationMetrics`].
+	pub fn new(registry: Option<&Registry>) -> NotificationMetrics {
+		let metrics = match registry {
+			Some(registry) => InnerNotificationMetrics::register(registry).ok(),
+			None => None,
+		};
+
+		Self { metrics }
+	}
+
+	/// Register opened substream to Prometheus.
+	pub fn register_substream_opened(&self, protocol: &ProtocolName) {
+		if let Some(metrics) = &self.metrics {
+			metrics.notifications_streams_opened_total.with_label_values(&[&protocol]).inc();
+		}
+	}
+
+	/// Register closed substream to Prometheus.
+	pub fn register_substream_closed(&self, protocol: &ProtocolName) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.notifications_streams_closed_total
+				.with_label_values(&[&protocol[..]])
+				.inc();
+		}
+	}
+
+	/// Register sent notification to Prometheus.
+	pub fn register_notification_sent(&self, protocol: &ProtocolName, size: usize) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.notifications_sizes
+				.with_label_values(&["out", protocol])
+				.observe(size as f64);
+		}
+	}
+
+	/// Register received notification to Prometheus.
+	pub fn register_notification_received(&self, protocol: &ProtocolName, size: usize) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.notifications_sizes
+				.with_label_values(&["in", protocol])
+				.observe(size as f64);
+		}
+	}
+}
+
+/// Notification metrics.
+#[derive(Debug, Clone)]
+struct InnerNotificationMetrics {
+	// Total number of opened substreams.
+	pub notifications_streams_opened_total: CounterVec<U64>,
+
+	/// Total number of closed substreams.
+	pub notifications_streams_closed_total: CounterVec<U64>,
+
+	/// In/outbound notification sizes.
+	pub notifications_sizes: HistogramVec,
+}
+
+impl InnerNotificationMetrics {
+	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			notifications_sizes: prometheus::register(
+				HistogramVec::new(
+					HistogramOpts {
+						common_opts: Opts::new(
+							"substrate_sub_libp2p_notifications_sizes",
+							"Sizes of the notifications send to and received from all nodes",
+						),
+						buckets: prometheus::exponential_buckets(64.0, 4.0, 8)
+							.expect("parameters are always valid values; qed"),
+					},
+					&["direction", "protocol"],
+				)?,
+				registry,
+			)?,
+			notifications_streams_closed_total: prometheus::register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_libp2p_notifications_streams_closed_total",
+						"Total number of notification substreams that have been closed",
+					),
+					&["protocol"],
+				)?,
+				registry,
+			)?,
+			notifications_streams_opened_total: prometheus::register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_libp2p_notifications_streams_opened_total",
+						"Total number of notification substreams that have been opened",
+					),
+					&["protocol"],
+				)?,
+				registry,
+			)?,
+		})
 	}
 }

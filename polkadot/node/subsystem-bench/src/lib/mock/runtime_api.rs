@@ -26,9 +26,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	vstaging::{node_features, NodeFeatures},
-	CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec, OccupiedCore,
-	SessionIndex, SessionInfo, ValidatorIndex,
+	node_features, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec,
+	NodeFeatures, OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
@@ -37,6 +36,7 @@ use std::collections::HashMap;
 const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
 
 /// Minimal state to answer requests.
+#[derive(Clone)]
 pub struct RuntimeApiState {
 	// All authorities in the test,
 	authorities: TestAuthorities,
@@ -52,6 +52,7 @@ pub struct RuntimeApiState {
 }
 
 /// A mocked `runtime-api` subsystem.
+#[derive(Clone)]
 pub struct MockRuntimeApi {
 	state: RuntimeApiState,
 	config: TestConfiguration,

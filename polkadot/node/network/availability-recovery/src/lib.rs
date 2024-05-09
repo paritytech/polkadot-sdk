@@ -67,8 +67,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{ExtendedSessionInfo, RuntimeInfo},
 };
 use polkadot_primitives::{
-	vstaging::node_features, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex,
-	GroupIndex, Hash, SessionIndex, ValidatorIndex,
+	node_features, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, GroupIndex,
+	Hash, SessionIndex, ValidatorIndex,
 };
 
 mod error;
@@ -385,7 +385,7 @@ async fn handle_recover<Context>(
 ) -> Result<()> {
 	let candidate_hash = receipt.hash();
 
-	let span = jaeger::Span::new(candidate_hash, "availbility-recovery")
+	let span = jaeger::Span::new(candidate_hash, "availability-recovery")
 		.with_stage(jaeger::Stage::AvailabilityRecovery);
 
 	if let Some(result) =

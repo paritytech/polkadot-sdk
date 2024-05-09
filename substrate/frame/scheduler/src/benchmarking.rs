@@ -211,7 +211,7 @@ benchmarks! {
 	} verify {
 	}
 
-	// `execute_dispatch` when the origin is `Signed`, not counting the dispatable's weight.
+	// `execute_dispatch` when the origin is `Signed`, not counting the dispatchable's weight.
 	execute_dispatch_signed {
 		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(true);
@@ -222,7 +222,7 @@ benchmarks! {
 	verify {
 	}
 
-	// `execute_dispatch` when the origin is not `Signed`, not counting the dispatable's weight.
+	// `execute_dispatch` when the origin is not `Signed`, not counting the dispatchable's weight.
 	execute_dispatch_unsigned {
 		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(false);
