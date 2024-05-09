@@ -896,21 +896,27 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "frame-system",
  "pallet-asset-conversion",
+ "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
  "penpal-runtime",
  "polkadot-runtime-common",
+ "sp-core",
+ "sp-keyring",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
  "westend-runtime",
  "westend-system-emulated-network",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3930,6 +3936,7 @@ dependencies = [
  "sp-trie",
  "sp-version",
  "staging-xcm",
+ "staging-xcm-builder",
  "trie-db",
  "trie-standardmap",
 ]
@@ -5120,6 +5127,19 @@ checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
 dependencies = [
  "log",
  "regex",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
+dependencies = [
+ "atty",
+ "humantime",
+ "log",
+ "regex",
+ "termcolor",
 ]
 
 [[package]]
@@ -12145,6 +12165,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -13867,10 +13888,13 @@ name = "polkadot-sdk-frame"
 version = "0.1.0"
 dependencies = [
  "docify",
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "log",
  "pallet-examples",
  "parity-scale-codec",
@@ -13887,6 +13911,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-std 14.0.0",
+ "sp-storage 19.0.0",
  "sp-transaction-pool",
  "sp-version",
 ]
@@ -17159,7 +17184,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.10.0-dev"
+version = "0.10.0"
 dependencies = [
  "bs58 0.5.0",
  "libp2p-identity",
@@ -22671,8 +22696,10 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-core",
  "sp-runtime",
+ "staging-xcm",
  "westend-runtime",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -23312,14 +23339,24 @@ dependencies = [
 name = "xcm-fee-payment-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "env_logger 0.9.3",
+ "frame-executive",
  "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
+ "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-weights",
  "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
