@@ -346,9 +346,10 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// # Errors
 	///
-	/// - [`Error::<T>::MaxDelegateDependenciesReached`]
-	/// - [`Error::<T>::CannotAddSelfAsDelegateDependency`]
-	/// - [`Error::<T>::DelegateDependencyAlreadyExists`]
+	/// - [`Error::MaxDelegateDependenciesReached`]
+	/// - [`Error::CannotAddSelfAsDelegateDependency`]
+	/// - [`Error::DelegateDependencyAlreadyExists`]
+	/// - [`Error::StateChangeDenied`]
 	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
@@ -358,7 +359,8 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// # Errors
 	///
-	/// - [`Error::<T>::DelegateDependencyNotFound`]
+	/// - [`Error::DelegateDependencyNotFound`]
+	/// - [`Error::StateChangeDenied`]
 	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult;
 }
 
@@ -1515,6 +1517,7 @@ where
 	}
 
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
+		self.allows_state_change()?;
 		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.address().clone()).into();
 		origin.add_filter(T::CallFilter::contains);
 		call.dispatch(origin)
