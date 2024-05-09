@@ -125,7 +125,7 @@ pub trait HostFn {
 	/// Make a call to another contract.
 	///
 	/// This is equivalent to calling the newer version of this function with
-	/// `flags` set to [`CallFlags::ALLOW_REENTRY]. See the newer version for documentation.
+	/// `flags` set to [`CallFlags::ALLOW_REENTRY`]. See the newer version for documentation.
 	#[deprecated(note = "Deprecated, use newer version instead")]
 	fn call(
 		callee: &[u8],
