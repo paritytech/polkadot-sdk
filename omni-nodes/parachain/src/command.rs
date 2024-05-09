@@ -270,10 +270,40 @@ pub fn run(builder_config: crate::builder::Builder) -> Result<()> {
 								.map_err(Into::into)
 							},
 							ParachainConsensus::Aura(block_time) => {
-								todo!("call into start_node_impl using fns from cumulus_service");
+								use cumulus_service::aura::{build_import_queue, start_consensus};
+								start_node_impl(
+									parachain_config,
+									polkadot_config,
+									collator_options,
+									CollatorSybilResistance::Unresistant,
+									para_id,
+									parachain_builder_config.shared.rpc_extensions,
+									build_import_queue,
+									start_consensus,
+									hwbench,
+								)
+								.await
+								.map(|r| r.0)
+								.map_err(Into::into)
 							},
 							ParachainConsensus::AuraAsyncBacking(block_time) => {
-								todo!("call into start_node_impl using fns from cumulus_service");
+								use cumulus_service::aura_async_backing::{
+									build_import_queue, start_consensus,
+								};
+								start_node_impl(
+									parachain_config,
+									polkadot_config,
+									collator_options,
+									CollatorSybilResistance::Unresistant,
+									para_id,
+									parachain_builder_config.shared.rpc_extensions,
+									build_import_queue,
+									start_consensus,
+									hwbench,
+								)
+								.await
+								.map(|r| r.0)
+								.map_err(Into::into)
 							},
 							ParachainConsensus::RelayToAura(block_time) => {
 								todo!("call into start_node_impl using fns from cumulus_service");
