@@ -47,7 +47,7 @@ use sp_runtime::{
 		DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension,
 		TransactionExtensionBase, ValidateResult,
 	},
-	transaction_validity::{TransactionValidityError, ValidTransaction},
+	transaction_validity::TransactionValidityError,
 };
 
 #[cfg(test)]

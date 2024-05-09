@@ -446,14 +446,10 @@ where
 impl<T: RefundTransactionExtension, Context> TransactionExtension<CallOf<T::Runtime>, Context>
 	for RefundTransactionExtensionAdapter<T>
 where
-	<T::Runtime as GrandpaConfig<T::GrandpaInstance>>::BridgedChain:
-		Chain<BlockNumber = RelayBlockNumber>,
-	CallOf<T::Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
-		+ IsSubType<CallableCallFor<UtilityPallet<T::Runtime>, T::Runtime>>
-		+ GrandpaCallSubType<T::Runtime, T::GrandpaInstance>
-		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
 	<CallOf<T::Runtime> as Dispatchable>::RuntimeOrigin:
 		AsSystemOriginSigner<AccountIdOf<T::Runtime>> + Clone,
+	CallOf<T::Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
 {
 	type Pre = Option<PreDispatchData<AccountIdOf<T::Runtime>>>;
 	type Val = Option<CallInfo>;
@@ -903,7 +899,7 @@ pub struct RefundBridgedMessages<Runtime, Msgs, Refund, Priority, Id>(
 	)>,
 );
 
-impl<Runtime, Msgs, Refund, Priority, Id> RefundSignedExtension
+impl<Runtime, Msgs, Refund, Priority, Id> RefundTransactionExtension
 	for RefundBridgedMessages<Runtime, Msgs, Refund, Priority, Id>
 where
 	Self: 'static + Send + Sync,
@@ -1011,7 +1007,7 @@ pub(crate) mod tests {
 		ConstU64<1>,
 		StrTestExtension,
 	>;
-	type TestMessagesExtension = RefundSignedExtensionAdapter<TestMessagesExtensionProvider>;
+	type TestMessagesExtension = RefundTransactionExtensionAdapter<TestMessagesExtensionProvider>;
 	type TestGrandpaExtensionProvider = RefundBridgedGrandpaMessages<
 		TestRuntime,
 		(),
@@ -1585,8 +1581,15 @@ pub(crate) mod tests {
 
 	fn run_messages_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestMessagesExtension =
-			RefundSignedExtensionAdapter(RefundBridgedMessages(PhantomData));
-		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+			RefundTransactionExtensionAdapter(RefundBridgedMessages(PhantomData));
+		extension
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+			)
+			.map(|(v, _, _)| v)
 	}
 
 	fn ignore_priority(tx: TransactionValidity) -> TransactionValidity {
@@ -1630,8 +1633,15 @@ pub(crate) mod tests {
 		call: RuntimeCall,
 	) -> Result<Option<PreDispatchData<ThisChainAccountId>>, TransactionValidityError> {
 		let extension: TestMessagesExtension =
-			RefundSignedExtensionAdapter(RefundBridgedMessages(PhantomData));
-		extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+			RefundTransactionExtensionAdapter(RefundBridgedMessages(PhantomData));
+		extension
+			.validate_and_prepare(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+			)
+			.map(|(pre, _)| pre)
 	}
 
 	fn dispatch_info() -> DispatchInfo {
