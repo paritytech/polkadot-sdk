@@ -68,18 +68,18 @@ What harm could they cause?
 
 - 2.1. The best and possibly only way to affect soundness is by getting lucky in the approval process. If by chance all approval voters would be malicious, the attackers could get a single invalid candidate through. Their chances would be relatively low but in general this risk has to be taken seriously as it significantly reduces the safety buffer around approval checking.
 
-> **Note:**                
+> **Note:**
 > With 30 approvals needed chance that a malicious candidate going through is around 4\*10^-15. Assuming attackers can back invalid candidates on 50 cores for 48 hours straight and only those candidates get included it still gives a 7\*10^-9 chance of success which is still relatively small considering the cost (all malicious stake slashed).
 
 Attacks 1.2 and 2.1 should generally be pretty futile as a solo attacker while 1.1 could be possible with mass disputes even from a single attacker. Nevertheless whatever the attack vector within the old system the attackers would get *eventually* get slashed and pushed out of the active validator set but they had plenty of time to wreck havoc.
 
 ## Risks of having validator disabling
 
-Assume we fully push out validator when they commit offenses. 
+Assume we fully push out validator when they commit offenses.
 
-The primary risk behind having any sort of disabling is that it is a double-edged sword that in case of any dispute bugs or sources of PVF non-determinism could disable honest nodes or be abused by attackers to specifically silence honest nodes. 
+The primary risk behind having any sort of disabling is that it is a double-edged sword that in case of any dispute bugs or sources of PVF non-determinism could disable honest nodes or be abused by attackers to specifically silence honest nodes.
 
-Validators being pushed out of the validator set are an issue because that can greatly skew the numbers game in approval checking (% for 30-ish malicious in a row). 
+Validators being pushed out of the validator set are an issue because that can greatly skew the numbers game in approval checking (% for 30-ish malicious in a row).
 
 There are also censorship or liveness issues if backing is suddenly dominated by malicious nodes but in general even if some honest blocks get backed liveness should be preserved.
 
@@ -90,7 +90,7 @@ There are also censorship or liveness issues if backing is suddenly dominated by
 
 # Risks Mitigation
 
-## Addressing the risks of having validator disabling:
+## Addressing the risks of having validator disabling
 
 One safety measure is bounding the disabled number to 1/3 ([**Point 2.**](#system-overview)) or to be exact the byzantine threshold. If for any reason more than 1/3 of validators are getting disabled it means that some part of the protocol failed or there is more than 1/3 malicious nodes which breaks the assumptions.
 
@@ -108,7 +108,7 @@ Once of those functionalities can be approval voting which as pointed above is s
 Because we capped the number of disabled nodes to 1/3 there will always be at least 1/3 honest nodes to participate in backing so liveness should be preserved. That means that backing **COULD** be safely disabled for disabled nodes ([**Point 10.**](#system-overview)).
 
 
-## Addressing the risks of NOT having validator disabling:
+## Addressing the risks of NOT having validator disabling
 
 To determine if backing **SHOULD** be disabled the attack vector of 1.2 (Mass invalid candidate backing) and 2.1 (Getting lucky in approval voting) need to be considered. In both of those cases having extra backed malicious candidates gives attackers extra chances to get lucky in approval checking. The solution is to not allow for backing in disablement. ([**Point 10.**](#system-overview))
 
@@ -125,11 +125,11 @@ As a defense in depth measure dispute statements from disabled validators count 
 
 # Disabling Duration
 
-## Context:
+## Context
 
 A crucial point to understand is that as of the time of writing all slashing events as alluded to in the begging are delayed for 27 days before being executed. This is primarily because it gives governance enough time to investigate and potentially intervene. For that duration when the slash is pending the stake is locked and cannot be moved. Time to unbond you stake is 28 days which ensures that the stake will eventually be slashed before being withdrawn.
 
-## Design:
+## Design
 
 A few options for the duration of disablement were considered:
 - 1 epoch (4h in Polkadot)
@@ -141,7 +141,7 @@ A few options for the duration of disablement were considered:
 
 1 era gives a bit more time to fix any minor issues. Additionally, it guarantees a validator set change at so many of the currently disabled validator might no longer be present anyway. It also gives the time for the validator to chill themselves if they have identified a cause and want to spend more time fixing it. ([**Point 4.**](#system-overview))
 
-Higher values could be considered and the main arguments for those are based around the fact that it reduces the number of repeated attacks that will be allowed before the slash execution. Generally 1 attack per era for 27 eras resulting in 27 attacks at most should not compromise our safety assumptions. Although this direction could be further explored and might be parametrized for governance to decide. 
+Higher values could be considered and the main arguments for those are based around the fact that it reduces the number of repeated attacks that will be allowed before the slash execution. Generally 1 attack per era for 27 eras resulting in 27 attacks at most should not compromise our safety assumptions. Although this direction could be further explored and might be parametrized for governance to decide.
 
 </br></br></br>
 
@@ -188,7 +188,7 @@ Above slashes were specifically referring to slashing events coming from dispute
 
 ## GRANDPA/BEEFY Offenses
 
-The main offences for GRANDPA/BEEFY are equivocations. It is not a very serious offense and some nodes committing do not endanger the system and performance is barely affected. If more than byzantine threshold of nodes equivocate it is a catastrophic failure potentially resulting in 2 finalized blocks on the same height in the case of GRANDPA. 
+The main offences for GRANDPA/BEEFY are equivocations. It is not a very serious offense and some nodes committing do not endanger the system and performance is barely affected. If more than byzantine threshold of nodes equivocate it is a catastrophic failure potentially resulting in 2 finalized blocks on the same height in the case of GRANDPA.
 
 Honest nodes generally should not commit those offenses so the goal of protecting them does not apply here.
 
@@ -201,11 +201,11 @@ Best approach is to allow disabled nodes to participate in GRANDPA/BEEFY as norm
 
 ## Block Authoring Offenses (BABE Equivocations)
 
-Even if all honest nodes are disabled in Block Authoring (BA) liveness is generally preserved. At least 50% of blocks produced should still be honest. Soundness wise disabled nodes can create a decent amount of wasted work by creating bad blocks but they only get to do it in bounded amounts. 
+Even if all honest nodes are disabled in Block Authoring (BA) liveness is generally preserved. At least 50% of blocks produced should still be honest. Soundness wise disabled nodes can create a decent amount of wasted work by creating bad blocks but they only get to do it in bounded amounts.
 
 Disabling in BA is not a requirement as both liveness and soundness are preserved but it is the current default behavior as well as it offers a bit less wasted work.
 
-Offenses in BA just like in backing can be caused by faulty PVFs or bugs. They might happen to honest nodes and disabling here while not a requirement can also ensure that this node does not repeat the offense as it might not be trusted with it's PVF anymore. 
+Offenses in BA just like in backing can be caused by faulty PVFs or bugs. They might happen to honest nodes and disabling here while not a requirement can also ensure that this node does not repeat the offense as it might not be trusted with it's PVF anymore.
 
 Both points above don't present significant risks when disabling so the default behavior is to disable in BA and because of offenses in BA. ([**Point 9.**](#system-overview)) This filters out honest faulty nodes as well as protects from some attackers.
 
@@ -215,7 +215,7 @@ Both points above don't present significant risks when disabling so the default 
 
 ## Disabling vs Accumulating Slashes
 
-Instant disabling generally allows us to remove the need for accumulating slashes. It is a more immediate punishment and it is a more lenient punishment for honest nodes. 
+Instant disabling generally allows us to remove the need for accumulating slashes. It is a more immediate punishment and it is a more lenient punishment for honest nodes.
 
 The current architecture of using max slashing can be used and it works around the problems of delaying the slash for a long period.
 
@@ -227,7 +227,7 @@ Validator disabling and getting forced ouf of NPoS elections (1 era) due to slas
 
 - **latency** (next few blocks for validator disabling and 27 days for getting pushed out organically)
 - **pool restriction** (validator disabling could effectively lower the number of active validators during an era if we fully disable)
-- **granularity** (validator disabling could remove only a portion of validator privileges instead of all)   
+- **granularity** (validator disabling could remove only a portion of validator privileges instead of all)
 
 Granularity is particularly crucial in the final design as only a few select functions are disabled while others remain.
 
@@ -244,7 +244,7 @@ Initially those slashes were disabled to reduce the complexity and to minimize t
 
 # Implementation
 
-Implementation of the above design covers a few additional areas that allow for node-side optimizations. 
+Implementation of the above design covers a few additional areas that allow for node-side optimizations.
 
 ## Core Features
 
