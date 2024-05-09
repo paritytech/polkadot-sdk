@@ -38,6 +38,7 @@ jobs:
         run: |
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
+          git log
           parity-publish --color always semver --since old --toolchain nightly-2024-03-01 pallet-contracts pallet-contracts-uapi
 
 
