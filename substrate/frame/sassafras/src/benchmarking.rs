@@ -47,9 +47,6 @@ fn dummy_vrf_signature() -> VrfSignature {
 mod benchmarks {
 	use super::*;
 
-	// For first block (#1) we do some extra operation.
-	// But is a one shot operation, so we don't account for it here.
-	// We use 0, as it will be the path used by all the blocks with n != 1
 	#[benchmark]
 	fn on_initialize() {
 		let block_num = BlockNumberFor::<T>::from(0u32);
@@ -122,7 +119,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn submit_tickets(x: Linear<1, 20>) {
+	fn submit_tickets(x: Linear<1, 16>) {
 		let tickets_count = x as usize;
 
 		let mut raw_data = TICKETS_DATA;

@@ -76,8 +76,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `270`
 		//  Estimated: `1755`
-		// Minimum execution time: 413_947_000 picoseconds.
-		Weight::from_parts(414_419_000, 1755)
+		// Minimum execution time: 417_410_000 picoseconds.
+		Weight::from_parts(419_042_000, 1755)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -111,12 +111,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `590548 + x * (33 ±0) + y * (37 ±0)`
 		//  Estimated: `592034 + x * (33 ±0) + y * (2641 ±0)`
-		// Minimum execution time: 137_962_332_000 picoseconds.
-		Weight::from_parts(133_101_423_376, 592034)
-			// Standard Error: 4_031_332
-			.saturating_add(Weight::from_parts(155_790_673, 0).saturating_mul(x.into()))
-			// Standard Error: 445_218
-			.saturating_add(Weight::from_parts(5_992_692, 0).saturating_mul(y.into()))
+		// Minimum execution time: 137_787_571_000 picoseconds.
+		Weight::from_parts(132_666_006_991, 592034)
+			// Standard Error: 4_836_429
+			.saturating_add(Weight::from_parts(188_608_489, 0).saturating_mul(x.into()))
+			// Standard Error: 534_133
+			.saturating_add(Weight::from_parts(5_816_837, 0).saturating_mul(y.into()))
 			.saturating_add(T::DbWeight::get().reads(9_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(y.into())))
 			.saturating_add(T::DbWeight::get().writes(8_u64))
@@ -134,17 +134,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Sassafras::NextAuthorities` (`max_values`: Some(1), `max_size`: Some(3302), added: 3797, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::CounterForTicketsAccumulator` (r:1 w:1)
 	/// Proof: `Sassafras::CounterForTicketsAccumulator` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `Sassafras::TicketsAccumulator` (r:20 w:20)
+	/// Storage: `Sassafras::TicketsAccumulator` (r:16 w:16)
 	/// Proof: `Sassafras::TicketsAccumulator` (`max_values`: None, `max_size`: Some(166), added: 2641, mode: `MaxEncodedLen`)
-	/// The range of component `x` is `[1, 20]`.
+	/// The range of component `x` is `[1, 16]`.
 	fn submit_tickets(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1029`
 		//  Estimated: `4787 + x * (2641 ±0)`
-		// Minimum execution time: 51_513_822_000 picoseconds.
-		Weight::from_parts(37_711_340_308, 4787)
-			// Standard Error: 14_384_837
-			.saturating_add(Weight::from_parts(14_459_764_548, 0).saturating_mul(x.into()))
+		// Minimum execution time: 51_637_107_000 picoseconds.
+		Weight::from_parts(37_790_802_200, 4787)
+			// Standard Error: 26_574_579
+			.saturating_add(Weight::from_parts(14_279_858_343, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
@@ -160,10 +160,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `590458`
 		//  Estimated: `591809`
-		// Minimum execution time: 135_242_477_000 picoseconds.
-		Weight::from_parts(135_344_310_854, 591809)
-			// Standard Error: 3_081_978
-			.saturating_add(Weight::from_parts(158_028_987, 0).saturating_mul(x.into()))
+		// Minimum execution time: 133_456_343_000 picoseconds.
+		Weight::from_parts(134_102_722_298, 591809)
+			// Standard Error: 2_598_318
+			.saturating_add(Weight::from_parts(162_531_608, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -173,8 +173,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `590458`
 		//  Estimated: `591809`
-		// Minimum execution time: 54_152_038_000 picoseconds.
-		Weight::from_parts(54_511_296_000, 591809)
+		// Minimum execution time: 54_506_001_000 picoseconds.
+		Weight::from_parts(54_520_769_000, 591809)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 }
@@ -195,8 +195,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `270`
 		//  Estimated: `1755`
-		// Minimum execution time: 413_947_000 picoseconds.
-		Weight::from_parts(414_419_000, 1755)
+		// Minimum execution time: 417_410_000 picoseconds.
+		Weight::from_parts(419_042_000, 1755)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -230,12 +230,12 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `590548 + x * (33 ±0) + y * (37 ±0)`
 		//  Estimated: `592034 + x * (33 ±0) + y * (2641 ±0)`
-		// Minimum execution time: 137_962_332_000 picoseconds.
-		Weight::from_parts(133_101_423_376, 592034)
-			// Standard Error: 4_031_332
-			.saturating_add(Weight::from_parts(155_790_673, 0).saturating_mul(x.into()))
-			// Standard Error: 445_218
-			.saturating_add(Weight::from_parts(5_992_692, 0).saturating_mul(y.into()))
+		// Minimum execution time: 137_787_571_000 picoseconds.
+		Weight::from_parts(132_666_006_991, 592034)
+			// Standard Error: 4_836_429
+			.saturating_add(Weight::from_parts(188_608_489, 0).saturating_mul(x.into()))
+			// Standard Error: 534_133
+			.saturating_add(Weight::from_parts(5_816_837, 0).saturating_mul(y.into()))
 			.saturating_add(RocksDbWeight::get().reads(9_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(y.into())))
 			.saturating_add(RocksDbWeight::get().writes(8_u64))
@@ -253,17 +253,17 @@ impl WeightInfo for () {
 	/// Proof: `Sassafras::NextAuthorities` (`max_values`: Some(1), `max_size`: Some(3302), added: 3797, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::CounterForTicketsAccumulator` (r:1 w:1)
 	/// Proof: `Sassafras::CounterForTicketsAccumulator` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `Sassafras::TicketsAccumulator` (r:20 w:20)
+	/// Storage: `Sassafras::TicketsAccumulator` (r:16 w:16)
 	/// Proof: `Sassafras::TicketsAccumulator` (`max_values`: None, `max_size`: Some(166), added: 2641, mode: `MaxEncodedLen`)
-	/// The range of component `x` is `[1, 20]`.
+	/// The range of component `x` is `[1, 16]`.
 	fn submit_tickets(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1029`
 		//  Estimated: `4787 + x * (2641 ±0)`
-		// Minimum execution time: 51_513_822_000 picoseconds.
-		Weight::from_parts(37_711_340_308, 4787)
-			// Standard Error: 14_384_837
-			.saturating_add(Weight::from_parts(14_459_764_548, 0).saturating_mul(x.into()))
+		// Minimum execution time: 51_637_107_000 picoseconds.
+		Weight::from_parts(37_790_802_200, 4787)
+			// Standard Error: 26_574_579
+			.saturating_add(Weight::from_parts(14_279_858_343, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
@@ -279,10 +279,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `590458`
 		//  Estimated: `591809`
-		// Minimum execution time: 135_242_477_000 picoseconds.
-		Weight::from_parts(135_344_310_854, 591809)
-			// Standard Error: 3_081_978
-			.saturating_add(Weight::from_parts(158_028_987, 0).saturating_mul(x.into()))
+		// Minimum execution time: 133_456_343_000 picoseconds.
+		Weight::from_parts(134_102_722_298, 591809)
+			// Standard Error: 2_598_318
+			.saturating_add(Weight::from_parts(162_531_608, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -292,8 +292,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `590458`
 		//  Estimated: `591809`
-		// Minimum execution time: 54_152_038_000 picoseconds.
-		Weight::from_parts(54_511_296_000, 591809)
+		// Minimum execution time: 54_506_001_000 picoseconds.
+		Weight::from_parts(54_520_769_000, 591809)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 }

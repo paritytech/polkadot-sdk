@@ -109,7 +109,7 @@ fn deposit_tickets_failure() {
 fn post_genesis_randomness_initialization() {
 	let (pairs, mut ext) = new_test_ext_with_pairs(1, false);
 	let pair = &pairs[0];
-	let first_slot = GENESIS_SLOT.into();
+	let first_slot = (GENESIS_SLOT + 1).into();
 
 	ext.execute_with(|| {
 		let genesis_randomness = Sassafras::randomness_buf();
@@ -120,10 +120,10 @@ fn post_genesis_randomness_initialization() {
 		let _ = initialize_block(1, first_slot, [0x00; 32].into(), pair);
 
 		let randomness = Sassafras::randomness_buf();
-		prefix_eq!(randomness[0], h2b("f0d42f6b"));
-		prefix_eq!(randomness[1], h2b("28702cc1"));
-		prefix_eq!(randomness[2], h2b("a2bd8b31"));
-		prefix_eq!(randomness[3], h2b("76d83666"));
+		prefix_eq!(randomness[0], h2b("89eb0d6a"));
+		prefix_eq!(randomness[1], h2b("4e8c71d2"));
+		prefix_eq!(randomness[2], h2b("3a4c0005"));
+		prefix_eq!(randomness[3], h2b("0dd43c54"));
 
 		let (id1, _) = make_ticket_body(0, pair);
 
@@ -135,10 +135,10 @@ fn post_genesis_randomness_initialization() {
 		let _ = initialize_block(1, first_slot, [0xff; 32].into(), pair);
 
 		let randomness = Sassafras::randomness_buf();
-		prefix_eq!(randomness[0], h2b("548534cf"));
-		prefix_eq!(randomness[1], h2b("5b9cb838"));
-		prefix_eq!(randomness[2], h2b("192a2a4b"));
-		prefix_eq!(randomness[3], h2b("2e152bf9"));
+		prefix_eq!(randomness[0], h2b("e2021160"));
+		prefix_eq!(randomness[1], h2b("3b0c0905"));
+		prefix_eq!(randomness[2], h2b("632ac0d9"));
+		prefix_eq!(randomness[3], h2b("575088c3"));
 
 		let (id2, _) = make_ticket_body(0, pair);
 
@@ -150,13 +150,13 @@ fn post_genesis_randomness_initialization() {
 #[test]
 fn on_first_block() {
 	let (pairs, mut ext) = new_test_ext_with_pairs(4, false);
-	let start_slot = GENESIS_SLOT.into();
+	let start_slot = (GENESIS_SLOT + 1).into();
 	let start_block = 1;
 
 	ext.execute_with(|| {
 		let common_assertions = |initialized| {
 			assert_eq!(Sassafras::current_slot(), start_slot);
-			assert_eq!(Sassafras::current_slot_index(), 0);
+			assert_eq!(Sassafras::current_slot_index(), 1);
 			assert_eq!(PostInitCache::<Test>::exists(), initialized);
 		};
 
@@ -168,10 +168,10 @@ fn on_first_block() {
 
 		common_assertions(true);
 		let post_init_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_init_randomness[0], h2b("f0d42f6b"));
-		prefix_eq!(post_init_randomness[1], h2b("28702cc1"));
-		prefix_eq!(post_init_randomness[2], h2b("a2bd8b31"));
-		prefix_eq!(post_init_randomness[3], h2b("76d83666"));
+		prefix_eq!(post_init_randomness[0], h2b("89eb0d6a"));
+		prefix_eq!(post_init_randomness[1], h2b("4e8c71d2"));
+		prefix_eq!(post_init_randomness[2], h2b("3a4c0005"));
+		prefix_eq!(post_init_randomness[3], h2b("0dd43c54"));
 
 		// // Post-finalization status
 
@@ -179,7 +179,7 @@ fn on_first_block() {
 
 		common_assertions(false);
 		let post_fini_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_fini_randomness[0], h2b("6b117a72"));
+		prefix_eq!(post_fini_randomness[0], h2b("173b91b3"));
 		prefix_eq!(post_fini_randomness[1], post_init_randomness[1]);
 		prefix_eq!(post_fini_randomness[2], post_init_randomness[2]);
 		prefix_eq!(post_fini_randomness[3], post_init_randomness[3]);
@@ -204,7 +204,7 @@ fn on_first_block() {
 #[test]
 fn on_normal_block() {
 	let (pairs, mut ext) = new_test_ext_with_pairs(4, false);
-	let start_slot = GENESIS_SLOT.into();
+	let start_slot = (GENESIS_SLOT + 1).into();
 	let start_block = 1;
 	let end_block = start_block + 1;
 
@@ -220,7 +220,7 @@ fn on_normal_block() {
 
 		let common_assertions = |initialized| {
 			assert_eq!(Sassafras::current_slot(), start_slot + 1);
-			assert_eq!(Sassafras::current_slot_index(), 1);
+			assert_eq!(Sassafras::current_slot_index(), 2);
 			assert_eq!(PostInitCache::<Test>::exists(), initialized);
 		};
 
@@ -228,10 +228,10 @@ fn on_normal_block() {
 
 		common_assertions(true);
 		let post_init_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_init_randomness[0], h2b("6b117a72"));
-		prefix_eq!(post_init_randomness[1], h2b("28702cc1"));
-		prefix_eq!(post_init_randomness[2], h2b("a2bd8b31"));
-		prefix_eq!(post_init_randomness[3], h2b("76d83666"));
+		prefix_eq!(post_init_randomness[0], h2b("173b91b3"));
+		prefix_eq!(post_init_randomness[1], h2b("4e8c71d2"));
+		prefix_eq!(post_init_randomness[2], h2b("3a4c0005"));
+		prefix_eq!(post_init_randomness[3], h2b("0dd43c54"));
 
 		let header = finalize_block(end_block);
 
@@ -239,10 +239,10 @@ fn on_normal_block() {
 
 		common_assertions(false);
 		let post_fini_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_fini_randomness[0], h2b("3489b933"));
-		prefix_eq!(post_fini_randomness[1], h2b("28702cc1"));
-		prefix_eq!(post_fini_randomness[2], h2b("a2bd8b31"));
-		prefix_eq!(post_fini_randomness[3], h2b("76d83666"));
+		prefix_eq!(post_fini_randomness[0], h2b("800f7825"));
+		prefix_eq!(post_fini_randomness[1], post_init_randomness[1]);
+		prefix_eq!(post_fini_randomness[2], post_init_randomness[2]);
+		prefix_eq!(post_fini_randomness[3], post_init_randomness[3]);
 
 		// Header data check
 

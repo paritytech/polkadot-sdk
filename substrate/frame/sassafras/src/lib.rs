@@ -24,21 +24,20 @@
 //! We run a lottery to distribute block production slots in an epoch and to fix the
 //! order validators produce blocks in, by the beginning of an epoch.
 //!
-//! Each validator signs the same VRF input and publishes the output on-chain. This
+//! Each validator signs some unbiasable input and publishes the output on-chain. This
 //! value is their lottery ticket that can be validated against their public key.
 //!
-//! We want to keep lottery winners secret, i.e. do not publish their public keys.
+//! We want to keep lottery winners secret, i.e. do not disclose their public keys.
 //! At the beginning of the epoch all the validators tickets are published but not
 //! their public keys.
 //!
-//! A valid tickets is validated when an honest validator reclaims it on block
-//! production.
+//! A valid ticket is claimed by an honest validator on block production.
 //!
-//! To prevent submission of fake tickets, resulting in empty slots, the validator
-//! when submitting the ticket accompanies it with a SNARK of the statement: "Here's
-//! my VRF output that has been generated using the given VRF input and my secret
-//! key. I'm not telling you my keys, but my public key is among those of the
-//! nominated validators".
+//! To prevent submission of invalid tickets, resulting in empty slots, the validator
+//! when submitting the ticket accompanies it with a zk-SNARK of the statement:
+//! "Here's my VRF output that has been generated using the given VRF input and my secret
+//! key. I'm not telling you who I am, but my public key is among those of the nominated
+//! validators".
 
 #![allow(unused)]
 #![deny(warnings)]
@@ -50,7 +49,10 @@ use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use frame_support::{
-	dispatch::DispatchResult, traits::Get, weights::Weight, BoundedVec, WeakBoundedVec,
+	dispatch::DispatchResult,
+	traits::{ConstU32, Get},
+	weights::Weight,
+	BoundedVec, WeakBoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_consensus_sassafras::{
@@ -86,14 +88,17 @@ const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasOnChainRandomness";
 
 const EPOCH_TAIL_FRACTION: u32 = 6;
 
-/// Randomness buffer type.
+/// Max number of tickets that can be submitted in one block.
+const TICKETS_CHUNK_MAX_LENGTH: u32 = 16;
+
+/// Randomness buffer.
 pub type RandomnessBuffer = [Randomness; 4];
 
-/// Authorities bounded vector convenience type.
+/// Authorities sequence.
 pub type AuthoritiesVec<T> = WeakBoundedVec<AuthorityId, <T as Config>::MaxAuthorities>;
 
-/// Epoch length defined by the configuration.
-pub type EpochLengthFor<T> = <T as Config>::EpochLength;
+/// Tickets chunk.
+pub type TicketsVec = BoundedVec<TicketEnvelope, ConstU32<TICKETS_CHUNK_MAX_LENGTH>>;
 
 /// Number of tickets available for current and next epoch.
 ///
@@ -102,20 +107,28 @@ pub type EpochLengthFor<T> = <T as Config>::EpochLength;
 /// The entry to be used for the current epoch is computed as epoch index modulo 2.
 pub type TicketsCounter = [u32; 2];
 
+/// Key used for the tickets accumulator map.
+///
+/// Ticket keys are constructed by taking the bitwise negation of the ticket identifier.
+/// As the tickets accumulator sorts entries according to the key values from smaller
+/// to larger, we end up with a sequence of tickets identifiers sorted from larger to
+/// smaller.
+///
+/// This strategy comes handy when we quickly need to check if a new ticket chunk has been
+/// completely absorbed by the accumulator, when this is already full and without loading
+/// the whole sequence in memory.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, MaxEncodedLen, TypeInfo)]
 struct TicketKey([u8; 32]);
 
 impl From<TicketId> for TicketKey {
 	fn from(mut value: TicketId) -> Self {
-		value.0.iter_mut().for_each(|b| *b ^= 0xff);
-		TicketKey(value.0)
+		TicketKey(value.0.map(|b| !b))
 	}
 }
 
 impl From<TicketKey> for TicketId {
 	fn from(mut value: TicketKey) -> Self {
-		value.0.iter_mut().for_each(|b| *b ^= 0xff);
-		TicketId(value.0)
+		TicketId(value.0.map(|b| !b))
 	}
 }
 
@@ -336,10 +349,7 @@ pub mod pallet {
 			T::WeightInfo::submit_tickets(tickets.len() as u32),
 			DispatchClass::Mandatory
 		))]
-		pub fn submit_tickets(
-			origin: OriginFor<T>,
-			tickets: BoundedVec<TicketEnvelope, EpochLengthFor<T>>,
-		) -> DispatchResult {
+		pub fn submit_tickets(origin: OriginFor<T>, tickets: TicketsVec) -> DispatchResult {
 			ensure_none(origin)?;
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
@@ -356,16 +366,16 @@ pub mod pallet {
 				return Err("Ring verifier key not initialized".into())
 			};
 
-			// Get next epoch params
+			// Get next epoch parameters
 			let randomness = Self::next_randomness();
-			let next_authorities = Self::next_authorities();
+			let authorities = Self::next_authorities();
 
 			// Compute tickets threshold
 			let ticket_threshold = sp_consensus_sassafras::ticket_id_threshold(
 				T::RedundancyFactor::get(),
 				epoch_length as u32,
 				T::AttemptsNumber::get(),
-				next_authorities.len() as u32,
+				authorities.len() as u32,
 			);
 
 			let mut candidates = Vec::new();
@@ -425,33 +435,6 @@ pub mod pallet {
 
 // Inherent methods
 impl<T: Config> Pallet<T> {
-	/// Determine whether an epoch change should take place at this block.
-	///
-	/// Assumes that initialization has already taken place.
-	pub(crate) fn should_end_epoch(block_num: BlockNumberFor<T>) -> bool {
-		// The epoch has technically ended during the passage of time between this block and the
-		// last, but we have to "end" the epoch now, since there is no earlier possible block we
-		// could have done it.
-		//
-		// The exception is for block 1: the genesis has slot 0, so we treat epoch 0 as having
-		// started at the slot of block 1. We want to use the same randomness and validator set as
-		// signalled in the genesis, so we don't rotate the epoch.
-		block_num > One::one() && Self::current_slot_index() == 0
-	}
-
-	/// Current slot index relative to the current epoch.
-	fn current_slot_index() -> u32 {
-		Self::slot_index(CurrentSlot::<T>::get())
-	}
-
-	/// Slot index relative to the current epoch.
-	fn slot_index(slot: Slot) -> u32 {
-		// slot.checked_sub(*Self::current_epoch_start())
-		// 	.and_then(|v| v.try_into().ok())
-		// 	.unwrap_or(u32::MAX)
-		(*slot % <T as Config>::EpochLength::get() as u64) as u32
-	}
-
 	pub(crate) fn update_ring_verifier(authorities: &[AuthorityId]) {
 		debug!(target: LOG_TARGET, "Loading ring context");
 		let Some(ring_ctx) = RingContext::<T>::get() else {
@@ -626,15 +609,12 @@ impl<T: Config> Pallet<T> {
 		// Keep track of the actual first slot used (may not be zero based).
 		EpochIndex::<T>::put(Self::epoch_index(slot));
 
-		// Properly initialize randomness using genesis hash and current slot.
-		// This is important to guarantee that a different set of tickets are produced for:
-		// - different chains which share the same ring parameters and
-		// - same chain started with a different slot base.
+		// Properly initialize randomness using genesis hash.
+		// This is important to guarantee that a different set of tickets are produced for
+		// different chains sharing the same ring parameters.
 		let genesis_hash = frame_system::Pallet::<T>::parent_hash();
-		let mut buf = genesis_hash.as_ref().to_vec();
-		buf.extend_from_slice(&slot.to_le_bytes());
 		let mut accumulator = RandomnessBuffer::default();
-		accumulator[0] = hashing::blake2_256(buf.as_slice());
+		accumulator[0] = hashing::blake2_256(genesis_hash.as_ref());
 		accumulator[1] = hashing::blake2_256(&accumulator[0]);
 		accumulator[2] = hashing::blake2_256(&accumulator[1]);
 		accumulator[3] = hashing::blake2_256(&accumulator[2]);
@@ -646,28 +626,6 @@ impl<T: Config> Pallet<T> {
 			authorities: Self::next_authorities().into_inner(),
 		};
 		Self::deposit_next_epoch_descriptor_digest(next_epoch);
-	}
-
-	/// Static protocol configuration.
-	pub fn protocol_config() -> Configuration {
-		Configuration {
-			epoch_length: T::EpochLength::get(),
-			epoch_tail_length: T::EpochLength::get() / 6,
-			max_authorities: T::MaxAuthorities::get(),
-			redundancy_factor: T::RedundancyFactor::get(),
-			attempts_number: T::AttemptsNumber::get(),
-		}
-	}
-
-	/// Current epoch information.
-	pub fn current_epoch() -> Epoch {
-		let curr_slot = *Self::current_slot();
-		let epoch_start = curr_slot - curr_slot % Self::epoch_length() as u64;
-		Epoch {
-			start: epoch_start.into(),
-			authorities: Self::authorities().into_inner(),
-			randomness: Self::randomness_buf(),
-		}
 	}
 
 	/// Fetch expected ticket-id for the given slot according to an "outside-in" sorting strategy.
@@ -754,6 +712,28 @@ impl<T: Config> Pallet<T> {
 		let _ = TicketsAccumulator::<T>::clear(u32::MAX, None);
 	}
 
+	/// Static protocol configuration.
+	pub fn protocol_config() -> Configuration {
+		Configuration {
+			epoch_length: T::EpochLength::get(),
+			epoch_tail_length: T::EpochLength::get() / 6,
+			max_authorities: T::MaxAuthorities::get(),
+			redundancy_factor: T::RedundancyFactor::get(),
+			attempts_number: T::AttemptsNumber::get(),
+		}
+	}
+
+	/// Current epoch information.
+	pub fn current_epoch() -> Epoch {
+		let curr_slot = *Self::current_slot();
+		let epoch_start = curr_slot - curr_slot % Self::epoch_length() as u64;
+		Epoch {
+			start: epoch_start.into(),
+			authorities: Self::authorities().into_inner(),
+			randomness: Self::randomness_buf(),
+		}
+	}
+
 	/// Randomness buffer entries.
 	///
 	/// Assuming we're executing a block during epoch with index `N`.
@@ -788,6 +768,24 @@ impl<T: Config> Pallet<T> {
 	/// Randomness accumulator
 	pub fn randomness_accumulator() -> Randomness {
 		Self::randomness(0)
+	}
+
+	/// Determine whether an epoch change should take place at this block.
+	pub(crate) fn should_end_epoch(block_num: BlockNumberFor<T>) -> bool {
+		Self::current_slot_index() == 0 && block_num != Zero::zero()
+	}
+
+	/// Current slot index relative to the current epoch.
+	fn current_slot_index() -> u32 {
+		Self::slot_index(CurrentSlot::<T>::get())
+	}
+
+	/// Slot index relative to the current epoch.
+	fn slot_index(slot: Slot) -> u32 {
+		// slot.checked_sub(*Self::current_epoch_start())
+		// 	.and_then(|v| v.try_into().ok())
+		// 	.unwrap_or(u32::MAX)
+		(*slot % <T as Config>::EpochLength::get() as u64) as u32
 	}
 
 	/// Current epoch index.
