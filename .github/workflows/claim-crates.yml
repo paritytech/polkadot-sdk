@@ -18,9 +18,9 @@ jobs:
           cache-on-failure: true
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.3.0
+        run: cargo install parity-publish@0.5.1
 
       - name: parity-publish claim
         env:
           PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATESIO_PUBLISH_CLAIM_TOKEN }}
-        run: parity-publish claim
+        run: parity-publish --color always claim

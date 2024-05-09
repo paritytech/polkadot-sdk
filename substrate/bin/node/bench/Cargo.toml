@@ -15,7 +15,7 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 clap = { version = "4.5.3", features = ["derive"] }
 log = { workspace = true, default-features = true }
 node-primitives = { path = "../primitives" }
