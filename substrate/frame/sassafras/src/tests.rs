@@ -413,7 +413,7 @@ fn slot_and_epoch_helpers_works() {
 			assert_eq!(Sassafras::current_slot(), Slot::from(slot));
 			assert_eq!(Sassafras::current_slot_index(), slot_idx);
 			assert_eq!(Sassafras::current_epoch_start(), Slot::from(epoch_slot));
-			assert_eq!(Sassafras::curr_epoch_index(), epoch_idx);
+			assert_eq!(Sassafras::current_epoch_index(), epoch_idx);
 		};
 
 		// Post genesis state (before first initialization of epoch N)
@@ -465,7 +465,7 @@ fn tickets_accumulator_works() {
 	ext.execute_with(|| {
 		let epoch_length = Sassafras::epoch_length() as u64;
 
-		let epoch_idx = Sassafras::curr_epoch_index();
+		let epoch_idx = Sassafras::current_epoch_index();
 		let epoch_tag = (epoch_idx % 2) as u8;
 		let next_epoch_tag = epoch_tag ^ 1;
 

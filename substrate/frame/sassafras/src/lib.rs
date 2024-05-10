@@ -153,6 +153,23 @@ pub type AuthoritiesVec<T> = WeakBoundedVec<AuthorityId, <T as Config>::MaxAutho
 /// Tickets sequence.
 pub type TicketsVec = BoundedVec<TicketEnvelope, ConstU32<TICKETS_CHUNK_MAX_LENGTH>>;
 
+trait EpochTag {
+	fn tag(&self) -> u8;
+	fn next_tag(&self) -> u8;
+}
+
+impl EpochTag for u64 {
+	#[inline(always)]
+	fn tag(&self) -> u8 {
+		(self % 2) as u8
+	}
+
+	#[inline(always)]
+	fn next_tag(&self) -> u8 {
+		self.tag() ^ 1
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -358,7 +375,7 @@ pub mod pallet {
 				if slots_left > 0 {
 					outstanding_count = outstanding_count.div_ceil(slots_left as usize);
 				}
-				let next_epoch_tag = (Self::curr_epoch_index() & 1) as u8 ^ 1;
+				let next_epoch_tag = Self::current_epoch_index().next_tag();
 				Self::consume_tickets_accumulator(outstanding_count, next_epoch_tag);
 			}
 		}
@@ -502,7 +519,7 @@ impl<T: Config> Pallet<T> {
 		let expected_epoch_idx = TemporaryData::<T>::get()
 			.map(|cache| Self::epoch_index(cache.prev_slot) + 1)
 			.expect("Unconditionally populated in `on_initialize`; `enact_epoch_change` is always called after; qed");
-		let mut epoch_idx = Self::curr_epoch_index();
+		let mut epoch_idx = Self::current_epoch_index();
 
 		if epoch_idx < expected_epoch_idx {
 			panic!(
@@ -532,12 +549,11 @@ impl<T: Config> Pallet<T> {
 		};
 		Self::deposit_next_epoch_descriptor_digest(epoch_signal);
 
-		let epoch_tag = (epoch_idx & 1) as u8;
-		Self::consume_tickets_accumulator(usize::MAX, epoch_tag);
+		Self::consume_tickets_accumulator(usize::MAX, epoch_idx.tag());
 
 		// Reset next epoch counter as we're start accumulating.
 		let mut tickets_count = TicketsCount::<T>::get();
-		tickets_count[(epoch_tag ^ 1) as usize] = 0;
+		tickets_count[epoch_idx.next_tag() as usize] = 0;
 		TicketsCount::<T>::set(tickets_count);
 	}
 
@@ -679,20 +695,20 @@ impl<T: Config> Pallet<T> {
 			return None
 		}
 
-		let curr_epoch_idx = Self::curr_epoch_index();
+		let curr_epoch_idx = Self::current_epoch_index();
 		let slot_epoch_idx = Self::epoch_index(slot);
 		if slot_epoch_idx < curr_epoch_idx || slot_epoch_idx > curr_epoch_idx + 1 {
 			return None
 		}
 
-		let mut epoch_tag = (slot_epoch_idx & 1) as u8;
+		let mut epoch_tag = slot_epoch_idx.tag();
 		let epoch_len = T::EpochLength::get();
 		let mut slot_idx = Self::slot_index(slot);
 
 		if epoch_len <= slot_idx && slot_idx < 2 * epoch_len {
 			// Try to get a ticket for the next epoch. Since its state values were not enacted yet,
 			// we may have to finish sorting the tickets.
-			epoch_tag ^= 1;
+			epoch_tag = slot_epoch_idx.next_tag();
 			slot_idx -= epoch_len;
 			if TicketsAccumulator::<T>::count() != 0 {
 				Self::consume_tickets_accumulator(usize::MAX, epoch_tag);
@@ -728,13 +744,14 @@ impl<T: Config> Pallet<T> {
 	/// Reset tickets related data.
 	///
 	/// Optimization note: tickets are left in place, only the associated counters are resetted.
+	#[inline(always)]
 	fn reset_tickets_data() {
-		// Reset sorted candidates (TODO: How this can fail?)
 		TicketsCount::<T>::kill();
 		let _ = TicketsAccumulator::<T>::clear(u32::MAX, None);
 	}
 
 	/// Static protocol configuration.
+	#[inline(always)]
 	pub fn protocol_config() -> Configuration {
 		Configuration {
 			epoch_length: T::EpochLength::get(),
@@ -746,6 +763,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Current epoch information.
+	#[inline(always)]
 	pub fn current_epoch() -> Epoch {
 		Epoch {
 			start: Self::current_epoch_start(),
@@ -771,70 +789,79 @@ impl<T: Config> Pallet<T> {
 	/// - 0 : accumulator for epoch `N+3` randomness
 	///
 	/// If `index` is greater than 3 the `Default` is returned.
-	pub fn randomness(index: usize) -> Randomness {
+	#[inline(always)]
+	fn randomness(index: usize) -> Randomness {
 		Self::randomness_buf().get(index).cloned().unwrap_or_default()
 	}
 
 	/// Current epoch's randomness.
-	pub fn curr_randomness() -> Randomness {
+	#[inline(always)]
+	fn current_randomness() -> Randomness {
 		Self::randomness(3)
 	}
 
 	/// Next epoch's randomness.
-	pub fn next_randomness() -> Randomness {
+	#[inline(always)]
+	fn next_randomness() -> Randomness {
 		Self::randomness(2)
 	}
 
 	/// Randomness accumulator
-	pub fn randomness_accumulator() -> Randomness {
+	#[inline(always)]
+	fn randomness_accumulator() -> Randomness {
 		Self::randomness(0)
 	}
 
 	/// Determine whether an epoch change should take place at this block.
-	pub(crate) fn should_end_epoch(block_num: BlockNumberFor<T>) -> bool {
+	#[inline(always)]
+	fn should_end_epoch(block_num: BlockNumberFor<T>) -> bool {
 		Self::current_slot_index() == 0 && block_num != Zero::zero()
 	}
 
 	/// Current slot index relative to the current epoch.
+	#[inline(always)]
 	fn current_slot_index() -> u32 {
 		Self::slot_index(CurrentSlot::<T>::get())
 	}
 
 	/// Slot index relative to the current epoch.
+	#[inline(always)]
 	fn slot_index(slot: Slot) -> u32 {
-		// slot.checked_sub(*Self::current_epoch_start())
-		// 	.and_then(|v| v.try_into().ok())
-		// 	.unwrap_or(u32::MAX)
 		(*slot % <T as Config>::EpochLength::get() as u64) as u32
 	}
 
 	/// Current epoch index.
-	pub fn curr_epoch_index() -> u64 {
+	#[inline(always)]
+	fn current_epoch_index() -> u64 {
 		Self::epoch_index(Self::current_slot())
 	}
 
 	/// Epoch's index from slot.
-	pub fn epoch_index(slot: Slot) -> u64 {
+	#[inline(always)]
+	fn epoch_index(slot: Slot) -> u64 {
 		*slot / <T as Config>::EpochLength::get() as u64
 	}
 
 	/// Epoch length
-	pub fn epoch_length() -> u32 {
-		T::EpochLength::get()
-	}
-
-	/// Finds the start slot of the current epoch.
+	/// Get current epoch first slot.
+	#[inline(always)]
 	fn current_epoch_start() -> Slot {
 		let curr_slot = *Self::current_slot();
-		let epoch_start = curr_slot - curr_slot % Self::epoch_length() as u64;
+		let epoch_start = curr_slot - curr_slot % <T as Config>::EpochLength::get() as u64;
 		Slot::from(epoch_start)
 	}
 
 	/// Get the epoch's first slot.
+	#[inline(always)]
 	fn epoch_start(epoch_index: u64) -> Slot {
 		const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
 							 if u64 is not enough we should crash for safety; qed.";
 		epoch_index.checked_mul(T::EpochLength::get() as u64).expect(PROOF).into()
+	}
+
+	#[inline(always)]
+	fn epoch_length() -> u32 {
+		T::EpochLength::get()
 	}
 }
 
