@@ -34,9 +34,9 @@
 //!
 //! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
 //!
-//! ## Warning: Experimental
+//! ## WARNING: Experimental
 //!
-//! This crate and all of its content is experimental, and should not yet be used in production.
+//! **This crate and all of its content is experimental, and should not yet be used in production.**
 //!
 //! ## Underlying dependencies
 //!
@@ -363,5 +363,15 @@ pub mod deps {
 	#[cfg(feature = "runtime")]
 	pub use sp_offchain;
 	#[cfg(feature = "runtime")]
+	pub use sp_storage;
+	#[cfg(feature = "runtime")]
 	pub use sp_version;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub use frame_benchmarking;
+	#[cfg(feature = "runtime-benchmarks")]
+	pub use frame_system_benchmarking;
+
+	#[cfg(feature = "frame-try-runtime")]
+	pub use frame_try_runtime;
 }

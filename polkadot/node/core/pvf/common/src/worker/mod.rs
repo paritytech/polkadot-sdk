@@ -18,10 +18,13 @@
 
 pub mod security;
 
-use crate::{framed_recv_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET};
+use crate::{
+	framed_recv_blocking, framed_send_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET,
+};
 use cpu_time::ProcessTime;
 use futures::never::Never;
-use parity_scale_codec::Decode;
+use nix::{errno::Errno, sys::resource::Usage};
+use parity_scale_codec::{Decode, Encode};
 use std::{
 	any::Any,
 	fmt::{self},
@@ -57,8 +60,6 @@ macro_rules! decl_worker_main {
 			use $crate::worker::security;
 
 			$crate::sp_tracing::try_init_simple();
-
-			let worker_pid = std::process::id();
 
 			let args = std::env::args().collect::<Vec<_>>();
 			if args.len() == 1 {
@@ -546,6 +547,81 @@ fn recv_worker_handshake(stream: &mut UnixStream) -> io::Result<WorkerHandshake>
 		)
 	})?;
 	Ok(worker_handshake)
+}
+
+/// Calculate the total CPU time from the given `usage` structure, returned from
+/// [`nix::sys::resource::getrusage`], and calculates the total CPU time spent, including both user
+/// and system time.
+///
+/// # Arguments
+///
+/// - `rusage`: Contains resource usage information.
+///
+/// # Returns
+///
+/// Returns a `Duration` representing the total CPU time.
+pub fn get_total_cpu_usage(rusage: Usage) -> Duration {
+	let micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * 1_000_000) +
+		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64) as u64;
+
+	return Duration::from_micros(micros)
+}
+
+/// Get a job response.
+pub fn recv_child_response<T>(
+	received_data: &mut io::BufReader<&[u8]>,
+	context: &'static str,
+) -> io::Result<T>
+where
+	T: Decode,
+{
+	let response_bytes = framed_recv_blocking(received_data)?;
+	T::decode(&mut response_bytes.as_slice()).map_err(|e| {
+		io::Error::new(
+			io::ErrorKind::Other,
+			format!("{} pvf recv_child_response: decode error: {}", context, e),
+		)
+	})
+}
+
+pub fn send_result<T, E>(
+	stream: &mut UnixStream,
+	result: Result<T, E>,
+	worker_info: &WorkerInfo,
+) -> io::Result<()>
+where
+	T: std::fmt::Debug,
+	E: std::fmt::Debug + std::fmt::Display,
+	Result<T, E>: Encode,
+{
+	if let Err(ref err) = result {
+		gum::warn!(
+			target: LOG_TARGET,
+			?worker_info,
+			"worker: error occurred: {}",
+			err
+		);
+	}
+	gum::trace!(
+		target: LOG_TARGET,
+		?worker_info,
+		"worker: sending result to host: {:?}",
+		result
+	);
+
+	framed_send_blocking(stream, &result.encode()).map_err(|err| {
+		gum::warn!(
+			target: LOG_TARGET,
+			?worker_info,
+			"worker: error occurred sending result to host: {}",
+			err
+		);
+		err
+	})
+}
+
+pub fn stringify_errno(context: &'static str, errno: Errno) -> String {
+	format!("{}: {}: {}", context, errno, io::Error::last_os_error())
 }
 
 /// Functionality related to threads spawned by the workers.
