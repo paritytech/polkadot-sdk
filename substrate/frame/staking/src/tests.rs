@@ -8408,6 +8408,42 @@ mod stake_tracker {
 	}
 
 	#[test]
+	fn validator_nominator_roles_snip_snap_works() {
+		// Test case: Validator becomes a nominator and vice-versa. In the process of a nominator
+		// turning validator, it leaves a target behind even though the staker is a nominator. The
+		// target is removed from the list once its score drops to 0 (similar to the dangling
+		// targets).
+		ExtBuilder::default().build_and_execute(|| {
+			// 11 and 21 are both validators.
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
+			assert_eq!(Staking::status(&21), Ok(StakerStatus::Validator));
+			// 101 nominates 11 and 21.
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
+
+			// 11 becomes nominator.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(11), vec![21]));
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Nominator(vec![21])));
+
+			// however, since 101 nominates 11 (which now is a nominator), 11 is still in the
+			// target list even though it is a nominator.
+			assert_eq!(nominators_of(&11), vec![101]);
+			assert_eq!(TargetBagsList::score(&11), Staking::active_stake(&101).unwrap());
+
+			// 101 starts validating. thus, it chills as a nominator.
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(101), Default::default()));
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Validator));
+
+			// now 11 has no more score in the target list and it is a nominator, thus it is
+			// removed from the target list.
+			assert_eq!(nominators_of(&11).len(), 0);
+			assert!(!TargetBagsList::contains(&11));
+
+			// stake-tracker try-state will ensure actions above keep the integrity of the target
+			// and voter list.
+		});
+	}
+
+	#[test]
 	fn no_redundant_update_ledger_events() {
 		ExtBuilder::default().build_and_execute(|| {
 			// 101 nominates 11 and 21.

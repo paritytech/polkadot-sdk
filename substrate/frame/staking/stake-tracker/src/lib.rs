@@ -277,8 +277,11 @@ pub mod pallet {
 						let balance = current_score.saturating_sub(imbalance);
 
 						// the target is removed from the list IFF score is 0 and the target is
-						// dangling (i.e. not bonded).
-						if balance.is_zero() && T::Staking::status(who).is_err() {
+						// either dangling (i.e. not bonded) or currently registered as a nominator.
+						let remove_target = balance.is_zero() &&
+							T::Staking::status(who).map(|s| s.is_nominator()).unwrap_or(true);
+
+						if remove_target {
 							let _ = T::TargetList::on_remove(who).defensive_proof(
 								"staker exists in the list as per the check above; qed.",
 							);
@@ -313,7 +316,7 @@ pub mod pallet {
 
 		/// Returns a dedup list of accounts.
 		///
-		/// Note: this dedup can be removed once the staking pallet ensures no duplicate
+		/// Note: this dedup can be removed once (and if) the staking pallet ensures no duplicate
 		/// nominations are allowed <https://github.com/paritytech/polkadot-sdk/issues/4419>.
 		///
 		/// TODO: replace this helper method by a debug_assert if #4419 ever prevents the nomination
@@ -506,14 +509,6 @@ impl<T: Config> Pallet<T> {
 				return Err("target score in the target list is different than the expected".into())
 			}
 		}
-
-		println!(
-			"in approval: {:?}, in TL: {:?}",
-			approvals_map.keys().count(),
-			T::TargetList::iter().count()
-		);
-		println!("> TL: {:?}", T::TargetList::iter().map(|t| t).collect::<Vec<_>>());
-		println!("> Apps: {:?}", approvals_map.keys());
 
 		frame_support::ensure!(
 			approvals_map.keys().count() == T::TargetList::iter().count(),
