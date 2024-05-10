@@ -27,8 +27,9 @@ use xcm_fee_payment_runtime_api::{dry_run::XcmDryRunApi, fees::XcmPaymentApi};
 
 mod mock;
 use mock::{
-	extra, fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
-	DeliveryFees, ExistentialDeposit, HereLocation, RuntimeCall, RuntimeEvent, TestClient, TestXt,
+	fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
+	DeliveryFees, ExistentialDeposit, Extrinsic, HereLocation, RuntimeCall, RuntimeEvent,
+	TestClient,
 };
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
@@ -50,7 +51,7 @@ fn fee_estimation_for_teleport() {
 	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
-		let extrinsic = TestXt::new(
+		let extrinsic = Extrinsic::new_signed(
 			RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
 				dest: Box::new(VersionedLocation::V4((Parent, Parachain(1000)).into())),
 				beneficiary: Box::new(VersionedLocation::V4(
@@ -62,7 +63,9 @@ fn fee_estimation_for_teleport() {
 				fee_asset_item: 1, // Fees are paid with the RelayToken
 				weight_limit: Unlimited,
 			}),
-			Some((who, extra())),
+			who,
+			who.into(),
+			mock::extension(),
 		);
 		let dry_run_effects =
 			runtime_api.dry_run_extrinsic(H256::zero(), extrinsic).unwrap().unwrap();
@@ -130,7 +133,7 @@ fn fee_estimation_for_teleport() {
 				}),
 				RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(107074070, 0), /* Will break if weights get
+						weight: Weight::from_parts(207074000, 0), /* Will break if weights get
 						                                           * updated. */
 						class: DispatchClass::Normal,
 						pays_fee: Pays::Yes,
@@ -214,7 +217,7 @@ fn dry_run_reserve_asset_transfer() {
 	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
-		let extrinsic = TestXt::new(
+		let extrinsic = Extrinsic::new_signed(
 			RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
 				dest: Box::new(VersionedLocation::V4((Parent, Parachain(1000)).into())),
 				beneficiary: Box::new(VersionedLocation::V4(
@@ -224,7 +227,9 @@ fn dry_run_reserve_asset_transfer() {
 				fee_asset_item: 0,
 				weight_limit: Unlimited,
 			}),
-			Some((who, extra())),
+			who,
+			who.into(),
+			mock::extension(),
 		);
 		let dry_run_effects =
 			runtime_api.dry_run_extrinsic(H256::zero(), extrinsic).unwrap().unwrap();
@@ -280,7 +285,7 @@ fn dry_run_reserve_asset_transfer() {
 				}),
 				RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(107074066, 0), /* Will break if weights get
+						weight: Weight::from_parts(207074000, 0), /* Will break if weights get
 						                                           * updated. */
 						class: DispatchClass::Normal,
 						pays_fee: Pays::Yes,
