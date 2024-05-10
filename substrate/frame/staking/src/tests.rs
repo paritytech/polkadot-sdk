@@ -1978,6 +1978,7 @@ fn reap_stash_works_with_existential_deposit_zero() {
 	ExtBuilder::default()
 		.existential_deposit(0)
 		.balance_factor(10)
+		.stake_tracker_try_state(false)
 		.build_and_execute(|| {
 			// given
 			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 10 * 1000);

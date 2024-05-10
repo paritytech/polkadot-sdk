@@ -570,11 +570,15 @@ pub trait SortedListProvider<AccountId> {
 	///
 	/// Returns a boolean and it is only available in the context of `try-runtime` checks.
 	#[cfg(feature = "try-runtime")]
-	fn in_position(id: &AccountId) -> Result<bool, Self::Error>;
+	fn in_position(_id: &AccountId) -> Result<bool, Self::Error> {
+		unimplemented!()
+	}
 
 	/// Check internal state of the list. Only meant for debugging.
 	#[cfg(feature = "try-runtime")]
-	fn try_state() -> Result<(), TryRuntimeError>;
+	fn try_state() -> Result<(), TryRuntimeError> {
+		Ok(())
+	}
 
 	/// If `who` changes by the returned amount they are guaranteed to have a worst case change
 	/// in their list position.

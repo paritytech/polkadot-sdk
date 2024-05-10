@@ -770,11 +770,10 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			.active
 			.saturating_sub(slashed_total);
 
-		match (active_after_slash.is_zero(), T::Staking::status(stash)) {
-			(true, Ok(StakerStatus::Nominator(_))) => {
-				let _ = T::Staking::chill(stash).defensive();
-			},
-			_ => (), // do nothing.
+		if let (true, Ok(StakerStatus::Nominator(_))) =
+			(active_after_slash.is_zero(), T::Staking::status(stash))
+		{
+			let _ = T::Staking::chill(stash).defensive();
 		};
 	}
 

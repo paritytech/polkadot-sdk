@@ -50,6 +50,7 @@ use pallet_election_provider_multi_phase::{
 	unsigned::MinerConfig, Call, ElectionCompute, GeometricDepositBase, QueuedSolution,
 	SolutionAccuracyOf,
 };
+use pallet_stake_tracker::VoterUpdateMode;
 use pallet_staking::StakerStatus;
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -83,7 +84,7 @@ frame_support::construct_runtime!(
 pub(crate) type AccountId = u64;
 pub(crate) type AccountIndex = u32;
 pub(crate) type BlockNumber = u32;
-pub(crate) type Balance = u64;
+pub(crate) type Balance = u128;
 pub(crate) type VoterIndex = u16;
 pub(crate) type TargetIndex = u16;
 pub(crate) type Moment = u32;
@@ -232,11 +233,11 @@ impl MinerConfig for Runtime {
 }
 
 const VOTERS_THRESHOLDS: [VoteWeight; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
-const TARGETS_THRESHOLDS: [Balance; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+const TARGETS_THRESHOLDS: [u128; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
 parameter_types! {
 	pub static VoterBagThresholds: &'static [VoteWeight] = &VOTERS_THRESHOLDS;
-	pub static TargetBagThresholds: &'static [Balance] = &TARGETS_THRESHOLDS;
+	pub static TargetBagThresholds: &'static [u128] = &TARGETS_THRESHOLDS;
 	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
 	pub static BondingDuration: sp_staking::EraIndex = 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 7; // 1/4 the bonding duration.
@@ -256,17 +257,21 @@ type TargetBagsListInstance = pallet_bags_list::Instance2;
 impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type ScoreProvider = Staking;
+	type ScoreProvider = pallet_bags_list::Pallet<Runtime, TargetBagsListInstance>;
 	type BagThresholds = TargetBagThresholds;
-	type Score = VoteWeight;
+	type Score = u128;
+}
+
+parameter_types! {
+	pub static UpdateMode: VoterUpdateMode = VoterUpdateMode::Strict;
 }
 
 impl pallet_stake_tracker::Config for Runtime {
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	type VoterUpdateMode = UpdateMode;
 }
 
 pub struct BalanceToU256;

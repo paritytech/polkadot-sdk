@@ -1750,15 +1750,6 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 		// nothing to do upon regenerate.
 		0
 	}
-	#[cfg(feature = "try-runtime")]
-	fn in_position(_: &T::AccountId) -> Result<bool, Self::Error> {
-		unimplemented!()
-	}
-	#[cfg(feature = "try-runtime")]
-	fn try_state() -> Result<(), TryRuntimeError> {
-		Ok(())
-	}
-
 	fn unsafe_clear() {
 		#[allow(deprecated)]
 		Validators::<T>::remove_all();
@@ -1830,16 +1821,6 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 		// nothing to do upon regenerate.
 		0
 	}
-
-	#[cfg(feature = "try-runtime")]
-	fn in_position(_: &T::AccountId) -> Result<bool, Self::Error> {
-		unimplemented!()
-	}
-	#[cfg(feature = "try-runtime")]
-	fn try_state() -> Result<(), TryRuntimeError> {
-		Ok(())
-	}
-
 	fn unsafe_clear() {
 		// NOTE: Caller must ensure this doesn't lead to too many storage accesses. This is a
 		// condition of SortedListProvider::unsafe_clear.

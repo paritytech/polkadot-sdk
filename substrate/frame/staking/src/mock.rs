@@ -396,7 +396,6 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
-	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	type NominationsQuota = WeightedNominationsQuota<16>;
