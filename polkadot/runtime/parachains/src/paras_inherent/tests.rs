@@ -3221,10 +3221,8 @@ mod sanitizers {
 				hc.minimum_backing_votes = 1;
 				hc.scheduler_params.group_rotation_frequency = 20;
 				hc.async_backing_params.allowed_ancestry_len = 10;
-				// hc.max_pov_size = 5_000_000;
 				configuration::Pallet::<Test>::force_set_active_config(hc);
 
-				// run_to_block(parent_block_number, |_| None);
 				let TestData { backed_candidates, validators, .. } =
 					get_test_data_one_core_per_para(false);
 
@@ -3254,7 +3252,7 @@ mod sanitizers {
 					})
 					.collect();
 
-				let parent_block_number = 4;
+				let parent_block_number = 3;
 				let parent_header = HeaderFor::<Test>::new(
 					parent_block_number,     // `block_number`,
 					Default::default(),      // `extrinsics_root`,
@@ -3263,7 +3261,7 @@ mod sanitizers {
 					Default::default(),      // digest,
 				);
 
-				// run_to_block(parent_block_number + 1, |_| None);
+				run_to_block(parent_block_number + 1, |_| None);
 				frame_system::Pallet::<Test>::reset_events();
 				frame_system::Pallet::<Test>::initialize(
 					&(parent_header.number() + 1),
@@ -3272,10 +3270,10 @@ mod sanitizers {
 				);
 
 				let data = ParachainsInherentData {
-					disputes: Vec::new(),
+					disputes,
 					parent_header: parent_header.clone(),
 					bitfields: Vec::new(),
-					backed_candidates,
+					backed_candidates: Vec::new(),
 				};
 				let mut inherent_data = InherentData::new();
 				inherent_data.put_data(PARACHAINS_INHERENT_IDENTIFIER, &data).unwrap();
@@ -3299,15 +3297,14 @@ mod sanitizers {
 					&Digest { logs: Vec::new() },
 				);
 
-				// let data = ParachainsInherentData {
-				// 	disputes: Vec::new(),
-				// 	parent_header,
-				// 	bitfields: Vec::new(),
-				// 	backed_candidates,
-				// };
+				let data = ParachainsInherentData {
+					disputes: Vec::new(),
+					parent_header,
+					bitfields: Vec::new(),
+					backed_candidates,
+				};
 
-				// let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(),
-				// data).unwrap();
+				let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap();
 				assert_eq!(
 					// The length of this vec is equal to the number of candidates, so we know
 					// all of our candidates got filtered out
