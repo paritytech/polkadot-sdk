@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715338385961,
+  "lastUpdate": 1715347696023,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2888,6 +2888,53 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/paritytech/polkadot-sdk/commit/657df04cd901559cc6e33a8dfe70395bddb079f2"
         },
         "date": 1715338359729,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63546.95,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52937.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.62155968260004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.117522617739997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6434177220401884,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maciej",
+            "username": "Overkillus",
+            "email": "maciej.zyszkiewicz@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "00440779d42b754292783612fc0f7e99d7cde2d2",
+          "message": "Disabling Strategy Implementers Guide (#2955)\n\nCloses #1961",
+          "timestamp": "2024-05-10T12:31:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/00440779d42b754292783612fc0f7e99d7cde2d2"
+        },
+        "date": 1715347669796,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
