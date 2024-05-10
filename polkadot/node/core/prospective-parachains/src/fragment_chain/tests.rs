@@ -338,15 +338,14 @@ fn populate_and_extend_from_storage_empty() {
 	)
 	.unwrap();
 	let mut chain = FragmentChain::populate(scope, &storage);
-	assert!(chain.chain().is_empty());
-	assert!(chain.candidates().next().is_none());
+	assert!(chain.to_vec().is_empty());
+
 	chain.extend_from_storage(&storage);
-	assert!(chain.chain().is_empty());
-	assert!(chain.candidates().next().is_none());
+	assert!(chain.to_vec().is_empty());
 }
 
 #[test]
-fn populate_and_extend_from_storage_with_existing_empty_chain() {
+fn populate_and_extend_from_storage_with_existing_empty_to_vec() {
 	let mut storage = CandidateStorage::default();
 
 	let para_id = ParaId::from(5u32);
@@ -438,11 +437,10 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			.unwrap();
 			let mut chain = FragmentChain::populate(scope, &storage);
 
-			assert!(chain.chain().is_empty());
-			assert!(chain.candidates().next().is_none());
+			assert!(chain.to_vec().is_empty());
+
 			chain.extend_from_storage(&storage);
-			assert!(chain.chain().is_empty());
-			assert!(chain.candidates().next().is_none());
+			assert!(chain.to_vec().is_empty());
 
 			// If the min relay parent number is wrong, candidate A can never become valid.
 			// Otherwise, if only the required parent doesn't match, candidate A is still a
@@ -522,9 +520,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			);
 		}
 		let mut chain = FragmentChain::populate(scope, &storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash]);
 		chain.extend_from_storage(&storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash]);
 		// since depth is maxed out, we can't add more potential candidates
 		// candidate A is no longer a potential candidate because it's already present.
 		for (candidate, pvd) in [
@@ -596,9 +594,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 
 		// Now try populating from all candidates.
 		let mut chain = FragmentChain::populate(scope, &storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 		chain.extend_from_storage(&storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 		// since depth is maxed out, we can't add more potential candidates
 		// candidate A and B are no longer a potential candidate because they're already present.
 		for (candidate, pvd) in [
@@ -630,9 +628,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			)
 			.unwrap();
 			let mut chain = FragmentChain::populate(scope, &storage);
-			assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+			assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 			chain.extend_from_storage(&storage);
-			assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+			assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 			// Candidates are no longer potential candidates because they're already part of the
 			// chain.
 			for (candidate, pvd) in [
@@ -669,11 +667,10 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		.unwrap();
 
 		let mut chain = FragmentChain::populate(scope, &storage);
-		assert!(chain.chain().is_empty());
-		assert!(chain.candidates().next().is_none());
+		assert!(chain.to_vec().is_empty());
+
 		chain.extend_from_storage(&storage);
-		assert!(chain.chain().is_empty());
-		assert!(chain.candidates().next().is_none());
+		assert!(chain.to_vec().is_empty());
 
 		// Candidate A is not a potential candidate, but candidates B and C still are.
 		assert_eq!(
@@ -726,9 +723,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		)
 		.unwrap();
 		let mut chain = FragmentChain::populate(scope, &modified_storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 		chain.extend_from_storage(&modified_storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 
 		// Candidate C is not even a potential candidate.
 		assert_eq!(
@@ -771,9 +768,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		let mut chain = FragmentChain::populate(scope, &modified_storage);
 		// We'll either have A->B or A->C. It's not deterministic because CandidateStorage uses
 		// HashSets and HashMaps.
-		if chain.chain() == vec![candidate_a_hash, candidate_b_hash] {
+		if chain.to_vec() == vec![candidate_a_hash, candidate_b_hash] {
 			chain.extend_from_storage(&modified_storage);
-			assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+			assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 			// Candidate C is not even a potential candidate.
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
@@ -785,9 +782,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 				),
 				PotentialAddition::None
 			);
-		} else if chain.chain() == vec![candidate_a_hash, wrong_candidate_c.hash()] {
+		} else if chain.to_vec() == vec![candidate_a_hash, wrong_candidate_c.hash()] {
 			chain.extend_from_storage(&modified_storage);
-			assert_eq!(chain.chain(), vec![candidate_a_hash, wrong_candidate_c.hash()]);
+			assert_eq!(chain.to_vec(), vec![candidate_a_hash, wrong_candidate_c.hash()]);
 			// Candidate B is not even a potential candidate.
 			assert_eq!(
 				chain.can_add_candidate_as_potential(
@@ -800,7 +797,7 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 				PotentialAddition::None
 			);
 		} else {
-			panic!("Unexpected chain: {:?}", chain.chain());
+			panic!("Unexpected chain: {:?}", chain.to_vec());
 		}
 
 		// Candidate C is a 0-length cycle.
@@ -828,9 +825,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		)
 		.unwrap();
 		let mut chain = FragmentChain::populate(scope, &modified_storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 		chain.extend_from_storage(&modified_storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 		// Candidate C is not even a potential candidate.
 		assert_eq!(
 			chain.can_add_candidate_as_potential(
@@ -867,9 +864,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		)
 		.unwrap();
 		let mut chain = FragmentChain::populate(scope, &modified_storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 		chain.extend_from_storage(&modified_storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 		// Candidate C is not even a potential candidate.
 		assert_eq!(
 			chain.can_add_candidate_as_potential(
@@ -926,9 +923,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 			)
 			.unwrap();
 			let mut chain = FragmentChain::populate(scope, &storage);
-			assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+			assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 			chain.extend_from_storage(&storage);
-			assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+			assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 		}
 
 		// Relay parents of pending availability candidates can be out of scope
@@ -947,9 +944,9 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		)
 		.unwrap();
 		let mut chain = FragmentChain::populate(scope, &storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 		chain.extend_from_storage(&storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 
 		// Even relay parents of pending availability candidates which are out of scope cannot move
 		// backwards.
@@ -980,16 +977,15 @@ fn populate_and_extend_from_storage_with_existing_empty_chain() {
 		)
 		.unwrap();
 		let mut chain = FragmentChain::populate(scope, &storage);
-		assert!(chain.chain().is_empty());
-		assert!(chain.candidates().next().is_none());
+		assert!(chain.to_vec().is_empty());
+
 		chain.extend_from_storage(&storage);
-		assert!(chain.chain().is_empty());
-		assert!(chain.candidates().next().is_none());
+		assert!(chain.to_vec().is_empty());
 	}
 }
 
 #[test]
-fn extend_from_storage_with_existing_chain() {
+fn extend_from_storage_with_existing_to_vec() {
 	let para_id = ParaId::from(5u32);
 	let relay_parent_a = Hash::repeat_byte(1);
 	let relay_parent_b = Hash::repeat_byte(2);
@@ -1086,13 +1082,13 @@ fn extend_from_storage_with_existing_chain() {
 		)
 		.unwrap();
 		let mut chain = FragmentChain::populate(scope, &storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash]);
 
 		storage
 			.add_candidate(candidate_b.clone(), pvd_b.clone(), CandidateState::Seconded)
 			.unwrap();
 		chain.extend_from_storage(&storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 	}
 
 	// Already had A and B in the chain. Introduce C.
@@ -1118,18 +1114,18 @@ fn extend_from_storage_with_existing_chain() {
 		)
 		.unwrap();
 		let mut chain = FragmentChain::populate(scope, &storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 
 		storage
 			.add_candidate(candidate_c.clone(), pvd_c.clone(), CandidateState::Seconded)
 			.unwrap();
 		chain.extend_from_storage(&storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 	}
 }
 
 #[test]
-fn test_find_ancestor_path_and_find_backable_chain_empty_chain() {
+fn test_find_ancestor_path_and_find_backable_chain_empty_to_vec() {
 	let para_id = ParaId::from(5u32);
 	let relay_parent = Hash::repeat_byte(1);
 	let required_parent: HeadData = vec![0xff].into();
@@ -1152,7 +1148,7 @@ fn test_find_ancestor_path_and_find_backable_chain_empty_chain() {
 	)
 	.unwrap();
 	let chain = FragmentChain::populate(scope, &storage);
-	assert!(chain.chain().is_empty());
+	assert!(chain.to_vec().is_empty());
 
 	assert_eq!(chain.find_ancestor_path(Ancestors::new()), 0);
 	assert_eq!(chain.find_backable_chain(Ancestors::new(), 2, |_| true), vec![]);
@@ -1163,7 +1159,7 @@ fn test_find_ancestor_path_and_find_backable_chain_empty_chain() {
 }
 
 #[test]
-fn test_find_ancestor_path_and_find_backable_chain() {
+fn test_find_ancestor_path_and_find_backable_to_vec() {
 	let para_id = ParaId::from(5u32);
 	let relay_parent = Hash::repeat_byte(1);
 	let required_parent: HeadData = vec![0xff].into();
@@ -1254,8 +1250,8 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 	.unwrap();
 	let chain = FragmentChain::populate(scope, &storage);
 
-	assert_eq!(chain.candidates().collect::<Vec<_>>().len(), candidates.len());
-	assert_eq!(chain.chain().len(), 6);
+	assert_eq!(candidates.len(), 6);
+	assert_eq!(chain.to_vec().len(), 6);
 
 	// No ancestors supplied.
 	assert_eq!(chain.find_ancestor_path(Ancestors::new()), 0);
@@ -1453,7 +1449,7 @@ fn hypothetical_membership() {
 	.unwrap();
 	let chain = FragmentChain::populate(scope, &storage);
 
-	assert_eq!(chain.chain().len(), 2);
+	assert_eq!(chain.to_vec().len(), 2);
 
 	// Check candidates which are already present
 	assert!(chain.hypothetical_membership(
@@ -1554,7 +1550,7 @@ fn hypothetical_membership() {
 		storage.add_candidate(candidate_c, pvd_c, CandidateState::Seconded).unwrap();
 
 		let chain = FragmentChain::populate(scope, &storage);
-		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		assert_eq!(chain.to_vec(), vec![candidate_a_hash, candidate_b_hash]);
 
 		storage
 			.add_candidate(invalid_candidate, invalid_pvd, CandidateState::Seconded)
@@ -1711,7 +1707,7 @@ fn hypothetical_membership_with_pending_availability_in_scope() {
 	.unwrap();
 	let chain = FragmentChain::populate(scope, &storage);
 
-	assert_eq!(chain.chain().len(), 2);
+	assert_eq!(chain.to_vec().len(), 2);
 
 	let candidate_d_hash = CandidateHash(Hash::repeat_byte(0xAA));
 

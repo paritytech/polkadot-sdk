@@ -334,7 +334,7 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 		live_candidates.extend(sub_view.pending_availability.iter().cloned());
 
 		for (para_id, fragment_chain) in &sub_view.fragment_chains {
-			live_candidates.extend(fragment_chain.candidates());
+			live_candidates.extend(fragment_chain.to_vec());
 			live_paras.insert(*para_id);
 		}
 	}
@@ -520,7 +520,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 				para = ?para,
 				?relay_parent,
 				"Candidates in chain before trying to introduce a new one: {:?}",
-				chain.chain()
+				chain.to_vec()
 			);
 			chain.extend_from_storage(&*storage);
 			if chain.contains_candidate(&candidate_hash) {
@@ -682,7 +682,7 @@ fn answer_get_backable_candidates(
 		?relay_parent,
 		para_id = ?para,
 		"Candidate chain for para: {:?}",
-		chain.chain()
+		chain.to_vec()
 	);
 
 	let backable_candidates: Vec<_> = chain

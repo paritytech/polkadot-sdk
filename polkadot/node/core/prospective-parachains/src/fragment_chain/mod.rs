@@ -522,12 +522,6 @@ impl FragmentChain {
 		&self.scope
 	}
 
-	/// Returns an O(n) iterator over the hashes of candidates contained in the
-	/// tree.
-	pub(crate) fn candidates(&self) -> impl Iterator<Item = CandidateHash> + '_ {
-		self.candidates.iter().cloned()
-	}
-
 	/// Returns the number of candidates in the chain
 	pub(crate) fn len(&self) -> usize {
 		self.candidates.len()
@@ -539,7 +533,7 @@ impl FragmentChain {
 	}
 
 	/// Return a vector of the chain's candidate hashes, in-order.
-	pub(crate) fn chain(&self) -> Vec<CandidateHash> {
+	pub(crate) fn to_vec(&self) -> Vec<CandidateHash> {
 		self.chain.iter().map(|candidate| candidate.candidate_hash).collect()
 	}
 
@@ -765,7 +759,7 @@ impl FragmentChain {
 	// The candidates which are present in `CandidateStorage`, are not part of this chain but could
 	// become part of this chain in the future. Capped at the max depth minus the existing chain
 	// length.
-	// If `ignore_candidate`` is supplied and found in storage, it won't be counted.
+	// If `ignore_candidate` is supplied and found in storage, it won't be counted.
 	pub(crate) fn find_unconnected_potential_candidates(
 		&self,
 		storage: &CandidateStorage,
@@ -782,14 +776,13 @@ impl FragmentChain {
 			if (self.chain.len() + candidates.len()) > self.scope.max_depth {
 				break
 			}
-			if !self.candidates.contains(&candidate.candidate_hash) {
-				if self.check_potential(
+			if !self.candidates.contains(&candidate.candidate_hash) &&
+				self.check_potential(
 					&candidate.relay_parent,
 					candidate.candidate.persisted_validation_data.parent_head.hash(),
 					Some(candidate.candidate.commitments.head_data.hash()),
 				) {
-					candidates.push(candidate.candidate_hash);
-				}
+				candidates.push(candidate.candidate_hash);
 			}
 		}
 
@@ -803,25 +796,25 @@ impl FragmentChain {
 	fn is_fork_or_cycle(&self, parent_head_hash: Hash, output_head_hash: Option<Hash>) -> bool {
 		if self.by_parent_head.contains_key(&parent_head_hash) {
 			// fork. our parent has another child already
-			return true;
+			return true
 		}
 
 		if let Some(output_head_hash) = output_head_hash {
 			if self.by_output_head.contains_key(&output_head_hash) {
 				// this is not a chain, there are multiple paths to the same state.
-				return true;
+				return true
 			}
 
 			// trivial 0-length cycle.
 			if parent_head_hash == output_head_hash {
-				return true;
+				return true
 			}
 
 			// this should catch any other cycles. our output state cannot already be the parent
 			// state of another candidate, unless this is a cycle, since the already added
 			// candidates form a chain.
 			if self.by_parent_head.contains_key(&output_head_hash) {
-				return true;
+				return true
 			}
 		}
 
@@ -840,7 +833,7 @@ impl FragmentChain {
 		output_head_hash: Option<Hash>,
 	) -> bool {
 		if self.is_fork_or_cycle(parent_head_hash, output_head_hash) {
-			return false;
+			return false
 		}
 
 		let Some(earliest_rp) = self.earliest_relay_parent() else { return false };
