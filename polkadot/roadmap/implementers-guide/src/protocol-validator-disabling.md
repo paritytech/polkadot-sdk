@@ -360,21 +360,25 @@ re-enabling is launched approval voter slashes can be re-instated. Numbers need 
 between 0-2% are reasonable. 0% would still disable which with the opportunity cost consideration should be enough.
 
  > **Note:** \
-> Spammy approval checkers are in fact not a big issue as a side effect of the offchain-disabling introduced by the Defense Against Past-Era Dispute Spam (**Node**) [#2225](https://github.com/paritytech/polkadot-sdk/issues/2225). It makes it so all validators loosing a dispute are locally disabled and ignored for dispute initiation so it effectively silences spammers. They can still no-show but the damage is minimized.
+> Spammy approval checkers are in fact not a big issue as a side effect of the offchain-disabling introduced by the
+> Defense Against Past-Era Dispute Spam (**Node**) [#2225](https://github.com/paritytech/polkadot-sdk/issues/2225). It
+> makes it so all validators loosing a dispute are locally disabled and ignored for dispute initiation so it effectively
+> silences spammers. They can still no-show but the damage is minimized.
 
 
 ## Interaction with all types of misbehaviors
 
-With re-enabling in place and potentially approval voter slashes enabled the overall misbehaviour-punishment system can be as highlighted in the table below:
+With re-enabling in place and potentially approval voter slashes enabled the overall misbehaviour-punishment system can
+be as highlighted in the table below:
 
-| Misbehaviour                  | Slash %                                                                                                                                                 | Onchain Disabling                                                                                                                                | Offchain Disabling | Chilling                                                                                                                                      |   Reputation Costs  |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| Backing Invalid               | 100%                                                                                                                                                    | Yes (High Prio)                                                                                                                                              | Yes   (High Prio)  | No                                                                                                                                           |  No   |
-| ForInvalid Vote               | 2%                                                                                                                                                       | Yes (Mid Prio)                                                                                                                                               | Yes   (Mid Prio)   | No                                                                                                                                            |   No  |
-| AgainstValid Vote             | 0%                                                                                                                                                       | Yes (Low Prio)                                                                                                                                               | Yes   (Low Prio)   | No                                                                                                                                            |  No   |
-| GRANDPA / BABE / BEEFY Equivocations                 | 0.01-100% | Yes (Varying Prio) | No                 | No |  No   |
-| Seconded + Valid Equivocation | -                                                                                                                                                       | No                                                                                                                                               | No                 | No                                                                                                                                            | No    |
-| Double Seconded Equivocation  | -                                                                                                                                                       | No                                                                                                                                               | No                | No                                                                                                                                            |  Yes   |
+|Misbehaviour                         |Slash %   |Onchain Disabling  |Offchain Disabling |Chilling |Reputation Costs  |
+|------------                         |-------   |-----------------  |------------------ |-------- |----------------- |
+|Backing Invalid                      |100%      |Yes (High Prio)    |Yes   (High Prio)  |No       |No                |
+|ForInvalid Vote                      |2%        |Yes (Mid Prio)     |Yes   (Mid Prio)   |No       |No                |
+|AgainstValid Vote                    |0%        |Yes (Low Prio)     |Yes   (Low Prio)   |No       |No                |
+|GRANDPA / BABE / BEEFY Equivocations |0.01-100% |Yes (Varying Prio) |No                 |No       |No                |
+|Seconded + Valid Equivocation        |-         |No                 |No                 |No       |No                |
+|Double Seconded Equivocation         |-         |No                 |No                 |No       |Yes               |
 
 
 *Ignoring AURA offences.
@@ -431,5 +435,3 @@ Implementation of the above design covers a few additional areas that allow for 
 1. Re-enable small offender when approaching BZT (**Runtime**) #TODO
     - When BZT limit is reached and there are more offenders to be disabled re-enable the smallest offenders to disable
       the biggest ones
-
-
