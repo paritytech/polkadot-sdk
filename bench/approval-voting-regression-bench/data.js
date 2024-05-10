@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715349444072,
+  "lastUpdate": 1715375407045,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3007,6 +3007,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.6434177220401884,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a993513c9c54313bc3c7093563d2f4ff6fe42ae2",
+          "message": "Add docs to request_core_count (#4423)\n\nThe fact that this takes two sessions to come into effect is not\nobvious. Just added some docs to explain that.\n\nAlso tidied up uses of \"broker chain\" -> \"coretime chain\"",
+          "timestamp": "2024-05-10T19:41:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a993513c9c54313bc3c7093563d2f4ff6fe42ae2"
+        },
+        "date": 1715375380269,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63552.12000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1985245119301036,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.96179448921998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.384794801320022,
             "unit": "seconds"
           }
         ]
