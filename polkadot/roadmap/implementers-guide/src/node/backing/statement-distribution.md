@@ -352,7 +352,8 @@ different groups. Here are some hypothetical scenarios:
 - **Scenario 1:** 9 belongs to group A but not 10. Here, 10 can directly receive candidates from group A from 9. 10
   would propagate them to the nodes in {1, 4, 7} that are not in A.
 - **Scenario 2:** 6 is in group A instead of 9, and 7 is not in group A. 10 can receive group A messages from 7 or 9. 10
-  will try to relay these messages, but 7 and 9 together should have already propagated the message to all x/y peers of 10. If so, then 10 will just receive acknowledgements in reply rather than requests.
+  will try to relay these messages, but 7 and 9 together should have already propagated the message to all x/y peers of
+  10. If so, then 10 will just receive acknowledgements in reply rather than requests.
 - **Scenario 3:** 10 itself is in group A. 10 would not receive candidates from this group from any other nodes through
   the grid. It would itself send such candidates to all its neighbors that are not in A.
 
