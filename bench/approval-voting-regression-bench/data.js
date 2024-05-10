@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715245056512,
+  "lastUpdate": 1715338385961,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -2866,6 +2866,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.903209441329993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "657df04cd901559cc6e33a8dfe70395bddb079f2",
+          "message": "Fixes `frame-support` reference in `try_decode_entire_state` (#4425)",
+          "timestamp": "2024-05-10T09:19:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/657df04cd901559cc6e33a8dfe70395bddb079f2"
+        },
+        "date": 1715338359729,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63546.95,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52937.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.62155968260004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.117522617739997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6434177220401884,
             "unit": "seconds"
           }
         ]
