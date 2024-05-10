@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715245657024,
+  "lastUpdate": 1715338984649,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -7307,6 +7307,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.23048429893333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "657df04cd901559cc6e33a8dfe70395bddb079f2",
+          "message": "Fixes `frame-support` reference in `try_decode_entire_state` (#4425)",
+          "timestamp": "2024-05-10T09:19:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/657df04cd901559cc6e33a8dfe70395bddb079f2"
+        },
+        "date": 1715338958126,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.810063628566663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19133395966666664,
             "unit": "seconds"
           }
         ]
