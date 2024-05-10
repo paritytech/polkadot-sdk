@@ -1235,11 +1235,6 @@ impl<T: Config> CandidateCheckContext<T> {
 		let relay_parent = backed_candidate_receipt.descriptor().relay_parent;
 
 		// Check that the relay-parent is one of the allowed relay-parents.
-		log::debug!(
-			target: LOG_TARGET,
-			"Checking allowed relay parent with the prev context {:?}",
-			self.prev_context,
-		);
 		let (relay_parent_storage_root, relay_parent_number) = {
 			match allowed_relay_parents.acquire_info(relay_parent, self.prev_context) {
 				None => return Err(Error::<T>::DisallowedRelayParent),
@@ -1254,11 +1249,6 @@ impl<T: Config> CandidateCheckContext<T> {
 				parent_head_data,
 			);
 
-			log::debug!(
-				target: LOG_TARGET,
-				"Persisted validation data {:?}",
-				persisted_validation_data,
-			);
 			let expected = persisted_validation_data.hash();
 
 			ensure!(

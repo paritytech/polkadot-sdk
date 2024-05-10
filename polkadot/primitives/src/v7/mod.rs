@@ -626,7 +626,7 @@ impl Ord for CommittedCandidateReceipt {
 /// The `PersistedValidationData` should be relatively lightweight primarily because it is
 /// constructed during inclusion for each candidate and therefore lies on the critical path of
 /// inclusion.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Default))]
 pub struct PersistedValidationData<H = Hash, N = BlockNumber> {
 	/// The parent head-data.
