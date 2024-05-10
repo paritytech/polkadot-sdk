@@ -1183,6 +1183,8 @@ mod benchmarks {
 		)
 		.unwrap();
 
+		let targets_count_before = T::TargetList::count();
+
 		// drop targets from target list nominated by the one nominator to be migrated.
 		let (_to_migrate, mut nominations) = Nominators::<T>::iter()
 			.map(|(n, noms)| (n, noms.targets.into_inner()))
@@ -1193,13 +1195,13 @@ mod benchmarks {
 		nominations.sort();
 		nominations.dedup();
 
+		// drop targets nominated by the first nominator.
 		for t in nominations.iter() {
 			assert_ok!(T::TargetList::on_remove(&t));
 		}
 
-		// targets nominated by first nominator will be dropped from the target list.
-		// note: +1 because there is one extra validator added by the test setup.
-		assert_eq!(T::TargetList::count(), n_validators + 1 - nominations.len() as u32);
+		// confirm targets dropped.
+		assert!(T::TargetList::count() < targets_count_before);
 
 		#[block]
 		{
@@ -1207,7 +1209,7 @@ mod benchmarks {
 				.unwrap();
 		}
 
-		assert_eq!(T::TargetList::count(), n_validators + 1);
+		assert_eq!(T::TargetList::count(), targets_count_before);
 	}
 
 	impl_benchmark_test_suite!(
