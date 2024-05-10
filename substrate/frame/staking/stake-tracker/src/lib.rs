@@ -98,7 +98,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
 };
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::{Saturating, Zero};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
 };
@@ -193,6 +193,9 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Updates the stake of a voter.
+		///
+		/// It must ensure that there are no duplicate nominations to prevent over-counting the
+		/// stake approval.
 		pub(crate) fn do_stake_update_voter(
 			who: &T::AccountId,
 			prev_stake: Option<Stake<BalanceOf<T>>>,
@@ -213,6 +216,11 @@ pub mod pallet {
 				prev_stake.map_or(Default::default(), |s| Self::to_vote(s.active).into()),
 				voter_weight.into(),
 			);
+
+			// note: this dedup can be removed once the staking pallet ensures no duplicate
+			// nominations are allowed <https://github.com/paritytech/polkadot-sdk/issues/4419>.
+			// TODO: replace the dedup by a debug_assert once #4419 is resolved.
+			let nominations = Self::ensure_dedup(nominations);
 
 			// updates vote weight of nominated targets accordingly. Note: this will
 			// update the score of up to `T::MaxNominations` validators.
@@ -302,6 +310,19 @@ pub mod pallet {
 			let active = T::Staking::stake(who).map(|s| s.active).defensive_unwrap_or_default();
 			Self::to_vote(active)
 		}
+
+		/// Returns a dedup list of accounts.
+		///
+		/// Note: this dedup can be removed once the staking pallet ensures no duplicate
+		/// nominations are allowed <https://github.com/paritytech/polkadot-sdk/issues/4419>.
+		///
+		/// TODO: replace this helper method by a debug_assert if #4419 ever prevents the nomination
+		/// of duplicated target.
+		pub(crate) fn ensure_dedup(mut v: Vec<T::AccountId>) -> Vec<T::AccountId> {
+			use sp_std::collections::btree_set::BTreeSet;
+
+			v.drain(..).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>()
+		}
 	}
 }
 
@@ -388,6 +409,10 @@ impl<T: Config> Pallet<T> {
 				};
 
 				// update the approvals map with the voter's active stake.
+				// note: must remove the dedup nominations, which is also done by the
+				// stake-tracker.
+				let nominations = Self::ensure_dedup(nominations);
+
 				for nomination in nominations {
 					*approvals_map.entry(nomination).or_default() +=
 						stake as sp_npos_elections::ExtendedBalance;
@@ -449,7 +474,8 @@ impl<T: Config> Pallet<T> {
 					T::Staking::stake(&target).map(|s| Self::to_vote(s.active)).ok()
 				},
 				Ok(StakerStatus::Nominator(_)) => {
-					panic!("staker with nominator status should not be part of the target list");
+					// an idle/dangling target may become a nominator.
+					None
 				},
 			};
 
@@ -480,6 +506,14 @@ impl<T: Config> Pallet<T> {
 				return Err("target score in the target list is different than the expected".into())
 			}
 		}
+
+		println!(
+			"in approval: {:?}, in TL: {:?}",
+			approvals_map.keys().count(),
+			T::TargetList::iter().count()
+		);
+		println!("> TL: {:?}", T::TargetList::iter().map(|t| t).collect::<Vec<_>>());
+		println!("> Apps: {:?}", approvals_map.keys());
 
 		frame_support::ensure!(
 			approvals_map.keys().count() == T::TargetList::iter().count(),
@@ -639,6 +673,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// called.
 	fn on_nominator_add(who: &T::AccountId, nominations: Vec<AccountIdOf<T>>) {
 		let nominator_vote = Self::vote_of(who);
+		let nominations = Self::ensure_dedup(nominations);
 
 		// the new voter node will be added even if the voter is in lazy mode. In lazy mode, we
 		// ensure that the nodes exist in the voter list, even though they may not have the updated
@@ -676,6 +711,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// nominators, which is defined in the staking pallet.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		let nominator_vote = Self::vote_of(who);
+		let nominations = Self::ensure_dedup(nominations);
 
 		// updates the nominated target's score.
 		for t in nominations.iter() {
@@ -700,18 +736,51 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	) {
 		let nominator_vote = Self::vote_of(who);
 
-		// new nominations
+		let nominations = Self::ensure_dedup(nominations);
+		let prev_nominations = Self::ensure_dedup(prev_nominations);
+
+		// new nominations.
 		for target in nominations.iter() {
 			if !prev_nominations.contains(target) {
 				Self::update_target_score(target, StakeImbalance::Positive(nominator_vote.into()));
 			}
 		}
-		// removed nominations
+		// removed nominations.
 		for target in prev_nominations.iter() {
 			if !nominations.contains(target) {
 				Self::update_target_score(target, StakeImbalance::Negative(nominator_vote.into()));
 			}
 		}
+	}
+
+	/// This is called when a staker is slashed.
+	///
+	/// From the stake-tracker POV, no direct changes should be made to the target or voter list in
+	/// this event handler, since the stake updates from a slash will be indirectly performed
+	/// through the call to `on_stake_update`.
+	///
+	/// However, if a slash of a nominator results on its active stake becoming 0, the stake
+	/// tracker *requests* the staking interface to chill the nominator in order to ensure that
+	/// their nominations are dropped. This way, we ensure that in the event of a validator and all
+	/// its nominators are 100% slashed, the target can be reaped/killed without leaving
+	/// nominations behind.
+	fn on_slash(
+		stash: &T::AccountId,
+		_slashed_active: BalanceOf<T>,
+		_slashed_unlocking: &BTreeMap<sp_staking::EraIndex, BalanceOf<T>>,
+		slashed_total: BalanceOf<T>,
+	) {
+		let active_after_slash = T::Staking::stake(stash)
+			.defensive_unwrap_or_default()
+			.active
+			.saturating_sub(slashed_total);
+
+		match (active_after_slash.is_zero(), T::Staking::status(stash)) {
+			(true, Ok(StakerStatus::Nominator(_))) => {
+				let _ = T::Staking::chill(stash).defensive();
+			},
+			_ => (), // do nothing.
+		};
 	}
 
 	// no-op events.
@@ -723,14 +792,4 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// The score of the staker `who` is updated through the `on_stake_update` calls following the
 	/// withdraw.
 	fn on_withdraw(_who: &T::AccountId, _amount: BalanceOf<T>) {}
-
-	/// The score of the staker `who` is updated through the `on_stake_update` calls following the
-	/// slash.
-	fn on_slash(
-		_stash: &T::AccountId,
-		_slashed_active: BalanceOf<T>,
-		_slashed_unlocking: &BTreeMap<sp_staking::EraIndex, BalanceOf<T>>,
-		_slashed_total: BalanceOf<T>,
-	) {
-	}
 }

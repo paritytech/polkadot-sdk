@@ -1108,6 +1108,13 @@ macro_rules! assert_session_era {
 	};
 }
 
+pub(crate) fn nominators_of(t: &AccountId) -> Vec<AccountId> {
+	Nominators::<Test>::iter()
+		.filter(|(_, n)| n.targets.contains(&t))
+		.map(|(v, _)| v)
+		.collect::<Vec<_>>()
+}
+
 pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
 	System::events()
 		.into_iter()
