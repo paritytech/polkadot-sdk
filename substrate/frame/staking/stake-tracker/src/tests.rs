@@ -61,7 +61,7 @@ fn update_target_score_works() {
 		let current_score = TargetBagsList::get_score(&10).unwrap();
 		crate::Pallet::<Test>::update_target_score(
 			&10,
-			StakeImbalance::Negative(current_score.into()),
+			StakeImbalance::Negative(current_score),
 		);
 		assert_eq!(TargetBagsList::get_score(&10), Ok(0));
 
