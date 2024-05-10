@@ -609,7 +609,8 @@ fn force_unpool_works() {
 		assert_eq!(Io::get(region.end), PoolIoRecord { private: -80, system: 0 });
 
 		// Force unpool before the region begins.
-		Broker::force_unpool_region(region_id, &region);
+		let status = Status::<Test>::get().unwrap();
+		Broker::force_unpool_region(region_id, &region, &status);
 		System::assert_last_event(
 			Event::<Test>::RegionUnpooled { region_id, when: region_id.begin }.into(),
 		);
@@ -645,7 +646,8 @@ fn force_unpool_works() {
 		// Check the Io right now at key timeslices and then force unpool.
 		assert_eq!(Io::get(region.end), PoolIoRecord { private: -80, system: 0 });
 		assert_eq!(Io::get(current_timeslice), PoolIoRecord { private: 0, system: 0 });
-		Broker::force_unpool_region(region_id, &region);
+		let status = Status::<Test>::get().unwrap();
+		Broker::force_unpool_region(region_id, &region, &status);
 
 		// Check that it is unpooled from the next uncommitted timeslice.
 		System::assert_last_event(
@@ -1512,6 +1514,8 @@ fn renewal_requires_valid_status_and_sale_info() {
 #[test]
 fn cannot_transfer_or_partition_or_interlace_unknown() {
 	TestExt::new().execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
 		let region_id = RegionId { begin: 0, core: 0, mask: CoreMask::complete() };
 		assert_noop!(Broker::do_transfer(region_id, None, 2), Error::<Test>::UnknownRegion);
 		assert_noop!(Broker::do_partition(region_id, None, 2), Error::<Test>::UnknownRegion);

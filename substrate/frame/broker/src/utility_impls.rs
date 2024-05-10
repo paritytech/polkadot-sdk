@@ -124,14 +124,18 @@ impl<T: Config> Pallet<T> {
 	//
 	// Takes both the region_id and (a reference to) the region as arguments to avoid another DB
 	// read. No-op for regions which have not been pooled.
-	pub(crate) fn force_unpool_region(region_id: RegionId, region: &RegionRecordOf<T>) {
+	pub(crate) fn force_unpool_region(
+		region_id: RegionId,
+		region: &RegionRecordOf<T>,
+		status: &StatusRecord,
+	) {
 		// We don't care if this fails or not, just that it is removed if present. This is to
 		// account for the case where a region is pooled provisionally and redispatched.
 		if InstaPoolContribution::<T>::take(region_id).is_some() {
 			// `InstaPoolHistory` is calculated from the `InstaPoolIo` one timeslice in advance.
 			// Therefore we need to schedule this for the timeslice after that or it won't be be
 			// accounted for.
-			let end_timeslice = Self::current_timeslice() + 2;
+			let end_timeslice = status.last_committed_timeslice + 1;
 
 			// InstaPoolIo has already accounted for regions that have already ended. Regions ending
 			// this timeslice would have region.end == unpooled_at below.
