@@ -44,38 +44,32 @@ macro_rules! prefix_eq {
 	}};
 }
 
-// Fisher Yates shuffle.
+// Fisher-Yates shuffle.
 //
-// We don't want to implement anything secure here.
-// Just a trivial shuffle for the tests.
+// We don't want to implement something secure here.
+// Just a trivial pseudo-random shuffle for the tests.
 fn shuffle<T>(vector: &mut Vec<T>, random_seed: u64) {
-	let mut rng = random_seed as usize;
+	let mut r = random_seed as usize;
 	for i in (1..vector.len()).rev() {
-		let j = rng % (i + 1);
+		let j = r % (i + 1);
 		vector.swap(i, j);
-		rng = (rng.wrapping_mul(6364793005) + 1) as usize; // Some random number generation
+		r = (r.wrapping_mul(6364793005) + 1) as usize;
 	}
 }
 
 fn dummy_tickets(count: usize) -> Vec<(TicketId, TicketBody)> {
 	(0..count)
-		.map(|v| {
-			let id = TicketId([v as u8; 32]);
-			let body = TicketBody { attempt_idx: v as u32, extra: Default::default() };
-			(id, body)
+		.map(|i| {
+			let mut id = [0xff; 32];
+			id[..8].copy_from_slice(&i.to_be_bytes()[..]);
+			(TicketId(id), TicketBody { attempt_idx: i as u32, extra: Default::default() })
 		})
 		.collect()
 }
 
 #[test]
 fn assumptions_check() {
-	let mut tickets: Vec<_> = (0..100_u32)
-		.map(|i| {
-			let mut id = [0xff; 32];
-			id[..4].copy_from_slice(&i.to_be_bytes()[..]);
-			(TicketId(id), TicketBody { attempt_idx: 0, extra: Default::default() })
-		})
-		.collect();
+	let mut tickets = dummy_tickets(100);
 	shuffle(&mut tickets, 123);
 
 	new_test_ext(3).execute_with(|| {
@@ -99,33 +93,92 @@ fn assumptions_check() {
 }
 
 #[test]
-fn deposit_tickets_failure() {
-	new_test_ext(3).execute_with(|| {
-		let mut tickets = dummy_tickets(15);
-		shuffle(&mut tickets, 123);
+fn deposit_tickets_works() {
+	let mut tickets = dummy_tickets(15);
+	shuffle(&mut tickets, 123);
 
+	new_test_ext(1).execute_with(|| {
+		// Try to append an unsorted chunk
 		let mut candidates = tickets[..5].to_vec();
+		let err = Sassafras::deposit_tickets(&candidates).unwrap_err();
+		assert!(matches!(err, Error::TicketBadOrder));
+		let _ = TicketsAccumulator::<Test>::clear(u32::MAX, None);
+
+		// Correctly append the first sorted chunk
+		let mut candidates = tickets[..5].to_vec();
+		candidates.sort_unstable_by_key(|a| a.0);
 		Sassafras::deposit_tickets(&candidates).unwrap();
 		assert_eq!(TicketsAccumulator::<Test>::count(), 5);
-
-		candidates.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+		// Note: internally the tickets are stored in reverse order (bigger first)
 		let stored: Vec<_> = TicketsAccumulator::<Test>::iter()
 			.map(|(k, b)| (TicketId::from(k), b))
 			.collect();
-		assert_eq!(candidates, stored);
-
+		let mut expected = tickets[..5].to_vec();
+		expected.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+		assert_eq!(expected, stored);
 		TicketsAccumulator::<Test>::iter().for_each(|(key, body)| {
 			println!("{:?}, {:?}", TicketId::from(key), body);
 		});
 
-		Sassafras::deposit_tickets(&tickets[5..7]).unwrap();
-		assert_eq!(TicketsAccumulator::<Test>::count(), 7);
+		// Try to append a chunk with a ticket already pushed
+		let mut candidates = tickets[4..10].to_vec();
+		candidates.sort_unstable_by_key(|a| a.0);
+		let err = Sassafras::deposit_tickets(&candidates).unwrap_err();
+		assert!(matches!(err, Error::TicketDuplicate));
+		// Restore last correct state
+		let _ = TicketsAccumulator::<Test>::clear(u32::MAX, None);
+		let mut candidates = tickets[..5].to_vec();
+		candidates.sort_unstable_by_key(|a| a.0);
+		Sassafras::deposit_tickets(&candidates).unwrap();
 
+		println!("-------------");
+
+		// Correctly push the second sorted chunk
+		let mut candidates = tickets[5..10].to_vec();
+		candidates.sort_unstable_by_key(|a| a.0);
+		Sassafras::deposit_tickets(&candidates).unwrap();
+		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
+		// Note: internally the tickets are stored in reverse order (bigger first)
+		let mut stored: Vec<_> = TicketsAccumulator::<Test>::iter()
+			.map(|(k, b)| (TicketId::from(k), b))
+			.collect();
+		let mut expected = tickets[..10].to_vec();
+		expected.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+		assert_eq!(expected, stored);
 		TicketsAccumulator::<Test>::iter().for_each(|(key, body)| {
 			println!("{:?}, {:?}", TicketId::from(key), body);
 		});
 
-		assert!(Sassafras::deposit_tickets(&tickets[7..]).is_err());
+		println!("-------------");
+
+		// Now the buffer is full, pick only the tickets that will eventually fit.
+		let mut candidates = tickets[10..].to_vec();
+		candidates.sort_unstable_by_key(|a| a.0);
+		let mut eligible = Vec::new();
+		for candidate in candidates {
+			if stored.is_empty() {
+				break
+			}
+			let bigger = stored.remove(0);
+			if bigger.0 <= candidate.0 {
+				break
+			}
+			eligible.push(candidate);
+		}
+		candidates = eligible;
+
+		// Correctly push the last candidates chunk
+		Sassafras::deposit_tickets(&candidates).unwrap();
+		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
+		// Note: internally the tickets are stored in reverse order (bigger first)
+		let mut stored: Vec<_> = TicketsAccumulator::<Test>::iter()
+			.map(|(k, b)| (TicketId::from(k), b))
+			.collect();
+		tickets.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+		assert_eq!(tickets[5..], stored);
+		TicketsAccumulator::<Test>::iter().for_each(|(key, body)| {
+			println!("{:?}, {:?}", TicketId::from(key), body);
+		});
 	});
 }
 
@@ -328,13 +381,8 @@ fn slot_ticket_id_outside_in_fetch() {
 	let genesis_slot = Slot::from(GENESIS_SLOT);
 	let curr_count = 8;
 	let next_count = 6;
-	let tickets_count = curr_count + next_count;
+	let tickets = dummy_tickets(curr_count + next_count);
 
-	let tickets: Vec<_> = (0..tickets_count)
-		.map(|i| {
-			(TicketId([i as u8; 32]), TicketBody { attempt_idx: 0, extra: Default::default() })
-		})
-		.collect();
 	// Current epoch tickets
 	let curr_tickets = tickets[..curr_count].to_vec();
 	let next_tickets = tickets[curr_count..].to_vec();
@@ -445,18 +493,11 @@ fn slot_and_epoch_helpers_works() {
 
 #[test]
 fn tickets_accumulator_works() {
-	let e1_count = 6;
-	let e2_count = 10;
-
-	let tot_count = e1_count + e2_count;
 	let start_block = 1;
 	let start_slot = (GENESIS_SLOT + 1).into();
-
-	let tickets: Vec<_> = (0..tot_count)
-		.map(|i| {
-			(TicketId([i as u8; 32]), TicketBody { attempt_idx: 0, extra: Default::default() })
-		})
-		.collect();
+	let e1_count = 6;
+	let e2_count = 10;
+	let tickets = dummy_tickets(e1_count + e2_count);
 	let e1_tickets = tickets[..e1_count].to_vec();
 	let e2_tickets = tickets[e1_count..].to_vec();
 
@@ -542,12 +583,7 @@ fn tickets_accumulator_works() {
 
 #[test]
 fn incremental_accumulator_drain() {
-	let tot_count = 10;
-	let tickets: Vec<_> = (0..tot_count)
-		.map(|i| {
-			(TicketId([i as u8; 32]), TicketBody { attempt_idx: 0, extra: Default::default() })
-		})
-		.collect();
+	let tickets = dummy_tickets(10);
 
 	new_test_ext(0).execute_with(|| {
 		tickets
@@ -636,7 +672,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 
 		// Submit the tickets
 		let candidates_per_call = 4;
-		let chunks: Vec<_> = candidates
+		let mut chunks: Vec<_> = candidates
 			.chunks(candidates_per_call)
 			.map(|chunk| BoundedVec::truncate_from(chunk.to_vec()))
 			.collect();

@@ -216,6 +216,8 @@ pub mod pallet {
 		TicketOverThreshold,
 		/// Duplicate ticket
 		TicketDuplicate,
+		/// Bad ticket order
+		TicketBadOrder,
 		/// Invalid ticket
 		TicketInvalid,
 		/// Invalid ticket signature
@@ -565,12 +567,16 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn deposit_tickets(tickets: &[(TicketId, TicketBody)]) -> Result<(), Error<T>> {
 		let prev_count = TicketsAccumulator::<T>::count();
+		let mut prev_id = None;
 		for (id, body) in tickets.iter() {
+			if prev_id.map(|prev| id <= prev).unwrap_or_default() {
+				return Err(Error::TicketBadOrder)
+			}
 			TicketsAccumulator::<T>::insert(TicketKey::from(*id), body);
+			prev_id = Some(id);
 		}
 		let count = TicketsAccumulator::<T>::count();
 		if count != prev_count + tickets.len() as u32 {
-			// Duplicates are not allowed
 			return Err(Error::TicketDuplicate)
 		}
 		let diff = count.saturating_sub(T::EpochLength::get());
