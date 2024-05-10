@@ -2579,6 +2579,7 @@ mod remote_tests {
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
 	use std::env::var;
+	use frame_support::traits::TryStateSelect;
 
 	#[tokio::test]
 	async fn run_migrations() {
@@ -2613,6 +2614,7 @@ mod remote_tests {
 	#[ignore = "this test is meant to be executed manually"]
 	async fn try_stake_tracker_migrate() {
 		use frame_support::migrations::SteppedMigration;
+		use frame_support::traits::TryState;
 		sp_tracing::try_init_simple();
 		let transport: Transport =
 			var("WS").unwrap_or(
@@ -2646,6 +2648,8 @@ mod remote_tests {
 					break;
 				}
 			}
+
+			Staking::try_state(0, TryStateSelect::All).unwrap();
 		});
 	}
 

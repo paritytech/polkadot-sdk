@@ -79,7 +79,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 
 			if let Some((nominator, _)) = iter.next() {
 				let nominator_stake =
-					Pallet::<T>::stake(&nominator).defensive_unwrap_or_default().total;
+					Pallet::<T>::stake(&nominator).unwrap_or_default().total;
 				let nominations = Nominators::<T>::get(&nominator)
 					.map(|n| n.targets.into_inner())
 					.unwrap_or_default();
@@ -106,7 +106,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 					} else {
 						// target is not in the target list, insert new node and consider self
 						// stake.
-						let self_stake = Pallet::<T>::stake(&target).defensive_unwrap_or_default();
+						let self_stake = Pallet::<T>::stake(&target).unwrap_or_default();
 						if let Some(total_stake) = self_stake.total.checked_add(&nominator_stake) {
 							let _ = T::TargetList::on_insert(target, total_stake).defensive();
 						} else {
@@ -115,7 +115,6 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 						}
 					}
 				}
-
 				// progress cursor.
 				cursor = Some(nominator)
 			} else {
