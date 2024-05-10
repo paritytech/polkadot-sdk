@@ -60,7 +60,7 @@ use cumulus_primitives_core::{
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
-	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight, WeightMeter},
+	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
 use pallet_message_queue::OnQueueChanged;
@@ -70,7 +70,8 @@ use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
 use sp_std::prelude::*;
-use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm_builder::InspectMessageQueues;
 use xcm_executor::traits::ConvertOrigin;
 
 pub use pallet::*;
@@ -135,7 +136,7 @@ pub mod pallet {
 		/// The origin that is allowed to resume or suspend the XCMP queue.
 		type ControllerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The conversion function used to attempt to convert an XCM `MultiLocation` origin to a
+		/// The conversion function used to attempt to convert an XCM `Location` origin to a
 		/// superuser origin.
 		type ControllerOriginConverter: ConvertOrigin<Self::RuntimeOrigin>;
 
@@ -255,7 +256,7 @@ pub mod pallet {
 				return meter.consumed()
 			}
 
-			migration::lazy_migrate_inbound_queue::<T>();
+			migration::v3::lazy_migrate_inbound_queue::<T>();
 
 			meter.consumed()
 		}
@@ -387,36 +388,16 @@ pub struct QueueConfigData {
 	/// The number of pages which the queue must be reduced to before it signals that
 	/// message sending may recommence after it has been suspended.
 	resume_threshold: u32,
-	/// UNUSED - The amount of remaining weight under which we stop processing messages.
-	#[deprecated(note = "Will be removed")]
-	threshold_weight: Weight,
-	/// UNUSED - The speed to which the available weight approaches the maximum weight. A lower
-	/// number results in a faster progression. A value of 1 makes the entire weight available
-	/// initially.
-	#[deprecated(note = "Will be removed")]
-	weight_restrict_decay: Weight,
-	/// UNUSED - The maximum amount of weight any individual message may consume. Messages above
-	/// this weight go into the overweight queue and may only be serviced explicitly.
-	#[deprecated(note = "Will be removed")]
-	xcmp_max_individual_weight: Weight,
 }
 
 impl Default for QueueConfigData {
 	fn default() -> Self {
 		// NOTE that these default values are only used on genesis. They should give a rough idea of
 		// what to set these values to, but is in no way a requirement.
-		#![allow(deprecated)]
 		Self {
 			drop_threshold: 48,    // 64KiB * 48 = 3MiB
 			suspend_threshold: 32, // 64KiB * 32 = 2MiB
 			resume_threshold: 8,   // 64KiB * 8 = 512KiB
-			// unused:
-			threshold_weight: Weight::from_parts(100_000, 0),
-			weight_restrict_decay: Weight::from_parts(2, 0),
-			xcmp_max_individual_weight: Weight::from_parts(
-				20u64 * WEIGHT_REF_TIME_PER_MILLIS,
-				DEFAULT_POV_SIZE,
-			),
 		}
 	}
 }
@@ -474,11 +455,21 @@ impl<T: Config> Pallet<T> {
 	) -> Result<u32, MessageSendError> {
 		let encoded_fragment = fragment.encode();
 
+		// Optimization note: `max_message_size` could potentially be stored in
+		// `OutboundXcmpMessages` once known; that way it's only accessed when a new page is needed.
+
 		let channel_info =
 			T::ChannelInfo::get_channel_info(recipient).ok_or(MessageSendError::NoChannel)?;
-		let max_message_size = channel_info.max_message_size as usize;
 		// Max message size refers to aggregates, or pages. Not to individual fragments.
-		if encoded_fragment.len() > max_message_size {
+		let max_message_size = channel_info.max_message_size as usize;
+		let format_size = format.encoded_size();
+		// We check the encoded fragment length plus the format size against the max message size
+		// because the format is concatenated if a new page is needed.
+		let size_to_check = encoded_fragment
+			.len()
+			.checked_add(format_size)
+			.ok_or(MessageSendError::TooBig)?;
+		if size_to_check > max_message_size {
 			return Err(MessageSendError::TooBig)
 		}
 
@@ -610,7 +601,7 @@ impl<T: Config> Pallet<T> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let fp = T::XcmpQueue::footprint(sender);
 		// Assume that it will not fit into the current page:
-		let new_pages = fp.pages.saturating_add(1);
+		let new_pages = fp.ready_pages.saturating_add(1);
 		if new_pages > drop_threshold {
 			// This should not happen since the channel should have been suspended in
 			// [`on_queue_changed`].
@@ -673,12 +664,12 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 		let mut suspended_channels = <InboundXcmpSuspended<T>>::get();
 		let suspended = suspended_channels.contains(&para);
 
-		if suspended && fp.pages <= resume_threshold {
+		if suspended && fp.ready_pages <= resume_threshold {
 			Self::send_signal(para, ChannelSignal::Resume);
 
 			suspended_channels.remove(&para);
 			<InboundXcmpSuspended<T>>::put(suspended_channels);
-		} else if !suspended && fp.pages >= suspend_threshold {
+		} else if !suspended && fp.ready_pages >= suspend_threshold {
 			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
 			Self::send_signal(para, ChannelSignal::Suspend);
 
@@ -913,20 +904,21 @@ impl<T: Config> SendXcm for Pallet<T> {
 	type Ticket = (ParaId, VersionedXcm<()>);
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(ParaId, VersionedXcm<()>)> {
 		let d = dest.take().ok_or(SendError::MissingArgument)?;
 
-		match &d {
+		match d.unpack() {
 			// An HRMP message for a sibling parachain.
-			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
+			(1, [Parachain(id)]) => {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
 				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
-				validate_xcm_nesting(&versioned_xcm)
+				versioned_xcm
+					.validate_xcm_nesting()
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 
 				Ok(((id, versioned_xcm), price))
@@ -942,29 +934,50 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		defensive_assert!(
-			validate_xcm_nesting(&xcm).is_ok(),
-			"Tickets are valid prior to delivery by trait XCM; qed"
-		);
 
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
 			},
-			Err(e) => Err(SendError::Transport(e.into())),
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Deliver error: {e:?}");
+				Err(SendError::Transport(e.into()))
+			},
 		}
 	}
 }
 
-/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`.
-///
-/// Note that this uses the limit of the sender - not the receiver. It it best effort.
-pub(crate) fn validate_xcm_nesting(xcm: &VersionedXcm<()>) -> Result<(), ()> {
-	xcm.using_encoded(|mut enc| {
-		VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
-	})
-	.map_err(|_| ())
+impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		use xcm::prelude::*;
+
+		OutboundXcmpMessages::<T>::iter()
+			.map(|(para_id, _, messages)| {
+				let mut data = &messages[..];
+				let decoded_format =
+					XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut data)
+						.unwrap();
+				if decoded_format != XcmpMessageFormat::ConcatenatedVersionedXcm {
+					panic!("Unexpected format.")
+				}
+				let mut decoded_messages = Vec::new();
+				while !data.is_empty() {
+					let decoded_message = VersionedXcm::<()>::decode_with_depth_limit(
+						MAX_XCM_DECODE_DEPTH,
+						&mut data,
+					)
+					.unwrap();
+					decoded_messages.push(decoded_message);
+				}
+
+				(
+					VersionedLocation::V4((Parent, Parachain(para_id.into())).into()),
+					decoded_messages,
+				)
+			})
+			.collect()
+	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {

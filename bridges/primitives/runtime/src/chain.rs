@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::HeaderIdProvider;
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::{ChainId, HeaderIdProvider};
+
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{
@@ -25,7 +26,7 @@ use sp_runtime::{
 	},
 	FixedPointOperand,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
+use sp_std::{fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
 
 /// Chain call, that is either SCALE-encoded, or decoded.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,7 +40,7 @@ pub enum EncodedOrDecodedCall<ChainCall> {
 	Decoded(ChainCall),
 }
 
-impl<ChainCall: Clone + Decode> EncodedOrDecodedCall<ChainCall> {
+impl<ChainCall: Clone + Codec> EncodedOrDecodedCall<ChainCall> {
 	/// Returns decoded call.
 	pub fn to_decoded(&self) -> Result<ChainCall, codec::Error> {
 		match self {
@@ -55,6 +56,14 @@ impl<ChainCall: Clone + Decode> EncodedOrDecodedCall<ChainCall> {
 			Self::Encoded(encoded_call) =>
 				ChainCall::decode(&mut &encoded_call[..]).map_err(Into::into),
 			Self::Decoded(decoded_call) => Ok(decoded_call),
+		}
+	}
+
+	/// Converts self to encoded call.
+	pub fn into_encoded(self) -> Vec<u8> {
+		match self {
+			Self::Encoded(encoded_call) => encoded_call,
+			Self::Decoded(decoded_call) => decoded_call.encode(),
 		}
 	}
 }
@@ -91,8 +100,11 @@ impl<ChainCall: Encode> Encode for EncodedOrDecodedCall<ChainCall> {
 
 /// Minimal Substrate-based chain representation that may be used from no_std environment.
 pub trait Chain: Send + Sync + 'static {
+	/// Chain id.
+	const ID: ChainId;
+
 	/// A type that fulfills the abstract idea of what a Substrate block number is.
-	// Constraits come from the associated Number type of `sp_runtime::traits::Header`
+	// Constraints come from the associated Number type of `sp_runtime::traits::Header`
 	// See here for more info:
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Number
 	//
@@ -113,7 +125,7 @@ pub trait Chain: Send + Sync + 'static {
 		+ MaxEncodedLen;
 
 	/// A type that fulfills the abstract idea of what a Substrate hash is.
-	// Constraits come from the associated Hash type of `sp_runtime::traits::Header`
+	// Constraints come from the associated Hash type of `sp_runtime::traits::Header`
 	// See here for more info:
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Hash
 	type Hash: Parameter
@@ -131,7 +143,7 @@ pub trait Chain: Send + Sync + 'static {
 
 	/// A type that fulfills the abstract idea of what a Substrate hasher (a type
 	/// that produces hashes) is.
-	// Constraits come from the associated Hashing type of `sp_runtime::traits::Header`
+	// Constraints come from the associated Hashing type of `sp_runtime::traits::Header`
 	// See here for more info:
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Hashing
 	type Hasher: HashT<Output = Self::Hash>;
@@ -191,7 +203,7 @@ pub trait Chain: Send + Sync + 'static {
 }
 
 /// A trait that provides the type of the underlying chain.
-pub trait UnderlyingChainProvider {
+pub trait UnderlyingChainProvider: Send + Sync + 'static {
 	/// Underlying chain type.
 	type Chain: Chain;
 }
@@ -200,6 +212,8 @@ impl<T> Chain for T
 where
 	T: Send + Sync + 'static + UnderlyingChainProvider,
 {
+	const ID: ChainId = <T::Chain as Chain>::ID;
+
 	type BlockNumber = <T::Chain as Chain>::BlockNumber;
 	type Hash = <T::Chain as Chain>::Hash;
 	type Hasher = <T::Chain as Chain>::Hasher;
@@ -222,6 +236,12 @@ where
 pub trait Parachain: Chain {
 	/// Parachain identifier.
 	const PARACHAIN_ID: u32;
+	/// Maximal size of the parachain header.
+	///
+	/// This isn't a strict limit. The relayer may submit larger headers and the
+	/// pallet will accept the call. The limit is only used to compute whether
+	/// the refund can be made.
+	const MAX_HEADER_SIZE: u32;
 }
 
 impl<T> Parachain for T
@@ -230,6 +250,8 @@ where
 	<T as UnderlyingChainProvider>::Chain: Parachain,
 {
 	const PARACHAIN_ID: u32 = <<T as UnderlyingChainProvider>::Chain as Parachain>::PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 =
+		<<T as UnderlyingChainProvider>::Chain as Parachain>::MAX_HEADER_SIZE;
 }
 
 /// Adapter for `Get<u32>` to access `PARACHAIN_ID` from `trait Parachain`
@@ -292,6 +314,11 @@ macro_rules! decl_bridge_finality_runtime_apis {
 				pub const [<BEST_FINALIZED_ $chain:upper _HEADER_METHOD>]: &str =
 					stringify!([<$chain:camel FinalityApi_best_finalized>]);
 
+				/// Name of the `<ThisChain>FinalityApi::free_headers_interval` runtime method.
+				pub const [<FREE_HEADERS_INTERVAL_FOR_ $chain:upper _METHOD>]: &str =
+					stringify!([<$chain:camel FinalityApi_free_headers_interval>]);
+
+
 				$(
 					/// Name of the `<ThisChain>FinalityApi::accepted_<consensus>_finality_proofs`
 					/// runtime method.
@@ -307,6 +334,13 @@ macro_rules! decl_bridge_finality_runtime_apis {
 					pub trait [<$chain:camel FinalityApi>] {
 						/// Returns number and hash of the best finalized header known to the bridge module.
 						fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
+
+						/// Returns free headers interval, if it is configured in the runtime.
+						/// The caller expects that if his transaction improves best known header
+						/// at least by the free_headers_interval`, it will be fee-free.
+						///
+						/// See [`pallet_bridge_grandpa::Config::FreeHeadersInterval`] for details.
+						fn free_headers_interval() -> Option<BlockNumber>;
 
 						$(
 							/// Returns the justifications accepted in the current block.

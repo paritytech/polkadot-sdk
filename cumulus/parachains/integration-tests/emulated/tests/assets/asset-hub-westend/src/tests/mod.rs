@@ -13,9 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod fellowship_treasury;
+mod hybrid_transfers;
 mod reserve_transfer;
 mod send;
 mod set_xcm_versions;
 mod swap;
 mod teleport;
 mod treasury;
+mod xcm_fee_estimation;

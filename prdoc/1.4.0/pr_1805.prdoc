@@ -1,0 +1,17 @@
+title: Introduce state decoding check after runtime upgrades.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a check to the try-runtime logic that will verify that all pallet on-chain storage still decodes. This can help to spot missing migrations before they become a problem. The check is enabled as soon as the `--checks` option of the `try-runtime` CLI is not `None`.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: frame-support
+  - name: frame-support-procedural
+
+host_functions: []

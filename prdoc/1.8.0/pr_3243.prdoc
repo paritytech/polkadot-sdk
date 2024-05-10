@@ -1,0 +1,13 @@
+title: Don't fail fast if the weight limit of a cross contract call is too big
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Cross contracts calls will now be executed even if the supplied weight
+      limit is bigger than the reamining weight. If the **actual** weight is too low
+      they will fail in the cross contract call and roll back. This is different from the
+      old behaviour where the limit for the cross contract call must be smaller than
+      the remaining weight.
+
+crates:
+  - name: pallet-contracts

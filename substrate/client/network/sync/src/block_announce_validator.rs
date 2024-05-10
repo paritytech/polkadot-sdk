@@ -19,11 +19,11 @@
 //! [`BlockAnnounceValidator`] is responsible for async validation of block announcements.
 //! [`Stream`] implemented by [`BlockAnnounceValidator`] never terminates.
 
-use crate::futures_stream::FuturesStream;
+use crate::{futures_stream::FuturesStream, LOG_TARGET};
 use futures::{stream::FusedStream, Future, FutureExt, Stream, StreamExt};
-use libp2p::PeerId;
 use log::{debug, error, trace, warn};
 use sc_network_common::sync::message::BlockAnnounce;
+use sc_network_types::PeerId;
 use sp_consensus::block_validation::Validation;
 use sp_runtime::traits::{Block as BlockT, Header, Zero};
 use std::{
@@ -32,9 +32,6 @@ use std::{
 	pin::Pin,
 	task::{Context, Poll},
 };
-
-/// Log target for this file.
-const LOG_TARGET: &str = "sync";
 
 /// Maximum number of concurrent block announce validations.
 ///
@@ -312,7 +309,7 @@ impl<B: BlockT> FusedStream for BlockAnnounceValidator<B> {
 mod tests {
 	use super::*;
 	use crate::block_announce_validator::AllocateSlotForBlockAnnounceValidation;
-	use libp2p::PeerId;
+	use sc_network_types::PeerId;
 	use sp_consensus::block_validation::DefaultBlockAnnounceValidator;
 	use substrate_test_runtime_client::runtime::Block;
 

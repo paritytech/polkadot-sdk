@@ -32,15 +32,15 @@ pub mod origins;
 mod tracks;
 
 use super::*;
-use crate::xcm_config::{FellowshipAdminBodyId, WndAssetHub};
+use crate::xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub};
 use frame_support::traits::{EitherOf, MapSuccess, TryMapSuccess};
+use frame_system::EnsureRootWithSuccess;
 pub use origins::pallet_origins as pallet_ambassador_origins;
 use origins::pallet_origins::{
 	EnsureAmbassadorsVoice, EnsureAmbassadorsVoiceFrom, EnsureHeadAmbassadorsVoice, Origin,
 };
-use parachains_common::polkadot::account;
 use sp_core::ConstU128;
-use sp_runtime::traits::{CheckedReduceBy, ConstU16, ConvertToValue, Replace};
+use sp_runtime::traits::{CheckedReduceBy, ConstU16, ConvertToValue, Replace, ReplaceWithDefault};
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
@@ -100,23 +100,31 @@ pub type PromoteOrigin = EitherOf<
 	>,
 >;
 
+/// Exchange is by any of:
+/// - Root can exchange arbitrarily.
+/// - the Fellows origin
+pub type ExchangeOrigin = EitherOf<EnsureRootWithSuccess<AccountId, ConstU16<65535>>, Fellows>;
+
 impl pallet_ranked_collective::Config<AmbassadorCollectiveInstance> for Runtime {
 	type WeightInfo = weights::pallet_ranked_collective_ambassador_collective::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
 	type PromoteOrigin = PromoteOrigin;
 	type DemoteOrigin = DemoteOrigin;
+	type RemoveOrigin = Self::DemoteOrigin;
+	type ExchangeOrigin = ExchangeOrigin;
 	type Polls = AmbassadorReferenda;
 	type MinRankOfClass = sp_runtime::traits::Identity;
+	type MemberSwappedHandler = (crate::AmbassadorCore, crate::AmbassadorSalary);
 	type VoteWeight = pallet_ranked_collective::Linear;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = (crate::AmbassadorCore, crate::AmbassadorSalary);
 }
 
 parameter_types! {
 	pub const AlarmInterval: BlockNumber = 1;
 	pub const SubmissionDeposit: Balance = 0;
 	pub const UndecidingTimeout: BlockNumber = 7 * DAYS;
-	// The Ambassador Referenda pallet account, used as a temporary place to deposit a slashed
-	// imbalance before teleport to the treasury.
-	pub AmbassadorPalletAccount: AccountId = account::AMBASSADOR_REFERENDA_PALLET_ID.into_account_truncating();
 }
 
 pub type AmbassadorReferendaInstance = pallet_referenda::Instance2;
@@ -136,7 +144,7 @@ impl pallet_referenda::Config<AmbassadorReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = EitherOf<EnsureRoot<AccountId>, EnsureHeadAmbassadorsVoice>;
 	type KillOrigin = EitherOf<EnsureRoot<AccountId>, EnsureHeadAmbassadorsVoice>;
-	type Slash = ToParentTreasury<WestendTreasuryAccount, AmbassadorPalletAccount, Runtime>;
+	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, AmbassadorCollectiveInstance>;
 	type SubmissionDeposit = SubmissionDeposit;
@@ -219,7 +227,7 @@ pub type AmbassadorSalaryInstance = pallet_salary::Instance2;
 parameter_types! {
 	// The interior location on AssetHub for the paying account. This is the Ambassador Salary
 	// pallet instance (which sits at index 74). This sovereign account will need funding.
-	pub AmbassadorSalaryLocation: InteriorMultiLocation = PalletInstance(74).into();
+	pub AmbassadorSalaryLocation: InteriorLocation = PalletInstance(74).into();
 }
 
 /// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in WND.

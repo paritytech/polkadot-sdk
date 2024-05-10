@@ -55,10 +55,11 @@ use polkadot_primitives::{
 
 use parity_scale_codec::Encode;
 
-use futures::{channel::oneshot, prelude::*};
+use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
 
 use std::{
 	path::PathBuf,
+	pin::Pin,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -81,6 +82,11 @@ const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(3);
 #[cfg(test)]
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 
+// The task queue size is chosen to be somewhat bigger than the PVF host incoming queue size
+// to allow exhaustive validation messages to fall through in case the tasks are clogged with
+// `ValidateFromChainState` messages awaiting data from the runtime
+const TASK_LIMIT: usize = 30;
+
 /// Configuration for the candidate validation subsystem
 #[derive(Clone)]
 pub struct Config {
@@ -88,10 +94,19 @@ pub struct Config {
 	pub artifacts_cache_path: PathBuf,
 	/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	pub node_version: Option<String>,
+	/// Whether the node is attempting to run as a secure validator.
+	pub secure_validator_mode: bool,
 	/// Path to the preparation worker binary
 	pub prep_worker_path: PathBuf,
 	/// Path to the execution worker binary
 	pub exec_worker_path: PathBuf,
+	/// The maximum number of pvf execution workers.
+	pub pvf_execute_workers_max_num: usize,
+	/// The maximum number of pvf workers that can be spawned in the pvf prepare pool for tasks
+	/// with the priority below critical.
+	pub pvf_prepare_workers_soft_max_num: usize,
+	/// The absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	pub pvf_prepare_workers_hard_max_num: usize,
 }
 
 /// The candidate validation subsystem.
@@ -128,125 +143,157 @@ impl<Context> CandidateValidationSubsystem {
 	}
 }
 
+fn handle_validation_message<S>(
+	mut sender: S,
+	validation_host: ValidationHost,
+	metrics: Metrics,
+	msg: CandidateValidationMessage,
+) -> Pin<Box<dyn Future<Output = ()> + Send>>
+where
+	S: SubsystemSender<RuntimeApiMessage>,
+{
+	match msg {
+		CandidateValidationMessage::ValidateFromChainState {
+			candidate_receipt,
+			pov,
+			executor_params,
+			exec_kind,
+			response_sender,
+			..
+		} => async move {
+			let _timer = metrics.time_validate_from_chain_state();
+			let res = validate_from_chain_state(
+				&mut sender,
+				validation_host,
+				candidate_receipt,
+				pov,
+				executor_params,
+				exec_kind,
+				&metrics,
+			)
+			.await;
+
+			metrics.on_validation_event(&res);
+			let _ = response_sender.send(res);
+		}
+		.boxed(),
+		CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data,
+			validation_code,
+			candidate_receipt,
+			pov,
+			executor_params,
+			exec_kind,
+			response_sender,
+			..
+		} => async move {
+			let _timer = metrics.time_validate_from_exhaustive();
+			let res = validate_candidate_exhaustive(
+				validation_host,
+				validation_data,
+				validation_code,
+				candidate_receipt,
+				pov,
+				executor_params,
+				exec_kind,
+				&metrics,
+			)
+			.await;
+
+			metrics.on_validation_event(&res);
+			let _ = response_sender.send(res);
+		}
+		.boxed(),
+		CandidateValidationMessage::PreCheck {
+			relay_parent,
+			validation_code_hash,
+			response_sender,
+			..
+		} => async move {
+			let precheck_result =
+				precheck_pvf(&mut sender, validation_host, relay_parent, validation_code_hash)
+					.await;
+
+			let _ = response_sender.send(precheck_result);
+		}
+		.boxed(),
+	}
+}
+
 #[overseer::contextbounds(CandidateValidation, prefix = self::overseer)]
 async fn run<Context>(
 	mut ctx: Context,
 	metrics: Metrics,
 	pvf_metrics: polkadot_node_core_pvf::Metrics,
-	Config { artifacts_cache_path, node_version, prep_worker_path, exec_worker_path }: Config,
+	Config {
+		artifacts_cache_path,
+		node_version,
+		secure_validator_mode,
+		prep_worker_path,
+		exec_worker_path,
+		pvf_execute_workers_max_num,
+		pvf_prepare_workers_soft_max_num,
+		pvf_prepare_workers_hard_max_num,
+	}: Config,
 ) -> SubsystemResult<()> {
 	let (validation_host, task) = polkadot_node_core_pvf::start(
 		polkadot_node_core_pvf::Config::new(
 			artifacts_cache_path,
 			node_version,
+			secure_validator_mode,
 			prep_worker_path,
 			exec_worker_path,
+			pvf_execute_workers_max_num,
+			pvf_prepare_workers_soft_max_num,
+			pvf_prepare_workers_hard_max_num,
 		),
 		pvf_metrics,
 	)
 	.await?;
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
+	let mut tasks = FuturesUnordered::new();
+
 	loop {
-		match ctx.recv().await? {
-			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_)) => {},
-			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
-			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
-			FromOrchestra::Communication { msg } => match msg {
-				CandidateValidationMessage::ValidateFromChainState {
-					candidate_receipt,
-					pov,
-					executor_params,
-					exec_kind,
-					response_sender,
-					..
-				} => {
-					let bg = {
-						let mut sender = ctx.sender().clone();
-						let metrics = metrics.clone();
-						let validation_host = validation_host.clone();
-
-						async move {
-							let _timer = metrics.time_validate_from_chain_state();
-							let res = validate_from_chain_state(
-								&mut sender,
-								validation_host,
-								candidate_receipt,
-								pov,
-								executor_params,
-								exec_kind,
-								&metrics,
-							)
-							.await;
-
-							metrics.on_validation_event(&res);
-							let _ = response_sender.send(res);
-						}
-					};
-
-					ctx.spawn("validate-from-chain-state", bg.boxed())?;
+		loop {
+			futures::select! {
+				comm = ctx.recv().fuse() => {
+					match comm {
+						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_))) => {},
+						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
+						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
+						Ok(FromOrchestra::Communication { msg }) => {
+							let task = handle_validation_message(ctx.sender().clone(), validation_host.clone(), metrics.clone(), msg);
+							tasks.push(task);
+							if tasks.len() >= TASK_LIMIT {
+								break
+							}
+						},
+						Err(e) => return Err(SubsystemError::from(e)),
+					}
 				},
-				CandidateValidationMessage::ValidateFromExhaustive {
-					validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					executor_params,
-					exec_kind,
-					response_sender,
-					..
-				} => {
-					let bg = {
-						let metrics = metrics.clone();
-						let validation_host = validation_host.clone();
+				_ = tasks.select_next_some() => ()
+			}
+		}
 
-						async move {
-							let _timer = metrics.time_validate_from_exhaustive();
-							let res = validate_candidate_exhaustive(
-								validation_host,
-								validation_data,
-								validation_code,
-								candidate_receipt,
-								pov,
-								executor_params,
-								exec_kind,
-								&metrics,
-							)
-							.await;
+		gum::debug!(target: LOG_TARGET, "Validation task limit hit");
 
-							metrics.on_validation_event(&res);
-							let _ = response_sender.send(res);
-						}
-					};
-
-					ctx.spawn("validate-from-exhaustive", bg.boxed())?;
+		loop {
+			futures::select! {
+				signal = ctx.recv_signal().fuse() => {
+					match signal {
+						Ok(OverseerSignal::ActiveLeaves(_)) => {},
+						Ok(OverseerSignal::BlockFinalized(..)) => {},
+						Ok(OverseerSignal::Conclude) => return Ok(()),
+						Err(e) => return Err(SubsystemError::from(e)),
+					}
 				},
-				CandidateValidationMessage::PreCheck {
-					relay_parent,
-					validation_code_hash,
-					response_sender,
-					..
-				} => {
-					let bg = {
-						let mut sender = ctx.sender().clone();
-						let validation_host = validation_host.clone();
-
-						async move {
-							let precheck_result = precheck_pvf(
-								&mut sender,
-								validation_host,
-								relay_parent,
-								validation_code_hash,
-							)
-							.await;
-
-							let _ = response_sender.send(precheck_result);
-						}
-					};
-
-					ctx.spawn("candidate-validation-pre-check", bg.boxed())?;
-				},
-			},
+				_ = tasks.select_next_some() => {
+					if tasks.len() < TASK_LIMIT {
+						break
+					}
+				}
+			}
 		}
 	}
 }
@@ -583,7 +630,7 @@ async fn validate_candidate_exhaustive(
 		Err(e) => {
 			gum::info!(target: LOG_TARGET, ?para_id, err=?e, "Invalid candidate (validation code)");
 
-			// Code already passed pre-checking, if decompression fails now this most likley means
+			// Code already passed pre-checking, if decompression fails now this most likely means
 			// some local corruption happened.
 			return Err(ValidationFailed("Code decompression failed".to_string()))
 		},
@@ -623,7 +670,14 @@ async fn validate_candidate_exhaustive(
 				PrepareJobKind::Compilation,
 			);
 
-			validation_backend.validate_candidate(pvf, exec_timeout, params.encode()).await
+			validation_backend
+				.validate_candidate(
+					pvf,
+					exec_timeout,
+					params.encode(),
+					polkadot_node_core_pvf::Priority::Normal,
+				)
+				.await
 		},
 		PvfExecKind::Approval =>
 			validation_backend
@@ -633,6 +687,7 @@ async fn validate_candidate_exhaustive(
 					params,
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
+					polkadot_node_core_pvf::Priority::Critical,
 				)
 				.await,
 	};
@@ -660,6 +715,8 @@ async fn validate_candidate_exhaustive(
 				"ambiguous worker death".to_string(),
 			))),
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
@@ -713,10 +770,15 @@ trait ValidationBackend {
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
+		// The priority for the preparation job.
+		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError>;
 
-	/// Tries executing a PVF for the approval subsystem. Will retry once if an error is encountered
-	/// that may have been transient.
+	/// Tries executing a PVF. Will retry once if an error is encountered that may have
+	/// been transient.
+	///
+	/// The `prepare_priority` is relevant in the context of the caller. Currently we expect
+	/// that `approval` context has priority over `backing` context.
 	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
 	/// preparation.
@@ -727,6 +789,8 @@ trait ValidationBackend {
 		params: ValidationParams,
 		executor_params: ExecutorParams,
 		retry_delay: Duration,
+		// The priority for the preparation job.
+		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -740,46 +804,58 @@ trait ValidationBackend {
 		// long.
 		let total_time_start = Instant::now();
 
-		let mut validation_result =
-			self.validate_candidate(pvf.clone(), exec_timeout, params.encode()).await;
+		// Use `Priority::Critical` as finality trumps parachain liveliness.
+		let mut validation_result = self
+			.validate_candidate(pvf.clone(), exec_timeout, params.encode(), prepare_priority)
+			.await;
 		if validation_result.is_ok() {
 			return validation_result
+		}
+
+		macro_rules! break_if_no_retries_left {
+			($counter:ident) => {
+				if $counter > 0 {
+					$counter -= 1;
+				} else {
+					break
+				}
+			};
 		}
 
 		// Allow limited retries for each kind of error.
 		let mut num_death_retries_left = 1;
 		let mut num_job_error_retries_left = 1;
 		let mut num_internal_retries_left = 1;
+		let mut num_runtime_construction_retries_left = 1;
 		loop {
 			// Stop retrying if we exceeded the timeout.
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
 				break
 			}
-
+			let mut retry_immediately = false;
 			match validation_result {
 				Err(ValidationError::PossiblyInvalid(
 					PossiblyInvalidError::AmbiguousWorkerDeath |
 					PossiblyInvalidError::AmbiguousJobDeath(_),
-				)) =>
-					if num_death_retries_left > 0 {
-						num_death_retries_left -= 1;
-					} else {
-						break;
-					},
+				)) => break_if_no_retries_left!(num_death_retries_left),
 
 				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
-					if num_job_error_retries_left > 0 {
-						num_job_error_retries_left -= 1;
-					} else {
-						break;
-					},
+					break_if_no_retries_left!(num_job_error_retries_left),
 
 				Err(ValidationError::Internal(_)) =>
-					if num_internal_retries_left > 0 {
-						num_internal_retries_left -= 1;
-					} else {
-						break;
-					},
+					break_if_no_retries_left!(num_internal_retries_left),
+
+				Err(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::RuntimeConstruction(_),
+				)) => {
+					break_if_no_retries_left!(num_runtime_construction_retries_left);
+					self.precheck_pvf(pvf.clone()).await?;
+					// In this case the error is deterministic
+					// And a retry forces the ValidationBackend
+					// to re-prepare the artifact so
+					// there is no need to wait before the retry
+					retry_immediately = true;
+				},
 
 				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
 			}
@@ -787,8 +863,11 @@ trait ValidationBackend {
 			// If we got a possibly transient error, retry once after a brief delay, on the
 			// assumption that the conditions that caused this error may have resolved on their own.
 			{
-				// Wait a brief delay before retrying.
-				futures_timer::Delay::new(retry_delay).await;
+				// In case of many transient errors it is necessary to wait a little bit
+				// for the error to be probably resolved
+				if !retry_immediately {
+					futures_timer::Delay::new(retry_delay).await;
+				}
 
 				let new_timeout = exec_timeout.saturating_sub(total_time_start.elapsed());
 
@@ -802,8 +881,9 @@ trait ValidationBackend {
 
 				// Encode the params again when re-trying. We expect the retry case to be relatively
 				// rare, and we want to avoid unconditionally cloning data.
-				validation_result =
-					self.validate_candidate(pvf.clone(), new_timeout, params.encode()).await;
+				validation_result = self
+					.validate_candidate(pvf.clone(), new_timeout, params.encode(), prepare_priority)
+					.await;
 			}
 		}
 
@@ -821,11 +901,13 @@ impl ValidationBackend for ValidationHost {
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
+		// The priority for the preparation job.
+		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError> {
-		let priority = polkadot_node_core_pvf::Priority::Normal;
-
 		let (tx, rx) = oneshot::channel();
-		if let Err(err) = self.execute_pvf(pvf, exec_timeout, encoded_params, priority, tx).await {
+		if let Err(err) =
+			self.execute_pvf(pvf, exec_timeout, encoded_params, prepare_priority, tx).await
+		{
 			return Err(InternalValidationError::HostCommunication(format!(
 				"cannot send pvf to the validation host, it might have shut down: {:?}",
 				err

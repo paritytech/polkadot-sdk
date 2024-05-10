@@ -40,10 +40,10 @@ use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
 	traits::{IsType, OriginTrait},
 };
-use scale_info::TypeInfo;
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
-	transaction_validity::TransactionValidityError,
+	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
 
 #[cfg(test)]
@@ -75,9 +75,16 @@ pub mod pallet {
 }
 
 /// A [`SignedExtension`] that skips the wrapped extension if the dispatchable is feeless.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
 pub struct SkipCheckIfFeeless<T, S>(pub S, sp_std::marker::PhantomData<T>);
+
+// Make this extension "invisible" from the outside (ie metadata type information)
+impl<T, S: StaticTypeInfo> TypeInfo for SkipCheckIfFeeless<T, S> {
+	type Identity = S;
+	fn type_info() -> scale_info::Type {
+		S::type_info()
+	}
+}
 
 impl<T, S: Encode> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
 	#[cfg(feature = "std")]
@@ -113,6 +120,20 @@ where
 
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		self.0.additional_signed()
+	}
+
+	fn validate(
+		&self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> TransactionValidity {
+		if call.is_feeless(&<T as frame_system::Config>::RuntimeOrigin::signed(who.clone())) {
+			Ok(ValidTransaction::default())
+		} else {
+			self.0.validate(who, call, info, len)
+		}
 	}
 
 	fn pre_dispatch(

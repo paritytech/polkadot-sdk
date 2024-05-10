@@ -1,0 +1,29 @@
+# Schema: Parity PR Documentation Schema (prdoc)
+# See doc at https://github.com/paritytech/prdoc
+
+title: Supporting paged rewards allowing all nominators to be rewarded
+
+doc:
+  - audience: Node Operator
+    description: |
+      We used to clip top `MaxNominatorRewardedPerValidator` nominators by stake that are eligible for staking reward.
+      This was done to limit computation cost of paying out rewards. This PR introduces paging to reward payouts,
+      meaning we still clip nominators upto MaxExposurePageSize per page and there could be multiple pages of rewards to
+      be paid out. Validators get commission pro-rata to the amount of reward that is paid out for the page.
+
+      notes:
+        - payout_stakers should be called multiple times, once for each page of nominators.
+        - payout_stakers_by_page can be used to pay out rewards for a specific page.
+        - Some old non-paged era storage items are deprecated, and can be removed in a future upgrade.
+
+migrations:
+  db: []
+
+  runtime:
+    - reference: pallet-staking
+      description: "v14: Migration of era exposure storage items to paged exposures."
+
+crates:
+  - name: pallet-staking
+
+host_functions: []

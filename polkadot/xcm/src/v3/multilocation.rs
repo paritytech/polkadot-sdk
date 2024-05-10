@@ -17,11 +17,10 @@
 //! XCM `MultiLocation` datatype.
 
 use super::{Junction, Junctions};
-use crate::{v2::MultiLocation as OldMultiLocation, VersionedMultiLocation};
-use core::{
-	convert::{TryFrom, TryInto},
-	result,
+use crate::{
+	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation, VersionedLocation,
 };
+use core::result;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -66,12 +65,16 @@ use scale_info::TypeInfo;
 	serde::Serialize,
 	serde::Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct MultiLocation {
 	/// The number of parent junctions at the beginning of this `MultiLocation`.
 	pub parents: u8,
 	/// The interior (i.e. non-parent) junctions that this `MultiLocation` contains.
 	pub interior: Junctions,
 }
+
+/// Type alias for a better transition to V4.
+pub type Location = MultiLocation;
 
 impl Default for MultiLocation {
 	fn default() -> Self {
@@ -90,9 +93,9 @@ impl MultiLocation {
 		MultiLocation { parents, interior: interior.into() }
 	}
 
-	/// Consume `self` and return the equivalent `VersionedMultiLocation` value.
-	pub const fn into_versioned(self) -> VersionedMultiLocation {
-		VersionedMultiLocation::V3(self)
+	/// Consume `self` and return the equivalent `VersionedLocation` value.
+	pub const fn into_versioned(self) -> VersionedLocation {
+		VersionedLocation::V3(self)
 	}
 
 	/// Creates a new `MultiLocation` with 0 parents and a `Here` interior.
@@ -199,7 +202,7 @@ impl MultiLocation {
 	}
 
 	/// Consumes `self` and returns a `MultiLocation` suffixed with `new`, or an `Err` with
-	/// theoriginal value of `self` in case of overflow.
+	/// the original value of `self` in case of overflow.
 	pub fn pushed_with_interior(
 		self,
 		new: impl Into<Junction>,
@@ -465,6 +468,23 @@ impl TryFrom<OldMultiLocation> for MultiLocation {
 	type Error = ();
 	fn try_from(x: OldMultiLocation) -> result::Result<Self, ()> {
 		Ok(MultiLocation { parents: x.parents, interior: x.interior.try_into()? })
+	}
+}
+
+impl TryFrom<NewMultiLocation> for Option<MultiLocation> {
+	type Error = ();
+	fn try_from(new: NewMultiLocation) -> result::Result<Self, Self::Error> {
+		Ok(Some(MultiLocation::try_from(new)?))
+	}
+}
+
+impl TryFrom<NewMultiLocation> for MultiLocation {
+	type Error = ();
+	fn try_from(new: NewMultiLocation) -> result::Result<Self, ()> {
+		Ok(MultiLocation {
+			parents: new.parent_count(),
+			interior: new.interior().clone().try_into()?,
+		})
 	}
 }
 
@@ -743,7 +763,6 @@ mod tests {
 	#[test]
 	fn conversion_from_other_types_works() {
 		use crate::v2;
-		use core::convert::TryInto;
 
 		fn takes_multilocation<Arg: Into<MultiLocation>>(_arg: Arg) {}
 

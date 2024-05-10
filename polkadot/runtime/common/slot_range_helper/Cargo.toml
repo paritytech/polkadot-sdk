@@ -1,10 +1,13 @@
 [package]
 name = "slot-range-helper"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Helper crate for generating slot ranges for the Polkadot runtime."
+
+[lints]
+workspace = true
 
 [dependencies]
 paste = "1.0"
@@ -14,5 +17,5 @@ sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", de
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "parity-scale-codec/std", "sp-runtime/std", "sp-std/std" ]
+default = ["std"]
+std = ["parity-scale-codec/std", "sp-runtime/std", "sp-std/std"]

@@ -18,7 +18,13 @@
 
 use super::config::Config;
 use mixnet::core::PACKET_SIZE;
-use sc_network::{config::NonDefaultSetConfig, ProtocolName};
+use sc_network::{
+	config::{NonReservedPeerMode, SetConfig},
+	peer_store::PeerStoreProvider,
+	service::NotificationMetrics,
+	NetworkBackend, NotificationService, ProtocolName,
+};
+use sp_runtime::traits::Block as BlockT;
 
 /// Returns the protocol name to use for the mixnet controlled by the given chain.
 pub fn protocol_name(genesis_hash: &[u8], fork_id: Option<&str>) -> ProtocolName {
@@ -31,12 +37,37 @@ pub fn protocol_name(genesis_hash: &[u8], fork_id: Option<&str>) -> ProtocolName
 }
 
 /// Returns the peers set configuration for the mixnet protocol.
-pub fn peers_set_config(name: ProtocolName, config: &Config) -> NonDefaultSetConfig {
-	let mut set_config = NonDefaultSetConfig::new(name, PACKET_SIZE as u64);
-	if config.substrate.num_gateway_slots != 0 {
+pub fn peers_set_config<Block: BlockT, Network: NetworkBackend<Block, <Block as BlockT>::Hash>>(
+	name: ProtocolName,
+	config: &Config,
+	metrics: NotificationMetrics,
+	peerstore_handle: std::sync::Arc<dyn PeerStoreProvider>,
+) -> (Network::NotificationProtocolConfig, Box<dyn NotificationService>) {
+	let set_config = if config.substrate.num_gateway_slots != 0 {
 		// out_peers is always 0; we are only interested in connecting to mixnodes, which we do by
 		// setting them as reserved nodes
-		set_config.allow_non_reserved(config.substrate.num_gateway_slots, 0);
-	}
-	set_config
+		SetConfig {
+			in_peers: config.substrate.num_gateway_slots,
+			out_peers: 0,
+			reserved_nodes: Vec::new(),
+			non_reserved_mode: NonReservedPeerMode::Accept,
+		}
+	} else {
+		SetConfig {
+			in_peers: 0,
+			out_peers: 0,
+			reserved_nodes: Vec::new(),
+			non_reserved_mode: NonReservedPeerMode::Deny,
+		}
+	};
+
+	Network::notification_config(
+		name,
+		Vec::new(),
+		PACKET_SIZE as u64,
+		None,
+		set_config,
+		metrics,
+		peerstore_handle,
+	)
 }

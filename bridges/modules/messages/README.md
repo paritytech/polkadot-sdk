@@ -116,26 +116,12 @@ maximal possible transaction size of the chain and so on. And when the relayer s
 implementation must be able to parse and verify the proof of messages delivery. Normally, you would reuse the same
 (configurable) type on all chains that are sending messages to the same bridged chain.
 
-The `pallet_bridge_messages::Config::LaneMessageVerifier` defines a single callback to verify outbound messages. The
-simplest callback may just accept all messages. But in this case you'll need to answer many questions first. Who will
-pay for the delivery and confirmation transaction? Are we sure that someone will ever deliver this message to the
-bridged chain? Are we sure that we don't bloat our runtime storage by accepting this message? What if the message is
-improperly encoded or has some fields set to invalid values? Answering all those (and similar) questions would lead to
-correct implementation.
-
-There's another thing to consider when implementing type for use in
-`pallet_bridge_messages::Config::LaneMessageVerifier`. It is whether we treat all message lanes identically, or they'll
-have different sets of verification rules? For example, you may reserve lane#1 for messages coming from some
-'wrapped-token' pallet - then you may verify in your implementation that the origin is associated with this pallet.
-Lane#2 may be reserved for 'system' messages and you may charge zero fee for such messages. You may have some rate
-limiting for messages sent over the lane#3. Or you may just verify the same rules set for all outbound messages - it is
-all up to the `pallet_bridge_messages::Config::LaneMessageVerifier` implementation.
-
-The last type is the `pallet_bridge_messages::Config::DeliveryConfirmationPayments`. When confirmation transaction is
-received, we call the `pay_reward()` method, passing the range of delivered messages. You may use the
-[`pallet-bridge-relayers`](../relayers/) pallet and its
-[`DeliveryConfirmationPaymentsAdapter`](../relayers/src/payment_adapter.rs) adapter as a possible implementation. It
-allows you to pay fixed reward for relaying the message and some of its portion for confirming delivery.
+The last type is the `pallet_bridge_messages::Config::DeliveryConfirmationPayments`. When confirmation
+transaction is received, we call the `pay_reward()` method, passing the range of delivered messages.
+You may use the [`pallet-bridge-relayers`](../relayers/) pallet and its
+[`DeliveryConfirmationPaymentsAdapter`](../relayers/src/payment_adapter.rs) adapter as a possible
+implementation. It allows you to pay fixed reward for relaying the message and some of its portion
+for confirming delivery.
 
 ### I have a Messages Module in my Runtime, but I Want to Reject all Outbound Messages. What shall I do?
 

@@ -15,70 +15,81 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
-	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
-	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToWestendXcmRouter,
-	TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
+	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
+	XcmpQueue,
 };
 use assets_common::{
-	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
-	matching::{FromSiblingParachain, IsForeignConcreteAsset},
+	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset},
+	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
-	match_types, parameter_types,
-	traits::{ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess},
+	parameter_types,
+	traits::{
+		tokens::imbalance::{ResolveAssetTo, ResolveTo},
+		ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	impls::ToStakingPot,
 	xcm_config::{
-		AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem,
-		RelayOrOtherSystemParachains,
+		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
+		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain;
+use snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
+use testnet_parachains_constants::rococo::snowbridge::{
+	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+};
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
+	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
-	IsConcrete, LocalMint, NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset,
+	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
+	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
+	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
-	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignPaidRemoteExporter,
+	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
-use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
-
-#[cfg(feature = "runtime-benchmarks")]
-use cumulus_primitives_core::ParaId;
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = MultiLocation::parent();
+	pub const TokenLocation: Location = Location::parent();
+	pub const TokenLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation =
-		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
+	pub UniversalLocation: InteriorLocation =
+		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
-	pub TrustBackedAssetsPalletLocation: MultiLocation =
-		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
-	pub ForeignAssetsPalletLocation: MultiLocation =
+	pub TrustBackedAssetsPalletLocation: Location =
+		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
+	pub TrustBackedAssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
+	pub TrustBackedAssetsPalletLocationV3: xcm::v3::Location =
+		xcm::v3::Junction::PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
+	pub ForeignAssetsPalletLocation: Location =
 		PalletInstance(<ForeignAssets as PalletInfoAccess>::index() as u8).into();
-	pub PoolAssetsPalletLocation: MultiLocation =
+	pub PoolAssetsPalletLocation: Location =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
+	pub UniquesPalletLocation: Location =
+		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
+	pub const GovernanceLocation: Location = Location::parent();
+	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
-/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
@@ -93,15 +104,18 @@ pub type LocationToAccountId = (
 	// Different global consensus parachain sovereign account.
 	// (Used for over-bridge transfers and reserve processing)
 	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
+	// Ethereum contract sovereign account.
+	// (Used to get convert ethereum contract locations to sovereign account)
+	GlobalConsensusEthereumConvertsFor<AccountId>,
 );
 
 /// Means for transacting the native currency on this chain.
-pub type CurrencyTransactor = CurrencyAdapter<
+pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<TokenLocation>,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -119,7 +133,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	Assets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	TrustBackedAssetsConvertedConcreteId,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -130,19 +144,40 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
+/// Matcher for converting `ClassId`/`InstanceId` into a uniques asset.
+pub type UniquesConvertedConcreteId =
+	assets_common::UniquesConvertedConcreteId<UniquesPalletLocation>;
+
+/// Means for transacting unique assets.
+pub type UniquesTransactor = NonFungiblesAdapter<
+	// Use this non-fungibles implementation:
+	Uniques,
+	// This adapter will handle any non-fungible asset from the uniques pallet.
+	UniquesConvertedConcreteId,
+	// Convert an XCM Location into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// Does not check teleports.
+	NoChecking,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
 /// `AssetId`/`Balance` converter for `ForeignAssets`.
 pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConvertedConcreteId<
 	(
 		// Ignore `TrustBackedAssets` explicitly
 		StartsWith<TrustBackedAssetsPalletLocation>,
 		// Ignore assets that start explicitly with our `GlobalConsensus(NetworkId)`, means:
-		// - foreign assets from our consensus should be: `MultiLocation {parents: 1,
-		//   X*(Parachain(xyz), ..)}`
+		// - foreign assets from our consensus should be: `Location {parents: 1, X*(Parachain(xyz),
+		//   ..)}`
 		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` won't
 		//   be accepted here
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 	),
 	Balance,
+	xcm::v3::Location,
 >;
 
 /// Means for transacting foreign assets from different global consensus.
@@ -151,11 +186,11 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	ForeignAssets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	ForeignAssetsConvertedConcreteId,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// We dont need to check teleports here.
+	// We don't need to check teleports here.
 	NoChecking,
 	// The account to use for tracking teleports.
 	CheckingAccount,
@@ -171,7 +206,7 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 	PoolAssets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	PoolAssetsConvertedConcreteId,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -183,26 +218,13 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 >;
 
 /// Means for transacting assets on this chain.
-pub type AssetTransactors =
-	(CurrencyTransactor, FungiblesTransactor, ForeignFungiblesTransactor, PoolFungiblesTransactor);
-
-/// Simple `MultiLocation` matcher for Local and Foreign asset `MultiLocation`.
-pub struct LocalAndForeignAssetsMultiLocationMatcher;
-impl MatchesLocalAndForeignAssetsMultiLocation for LocalAndForeignAssetsMultiLocationMatcher {
-	fn is_local(location: &MultiLocation) -> bool {
-		use assets_common::fungible_conversion::MatchesMultiLocation;
-		TrustBackedAssetsConvertedConcreteId::contains(location)
-	}
-	fn is_foreign(location: &MultiLocation) -> bool {
-		use assets_common::fungible_conversion::MatchesMultiLocation;
-		ForeignAssetsConvertedConcreteId::contains(location)
-	}
-}
-impl Contains<MultiLocation> for LocalAndForeignAssetsMultiLocationMatcher {
-	fn contains(location: &MultiLocation) -> bool {
-		Self::is_local(location) || Self::is_foreign(location)
-	}
-}
+pub type AssetTransactors = (
+	FungibleTransactor,
+	FungiblesTransactor,
+	ForeignFungiblesTransactor,
+	PoolFungiblesTransactor,
+	UniquesTransactor,
+);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -234,235 +256,10 @@ parameter_types! {
 	pub XcmAssetFeesReceiver: Option<AccountId> = Authorship::author();
 }
 
-match_types! {
-	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(_) }
-	};
-}
-
-/// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
-/// account for proof size weights.
-///
-/// Calls that are allowed through this filter must:
-/// 1. Have a fixed weight;
-/// 2. Cannot lead to another call being made;
-/// 3. Have a defined proof size weight, e.g. no unbounded vecs in call parameters.
-pub struct SafeCallFilter;
-impl Contains<RuntimeCall> for SafeCallFilter {
-	fn contains(call: &RuntimeCall) -> bool {
-		#[cfg(feature = "runtime-benchmarks")]
-		{
-			if matches!(call, RuntimeCall::System(frame_system::Call::remark_with_event { .. })) {
-				return true
-			}
-		}
-
-		// Allow to change dedicated storage items (called by governance-like)
-		match call {
-			RuntimeCall::System(frame_system::Call::set_storage { items })
-				if items.iter().all(|(k, _)| k.eq(&bridging::XcmBridgeHubRouterByteFee::key())) ||
-					items
-						.iter()
-						.all(|(k, _)| k.eq(&bridging::XcmBridgeHubRouterBaseFee::key())) =>
-				return true,
-			_ => (),
-		};
-
-		matches!(
-			call,
-			RuntimeCall::PolkadotXcm(
-				pallet_xcm::Call::force_xcm_version { .. } |
-					pallet_xcm::Call::force_default_xcm_version { .. }
-			) | RuntimeCall::System(
-				frame_system::Call::set_heap_pages { .. } |
-					frame_system::Call::set_code { .. } |
-					frame_system::Call::set_code_without_checks { .. } |
-					frame_system::Call::kill_prefix { .. },
-			) | RuntimeCall::ParachainSystem(..) |
-				RuntimeCall::Timestamp(..) |
-				RuntimeCall::Balances(..) |
-				RuntimeCall::CollatorSelection(
-					pallet_collator_selection::Call::set_desired_candidates { .. } |
-						pallet_collator_selection::Call::set_candidacy_bond { .. } |
-						pallet_collator_selection::Call::register_as_candidate { .. } |
-						pallet_collator_selection::Call::leave_intent { .. } |
-						pallet_collator_selection::Call::set_invulnerables { .. } |
-						pallet_collator_selection::Call::add_invulnerable { .. } |
-						pallet_collator_selection::Call::remove_invulnerable { .. },
-				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-				RuntimeCall::XcmpQueue(..) |
-				RuntimeCall::MessageQueue(..) |
-				RuntimeCall::Assets(
-					pallet_assets::Call::create { .. } |
-						pallet_assets::Call::force_create { .. } |
-						pallet_assets::Call::start_destroy { .. } |
-						pallet_assets::Call::destroy_accounts { .. } |
-						pallet_assets::Call::destroy_approvals { .. } |
-						pallet_assets::Call::finish_destroy { .. } |
-						pallet_assets::Call::block { .. } |
-						pallet_assets::Call::mint { .. } |
-						pallet_assets::Call::burn { .. } |
-						pallet_assets::Call::transfer { .. } |
-						pallet_assets::Call::transfer_keep_alive { .. } |
-						pallet_assets::Call::force_transfer { .. } |
-						pallet_assets::Call::freeze { .. } |
-						pallet_assets::Call::thaw { .. } |
-						pallet_assets::Call::freeze_asset { .. } |
-						pallet_assets::Call::thaw_asset { .. } |
-						pallet_assets::Call::transfer_ownership { .. } |
-						pallet_assets::Call::set_team { .. } |
-						pallet_assets::Call::set_metadata { .. } |
-						pallet_assets::Call::clear_metadata { .. } |
-						pallet_assets::Call::force_set_metadata { .. } |
-						pallet_assets::Call::force_clear_metadata { .. } |
-						pallet_assets::Call::force_asset_status { .. } |
-						pallet_assets::Call::approve_transfer { .. } |
-						pallet_assets::Call::cancel_approval { .. } |
-						pallet_assets::Call::force_cancel_approval { .. } |
-						pallet_assets::Call::transfer_approved { .. } |
-						pallet_assets::Call::touch { .. } |
-						pallet_assets::Call::touch_other { .. } |
-						pallet_assets::Call::refund { .. } |
-						pallet_assets::Call::refund_other { .. },
-				) | RuntimeCall::ForeignAssets(
-				pallet_assets::Call::create { .. } |
-					pallet_assets::Call::force_create { .. } |
-					pallet_assets::Call::start_destroy { .. } |
-					pallet_assets::Call::destroy_accounts { .. } |
-					pallet_assets::Call::destroy_approvals { .. } |
-					pallet_assets::Call::finish_destroy { .. } |
-					pallet_assets::Call::block { .. } |
-					pallet_assets::Call::mint { .. } |
-					pallet_assets::Call::burn { .. } |
-					pallet_assets::Call::transfer { .. } |
-					pallet_assets::Call::transfer_keep_alive { .. } |
-					pallet_assets::Call::force_transfer { .. } |
-					pallet_assets::Call::freeze { .. } |
-					pallet_assets::Call::thaw { .. } |
-					pallet_assets::Call::freeze_asset { .. } |
-					pallet_assets::Call::thaw_asset { .. } |
-					pallet_assets::Call::transfer_ownership { .. } |
-					pallet_assets::Call::set_team { .. } |
-					pallet_assets::Call::set_metadata { .. } |
-					pallet_assets::Call::clear_metadata { .. } |
-					pallet_assets::Call::force_set_metadata { .. } |
-					pallet_assets::Call::force_clear_metadata { .. } |
-					pallet_assets::Call::force_asset_status { .. } |
-					pallet_assets::Call::approve_transfer { .. } |
-					pallet_assets::Call::cancel_approval { .. } |
-					pallet_assets::Call::force_cancel_approval { .. } |
-					pallet_assets::Call::transfer_approved { .. } |
-					pallet_assets::Call::touch { .. } |
-					pallet_assets::Call::touch_other { .. } |
-					pallet_assets::Call::refund { .. } |
-					pallet_assets::Call::refund_other { .. },
-			) | RuntimeCall::PoolAssets(
-				pallet_assets::Call::force_create { .. } |
-					pallet_assets::Call::block { .. } |
-					pallet_assets::Call::burn { .. } |
-					pallet_assets::Call::transfer { .. } |
-					pallet_assets::Call::transfer_keep_alive { .. } |
-					pallet_assets::Call::force_transfer { .. } |
-					pallet_assets::Call::freeze { .. } |
-					pallet_assets::Call::thaw { .. } |
-					pallet_assets::Call::freeze_asset { .. } |
-					pallet_assets::Call::thaw_asset { .. } |
-					pallet_assets::Call::transfer_ownership { .. } |
-					pallet_assets::Call::set_team { .. } |
-					pallet_assets::Call::set_metadata { .. } |
-					pallet_assets::Call::clear_metadata { .. } |
-					pallet_assets::Call::force_set_metadata { .. } |
-					pallet_assets::Call::force_clear_metadata { .. } |
-					pallet_assets::Call::force_asset_status { .. } |
-					pallet_assets::Call::approve_transfer { .. } |
-					pallet_assets::Call::cancel_approval { .. } |
-					pallet_assets::Call::force_cancel_approval { .. } |
-					pallet_assets::Call::transfer_approved { .. } |
-					pallet_assets::Call::touch { .. } |
-					pallet_assets::Call::touch_other { .. } |
-					pallet_assets::Call::refund { .. } |
-					pallet_assets::Call::refund_other { .. },
-			) | RuntimeCall::AssetConversion(
-				pallet_asset_conversion::Call::create_pool { .. } |
-					pallet_asset_conversion::Call::add_liquidity { .. } |
-					pallet_asset_conversion::Call::remove_liquidity { .. } |
-					pallet_asset_conversion::Call::swap_tokens_for_exact_tokens { .. } |
-					pallet_asset_conversion::Call::swap_exact_tokens_for_tokens { .. },
-			) | RuntimeCall::NftFractionalization(
-				pallet_nft_fractionalization::Call::fractionalize { .. } |
-					pallet_nft_fractionalization::Call::unify { .. },
-			) | RuntimeCall::Nfts(
-				pallet_nfts::Call::create { .. } |
-					pallet_nfts::Call::force_create { .. } |
-					pallet_nfts::Call::destroy { .. } |
-					pallet_nfts::Call::mint { .. } |
-					pallet_nfts::Call::force_mint { .. } |
-					pallet_nfts::Call::burn { .. } |
-					pallet_nfts::Call::transfer { .. } |
-					pallet_nfts::Call::lock_item_transfer { .. } |
-					pallet_nfts::Call::unlock_item_transfer { .. } |
-					pallet_nfts::Call::lock_collection { .. } |
-					pallet_nfts::Call::transfer_ownership { .. } |
-					pallet_nfts::Call::set_team { .. } |
-					pallet_nfts::Call::force_collection_owner { .. } |
-					pallet_nfts::Call::force_collection_config { .. } |
-					pallet_nfts::Call::approve_transfer { .. } |
-					pallet_nfts::Call::cancel_approval { .. } |
-					pallet_nfts::Call::clear_all_transfer_approvals { .. } |
-					pallet_nfts::Call::lock_item_properties { .. } |
-					pallet_nfts::Call::set_attribute { .. } |
-					pallet_nfts::Call::force_set_attribute { .. } |
-					pallet_nfts::Call::clear_attribute { .. } |
-					pallet_nfts::Call::approve_item_attributes { .. } |
-					pallet_nfts::Call::cancel_item_attributes_approval { .. } |
-					pallet_nfts::Call::set_metadata { .. } |
-					pallet_nfts::Call::clear_metadata { .. } |
-					pallet_nfts::Call::set_collection_metadata { .. } |
-					pallet_nfts::Call::clear_collection_metadata { .. } |
-					pallet_nfts::Call::set_accept_ownership { .. } |
-					pallet_nfts::Call::set_collection_max_supply { .. } |
-					pallet_nfts::Call::update_mint_settings { .. } |
-					pallet_nfts::Call::set_price { .. } |
-					pallet_nfts::Call::buy_item { .. } |
-					pallet_nfts::Call::pay_tips { .. } |
-					pallet_nfts::Call::create_swap { .. } |
-					pallet_nfts::Call::cancel_swap { .. } |
-					pallet_nfts::Call::claim_swap { .. },
-			) | RuntimeCall::Uniques(
-				pallet_uniques::Call::create { .. } |
-					pallet_uniques::Call::force_create { .. } |
-					pallet_uniques::Call::destroy { .. } |
-					pallet_uniques::Call::mint { .. } |
-					pallet_uniques::Call::burn { .. } |
-					pallet_uniques::Call::transfer { .. } |
-					pallet_uniques::Call::freeze { .. } |
-					pallet_uniques::Call::thaw { .. } |
-					pallet_uniques::Call::freeze_collection { .. } |
-					pallet_uniques::Call::thaw_collection { .. } |
-					pallet_uniques::Call::transfer_ownership { .. } |
-					pallet_uniques::Call::set_team { .. } |
-					pallet_uniques::Call::approve_transfer { .. } |
-					pallet_uniques::Call::cancel_approval { .. } |
-					pallet_uniques::Call::force_item_status { .. } |
-					pallet_uniques::Call::set_attribute { .. } |
-					pallet_uniques::Call::clear_attribute { .. } |
-					pallet_uniques::Call::set_metadata { .. } |
-					pallet_uniques::Call::clear_metadata { .. } |
-					pallet_uniques::Call::set_collection_metadata { .. } |
-					pallet_uniques::Call::clear_collection_metadata { .. } |
-					pallet_uniques::Call::set_accept_ownership { .. } |
-					pallet_uniques::Call::set_collection_max_supply { .. } |
-					pallet_uniques::Call::set_price { .. } |
-					pallet_uniques::Call::buy_item { .. }
-			) | RuntimeCall::ToWestendXcmRouter(
-				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
-			)
-		)
+pub struct ParentOrParentsPlurality;
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
 	}
 }
 
@@ -487,7 +284,9 @@ pub type Barrier = TrailingSetTopicAsId<
 						Equals<bridging::SiblingBridgeHub>,
 					)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
+					// HRMP notifications from the relay chain are OK.
+					AllowHrmpNotificationsFromRelayChain,
 				),
 				UniversalLocation,
 				ConstU32<8>,
@@ -513,25 +312,13 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 		ForeignAssetsInstance,
 	>;
 
-match_types! {
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation {
-			parents: 1,
-			interior: X1(Parachain(
-				system_parachain::ASSET_HUB_ID |
-				system_parachain::BRIDGE_HUB_ID |
-				system_parachain::CONTRACTS_ID |
-				system_parachain::ENCOINTER_ID
-			)),
-		}
-	};
-}
-
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations =
-	(RelayOrOtherSystemParachains<SystemParachains, Runtime>, Equals<RelayTreasuryLocation>);
+pub type WaivedLocations = (
+	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+	Equals<RelayTreasuryLocation>,
+);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
@@ -552,7 +339,10 @@ impl xcm_executor::Config for XcmConfig {
 	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
 	// held). Asset Hub may _act_ as a reserve location for ROC and assets created
 	// under `pallet-assets`. Users must use teleport where allowed (e.g. ROC with the Relay Chain).
-	type IsReserve = (bridging::to_westend::IsTrustedBridgedReserveLocationForConcreteAsset,);
+	type IsReserve = (
+		bridging::to_westend::IsTrustedBridgedReserveLocationForConcreteAsset,
+		bridging::to_ethereum::IsTrustedBridgedReserveLocationForForeignAsset,
+	);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -562,7 +352,29 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader = (
-		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>,
+		UsingComponents<
+			WeightToFee,
+			TokenLocation,
+			AccountId,
+			Balances,
+			ResolveTo<StakingPot, Balances>,
+		>,
+		cumulus_primitives_utility::SwapFirstAssetTrader<
+			TokenLocationV3,
+			crate::AssetConversion,
+			WeightToFee,
+			crate::NativeAndAssets,
+			(
+				TrustBackedAssetsAsLocation<
+					TrustBackedAssetsPalletLocation,
+					Balance,
+					xcm::v3::Location,
+				>,
+				ForeignAssetsConvertedConcreteId,
+			),
+			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
+			AccountId,
+		>,
 		// This trader allows to pay with `is_sufficient=true` "Trust Backed" assets from dedicated
 		// `pallet_assets` instance - `Assets`.
 		cumulus_primitives_utility::TakeFirstAssetTrader<
@@ -603,13 +415,19 @@ impl xcm_executor::Config for XcmConfig {
 		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
-	type UniversalAliases = (bridging::to_westend::UniversalAliases,);
-	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
-	type SafeCallFilter = SafeCallFilter;
+	type UniversalAliases =
+		(bridging::to_westend::UniversalAliases, bridging::to_ethereum::UniversalAliases);
+	type CallDispatcher = RuntimeCall;
+	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = PolkadotXcm;
 }
 
-/// Converts a local signed origin into an XCM multilocation.
+/// Converts a local signed origin into an XCM location.
 /// Forms the basis for local origins sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
@@ -631,6 +449,9 @@ pub type XcmRouter = WithUniqueTopic<(
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Westend
 	// GlobalConsensus
 	ToWestendXcmRouter,
+	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
+	// GlobalConsensus
+	SovereignPaidRemoteExporter<bridging::EthereumNetworkExportTable, XcmpQueue, UniversalLocation>,
 )>;
 
 impl pallet_xcm::Config for Runtime {
@@ -638,11 +459,9 @@ impl pallet_xcm::Config for Runtime {
 	// We want to disallow users sending (arbitrary) XCMs from this chain.
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = XcmRouter;
-	// We support local origins dispatching XCM executions in principle...
+	// We support local origins dispatching XCM executions.
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	// ... but disallow generic XCM execution. As a result only teleports and reserve transfers are
-	// allowed.
-	type XcmExecuteFilter = Nothing;
+	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
@@ -676,41 +495,15 @@ pub type ForeignCreatorsSovereignAccountOf = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	ParentIsPreset<AccountId>,
+	GlobalConsensusEthereumConvertsFor<AccountId>,
 );
 
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> MultiLocation {
-		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub struct BenchmarkMultiLocationConverter<SelfParaId> {
-	_phantom: sp_std::marker::PhantomData<SelfParaId>,
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl<SelfParaId>
-	pallet_asset_conversion::BenchmarkHelper<MultiLocation, sp_std::boxed::Box<MultiLocation>>
-	for BenchmarkMultiLocationConverter<SelfParaId>
-where
-	SelfParaId: frame_support::traits::Get<ParaId>,
-{
-	fn asset_id(asset_id: u32) -> MultiLocation {
-		MultiLocation {
-			parents: 1,
-			interior: X3(
-				Parachain(SelfParaId::get().into()),
-				PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
-				GeneralIndex(asset_id.into()),
-			),
-		}
-	}
-	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<MultiLocation> {
-		sp_std::boxed::Box::new(Self::asset_id(asset_id))
+impl pallet_assets::BenchmarkHelper<xcm::v3::Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> xcm::v3::Location {
+		xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(id)])
 	}
 }
 
@@ -742,7 +535,7 @@ pub mod bridging {
 		pub storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
 
 		pub SiblingBridgeHubParaId: u32 = bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID;
-		pub SiblingBridgeHub: MultiLocation = MultiLocation::new(1, X1(Parachain(SiblingBridgeHubParaId::get())));
+		pub SiblingBridgeHub: Location = Location::new(1, [Parachain(SiblingBridgeHubParaId::get())]);
 		/// Router expects payment with this `AssetId`.
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		pub XcmBridgeHubRouterFeeAssetId: AssetId = TokenLocation::get().into();
@@ -751,33 +544,40 @@ pub mod bridging {
 			sp_std::vec::Vec::new().into_iter()
 			.chain(to_westend::BridgeTable::get())
 			.collect();
+
+		pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> =
+			sp_std::vec::Vec::new().into_iter()
+			.chain(to_ethereum::BridgeTable::get())
+			.collect();
 	}
 
 	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
+
+	pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
 
 	pub mod to_westend {
 		use super::*;
 
 		parameter_types! {
-			pub SiblingBridgeHubWithBridgeHubWestendInstance: MultiLocation = MultiLocation::new(
+			pub SiblingBridgeHubWithBridgeHubWestendInstance: Location = Location::new(
 				1,
-				X2(
+				[
 					Parachain(SiblingBridgeHubParaId::get()),
 					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
-				)
+				]
 			);
 
 			pub const WestendNetwork: NetworkId = NetworkId::Westend;
-			pub AssetHubWestend: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(WestendNetwork::get()), Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)));
-			pub WndLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(WestendNetwork::get())));
+			pub AssetHubWestend: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get()), Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)]);
+			pub WndLocation: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
 
-			pub WndFromAssetHubWestend: (MultiAssetFilter, MultiLocation) = (
-				Wild(AllOf { fun: WildFungible, id: Concrete(WndLocation::get()) }),
+			pub WndFromAssetHubWestend: (AssetFilter, Location) = (
+				Wild(AllOf { fun: WildFungible, id: AssetId(WndLocation::get()) }),
 				AssetHubWestend::get()
 			);
 
 			/// Set up exporters configuration.
-			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
+			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
 				NetworkExportTableItem::new(
 					WestendNetwork::get(),
@@ -794,15 +594,15 @@ pub mod bridging {
 			];
 
 			/// Universal aliases
-			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
+			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
 					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get()))
 				]
 			);
 		}
 
-		impl Contains<(MultiLocation, Junction)> for UniversalAliases {
-			fn contains(alias: &(MultiLocation, Junction)) -> bool {
+		impl Contains<(Location, Junction)> for UniversalAliases {
+			fn contains(alias: &(Location, Junction)) -> bool {
 				UniversalAliases::get().contains(alias)
 			}
 		}
@@ -831,13 +631,63 @@ pub mod bridging {
 		}
 	}
 
+	pub mod to_ethereum {
+		use super::*;
+
+		parameter_types! {
+			/// User fee for ERC20 token transfer back to Ethereum.
+			/// (initially was calculated by test `OutboundQueue::calculate_fees` - ETH/ROC 1/400 and fee_per_gas 20 GWEI = 2200698000000 + *25%)
+			/// Needs to be more than fee calculated from DefaultFeeConfig FeeConfigRecord in snowbridge:parachain/pallets/outbound-queue/src/lib.rs
+			/// Polkadot uses 10 decimals, Kusama and Rococo 12 decimals.
+			pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
+			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
+			pub SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
+				1,
+				[
+					Parachain(SiblingBridgeHubParaId::get()),
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX)
+				]
+			);
+
+			/// Set up exporters configuration.
+			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
+			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
+					EthereumNetwork::get(),
+					Some(sp_std::vec![Junctions::Here]),
+					SiblingBridgeHub::get(),
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						BridgeHubEthereumBaseFee::get(),
+					).into())
+				),
+			];
+
+			/// Universal aliases
+			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
+				sp_std::vec![
+					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get())),
+				]
+			);
+		}
+
+		pub type IsTrustedBridgedReserveLocationForForeignAsset =
+			matching::IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
+
+		impl Contains<(Location, Junction)> for UniversalAliases {
+			fn contains(alias: &(Location, Junction)) -> bool {
+				UniversalAliases::get().contains(alias)
+			}
+		}
+	}
+
 	/// Benchmarks helper for bridging configuration.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub struct BridgingBenchmarksHelper;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl BridgingBenchmarksHelper {
-		pub fn prepare_universal_alias() -> Option<(MultiLocation, Junction)> {
+		pub fn prepare_universal_alias() -> Option<(Location, Junction)> {
 			let alias =
 				to_westend::UniversalAliases::get()
 					.into_iter()

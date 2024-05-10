@@ -14,37 +14,57 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Various implementations and utilities for matching and filtering `MultiLocation` and
-//! `InteriorMultiLocation` types.
+//! Various implementations and utilities for matching and filtering `Location` and
+//! `InteriorLocation` types.
 
 use frame_support::traits::{Contains, Get};
-use xcm::latest::{InteriorMultiLocation, MultiLocation, NetworkId};
+use sp_runtime::traits::MaybeEquivalence;
+use sp_std::marker::PhantomData;
+use xcm::latest::{InteriorLocation, Location, NetworkId};
 
-/// An implementation of `Contains` that checks for `MultiLocation` or
-/// `InteriorMultiLocation` if starts with the provided type `T`.
-pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<MultiLocation>> Contains<MultiLocation> for StartsWith<T> {
-	fn contains(t: &MultiLocation) -> bool {
+/// An implementation of `Contains` that checks for `Location` or
+/// `InteriorLocation` if starts with the provided type `T`.
+pub struct StartsWith<T, L = Location>(sp_std::marker::PhantomData<(T, L)>);
+impl<T: Get<L>, L: TryInto<Location> + Clone> Contains<L> for StartsWith<T, L> {
+	fn contains(location: &L) -> bool {
+		let latest_location: Location =
+			if let Ok(location) = (*location).clone().try_into() { location } else { return false };
+		let latest_t = if let Ok(location) = T::get().try_into() { location } else { return false };
+		latest_location.starts_with(&latest_t)
+	}
+}
+impl<T: Get<InteriorLocation>> Contains<InteriorLocation> for StartsWith<T> {
+	fn contains(t: &InteriorLocation) -> bool {
 		t.starts_with(&T::get())
 	}
 }
-impl<T: Get<InteriorMultiLocation>> Contains<InteriorMultiLocation> for StartsWith<T> {
-	fn contains(t: &InteriorMultiLocation) -> bool {
-		t.starts_with(&T::get())
-	}
-}
 
-/// An implementation of `Contains` that checks for `MultiLocation` or
-/// `InteriorMultiLocation` if starts with expected `GlobalConsensus(NetworkId)` provided as type
+/// An implementation of `Contains` that checks for `Location` or
+/// `InteriorLocation` if starts with expected `GlobalConsensus(NetworkId)` provided as type
 /// `T`.
 pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<NetworkId>> Contains<MultiLocation> for StartsWithExplicitGlobalConsensus<T> {
-	fn contains(location: &MultiLocation) -> bool {
-		matches!(location.interior.global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
+impl<T: Get<NetworkId>> Contains<Location> for StartsWithExplicitGlobalConsensus<T> {
+	fn contains(location: &Location) -> bool {
+		matches!(location.interior().global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
 	}
 }
-impl<T: Get<NetworkId>> Contains<InteriorMultiLocation> for StartsWithExplicitGlobalConsensus<T> {
-	fn contains(location: &InteriorMultiLocation) -> bool {
+impl<T: Get<NetworkId>> Contains<InteriorLocation> for StartsWithExplicitGlobalConsensus<T> {
+	fn contains(location: &InteriorLocation) -> bool {
 		matches!(location.global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
+	}
+}
+
+/// An adapter implementation of `MaybeEquivalence` which can convert between the latest `Location`
+/// and other versions that implement `TryInto<Location>` and `TryFrom<Location>`.
+pub struct WithLatestLocationConverter<Target>(PhantomData<Target>);
+impl<Target: TryInto<Location> + TryFrom<Location> + Clone> MaybeEquivalence<Location, Target>
+	for WithLatestLocationConverter<Target>
+{
+	fn convert(old: &Location) -> Option<Target> {
+		(*old).clone().try_into().ok()
+	}
+
+	fn convert_back(new: &Target) -> Option<Location> {
+		new.clone().try_into().ok()
 	}
 }

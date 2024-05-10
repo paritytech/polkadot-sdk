@@ -40,7 +40,6 @@
 //! If there are not, or if no prime is set, then the motion is dropped without being executed.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "128"]
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -177,7 +176,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
@@ -262,36 +261,30 @@ pub mod pallet {
 
 	/// The hashes of the active proposals.
 	#[pallet::storage]
-	#[pallet::getter(fn proposals)]
 	pub type Proposals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<T::Hash, T::MaxProposals>, ValueQuery>;
 
 	/// Actual proposal for a given hash, if it's current.
 	#[pallet::storage]
-	#[pallet::getter(fn proposal_of)]
 	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
 
 	/// Votes on a given proposal, if it is ongoing.
 	#[pallet::storage]
-	#[pallet::getter(fn voting)]
 	pub type Voting<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, Votes<T::AccountId, BlockNumberFor<T>>, OptionQuery>;
 
 	/// Proposals so far.
 	#[pallet::storage]
-	#[pallet::getter(fn proposal_count)]
 	pub type ProposalCount<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
 	/// The current members of the collective. This is stored sorted (just by value).
 	#[pallet::storage]
-	#[pallet::getter(fn members)]
 	pub type Members<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
-	/// The prime member that helps determine the default vote behavior in case of absentations.
+	/// The prime member that helps determine the default vote behavior in case of abstentions.
 	#[pallet::storage]
-	#[pallet::getter(fn prime)]
 	pub type Prime<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::event]
@@ -460,7 +453,7 @@ pub mod pallet {
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let members = Self::members();
+			let members = Members::<T, I>::get();
 			ensure!(members.contains(&who), Error::<T, I>::NotMember);
 			let proposal_len = proposal.encoded_size();
 			ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
@@ -520,7 +513,7 @@ pub mod pallet {
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let members = Self::members();
+			let members = Members::<T, I>::get();
 			ensure!(members.contains(&who), Error::<T, I>::NotMember);
 
 			if threshold < 2 {
@@ -566,7 +559,7 @@ pub mod pallet {
 			approve: bool,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let members = Self::members();
+			let members = Members::<T, I>::get();
 			ensure!(members.contains(&who), Error::<T, I>::NotMember);
 
 			// Detects first vote of the member in the motion
@@ -670,7 +663,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn is_member(who: &T::AccountId) -> bool {
 		// Note: The dispatchables *do not* use this to check membership so make sure
 		// to update those if this is changed.
-		Self::members().contains(who)
+		Members::<T, I>::get().contains(who)
 	}
 
 	/// Execute immediately when adding a new proposal.
@@ -689,7 +682,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let proposal_hash = T::Hashing::hash_of(&proposal);
 		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
-		let seats = Self::members().len() as MemberCount;
+		let seats = Members::<T, I>::get().len() as MemberCount;
 		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
 		Self::deposit_event(Event::Executed {
 			proposal_hash,
@@ -722,7 +715,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(proposals.len())
 			})?;
 
-		let index = Self::proposal_count();
+		let index = ProposalCount::<T, I>::get();
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
 		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
 		let votes = {
@@ -748,7 +741,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		index: ProposalIndex,
 		approve: bool,
 	) -> Result<bool, DispatchError> {
-		let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::ProposalMissing)?;
+		let mut voting = Voting::<T, I>::get(&proposal).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
 		let position_yes = voting.ayes.iter().position(|a| a == &who);
@@ -799,12 +792,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		proposal_weight_bound: Weight,
 		length_bound: u32,
 	) -> DispatchResultWithPostInfo {
-		let voting = Self::voting(&proposal_hash).ok_or(Error::<T, I>::ProposalMissing)?;
+		let voting = Voting::<T, I>::get(&proposal_hash).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
 		let mut no_votes = voting.nays.len() as MemberCount;
 		let mut yes_votes = voting.ayes.len() as MemberCount;
-		let seats = Self::members().len() as MemberCount;
+		let seats = Members::<T, I>::get().len() as MemberCount;
 		let approved = yes_votes >= voting.threshold;
 		let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
 		// Allow (dis-)approving the proposal as soon as there are enough votes.
@@ -838,7 +831,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Only allow actual closing of the proposal after the voting period has ended.
 		ensure!(frame_system::Pallet::<T>::block_number() >= voting.end, Error::<T, I>::TooEarly);
 
-		let prime_vote = Self::prime().map(|who| voting.ayes.iter().any(|a| a == &who));
+		let prime_vote = Prime::<T, I>::get().map(|who| voting.ayes.iter().any(|a| a == &who));
 
 		// default voting strategy.
 		let default = T::DefaultVote::default_vote(prime_vote, yes_votes, no_votes, seats);
@@ -979,29 +972,28 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// * The prime account must be a member of the collective.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), TryRuntimeError> {
-		Self::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
+		Proposals::<T, I>::get().into_iter().try_for_each(
+			|proposal| -> Result<(), TryRuntimeError> {
 				ensure!(
-					Self::proposal_of(proposal).is_some(),
+					ProposalOf::<T, I>::get(proposal).is_some(),
 					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping."
 				);
 				Ok(())
-			})?;
+			},
+		)?;
 
 		ensure!(
-			Self::proposals().into_iter().count() <= Self::proposal_count() as usize,
+			Proposals::<T, I>::get().into_iter().count() <= ProposalCount::<T, I>::get() as usize,
 			"The actual number of proposals is greater than `ProposalCount`"
 		);
 		ensure!(
-			Self::proposals().into_iter().count() == <ProposalOf<T, I>>::iter_keys().count(),
+			Proposals::<T, I>::get().into_iter().count() == <ProposalOf<T, I>>::iter_keys().count(),
 			"Proposal count inside `Proposals` is not equal to the proposal count in `ProposalOf`"
 		);
 
-		Self::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
-				if let Some(votes) = Self::voting(proposal) {
+		Proposals::<T, I>::get().into_iter().try_for_each(
+			|proposal| -> Result<(), TryRuntimeError> {
+				if let Some(votes) = Voting::<T, I>::get(proposal) {
 					let ayes = votes.ayes.len();
 					let nays = votes.nays.len();
 
@@ -1011,13 +1003,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					);
 				}
 				Ok(())
-			})?;
+			},
+		)?;
 
 		let mut proposal_indices = vec![];
-		Self::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
-				if let Some(votes) = Self::voting(proposal) {
+		Proposals::<T, I>::get().into_iter().try_for_each(
+			|proposal| -> Result<(), TryRuntimeError> {
+				if let Some(votes) = Voting::<T, I>::get(proposal) {
 					let proposal_index = votes.index;
 					ensure!(
 						!proposal_indices.contains(&proposal_index),
@@ -1026,12 +1018,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					proposal_indices.push(proposal_index);
 				}
 				Ok(())
-			})?;
+			},
+		)?;
 
 		<Voting<T, I>>::iter_keys().try_for_each(
 			|proposal_hash| -> Result<(), TryRuntimeError> {
 				ensure!(
-					Self::proposals().contains(&proposal_hash),
+					Proposals::<T, I>::get().contains(&proposal_hash),
 					"`Proposals` doesn't contain the proposal hash from the `Voting` storage map."
 				);
 				Ok(())
@@ -1039,17 +1032,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		)?;
 
 		ensure!(
-			Self::members().len() <= T::MaxMembers::get() as usize,
+			Members::<T, I>::get().len() <= T::MaxMembers::get() as usize,
 			"The member count is greater than `MaxMembers`."
 		);
 
 		ensure!(
-			Self::members().windows(2).all(|members| members[0] <= members[1]),
+			Members::<T, I>::get().windows(2).all(|members| members[0] <= members[1]),
 			"The members are not sorted by value."
 		);
 
-		if let Some(prime) = Self::prime() {
-			ensure!(Self::members().contains(&prime), "Prime account is not a member.");
+		if let Some(prime) = Prime::<T, I>::get() {
+			ensure!(Members::<T, I>::get().contains(&prime), "Prime account is not a member.");
 		}
 
 		Ok(())
@@ -1083,7 +1076,7 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
 		// remove accounts from all current voting in motions.
 		let mut outgoing = outgoing.to_vec();
 		outgoing.sort();
-		for h in Self::proposals().into_iter() {
+		for h in Proposals::<T, I>::get().into_iter() {
 			<Voting<T, I>>::mutate(h, |v| {
 				if let Some(mut votes) = v.take() {
 					votes.ayes = votes

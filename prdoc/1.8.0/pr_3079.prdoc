@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Implement transaction_unstable_broadcast and transaction_unstable_stop
+
+doc:
+  - audience: Node Dev
+    description: |
+      A new RPC class is added to handle transactions. The `transaction_unstable_broadcast` broadcasts
+      the provided transaction to the peers of the node, until the `transaction_unstable_stop` is called.
+      The APIs are marked as unstable and subject to change in the future.
+      To know if the transaction was added to the chain, users can decode the bodies of announced finalized blocks.
+      This is a low-level approach for `transactionWatch_unstable_submitAndWatch`.
+
+crates: [ ]

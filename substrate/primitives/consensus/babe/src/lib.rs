@@ -20,20 +20,23 @@
 #![forbid(unsafe_code, missing_docs, unused_variables, unused_imports)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod digests;
 pub mod inherents;
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{traits::Header, ConsensusEngineId, RuntimeDebug};
-use sp_std::vec::Vec;
 
 use crate::digests::{NextConfigDescriptor, NextEpochDescriptor};
 
 pub use sp_core::sr25519::vrf::{
-	VrfInput, VrfOutput, VrfProof, VrfSignData, VrfSignature, VrfTranscript,
+	VrfInput, VrfPreOutput, VrfProof, VrfSignData, VrfSignature, VrfTranscript,
 };
 
 /// Key type for BABE module.
@@ -256,8 +259,14 @@ pub struct BabeEpochConfiguration {
 	pub allowed_slots: AllowedSlots,
 }
 
+impl Default for BabeEpochConfiguration {
+	fn default() -> Self {
+		Self { c: (1, 4), allowed_slots: AllowedSlots::PrimaryAndSecondaryVRFSlots }
+	}
+}
+
 /// Verifies the equivocation proof by making sure that: both headers have
-/// different hashes, are targetting the same slot, and have valid signatures by
+/// different hashes, are targeting the same slot, and have valid signatures by
 /// the same authority.
 pub fn check_equivocation_proof<H>(proof: EquivocationProof<H>) -> bool
 where
@@ -289,7 +298,7 @@ where
 		let first_pre_digest = find_pre_digest(&proof.first_header)?;
 		let second_pre_digest = find_pre_digest(&proof.second_header)?;
 
-		// both headers must be targetting the same slot and it must
+		// both headers must be targeting the same slot and it must
 		// be the same as the one in the proof.
 		if proof.slot != first_pre_digest.slot() ||
 			first_pre_digest.slot() != second_pre_digest.slot()

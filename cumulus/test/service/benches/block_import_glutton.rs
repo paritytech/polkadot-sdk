@@ -27,7 +27,7 @@ use core::time::Duration;
 use cumulus_primitives_core::ParaId;
 
 use sc_block_builder::BlockBuilderBuilder;
-use sp_keyring::Sr25519Keyring::Alice;
+use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie, Ferdie};
 
 use cumulus_test_service::bench_utils as utils;
 
@@ -38,17 +38,29 @@ fn benchmark_block_import(c: &mut Criterion) {
 	let para_id = ParaId::from(100);
 	let tokio_handle = runtime.handle();
 
-	let alice = runtime.block_on(
-		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Alice).build(),
-	);
-	let client = alice.client;
-
-	let mut group = c.benchmark_group("Block import");
-	group.sample_size(20);
-	group.measurement_time(Duration::from_secs(120));
-
 	let mut initialize_glutton_pallet = true;
-	for (compute_ratio, storage_ratio) in &[(One::one(), Zero::zero()), (One::one(), One::one())] {
+	for (compute_ratio, storage_ratio, proof_on_import, keyring_identity) in &[
+		(One::one(), Zero::zero(), true, Alice),
+		(One::one(), One::one(), true, Bob),
+		(One::one(), Zero::zero(), false, Charlie),
+		(One::one(), One::one(), false, Ferdie),
+	] {
+		let node = runtime.block_on(
+			cumulus_test_service::TestNodeBuilder::new(
+				para_id,
+				tokio_handle.clone(),
+				*keyring_identity,
+			)
+			.import_proof_recording(*proof_on_import)
+			.build(),
+		);
+		let client = node.client;
+		let backend = node.backend;
+
+		let mut group = c.benchmark_group("Block import");
+		group.sample_size(20);
+		group.measurement_time(Duration::from_secs(120));
+
 		let block = utils::set_glutton_parameters(
 			&client,
 			initialize_glutton_pallet,
@@ -82,7 +94,10 @@ fn benchmark_block_import(c: &mut Criterion) {
 			),
 			|b| {
 				b.iter_batched(
-					|| benchmark_block.block.clone(),
+					|| {
+						backend.reset_trie_cache();
+						benchmark_block.block.clone()
+					},
 					|block| {
 						client.runtime_api().execute_block(parent_hash, block).unwrap();
 					},

@@ -25,9 +25,9 @@ use frame_support::{
 use sp_runtime::{traits::ConvertToValue, DispatchResult};
 
 parameter_types! {
-	pub Interior: InteriorMultiLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
+	pub Interior: InteriorLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
 	pub Timeout: BlockNumber = 5;
-	pub AssetHub: MultiLocation = (Parent, Parachain(1)).into();
+	pub AssetHub: Location = (Parent, Parachain(1)).into();
 	pub AssetIdGeneralIndex: u128 = 100;
 	pub AssetHubAssetId: AssetId = (PalletInstance(1), GeneralIndex(AssetIdGeneralIndex::get())).into();
 	pub LocatableAsset: LocatableAssetId = LocatableAssetId { asset_id: AssetHubAssetId::get(), location: AssetHub::get() };
@@ -140,7 +140,7 @@ fn salary_pay_over_xcm_works() {
 		assert_ok!(Salary::payout(RuntimeOrigin::signed(recipient.clone())));
 
 		// Get message from mock transport layer
-		let (_, message, hash) = sent_xcm()[0].clone();
+		let (_, message, mut hash) = sent_xcm()[0].clone();
 		// Change type from `Xcm<()>` to `Xcm<RuntimeCall>` to be able to execute later
 		let message =
 			Xcm::<<XcmConfig as xcm_executor::Config>::RuntimeCall>::from(message.clone());
@@ -164,7 +164,13 @@ fn salary_pay_over_xcm_works() {
 		assert_eq!(message, expected_message);
 
 		// Execute message as the asset hub
-		XcmExecutor::<XcmConfig>::execute_xcm((Parent, Parachain(42)), message, hash, Weight::MAX);
+		XcmExecutor::<XcmConfig>::prepare_and_execute(
+			(Parent, Parachain(42)),
+			message,
+			&mut hash,
+			Weight::MAX,
+			Weight::zero(),
+		);
 
 		// Recipient receives the payment
 		assert_eq!(

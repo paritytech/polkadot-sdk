@@ -1,12 +1,15 @@
 [package]
 name = "pallet-election-provider-support-benchmarking"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 description = "Benchmarking for election provider support onchain config trait"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -15,15 +18,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 ] }
-frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true}
-frame-election-provider-support = { path = "..", default-features = false}
-frame-system = { path = "../../system", default-features = false}
-sp-npos-elections = { path = "../../../primitives/npos-elections", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
-sp-std = { path = "../../../primitives/std", default-features = false}
+frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
+frame-election-provider-support = { path = "..", default-features = false }
+frame-system = { path = "../../system", default-features = false }
+sp-npos-elections = { path = "../../../primitives/npos-elections", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false }
+sp-std = { path = "../../../primitives/std", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

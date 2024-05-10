@@ -212,4 +212,21 @@ mod tests {
 			version_1_69_0,
 		);
 	}
+
+	#[test]
+	fn parse_rustc_version() {
+		let version = Version::extract("rustc 1.73.0 (cc66ad468 2023-10-03)").unwrap();
+		assert_eq!(
+			version,
+			Version {
+				major: 1,
+				minor: 73,
+				patch: 0,
+				is_nightly: false,
+				year: Some(2023),
+				month: Some(10),
+				day: Some(03),
+			}
+		);
+	}
 }

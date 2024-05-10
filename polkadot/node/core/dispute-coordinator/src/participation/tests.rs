@@ -372,7 +372,6 @@ fn cannot_participate_if_cannot_recover_validation_code() {
 		let mut participation = Participation::new(sender, Metrics::default());
 		activate_leaf(&mut ctx, &mut participation, 10).await.unwrap();
 		participate(&mut ctx, &mut participation).await.unwrap();
-
 		recover_available_data(&mut ctx_handle).await;
 
 		assert_matches!(

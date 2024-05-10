@@ -29,17 +29,17 @@ use sp_arithmetic::{
 	traits::{SaturatedConversion, Saturating},
 	FixedPointNumber, FixedU64,
 };
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, BlockNumberProvider};
 
 impl<T: Config> Pallet<T> {
 	pub fn current_timeslice() -> Timeslice {
-		let latest = T::Coretime::latest();
+		let latest = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let timeslice_period = T::TimeslicePeriod::get();
 		(latest / timeslice_period).saturated_into()
 	}
 
 	pub fn latest_timeslice_ready_to_commit(config: &ConfigRecordOf<T>) -> Timeslice {
-		let latest = T::Coretime::latest();
+		let latest = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let advanced = latest.saturating_add(config.advance_notice);
 		let timeslice_period = T::TimeslicePeriod::get();
 		(advanced / timeslice_period).saturated_into()
@@ -72,11 +72,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn issue(
+	pub fn issue(
 		core: CoreIndex,
 		begin: Timeslice,
 		end: Timeslice,
-		owner: T::AccountId,
+		owner: Option<T::AccountId>,
 		paid: Option<BalanceOf<T>>,
 	) -> RegionId {
 		let id = RegionId { begin, core, mask: CoreMask::complete() };
@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
 		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
-			ensure!(check_owner == region.owner, Error::<T>::NotOwner);
+			ensure!(Some(check_owner) == region.owner, Error::<T>::NotOwner);
 		}
 
 		Regions::<T>::remove(&region_id);

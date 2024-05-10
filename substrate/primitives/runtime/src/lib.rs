@@ -91,6 +91,7 @@ mod runtime_string;
 pub mod testing;
 pub mod traits;
 pub mod transaction_validity;
+pub mod type_with_default;
 
 pub use crate::runtime_string::*;
 
@@ -996,6 +997,16 @@ impl<R> TransactionOutcome<R> {
 			Self::Rollback(r) => r,
 		}
 	}
+}
+
+/// Confines the kind of extrinsics that can be included in a block.
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo)]
+pub enum ExtrinsicInclusionMode {
+	/// All extrinsics are allowed to be included in this block.
+	#[default]
+	AllExtrinsics,
+	/// Inherents are allowed to be included.
+	OnlyInherents,
 }
 
 #[cfg(test)]

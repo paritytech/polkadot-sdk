@@ -1,0 +1,18 @@
+title: "pallet-uniques: Move migration over to `VersionedMigration`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Moves the migration over to `VersionedMigration`. Thus, if you had
+      used `migrate_to_v1` before in a custom `OnRuntimeUpgrade` implementation
+      you can now directly use the `MigrateV0ToV1`.
+
+migrations:
+  runtime:
+    - reference: MigrateV0ToV1
+      description: |
+        Migrate the pallet storage from `0` to `1` by initializing
+        the `CollectionAccount` storage entry from all collections.
+
+crates:
+  - name: "pallet-uniques"

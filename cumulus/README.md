@@ -4,7 +4,7 @@
 
 This repository contains both the Cumulus SDK and also specific chains implemented on top of this SDK.
 
-If you only want to run a **Polkadot Parachain Node**, check out our [container section](./docs/container.md).
+If you only want to run a **Polkadot Parachain Node**, check out our [container section](./docs/contributor/container.md).
 
 ## Cumulus SDK
 
@@ -34,7 +34,7 @@ A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for 
 `polkadot-parachain` binary (previously called `polkadot-collator`).
 
 You may run `polkadot-parachain` locally after building it or using one of the container option described
-[here](./docs/container.md).
+[here](./docs/contributor/container.md).
 
 ### Relay Chain Interaction
 To operate a parachain node, a connection to the corresponding relay chain is necessary. This can be achieved in one of
@@ -142,8 +142,8 @@ zombienet --provider native spawn ./zombienet/examples/small_network.toml
 # Clone
 git clone https://github.com/paritytech/polkadot-sdk
 
-# Compile Polkadot
-cargo build --release --bin polkadot
+# Compile Polkadot's required binaries
+cargo build --release -p polkadot
 
 # Generate a raw chain spec
 ./target/release/polkadot build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-local-cfde.json
@@ -158,11 +158,8 @@ cargo build --release --bin polkadot
 #### Launch the Parachain
 
 ```bash
-# Clone
-git clone https://github.com/paritytech/polkadot-sdk
-
 # Compile
-cargo build --release --bin polkadot-parachain
+cargo build --release -p polkadot-parachain-bin
 
 # Export genesis state
 ./target/release/polkadot-parachain export-genesis-state > genesis-state
@@ -172,15 +169,15 @@ cargo build --release --bin polkadot-parachain
 
 # Collator1
 ./target/release/polkadot-parachain --collator --alice --force-authoring \
-  --tmp --port 40335 --rpc-port 9946 -- --chain ../polkadot/rococo-local-cfde.json --port 30335
+  --tmp --port 40335 --rpc-port 9946 -- --chain rococo-local-cfde.json --port 30335
 
 # Collator2
 ./target/release/polkadot-parachain --collator --bob --force-authoring \
-  --tmp --port 40336 --rpc-port 9947 -- --chain ../polkadot/rococo-local-cfde.json --port 30336
+  --tmp --port 40336 --rpc-port 9947 -- --chain rococo-local-cfde.json --port 30336
 
 # Parachain Full Node 1
 ./target/release/polkadot-parachain --tmp --port 40337 --rpc-port 9948 -- \
-  --chain ../polkadot/rococo-local-cfde.json --port 30337
+  --chain rococo-local-cfde.json --port 30337
 ```
 
 #### Register the parachain
@@ -245,7 +242,7 @@ Once the executable is built, launch collators for each parachain (repeat once e
 ./target/release/polkadot-parachain --chain $CHAIN --validator
 ```
 
-You can also build [using a container](./docs/container.md).
+You can also build [using a container](./docs/contributor/container.md).
 
 ### Parachains
 

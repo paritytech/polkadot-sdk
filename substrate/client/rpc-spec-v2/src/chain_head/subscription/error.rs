@@ -38,6 +38,12 @@ pub enum SubscriptionManagementError {
 	/// The specified subscription ID is not present.
 	#[error("Subscription is absent")]
 	SubscriptionAbsent,
+	/// The unpin method was called with duplicate hashes.
+	#[error("Duplicate hashes")]
+	DuplicateHashes,
+	/// The distance between the leaves and the current finalized block is too large.
+	#[error("Distance too large")]
+	BlockDistanceTooLarge,
 	/// Custom error.
 	#[error("Subscription error {0}")]
 	Custom(String),
@@ -52,7 +58,9 @@ impl PartialEq for SubscriptionManagementError {
 			(Self::Blockchain(_), Self::Blockchain(_)) |
 			(Self::BlockHashAbsent, Self::BlockHashAbsent) |
 			(Self::BlockHeaderAbsent, Self::BlockHeaderAbsent) |
-			(Self::SubscriptionAbsent, Self::SubscriptionAbsent) => true,
+			(Self::SubscriptionAbsent, Self::SubscriptionAbsent) |
+			(Self::DuplicateHashes, Self::DuplicateHashes) => true,
+			(Self::BlockDistanceTooLarge, Self::BlockDistanceTooLarge) => true,
 			(Self::Custom(lhs), Self::Custom(rhs)) => lhs == rhs,
 			_ => false,
 		}

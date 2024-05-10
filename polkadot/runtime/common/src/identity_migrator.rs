@@ -31,7 +31,7 @@ use pallet_identity;
 use sp_core::Get;
 
 #[cfg(feature = "runtime-benchmarks")]
-use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
+use frame_benchmarking::{account, v2::*, BenchmarkError};
 
 pub trait WeightInfo {
 	fn reap_identity(r: u32, s: u32) -> Weight;
@@ -271,7 +271,8 @@ mod benchmarks {
 		let _ = Identity::<T>::set_identity_no_deposit(&target, info.clone());
 
 		let sub_account: T::AccountId = account("sub", 0, SEED);
-		let _ = Identity::<T>::set_sub_no_deposit(&target, sub_account.clone());
+		let name = Data::Raw(b"benchsub".to_vec().try_into().unwrap());
+		let _ = Identity::<T>::set_subs_no_deposit(&target, vec![(sub_account.clone(), name)]);
 
 		// expected deposits
 		let expected_id_deposit = <T as pallet_identity::Config>::BasicDeposit::get()

@@ -79,7 +79,7 @@ where
 
 	/// Apply the given transaction to this backend and set the root to the given value.
 	pub fn apply_transaction(&mut self, root: H::Out, transaction: PrefixedMemoryDB<H>) {
-		let mut storage = sp_std::mem::take(self).into_storage();
+		let mut storage = core::mem::take(self).into_storage();
 
 		storage.consolidate(transaction);
 		*self = TrieBackendBuilder::new(storage, root).build();

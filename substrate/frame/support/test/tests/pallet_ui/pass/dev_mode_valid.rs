@@ -17,7 +17,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::ConstU32;
+use frame_support::{derive_impl, traits::ConstU32};
 
 pub use pallet::*;
 
@@ -70,6 +70,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;

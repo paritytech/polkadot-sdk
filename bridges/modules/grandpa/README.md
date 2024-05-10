@@ -10,7 +10,7 @@ It is used by the parachains light client (bridge parachains pallet) and by mess
 ## A Brief Introduction into GRANDPA Finality
 
 You can find detailed information on GRANDPA, by exploring its [repository](https://github.com/paritytech/finality-grandpa).
-Here is the minimal reqiuired GRANDPA information to understand how pallet works.
+Here is the minimal required GRANDPA information to understand how pallet works.
 
 Any Substrate chain may use different block authorship algorithms (like BABE or Aura) to determine block producers and
 generate blocks. This has nothing common with finality, though - the task of block authorship is to coordinate
@@ -27,7 +27,7 @@ for provided header.
 There are two main things in GRANDPA that help building light clients:
 
 - there's no need to import all headers of the bridged chain. Light client may import finalized headers or just
-  some of finalized headders that it consider useful. While the validators set stays the same, the client may
+  some of finalized headers that it consider useful. While the validators set stays the same, the client may
   import any header that is finalized by this set;
 
 - when validators set changes, the GRANDPA gadget adds next set to the header. So light client doesn't need to
@@ -38,11 +38,11 @@ There are two main things in GRANDPA that help building light clients:
 
 ## Pallet Operations
 
-The main entrypoint of the pallet is the `submit_finality_proof` call. It has two arguments - the finalized
-headers and associated GRANDPA justification. The call simply verifies the justification using current
-validators set and checks if header is better than the previous best header. If both checks are passed, the
-header (only its useful fields) is inserted into the runtime storage and may be used by other pallets to verify
-storage proofs.
+The main entrypoint of the pallet is the `submit_finality_proof_ex` call. It has three arguments - the finalized
+headers, associated GRANDPA justification and ID of the authority set that has generated this justification. The
+call simply verifies the justification using current validators set and checks if header is better than the
+previous best header. If both checks are passed, the header (only its useful fields) is inserted into the runtime
+storage and may be used by other pallets to verify storage proofs.
 
 The submitter pays regular fee for submitting all headers, except for the mandatory header. Since it is
 required for the pallet operations, submitting such header is free. So if you're ok with session-length

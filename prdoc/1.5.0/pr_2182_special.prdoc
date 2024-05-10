@@ -1,0 +1,9 @@
+title: "remove retry from backers on failed candidate validation"
+author: Jpserrat
+topic: Node
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

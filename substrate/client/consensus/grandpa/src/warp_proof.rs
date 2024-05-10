@@ -23,7 +23,7 @@ use crate::{
 	BlockNumberOps, GrandpaJustification, SharedAuthoritySet,
 };
 use sc_client_api::Backend as ClientBackend;
-use sc_network_sync::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
+use sc_network_sync::strategy::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
@@ -249,7 +249,7 @@ impl<Block: BlockT, Backend: ClientBackend<Block>> NetworkProvider<Block, Backen
 where
 	NumberFor<Block>: BlockNumberOps,
 {
-	/// Create a new istance for a given backend and authority set.
+	/// Create a new instance for a given backend and authority set.
 	pub fn new(
 		backend: Arc<Backend>,
 		authority_set: SharedAuthoritySet<Block::Hash, NumberFor<Block>>,

@@ -45,8 +45,8 @@ pub struct FromQueue {
 	/// Identifier of an artifact.
 	pub(crate) artifact_id: ArtifactId,
 	/// Outcome of the PVF processing. [`Ok`] indicates that compiled artifact
-	/// is successfully stored on disk. Otherwise, an [error](crate::error::PrepareError)
-	/// is supplied.
+	/// is successfully stored on disk. Otherwise, an
+	/// [error](polkadot_node_core_pvf_common::error::PrepareError) is supplied.
 	pub(crate) result: PrepareResult,
 }
 

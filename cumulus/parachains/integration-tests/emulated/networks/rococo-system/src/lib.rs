@@ -16,11 +16,13 @@
 pub use asset_hub_rococo_emulated_chain;
 pub use bridge_hub_rococo_emulated_chain;
 pub use penpal_emulated_chain;
+pub use people_rococo_emulated_chain;
 pub use rococo_emulated_chain;
 
 use asset_hub_rococo_emulated_chain::AssetHubRococo;
 use bridge_hub_rococo_emulated_chain::BridgeHubRococo;
 use penpal_emulated_chain::{PenpalA, PenpalB};
+use people_rococo_emulated_chain::PeopleRococo;
 use rococo_emulated_chain::Rococo;
 
 // Cumulus
@@ -37,6 +39,7 @@ decl_test_networks! {
 			BridgeHubRococo,
 			PenpalA,
 			PenpalB,
+			PeopleRococo,
 		],
 		bridge = ()
 	},
@@ -47,5 +50,6 @@ decl_test_sender_receiver_accounts_parameter_types! {
 	AssetHubRococoPara { sender: ALICE, receiver: BOB },
 	BridgeHubRococoPara { sender: ALICE, receiver: BOB },
 	PenpalAPara { sender: ALICE, receiver: BOB },
-	PenpalBPara { sender: ALICE, receiver: BOB }
+	PenpalBPara { sender: ALICE, receiver: BOB },
+	PeopleRococoPara { sender: ALICE, receiver: BOB }
 }

@@ -18,10 +18,10 @@
 //! Common traits and types that are useful for describing offences for usage in environments
 //! that use staking.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_core::Get;
 use sp_runtime::{transaction_validity::TransactionValidityError, DispatchError, Perbill};
-use sp_std::vec::Vec;
 
 use crate::SessionIndex;
 
@@ -36,29 +36,6 @@ pub type Kind = [u8; 16];
 /// This counter keeps track of how many times the authority was already reported in the past,
 /// so that we can slash it accordingly.
 pub type OffenceCount = u32;
-
-/// In case of an offence, which conditions get an offending validator disabled.
-#[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	Hash,
-	PartialOrd,
-	Ord,
-	Encode,
-	Decode,
-	sp_runtime::RuntimeDebug,
-	scale_info::TypeInfo,
-)]
-pub enum DisableStrategy {
-	/// Independently of slashing, this offence will not disable the offender.
-	Never,
-	/// Only disable the offender if it is also slashed.
-	WhenSlashed,
-	/// Independently of slashing, this offence will always disable the offender.
-	Always,
-}
 
 /// A trait implemented by an offence report.
 ///
@@ -102,11 +79,6 @@ pub trait Offence<Offender> {
 	/// number. Note that for GRANDPA the round number is reset each epoch.
 	fn time_slot(&self) -> Self::TimeSlot;
 
-	/// In which cases this offence needs to disable offenders until the next era starts.
-	fn disable_strategy(&self) -> DisableStrategy {
-		DisableStrategy::WhenSlashed
-	}
-
 	/// A slash fraction of the total exposure that should be slashed for this
 	/// particular offence for the `offenders_count` that happened at a singular `TimeSlot`.
 	///
@@ -117,7 +89,7 @@ pub trait Offence<Offender> {
 /// Errors that may happen on offence reports.
 #[derive(PartialEq, sp_runtime::RuntimeDebug)]
 pub enum OffenceError {
-	/// The report has already been sumbmitted.
+	/// The report has already been submitted.
 	DuplicateReport,
 
 	/// Other error has happened.
@@ -177,15 +149,12 @@ pub trait OnOffenceHandler<Reporter, Offender, Res> {
 	///
 	/// The `session` parameter is the session index of the offence.
 	///
-	/// The `disable_strategy` parameter decides if the offenders need to be disabled immediately.
-	///
 	/// The receiver might decide to not accept this offence. In this case, the call site is
 	/// responsible for queuing the report and re-submitting again.
 	fn on_offence(
 		offenders: &[OffenceDetails<Reporter, Offender>],
 		slash_fraction: &[Perbill],
 		session: SessionIndex,
-		disable_strategy: DisableStrategy,
 	) -> Res;
 }
 
@@ -194,7 +163,6 @@ impl<Reporter, Offender, Res: Default> OnOffenceHandler<Reporter, Offender, Res>
 		_offenders: &[OffenceDetails<Reporter, Offender>],
 		_slash_fraction: &[Perbill],
 		_session: SessionIndex,
-		_disable_strategy: DisableStrategy,
 	) -> Res {
 		Default::default()
 	}

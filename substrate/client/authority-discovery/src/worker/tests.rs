@@ -29,16 +29,11 @@ use futures::{
 	sink::SinkExt,
 	task::LocalSpawn,
 };
-use libp2p::{
-	core::multiaddr,
-	identity::{Keypair, SigningError},
-	kad::record::Key as KademliaKey,
-	PeerId,
-};
+use libp2p::{core::multiaddr, identity::SigningError, kad::record::Key as KademliaKey, PeerId};
 use prometheus_endpoint::prometheus::default_registry;
 
 use sc_client_api::HeaderBackend;
-use sc_network::Signature;
+use sc_network::{service::signature::Keypair, Signature};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
@@ -122,7 +117,7 @@ pub enum TestNetworkEvent {
 }
 
 pub struct TestNetwork {
-	peer_id: PeerId,
+	peer_id: sc_network_types::PeerId,
 	identity: Keypair,
 	external_addresses: Vec<Multiaddr>,
 	// Whenever functions on `TestNetwork` are called, the function arguments are added to the
@@ -158,9 +153,24 @@ impl Default for TestNetwork {
 impl NetworkSigner for TestNetwork {
 	fn sign_with_local_identity(
 		&self,
-		msg: impl AsRef<[u8]>,
+		msg: Vec<u8>,
 	) -> std::result::Result<Signature, SigningError> {
 		Signature::sign_message(msg, &self.identity)
+	}
+
+	fn verify(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		public_key: &Vec<u8>,
+		signature: &Vec<u8>,
+		message: &Vec<u8>,
+	) -> std::result::Result<bool, String> {
+		let public_key = libp2p::identity::PublicKey::try_decode_protobuf(&public_key)
+			.map_err(|error| error.to_string())?;
+		let peer_id: PeerId = peer_id.into();
+		let remote: libp2p::PeerId = public_key.to_peer_id();
+
+		Ok(peer_id == remote && public_key.verify(message, signature))
 	}
 }
 
@@ -182,8 +192,8 @@ impl NetworkDHTProvider for TestNetwork {
 }
 
 impl NetworkStateInfo for TestNetwork {
-	fn local_peer_id(&self) -> PeerId {
-		self.peer_id
+	fn local_peer_id(&self) -> sc_network_types::PeerId {
+		self.peer_id.into()
 	}
 
 	fn external_addresses(&self) -> Vec<Multiaddr> {
@@ -202,9 +212,19 @@ struct TestSigner<'a> {
 impl<'a> NetworkSigner for TestSigner<'a> {
 	fn sign_with_local_identity(
 		&self,
-		msg: impl AsRef<[u8]>,
+		msg: Vec<u8>,
 	) -> std::result::Result<Signature, SigningError> {
 		Signature::sign_message(msg, self.keypair)
+	}
+
+	fn verify(
+		&self,
+		_: sc_network_types::PeerId,
+		_: &Vec<u8>,
+		_: &Vec<u8>,
+		_: &Vec<u8>,
+	) -> std::result::Result<bool, String> {
+		unimplemented!();
 	}
 }
 
@@ -500,7 +520,6 @@ struct DhtValueFoundTester {
 	pub local_worker: Option<
 		Worker<
 			TestApi,
-			TestNetwork,
 			sp_runtime::generic::Block<
 				sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>,
 				substrate_test_runtime_client::runtime::Extrinsic,
@@ -716,12 +735,16 @@ fn addresses_to_publish_adds_p2p() {
 #[test]
 fn addresses_to_publish_respects_existing_p2p_protocol() {
 	let (_dht_event_tx, dht_event_rx) = channel(1000);
+	let identity = Keypair::generate_ed25519();
+	let peer_id = identity.public().to_peer_id();
+	let external_address = "/ip6/2001:db8::/tcp/30333"
+		.parse::<Multiaddr>()
+		.unwrap()
+		.with(multiaddr::Protocol::P2p(peer_id.into()));
 	let network: Arc<TestNetwork> = Arc::new(TestNetwork {
-		external_addresses: vec![
-			"/ip6/2001:db8::/tcp/30333/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC"
-				.parse()
-				.unwrap(),
-		],
+		peer_id,
+		identity,
+		external_addresses: vec![external_address],
 		..Default::default()
 	});
 

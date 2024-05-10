@@ -25,6 +25,7 @@ use sp_runtime::DispatchError;
 
 // GENERAL SUCCESS/POSITIVE TESTS ---------------------
 
+#[docify::export]
 #[test]
 fn can_pause_specific_call() {
 	new_test_ext().execute_with(|| {
@@ -43,6 +44,7 @@ fn can_pause_specific_call() {
 	});
 }
 
+#[docify::export]
 #[test]
 fn can_pause_all_calls_in_pallet_except_on_whitelist() {
 	new_test_ext().execute_with(|| {
@@ -64,6 +66,7 @@ fn can_pause_all_calls_in_pallet_except_on_whitelist() {
 	});
 }
 
+#[docify::export]
 #[test]
 fn can_unpause_specific_call() {
 	new_test_ext().execute_with(|| {

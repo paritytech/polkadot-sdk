@@ -68,6 +68,18 @@ pub enum Error {
 		/// Name of the protocol registered multiple times.
 		protocol: ProtocolName,
 	},
+	/// Peer does not exist.
+	#[error("Peer `{0}` does not exist.")]
+	PeerDoesntExist(PeerId),
+	/// Channel closed.
+	#[error("Channel closed")]
+	ChannelClosed,
+	/// Connection closed.
+	#[error("Connection closed")]
+	ConnectionClosed,
+	/// Litep2p error.
+	#[error("Litep2p error: `{0}`")]
+	Litep2p(litep2p::Error),
 }
 
 // Make `Debug` use the `Display` implementation.

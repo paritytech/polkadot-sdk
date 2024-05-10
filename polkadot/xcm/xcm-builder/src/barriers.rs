@@ -34,7 +34,7 @@ use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecut
 pub struct TakeWeightCredit;
 impl ShouldExecute for TakeWeightCredit {
 	fn should_execute<RuntimeCall>(
-		_origin: &MultiLocation,
+		_origin: &Location,
 		_instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
@@ -60,9 +60,9 @@ const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 2;
 /// Only allows for `TeleportAsset`, `WithdrawAsset`, `ClaimAsset` and `ReserveAssetDeposit` XCMs
 /// because they are the only ones that place assets in the Holding Register to pay for execution.
 pub struct AllowTopLevelPaidExecutionFrom<T>(PhantomData<T>);
-impl<T: Contains<MultiLocation>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> {
+impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> {
 	fn should_execute<RuntimeCall>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		_properties: &mut Properties,
@@ -142,7 +142,7 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowTopLevelPaidExecutionFro
 /// In the above example, `AllowUnpaidExecutionFrom` appears once underneath
 /// `WithComputedOrigin`. This is in order to distinguish between messages which are notionally
 /// from a derivative location of `ParentLocation` but that just happened to be sent via
-/// `ParentLocaction` rather than messages that were sent by the parent.
+/// `ParentLocation` rather than messages that were sent by the parent.
 ///
 /// Similarly `AllowTopLevelPaidExecutionFrom` appears twice: once inside of `WithComputedOrigin`
 /// where we provide the list of origins which are derivative origins, and then secondly outside
@@ -158,14 +158,11 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowTopLevelPaidExecutionFro
 pub struct WithComputedOrigin<InnerBarrier, LocalUniversal, MaxPrefixes>(
 	PhantomData<(InnerBarrier, LocalUniversal, MaxPrefixes)>,
 );
-impl<
-		InnerBarrier: ShouldExecute,
-		LocalUniversal: Get<InteriorMultiLocation>,
-		MaxPrefixes: Get<u32>,
-	> ShouldExecute for WithComputedOrigin<InnerBarrier, LocalUniversal, MaxPrefixes>
+impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPrefixes: Get<u32>>
+	ShouldExecute for WithComputedOrigin<InnerBarrier, LocalUniversal, MaxPrefixes>
 {
 	fn should_execute<Call>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
 		properties: &mut Properties,
@@ -175,7 +172,7 @@ impl<
 			"WithComputedOrigin origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
 			origin, instructions, max_weight, properties,
 		);
-		let mut actual_origin = *origin;
+		let mut actual_origin = origin.clone();
 		let skipped = Cell::new(0usize);
 		// NOTE: We do not check the validity of `UniversalOrigin` here, meaning that a malicious
 		// origin could place a `UniversalOrigin` in order to spoof some location which gets free
@@ -190,10 +187,11 @@ impl<
 						// Note the origin is *relative to local consensus*! So we need to escape
 						// local consensus with the `parents` before diving in into the
 						// `universal_location`.
-						actual_origin = X1(*new_global).relative_to(&LocalUniversal::get());
+						actual_origin =
+							Junctions::from([*new_global]).relative_to(&LocalUniversal::get());
 					},
 					DescendOrigin(j) => {
-						let Ok(_) = actual_origin.append_with(*j) else {
+						let Ok(_) = actual_origin.append_with(j.clone()) else {
 							return Err(ProcessMessageError::Unsupported)
 						};
 					},
@@ -221,7 +219,7 @@ impl<
 pub struct TrailingSetTopicAsId<InnerBarrier>(PhantomData<InnerBarrier>);
 impl<InnerBarrier: ShouldExecute> ShouldExecute for TrailingSetTopicAsId<InnerBarrier> {
 	fn should_execute<Call>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
 		properties: &mut Properties,
@@ -250,7 +248,7 @@ where
 	SuspensionChecker: CheckSuspension,
 {
 	fn should_execute<Call>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
 		properties: &mut Properties,
@@ -268,9 +266,9 @@ where
 /// Use only for executions from completely trusted origins, from which no permissionless messages
 /// can be sent.
 pub struct AllowUnpaidExecutionFrom<T>(PhantomData<T>);
-impl<T: Contains<MultiLocation>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
+impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 	fn should_execute<RuntimeCall>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
@@ -290,9 +288,9 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 ///
 /// Use only for executions from trusted origin groups.
 pub struct AllowExplicitUnpaidExecutionFrom<T>(PhantomData<T>);
-impl<T: Contains<MultiLocation>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T> {
+impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T> {
 	fn should_execute<Call>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
 		_properties: &mut Properties,
@@ -314,13 +312,36 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowExplicitUnpaidExecutionF
 
 /// Allows a message only if it is from a system-level child parachain.
 pub struct IsChildSystemParachain<ParaId>(PhantomData<ParaId>);
-impl<ParaId: IsSystem + From<u32>> Contains<MultiLocation> for IsChildSystemParachain<ParaId> {
-	fn contains(l: &MultiLocation) -> bool {
+impl<ParaId: IsSystem + From<u32>> Contains<Location> for IsChildSystemParachain<ParaId> {
+	fn contains(l: &Location) -> bool {
 		matches!(
-			l.interior(),
-			Junctions::X1(Junction::Parachain(id))
+			l.interior().as_slice(),
+			[Junction::Parachain(id)]
 				if ParaId::from(*id).is_system() && l.parent_count() == 0,
 		)
+	}
+}
+
+/// Matches if the given location is a system-level sibling parachain.
+pub struct IsSiblingSystemParachain<ParaId, SelfParaId>(PhantomData<(ParaId, SelfParaId)>);
+impl<ParaId: IsSystem + From<u32> + Eq, SelfParaId: Get<ParaId>> Contains<Location>
+	for IsSiblingSystemParachain<ParaId, SelfParaId>
+{
+	fn contains(l: &Location) -> bool {
+		matches!(
+			l.unpack(),
+			(1, [Junction::Parachain(id)])
+				if SelfParaId::get() != ParaId::from(*id) && ParaId::from(*id).is_system(),
+		)
+	}
+}
+
+/// Matches if the given location contains only the specified amount of parents and no interior
+/// junctions.
+pub struct IsParentsOnly<Count>(PhantomData<Count>);
+impl<Count: Get<u8>> Contains<Location> for IsParentsOnly<Count> {
+	fn contains(t: &Location) -> bool {
+		t.contains_parents_only(Count::get())
 	}
 }
 
@@ -328,7 +349,7 @@ impl<ParaId: IsSystem + From<u32>> Contains<MultiLocation> for IsChildSystemPara
 pub struct AllowKnownQueryResponses<ResponseHandler>(PhantomData<ResponseHandler>);
 impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<ResponseHandler> {
 	fn should_execute<RuntimeCall>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
@@ -354,9 +375,9 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 /// Allows execution from `origin` if it is just a straight `SubscribeVersion` or
 /// `UnsubscribeVersion` instruction.
 pub struct AllowSubscriptionsFrom<T>(PhantomData<T>);
-impl<T: Contains<MultiLocation>> ShouldExecute for AllowSubscriptionsFrom<T> {
+impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
 	fn should_execute<RuntimeCall>(
-		origin: &MultiLocation,
+		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
@@ -378,6 +399,41 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowSubscriptionsFrom<T> {
 	}
 }
 
+/// Allows execution for the Relay Chain origin (represented as `Location::parent()`) if it is just
+/// a straight `HrmpNewChannelOpenRequest`, `HrmpChannelAccepted`, or `HrmpChannelClosing`
+/// instruction.
+///
+/// Note: This barrier fulfills safety recommendations for the mentioned instructions - see their
+/// documentation.
+pub struct AllowHrmpNotificationsFromRelayChain;
+impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		log::trace!(
+			target: "xcm::barriers",
+			"AllowHrmpNotificationsFromRelayChain origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
+			origin, instructions, _max_weight, _properties,
+		);
+		// accept only the Relay Chain
+		ensure!(matches!(origin.unpack(), (1, [])), ProcessMessageError::Unsupported);
+		// accept only HRMP notifications and nothing else
+		instructions
+			.matcher()
+			.assert_remaining_insts(1)?
+			.match_next_inst(|inst| match inst {
+				HrmpNewChannelOpenRequest { .. } |
+				HrmpChannelAccepted { .. } |
+				HrmpChannelClosing { .. } => Ok(()),
+				_ => Err(ProcessMessageError::BadFormat),
+			})?;
+		Ok(())
+	}
+}
+
 /// Deny executing the XCM if it matches any of the Deny filter regardless of anything else.
 /// If it passes the Deny, and matches one of the Allow cases then it is let through.
 pub struct DenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
@@ -391,7 +447,7 @@ where
 	Allow: ShouldExecute,
 {
 	fn should_execute<RuntimeCall>(
-		origin: &MultiLocation,
+		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
@@ -405,7 +461,7 @@ where
 pub struct DenyReserveTransferToRelayChain;
 impl ShouldExecute for DenyReserveTransferToRelayChain {
 	fn should_execute<RuntimeCall>(
-		origin: &MultiLocation,
+		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
@@ -414,22 +470,18 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 			|_| true,
 			|inst| match inst {
 				InitiateReserveWithdraw {
-					reserve: MultiLocation { parents: 1, interior: Here },
+					reserve: Location { parents: 1, interior: Here },
 					..
 				} |
-				DepositReserveAsset {
-					dest: MultiLocation { parents: 1, interior: Here }, ..
-				} |
-				TransferReserveAsset {
-					dest: MultiLocation { parents: 1, interior: Here }, ..
-				} => {
+				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
+				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
 					Err(ProcessMessageError::Unsupported) // Deny
 				},
 
 				// An unexpected reserve transfer has arrived from the Relay Chain. Generally,
 				// `IsReserve` should not allow this, but we just log it here.
 				ReserveAssetDeposited { .. }
-					if matches!(origin, MultiLocation { parents: 1, interior: Here }) =>
+					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
 					log::warn!(
 						target: "xcm::barrier",

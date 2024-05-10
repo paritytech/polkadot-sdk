@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::worker_intf::{self, Outcome};
+use super::worker_interface::{self, Outcome};
 use crate::{
 	metrics::Metrics,
-	worker_intf::{IdleWorker, WorkerHandle},
+	worker_interface::{IdleWorker, WorkerHandle},
 	LOG_TARGET,
 };
 use always_assert::never;
@@ -278,7 +278,7 @@ async fn spawn_worker_task(
 	use futures_timer::Delay;
 
 	loop {
-		match worker_intf::spawn(
+		match worker_interface::spawn(
 			&program_path,
 			&cache_path,
 			spawn_timeout,
@@ -306,7 +306,7 @@ async fn start_work_task<Timer>(
 	cache_path: PathBuf,
 	_preparation_timer: Option<Timer>,
 ) -> PoolEvent {
-	let outcome = worker_intf::start_work(&metrics, idle, pvf, cache_path).await;
+	let outcome = worker_interface::start_work(&metrics, idle, pvf, cache_path).await;
 	PoolEvent::StartWork(worker, outcome)
 }
 

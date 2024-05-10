@@ -103,7 +103,8 @@ pub mod fee {
 
 /// System Parachains.
 pub mod system_parachain {
-	use xcm::latest::prelude::*;
+	use primitives::Id;
+	use xcm_builder::IsChildSystemParachain;
 
 	/// Network's Asset Hub parachain ID.
 	pub const ASSET_HUB_ID: u32 = 1000;
@@ -111,14 +112,15 @@ pub mod system_parachain {
 	pub const CONTRACTS_ID: u32 = 1002;
 	/// Encointer parachain ID.
 	pub const ENCOINTER_ID: u32 = 1003;
+	/// People parachain ID.
+	pub const PEOPLE_ID: u32 = 1004;
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1013;
+	/// Brokerage parachain ID.
+	pub const BROKER_ID: u32 = 1005;
 
-	frame_support::match_types! {
-		pub type SystemParachains: impl Contains<MultiLocation> = {
-			MultiLocation { parents: 0, interior: X1(Parachain(ASSET_HUB_ID | CONTRACTS_ID | ENCOINTER_ID | BRIDGE_HUB_ID)) }
-		};
-	}
+	/// All system parachains of Rococo.
+	pub type SystemParachains = IsChildSystemParachain<Id>;
 }
 
 /// Rococo Treasury pallet instance.

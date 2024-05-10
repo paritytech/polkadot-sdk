@@ -23,15 +23,15 @@ pub mod relay_chain;
 mod tests;
 
 use crate::primitives::{AccountId, UNITS};
+pub use pallet_contracts::test_utils::{ALICE, BOB};
 use sp_runtime::BuildStorage;
-use xcm::latest::{prelude::*, MultiLocation};
+use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
-use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
+pub use xcm_simulator::TestExt;
+use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 // Accounts
 pub const ADMIN: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
-pub const ALICE: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([1u8; 32]);
-pub const BOB: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([2u8; 32]);
 
 // Balances
 pub const INITIAL_BALANCE: u128 = 1_000_000_000 * UNITS;
@@ -67,12 +67,12 @@ decl_test_network! {
 }
 
 pub fn relay_sovereign_account_id() -> AccountId {
-	let location: MultiLocation = (Parent,).into();
+	let location: Location = (Parent,).into();
 	parachain::SovereignAccountOf::convert_location(&location).unwrap()
 }
 
 pub fn parachain_sovereign_account_id(para: u32) -> AccountId {
-	let location: MultiLocation = (Parachain(para),).into();
+	let location: Location = (Parachain(para),).into();
 	relay_chain::SovereignAccountOf::convert_location(&location).unwrap()
 }
 
@@ -80,7 +80,7 @@ pub fn parachain_account_sovereign_account_id(
 	para: u32,
 	who: sp_runtime::AccountId32,
 ) -> AccountId {
-	let location: MultiLocation = (
+	let location: Location = (
 		Parachain(para),
 		AccountId32 { network: Some(relay_chain::RelayNetwork::get()), id: who.into() },
 	)

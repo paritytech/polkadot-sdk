@@ -25,9 +25,13 @@ use sc_cli::{Error, Result};
 use sc_client_api::{
 	Backend as ClientBackend, BlockBackend, HeaderBackend, StorageProvider, UsageProvider,
 };
-use sp_api::{ApiExt, Core, HeaderT, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, ProvideRuntimeApi};
 use sp_blockchain::Error::RuntimeApiError;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, DigestItem, OpaqueExtrinsic};
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block as BlockT, Header as HeaderT},
+	DigestItem, OpaqueExtrinsic,
+};
 use sp_storage::StorageKey;
 
 use clap::Args;

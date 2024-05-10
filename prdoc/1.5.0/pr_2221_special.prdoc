@@ -1,0 +1,9 @@
+title: "PVF worker: switch on seccomp networking restrictions"
+author: mrcnski
+topic: Node
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

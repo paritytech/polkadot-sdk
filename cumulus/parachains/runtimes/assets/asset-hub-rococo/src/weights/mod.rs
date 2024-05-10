@@ -15,12 +15,12 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 pub mod block_weights;
-pub mod cumulus_pallet_dmp_queue;
 pub mod cumulus_pallet_parachain_system;
 pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
 pub mod frame_system;
 pub mod pallet_asset_conversion;
+pub mod pallet_asset_conversion_ops;
 pub mod pallet_assets_foreign;
 pub mod pallet_assets_local;
 pub mod pallet_assets_pool;
@@ -43,5 +43,4 @@ pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
-pub use paritydb_weights::constants::ParityDbWeight;
 pub use rocksdb_weights::constants::RocksDbWeight;

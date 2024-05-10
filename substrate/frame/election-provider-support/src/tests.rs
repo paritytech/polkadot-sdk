@@ -29,7 +29,7 @@ mod solution_type {
 	// these need to come from the same dev-dependency `frame-election-provider-support`, not from
 	// the crate.
 	use crate::{generate_solution_type, Assignment, Error as NposError, NposSolution};
-	use sp_std::fmt::Debug;
+	use core::fmt::Debug;
 
 	#[allow(dead_code)]
 	mod __private {

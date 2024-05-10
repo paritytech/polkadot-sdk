@@ -16,7 +16,7 @@
 
 use criterion::{criterion_group, criterion_main, Criterion, SamplingMode};
 use polkadot_node_core_pvf_common::{
-	executor_intf::{prepare, prevalidate},
+	executor_interface::{prepare, prevalidate},
 	prepare::PrepareJobKind,
 	pvf::PvfPrepData,
 };

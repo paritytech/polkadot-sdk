@@ -25,7 +25,7 @@ use futures::{
 	Future, FutureExt, StreamExt,
 };
 
-use sc_network as network;
+use sc_network::{self as network, ProtocolName};
 use sp_keyring::Sr25519Keyring;
 
 use polkadot_node_network_protocol::request_response::{v1, Recipient};
@@ -252,7 +252,7 @@ impl TestRun {
 						}
 					}
 					req.pending_response
-						.send(response.map(Encode::encode))
+						.send(response.map(|r| (r.encode(), ProtocolName::from(""))))
 						.expect("Sending response should succeed");
 				}
 				return (valid_responses == 0) && self.valid_chunks.is_empty()

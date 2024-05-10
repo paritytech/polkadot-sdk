@@ -23,12 +23,12 @@ use xcm::{prelude::*, DoubleEncoded};
 pub fn xcm_transact_paid_execution(
 	call: DoubleEncoded<()>,
 	origin_kind: OriginKind,
-	native_asset: MultiAsset,
+	native_asset: Asset,
 	beneficiary: AccountId,
 ) -> VersionedXcm<()> {
 	let weight_limit = WeightLimit::Unlimited;
 	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
-	let native_assets: MultiAssets = native_asset.clone().into();
+	let native_assets: Assets = native_asset.clone().into();
 
 	VersionedXcm::from(Xcm(vec![
 		WithdrawAsset(native_assets),
@@ -37,9 +37,9 @@ pub fn xcm_transact_paid_execution(
 		RefundSurplus,
 		DepositAsset {
 			assets: All.into(),
-			beneficiary: MultiLocation {
+			beneficiary: Location {
 				parents: 0,
-				interior: X1(AccountId32 { network: None, id: beneficiary.into() }),
+				interior: [AccountId32 { network: None, id: beneficiary.into() }].into(),
 			},
 		},
 	]))
@@ -58,4 +58,14 @@ pub fn xcm_transact_unpaid_execution(
 		UnpaidExecution { weight_limit, check_origin },
 		Transact { require_weight_at_most, origin_kind, call },
 	]))
+}
+
+/// Helper method to get the non-fee asset used in multiple assets transfer
+pub fn non_fee_asset(assets: &Assets, fee_idx: usize) -> Option<(Location, u128)> {
+	let asset = assets.inner().into_iter().enumerate().find(|a| a.0 != fee_idx)?.1.clone();
+	let asset_amount = match asset.fun {
+		Fungible(amount) => amount,
+		_ => return None,
+	};
+	Some((asset.id.0, asset_amount))
 }

@@ -1,4 +1,4 @@
-error: expected one of: `Pallet`, `Call`, `Storage`, `Event`, `Error`, `Config`, `Origin`, `Inherent`, `ValidateUnsigned`, `FreezeReason`, `HoldReason`, `LockId`, `SlashReason`
+error: expected one of: `Pallet`, `Call`, `Storage`, `Event`, `Error`, `Config`, `Origin`, `Inherent`, `ValidateUnsigned`, `FreezeReason`, `HoldReason`, `Task`, `LockId`, `SlashReason`
   --> tests/construct_runtime_ui/invalid_module_details_keyword.rs:23:20
    |
 23 |         system: System::{enum},

@@ -40,10 +40,6 @@ fn make_db() -> (DbBackend, Arc<dyn Database>) {
 	(DbBackend::new(db_writer.clone(), TEST_CONFIG), db_writer)
 }
 
-fn make_bitvec(len: usize) -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; len]
-}
-
 fn make_block_entry(
 	block_hash: Hash,
 	parent_hash: Hash,
@@ -258,7 +254,7 @@ fn canonicalize_works() {
 	//   -> B1 -> C1 -> D1
 	// A -> B2 -> C2 -> D2
 	//
-	// We'll canonicalize C1. Everytning except D1 should disappear.
+	// We'll canonicalize C1. Everything except D1 should disappear.
 	//
 	// Candidates:
 	// Cand1 in B2

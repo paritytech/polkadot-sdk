@@ -19,25 +19,25 @@
 
 #![cfg(test)]
 
-use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet};
+use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet, TotalIssuance};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop,
+	assert_err, assert_noop, assert_ok, assert_storage_noop, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
-		fungible, ConstU32, ConstU64, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
-		StorageMapShim, StoredMap, VariantCount, WhitelistedStorageKeys,
+		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
+		StoredMap, VariantCount, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
 use frame_system::{self as system, RawOrigin};
-use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter, Multiplier};
+use pallet_transaction_payment::{ChargeTransactionPayment, FungibleAdapter, Multiplier};
 use scale_info::TypeInfo;
-use sp_core::{hexdisplay::HexDisplay, H256};
+use sp_core::hexdisplay::HexDisplay;
 use sp_io;
 use sp_runtime::{
-	traits::{BadOrigin, IdentityLookup, SignedExtension, Zero},
+	traits::{BadOrigin, SignedExtension, Zero},
 	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug,
 	TokenError,
 };
@@ -47,6 +47,7 @@ mod currency_tests;
 mod dispatchable_tests;
 mod fungible_conformance_tests;
 mod fungible_tests;
+mod general_tests;
 mod reentrancy_tests;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -75,11 +76,10 @@ impl VariantCount for TestId {
 }
 
 frame_support::construct_runtime!(
-	pub struct Test
-	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
+	pub enum Test {
+		System: frame_system,
+		Balances: pallet_balances,
+		TransactionPayment: pallet_transaction_payment,
 	}
 );
 
@@ -90,43 +90,27 @@ parameter_types! {
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = super::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Pallet<Test>, ()>;
+	type OnChargeTransaction = FungibleAdapter<Pallet<Test>, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;
 	type FeeMultiplierUpdate = ();
 }
 
+pub(crate) type Balance = u64;
+
 impl Config for Test {
-	type Balance = u64;
+	type Balance = Balance;
 	type DustRemoval = DustTrap;
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
@@ -139,7 +123,6 @@ impl Config for Test {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
-	type MaxHolds = ConstU32<3>;
 }
 
 #[derive(Clone)]
@@ -294,6 +277,23 @@ pub fn events() -> Vec<RuntimeEvent> {
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
 	DispatchInfo { weight: w, ..Default::default() }
+}
+
+/// Check that the total-issuance matches the sum of all accounts' total balances.
+pub fn ensure_ti_valid() {
+	let mut sum = 0;
+
+	for acc in frame_system::Account::<Test>::iter_keys() {
+		if UseSystem::get() {
+			let data = frame_system::Pallet::<Test>::account(acc);
+			sum += data.data.total();
+		} else {
+			let data = crate::Account::<Test>::get(acc);
+			sum += data.total();
+		}
+	}
+
+	assert_eq!(TotalIssuance::<Test>::get(), sum, "Total Issuance wrong");
 }
 
 #[test]
