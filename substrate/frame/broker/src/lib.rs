@@ -120,6 +120,9 @@ pub mod pallet {
 		/// Maximum number of system cores.
 		#[pallet::constant]
 		type MaxReservedCores: Get<u32>;
+
+		#[pallet::constant]
+		type MaxAutoRenewals: Get<u32>;
 	}
 
 	/// The current configuration of this pallet.
@@ -178,15 +181,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
-	/// Storage map storing the tasks for cores which have auto-renewal enabled.
-	///
-	/// If `None` auto-renewal is disabled.
-	//
-	// Safe to use `Twox64Concat` given that users have no real flexibility manipulating its value.
-	//
-	// TODO: Should probably make this a bounded vec instead.
+	/// Keeping track of cores which have auto-renewal enabled.
 	#[pallet::storage]
-	pub type AutoRenewals<T: Config> = StorageMap<_, Twox64Concat, CoreIndex, TaskId, OptionQuery>;
+	pub type AutoRenewals<T: Config> =
+		StorageValue<_, BoundedVec<(CoreIndex, TaskId), T::MaxAutoRenewals>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -829,7 +827,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// TODO: ensure origin is the parachain's sovereign account.
 
-			let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+			let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
 			// If the core hasn't been renewed yet we will renew it now.
 			let record = if let Some(record) =
@@ -857,7 +855,13 @@ pub mod pallet {
 				todo!();
 			};
 
-			AutoRenewals::<T>::insert(core, task_id);
+			AutoRenewals::<T>::try_mutate(|renewals| {
+				let pos = renewals
+					.binary_search_by(|r: &(CoreIndex, TaskId)| r.0.cmp(&core))
+					.unwrap_or_else(|e| e);
+				renewals.try_insert(pos, (core, task_id))
+			})
+			.map_err(|_| Error::<T>::NotAllowed)?; // TODO: custom error
 
 			// The caller must pay for the transaction otherwise spamming would be possible by
 			// turning auto-renewal on and off.

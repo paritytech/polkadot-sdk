@@ -21,7 +21,7 @@ use sp_arithmetic::{
 	traits::{One, SaturatedConversion, Saturating, Zero},
 	FixedPointNumber,
 };
-use sp_runtime::traits::ConvertBack;
+use sp_runtime::traits::{Convert, ConvertBack};
 use sp_std::{vec, vec::Vec};
 use CompletionStatus::Complete;
 
@@ -238,6 +238,8 @@ impl<T: Config> Pallet<T> {
 		});
 		Leases::<T>::put(&leases);
 
+		Self::renew_cores();
+
 		let max_possible_sales = status.core_count.saturating_sub(first_core);
 		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::max_value());
 		let cores_offered = limit_cores_offered.min(max_possible_sales);
@@ -328,5 +330,16 @@ impl<T: Config> Pallet<T> {
 		}
 		T::Coretime::assign_core(core, rc_begin, assignment.clone(), None);
 		Self::deposit_event(Event::<T>::CoreAssigned { core, when: rc_begin, assignment });
+	}
+
+	/// Renews all the cores which have auto-renewal enabled.
+	pub(crate) fn renew_cores() {
+		let renewals = AutoRenewals::<T>::get();
+		renewals.iter().for_each(|(core, task_id)| {
+			let payer = T::SovereignAccountOf::convert(*task_id);
+			if let Err(_) = Self::do_renew(payer, *core) {
+				// TODO: emit event
+			}
+		});
 	}
 }
