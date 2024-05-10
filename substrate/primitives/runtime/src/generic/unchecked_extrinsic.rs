@@ -735,10 +735,15 @@ mod tests {
 
 	#[test]
 	fn signed_check_should_work() {
+		let sig_payload = SignedPayload::from_raw(
+			FakeDispatchable::from(vec![0u8; 0]),
+			DummyExtension,
+			DummyExtension.implicit().unwrap(),
+		);
 		let ux = Ex::new_signed(
 			vec![0u8; 0].into(),
 			TEST_ACCOUNT,
-			TestSig(TEST_ACCOUNT, (vec![0u8; 0], DummyExtension).encode()),
+			TestSig(TEST_ACCOUNT, sig_payload.encode()),
 			DummyExtension,
 		);
 		assert!(!ux.is_inherent());
