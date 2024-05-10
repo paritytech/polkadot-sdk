@@ -828,6 +828,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#677" id="677">677</a>
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -970,6 +974,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.add_directive(
 			parse_default_directive(<span class="string">"libp2p_mdns::behaviour::iface=off"</span>)
+				.expect(<span class="string">"provided directive is valid"</span>),
+		)
+		.add_directive(
+			parse_default_directive(<span class="string">"rustls::common_state=off"</span>)
 				.expect(<span class="string">"provided directive is valid"</span>),
 		);
 
