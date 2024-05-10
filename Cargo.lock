@@ -5793,7 +5793,7 @@ dependencies = [
 name = "frame-metadata-hash-extension"
 version = "0.1.0"
 dependencies = [
- "array-bytes 6.2.2",
+ "array-bytes",
  "docify",
  "frame-support",
  "frame-system",
@@ -8372,7 +8372,7 @@ name = "merkleized-metadata"
 version = "0.1.0"
 source = "git+https://github.com/bkchr/merkleized-metadata.git#55405b73fef184ab52e281fb1326fb93e7d2ac92"
 dependencies = [
- "array-bytes 6.2.2",
+ "array-bytes",
  "blake3",
  "frame-metadata",
  "parity-scale-codec",
@@ -20855,7 +20855,7 @@ dependencies = [
 name = "substrate-wasm-builder"
 version = "17.0.0"
 dependencies = [
- "array-bytes 6.2.2",
+ "array-bytes",
  "build-helper",
  "cargo_metadata",
  "console",
