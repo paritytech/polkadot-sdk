@@ -24,7 +24,7 @@ polkadot-node-network-protocol = { path = "../protocol" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-subsystem = { path = "../../subsystem" }
-fatality = "0.0.6"
+fatality = "0.1.0"
 thiserror = { workspace = true }
 tokio-util = "0.7.1"
 
