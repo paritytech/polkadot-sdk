@@ -3769,20 +3769,32 @@ async fn follow_unique_pruned_blocks() {
 	assert_eq!(event, expected);
 
 	// All blocks from stale forks are pruned when we finalize block 6.
-	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let mut event: FollowEvent<String> = get_next_event(&mut sub).await;
+
+	// Sort pruned block hashes to counter flaky test caused by event generation (get_pruned_hashes)
+	if let FollowEvent::Finalized(Finalized { pruned_block_hashes, .. }) = &mut event {
+		pruned_block_hashes.sort();
+	}
+	let expected_pruned_block_hashes = {
+		let mut hashes = vec![
+			format!("{:?}", block_2_hash),
+			format!("{:?}", block_3_hash),
+			format!("{:?}", block_4_hash),
+			format!("{:?}", block_5_hash),
+		];
+		hashes.sort();
+		hashes
+	};
+
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
 			format!("{:?}", block_1_hash),
 			format!("{:?}", block_2_f_hash),
 			format!("{:?}", block_6_hash),
 		],
-		pruned_block_hashes: vec![
-			format!("{:?}", block_2_hash),
-			format!("{:?}", block_3_hash),
-			format!("{:?}", block_4_hash),
-			format!("{:?}", block_5_hash),
-		],
+		pruned_block_hashes: expected_pruned_block_hashes,
 	});
+
 	assert_eq!(event, expected);
 
 	// Pruned hash can be unpinned.
