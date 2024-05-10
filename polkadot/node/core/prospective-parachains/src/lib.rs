@@ -383,7 +383,7 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 	}
 
 	metrics.record_candidate_storage_size(
-		live_candidates.len() as u64,
+		connected_candidates_count as u64,
 		live_candidates.len().saturating_sub(connected_candidates_count) as u64,
 	);
 }

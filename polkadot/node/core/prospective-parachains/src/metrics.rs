@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use polkadot_node_subsystem::prometheus::Opts;
 use polkadot_node_subsystem_util::metrics::{
 	self,
-	prometheus::{self, Gauge, U64},
+	prometheus::{self, GaugeVec, U64},
 };
 
 #[derive(Clone)]
@@ -24,8 +25,7 @@ pub(crate) struct MetricsInner {
 	prune_view_candidate_storage: prometheus::Histogram,
 	introduce_seconded_candidate: prometheus::Histogram,
 	hypothetical_membership: prometheus::Histogram,
-	candidate_storage_count: prometheus::Gauge<U64>,
-	candidate_storage_unconnected_count: prometheus::Gauge<U64>,
+	candidate_storage_count: prometheus::GaugeVec<U64>,
 }
 
 /// Candidate backing metrics.
@@ -58,13 +58,22 @@ impl Metrics {
 		self.0.as_ref().map(|metrics| metrics.hypothetical_membership.start_timer())
 	}
 
-	/// Record the size of the candidate storage. First param is the total candidate count, second
-	/// param is the unconnected candidates count.
-	pub fn record_candidate_storage_size(&self, total_count: u64, unconnected_count: u64) {
-		self.0.as_ref().map(|metrics| metrics.candidate_storage_count.set(total_count));
-		self.0
-			.as_ref()
-			.map(|metrics| metrics.candidate_storage_unconnected_count.set(unconnected_count));
+	/// Record the size of the candidate storage. First param is the connected candidates count,
+	/// second param is the unconnected candidates count.
+	pub fn record_candidate_storage_size(&self, connected_count: u64, unconnected_count: u64) {
+		self.0.as_ref().map(|metrics| {
+			metrics
+				.candidate_storage_count
+				.with_label_values(&["connected"])
+				.set(connected_count)
+		});
+
+		self.0.as_ref().map(|metrics| {
+			metrics
+				.candidate_storage_count
+				.with_label_values(&["unconnected"])
+				.set(unconnected_count)
+		});
 	}
 }
 
@@ -93,16 +102,12 @@ impl metrics::Metrics for Metrics {
 				registry,
 			)?,
 			candidate_storage_count: prometheus::register(
-				Gauge::new(
-					"polkadot_parachain_prospective_parachains_candidate_storage_count",
-					"Total size of the prospective parachains candidate storage".to_string(),
-				)?,
-				registry,
-			)?,
-			candidate_storage_unconnected_count: prometheus::register(
-				Gauge::new(
-					"polkadot_parachain_prospective_parachains_candidate_storage_unconnected_count",
-					"Number of unconnected candidates in the prospective parachains candidate storage".to_string(),
+				GaugeVec::new(
+					Opts::new(
+						"polkadot_parachain_prospective_parachains_candidate_storage_count",
+						"Number of candidates present in the candidate storage, split by connected and unconnected"
+					),
+					&["type"],
 				)?,
 				registry,
 			)?,
