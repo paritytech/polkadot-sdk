@@ -140,7 +140,12 @@ pub fn check_combined_proof_size(
 	// PoV over the limit.
 	let total_pov_size = next_weight.total().proof_size().saturating_add(next_len as u64);
 	if total_pov_size > maximum_weight.max_block.proof_size() {
-		log::debug!(target: LOG_TARGET, "Extrinsic exceeds total pov size: {}kb, limit: {}kb", total_pov_size as f64/1024.0, maximum_weight.max_block.proof_size() as f64/1024.0);
+		log::debug!(
+			target: LOG_TARGET,
+			"Extrinsic exceeds total pov size: {}kb, limit: {}kb",
+			total_pov_size as f64/1024.0,
+			maximum_weight.max_block.proof_size() as f64/1024.0
+		);
 		return Err(InvalidTransaction::ExhaustsResources.into())
 	}
 	Ok(())
