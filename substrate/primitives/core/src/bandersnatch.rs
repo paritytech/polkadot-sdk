@@ -204,7 +204,7 @@ pub mod vrf {
 	/// This object is used to produce an arbitrary number of verifiable pseudo random
 	/// bytes and is often called pre-output to emphasize that this is not the actual
 	/// output of the VRF but an object capable of generating the output.
-	#[derive(Clone, Debug, PartialEq, Eq)]
+	#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 	pub struct VrfPreOutput(pub(super) bandersnatch_vrfs::VrfPreOut);
 
 	impl Encode for VrfPreOutput {

@@ -26,26 +26,26 @@ use frame_system::RawOrigin;
 
 const LOG_TARGET: &str = "sassafras::benchmark";
 
+// Pre-constructed tickets generated via the `generate_test_teckets` function
 const TICKETS_DATA: &[u8] = include_bytes!("data/tickets.bin");
 
-// This leverages our knowledge about serialized vrf signature structure.
-// Mostly to avoid to import all the bandersnatch primitive just for this test.
-const RAW_VRF_SIGNATURE: [u8; 99] = [
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x04, 0xb5, 0x5f, 0x8e, 0xc7, 0x68, 0xf5, 0x05, 0x3f, 0xa9, 0x18, 0xca, 0x07, 0x13, 0xc7,
-	0x4b, 0xa3, 0x9a, 0x97, 0xd3, 0x76, 0x8f, 0x0c, 0xbf, 0x2e, 0xd4, 0xf9, 0x3a, 0xae, 0xc1, 0x96,
-	0x2a, 0x64, 0x80,
-];
-
-fn dummy_pre_output() -> VrfPreOutput {
-	VrfPreOutput::decode(&mut &RAW_VRF_SIGNATURE[..]).unwrap()
+fn dummy_vrf_signature() -> VrfSignature {
+	// This leverages our knowledge about serialized vrf signature structure.
+	// Mostly to avoid to import all the bandersnatch primitive just for this test.
+	const RAW_VRF_SIGNATURE: [u8; 99] = [
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xb5, 0x5f, 0x8e, 0xc7, 0x68, 0xf5, 0x05, 0x3f, 0xa9,
+		0x18, 0xca, 0x07, 0x13, 0xc7, 0x4b, 0xa3, 0x9a, 0x97, 0xd3, 0x76, 0x8f, 0x0c, 0xbf, 0x2e,
+		0xd4, 0xf9, 0x3a, 0xae, 0xc1, 0x96, 0x2a, 0x64, 0x80,
+	];
+	VrfSignature::decode(&mut &RAW_VRF_SIGNATURE[..]).unwrap()
 }
 
-fn dummy_vrf_signature() -> VrfSignature {
-	VrfSignature::decode(&mut &RAW_VRF_SIGNATURE[..]).unwrap()
+fn dummy_pre_output() -> VrfPreOutput {
+	dummy_vrf_signature().pre_outputs[0]
 }
 
 #[benchmarks]
@@ -63,9 +63,6 @@ mod benchmarks {
 		};
 		frame_system::Pallet::<T>::deposit_log((&slot_claim).into());
 
-		// We currently don't account for the potential weight added by the `on_finalize`
-		// incremental sorting of the tickets.
-
 		#[block]
 		{
 			// According to `Hooks` trait docs, `on_finalize` `Weight` should be bundled
@@ -78,16 +75,16 @@ mod benchmarks {
 	// Weight for the default internal epoch change trigger.
 	//
 	// Parameters:
-	// - `x`: number of authorities (1:100).
-	// - `y`: number of tickets (100:1000)
+	// - `x`: number of authorities [1:100].
+	// - `y`: number of tickets [100:1000];
 	//
 	// This accounts for the worst case which includes:
-	// - recompute the ring verifier key from the new authority set.
-	// - picking the epoch tickets from the accumulator in one shot.
+	// - recomputing the ring verifier key from a new authorites set.
+	// - picking all the tickets from the accumulator in one shot.
 	#[benchmark]
 	fn enact_epoch_change(x: Linear<1, 100>, y: Linear<100, 1000>) {
 		let authorities_count = x as usize;
-		let outstanding_tickets = y as u32;
+		let accumulated_tickets = y as u32;
 
 		let config = Pallet::<T>::protocol_config();
 
@@ -99,28 +96,23 @@ mod benchmarks {
 		TemporaryData::<T>::put(post_init_cache);
 		CurrentSlot::<T>::set(Slot::from(config.epoch_length as u64));
 
-		let tickets: Vec<_> = (0..outstanding_tickets)
-			.map(|i| {
-				let mut id = [0xff; 32];
-				id[..4].copy_from_slice(&i.to_be_bytes()[..]);
-				(TicketId(id), TicketBody { attempt_idx: 0, extra: Default::default() })
-			})
-			.collect();
-
-		// Append some tickets to the accumulator
-		tickets
-			.iter()
-			.for_each(|t| TicketsAccumulator::<T>::insert(TicketKey::from(t.0), &t.1));
-
 		// Force ring verifier key re-computation
 		let next_authorities: Vec<_> =
 			Authorities::<T>::get().into_iter().cycle().take(authorities_count).collect();
 		let next_authorities = WeakBoundedVec::force_from(next_authorities, None);
-
 		NextAuthorities::<T>::set(next_authorities);
+
+		// Add tickets to the accumulator
+		(0..accumulated_tickets).for_each(|i| {
+			let mut id = TicketId([0xff; 32]);
+			id.0[..4].copy_from_slice(&i.to_be_bytes()[..]);
+			let body = TicketBody { attempt_idx: 0, extra: Default::default() };
+			TicketsAccumulator::<T>::insert(TicketKey::from(id), &body);
+		});
 
 		#[block]
 		{
+			// Also account for the call typically done in case of epoch change
 			Pallet::<T>::should_end_epoch(BlockNumberFor::<T>::from(3u32));
 			let next_authorities = Pallet::<T>::next_authorities();
 			// Using a different set of authorities triggers the recomputation of ring verifier.
@@ -140,12 +132,12 @@ mod benchmarks {
 		) = Decode::decode(&mut raw_data).expect("Failed to decode tickets buffer");
 		assert!(tickets.len() >= tickets_count);
 
-		// Use the same values as the pre-built tickets
+		// Use the same values used for the pre-built tickets
 		Pallet::<T>::update_ring_verifier(&authorities);
+		NextAuthorities::<T>::set(WeakBoundedVec::force_from(authorities, None));
 		let mut randomness_buf = RandomnessBuf::<T>::get();
 		randomness_buf[2] = randomness;
 		RandomnessBuf::<T>::set(randomness_buf);
-		NextAuthorities::<T>::set(WeakBoundedVec::force_from(authorities, None));
 
 		let tickets = tickets[..tickets_count].to_vec();
 		let tickets = BoundedVec::truncate_from(tickets);

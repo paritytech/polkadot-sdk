@@ -21,23 +21,26 @@
 //! is a constant-time block production protocol that aims to ensure that there is
 //! exactly one block produced with constant time intervals rather than multiple or none.
 //!
-//! We run a lottery to distribute block production slots in an epoch and to fix the
-//! order validators produce blocks in, by the beginning of an epoch.
+//! We run a lottery to distribute block production slots for a *target* epoch and to fix
+//! the order validators produce blocks in.
 //!
-//! Each validator signs some unbiasable input and publishes the output on-chain. This
-//! value is their lottery ticket that can be validated against their public key.
+//! Each validator signs some unbiasable VRF input and publishes the VRF output on-chain.
+//! This value is their lottery ticket that can be eventually validated against their
+//! public key.
 //!
 //! We want to keep lottery winners secret, i.e. do not disclose their public keys.
-//! At the beginning of the epoch all the validators tickets are published but not
-//! their public keys.
+//! At the beginning of the *target* epoch all the validators tickets are published but
+//! not the corresponding author public keys.
 //!
-//! A valid ticket is claimed by an honest validator on block production.
+//! The association is revealed by the ticket's owner during block production when he will
+//! claim his ticket, and thus the associated slot, by showing a proof which ships with the
+//! produced block.
 //!
 //! To prevent submission of invalid tickets, resulting in empty slots, the validator
-//! when submitting the ticket accompanies it with a zk-SNARK of the statement:
+//! when submitting a ticket accompanies it with a zk-SNARK of the statement:
 //! "Here's my VRF output that has been generated using the given VRF input and my secret
 //! key. I'm not telling you who I am, but my public key is among those of the nominated
-//! validators".
+//! validators for the target epoch".
 
 #![allow(unused)]
 #![deny(warnings)]
@@ -86,28 +89,26 @@ const LOG_TARGET: &str = "sassafras::runtime";
 // Contextual string used by the VRF to generate per-block randomness.
 const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasOnChainRandomness";
 
-// Epoch tail is the section of the epoch when no tickets must be submitted.
+// Epoch tail is the section of the epoch where no tickets are allowed to be submitted.
+// As the name implies, this section is at the end of an epoch.
 //
-// Length of the epoch tail is set to Config::EpochLength/EPOCH_TAIL_FRACTION
+// Length of the epoch's tail is computed as `Config::EpochLength / EPOCH_TAIL_FRACTION`
+// TODO: make this part of `Config`?
 const EPOCH_TAIL_FRACTION: u32 = 6;
 
 /// Max number of tickets that can be submitted in one block.
+// TODO: make this part of `Config`?
 const TICKETS_CHUNK_MAX_LENGTH: u32 = 16;
 
 /// Randomness buffer.
 pub type RandomnessBuffer = [Randomness; 4];
 
-/// Authorities sequence.
-pub type AuthoritiesVec<T> = WeakBoundedVec<AuthorityId, <T as Config>::MaxAuthorities>;
-
-/// Tickets chunk.
-pub type TicketsVec = BoundedVec<TicketEnvelope, ConstU32<TICKETS_CHUNK_MAX_LENGTH>>;
-
 /// Number of tickets available for current and next epoch.
 ///
 /// These tickets are held by the [`Tickets`] storage map.
 ///
-/// The entry to be used for the current epoch is computed as epoch index modulo 2.
+/// Current counter index is computed as current epoch index modulo 2
+/// Next counter index is computed as the other entry.
 pub type TicketsCounter = [u32; 2];
 
 /// Ephemeral data constructed by `on_initialize` and destroyed by `on_finalize`.
@@ -115,7 +116,9 @@ pub type TicketsCounter = [u32; 2];
 /// Contains some temporary data that may be useful later during code execution.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct EphemeralData {
+	/// Previous block slot.
 	prev_slot: Slot,
+	/// Cached pre-output which ships within the block's header digest.
 	pre_output: vrf::VrfPreOutput,
 }
 
@@ -143,6 +146,12 @@ impl From<TicketKey> for TicketId {
 		TicketId(value.0.map(|b| !b))
 	}
 }
+
+/// Authorities sequence.
+pub type AuthoritiesVec<T> = WeakBoundedVec<AuthorityId, <T as Config>::MaxAuthorities>;
+
+/// Tickets sequence.
+pub type TicketsVec = BoundedVec<TicketEnvelope, ConstU32<TICKETS_CHUNK_MAX_LENGTH>>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -327,6 +336,9 @@ pub mod pallet {
 			let randomness_pre_output = TemporaryData::<T>::take()
 				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed")
 				.pre_output;
+
+			// TODO: debug_assert that signature is valid
+			// Verification has been already done by the host!
 
 			let randomness = randomness_pre_output
 				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
