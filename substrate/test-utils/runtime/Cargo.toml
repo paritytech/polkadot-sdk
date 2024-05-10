@@ -49,7 +49,7 @@ sp-state-machine = { path = "../../primitives/state-machine", default-features =
 sp-externalities = { path = "../../primitives/externalities", default-features = false }
 
 # 3rd party
-array-bytes = { version = "6.1", optional = true }
+array-bytes = { version = "6.2.2", optional = true }
 serde_json = { workspace = true, features = ["alloc"] }
 log = { workspace = true }
 hex-literal = { version = "0.4.1" }
