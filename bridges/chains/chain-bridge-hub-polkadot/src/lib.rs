@@ -29,7 +29,7 @@ use frame_support::dispatch::DispatchClass;
 use sp_runtime::RuntimeDebug;
 
 /// BridgeHubPolkadot parachain.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct BridgeHubPolkadot;
 
 impl Chain for BridgeHubPolkadot {

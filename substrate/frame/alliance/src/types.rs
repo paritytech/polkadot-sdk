@@ -22,9 +22,7 @@ use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
 /// A Multihash instance that only supports the basic functionality and no hashing.
-#[derive(
-	Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct Multihash {
 	/// The code of the Multihash.
 	pub code: u64,
@@ -41,17 +39,7 @@ impl Multihash {
 
 /// The version of the CID.
 #[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	RuntimeDebug,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
 pub enum Version {
 	/// CID version 0.
@@ -63,9 +51,7 @@ pub enum Version {
 /// Representation of a CID.
 ///
 /// The generic is about the allocated size of the multihash.
-#[derive(
-	Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct Cid {
 	/// The version of CID.
 	pub version: Version,
@@ -95,9 +81,7 @@ impl Cid {
 }
 
 /// Witness data for the `disband` call.
-#[derive(
-	Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo, Default,
-)]
+#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, MaxEncodedLen, TypeInfo, Default)]
 pub struct DisbandWitness {
 	/// Total number of fellow members in the current Alliance.
 	#[codec(compact)]

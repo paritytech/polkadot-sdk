@@ -52,7 +52,7 @@ pub trait OutboundLaneStorage {
 pub type StoredMessagePayload<T, I> = BoundedVec<u8, <T as Config<I>>::MaximalOutboundPayloadSize>;
 
 /// Result of messages receival confirmation.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, PalletError, TypeInfo)]
 pub enum ReceptionConfirmationError {
 	/// Bridged chain is trying to confirm more messages than we have generated. May be a result
 	/// of invalid bridged chain storage.

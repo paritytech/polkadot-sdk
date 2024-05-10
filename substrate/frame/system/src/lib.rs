@@ -1051,7 +1051,7 @@ pub type Key = Vec<u8>;
 pub type KeyValue = (Vec<u8>, Vec<u8>);
 
 /// A phase of a block's execution.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub enum Phase {
 	/// Applying an extrinsic.
@@ -1069,7 +1069,7 @@ impl Default for Phase {
 }
 
 /// Record of an event happening.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub struct EventRecord<E: Parameter + Member, T> {
 	/// The phase of the block it happened in.
@@ -1098,7 +1098,7 @@ type EventIndex = u32;
 pub type RefCount = u32;
 
 /// Information of an account.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct AccountInfo<Nonce, AccountData> {
 	/// The number of transactions this account has sent.
 	pub nonce: Nonce,
@@ -1375,14 +1375,14 @@ where
 }
 
 /// Reference status; can be either referenced or unreferenced.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum RefStatus {
 	Referenced,
 	Unreferenced,
 }
 
 /// Some resultant status relevant to incrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum IncRefStatus {
 	/// Account was created.
 	Created,
@@ -1391,7 +1391,7 @@ pub enum IncRefStatus {
 }
 
 /// Some resultant status relevant to decrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum DecRefStatus {
 	/// Account was destroyed.
 	Reaped,

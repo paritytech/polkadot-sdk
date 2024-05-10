@@ -31,7 +31,7 @@ use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData, 
 pub type ProvedMessages<Message> = BTreeMap<LaneId, ProvedLaneMessages<Message>>;
 
 /// Proved messages from single lane of the source chain.
-#[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
 pub struct ProvedLaneMessages<Message> {
 	/// Optional outbound lane state.
 	pub lane_state: Option<OutboundLaneData>,
@@ -40,14 +40,14 @@ pub struct ProvedLaneMessages<Message> {
 }
 
 /// Message data with decoded dispatch payload.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct DispatchMessageData<DispatchPayload> {
 	/// Result of dispatch payload decoding.
 	pub payload: Result<DispatchPayload, CodecError>,
 }
 
 /// Message with decoded dispatch payload.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct DispatchMessage<DispatchPayload> {
 	/// Message key.
 	pub key: MessageKey,

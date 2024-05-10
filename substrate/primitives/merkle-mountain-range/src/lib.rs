@@ -104,7 +104,7 @@ impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf
 /// it would have to be SCALE-compatible with the concrete leaf type, but due to SCALE limitations
 /// it's not possible to know how many bytes the encoding of concrete leaf type uses.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(RuntimeDebug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OpaqueLeaf(
 	/// Raw bytes of the leaf type encoded in its compact form.
 	///
@@ -144,7 +144,7 @@ impl FullLeaf for OpaqueLeaf {
 ///
 /// It is different from [`OpaqueLeaf`], because it does implement `Codec`
 /// and the encoding has to match raw `Vec<u8>` encoding.
-#[derive(codec::Encode, codec::Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Debug, PartialEq, Eq, TypeInfo)]
 pub struct EncodableOpaqueLeaf(pub Vec<u8>);
 
 impl EncodableOpaqueLeaf {
@@ -175,7 +175,7 @@ impl EncodableOpaqueLeaf {
 ///
 /// [DataOrHash::hash] method calculates the hash of this element in its compact form,
 /// so should be used instead of hashing the encoded form (which will always be non-compact).
-#[derive(RuntimeDebug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DataOrHash<H: traits::Hash, L> {
 	/// Arbitrary data in its full form.
 	Data(L),
@@ -246,7 +246,7 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
 /// into [DataOrHash] and each tuple element is hashed first before constructing
 /// the final hash of the entire tuple. This allows you to replace tuple elements
 /// you don't care about with their hashes.
-#[derive(RuntimeDebug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Compact<H, T> {
 	/// Internal tuple representation.
 	pub tuple: T,
@@ -351,7 +351,7 @@ impl_leaf_data_for_tuple!(A:0, B:1, C:2, D:3);
 impl_leaf_data_for_tuple!(A:0, B:1, C:2, D:3, E:4);
 
 /// An MMR proof data for a group of leaves.
-#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Debug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct Proof<Hash> {
 	/// The indices of the leaves the proof is for.
 	pub leaf_indices: Vec<LeafIndex>,
@@ -363,7 +363,7 @@ pub struct Proof<Hash> {
 
 /// Merkle Mountain Range operation error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-#[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
 pub enum Error {
 	/// Error during translation of a block number into a leaf index.
 	#[cfg_attr(feature = "std", error("Error performing numeric op"))]

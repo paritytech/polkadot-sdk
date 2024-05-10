@@ -23,7 +23,7 @@ use frame_support::{
 	PartialOrdNoBound, RuntimeDebugNoBound,
 };
 
-#[derive(RuntimeDebugNoBound)]
+#[derive(Debug)]
 #[allow(dead_code)]
 struct Unnamed(u64);
 

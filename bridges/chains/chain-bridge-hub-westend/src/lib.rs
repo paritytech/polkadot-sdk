@@ -28,7 +28,7 @@ use frame_support::dispatch::DispatchClass;
 use sp_runtime::RuntimeDebug;
 
 /// BridgeHubWestend parachain.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct BridgeHubWestend;
 
 impl Chain for BridgeHubWestend {

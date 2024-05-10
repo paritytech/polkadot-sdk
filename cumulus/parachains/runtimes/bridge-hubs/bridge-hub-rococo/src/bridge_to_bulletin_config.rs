@@ -158,7 +158,7 @@ pub type ToRococoBulletinMaximalOutboundPayloadSize =
 	messages::source::FromThisChainMaximalOutboundPayloadSize<WithRococoBulletinMessageBridge>;
 
 /// RococoBulletin chain from message lane point of view.
-#[derive(RuntimeDebug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct RococoBulletin;
 
 impl UnderlyingChainProvider for RococoBulletin {

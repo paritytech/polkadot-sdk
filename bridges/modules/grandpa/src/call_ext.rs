@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 
 /// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
-#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct SubmitFinalityProofInfo<N> {
 	/// Number of the finality target.
 	pub block_number: N,
@@ -64,7 +64,7 @@ pub struct SubmitFinalityProofInfo<N> {
 }
 
 /// Verified `SubmitFinalityProofInfo<N>`.
-#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct VerifiedSubmitFinalityProofInfo<N> {
 	/// Base call information.
 	pub base: SubmitFinalityProofInfo<N>,

@@ -24,7 +24,7 @@ use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, ops::Deref};
 
 /// Error that is returned when the value size exceeds maximal configured size.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct MaximalSizeExceededError {
 	/// Size of the value.
 	pub value_size: usize,

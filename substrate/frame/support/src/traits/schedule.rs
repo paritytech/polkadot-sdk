@@ -34,7 +34,7 @@ pub type Period<BlockNumber> = (BlockNumber, u32);
 pub type Priority = u8;
 
 /// The dispatch time of a scheduled task.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum DispatchTime<BlockNumber> {
 	/// At specified block.
 	At(BlockNumber),
@@ -61,7 +61,7 @@ pub const HARD_DEADLINE: Priority = 63;
 pub const LOWEST_PRIORITY: Priority = 255;
 
 /// Type representing an encodable value or the hash of the encoding of such a value.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum MaybeHashed<T, Hash> {
 	/// The value itself.
 	Value(T),
@@ -76,7 +76,7 @@ impl<T, H> From<T> for MaybeHashed<T, H> {
 }
 
 /// Error type for `MaybeHashed::lookup`.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum LookupError {
 	/// A call of this hash was not known.
 	Unknown,

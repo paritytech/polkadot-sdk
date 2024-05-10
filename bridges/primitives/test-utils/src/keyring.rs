@@ -38,7 +38,7 @@ pub const EVE: Account = Account(4);
 pub const FERDIE: Account = Account(5);
 
 /// A test account which can be used to sign messages.
-#[derive(RuntimeDebug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Account(pub u16);
 
 impl Account {

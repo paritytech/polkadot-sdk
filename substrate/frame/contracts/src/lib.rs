@@ -1308,7 +1308,7 @@ pub mod pallet {
 }
 
 /// The type of origins supported by the contracts pallet.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
+#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, Debug)]
 pub enum Origin<T: Config> {
 	Root,
 	Signed(T::AccountId),
@@ -1366,7 +1366,7 @@ struct InstantiateInput<T: Config> {
 
 /// Determines whether events should be collected during execution.
 #[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+	Copy, Clone, PartialEq, Eq, Debug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
 )]
 pub enum CollectEvents {
 	/// Collect events.
@@ -1384,7 +1384,7 @@ pub enum CollectEvents {
 
 /// Determines whether debug messages will be collected.
 #[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+	Copy, Clone, PartialEq, Eq, Debug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
 )]
 pub enum DebugInfo {
 	/// Collect debug messages.

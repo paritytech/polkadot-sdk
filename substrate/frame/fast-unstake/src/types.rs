@@ -46,9 +46,7 @@ pub(crate) type BalanceOf<T> =
 ///
 /// This is stored in [`crate::Head`] storage item and points to the current unstake request that is
 /// being processed.
-#[derive(
-	Encode, Decode, EqNoBound, PartialEqNoBound, Clone, TypeInfo, RuntimeDebugNoBound, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, EqNoBound, PartialEqNoBound, Clone, TypeInfo, Debug, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct UnstakeRequest<T: Config> {
 	/// This list of stashes are being processed in this request, and their corresponding deposit.

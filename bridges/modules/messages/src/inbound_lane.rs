@@ -54,7 +54,7 @@ pub trait InboundLaneStorage {
 /// these generic bounds all over the code.
 ///
 /// The encoding of this type matches encoding of the corresponding `MessageData`.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct StoredInboundLaneData<T: Config<I>, I: 'static>(pub InboundLaneData<T::InboundRelayer>);
 
 impl<T: Config<I>, I: 'static> sp_std::ops::Deref for StoredInboundLaneData<T, I> {

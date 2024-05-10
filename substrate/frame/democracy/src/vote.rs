@@ -28,7 +28,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 /// A number of lock periods, plus a vote, one way or the other.
-#[derive(Copy, Clone, Eq, PartialEq, Default, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Debug)]
 pub struct Vote {
 	pub aye: bool,
 	pub conviction: Conviction,
@@ -73,7 +73,7 @@ impl TypeInfo for Vote {
 }
 
 /// A vote for a referendum of a particular account.
-#[derive(Encode, MaxEncodedLen, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, MaxEncodedLen, Decode, Copy, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum AccountVote<Balance> {
 	/// A standard vote, one-way (approve or reject) with a given amount of conviction.
 	Standard { vote: Vote, balance: Balance },
@@ -124,7 +124,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub struct PriorLock<BlockNumber, Balance>(BlockNumber, Balance);
@@ -149,7 +149,7 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 }
 
 /// An indicator for what an account is doing; it can either be delegating or voting.
-#[derive(Clone, Encode, Decode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, MaxEncodedLen, PartialEq, Debug, TypeInfo)]
 #[codec(mel_bound(skip_type_params(MaxVotes)))]
 #[scale_info(skip_type_params(MaxVotes))]
 pub enum Voting<Balance, AccountId, BlockNumber, MaxVotes: Get<u32>> {

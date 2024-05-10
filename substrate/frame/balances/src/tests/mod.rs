@@ -53,17 +53,7 @@ mod reentrancy_tests;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 #[derive(
-	Encode,
-	Decode,
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	MaxEncodedLen,
-	TypeInfo,
-	RuntimeDebug,
+	Encode, Decode, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, MaxEncodedLen, TypeInfo, Debug,
 )]
 pub enum TestId {
 	Foo,

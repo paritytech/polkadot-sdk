@@ -44,7 +44,7 @@ use sp_runtime::{
 	RuntimeDebug,
 };
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
 	/// The account that has placed a deposit for registering this para.
 	pub(crate) manager: Account,

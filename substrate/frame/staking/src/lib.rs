@@ -368,7 +368,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -382,7 +382,7 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub struct EraRewardPoints<AccountId: Ord> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
@@ -397,7 +397,7 @@ impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
 }
 
 /// A destination account for payment.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum RewardDestination<AccountId> {
 	/// Pay into the stash account, increasing the amount at stake accordingly.
 	Staked,
@@ -414,7 +414,7 @@ pub enum RewardDestination<AccountId> {
 }
 
 /// Preference of what happens regarding validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, Default, MaxEncodedLen)]
 pub struct ValidatorPrefs {
 	/// Reward that validator takes up-front; only the rest is split between themselves and
 	/// nominators.
@@ -427,7 +427,7 @@ pub struct ValidatorPrefs {
 }
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
@@ -447,14 +447,7 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 /// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
 /// <https://github.com/paritytech/substrate/issues/14749>.
 #[derive(
-	PartialEqNoBound,
-	EqNoBound,
-	CloneNoBound,
-	Encode,
-	Decode,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	MaxEncodedLen,
+	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct StakingLedger<T: Config> {
@@ -714,9 +707,7 @@ impl<T: Config> StakingLedger<T> {
 }
 
 /// A record of the nominations made by a specific account.
-#[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
-)]
+#[derive(PartialEqNoBound, EqNoBound, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct Nominations<T: Config> {
@@ -737,7 +728,7 @@ pub struct Nominations<T: Config> {
 ///
 /// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
 pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
 	exposure_metadata: PagedExposureMetadata<Balance>,
 	exposure_page: ExposurePage<AccountId, Balance>,
@@ -782,7 +773,7 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Debug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
 	validator: AccountId,
@@ -947,7 +938,7 @@ where
 	Eq,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,

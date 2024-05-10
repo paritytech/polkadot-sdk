@@ -22,7 +22,7 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
 /// Message dispatch result.
-#[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct MessageDispatchResult<DispatchLevelResult> {
 	/// Unspent dispatch weight. This weight that will be deducted from total delivery transaction
 	/// weight, thus reducing the transaction cost. This shall not be zero in (at least) two cases:

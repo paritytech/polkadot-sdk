@@ -189,14 +189,7 @@ use crate::{
 /// The aggregate amount frozen under `R::get()` for any account which has multiple tickets,
 /// is the *cumulative* amounts of each ticket's footprint (each individually determined by `D`).
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, Debug,
 )]
 #[scale_info(skip_type_params(A, F, R, D))]
 #[codec(mel_bound())]
@@ -231,14 +224,7 @@ impl<
 
 /// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, Debug,
 )]
 #[scale_info(skip_type_params(A, F, R, D))]
 #[codec(mel_bound())]
@@ -282,14 +268,7 @@ impl<
 /// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
 /// instead, since this works in all circumstances.
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, Debug,
 )]
 #[scale_info(skip_type_params(A, Fx, Rx, D))]
 #[codec(mel_bound())]
@@ -321,14 +300,7 @@ impl<
 /// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
 /// instead, since this works in all circumstances.
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, Debug,
 )]
 #[scale_info(skip_type_params(A, Fx, Rx, D))]
 #[codec(mel_bound())]

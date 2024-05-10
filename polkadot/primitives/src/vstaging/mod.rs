@@ -27,15 +27,7 @@ use sp_arithmetic::Perbill;
 
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 #[derive(
-	RuntimeDebug,
-	Copy,
-	Clone,
-	PartialEq,
-	Encode,
-	Decode,
-	TypeInfo,
-	serde::Serialize,
-	serde::Deserialize,
+	Debug, Copy, Clone, PartialEq, Encode, Decode, TypeInfo, serde::Serialize, serde::Deserialize,
 )]
 pub struct SchedulerParams<BlockNumber> {
 	/// How often parachain groups should be rotated across parachains.

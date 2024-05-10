@@ -73,7 +73,7 @@ where
 /// A generated merkle proof.
 ///
 /// The structure contains all necessary data to later on verify the proof and the leaf itself.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, TypeInfo)]
 pub struct MerkleProof {
 	/// Root hash of generated merkle tree.
 	pub root: H256,

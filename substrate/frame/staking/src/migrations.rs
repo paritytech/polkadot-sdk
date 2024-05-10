@@ -34,7 +34,7 @@ use sp_runtime::TryRuntimeError;
 /// Used for release versioning up to v12.
 ///
 /// Obsolete from v13. Keeping around to make encoding/decoding of old migration code easier.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 enum ObsoleteReleases {
 	V1_0_0Ancient,
 	V2_0_0,

@@ -172,7 +172,7 @@ type ToBridgeHubRococoMaximalOutboundPayloadSize =
 	messages::source::FromThisChainMaximalOutboundPayloadSize<WithBridgeHubRococoMessageBridge>;
 
 /// BridgeHubRococo chain from message lane point of view.
-#[derive(RuntimeDebug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct BridgeHubRococo;
 
 impl UnderlyingChainProvider for BridgeHubRococo {
@@ -182,7 +182,7 @@ impl UnderlyingChainProvider for BridgeHubRococo {
 impl messages::BridgedChainWithMessages for BridgeHubRococo {}
 
 /// BridgeHubWestend chain from message lane point of view.
-#[derive(RuntimeDebug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct BridgeHubWestend;
 
 impl UnderlyingChainProvider for BridgeHubWestend {

@@ -32,7 +32,7 @@ use frame_support::{
 use sp_runtime::RuntimeDebug;
 
 /// BridgeHubKusama parachain.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct BridgeHubKusama;
 
 impl Chain for BridgeHubKusama {

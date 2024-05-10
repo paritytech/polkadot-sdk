@@ -68,7 +68,7 @@ pub trait Pay {
 }
 
 /// Status for making a payment via the `Pay::pay` trait function.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub enum PaymentStatus {
 	/// Payment is in progress. Nothing to report yet.
 	InProgress,

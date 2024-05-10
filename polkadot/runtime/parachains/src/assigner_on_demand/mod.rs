@@ -206,7 +206,7 @@ type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Errors that can happen during spot traffic calculation.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 enum SpotTrafficCalculationErr {
 	/// The order queue capacity is at 0.
 	QueueCapacityIsZero,

@@ -15,7 +15,7 @@ pub trait Verifier {
 	fn verify(event: &Log, proof: &Proof) -> Result<(), VerificationError>;
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, PalletError, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, PalletError, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum VerificationError {
 	/// Execution header is missing
@@ -33,7 +33,7 @@ pub enum VerificationError {
 pub type MessageNonce = u64;
 
 /// A bridge message from the Gateway contract on Ethereum
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub struct Message {
 	/// Event log emitted by Gateway contract
 	pub event_log: Log,
@@ -43,13 +43,13 @@ pub struct Message {
 
 const MAX_TOPICS: usize = 4;
 
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub enum LogValidationError {
 	TooManyTopics,
 }
 
 /// Event log
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub struct Log {
 	pub address: H160,
 	pub topics: Vec<H256>,
@@ -66,7 +66,7 @@ impl Log {
 }
 
 /// Inclusion proof for a transaction receipt
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub struct Proof {
 	// Proof keys and values (receipts tree)
 	pub receipt_proof: (Vec<Vec<u8>>, Vec<Vec<u8>>),
@@ -74,7 +74,7 @@ pub struct Proof {
 	pub execution_proof: ExecutionProof,
 }
 
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub struct InboundQueueFixture {
 	pub message: Message,
 	pub finalized_header: BeaconHeader,

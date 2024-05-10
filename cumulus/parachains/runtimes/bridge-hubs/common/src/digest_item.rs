@@ -19,7 +19,7 @@ use sp_core::{RuntimeDebug, H256};
 use sp_runtime::generic::DigestItem;
 
 /// Custom header digest items, inserted as DigestItem::Other
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum CustomDigestItem {
 	#[codec(index = 0)]
 	/// Merkle root of outbound Snowbridge messages.

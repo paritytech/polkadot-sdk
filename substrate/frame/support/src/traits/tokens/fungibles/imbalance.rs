@@ -42,7 +42,7 @@ pub trait HandleImbalanceDrop<AssetId, Balance> {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
+#[derive(EqNoBound, PartialEqNoBound, Debug)]
 pub struct Imbalance<
 	A: AssetId,
 	B: Balance,

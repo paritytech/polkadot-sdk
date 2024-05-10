@@ -105,7 +105,7 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoBulletinInstance> for Runt
 }
 
 /// BridgeHubRococo chain from message lane point of view.
-#[derive(RuntimeDebug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct BridgeHubRococo;
 
 impl UnderlyingChainProvider for BridgeHubRococo {

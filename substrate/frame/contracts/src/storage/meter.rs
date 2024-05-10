@@ -104,7 +104,7 @@ pub struct Root;
 
 /// State parameter that constitutes a meter that is in its nested state.
 /// Its value indicates whether the nested meter has its own limit.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(DefaultNoBound, Debug)]
 pub enum Nested {
 	#[default]
 	DerivedLimit,
@@ -115,7 +115,7 @@ impl State for Root {}
 impl State for Nested {}
 
 /// A type that allows the metering of consumed or freed storage of a single contract call stack.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(DefaultNoBound, Debug)]
 pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 	/// The limit of how much balance this meter is allowed to consume.
 	limit: BalanceOf<T>,
@@ -135,7 +135,7 @@ pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 }
 
 /// This type is used to describe a storage change when charging from the meter.
-#[derive(Default, RuntimeDebugNoBound)]
+#[derive(Default, Debug)]
 pub struct Diff {
 	/// How many bytes were added to storage.
 	pub bytes_added: u32,
@@ -223,7 +223,7 @@ impl Diff {
 /// The state of a contract.
 ///
 /// In case of termination the beneficiary is indicated.
-#[derive(RuntimeDebugNoBound, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ContractState<T: Config> {
 	Alive,
 	Terminated { beneficiary: AccountIdOf<T> },
@@ -238,7 +238,7 @@ pub enum ContractState<T: Config> {
 /// The only exception is when a special (tougher) deposit limit is specified for a cross-contract
 /// call. In that case the limit is enforced once the call is returned, rolling it back if
 /// exhausted.
-#[derive(RuntimeDebugNoBound, Clone)]
+#[derive(Debug, Clone)]
 struct Charge<T: Config> {
 	contract: T::AccountId,
 	amount: DepositOf<T>,
@@ -246,7 +246,7 @@ struct Charge<T: Config> {
 }
 
 /// Records the storage changes of a storage meter.
-#[derive(RuntimeDebugNoBound)]
+#[derive(Debug)]
 enum Contribution<T: Config> {
 	/// The contract the meter belongs to is alive and accumulates changes using a [`Diff`].
 	Alive(Diff),

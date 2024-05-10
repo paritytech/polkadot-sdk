@@ -414,7 +414,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 
 /// Possible operations on the configuration values of this pallet.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq, Clone)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Debug, PartialEq, Clone)]
 pub enum ConfigOp<T: Codec + Debug> {
 	/// Don't change.
 	Noop,
@@ -483,13 +483,7 @@ impl ClaimPermission {
 
 /// A member in a pool.
 #[derive(
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	RuntimeDebugNoBound,
-	CloneNoBound,
-	frame_support::PartialEqNoBound,
+	Encode, Decode, MaxEncodedLen, TypeInfo, Debug, CloneNoBound, frame_support::PartialEqNoBound,
 )]
 #[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
@@ -653,7 +647,7 @@ impl<T: Config> PoolMember<T> {
 }
 
 /// A pool's possible states.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, RuntimeDebugNoBound, Clone, Copy)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug, Clone, Copy)]
 pub enum PoolState {
 	/// The pool is open to be joined, and is working normally.
 	Open,
@@ -686,7 +680,7 @@ pub struct PoolRoles<AccountId> {
 }
 
 // A pool's possible commission claiming permissions.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum CommissionClaimPermission<AccountId> {
 	Permissionless,
 	Account(AccountId),
@@ -929,7 +923,7 @@ pub struct BondedPoolInner<T: Config> {
 ///
 /// The main purpose of this is to wrap a [`BondedPoolInner`], with the account
 /// + id of the pool, for easier access.
-#[derive(RuntimeDebugNoBound)]
+#[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq))]
 pub struct BondedPool<T: Config> {
 	/// The identifier of the pool.
@@ -1304,7 +1298,7 @@ impl<T: Config> BondedPool<T> {
 /// A reward pool is not so much a pool anymore, since it does not contain any shares or points.
 /// Rather, simply to fit nicely next to bonded pool and unbonding pools in terms of terminology. In
 /// reality, a reward pool is just a container for a few pool-dependent data related to the rewards.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
@@ -1464,7 +1458,7 @@ impl<T: Config> RewardPool<T> {
 }
 
 /// An unbonding pool. This is always mapped with an era.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, Debug)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
@@ -1507,7 +1501,7 @@ impl<T: Config> UnbondPool<T> {
 	}
 }
 
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, Debug)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]

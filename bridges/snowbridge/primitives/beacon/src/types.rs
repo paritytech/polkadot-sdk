@@ -29,7 +29,7 @@ use milagro_bls::PublicKey as PublicKeyPrepared;
 pub type ValidatorIndex = u64;
 pub type ForkVersion = [u8; 4];
 
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub struct ForkVersions {
 	pub genesis: Fork,
 	pub altair: Fork,
@@ -38,13 +38,13 @@ pub struct ForkVersions {
 	pub deneb: Fork,
 }
 
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub struct Fork {
 	pub version: [u8; 4],
 	pub epoch: u64,
 }
 
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub struct PublicKey(pub [u8; PUBKEY_SIZE]);
 
 impl Default for PublicKey {
@@ -85,7 +85,7 @@ impl Serialize for PublicKey {
 	}
 }
 
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub struct Signature(pub [u8; SIGNATURE_SIZE]);
 
 impl Default for Signature {
@@ -116,7 +116,7 @@ pub struct FinalizedHeaderState {
 	pub beacon_slot: u64,
 }
 
-#[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Clone, Default, Encode, Decode, PartialEq, Debug)]
 pub struct ForkData {
 	// 1 or 0 bit, indicates whether a sync committee participated in a vote
 	pub current_version: [u8; 4],
@@ -129,7 +129,7 @@ impl ForkData {
 	}
 }
 
-#[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Clone, Default, Encode, Decode, PartialEq, Debug)]
 pub struct SigningData {
 	pub object_root: H256,
 	pub domain: H256,
@@ -142,9 +142,7 @@ impl SigningData {
 }
 
 /// Sync committee as it is stored in the runtime storage.
-#[derive(
-	Encode, Decode, PartialEqNoBound, CloneNoBound, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, PartialEqNoBound, CloneNoBound, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(
 	feature = "std",
 	derive(Serialize, Deserialize),
@@ -214,9 +212,7 @@ impl<const COMMITTEE_SIZE: usize> TryFrom<&SyncCommittee<COMMITTEE_SIZE>>
 
 /// Beacon block header as it is stored in the runtime storage. The block root is the
 /// Merkleization of a BeaconHeader.
-#[derive(
-	Copy, Clone, Default, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Copy, Clone, Default, Encode, Decode, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BeaconHeader {
 	// The slot for which this block is created. Must be greater than the slot of the block defined
@@ -238,7 +234,7 @@ impl BeaconHeader {
 	}
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, Debug, TypeInfo)]
 #[cfg_attr(
 	feature = "std",
 	derive(Deserialize),
@@ -302,9 +298,7 @@ impl<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize>
 
 /// ExecutionPayloadHeader
 /// <https://github.com/ethereum/annotated-spec/blob/master/capella/beacon-chain.md#executionpayloadheader>
-#[derive(
-	Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
-)]
+#[derive(Default, Encode, Decode, CloneNoBound, PartialEqNoBound, Debug, TypeInfo)]
 #[cfg_attr(
 	feature = "std",
 	derive(Serialize, Deserialize),
@@ -339,15 +333,7 @@ impl ExecutionPayloadHeader {
 }
 
 #[derive(
-	Default,
-	Encode,
-	Decode,
-	Copy,
-	Clone,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	MaxEncodedLen,
+	Default, Encode, Decode, Copy, Clone, PartialEqNoBound, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct CompactBeaconState {
 	#[codec(compact)]
@@ -356,7 +342,7 @@ pub struct CompactBeaconState {
 }
 
 /// VersionedExecutionPayloadHeader
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, Debug, TypeInfo)]
 #[cfg_attr(
 	feature = "std",
 	derive(Serialize, Deserialize),
@@ -410,7 +396,7 @@ impl VersionedExecutionPayloadHeader {
 	}
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, Debug, TypeInfo)]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Deserialize),
@@ -427,7 +413,7 @@ pub struct ExecutionProof {
 	pub execution_branch: Vec<H256>,
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, Debug, TypeInfo)]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Deserialize),
@@ -559,7 +545,7 @@ mod tests {
 }
 
 /// Operating modes for beacon client
-#[derive(Encode, Decode, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Debug, TypeInfo)]
 pub enum Mode {
 	Active,
 	Blocked,

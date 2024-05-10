@@ -72,9 +72,7 @@ impl WeightInfo for TestWeightInfo {
 }
 
 /// The kind of statement an account needs to make for a claim to be valid.
-#[derive(
-	Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo, Serialize, Deserialize,
-)]
+#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, Serialize, Deserialize)]
 pub enum StatementKind {
 	/// Statement required to be made by non-SAFT holders.
 	Regular,
@@ -107,7 +105,7 @@ impl Default for StatementKind {
 /// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
 ///
 /// This gets serialized to the 0x-prefixed hex representation.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug, TypeInfo)]
 pub struct EthereumAddress([u8; 20]);
 
 impl Serialize for EthereumAddress {

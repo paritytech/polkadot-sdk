@@ -63,7 +63,7 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 
 /// A type to note whether a preimage is owned by a user or the system.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Debug)]
 pub enum OldRequestStatus<AccountId, Balance> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
 	/// some) is being held until either it becomes requested or the user retracts the preimage.
@@ -75,7 +75,7 @@ pub enum OldRequestStatus<AccountId, Balance> {
 }
 
 /// A type to note whether a preimage is owned by a user or the system.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Debug)]
 pub enum RequestStatus<AccountId, Ticket> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
 	/// some) is being held until either it becomes requested or the user retracts the preimage.

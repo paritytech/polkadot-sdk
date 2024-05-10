@@ -24,9 +24,7 @@ use sp_core::RuntimeDebug;
 pub const CORE_MASK_BITS: usize = 80;
 
 // TODO: Use BitArr instead; for this, we'll need to ensure Codec is impl'ed for `BitArr`.
-#[derive(
-	Encode, Decode, Default, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct CoreMask([u8; 10]);
 impl CoreMask {
 	pub fn void() -> Self {

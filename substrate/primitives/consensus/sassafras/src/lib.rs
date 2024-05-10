@@ -85,9 +85,7 @@ pub type Randomness = [u8; RANDOMNESS_LENGTH];
 /// Protocol configuration that can be modified on epoch change.
 ///
 /// Mostly tweaks to the ticketing system parameters.
-#[derive(
-	Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo, Default,
-)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, MaxEncodedLen, TypeInfo, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EpochConfiguration {
 	/// Tickets redundancy factor.

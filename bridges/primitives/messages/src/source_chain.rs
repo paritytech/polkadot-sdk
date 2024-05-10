@@ -112,7 +112,7 @@ impl OnMessagesDelivered for () {
 }
 
 /// Send message artifacts.
-#[derive(Eq, RuntimeDebug, PartialEq)]
+#[derive(Eq, Debug, PartialEq)]
 pub struct SendMessageArtifacts {
 	/// Nonce of the message.
 	pub nonce: MessageNonce,

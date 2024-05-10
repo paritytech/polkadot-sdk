@@ -35,7 +35,7 @@ use crate::{
 use sp_core::RuntimeDebug;
 
 /// Generic header digest.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Digest {
 	/// A list of logs in the digest.
@@ -71,7 +71,7 @@ impl Digest {
 
 /// Digest item that is able to encode/decode 'system' digest items and
 /// provide opaque access to other items.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum DigestItem {
 	/// A pre-runtime digest.
 	///
@@ -170,7 +170,7 @@ impl TypeInfo for DigestItem {
 
 /// A 'referencing view' for digest item. Does not own its contents. Used by
 /// final runtime implementations for encoding/decoding its log items.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum DigestItemRef<'a> {
 	/// A pre-runtime digest.
 	///

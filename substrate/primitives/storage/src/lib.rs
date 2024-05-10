@@ -34,7 +34,7 @@ use core::{
 use ref_cast::RefCast;
 
 /// Storage key.
-#[derive(PartialEq, Eq, RuntimeDebug)]
+#[derive(PartialEq, Eq, Debug)]
 #[cfg_attr(
 	feature = "serde",
 	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode)
@@ -50,7 +50,7 @@ impl AsRef<[u8]> for StorageKey {
 }
 
 /// Storage key with read/write tracking information.
-#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, RuntimeDebug, Clone, Encode, Decode)]
+#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, Debug, Clone, Encode, Decode)]
 pub struct TrackedStorageKey {
 	pub key: Vec<u8>,
 	pub reads: u32,
@@ -98,7 +98,7 @@ impl From<Vec<u8>> for TrackedStorageKey {
 }
 
 /// Storage key of a child trie, it contains the prefix to the key.
-#[derive(PartialEq, Eq, RuntimeDebug)]
+#[derive(PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone))]
 #[repr(transparent)]
 #[derive(RefCast)]
@@ -139,7 +139,7 @@ impl PrefixedStorageKey {
 }
 
 /// Storage data associated to a [`StorageKey`].
-#[derive(PartialEq, Eq, RuntimeDebug)]
+#[derive(PartialEq, Eq, Debug)]
 #[cfg_attr(
 	feature = "serde",
 	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)
@@ -176,7 +176,7 @@ pub struct Storage {
 }
 
 /// Storage change set
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize, PartialEq, Eq, Clone))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct StorageChangeSet<Hash> {

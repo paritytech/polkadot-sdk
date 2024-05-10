@@ -24,7 +24,7 @@ use sp_runtime::BoundedVec;
 pub type MaxEnqueuedMessageSizeOf<T> =
 	<<T as Config>::MessageQueue as EnqueueMessage<AggregateMessageOrigin>>::MaxMessageLen;
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, Debug)]
 pub struct Ticket<T>
 where
 	T: Config,

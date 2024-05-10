@@ -194,7 +194,7 @@ pub trait ProposalProvider<AccountId, Hash, Proposal> {
 }
 
 /// The various roles that a member can hold.
-#[derive(Copy, Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum MemberRole {
 	Fellow,
 	Ally,
@@ -202,7 +202,7 @@ pub enum MemberRole {
 }
 
 /// The type of item that may be deemed unscrupulous.
-#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum UnscrupulousItem<AccountId, Url> {
 	AccountId(AccountId),
 	Website(Url),

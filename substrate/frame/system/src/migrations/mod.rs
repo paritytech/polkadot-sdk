@@ -30,7 +30,7 @@ use sp_std::prelude::*;
 type RefCount = u32;
 
 /// Information of an account.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode)]
 struct AccountInfo<Nonce, AccountData> {
 	nonce: Nonce,
 	consumers: RefCount,

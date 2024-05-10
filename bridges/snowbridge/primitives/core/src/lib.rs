@@ -66,9 +66,7 @@ pub fn eth(x: u128) -> U256 {
 pub const ROC: u128 = 1_000_000_000_000;
 
 /// Identifier for a message channel
-#[derive(
-	Clone, Copy, Encode, Decode, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo,
-)]
+#[derive(Clone, Copy, Encode, Decode, PartialEq, Eq, Default, Debug, MaxEncodedLen, TypeInfo)]
 pub struct ChannelId([u8; 32]);
 
 /// Deterministically derive a ChannelId for a sibling parachain
@@ -126,7 +124,7 @@ impl AsRef<[u8]> for ChannelId {
 	}
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, MaxEncodedLen, TypeInfo)]
 pub struct Channel {
 	/// ID of the agent contract deployed on Ethereum
 	pub agent_id: AgentId,

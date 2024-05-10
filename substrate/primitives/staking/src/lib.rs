@@ -62,7 +62,7 @@ impl<AccountId> From<AccountId> for StakingAccount<AccountId> {
 }
 
 /// Representation of the status of a staker.
-#[derive(RuntimeDebug, TypeInfo)]
+#[derive(Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone))]
 pub enum StakerStatus<AccountId> {
 	/// Chilling.
@@ -75,7 +75,7 @@ pub enum StakerStatus<AccountId> {
 
 /// A struct that reflects stake that an account has in the staking system. Provides a set of
 /// methods to operate on it's properties. Aimed at making `StakingInterface` more concise.
-#[derive(RuntimeDebug, Clone, Copy, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 pub struct Stake<Balance> {
 	/// The total stake that `stash` has in the staking system. This includes the
 	/// `active` stake, and any funds currently in the process of unbonding via
@@ -339,7 +339,7 @@ pub trait StakingUnchecked: StakingInterface {
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Debug, TypeInfo)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	/// The stash account of the nominator in question.
 	pub who: AccountId,
@@ -349,7 +349,7 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Debug, TypeInfo)]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -410,7 +410,7 @@ impl<
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Debug, TypeInfo)]
 pub struct ExposurePage<AccountId, Balance: HasCompact> {
 	/// The total balance of this chunk/page.
 	#[codec(compact)]
@@ -431,17 +431,7 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 /// `Exposure` set of a validator. This is useful for cases where we want to query full set of
 /// `Exposure` as one page (for backward compatibility).
 #[derive(
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Clone,
-	Encode,
-	Decode,
-	RuntimeDebug,
-	TypeInfo,
-	Default,
-	MaxEncodedLen,
+	PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Debug, TypeInfo, Default, MaxEncodedLen,
 )]
 pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	/// The total balance backing this validator.

@@ -237,7 +237,7 @@ mod tests;
 /// The voter and target identifiers have already been replaced with appropriate indices,
 /// making it fast to repeatedly encode into a `SolutionOf<T>`. This property turns out
 /// to be important when trimming for solution length.
-#[derive(RuntimeDebug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "std", derive(PartialEq, Eq, Encode, Decode))]
 pub struct IndexAssignment<VoterIndex, TargetIndex, P: PerThing> {
 	/// Index of the voter among the voters list.

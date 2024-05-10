@@ -41,7 +41,7 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 	Ord,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	Debug,
 	derive_more::From,
 	TypeInfo,
 	Serialize,
@@ -59,16 +59,7 @@ impl HeadData {
 
 /// Parachain validation code.
 #[derive(
-	PartialEq,
-	Eq,
-	Clone,
-	Encode,
-	Decode,
-	RuntimeDebug,
-	derive_more::From,
-	TypeInfo,
-	Serialize,
-	Deserialize,
+	PartialEq, Eq, Clone, Encode, Decode, Debug, derive_more::From, TypeInfo, Serialize, Deserialize,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct ValidationCode(#[serde(with = "bytes")] pub Vec<u8>);
@@ -128,7 +119,7 @@ impl sp_std::fmt::LowerHex for ValidationCodeHash {
 /// Parachain block data.
 ///
 /// Contains everything required to validate para-block, may contain block and witness data.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, derive_more::From, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, derive_more::From, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec<u8>);
 
@@ -146,7 +137,7 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 	Ord,
 	PartialEq,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	serde::Serialize,
 	serde::Deserialize,
 	TypeInfo,
@@ -241,9 +232,7 @@ impl sp_std::ops::Sub<u32> for Id {
 	}
 }
 
-#[derive(
-	Clone, Copy, Default, Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo,
-)]
+#[derive(Clone, Copy, Default, Encode, Decode, Eq, PartialEq, Ord, PartialOrd, Debug, TypeInfo)]
 pub struct Sibling(pub Id);
 
 impl From<Id> for Sibling {
@@ -293,7 +282,7 @@ impl IsSystem for Sibling {
 /// Only one channel is allowed between two participants in one direction, i.e. there cannot be 2
 /// different channels identified by `(A, B)`. A channel with the same para id in sender and
 /// recipient is invalid. That is, however, not enforced.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct HrmpChannelId {
 	/// The para that acts as the sender in this channel.
@@ -333,7 +322,7 @@ impl DmpMessageHandler for () {
 }
 
 /// The aggregate XCMP message format.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo, Debug)]
 pub enum XcmpMessageFormat {
 	/// Encoded `VersionedXcm` messages, all concatenated.
 	ConcatenatedVersionedXcm,

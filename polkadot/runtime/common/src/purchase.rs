@@ -35,7 +35,7 @@ type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// The kind of statement an account needs to make for a claim to be valid.
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo)]
 pub enum AccountValidity {
 	/// Account is not valid.
 	Invalid,
@@ -71,7 +71,7 @@ impl AccountValidity {
 }
 
 /// All information about an account regarding the purchase of DOTs.
-#[derive(Encode, Decode, Default, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub struct AccountStatus<Balance> {
 	/// The current validity status of the user. Will denote if the user has passed KYC,
 	/// how much they are able to purchase, and when their purchase process has completed.
