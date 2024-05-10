@@ -19,15 +19,14 @@ use crate::Config;
 
 use frame_support::{
 	ensure,
-	traits::{fungible::Inspect, tokens::Balance},
-	unsigned::TransactionValidityError,
+	traits::{
+		fungible::{self, Inspect},
+		fungibles::Inspect as FungibleInspect,
+		tokens::{Balance, Imbalance, Preservation},
+	},
 };
 use pallet_asset_conversion::Swap;
-use sp_runtime::{
-	traits::{DispatchInfoOf, Get, PostDispatchInfoOf, Zero},
-	transaction_validity::InvalidTransaction,
-	Saturating,
-};
+use sp_runtime::{traits::Get, Saturating};
 use sp_std::marker::PhantomData;
 
 /// Handle withdrawing, refunding and depositing of transaction fees.
@@ -83,7 +82,8 @@ impl<T, C, CON, N> OnChargeAssetTransaction<T> for AssetConversionAdapter<C, CON
 where
 	N: Get<CON::AssetKind>,
 	T: Config,
-	C: Inspect<<T as frame_system::Config>::AccountId>,
+	C: Inspect<<T as frame_system::Config>::AccountId>
+		+ fungible::Balanced<<T as frame_system::Config>::AccountId>,
 	CON: Swap<T::AccountId, Balance = BalanceOf<T>, AssetKind = T::AssetKind>,
 	BalanceOf<T>: Into<AssetBalanceOf<T>>,
 	T::AssetKind: From<AssetIdOf<T>>,
@@ -112,31 +112,57 @@ where
 	> {
 		// convert the asset into native currency
 		let ed = C::minimum_balance();
-		let native_asset_required =
-			if C::balance(&who) >= ed.saturating_add(fee.into()) { fee } else { fee + ed.into() };
 
-		let asset_consumed = CON::swap_tokens_for_exact_tokens(
+		let debt = if ed > C::balance(&who) {
+			let (debt, credit) = C::pair(ed)
+				.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
+			let _ = C::resolve(who, credit)
+				.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
+			debt
+		} else {
+			fungible::Debt::<T::AccountId, C>::zero()
+		};
+
+		let asset_consumed = match CON::swap_tokens_for_exact_tokens(
 			who.clone(),
 			vec![asset_id.into(), N::get()],
-			native_asset_required,
+			fee,
 			None,
 			who.clone(),
 			true,
-		)
-		.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
+		) {
+			Ok(consumed) => consumed,
+			Err(_) => {
+				let _ = C::settle(who, debt, Preservation::Expendable);
+				return Err(InvalidTransaction::Payment.into());
+			},
+		};
 
-		ensure!(asset_consumed > Zero::zero(), InvalidTransaction::Payment);
+		if asset_consumed.is_zero() {
+			let _ = C::settle(who, debt, Preservation::Expendable);
+			return Err(InvalidTransaction::Payment.into());
+		}
 
 		// charge the fee in native currency
-		<T::OnChargeTransaction>::withdraw_fee(who, call, info, fee, tip)
-			.map(|r| (r, native_asset_required, asset_consumed.into()))
+		match <T::OnChargeTransaction>::withdraw_fee(who, call, info, fee, tip) {
+			Ok(fee_credit) => {
+				let credit = C::settle(who, debt, Preservation::Expendable)
+					.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
+				ensure!(credit.peek().is_zero(), InvalidTransaction::Payment);
+
+				Ok((fee_credit, fee, asset_consumed.into()))
+			},
+			Err(e) => {
+				let _ = C::settle(who, debt, Preservation::Expendable);
+				Err(e)
+			},
+		}
 	}
 
 	/// Correct the fee and swap the refund back to asset.
 	///
 	/// Note: The `corrected_fee` already includes the `tip`.
-	/// Note: Is the ED wasn't needed, the `received_exchanged` will be equal to `fee_paid`, or
-	/// `fee_paid + ed` otherwise.
+	/// Note: The `received_exchanged` will be equal to `fee_paid`.
 	fn correct_and_deposit_fee(
 		who: &T::AccountId,
 		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
@@ -148,19 +174,30 @@ where
 		asset_id: Self::AssetId,
 		initial_asset_consumed: AssetBalanceOf<T>,
 	) -> Result<AssetBalanceOf<T>, TransactionValidityError> {
+		let ed = C::minimum_balance();
+		let ed_asset = T::Fungibles::minimum_balance(asset_id.clone());
+		let final_fee = if C::balance(&who) >= ed &&
+			T::Fungibles::balance(asset_id.clone(), &who) >= ed_asset
+		{
+			corrected_fee
+		} else {
+			// otherwise no refund.
+			received_exchanged
+		};
+
 		// Refund the native asset to the account that paid the fees (`who`).
 		// The `who` account will receive the "fee_paid - corrected_fee" refund.
 		<T::OnChargeTransaction>::correct_and_deposit_fee(
 			who,
 			dispatch_info,
 			post_info,
-			corrected_fee,
+			final_fee,
 			tip,
 			fee_paid,
 		)?;
 
 		// calculate the refund in native asset, to swap back to the desired `asset_id`
-		let swap_back = received_exchanged.saturating_sub(corrected_fee);
+		let swap_back = received_exchanged.saturating_sub(final_fee);
 		let mut asset_refund = Zero::zero();
 		if !swap_back.is_zero() {
 			// If this fails, the account might have dropped below the existential balance or there
