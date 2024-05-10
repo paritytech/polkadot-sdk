@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715350043379,
+  "lastUpdate": 1715376003235,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -7433,6 +7433,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19133395966666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a993513c9c54313bc3c7093563d2f4ff6fe42ae2",
+          "message": "Add docs to request_core_count (#4423)\n\nThe fact that this takes two sessions to come into effect is not\nobvious. Just added some docs to explain that.\n\nAlso tidied up uses of \"broker chain\" -> \"coretime chain\"",
+          "timestamp": "2024-05-10T19:41:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a993513c9c54313bc3c7093563d2f4ff6fe42ae2"
+        },
+        "date": 1715375975711,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.410597385933333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.28959793273333334,
             "unit": "seconds"
           }
         ]
