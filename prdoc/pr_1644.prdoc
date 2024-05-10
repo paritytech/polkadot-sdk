@@ -12,9 +12,9 @@ crates:
   - name: polkadot-primitives
     bump: minor
   - name: cumulus-client-pov-recovery
-    bump: None
+    bump: none
   - name: polkadot-overseer
-    bump: None
+    bump: none
   - name: polkadot-node-primitives
     bump: major
   - name: polkadot-erasure-coding
@@ -40,11 +40,11 @@ crates:
   - name: polkadot-network-bridge
     bump: minor
   - name: polkadot-node-core-backing
-    bump: None
+    bump: none
   - name: polkadot-node-core-bitfield-signing
-    bump: None
+    bump: none
   - name: polkadot-node-core-dispute-coordinator
-    bump: None
+    bump: none
   - name: cumulus-relay-chain-minimal-node
     bump: minor
   - name: polkadot
