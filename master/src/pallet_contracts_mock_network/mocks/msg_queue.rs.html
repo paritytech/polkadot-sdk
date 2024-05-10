@@ -330,6 +330,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -379,17 +385,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>parachain_id)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ParachainId&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, ParaId, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>received_dmp)]
 	</span><span class="doccomment">/// A queue of received DMP messages
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ReceivedDmp&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;Xcm&lt;T::RuntimeCall&gt;&gt;, ValueQuery&gt;;
 
 	<span class="kw">impl</span>&lt;T: Config&gt; Get&lt;ParaId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>get() -&gt; ParaId {
-			<span class="self">Self</span>::parachain_id()
+			ParachainId::&lt;T&gt;::get()
 		}
 	}
 
@@ -419,6 +423,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="kw">pub fn </span>set_para_id(para_id: ParaId) {
 			ParachainId::&lt;T&gt;::put(para_id);
+		}
+
+		<span class="kw">pub fn </span>parachain_id() -&gt; ParaId {
+			ParachainId::&lt;T&gt;::get()
+		}
+
+		<span class="kw">pub fn </span>received_dmp() -&gt; Vec&lt;Xcm&lt;T::RuntimeCall&gt;&gt; {
+			ReceivedDmp::&lt;T&gt;::get()
 		}
 
 		<span class="kw">fn </span>handle_xcmp_message(
@@ -501,7 +513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								limit,
 								Weight::zero(),
 							);
-							&lt;ReceivedDmp&lt;T&gt;&gt;::append(x);
+							ReceivedDmp::&lt;T&gt;::append(x);
 							<span class="self">Self</span>::deposit_event(Event::ExecutedDownward(id, outcome));
 						},
 					},
