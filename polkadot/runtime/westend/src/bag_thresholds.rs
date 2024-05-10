@@ -234,7 +234,7 @@ pub const VOTER_THRESHOLDS: [u64; 200] = [
 ];
 
 /// Upper thresholds delimiting the targets bag list.
-pub const TARGET_THRESHOLDS: [crate::Balance; 200] = [
+pub const TARGET_THRESHOLDS: [u128; 200] = [
 	10_000_000_000,
 	11_131_723_507,
 	12_391_526_824,

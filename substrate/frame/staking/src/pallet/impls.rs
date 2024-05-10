@@ -1080,8 +1080,8 @@ impl<T: Config> Pallet<T> {
 		let mut all_targets = Vec::<T::AccountId>::with_capacity(final_predicted_len as usize);
 		let mut targets_seen = 0;
 
-		// target list may contain chilled validators and dangling (i.e. unbonded) targets, filter
-		// those.
+		// target list may contain chilled validators, dangling (i.e. unbonded) targets or even
+		// nominators that have been validators - filter those out.
 		let mut targets_iter = T::TargetList::iter().filter(|t| match Self::status(&t) {
 			Ok(StakerStatus::Idle) | Ok(StakerStatus::Nominator(_)) | Err(_) => false,
 			Ok(StakerStatus::Validator) => true,

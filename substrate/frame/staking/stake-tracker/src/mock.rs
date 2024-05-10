@@ -69,11 +69,16 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 }
 
-const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
+const VOTER_THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 	[100, 200, 300, 400, 500, 600, 700, 800, 900];
 
+const TARGET_THRESHOLDS: [u128; 9] = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+
 parameter_types! {
-	pub static BagThresholds: &'static [VoteWeight] = &THRESHOLDS;
+	pub static VoterBagThresholds: &'static [VoteWeight] = &VOTER_THRESHOLDS;
+	pub static TargetBagThresholds: &'static [u128] = &TARGET_THRESHOLDS;
+
+	pub static VoterUpdateMode: crate::VoterUpdateMode = crate::VoterUpdateMode::Strict;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -81,7 +86,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ScoreProvider = StakingMock;
-	type BagThresholds = BagThresholds;
+	type BagThresholds = VoterBagThresholds;
 	type Score = VoteWeight;
 }
 
@@ -90,16 +95,16 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type ScoreProvider = pallet_bags_list::Pallet<Test, TargetBagsListInstance>;
-	type BagThresholds = BagThresholds;
-	type Score = <StakingMock as StakingInterface>::Balance;
+	type BagThresholds = TargetBagThresholds;
+	type Score = u128;
 }
 
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
 	type Staking = StakingMock;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 pub struct StakingMock {}
@@ -273,10 +278,16 @@ parameter_types! {
 	pub static Bonded: Vec<AccountId> = Default::default();
 }
 
-pub(crate) fn get_scores<L: SortedListProvider<AccountId, Score = VoteWeight>>(
-) -> Vec<(AccountId, Balance)> {
-	let scores: Vec<_> = L::iter().map(|e| (e, L::get_score(&e).unwrap())).collect();
-	scores
+pub(crate) fn target_scores() -> Vec<(AccountId, u128)> {
+	TargetBagsList::iter()
+		.map(|e| (e, TargetBagsList::get_score(&e).unwrap()))
+		.collect::<Vec<_>>()
+}
+
+pub(crate) fn voter_scores() -> Vec<(AccountId, Balance)> {
+	VoterBagsList::iter()
+		.map(|e| (e, VoterBagsList::get_score(&e).unwrap()))
+		.collect::<Vec<_>>()
 }
 
 pub(crate) fn populate_lists() {
@@ -308,6 +319,8 @@ pub(crate) fn score_of_target(who: AccountId) -> Balance {
 	<pallet_bags_list::Pallet<Test, TargetBagsListInstance> as ScoreProvider<AccountId>>::score(
 		&who,
 	)
+	.try_into()
+	.unwrap()
 }
 
 pub(crate) fn add_nominator_with_nominations(
@@ -463,6 +476,11 @@ impl ExtBuilder {
 		self
 	}
 
+	pub fn voter_update_mode(self, mode: crate::VoterUpdateMode) -> Self {
+		VoterUpdateMode::set(mode);
+		self
+	}
+
 	#[allow(dead_code)]
 	pub fn try_state(self, enable: bool) -> Self {
 		DisableTryRuntimeChecks::set(!enable);
@@ -486,9 +504,8 @@ impl ExtBuilder {
 			}
 			// move past genesis to register events.
 			System::set_block_number(1);
-
-			test()
 		});
+		ext.execute_with(test);
 
 		if !DisableTryRuntimeChecks::get() {
 			ext.execute_with(|| {

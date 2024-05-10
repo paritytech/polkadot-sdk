@@ -826,4 +826,13 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+
+	// TODO: run CI bot benchmarks
+	fn drop_dangling_nomination() -> Weight {
+	    Weight::default()
+	}
+
+	fn v13_mmb_step() -> Weight {
+		Weight::default()
+	}
 }

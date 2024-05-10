@@ -135,10 +135,12 @@ fn mb_migration_target_list_dangling_validators_works() {
 }
 
 #[test]
-fn mb_migration_target_list_bench_works() {
+fn mb_migration_target_list_single_step_bench_works() {
 	ExtBuilder::default()
 		.has_stakers(false)
 		.max_winners(1000)
+		// skip checks as not all the steps are applied.
+		.stake_tracker_try_state(false)
 		.build_and_execute(|| {
 			// setup:
 			// 1000 validators;

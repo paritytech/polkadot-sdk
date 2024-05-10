@@ -362,12 +362,16 @@ impl OnStakingUpdate<AccountId, Balance> for EventTracker {
 	}
 }
 
+parameter_types! {
+	pub static VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Strict;
+}
+
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 // Disabling threshold for `UpToLimitDisablingStrategy`
@@ -566,6 +570,10 @@ impl ExtBuilder {
 	}
 	pub fn stake_tracker_try_state(self, enable: bool) -> Self {
 		SkipStakeTrackerTryStateCheck::set(!enable);
+		self
+	}
+	pub fn set_voter_list_lazy(self) -> Self {
+		VoterUpdateMode::set(pallet_stake_tracker::VoterUpdateMode::Lazy);
 		self
 	}
 	pub fn max_winners(self, max: u32) -> Self {
@@ -1098,6 +1106,13 @@ macro_rules! assert_session_era {
 			$era,
 		);
 	};
+}
+
+pub(crate) fn nominators_of(t: &AccountId) -> Vec<AccountId> {
+	Nominators::<Test>::iter()
+		.filter(|(_, n)| n.targets.contains(&t))
+		.map(|(v, _)| v)
+		.collect::<Vec<_>>()
 }
 
 pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {

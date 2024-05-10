@@ -728,7 +728,7 @@ fn nominating_and_rewards_should_work() {
 			// 333 is the reward destination for 3.
 			assert_eq_error_rate!(
 				Balances::total_balance(&333),
-				2 * payout_for_11 / 9 + 3 * payout_for_21 / 11,
+				2 * payout_for_21 / 9 + 3 * payout_for_11 / 11,
 				2
 			);
 
@@ -1291,19 +1291,25 @@ fn bond_extra_works() {
 
 #[test]
 fn bond_extra_controller_bad_state_works() {
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
-		assert_eq!(StakingLedger::<Test>::get(StakingAccount::Stash(31)).unwrap().stash, 31);
+	ExtBuilder::default()
+		.try_state(false)
+		.stake_tracker_try_state(false)
+		.build_and_execute(|| {
+			assert_eq!(StakingLedger::<Test>::get(StakingAccount::Stash(31)).unwrap().stash, 31);
 
-		// simulate ledger in bad state: the controller 41 is associated to the stash 31 and 41.
-		Bonded::<Test>::insert(31, 41);
+			// simulate ledger in bad state: the controller 41 is associated to the stash 31 and 41.
+			Bonded::<Test>::insert(31, 41);
 
-		// we confirm that the ledger is in bad state: 31 has 41 as controller and when fetching
-		// the ledger associated with the controller 41, its stash is 41 (and not 31).
-		assert_eq!(Ledger::<Test>::get(41).unwrap().stash, 41);
+			// we confirm that the ledger is in bad state: 31 has 41 as controller and when fetching
+			// the ledger associated with the controller 41, its stash is 41 (and not 31).
+			assert_eq!(Ledger::<Test>::get(41).unwrap().stash, 41);
 
-		// if the ledger is in this bad state, the `bond_extra` should fail.
-		assert_noop!(Staking::bond_extra(RuntimeOrigin::signed(31), 10), Error::<Test>::BadState);
-	})
+			// if the ledger is in this bad state, the `bond_extra` should fail.
+			assert_noop!(
+				Staking::bond_extra(RuntimeOrigin::signed(31), 10),
+				Error::<Test>::BadState
+			);
+		})
 }
 
 #[test]
@@ -3388,8 +3394,8 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 			let exposure_11 = Staking::eras_stakers(active_era(), &11);
 			let exposure_21 = Staking::eras_stakers(active_era(), &21);
 
-			assert_eq!(exposure_11.total, 1000 + 125);
-			assert_eq!(exposure_21.total, 1000 + 375);
+			assert_eq!(exposure_11.total, 1000 + 375);
+			assert_eq!(exposure_21.total, 1000 + 125);
 
 			on_offence_now(
 				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
@@ -3407,12 +3413,12 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 						slash_era: 1
 					},
 					Event::Slashed { staker: 11, amount: 100 },
-					Event::Slashed { staker: 101, amount: 12 },
+					Event::Slashed { staker: 101, amount: 37 },
 				]
 			);
 
 			// post-slash balance
-			let nominator_slash_amount_11 = 125 / 10;
+			let nominator_slash_amount_11 = 375 / 10;
 			assert_eq!(Balances::free_balance(11), 900);
 			assert_eq!(Balances::free_balance(101), 2000 - nominator_slash_amount_11);
 
@@ -3427,11 +3433,11 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 			let exposure_21 = Staking::eras_stakers(active_era(), &21);
 
 			// 11's own expo is reduced. sum of support from 11 is less (448), which is 500
-			// 900 + 146
-			assert!(matches!(exposure_11, Exposure { own: 900, total: 1046, .. }));
-			// 1000 + 342
-			assert!(matches!(exposure_21, Exposure { own: 1000, total: 1342, .. }));
-			assert_eq!(500 - 146 - 342, nominator_slash_amount_11);
+			// 900 + 346
+			assert!(matches!(exposure_11, Exposure { own: 900, total: 1036, .. }));
+			// 1000 + 327
+			assert!(matches!(exposure_21, Exposure { own: 1000, total: 1327, .. }));
+			assert_eq!(500 - 136 - 327, nominator_slash_amount_11);
 		});
 }
 
@@ -3484,7 +3490,7 @@ fn non_slashable_offence_disables_validator() {
 						slash_era: 1
 					},
 					Event::Slashed { staker: 21, amount: 250 },
-					Event::Slashed { staker: 101, amount: 94 }
+					Event::Slashed { staker: 101, amount: 31 }
 				]
 			);
 
@@ -3546,7 +3552,7 @@ fn slashing_independent_of_disabling_validator() {
 						slash_era: 1
 					},
 					Event::Slashed { staker: 21, amount: 250 },
-					Event::Slashed { staker: 101, amount: 94 }
+					Event::Slashed { staker: 101, amount: 31 }
 				]
 			);
 
@@ -7441,8 +7447,6 @@ mod on_staking_update_events {
 			add_slash(&11);
 
 			ensure_on_staking_updates_emitted(vec![
-				// disabling/chilling validator at slash.
-				ValidatorIdle { who: 11 },
 				Slash { who: 11, slashed_active: 90, slashed_total: 10 },
 				// slash applied on the validator stake.
 				StakeUpdate {
@@ -7561,6 +7565,7 @@ mod on_staking_update_events {
 				let initial_exposure = Staking::eras_stakers(active_era(), &11);
 				// 101 is a nominator for 11
 				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
+
 				// make 101 a virtual nominator
 				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
 				// set payee different to self.
@@ -7636,6 +7641,7 @@ mod on_staking_update_events {
 				let initial_exposure = Staking::eras_stakers(active_era(), &11);
 				// 101 is a nominator for 11
 				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
+
 				// make 101 a virtual nominator
 				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
 				// set payee different to self.
@@ -7676,6 +7682,7 @@ mod on_staking_update_events {
 
 				// validator can be reaped.
 				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, u32::MAX));
+
 				// nominator is a virtual staker and cannot be reaped.
 				assert_noop!(
 					Staking::reap_stash(RuntimeOrigin::signed(10), 101, u32::MAX),
@@ -7720,15 +7727,161 @@ mod stake_tracker {
 	type A = AccountId;
 
 	#[test]
-	fn validator_turns_nominator() {
+	fn duplicate_nominations_dedup_approvals_works() {
+		ExtBuilder::default()
+			.add_staker(100, 100, 1_000, StakerStatus::Nominator(vec![11]))
+			.build_and_execute(|| {
+				// 11 is a validator.
+				assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
+
+				// currently, 101 and 100 nominates 11.
+				assert_eq!(nominators_of(&11), vec![101, 100]);
+
+				// current approvals is the self stake + 101 + 100  active stakes, as expected.
+				assert_eq!(
+					TargetBagsList::score(&11),
+					Staking::active_stake(&11).unwrap() +
+						Staking::active_stake(&101).unwrap() +
+						Staking::active_stake(&100).unwrap()
+				);
+
+				// change nominations of 101 to nominate 11 with duplicates.
+				assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11, 11, 11]));
+				assert_eq!(nominators_of(&11), vec![101, 100]);
+
+				// even though the nominations of 101 have duplicate targets as 11.
+				assert_eq!(Nominators::<Test>::get(&101).unwrap().targets, vec![11, 11, 11]);
+				// the approvals stake of 11 is self_stake + active stake of 101 and 100. duplicate
+				// nominations in the same voter is dedup by the stake tracker.
+				assert_eq!(
+					TargetBagsList::score(&11),
+					Staking::active_stake(&11).unwrap() +
+						Staking::active_stake(&101).unwrap() +
+						Staking::active_stake(&100).unwrap()
+				);
+
+				// when bonding extra, the dedup nominations are also not counted in the approvals.
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(101), 500));
+				assert_eq!(
+					TargetBagsList::score(&11),
+					Staking::active_stake(&11).unwrap() +
+						Staking::active_stake(&101).unwrap() +
+						Staking::active_stake(&100).unwrap()
+				);
+
+				// same when nominator with duplicate nominations unbonds stake.
+				assert_ok!(Staking::chill(RuntimeOrigin::signed(101)));
+				assert_eq!(Staking::status(&101), Ok(StakerStatus::Idle));
+
+				// 101 is not nominator of 11 anymore.
+				assert_eq!(nominators_of(&11), vec![100]);
+				assert_eq!(
+					TargetBagsList::score(&11),
+					Staking::active_stake(&11).unwrap() + Staking::active_stake(&100).unwrap()
+				);
+			})
+	}
+
+	#[test]
+	fn total_slash_and_reap_target_works() {
+		// Test case: a validator and *ALL* its nominators are 100% slashed. The target score drops
+		// to 0. After calling reap_stash on the validator, the target list node is removed and *NO*
+		// nominations are left behind.
+		ExtBuilder::default()
+			// we need enough validators such that disables are allowed.
+			.validator_count(7)
+			.set_status(41, StakerStatus::Validator)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(201, StakerStatus::Validator)
+			.set_status(202, StakerStatus::Validator)
+			.build_and_execute(|| {
+				// make 101 only nominate 11.
+				assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
+				mock::start_active_era(1);
+
+				// slash all stake.
+				let slash_percent = Perbill::from_percent(100);
+				let initial_exposure = Staking::eras_stakers(active_era(), &11);
+				// 101 is a nominator for 11
+				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
+
+				let validator_balance = Balances::free_balance(&11);
+				let validator_stake = Staking::ledger(11.into()).unwrap().total;
+
+				// target score is as expected.
+				assert_eq!(
+					TargetBagsList::score(&11),
+					Staking::active_stake(&11).unwrap() + Staking::active_stake(&101).unwrap()
+				);
+
+				on_offence_now(
+					&[OffenceDetails {
+						offender: (11, initial_exposure.clone()),
+						reporters: vec![],
+					}],
+					&[slash_percent],
+				);
+
+				// both stakes must have been decreased to 0.
+				assert_eq!(Staking::ledger(101.into()).unwrap().active, 0);
+				assert_eq!(Staking::ledger(11.into()).unwrap().active, 0);
+
+				// all validator stake is slashed
+				assert_eq_error_rate!(
+					validator_balance - validator_stake,
+					Balances::free_balance(&11),
+					1
+				);
+				assert!(is_disabled(11));
+
+				// target score is decreased as expected, down to 0.
+				assert_eq!(TargetBagsList::score(&11), 0);
+				assert_eq!(
+					TargetBagsList::score(&11),
+					Staking::active_stake(&11).unwrap() + Staking::active_stake(&101).unwrap()
+				);
+
+				// since the active take of the nominator dropped to 0 after the slash,, it has been
+				// chilled.
+				assert_eq!(Staking::status(&101), Ok(StakerStatus::Idle));
+
+				// reap validator stash works.
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, u32::MAX));
+
+				// 11 is not a nominator/validator anymore.
+				assert!(Staking::status(&11).is_err());
+				assert_eq!(TargetBagsList::score(&11), 0);
+			})
+	}
+
+	#[test]
+	fn virtual_nomination_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
+			// make 101 only nominate 11.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
 
-			// 11 and 21 are both Validators.
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(11), vec![21]));
+			// make 101 a virtual nominator
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+			assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+			assert_eq!(Pallet::<Test>::is_virtual_staker(&101), true);
 
-			assert_eq!(Staking::status(&11), Ok(StakerStatus::Nominator(vec![21])));
-		});
+			// as a virtual nominator, 101 nominates 31 too.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11, 31]));
+
+			let stake_101 = Staking::active_stake(&101).unwrap();
+
+			// target score of 11 is the sum of self stake and 101 bond.
+			assert_eq!(TargetBagsList::score(&11), Staking::active_stake(&11).unwrap() + stake_101);
+			// same for 31.
+			assert_eq!(TargetBagsList::score(&31), Staking::active_stake(&31).unwrap() + stake_101);
+
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(101)));
+			assert_ok!(Staking::kill_stash(&101, 0));
+
+			// target scores updated once virtual nominator unbonded.
+			assert_eq!(TargetBagsList::score(&11), Staking::active_stake(&11).unwrap());
+			assert_eq!(TargetBagsList::score(&31), Staking::active_stake(&31).unwrap());
+		})
 	}
 
 	#[test]
@@ -8028,10 +8181,10 @@ mod stake_tracker {
 				[
 					BagsEvent::Rebagged { who: 11, from: 1000, to: 100 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 0 },
-					BagsEvent::Rebagged { who: 21, from: 1000, to: 10000 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 2100 },
 					BagsEvent::Rebagged { who: 11, from: 100, to: 2000 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 1100 },
+					BagsEvent::Rebagged { who: 21, from: 1000, to: 10000 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 2100 },
 				]
 			);
 
@@ -8157,7 +8310,7 @@ mod stake_tracker {
 			System::reset_events();
 
 			// checks the current targets' score and list sorting.
-			assert_eq!(voters_and_targets().1, [(21, 2050), (11, 2050), (31, 500)]);
+			assert_eq!(voters_and_targets().1, [(11, 2050), (21, 2050), (31, 500)]);
 
 			// get the bonded stake of the nominators that will be affected by the slash.
 			let stake_101_before = Staking::ledger(Stash(101)).unwrap().active;
@@ -8200,7 +8353,7 @@ mod stake_tracker {
 			assert_eq!(
 				score_11_after,
 				score_11_before -
-					self_stake_11_before - (slash_percent * total_others_stake_to_slash),
+					slash_percent * (self_stake_11_before + total_others_stake_to_slash),
 			);
 
 			// self-stake of 11 has decreased by 50% due to slash.
@@ -8226,33 +8379,68 @@ mod stake_tracker {
 			);
 
 			// the target list has been updated accordingly and an indirect rebag of 21 happened.
-			// Although 11 is chilled, it is still part of the target list.
 			assert_eq!(
 				voters_and_targets().1,
-				[(21, score_21_after), (11, score_11_after), (31, 500)]
+				[(11, score_11_after), (21, score_21_after), (31, 500)]
 			);
 			assert_eq!(
 				target_bags_events(),
 				[
 					BagsEvent::Rebagged { who: 11, from: 10000, to: 2000 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 1050 },
-					BagsEvent::Rebagged { who: 11, from: 2000, to: 1000 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 965 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1550 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1385 },
 					BagsEvent::Rebagged { who: 21, from: 10000, to: 2000 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 1965 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 1872 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 872 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1885 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1204 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1704 }
 				]
 			);
 
-			// fetching targets sorted and filtered by status works.
+			// fetching targets sorted and filtered by status works. Validators are not chilled
+			// upon slashing, thus 11 is part of the set.
 			assert_eq!(
 				TargetBagsList::iter()
 					.filter(|t| Staking::status(&t).unwrap() != StakerStatus::Idle)
 					.collect::<Vec<_>>(),
-				[21, 31],
+				[11, 21, 31],
 			);
 		})
+	}
+
+	#[test]
+	fn validator_nominator_roles_snip_snap_works() {
+		// Test case: Validator becomes a nominator and vice-versa. In the process of a nominator
+		// turning validator, it leaves a target behind even though the staker is a nominator. The
+		// target is removed from the list once its score drops to 0 (similar to the dangling
+		// targets).
+		ExtBuilder::default().build_and_execute(|| {
+			// 11 and 21 are both validators.
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
+			assert_eq!(Staking::status(&21), Ok(StakerStatus::Validator));
+			// 101 nominates 11 and 21.
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
+
+			// 11 becomes nominator.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(11), vec![21]));
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Nominator(vec![21])));
+
+			// however, since 101 nominates 11 (which now is a nominator), 11 is still in the
+			// target list even though it is a nominator.
+			assert_eq!(nominators_of(&11), vec![101]);
+			assert_eq!(TargetBagsList::score(&11), Staking::active_stake(&101).unwrap());
+
+			// 101 starts validating. thus, it chills as a nominator.
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(101), Default::default()));
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Validator));
+
+			// now 11 has no more score in the target list and it is a nominator, thus it is
+			// removed from the target list.
+			assert_eq!(nominators_of(&11).len(), 0);
+			assert!(!TargetBagsList::contains(&11));
+
+			// stake-tracker try-state will ensure actions above keep the integrity of the target
+			// and voter list.
+		});
 	}
 
 	#[test]
@@ -8292,81 +8480,91 @@ mod stake_tracker {
 
 	#[test]
 	fn drop_dangling_nomination_works() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
-			// setup.
-			bond_validator(42, 10);
+		ExtBuilder::default()
+			.try_state(false)
+			.stake_tracker_try_state(false)
+			.build_and_execute(|| {
+				// setup.
+				bond_validator(42, 10);
 
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(90), 500, RewardDestination::Staked));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(90), vec![11]));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
+				assert_ok!(Staking::bond(
+					RuntimeOrigin::signed(90),
+					500,
+					RewardDestination::Staked
+				));
+				assert_ok!(Staking::nominate(RuntimeOrigin::signed(90), vec![11]));
+				assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
 
-			// target is dangling with nominations from 101 and 90.
-			setup_dangling_target_for_nominators(42, vec![101, 90]);
+				// target is dangling with nominations from 101 and 90.
+				setup_dangling_target_for_nominators(42, vec![101, 90]);
 
-			// 101 is now nominating 42..
-			assert_ok!(Staking::status(&101), StakerStatus::Nominator(vec![11, 42]));
-			// .. which is unbonded..
-			assert!(Staking::status(&42).is_err());
-			// .. and still part of the target list (thus dangling).
-			assert!(TargetBagsList::contains(&42));
+				// 101 is now nominating 42..
+				assert_ok!(Staking::status(&101), StakerStatus::Nominator(vec![11, 42]));
+				// .. which is unbonded..
+				assert!(Staking::status(&42).is_err());
+				// .. and still part of the target list (thus dangling).
+				assert!(TargetBagsList::contains(&42));
 
-			// remove 90 as dangling nomination.
-			assert_ok!(Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 90, 42));
+				// remove 90 as dangling nomination.
+				assert_ok!(Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 90, 42));
 
-			assert_eq!(
-				*mock::staking_events().last().unwrap(),
-				Event::<Test>::DanglingNominationDropped { nominator: 90, target: 42 }.into(),
-			);
+				assert_eq!(
+					*mock::staking_events().last().unwrap(),
+					Event::<Test>::DanglingNominationDropped { nominator: 90, target: 42 }.into(),
+				);
 
-			// now, 90 is not nominating 42 anymore.
-			assert_ok!(Staking::status(&90), StakerStatus::Nominator(vec![11]));
-			// but 42 is still dangling because 101 is still nominating it
-			assert!(TargetBagsList::contains(&42));
-			assert_ok!(Staking::status(&101), StakerStatus::Nominator(vec![11, 42]));
+				// now, 90 is not nominating 42 anymore.
+				assert_ok!(Staking::status(&90), StakerStatus::Nominator(vec![11]));
+				// but 42 is still dangling because 101 is still nominating it
+				assert!(TargetBagsList::contains(&42));
+				assert_ok!(Staking::status(&101), StakerStatus::Nominator(vec![11, 42]));
 
-			// when the last dangling nomination is removed, the danling target is removed.
-			assert_ok!(Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 101, 42));
+				// when the last dangling nomination is removed, the danling target is removed.
+				assert_ok!(Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 101, 42));
 
-			assert_ok!(Staking::status(&101), StakerStatus::Nominator(vec![11]));
-			assert!(!TargetBagsList::contains(&42));
+				assert_ok!(Staking::status(&101), StakerStatus::Nominator(vec![11]));
+				assert!(!TargetBagsList::contains(&42));
 
-			assert_eq!(
-				*mock::staking_events().last().unwrap(),
-				Event::<Test>::DanglingNominationDropped { nominator: 101, target: 42 }.into(),
-			);
-		})
+				assert_eq!(
+					*mock::staking_events().last().unwrap(),
+					Event::<Test>::DanglingNominationDropped { nominator: 101, target: 42 }.into(),
+				);
+			})
 	}
 
 	#[test]
 	fn drop_dangling_nomination_failures_work() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
-			// target is not dangling since it does not exist in the target list.
-			assert!(Staking::status(&42).is_err());
-			assert!(!TargetBagsList::contains(&42));
+		ExtBuilder::default()
+			.try_state(false)
+			.stake_tracker_try_state(false)
+			.build_and_execute(|| {
+				// target is not dangling since it does not exist in the target list.
+				assert!(Staking::status(&42).is_err());
+				assert!(!TargetBagsList::contains(&42));
 
-			assert_noop!(
-				Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 10, 42),
-				Error::<Test>::NotDanglingTarget,
-			);
+				assert_noop!(
+					Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 10, 42),
+					Error::<Test>::NotDanglingTarget,
+				);
 
-			// target is not dangling since it is still bonded.
-			assert_eq!(Staking::status(&31), Ok(StakerStatus::Validator));
-			assert_noop!(
-				Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 42, 10),
-				Error::<Test>::NotDanglingTarget,
-			);
+				// target is not dangling since it is still bonded.
+				assert_eq!(Staking::status(&31), Ok(StakerStatus::Validator));
+				assert_noop!(
+					Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 42, 10),
+					Error::<Test>::NotDanglingTarget,
+				);
 
-			// target is dangling but voter is not nominating it.
-			bond_validator(42, 10);
+				// target is dangling but voter is not nominating it.
+				bond_validator(42, 10);
 
-			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
-			setup_dangling_target_for_nominators(42, vec![101]);
-			assert!(Staking::status(&42).is_err());
-			assert_noop!(
-				Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 11, 42),
-				Error::<Test>::NotNominator,
-			);
-		})
+				assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
+				setup_dangling_target_for_nominators(42, vec![101]);
+				assert!(Staking::status(&42).is_err());
+				assert_noop!(
+					Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 11, 42),
+					Error::<Test>::NotNominator,
+				);
+			})
 	}
 }
 

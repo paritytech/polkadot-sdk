@@ -1094,8 +1094,6 @@ pub mod pallet {
 						.try_push(UnlockChunk { value, era })
 						.map_err(|_| Error::<T>::NoMoreChunks)?;
 				};
-				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-
 				ledger.update()?;
 
 				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
