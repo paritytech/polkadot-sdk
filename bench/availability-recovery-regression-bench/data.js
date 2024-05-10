@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715348296759,
+  "lastUpdate": 1715350043379,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -7371,6 +7371,48 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/paritytech/polkadot-sdk/commit/00440779d42b754292783612fc0f7e99d7cde2d2"
         },
         "date": 1715348269733,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.810063628566663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19133395966666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maciej",
+            "username": "Overkillus",
+            "email": "maciej.zyszkiewicz@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "00440779d42b754292783612fc0f7e99d7cde2d2",
+          "message": "Disabling Strategy Implementers Guide (#2955)\n\nCloses #1961",
+          "timestamp": "2024-05-10T12:31:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/00440779d42b754292783612fc0f7e99d7cde2d2"
+        },
+        "date": 1715350016962,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
