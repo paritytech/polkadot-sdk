@@ -118,8 +118,8 @@ pub type TicketsCounter = [u32; 2];
 pub struct EphemeralData {
 	/// Previous block slot.
 	prev_slot: Slot,
-	/// Cached pre-output which ships within the block's header digest.
-	pre_output: vrf::VrfPreOutput,
+	/// Per block randomness to be deposited after block execution (on finalization).
+	block_randomness: Randomness,
 }
 
 /// Key used for the tickets accumulator map.
@@ -326,11 +326,27 @@ pub mod pallet {
 				.find_map(|item| item.pre_runtime_try_to::<SlotClaim>(&SASSAFRAS_ENGINE_ID))
 				.expect("Valid block must have a slot claim. qed");
 
-			let ephemeral_data = EphemeralData {
+			let randomness_accumulator = Self::randomness_accumulator();
+			let randomness_input = vrf::block_randomness_input(&randomness_accumulator, claim.slot);
+
+			// Verification has already been done by the host
+			debug_assert!({
+				use sp_core::crypto::{VrfPublic, Wraps};
+				let authorities = Authorities::<T>::get();
+				let public = authorities
+					.get(claim.authority_idx as usize)
+					.expect("Bad authority index in claim");
+				let data = vrf::block_randomness_sign_data(&randomness_accumulator, claim.slot);
+				public.as_inner_ref().vrf_verify(&data, &claim.vrf_signature)
+			});
+
+			let block_randomness = claim.vrf_signature.pre_outputs[0]
+				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
+
+			TemporaryData::<T>::put(EphemeralData {
 				prev_slot: CurrentSlot::<T>::get(),
-				pre_output: claim.vrf_signature.pre_outputs[0].clone(),
-			};
-			TemporaryData::<T>::put(ephemeral_data);
+				block_randomness,
+			});
 
 			CurrentSlot::<T>::put(claim.slot);
 
@@ -344,24 +360,14 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {
-			// At the end of the block, we can safely include the current slot randomness
+			// At the end of the block, we can safely include the current block randomness
 			// to the accumulator. If we've determined that this block was the first in
 			// a new epoch, the changeover logic has already occurred at this point
 			// (i.e. `enact_epoch_change` has already been called).
-			let randomness_input = vrf::block_randomness_input(
-				&Self::randomness_accumulator(),
-				CurrentSlot::<T>::get(),
-			);
-			let randomness_pre_output = TemporaryData::<T>::take()
+			let block_randomness = TemporaryData::<T>::take()
 				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed")
-				.pre_output;
-
-			// TODO: debug_assert that signature is valid
-			// Verification has been already done by the host!
-
-			let randomness = randomness_pre_output
-				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
-			Self::deposit_randomness(randomness);
+				.block_randomness;
+			Self::deposit_randomness(block_randomness);
 
 			// Check if we are in the epoch's second half.
 			// If so, start sorting the next epoch tickets.

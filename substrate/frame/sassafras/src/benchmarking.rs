@@ -18,7 +18,7 @@
 //! Benchmarks for the Sassafras pallet.
 
 use crate::*;
-use sp_consensus_sassafras::vrf::{VrfPreOutput, VrfSignature};
+use sp_consensus_sassafras::vrf::VrfSignature;
 
 use frame_benchmarking::v2::*;
 use frame_support::traits::Hooks;
@@ -42,10 +42,6 @@ fn dummy_vrf_signature() -> VrfSignature {
 		0xd4, 0xf9, 0x3a, 0xae, 0xc1, 0x96, 0x2a, 0x64, 0x80,
 	];
 	VrfSignature::decode(&mut &RAW_VRF_SIGNATURE[..]).unwrap()
-}
-
-fn dummy_pre_output() -> VrfPreOutput {
-	dummy_vrf_signature().pre_outputs[0]
 }
 
 #[benchmarks]
@@ -91,7 +87,7 @@ mod benchmarks {
 		// Makes the epoch change legit
 		let post_init_cache = EphemeralData {
 			prev_slot: Slot::from(config.epoch_length as u64 - 1),
-			pre_output: dummy_pre_output(),
+			block_randomness: Randomness::default(),
 		};
 		TemporaryData::<T>::put(post_init_cache);
 		CurrentSlot::<T>::set(Slot::from(config.epoch_length as u64));
