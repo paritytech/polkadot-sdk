@@ -993,12 +993,13 @@ where
 						Event::Instantiated { deployer: caller, contract: account_id.clone() },
 					);
 				},
-				(ExportedFunction::Call, Some(code_hash)) => {
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(account_id), T::Hashing::hash_of(&code_hash)],
-						Event::DelegateCalled { contract: account_id.clone(), code_hash },
-					);
-				},
+				(ExportedFunction::Call, Some(code_hash)) =>
+					if !frame.read_only {
+						Contracts::<T>::deposit_event(
+							vec![T::Hashing::hash_of(account_id), T::Hashing::hash_of(&code_hash)],
+							Event::DelegateCalled { contract: account_id.clone(), code_hash },
+						);
+					},
 				(ExportedFunction::Call, None) => {
 					// If a special limit was set for the sub-call, we enforce it here.
 					// The sub-call will be rolled back in case the limit is exhausted.

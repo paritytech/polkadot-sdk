@@ -4249,3 +4249,57 @@ fn gas_consumed_is_linear_for_nested_calls() {
 		assert_eq!(gas_max, gas_0 + gas_per_recursion * max_call_depth as u64);
 	});
 }
+
+#[test]
+fn read_only_call_cannot_store() {
+	let (wasm_caller, _code_hash_caller) = compile_module::<Test>("read_only_call").unwrap();
+	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("store_call").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create both contracts: Constructors do nothing.
+		let addr_caller =
+			builder::bare_instantiate(Code::Upload(wasm_caller)).build_and_unwrap_account_id();
+		let addr_callee =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_account_id();
+
+		// Read-only call fails when modifying storage
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller).data((100u32, &addr_callee).encode()).build(),
+			<Error<Test>>::ContractTrapped
+		);
+	});
+}
+
+#[test]
+fn read_only_call_works() {
+	let (wasm_caller, _code_hash_caller) = compile_module::<Test>("read_only_call").unwrap();
+	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create both contracts: Constructors do nothing.
+		let addr_caller =
+			builder::bare_instantiate(Code::Upload(wasm_caller)).build_and_unwrap_account_id();
+		let addr_callee =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_account_id();
+
+		// Drop previous events
+		initialize_block(2);
+		assert_ok!(builder::call(addr_caller.clone())
+			.data((100u32, &addr_callee).encode())
+			.build());
+
+		assert_eq!(
+			System::events(),
+			vec![EventRecord {
+				phase: Phase::Initialization,
+				event: RuntimeEvent::Contracts(crate::Event::Called {
+					caller: Origin::from_account_id(ALICE),
+					contract: addr_caller.clone(),
+				}),
+				topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr_caller)],
+			},]
+		);
+	});
+}
