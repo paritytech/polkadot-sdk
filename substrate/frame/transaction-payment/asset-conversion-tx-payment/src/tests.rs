@@ -27,6 +27,7 @@ use frame_support::{
 };
 use frame_system as system;
 use mock::{ExtrinsicBaseWeight, *};
+use pallet_assets::Call as AssetsCall;
 use pallet_balances::Call as BalancesCall;
 use sp_runtime::{traits::StaticLookup, BuildStorage};
 
@@ -739,4 +740,144 @@ fn post_dispatch_fee_is_zero_if_unsigned_pre_dispatch_fee_is_zero() {
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 		});
+}
+
+#[test]
+fn payment_from_account_with_only_assets_and_transfer_resulting_below_ed() {
+	let balance_factor = 0;
+	ExtBuilder::default().balance_factor(balance_factor).build().execute_with(|| {
+		/**
+		native ed = 100_000_000
+
+		USDC = 1,337
+		min balance = 70_000 ~ 0.07 USD
+		precision = 1_000_000
+		*/
+		let ed = Balances::minimum_balance();
+		let asset_id = 1337;
+		let admin = 42;
+		let ed_asset = 70000;
+		const ASSET_UNIT: u64 = 1_000_000;
+		const DOT_UNIT: u64 = 10_000_000_000;
+
+		// create the asset
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			asset_id.into(),
+			admin, /* owner */
+			true,  /* is_sufficient */
+			ed_asset,
+		));
+
+		// setup lp pool.
+
+		// 1700 DOT <> 12200 USDC will result native ed amount swapped for > asset_ed amount, and
+		// refund will be successful. 
+		// 1700 DOT <> 11200 USDC will result native ed amount swapped for < asset_ed amount, and
+		// refund will be successful.
+		let l_dot_amount = 1700 * DOT_UNIT;
+		let l_usdc_amount = 11200 * ASSET_UNIT;
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			admin,
+			l_dot_amount + (10 * ed),
+		));
+		let lp_provider_account = <Runtime as system::Config>::Lookup::unlookup(admin);
+		assert_ok!(Assets::mint_into(
+			asset_id.into(),
+			&lp_provider_account,
+			l_usdc_amount + (10 * ed_asset)
+		));
+
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(asset_id);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(admin),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(admin),
+			Box::new(token_1),
+			Box::new(token_2),
+			l_dot_amount,  // 1 desired
+			l_usdc_amount, // 2 desired
+			1,             // 1 min
+			1,             // 2 min
+			lp_provider_account,
+		));
+
+		// end: setup lp pool.
+
+		// mint into the caller account
+		let caller = 333;
+		let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+		let asset_balance = 1000 * ASSET_UNIT;
+
+		assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, asset_balance));
+		assert_eq!(Assets::balance(asset_id, caller), asset_balance);
+
+		// assert that native balance is not necessary
+		assert_eq!(Balances::free_balance(caller), 0);
+
+		let fee_in_native = 22_612_710;
+		let weight = Weight::from_parts(fee_in_native.into(), 0);
+		let len = 0;
+
+		let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
+			NativeOrWithId::WithId(asset_id),
+			NativeOrWithId::Native,
+			fee_in_native + ed,
+			true,
+		)
+		.unwrap();
+
+		// we want the transfer amount to result the remain less than the asset ed.
+		let transfer_amount = asset_balance - fee_in_asset - ed_asset + 1;
+		let call = RuntimeCall::Assets(AssetsCall::transfer {
+			id: asset_id.into(),
+			target: 444,
+			amount: transfer_amount,
+		});
+
+		let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			.pre_dispatch(&caller, &call, &info_from_weight(weight), len)
+			.unwrap();
+		assert_eq!(Balances::free_balance(caller), ed);
+		// check that fee was charged in the given asset
+		assert_eq!(Assets::balance(asset_id, caller), asset_balance - fee_in_asset);
+
+		let info = call.dispatch(RuntimeOrigin::signed(caller)).unwrap();
+
+		let mut refund = AssetConversion::quote_price_exact_tokens_for_tokens(
+			NativeOrWithId::Native,
+			NativeOrWithId::WithId(asset_id),
+			ed,
+			true,
+		)
+		.unwrap();
+
+		let asset_amount_after_transfer =
+			if asset_balance - transfer_amount - fee_in_asset < ed_asset {
+				0
+			} else {
+				asset_balance - transfer_amount - fee_in_asset
+			};
+		assert_eq!(Assets::balance(asset_id, caller), asset_amount_after_transfer);
+
+		assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			Some(pre),
+			&info_from_weight(weight),
+			&info,
+			len,
+			&Ok(())
+		));
+		// if refund was not successful this will fail.
+		assert_eq!(Assets::balance(asset_id, caller), refund);
+		assert_eq!(Balances::free_balance(caller), 0);
+
+		assert_eq!(TipUnbalancedAmount::get(), 0);
+		assert_eq!(FeeUnbalancedAmount::get(), fee_in_native);
+	});
 }

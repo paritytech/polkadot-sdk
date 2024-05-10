@@ -74,7 +74,7 @@ impl Get<frame_system::limits::BlockWeights> for BlockWeights {
 				weights.base_extrinsic = ExtrinsicBaseWeight::get().into();
 			})
 			.for_class(DispatchClass::non_mandatory(), |weights| {
-				weights.max_total = Weight::from_parts(1024, u64::MAX).into();
+				weights.max_total = Weight::from_parts(10_000_000_000, u64::MAX).into();
 			})
 			.build_or_panic()
 	}
@@ -113,14 +113,15 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u64 = 10;
+	// pub const ExistentialDeposit: u64 = 10;
+	pub const ExistentialDeposit: u64 = 100_000_000;
 }
 
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<10>;
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type MaxLocks = ();
 	type WeightInfo = ();
