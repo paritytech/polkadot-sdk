@@ -72,6 +72,13 @@ impl TypeInfo for EncodeNoneToEmpty {
 	}
 }
 
+/// The mode of [`CheckMetadataHash`].
+#[derive(Decode, Encode, PartialEq, Debug, TypeInfo, Clone, Copy, Eq)]
+enum Mode {
+	Disabled,
+	Enabled,
+}
+
 /// Extension for optionally checking the metadata hash.
 ///
 /// The metadata hash is cryptographical representation of the runtime metadata. This metadata hash
@@ -97,13 +104,16 @@ impl TypeInfo for EncodeNoneToEmpty {
 #[scale_info(skip_type_params(T))]
 pub struct CheckMetadataHash<T> {
 	_phantom: core::marker::PhantomData<T>,
-	mode: u8,
+	mode: Mode,
 }
 
 impl<T> CheckMetadataHash<T> {
 	/// Creates new `SignedExtension` to check metadata hash.
 	pub fn new(enable: bool) -> Self {
-		Self { _phantom: core::marker::PhantomData, mode: if enable { 1 } else { 0 } }
+		Self {
+			_phantom: core::marker::PhantomData,
+			mode: if enable { Mode::Enabled } else { Mode::Disabled },
+		}
 	}
 }
 
@@ -116,13 +126,11 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
 
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		match self.mode {
-			0 => Ok(EncodeNoneToEmpty(None)),
-			1 => match option_env!("RUNTIME_METADATA_HASH") {
+			Mode::Disabled => Ok(EncodeNoneToEmpty(None)),
+			Mode::Enabled => match option_env!("RUNTIME_METADATA_HASH") {
 				Some(hash) => Ok(EncodeNoneToEmpty(Some(array_bytes::hex2array_unchecked(hash)))),
 				None => Err(UnknownTransaction::CannotLookup.into()),
 			},
-			// Unknown `mode`, let's reject it.
-			_ => Err(UnknownTransaction::CannotLookup.into()),
 		}
 	}
 
