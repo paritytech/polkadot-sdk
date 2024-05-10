@@ -313,7 +313,7 @@ fn construct_extrinsic_westend(
 	type Runtime = <Westend as Chain>::Runtime;
 	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
 	let tip = 0;
-	let extra: westend_runtime::SignedExtra = (
+	let tx_ext: westend_runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -325,14 +325,14 @@ fn construct_extrinsic_westend(
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 	);
-	let raw_payload = westend_runtime::SignedPayload::new(call, extra).unwrap();
+	let raw_payload = westend_runtime::SignedPayload::new(call, tx_ext).unwrap();
 	let signature = raw_payload.using_encoded(|payload| sender.sign(payload));
-	let (call, extra, _) = raw_payload.deconstruct();
+	let (call, tx_ext, _) = raw_payload.deconstruct();
 	westend_runtime::UncheckedExtrinsic::new_signed(
 		call,
 		account_id.into(),
 		MultiSignature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 
@@ -344,7 +344,7 @@ fn construct_extrinsic_penpal(
 	type Runtime = <PenpalA as Chain>::Runtime;
 	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
 	let tip = 0;
-	let extra: penpal_runtime::SignedExtra = (
+	let tx_ext: penpal_runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -357,14 +357,14 @@ fn construct_extrinsic_penpal(
 		pallet_asset_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
 	);
 	type SignedPayload =
-		generic::SignedPayload<penpal_runtime::RuntimeCall, penpal_runtime::SignedExtra>;
-	let raw_payload = SignedPayload::new(call, extra).unwrap();
+		generic::SignedPayload<penpal_runtime::RuntimeCall, penpal_runtime::TxExtension>;
+	let raw_payload = SignedPayload::new(call, tx_ext).unwrap();
 	let signature = raw_payload.using_encoded(|payload| sender.sign(payload));
-	let (call, extra, _) = raw_payload.deconstruct();
+	let (call, tx_ext, _) = raw_payload.deconstruct();
 	penpal_runtime::UncheckedExtrinsic::new_signed(
 		call,
 		account_id.into(),
 		MultiSignature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }

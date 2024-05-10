@@ -356,6 +356,12 @@ impl pallet_balances::WeightInfo for BalancesWeights {
 	fn force_adjust_total_issuance() -> Weight {
 		Weight::zero()
 	}
+	fn burn_allow_death() -> Weight {
+		Weight::zero()
+	}
+	fn burn_keep_alive() -> Weight {
+		Weight::zero()
+	}
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]

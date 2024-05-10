@@ -293,6 +293,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 					<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
 				), sp_runtime::transaction_validity::TransactionValidityError
 			> {
+				use sp_runtime::traits::AsSystemOriginSigner;
 				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
 				let who = origin.as_system_origin_signer().ok_or(sp_runtime::transaction_validity::InvalidTransaction::BadSigner)?;
 				$(
@@ -317,6 +318,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				_context: &Context,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
 				use tuplex::PushBack;
+				use sp_runtime::traits::AsSystemOriginSigner;
 				let to_post_dispatch = ();
 				let relayer = origin.as_system_origin_signer().ok_or(sp_runtime::transaction_validity::InvalidTransaction::BadSigner)?;
 				$(

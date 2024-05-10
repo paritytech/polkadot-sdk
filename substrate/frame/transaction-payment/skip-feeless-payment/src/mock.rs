@@ -18,7 +18,10 @@ use crate as pallet_skip_feeless_payment;
 
 use frame_support::{derive_impl, parameter_types};
 use frame_system as system;
-use sp_runtime::traits::{OriginOf, TransactionExtension};
+use sp_runtime::{
+	traits::{OriginOf, TransactionExtension},
+	transaction_validity::ValidTransaction,
+};
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
