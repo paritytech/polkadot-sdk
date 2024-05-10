@@ -426,6 +426,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -534,7 +540,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 		<span class="doccomment">/// The runtime's definition of a Currency.
 		</span><span class="kw">type </span>Currency: Currency&lt;<span class="self">Self</span>::AccountId&gt;;
-		<span class="doccomment">/// The ParaId of the broker system parachain.
+		<span class="doccomment">/// The ParaId of the coretime chain.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>BrokerId: Get&lt;u32&gt;;
 		<span class="doccomment">/// Something that provides the weight of this pallet.
@@ -567,10 +573,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-		<span class="attr">#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::request_core_count())]
+		<span class="doccomment">/// Request the configuration to be updated with the specified number of cores. Warning:
+		/// Since this only schedules a configuration update, it takes two sessions to come into
+		/// effect.
+		///
+		/// - `origin`: Root or the Coretime Chain
+		/// - `count`: total number of cores
+		</span><span class="attr">#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::request_core_count())]
 		#[pallet::call_index(<span class="number">1</span>)]
 		</span><span class="kw">pub fn </span>request_core_count(origin: OriginFor&lt;T&gt;, count: u16) -&gt; DispatchResult {
-			<span class="comment">// Ignore requests not coming from the broker parachain or root.
+			<span class="comment">// Ignore requests not coming from the coretime chain or root.
 			</span><span class="self">Self</span>::ensure_root_or_para(origin, &lt;T <span class="kw">as </span>Config&gt;::BrokerId::get().into())<span class="question-mark">?</span>;
 
 			configuration::Pallet::&lt;T&gt;::set_coretime_cores_unchecked(u32::from(count))
@@ -583,7 +595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//	origin: OriginFor&lt;T&gt;,
 		//	_when: BlockNumberFor&lt;T&gt;,
 		//) -&gt; DispatchResult {
-		//	// Ignore requests not coming from the broker parachain or root.
+		//	// Ignore requests not coming from the coretime chain or root.
 		//	Self::ensure_root_or_para(origin, &lt;T as Config&gt;::BrokerId::get().into())?;
 		//	Ok(())
 		//}
@@ -596,7 +608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//	_who: T::AccountId,
 		//	_amount: BalanceOf&lt;T&gt;,
 		//) -&gt; DispatchResult {
-		//	// Ignore requests not coming from the broker parachain or root.
+		//	// Ignore requests not coming from the coretime chain or root.
 		//	Self::ensure_root_or_para(origin, &lt;T as Config&gt;::BrokerId::get().into())?;
 		//	Ok(())
 		//}
@@ -605,7 +617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// to be used.
 		///
 		/// Parameters:
-		/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the Broker system parachain.
+		/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the coretime chain.
 		/// -`core`: The core that should be scheduled.
 		/// -`begin`: The starting blockheight of the instruction.
 		/// -`assignment`: How the blockspace should be utilised.
@@ -621,7 +633,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			assignment: Vec&lt;(CoreAssignment, PartsOf57600)&gt;,
 			end_hint: <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;,
 		) -&gt; DispatchResult {
-			<span class="comment">// Ignore requests not coming from the broker parachain or root.
+			<span class="comment">// Ignore requests not coming from the coretime chain or root.
 			</span><span class="self">Self</span>::ensure_root_or_para(origin, T::BrokerId::get().into())<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>core = u32::from(core).into();
@@ -671,7 +683,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="comment">// Handle legacy swaps in coretime. Notifies broker parachain that a lease swap has occurred via
+	<span class="comment">// Handle legacy swaps in coretime. Notifies coretime chain that a lease swap has occurred via
 	// XCM message. This function is meant to be used in an implementation of `OnSwap` trait.
 	</span><span class="kw">pub fn </span>on_legacy_lease_swap(one: ParaId, other: ParaId) {
 		<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
