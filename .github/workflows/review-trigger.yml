@@ -58,3 +58,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENTS: ${{ steps.comments.outputs.users }}
+      - name: Get PR number
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "Saving PR number: $PR_NUMBER"
+          mkdir -p ./pr
+          echo $PR_NUMBER > ./pr/pr_number
+      - uses: actions/upload-artifact@v4
+        name: Save PR number
+        with:
+          name: pr_number
+          path: pr/
+          retention-days: 5
