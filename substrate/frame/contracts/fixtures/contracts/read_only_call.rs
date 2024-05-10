@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This fixture tests if account_reentrance_count works as expected.
+// This fixture tests if read-only call works as expected.
 #![no_std]
 #![no_main]
 
