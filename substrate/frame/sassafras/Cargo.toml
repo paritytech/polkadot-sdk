@@ -44,6 +44,7 @@ std = [
 	"scale-codec/std",
 	"scale-info/std",
 	"sp-consensus-sassafras/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
