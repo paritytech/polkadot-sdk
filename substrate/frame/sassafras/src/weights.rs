@@ -64,20 +64,20 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `System::Digest` (r:1 w:0)
 	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Sassafras::CurrentSlot` (r:1 w:1)
-	/// Proof: `Sassafras::CurrentSlot` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::RandomnessBuf` (r:1 w:1)
 	/// Proof: `Sassafras::RandomnessBuf` (`max_values`: Some(1), `max_size`: Some(128), added: 623, mode: `MaxEncodedLen`)
+	/// Storage: `Sassafras::CurrentSlot` (r:1 w:1)
+	/// Proof: `Sassafras::CurrentSlot` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::CounterForTicketsAccumulator` (r:1 w:0)
 	/// Proof: `Sassafras::CounterForTicketsAccumulator` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::TemporaryData` (r:0 w:1)
-	/// Proof: `Sassafras::TemporaryData` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
+	/// Proof: `Sassafras::TemporaryData` (`max_values`: Some(1), `max_size`: Some(40), added: 535, mode: `MaxEncodedLen`)
 	fn on_initialize() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `270`
 		//  Estimated: `1755`
-		// Minimum execution time: 435_616_000 picoseconds.
-		Weight::from_parts(438_943_000, 1755)
+		// Minimum execution time: 315_749_000 picoseconds.
+		Weight::from_parts(317_523_000, 1755)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -88,7 +88,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Sassafras::RingContext` (r:1 w:0)
 	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(590324), added: 590819, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::TemporaryData` (r:1 w:0)
-	/// Proof: `Sassafras::TemporaryData` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
+	/// Proof: `Sassafras::TemporaryData` (`max_values`: Some(1), `max_size`: Some(40), added: 535, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::RandomnessBuf` (r:1 w:1)
 	/// Proof: `Sassafras::RandomnessBuf` (`max_values`: Some(1), `max_size`: Some(128), added: 623, mode: `MaxEncodedLen`)
 	/// Storage: `System::Digest` (r:1 w:1)
@@ -109,14 +109,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `y` is `[100, 1000]`.
 	fn enact_epoch_change(x: u32, y: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `590614 + x * (33 ±0) + y * (37 ±0)`
-		//  Estimated: `592100 + x * (33 ±0) + y * (2641 ±0)`
-		// Minimum execution time: 135_714_229_000 picoseconds.
-		Weight::from_parts(132_409_697_079, 592100)
-			// Standard Error: 4_688_986
-			.saturating_add(Weight::from_parts(174_151_591, 0).saturating_mul(x.into()))
-			// Standard Error: 517_850
-			.saturating_add(Weight::from_parts(6_921_142, 0).saturating_mul(y.into()))
+		//  Measured:  `590613 + x * (33 ±0) + y * (37 ±0)`
+		//  Estimated: `592099 + x * (33 ±0) + y * (2641 ±0)`
+		// Minimum execution time: 138_319_222_000 picoseconds.
+		Weight::from_parts(134_117_334_052, 592099)
+			// Standard Error: 5_392_475
+			.saturating_add(Weight::from_parts(170_217_303, 0).saturating_mul(x.into()))
+			// Standard Error: 595_543
+			.saturating_add(Weight::from_parts(5_308_040, 0).saturating_mul(y.into()))
 			.saturating_add(T::DbWeight::get().reads(9_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(y.into())))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
@@ -141,10 +141,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1029`
 		//  Estimated: `4787 + x * (2641 ±0)`
-		// Minimum execution time: 52_011_202_000 picoseconds.
-		Weight::from_parts(37_697_282_724, 4787)
-			// Standard Error: 35_208_663
-			.saturating_add(Weight::from_parts(14_794_809_485, 0).saturating_mul(x.into()))
+		// Minimum execution time: 51_909_043_000 picoseconds.
+		Weight::from_parts(37_526_932_333, 4787)
+			// Standard Error: 13_320_201
+			.saturating_add(Weight::from_parts(14_742_687_073, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
@@ -160,10 +160,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `590458`
 		//  Estimated: `591809`
-		// Minimum execution time: 133_845_298_000 picoseconds.
-		Weight::from_parts(135_662_928_997, 591809)
-			// Standard Error: 10_729_052
-			.saturating_add(Weight::from_parts(151_289_127, 0).saturating_mul(x.into()))
+		// Minimum execution time: 133_728_565_000 picoseconds.
+		Weight::from_parts(133_908_713_941, 591809)
+			// Standard Error: 2_906_128
+			.saturating_add(Weight::from_parts(152_929_171, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -173,8 +173,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `590458`
 		//  Estimated: `591809`
-		// Minimum execution time: 54_932_828_000 picoseconds.
-		Weight::from_parts(55_457_114_000, 591809)
+		// Minimum execution time: 54_789_232_000 picoseconds.
+		Weight::from_parts(54_820_282_000, 591809)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 }
@@ -183,20 +183,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	/// Storage: `System::Digest` (r:1 w:0)
 	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Sassafras::CurrentSlot` (r:1 w:1)
-	/// Proof: `Sassafras::CurrentSlot` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::RandomnessBuf` (r:1 w:1)
 	/// Proof: `Sassafras::RandomnessBuf` (`max_values`: Some(1), `max_size`: Some(128), added: 623, mode: `MaxEncodedLen`)
+	/// Storage: `Sassafras::CurrentSlot` (r:1 w:1)
+	/// Proof: `Sassafras::CurrentSlot` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::CounterForTicketsAccumulator` (r:1 w:0)
 	/// Proof: `Sassafras::CounterForTicketsAccumulator` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::TemporaryData` (r:0 w:1)
-	/// Proof: `Sassafras::TemporaryData` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
+	/// Proof: `Sassafras::TemporaryData` (`max_values`: Some(1), `max_size`: Some(40), added: 535, mode: `MaxEncodedLen`)
 	fn on_initialize() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `270`
 		//  Estimated: `1755`
-		// Minimum execution time: 435_616_000 picoseconds.
-		Weight::from_parts(438_943_000, 1755)
+		// Minimum execution time: 315_749_000 picoseconds.
+		Weight::from_parts(317_523_000, 1755)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -207,7 +207,7 @@ impl WeightInfo for () {
 	/// Storage: `Sassafras::RingContext` (r:1 w:0)
 	/// Proof: `Sassafras::RingContext` (`max_values`: Some(1), `max_size`: Some(590324), added: 590819, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::TemporaryData` (r:1 w:0)
-	/// Proof: `Sassafras::TemporaryData` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
+	/// Proof: `Sassafras::TemporaryData` (`max_values`: Some(1), `max_size`: Some(40), added: 535, mode: `MaxEncodedLen`)
 	/// Storage: `Sassafras::RandomnessBuf` (r:1 w:1)
 	/// Proof: `Sassafras::RandomnessBuf` (`max_values`: Some(1), `max_size`: Some(128), added: 623, mode: `MaxEncodedLen`)
 	/// Storage: `System::Digest` (r:1 w:1)
@@ -228,14 +228,14 @@ impl WeightInfo for () {
 	/// The range of component `y` is `[100, 1000]`.
 	fn enact_epoch_change(x: u32, y: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `590614 + x * (33 ±0) + y * (37 ±0)`
-		//  Estimated: `592100 + x * (33 ±0) + y * (2641 ±0)`
-		// Minimum execution time: 135_714_229_000 picoseconds.
-		Weight::from_parts(132_409_697_079, 592100)
-			// Standard Error: 4_688_986
-			.saturating_add(Weight::from_parts(174_151_591, 0).saturating_mul(x.into()))
-			// Standard Error: 517_850
-			.saturating_add(Weight::from_parts(6_921_142, 0).saturating_mul(y.into()))
+		//  Measured:  `590613 + x * (33 ±0) + y * (37 ±0)`
+		//  Estimated: `592099 + x * (33 ±0) + y * (2641 ±0)`
+		// Minimum execution time: 138_319_222_000 picoseconds.
+		Weight::from_parts(134_117_334_052, 592099)
+			// Standard Error: 5_392_475
+			.saturating_add(Weight::from_parts(170_217_303, 0).saturating_mul(x.into()))
+			// Standard Error: 595_543
+			.saturating_add(Weight::from_parts(5_308_040, 0).saturating_mul(y.into()))
 			.saturating_add(RocksDbWeight::get().reads(9_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(y.into())))
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
@@ -260,10 +260,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `1029`
 		//  Estimated: `4787 + x * (2641 ±0)`
-		// Minimum execution time: 52_011_202_000 picoseconds.
-		Weight::from_parts(37_697_282_724, 4787)
-			// Standard Error: 35_208_663
-			.saturating_add(Weight::from_parts(14_794_809_485, 0).saturating_mul(x.into()))
+		// Minimum execution time: 51_909_043_000 picoseconds.
+		Weight::from_parts(37_526_932_333, 4787)
+			// Standard Error: 13_320_201
+			.saturating_add(Weight::from_parts(14_742_687_073, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
@@ -279,10 +279,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `590458`
 		//  Estimated: `591809`
-		// Minimum execution time: 133_845_298_000 picoseconds.
-		Weight::from_parts(135_662_928_997, 591809)
-			// Standard Error: 10_729_052
-			.saturating_add(Weight::from_parts(151_289_127, 0).saturating_mul(x.into()))
+		// Minimum execution time: 133_728_565_000 picoseconds.
+		Weight::from_parts(133_908_713_941, 591809)
+			// Standard Error: 2_906_128
+			.saturating_add(Weight::from_parts(152_929_171, 0).saturating_mul(x.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -292,8 +292,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `590458`
 		//  Estimated: `591809`
-		// Minimum execution time: 54_932_828_000 picoseconds.
-		Weight::from_parts(55_457_114_000, 591809)
+		// Minimum execution time: 54_789_232_000 picoseconds.
+		Weight::from_parts(54_820_282_000, 591809)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 }
