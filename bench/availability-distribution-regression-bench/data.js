@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715245355924,
+  "lastUpdate": 1715338705240,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -9151,6 +9151,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16759343136666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "657df04cd901559cc6e33a8dfe70395bddb079f2",
+          "message": "Fixes `frame-support` reference in `try_decode_entire_state` (#4425)",
+          "timestamp": "2024-05-10T09:19:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/657df04cd901559cc6e33a8dfe70395bddb079f2"
+        },
+        "date": 1715338678097,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.926666666663,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17016258271333323,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022903868673333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014497435226666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011980256993333329,
             "unit": "seconds"
           }
         ]
