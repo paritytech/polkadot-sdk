@@ -1924,7 +1924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #completed_where_clause
 			{
 				<span class="kw">fn </span>try_decode_entire_state() -&gt; <span class="prelude-ty">Result</span>&lt;usize, #frame_support::__private::sp_std::vec::Vec&lt;#frame_support::traits::TryDecodeEntireStorageError&gt;&gt; {
-					<span class="kw">let </span>pallet_name = &lt;&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo	<span class="kw">as </span>frame_support::traits::PalletInfo&gt;
+					<span class="kw">let </span>pallet_name = &lt;&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo	<span class="kw">as </span>#frame_support::traits::PalletInfo&gt;
 						::name::&lt;#pallet_ident&lt;#type_use_gen&gt;&gt;()
 						.expect(<span class="string">"Every active pallet has a name in the runtime; qed"</span>);
 
