@@ -13286,6 +13286,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "seedling-runtime",
  "serde",
+ "serde_alias",
  "serde_json",
  "shell-runtime",
  "sp-api",

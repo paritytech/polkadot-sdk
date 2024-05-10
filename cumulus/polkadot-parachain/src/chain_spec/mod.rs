@@ -37,11 +37,14 @@ const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 /// Generic extensions for Parachain ChainSpecs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde(deny_unknown_fields)]
+// To allow loading chain spec extensions that are in both formats.
+#[serde_alias::serde_alias(CamelCase, SnakeCase, PascalCase)]
 pub struct Extensions {
 	/// The relay chain of the Parachain.
+	#[serde(alias = "relayChain", alias = "RelayChain")]
 	pub relay_chain: String,
 	/// The id of the Parachain.
+	#[serde(alias = "paraId", alias = "ParaId")]
 	pub para_id: u32,
 }
 

@@ -23,6 +23,7 @@ hex-literal = "0.4.1"
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+serde_alias = { version = "0.0.2" }
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }

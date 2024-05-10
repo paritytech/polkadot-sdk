@@ -17,11 +17,13 @@ pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde_alias::serde_alias(CamelCase, SnakeCase)] // To allow loading chain spec extensions that are in both formats.
+// #[serde_alias::serde_alias(CamelCase, SnakeCase)]
 pub struct Extensions {
 	/// The relay chain of the Parachain.
+	#[serde(alias = "relayChain", alias = "RelayChain")]
 	pub relay_chain: String,
 	/// The id of the Parachain.
+	#[serde(alias = "paraId", alias = "ParaId")]
 	pub para_id: u32,
 }
 
