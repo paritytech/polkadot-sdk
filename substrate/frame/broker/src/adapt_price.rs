@@ -21,19 +21,27 @@ use crate::CoreIndex;
 use sp_arithmetic::{traits::One, FixedU64};
 use sp_runtime::Saturating;
 
+struct SalePerformance<Balance> {
+	/// The price at which the last core was sold.
+	///
+	/// Will be `None` if no cores have been offered.
+	purchase_price: Option<Balance>,
+
+	/// The base price (lowest possible price) that was used in this sale.
+	price: Balance,
+}
+
+
 /// Type for determining how to set price.
-pub trait AdaptPrice {
+pub trait AdaptPrice<Balance> {
 	/// Return the factor by which the regular price must be multiplied during the leadin period.
 	///
 	/// - `when`: The amount through the leadin period; between zero and one.
 	fn leadin_factor_at(when: FixedU64) -> FixedU64;
-	/// Return the correction factor by which the regular price must be multiplied based on market
+
+	/// Return the base price that should be used in the next sale, based on this sale's
 	/// performance.
-	///
-	/// - `sold`: The number of cores sold.
-	/// - `target`: The target number of cores to be sold (must be larger than zero).
-	/// - `limit`: The maximum number of cores to be sold.
-	fn adapt_price(sold: CoreIndex, target: CoreIndex, limit: CoreIndex) -> FixedU64;
+	fn adapt_price(SalePerformance<Balance>) -> Balance;
 }
 
 impl AdaptPrice for () {
