@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715338705240,
+  "lastUpdate": 1715347998337,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -9173,6 +9173,58 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/paritytech/polkadot-sdk/commit/657df04cd901559cc6e33a8dfe70395bddb079f2"
         },
         "date": 1715338678097,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.926666666663,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17016258271333323,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022903868673333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014497435226666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011980256993333329,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maciej",
+            "username": "Overkillus",
+            "email": "maciej.zyszkiewicz@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "00440779d42b754292783612fc0f7e99d7cde2d2",
+          "message": "Disabling Strategy Implementers Guide (#2955)\n\nCloses #1961",
+          "timestamp": "2024-05-10T12:31:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/00440779d42b754292783612fc0f7e99d7cde2d2"
+        },
+        "date": 1715347971536,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
