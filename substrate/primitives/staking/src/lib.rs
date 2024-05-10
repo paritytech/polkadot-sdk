@@ -73,6 +73,12 @@ pub enum StakerStatus<AccountId> {
 	Nominator(Vec<AccountId>),
 }
 
+impl<AccountId> StakerStatus<AccountId> {
+	pub fn is_nominator(&self) -> bool {
+		matches!(self, Self::Nominator(_))
+	}
+}
+
 /// A struct that reflects stake that an account has in the staking system. Provides a set of
 /// methods to operate on it's properties. Aimed at making `StakingInterface` more concise.
 #[derive(RuntimeDebug, Clone, Copy, Eq, PartialEq, Default)]
