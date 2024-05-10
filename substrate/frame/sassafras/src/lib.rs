@@ -331,8 +331,10 @@ pub mod pallet {
 			// to the accumulator. If we've determined that this block was the first in
 			// a new epoch, the changeover logic has already occurred at this point
 			// (i.e. `enact_epoch_change` has already been called).
-			let randomness_input =
-				vrf::slot_claim_input(&Self::randomness_accumulator(), CurrentSlot::<T>::get());
+			let randomness_input = vrf::block_randomness_input(
+				&Self::randomness_accumulator(),
+				CurrentSlot::<T>::get(),
+			);
 			let randomness_pre_output = TemporaryData::<T>::take()
 				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed")
 				.pre_output;

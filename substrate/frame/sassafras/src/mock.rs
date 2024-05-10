@@ -111,8 +111,8 @@ pub fn new_test_ext_with_pairs(
 }
 
 fn slot_claim_vrf_signature(slot: Slot, pair: &AuthorityPair) -> VrfSignature {
-	let randomness = Sassafras::randomness(0);
-	let data = vrf::slot_claim_sign_data(&randomness, slot);
+	let randomness = Sassafras::randomness_accumulator();
+	let data = vrf::block_randomness_sign_data(&randomness, slot);
 	pair.as_ref().vrf_sign(&data)
 }
 

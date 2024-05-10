@@ -203,7 +203,7 @@ fn on_first_block() {
 
 		common_assertions(false);
 		let post_fini_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_fini_randomness[0], h2b("173b91b3"));
+		prefix_eq!(post_fini_randomness[0], h2b("c5caf074"));
 		prefix_eq!(post_fini_randomness[1], post_init_randomness[1]);
 		prefix_eq!(post_fini_randomness[2], post_init_randomness[2]);
 		prefix_eq!(post_fini_randomness[3], post_init_randomness[3]);
@@ -252,7 +252,7 @@ fn on_normal_block() {
 
 		common_assertions(true);
 		let post_init_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_init_randomness[0], h2b("173b91b3"));
+		prefix_eq!(post_init_randomness[0], h2b("c5caf074"));
 		prefix_eq!(post_init_randomness[1], h2b("4e8c71d2"));
 		prefix_eq!(post_init_randomness[2], h2b("3a4c0005"));
 		prefix_eq!(post_init_randomness[3], h2b("0dd43c54"));
@@ -263,7 +263,7 @@ fn on_normal_block() {
 
 		common_assertions(false);
 		let post_fini_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_fini_randomness[0], h2b("800f7825"));
+		prefix_eq!(post_fini_randomness[0], h2b("1b6777c9"));
 		prefix_eq!(post_fini_randomness[1], post_init_randomness[1]);
 		prefix_eq!(post_fini_randomness[2], post_init_randomness[2]);
 		prefix_eq!(post_fini_randomness[3], post_init_randomness[3]);
