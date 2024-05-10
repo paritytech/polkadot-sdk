@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715349746159,
+  "lastUpdate": 1715375707833,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -9307,6 +9307,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011980256993333329,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a993513c9c54313bc3c7093563d2f4ff6fe42ae2",
+          "message": "Add docs to request_core_count (#4423)\n\nThe fact that this takes two sessions to come into effect is not\nobvious. Just added some docs to explain that.\n\nAlso tidied up uses of \"broker chain\" -> \"coretime chain\"",
+          "timestamp": "2024-05-10T19:41:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a993513c9c54313bc3c7093563d2f4ff6fe42ae2"
+        },
+        "date": 1715375680791,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.89333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02241609306,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16246377111333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01247009012,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010482164940000004,
             "unit": "seconds"
           }
         ]
