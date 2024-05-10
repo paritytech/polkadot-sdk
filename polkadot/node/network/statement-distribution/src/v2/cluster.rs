@@ -60,13 +60,6 @@ use polkadot_primitives::{CandidateHash, CompactStatement, Hash, ValidatorIndex}
 use crate::LOG_TARGET;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Hash, PartialEq, Eq)]
-struct ValidStatementManifest {
-	remote: ValidatorIndex,
-	originator: ValidatorIndex,
-	candidate_hash: CandidateHash,
-}
-
 // A piece of knowledge about a candidate
 #[derive(Hash, Clone, PartialEq, Eq)]
 enum Knowledge {
