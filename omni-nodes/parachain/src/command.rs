@@ -17,7 +17,7 @@ pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde(deny_unknown_fields)]
+#[serde_alias::serde_alias(CamelCase, SnakeCase)] // To allow loading chain spec extensions that are in both formats.
 pub struct Extensions {
 	/// The relay chain of the Parachain.
 	pub relay_chain: String,
@@ -275,7 +275,7 @@ pub fn run(builder_config: crate::builder::Builder) -> Result<()> {
 									parachain_config,
 									polkadot_config,
 									collator_options,
-									CollatorSybilResistance::Unresistant,
+									CollatorSybilResistance::Resistant,
 									para_id,
 									parachain_builder_config.shared.rpc_extensions,
 									build_import_queue,
@@ -294,7 +294,7 @@ pub fn run(builder_config: crate::builder::Builder) -> Result<()> {
 									parachain_config,
 									polkadot_config,
 									collator_options,
-									CollatorSybilResistance::Unresistant,
+									CollatorSybilResistance::Resistant,
 									para_id,
 									parachain_builder_config.shared.rpc_extensions,
 									build_import_queue,
