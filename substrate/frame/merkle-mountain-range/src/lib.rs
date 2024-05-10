@@ -362,11 +362,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		mmr.generate_proof(leaf_indices)
 	}
 
-	/// Return the on-chain MMR root hash.
-	pub fn mmr_root() -> HashOf<T, I> {
-		RootHash::<T, I>::get()
-	}
-
 	/// Verify MMR proof for given `leaves`.
 	///
 	/// This method is safe to use within the runtime code.
@@ -392,5 +387,38 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		} else {
 			Err(primitives::Error::Verify.log_debug("The proof is incorrect."))
 		}
+	}
+
+	pub fn generate_ancestry_proof(
+		prev_block_number: BlockNumberFor<T>,
+		best_known_block_number: Option<BlockNumberFor<T>>,
+	) -> Result<primitives::AncestryProof<HashOf<T, I>>, Error> {
+		// check whether best_known_block_number provided, else use current best block
+		let best_known_block_number =
+			best_known_block_number.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
+
+		let leaf_count = Self::block_num_to_leaf_index(best_known_block_number)?.saturating_add(1);
+		let prev_leaf_count = Self::block_num_to_leaf_index(prev_block_number)?.saturating_add(1);
+
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
+		mmr.generate_ancestry_proof(prev_leaf_count)
+	}
+
+	pub fn verify_ancestry_proof(
+		ancestry_proof: primitives::AncestryProof<HashOf<T, I>>,
+	) -> Result<(), Error> {
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> =
+			mmr::Mmr::new(ancestry_proof.leaf_count);
+		let is_valid = mmr.verify_ancestry_proof(ancestry_proof)?;
+		if is_valid {
+			Ok(())
+		} else {
+			Err(Error::Verify.log_debug("The ancestry proof is incorrect."))
+		}
+	}
+
+	/// Return the on-chain MMR root hash.
+	pub fn mmr_root() -> HashOf<T, I> {
+		RootHash::<T, I>::get()
 	}
 }

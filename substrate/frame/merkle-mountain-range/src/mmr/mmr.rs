@@ -23,7 +23,7 @@ use crate::{
 	primitives::{self, Error, NodeIndex},
 	Config, HashOf, HashingOf,
 };
-use sp_mmr_primitives::{mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils};
+use sp_mmr_primitives::{mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils, LeafIndex};
 use sp_std::prelude::*;
 
 /// Stateless verification of the proof for a batch of leaves.
@@ -119,6 +119,44 @@ where
 			.map_err(|e| Error::Verify.log_debug(e))
 	}
 
+	pub fn verify_ancestry_proof(
+		&self,
+		ancestry_proof: primitives::AncestryProof<HashOf<T, I>>,
+	) -> Result<bool, Error> {
+		let prev_peaks_proof =
+			mmr_lib::NodeMerkleProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>::new(
+				self.mmr.mmr_size(),
+				ancestry_proof
+					.items
+					.into_iter()
+					.map(|(index, hash)| (index, Node::Hash(hash)))
+					.collect(),
+			);
+
+		let raw_ancestry_proof = mmr_lib::AncestryProof::<
+			NodeOf<T, I, L>,
+			Hasher<HashingOf<T, I>, L>,
+		> {
+			prev_peaks: ancestry_proof
+				.prev_peaks
+				.into_iter()
+				.map(|hash| Node::Hash(hash))
+				.collect(),
+			prev_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - 1),
+			proof: prev_peaks_proof,
+		};
+
+		let prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<
+			NodeOf<T, I, L>,
+			Hasher<HashingOf<T, I>, L>,
+		>(raw_ancestry_proof.prev_peaks.clone())
+		.map_err(|e| Error::Verify.log_debug(e))?;
+		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;
+		raw_ancestry_proof
+			.verify_ancestor(root, prev_root)
+			.map_err(|e| Error::Verify.log_debug(e))
+	}
+
 	/// Return the internal size of the MMR (number of nodes).
 	#[cfg(test)]
 	pub fn size(&self) -> NodeIndex {
@@ -192,5 +230,28 @@ where
 				items: p.proof_items().iter().map(|x| x.hash()).collect(),
 			})
 			.map(|p| (leaves, p))
+	}
+
+	pub fn generate_ancestry_proof(
+		&self,
+		prev_leaf_count: LeafIndex,
+	) -> Result<primitives::AncestryProof<HashOf<T, I>>, Error> {
+		let prev_mmr_size = NodesUtils::new(prev_leaf_count).size();
+		let raw_ancestry_proof = self
+			.mmr
+			.gen_ancestry_proof(prev_mmr_size)
+			.map_err(|e| Error::GenerateProof.log_error(e))?;
+
+		Ok(primitives::AncestryProof {
+			prev_peaks: raw_ancestry_proof.prev_peaks.into_iter().map(|p| p.hash()).collect(),
+			prev_leaf_count,
+			leaf_count: self.leaves,
+			items: raw_ancestry_proof
+				.proof
+				.proof_items()
+				.iter()
+				.map(|(index, item)| (*index, item.hash()))
+				.collect(),
+		})
 	}
 }
