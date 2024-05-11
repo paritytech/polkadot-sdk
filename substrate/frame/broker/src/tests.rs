@@ -1428,3 +1428,8 @@ fn start_sales_sets_correct_core_count() {
 		System::assert_has_event(Event::<Test>::CoreCountRequested { core_count: 9 }.into());
 	})
 }
+
+#[test]
+fn enable_auto_renew_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {})
+}

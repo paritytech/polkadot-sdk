@@ -499,6 +499,12 @@ pub mod pallet {
 		InvalidConfig,
 		/// The revenue must be claimed for 1 or more timeslices.
 		NoClaimTimeslices,
+		/// The caller doesn't have the permission to enable or disable auto-renewal.
+		NoPermission,
+		/// We reached the limit for auto-renewals.
+		TooManyAutoRenewals,
+		/// Only cores which are assigned to a task can be auto-renewed.
+		NonTaskAutoRenewal,
 	}
 
 	#[pallet::hooks]
@@ -825,15 +831,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::notify_core_count())]
 		pub fn enable_auto_renew(origin: OriginFor<T>, core: CoreIndex) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// TODO: ensure origin is the parachain's sovereign account.
 
 			let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-
 			// If the core hasn't been renewed yet we will renew it now.
 			let record = if let Some(record) =
 				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_begin })
 			{
-				Self::do_renew(who, core)?;
+				Self::do_renew(who.clone(), core)?;
 				record
 			} else {
 				// If we couldn't find the renewal record for the current bulk period we should be
@@ -846,14 +850,20 @@ pub mod pallet {
 
 			let workload =
 				record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
+
 			// Given that only non-interlaced cores can be renewed, there should be only one
 			// assignment in the core's workload.
 			ensure!(workload.len() == 1, Error::<T>::IncompleteAssignment);
-			let schedule_item = &workload[0];
-			let CoreAssignment::Task(task_id) = schedule_item.assignment else {
-				// return an error.
-				todo!();
+			let Some(schedule_item) = workload.get(0) else {
+				return Err(Error::<T>::NotAllowed.into())
 			};
+
+			let CoreAssignment::Task(task_id) = schedule_item.assignment else {
+				return Err(Error::<T>::NonTaskAutoRenewal.into())
+			};
+
+			// Only the sovereign account of the task can enable auto-renewal.
+			ensure!(who == T::SovereignAccountOf::convert(task_id), Error::<T>::NoPermission);
 
 			AutoRenewals::<T>::try_mutate(|renewals| {
 				let pos = renewals
@@ -861,7 +871,7 @@ pub mod pallet {
 					.unwrap_or_else(|e| e);
 				renewals.try_insert(pos, (core, task_id))
 			})
-			.map_err(|_| Error::<T>::NotAllowed)?; // TODO: custom error
+			.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
 
 			// The caller must pay for the transaction otherwise spamming would be possible by
 			// turning auto-renewal on and off.
