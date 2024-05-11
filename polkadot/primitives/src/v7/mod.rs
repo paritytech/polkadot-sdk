@@ -62,7 +62,9 @@ pub mod executor_params;
 pub mod slashing;
 
 pub use async_backing::AsyncBackingParams;
-pub use executor_params::{ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash};
+pub use executor_params::{
+	ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash, ExecutorParamsPrepHash,
+};
 
 mod metrics;
 pub use metrics::{
