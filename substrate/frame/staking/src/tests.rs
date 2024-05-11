@@ -8602,7 +8602,7 @@ mod stake_tracker {
 
 				assert_eq!(
 					*mock::staking_events().last().unwrap(),
-					Event::<Test>::DanglingNominationDropped { nominator: 90, target: 42 }.into(),
+					Event::<Test>::DanglingNominationsDropped { nominator: 90, count: 1 }.into(),
 				);
 
 				// now, 90 is not nominating 42 anymore.
@@ -8619,7 +8619,7 @@ mod stake_tracker {
 
 				assert_eq!(
 					*mock::staking_events().last().unwrap(),
-					Event::<Test>::DanglingNominationDropped { nominator: 101, target: 42 }.into(),
+					Event::<Test>::DanglingNominationsDropped { nominator: 101, count: 1 }.into(),
 				);
 			})
 	}

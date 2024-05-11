@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	EraIndex, OnStakingUpdate, Page, SessionIndex, StakerStatus,
+	EraIndex, OnStakingUpdate, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -795,8 +795,8 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
-		/// A dangling nomination has been successfully dropped.
-		DanglingNominationDropped { nominator: T::AccountId, target: T::AccountId },
+		/// A set of dangling nominations have been successfully dropped.
+		DanglingNominationsDropped { nominator: T::AccountId, count: u32 },
 	}
 
 	#[pallet::error]
@@ -2096,7 +2096,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Removes nomination from a chilled and unbonded target.
+		/// Removes nomination of a non-active validator from a nomination.
 		///
 		/// In the case that an unboded target still has nominations lingering, the approvals stake
 		/// for the "dangling" target needs to remain in the target list. This extrinsic allows
@@ -2121,28 +2121,16 @@ pub mod pallet {
 				Error::<T>::NotDanglingTarget
 			);
 
-			match Self::status(&nominator) {
-				Ok(StakerStatus::Nominator(nominations)) => {
-					let count_before = nominations.len();
+			Self::do_drop_dangling_nominations(&nominator, Some(&target))
+				.map(|count| {
+					Self::deposit_event(Event::<T>::DanglingNominationsDropped {
+						nominator,
+						count,
+					});
 
-					let nominations_after =
-						nominations.into_iter().filter(|n| *n != target).collect::<Vec<_>>();
-
-					if nominations_after.len() != count_before {
-						<Self as StakingInterface>::nominate(&nominator, nominations_after)?;
-
-						Self::deposit_event(Event::<T>::DanglingNominationDropped {
-							nominator,
-							target,
-						});
-
-						Ok(Pays::No.into())
-					} else {
-						Ok(Pays::Yes.into())
-					}
-				},
-				_ => Err(Error::<T>::NotNominator.into()),
-			}
+					Pays::No.into()
+				})
+				.map_err(|err| err.into())
 		}
 	}
 }

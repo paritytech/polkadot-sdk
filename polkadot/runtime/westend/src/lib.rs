@@ -2683,16 +2683,18 @@ mod remote_tests {
 	}
 
 	#[tokio::test]
-	#[ignore = "this test is meant to be executed manually"]
 	async fn try_stake_tracker_migrate() {
 		use frame_support::migrations::SteppedMigration;
 		sp_tracing::try_init_simple();
-		let transport: Transport =
-			var("WS").unwrap_or(
+		let transport: Transport = var("WS")
+			.unwrap_or(
 				// "wss://kusama-rpc.polkadot.io:443"
-				"ws://127.0.0.1:9900"
-					.to_string()).into();
+				"ws://127.0.0.1:9900".to_string(),
+			)
+			.into();
+
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+
 		let mut ext = Builder::<Block>::default()
 			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
 				Mode::OfflineOrElseOnline(
@@ -2710,18 +2712,31 @@ mod remote_tests {
 			.build()
 			.await
 			.unwrap();
+
 		ext.execute_with(|| {
 			let mut meter = WeightMeter::new();
 			let mut cursor = None;
 			loop {
-				cursor = pallet_staking::migrations::v13_stake_tracker::MigrationV13::<Runtime, weights::pallet_staking::WeightInfo<Runtime>>::step(cursor, &mut meter).unwrap();
+				cursor = pallet_staking::migrations::v13_stake_tracker::MigrationV13::<
+					Runtime,
+					weights::pallet_staking::WeightInfo<Runtime>,
+				>::step(cursor, &mut meter)
+				.unwrap();
+
 				if cursor.is_none() {
+					// run the try-state at the end.
+					StakeTracker::do_try_state()
+						.map_err(|err| {
+							log::error!(" 🕵️‍♂️  StakeTracker try_state failure: {:?}", err);
+							err
+						})
+						.unwrap();
+
 					break;
 				}
 			}
 		});
 	}
-
 }
 
 mod clean_state_migration {

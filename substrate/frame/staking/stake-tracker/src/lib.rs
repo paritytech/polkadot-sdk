@@ -321,7 +321,7 @@ pub mod pallet {
 		///
 		/// TODO: replace this helper method by a debug_assert if #4419 ever prevents the nomination
 		/// of duplicated target.
-		pub(crate) fn ensure_dedup(mut v: Vec<T::AccountId>) -> Vec<T::AccountId> {
+		pub fn ensure_dedup(mut v: Vec<T::AccountId>) -> Vec<T::AccountId> {
 			use sp_std::collections::btree_set::BTreeSet;
 
 			v.drain(..).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>()
@@ -338,7 +338,7 @@ impl<T: Config> Pallet<T> {
 	/// 2. `do_try_state_target_sorting`: checks if the target list is sorted by score (approvals).
 	/// 3. `do_try_state_voter_sorting`: checks if the voter list is sorted by score (stake).
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		Self::do_try_state_approvals()?;
+		Self::do_try_state_approvals(None)?;
 		Self::do_try_state_target_sorting()?;
 		Self::do_try_state_voter_sorting()?;
 
@@ -375,12 +375,24 @@ impl<T: Config> Pallet<T> {
 	///  * An active validator should also be part of the voter list.
 	///  * An idle validator should not be part of the voter list.
 	///  * A dangling target shoud not be part of the voter list.
-	pub(crate) fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
+
+	/// The try state checks may start from a specific (account ID) cursor. `None` should be pass to
+	/// perform a full try state check.
+	pub(crate) fn do_try_state_approvals(
+		maybe_cursor: Option<T::AccountId>,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
 		let mut approvals_map: BTreeMap<AccountIdOf<T>, sp_npos_elections::ExtendedBalance> =
 			BTreeMap::new();
 
+		let iter = if let Some(cursor) = maybe_cursor {
+			T::VoterList::iter_from(&cursor)
+		} else {
+			Ok(T::VoterList::iter())
+		}
+		.map_err(|_| "provided cursor does not exist.")?;
+
 		// build map of approvals stakes from the `VoterList` POV.
-		for voter in T::VoterList::iter() {
+		for voter in iter {
 			if let Some(nominations) = <T::Staking as StakingInterface>::nominations(&voter) {
 				// sanity check.
 				let active_stake = T::Staking::stake(&voter)
@@ -550,7 +562,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_try_state_voter_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
 		// if the voter list is in lazy mode, we don't expect the nodes to be sorted at all times.
 		// skip checks.
-		if T::VoterUpdateMode::get().is_strict_mode() {
+		if !T::VoterUpdateMode::get().is_strict_mode() {
 			return Ok(())
 		}
 

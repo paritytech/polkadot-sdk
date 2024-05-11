@@ -27,7 +27,7 @@ use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	traits::Defensive,
 };
-use sp_runtime::traits::CheckedAdd;
+use pallet_stake_tracker::Config as STConfig;
 use sp_staking::StakingInterface;
 use sp_std::prelude::*;
 
@@ -46,8 +46,10 @@ mod tests;
 /// stake.
 /// - Ensure the new targets in the list are sorted per total stake (as per the underlying
 ///   [`SortedListProvider`]).
-pub struct MigrationV13<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
-impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> {
+pub struct MigrationV13<T: Config + STConfig, W: weights::WeightInfo>(PhantomData<(T, W)>);
+impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weights::WeightInfo>
+	SteppedMigration for MigrationV13<T, W>
+{
 	type Cursor = T::AccountId;
 	type Identifier = MigrationId<18>;
 
@@ -83,22 +85,55 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 				let nominations = Nominators::<T>::get(&nominator)
 					.map(|n| n.targets.into_inner())
 					.unwrap_or_default();
+				let original_noms_len = nominations.len();
+
+				let nominations = pallet_stake_tracker::Pallet::<T>::ensure_dedup(nominations);
 
 				log!(
 					info,
-					"multi-block migrations: processing nominator {:?} with {} nominations. remaining {} nominators to migrate.",
+					"mmb: processing nominator {:?} with {} nominations ({} after dedup). remaining {} nominators to migrate.",
 					nominator,
+					original_noms_len,
                     nominations.len(),
 					iter.count()
 				);
 
+				if Pallet::<T>::active_stake(&nominator).unwrap_or_default() <
+					Pallet::<T>::minimum_nominator_bond()
+				{
+					let res = <Pallet<T> as StakingInterface>::chill(&nominator);
+					log!(
+						info,
+						"mmb: nominator {:?} with low bond, chilling (result: {:?})",
+						nominator,
+						res,
+					);
+
+					continue;
+				}
+
 				// iter over up to `MaxNominationsOf<T>` targets of `nominator`.
 				for target in nominations.into_iter() {
-					if let Ok(current_stake) = T::TargetList::get_score(&target) {
+					if Pallet::<T>::status(&target).is_err() {
+						// drop all dangling nominations for this nominator.
+						let res = Pallet::<T>::do_drop_dangling_nominations(&nominator, None);
+						log!(
+							info,
+							"mmb: dropped *all* dangling nominations (result with count: {:?})",
+							res
+						);
+
+						continue
+					};
+
+					log!(info, "mmb: processing {:?} - {:?}", target, Pallet::<T>::status(&target));
+
+					if let Ok(current_stake) = <T as STConfig>::TargetList::get_score(&target) {
 						// target is not in the target list. update with nominator's stake.
 
-						if let Some(total_stake) = current_stake.checked_add(&nominator_stake) {
-							let _ = T::TargetList::on_update(&target, total_stake).defensive();
+						if let Some(total_stake) = current_stake.checked_add(nominator_stake) {
+							let _ = <T as STConfig>::TargetList::on_update(&target, total_stake)
+								.defensive();
 						} else {
 							log!(error, "target stake overflow. exit.");
 							return Err(SteppedMigrationError::Failed)
@@ -107,8 +142,9 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 						// target is not in the target list, insert new node and consider self
 						// stake.
 						let self_stake = Pallet::<T>::stake(&target).defensive_unwrap_or_default();
-						if let Some(total_stake) = self_stake.total.checked_add(&nominator_stake) {
-							let _ = T::TargetList::on_insert(target, total_stake).defensive();
+						if let Some(total_stake) = self_stake.total.checked_add(nominator_stake) {
+							let _ = <T as STConfig>::TargetList::on_insert(target, total_stake)
+								.defensive();
 						} else {
 							log!(error, "target stake overflow. exit.");
 							return Err(SteppedMigrationError::Failed)

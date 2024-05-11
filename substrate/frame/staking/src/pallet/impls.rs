@@ -411,6 +411,48 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Removes dangling nominations from a nominator.
+	///
+	/// If `maybe_target` is `None`, search for *all* dangling nominations and drop them. Otherwise
+	/// drop only one dangling target.
+	pub(crate) fn do_drop_dangling_nominations(
+		nominator: &T::AccountId,
+		target: Option<&T::AccountId>,
+	) -> Result<u32, DispatchError> {
+		let (dropping_count, nominations_after) = match (target, Self::status(&nominator)) {
+			(None, Ok(StakerStatus::Nominator(nominations))) => {
+				// target not set, search for all the dangling nominations.
+				let dangling = nominations
+					.iter()
+					.filter(|n| Self::status(n) != Ok(StakerStatus::Validator))
+					.collect::<Vec<_>>();
+				let after = nominations
+					.iter()
+					.cloned()
+					.filter(|n| !dangling.contains(&n))
+					.collect::<Vec<_>>();
+
+				(nominations.len() - after.len(), after)
+			},
+			(Some(target), Ok(StakerStatus::Nominator(nominations))) => {
+				let after = nominations.iter().cloned().filter(|n| n != target).collect::<Vec<_>>();
+
+				(nominations.len() - after.len(), after)
+			},
+			// not a nominator, return earlier.
+			(_, _) => return Err(Error::<T>::NotNominator.into()),
+		};
+
+		// no dangling nominations, return earlier.
+		if dropping_count.is_zero() {
+			return Err(Error::<T>::NotDanglingTarget.into());
+		}
+
+		<Self as StakingInterface>::nominate(nominator, nominations_after)?;
+
+		Ok(dropping_count as u32)
+	}
+
 	/// Actually make a payment to a staker. This uses the currency's reward function
 	/// to pay the right payee for the given staker account.
 	fn make_payout(

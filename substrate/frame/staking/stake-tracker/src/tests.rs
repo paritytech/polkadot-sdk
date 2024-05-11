@@ -59,10 +59,7 @@ fn update_target_score_works() {
 		assert_eq!(TargetBagsList::get_score(&10), Ok(300));
 
 		let current_score = TargetBagsList::get_score(&10).unwrap();
-		crate::Pallet::<Test>::update_target_score(
-			&10,
-			StakeImbalance::Negative(current_score),
-		);
+		crate::Pallet::<Test>::update_target_score(&10, StakeImbalance::Negative(current_score));
 		assert_eq!(TargetBagsList::get_score(&10), Ok(0));
 
 		// disables the try runtime checks since the score of 10 was updated manually, so the target
