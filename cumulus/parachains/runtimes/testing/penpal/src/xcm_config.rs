@@ -327,6 +327,23 @@ pub type TrustBackedSufficientAssetsConverter = SufficientAssetConverter<
 	TrustBackedAssetsInstance,
 >;
 
+/// Asset converter for foreign assets.
+/// Used to convert assets marked as `sufficient` into the asset needed for fee payment.
+/// This type allows paying fees in `sufficient` foreign assets.
+pub type ForeignSufficientAssetsConverter = SufficientAssetConverter<
+	Runtime,
+	ForeignAssetsConvertedConcreteId,
+	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
+	ForeignAssetsInstance,
+>;
+
+/// Asset converter for pool assets.
+/// Used to convert assets in pools to the asset required for fee payment.
+/// The pool must be between the first asset and the one required for fee payment.
+/// This type allows paying fees with any asset in a pool with the asset required for fee payment.
+// TODO: Finish.
+pub type PoolAssetsConverter = ();
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -377,7 +394,11 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
-	type AssetConverter = TrustBackedSufficientAssetsConverter;
+	type AssetConverter = (
+		TrustBackedSufficientAssetsConverter,
+		ForeignSufficientAssetsConverter,
+		PoolAssetsConverter,
+	);
 }
 
 /// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.

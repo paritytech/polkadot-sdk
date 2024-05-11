@@ -156,7 +156,8 @@ where
 			.map_err(|error| {
 				log::error!(
 					target: "xcm::SufficientAssetConverter::convert_asset",
-					"Could not map XCM asset to FRAME asset",
+					"Could not map XCM asset {:?} to FRAME asset",
+					asset_id,
 				);
 				XcmError::AssetNotFound
 			})?;

@@ -762,13 +762,16 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
 	});
 
-	// Sender's balance is reduced by amount sent plus delivery fees
-	assert!(sender_wnds_after < sender_wnds_before - wnd_to_send);
+	// Sender's balance is reduced by amount sent.
+	assert_eq!(sender_wnds_after, sender_wnds_before - wnd_to_send);
 	assert_eq!(sender_rocs_after, sender_rocs_before - roc_to_send);
 	// Sovereign accounts on reserve are changed accordingly
+	let delivery_fees_amount = 31_340_000_000; // TODO: Estimate this.
+	// Delivery fees stay in the sender chain, so the balance of the sender's
+	// sovereign account reflects this.
 	assert_eq!(
 		wnds_in_sender_reserve_on_ah_after,
-		wnds_in_sender_reserve_on_ah_before - wnd_to_send
+		wnds_in_sender_reserve_on_ah_before - wnd_to_send + delivery_fees_amount
 	);
 	assert_eq!(
 		rocs_in_sender_reserve_on_ah_after,
@@ -779,8 +782,9 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		rocs_in_receiver_reserve_on_ah_after,
 		rocs_in_receiver_reserve_on_ah_before + roc_to_send
 	);
-	// Receiver's balance is increased
+	// Receiver's balance is increased by amount sent minus delivery fees.
 	assert!(receiver_wnds_after > receiver_wnds_before);
+	assert!(receiver_wnds_after < receiver_wnds_before + wnd_to_send);
 	assert_eq!(receiver_rocs_after, receiver_rocs_before + roc_to_send);
 }
 
