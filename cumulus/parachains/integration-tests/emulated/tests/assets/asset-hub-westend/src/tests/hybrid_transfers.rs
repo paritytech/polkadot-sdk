@@ -275,9 +275,9 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	assert_eq!(receiver_rocs_after, receiver_rocs_before + foreign_amount_to_send);
 }
 
-// =========================================================================
+// =================================================================================
 // ======= Reserve Transfers - Sufficient Foreign Asset - AssetHub<>Parachain ======
-// =========================================================================
+// =================================================================================
 /// Reserve Transfers of a sufficient foreign asset from System Parachain to Parachain should
 /// work without using any other token.
 #[test]

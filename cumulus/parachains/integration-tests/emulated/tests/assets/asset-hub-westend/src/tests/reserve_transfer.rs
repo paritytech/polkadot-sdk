@@ -1251,6 +1251,7 @@ fn reserve_transfer_sufficient_assets_from_system_para_to_para() {
 	});
 
 	// Set assertions and dispatchables
+	// TODO: Bring back assertions.
 	// test.set_assertion::<AssetHubWestend>(system_para_to_para_assets_sender_assertions);
 	// test.set_assertion::<PenpalA>(system_para_to_para_assets_receiver_assertions);
 	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_reserve_transfer_assets);
@@ -1364,6 +1365,7 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	});
 
 	// Set assertions and dispatchables
+	// TODO: Bring back assertions.
 	// test.set_assertion::<PenpalA>(para_to_para_through_hop_sender_assertions);
 	// test.set_assertion::<AssetHubWestend>(para_to_para_relay_hop_assertions);
 	// test.set_assertion::<PenpalB>(para_to_para_through_hop_receiver_assertions);

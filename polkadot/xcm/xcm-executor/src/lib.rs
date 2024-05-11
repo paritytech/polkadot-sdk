@@ -494,6 +494,16 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			}
 		} else {
 			// We try each item in holding.
+			// TODO: We don't need this if we had a way to tell the executor what asset we want to use
+			// for fees.
+			// Option 1: Always using a `BuyExecution` instruction, even locally where we would normally not use it.
+			// This has the downside of being a worse experience.
+			// Option 2: Having an instruction that sets the asset to be used for fees.
+			// Can only do it on a new version.
+			// Option 3: Change the entrypoint `prepare_and_execute` to take the fee item.
+			// Is a breaking change.
+			// Option 4: Create a new entrypoint `prepare_and_execute_with_fee_asset`.
+			// Should work and is not a breaking change.
 			// TODO: Might increase benchmarks too much. Should optimize for the average case.
 			let mut asset_for_fees = first.clone();
 			// Holding is empty when using jit withdrawal. Could remove it.

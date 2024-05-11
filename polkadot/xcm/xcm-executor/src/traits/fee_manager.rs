@@ -85,6 +85,7 @@ impl AssetConversion for Tuple {
 					return Ok(new_asset)
 				},
 				Err(error) => {
+					// TODO: log::error is too noisy and this might get called a lot.
 					log::error!(
 						target: "xcm::AssetConversion::convert_asset",
 						"Implementation in tuple errored: {:?}, trying with next one, unless this was the last one.",
