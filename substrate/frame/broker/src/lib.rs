@@ -827,25 +827,38 @@ pub mod pallet {
 		///
 		/// Callable by the account associated with the task on the specified core. This account
 		/// will be charged at the start of every bulk period for renewing core time.
+		///
+		/// The optional `workload_end_hint` parameter should be used when enabling auto-renewal for
+		/// the core which holds a legacy lease, as it would be inefficient to look it up otherwise.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::notify_core_count())]
-		pub fn enable_auto_renew(origin: OriginFor<T>, core: CoreIndex) -> DispatchResult {
+		pub fn enable_auto_renew(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			workload_end_hint: Option<Timeslice>,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-			// If the core hasn't been renewed yet we will renew it now.
-			let record = if let Some(record) =
-				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_begin })
-			{
-				Self::do_renew(who.clone(), core)?;
-				record
-			} else {
-				// If we couldn't find the renewal record for the current bulk period we should be
-				// able to find it for the upcoming bulk period.
-				//
-				// If not the core is not eligable for renewal.
-				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_end })
+
+			let record = if let Some(workload_end) = workload_end_hint {
+				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: workload_end })
 					.ok_or(Error::<T>::NotAllowed)?
+			} else {
+				// If the core hasn't been renewed yet we will renew it now.
+				if let Some(record) =
+					AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_begin })
+				{
+					Self::do_renew(who.clone(), core)?;
+					record
+				} else {
+					// If we couldn't find the renewal record for the current bulk period we should
+					// be able to find it for the upcoming bulk period.
+					//
+					// If not the core is not eligable for renewal.
+					AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_end })
+						.ok_or(Error::<T>::NotAllowed)?
+				}
 			};
 
 			let workload =
