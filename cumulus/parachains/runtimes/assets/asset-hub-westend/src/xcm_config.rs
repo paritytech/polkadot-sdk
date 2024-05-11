@@ -376,7 +376,12 @@ pub type ForeignSufficientAssetsConverter = SufficientAssetConverter<
 /// The pool must be between the first asset and the one required for fee payment.
 /// This type allows paying fees with any asset in a pool with the asset required for fee payment.
 // TODO: Finish.
-pub type PoolAssetsConverter = ();
+pub type PoolAssetsConverter = SwapAssetConverter<
+	crate::Assets,
+	TrustBackedAssetsConvertedConcreteId,
+	crate::AssetConversion,
+	AccountId,
+>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -460,6 +465,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
+	// TODO: Might also use `AssetExchanger` instead of `AssetConverter` if API fits.
 	type AssetExchanger = ();
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,

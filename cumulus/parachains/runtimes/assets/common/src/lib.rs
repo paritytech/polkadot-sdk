@@ -25,7 +25,7 @@ pub mod runtime_api;
 
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use core::marker::PhantomData;
-use frame_support::traits::{Equals, EverythingBut, tokens::ConversionToAssetBalance};
+use frame_support::traits::{Equals, EverythingBut, tokens::ConversionToAssetBalance, fungibles};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_runtime::traits::TryConvertInto;
 use xcm::prelude::*;
@@ -33,6 +33,7 @@ use xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
 };
 use xcm_executor::traits::{MatchesFungibles, AssetConversion};
+use pallet_asset_conversion::SwapCredit as SwapCreditT;
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L = Location> =
@@ -189,6 +190,60 @@ where
 				XcmError::Overflow
 			})?;
 		Ok((desired_asset.id.clone(), new_asset_amount).into())
+	}
+}
+
+pub struct SwapAssetConverter<Fungibles, Matcher, SwapCredit, AccountId>(PhantomData<(Fungibles, Matcher, SwapCredit, AccountId)>);
+impl<Fungibles, Matcher, SwapCredit, AccountId> AssetConversion for SwapAssetConverter<Fungibles, Matcher, SwapCredit, AccountId>
+where
+	Fungibles: fungibles::Balanced<AccountId>,
+	Matcher: MatchesFungibles<Fungibles::AssetId, Fungibles::Balance>,
+	SwapCredit: SwapCreditT<
+		AccountId,
+		Balance = Fungibles::Balance,
+		AssetKind = Fungibles::AssetId,
+		Credit = fungibles::Credit<AccountId, Fungibles>,
+	>,
+{
+	fn convert_asset(asset: &Asset, asset_id: &Asset) -> Result<Asset, XcmError> {
+		// TODO: Not the best still.
+		let desired_asset: Asset = (asset_id.clone(), 1u128).into(); // To comply with the interface.
+		let (fungibles_asset, balance) = Matcher::matches_fungibles(&desired_asset)
+			.map_err(|error| {
+				log::error!(
+					target: "xcm::SufficientAssetConverter::convert_asset",
+					"Could not map XCM asset {:?} to FRAME asset",
+					asset_id,
+				);
+				XcmError::AssetNotFound
+			})?;
+		let Fungibility::Fungible(old_asset_amount) = asset.fun else {
+			log::error!(
+				target: "xcm::SufficientAssetConverter::convert_asset",
+				"Fee asset is not fungible",
+			);
+			return Err(XcmError::AssetNotFound);
+		};
+		let swap_asset = fungibles_asset.clone().into();
+		if asset.eq(&swap_asset) {
+			// Converter not applicable.
+			return Err(XcmError::FeesNotMet);
+		}
+
+		let credit_in = Fungibles::issue(fungibles_asset, balance);
+
+		// Swap the user's asset for `asset`.
+		let (credit_out, credit_change) = SwapCredit::swap_tokens_for_exact_tokens(
+			vec![swap_asset, asset.clone()],
+			credit_in,
+			old_asset_amount,
+		).map_err(|(credit_in, _)| {
+			drop(credit_in);
+			XcmError::FeesNotMet
+		})?;
+
+		// TODO: Is this right?
+		credit_change.peek().into()
 	}
 }
 

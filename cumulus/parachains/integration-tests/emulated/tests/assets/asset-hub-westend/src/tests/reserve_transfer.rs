@@ -1387,3 +1387,83 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	// Receiver's balance is increased
 	assert!(receiver_assets_after > receiver_assets_before);
 }
+
+#[test]
+fn reserve_transfer_pool_assets_from_system_para_to_para() {
+	let native_asset = RelayLocation::get();
+	let asset_id = 9999;
+	let pool_asset = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())]);
+
+	// Setup the pool between `native_asset` and `pool_asset`.
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// set up pool with ASSET_ID <> NATIVE pair
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::create(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			ASSET_ID.into(),
+			AssetHubWestendSender::get().into(),
+			ASSET_MIN_BALANCE,
+		));
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::Assets::asset_exists(ASSET_ID));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			ASSET_ID.into(),
+			AssetHubWestendSender::get().into(),
+			3_000_000_000_000,
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			Box::new(asset_native),
+			Box::new(asset_one),
+		));
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			Box::new(asset_native),
+			Box::new(asset_one),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			0,
+			0,
+			AssetHubWestendSender::get().into()
+		));
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {lp_token_minted, .. }) => { lp_token_minted: *lp_token_minted == 1414213562273, },
+			]
+		);
+
+		// ensure `penpal` sovereign account has no native tokens and mint some `ASSET_ID`
+		assert_eq!(
+			<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(penpal.clone()),
+			0
+		);
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::touch_other(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			ASSET_ID.into(),
+			penpal.clone().into(),
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			ASSET_ID.into(),
+			penpal.clone().into(),
+			10_000_000_000_000,
+		));
+	});
+
+	// TODO: Transfer assets and assert.
+}
