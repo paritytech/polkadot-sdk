@@ -101,8 +101,6 @@ pub mod pallet {
 
 		/// Type used for getting the associated account of a task. This account is controlled by
 		/// the task itself.
-		//
-		// TODO: maybe rename this?
 		type SovereignAccountOf: Convert<TaskId, Self::AccountId>;
 
 		/// Identifier from which the internal Pot is generated.
@@ -838,53 +836,7 @@ pub mod pallet {
 			workload_end_hint: Option<Timeslice>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-
-			let record = if let Some(workload_end) = workload_end_hint {
-				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: workload_end })
-					.ok_or(Error::<T>::NotAllowed)?
-			} else {
-				// If the core hasn't been renewed yet we will renew it now.
-				if let Some(record) =
-					AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_begin })
-				{
-					Self::do_renew(who.clone(), core)?;
-					record
-				} else {
-					// If we couldn't find the renewal record for the current bulk period we should
-					// be able to find it for the upcoming bulk period.
-					//
-					// If not the core is not eligable for renewal.
-					AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_end })
-						.ok_or(Error::<T>::NotAllowed)?
-				}
-			};
-
-			let workload =
-				record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
-
-			// Given that only non-interlaced cores can be renewed, there should be only one
-			// assignment in the core's workload.
-			ensure!(workload.len() == 1, Error::<T>::IncompleteAssignment);
-			let Some(schedule_item) = workload.get(0) else {
-				return Err(Error::<T>::NotAllowed.into())
-			};
-
-			let CoreAssignment::Task(task_id) = schedule_item.assignment else {
-				return Err(Error::<T>::NonTaskAutoRenewal.into())
-			};
-
-			// Only the sovereign account of the task can enable auto-renewal.
-			ensure!(who == T::SovereignAccountOf::convert(task_id), Error::<T>::NoPermission);
-
-			AutoRenewals::<T>::try_mutate(|renewals| {
-				let pos = renewals
-					.binary_search_by(|r: &(CoreIndex, TaskId)| r.0.cmp(&core))
-					.unwrap_or_else(|e| e);
-				renewals.try_insert(pos, (core, task_id))
-			})
-			.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+			Self::do_enable_auto_renew(who, core, workload_end_hint)?;
 
 			// The caller must pay for the transaction otherwise spamming would be possible by
 			// turning auto-renewal on and off.

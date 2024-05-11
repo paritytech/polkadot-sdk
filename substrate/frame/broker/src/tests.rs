@@ -1410,6 +1410,19 @@ fn renewal_works_leases_ended_before_start_sales() {
 }
 
 #[test]
+fn enable_auto_renew_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
+
+		assert_ok!(Broker::do_enable_auto_renew(1001, region.core, None));
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001)]);
+	});
+}
+
+#[test]
 fn start_sales_sets_correct_core_count() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		advance_to(1);
@@ -1427,9 +1440,4 @@ fn start_sales_sets_correct_core_count() {
 
 		System::assert_has_event(Event::<Test>::CoreCountRequested { core_count: 9 }.into());
 	})
-}
-
-#[test]
-fn enable_auto_renew_works() {
-	TestExt::new().endow(1, 1000).execute_with(|| {})
 }

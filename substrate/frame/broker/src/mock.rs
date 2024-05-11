@@ -188,10 +188,10 @@ ord_parameter_types! {
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
 pub struct TaskToAccountId;
-// TODO
+// Dummy implementation which converts `TaskId` to `AccountId`.
 impl Convert<TaskId, u64> for TaskToAccountId {
-	fn convert(_task: TaskId) -> u64 {
-		0
+	fn convert(task: TaskId) -> u64 {
+		task.into()
 	}
 }
 
@@ -209,6 +209,7 @@ impl crate::Config for Test {
 	type AdminOrigin = EnsureOneOrRoot;
 	type PriceAdapter = Linear;
 	type SovereignAccountOf = TaskToAccountId;
+	type MaxAutoRenewals = ConstU32<5>;
 }
 
 pub fn advance_to(b: u64) {
