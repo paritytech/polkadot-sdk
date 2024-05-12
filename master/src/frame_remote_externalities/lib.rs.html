@@ -1731,6 +1731,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1580" id="1580">1580</a>
 <a href="#1581" id="1581">1581</a>
 <a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1769,7 +1781,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 };
 <span class="kw">use </span>sp_runtime::{
-	traits::{Block <span class="kw">as </span>BlockT, Hash, HashingFor},
+	traits::{Block <span class="kw">as </span>BlockT, HashingFor},
 	StateVersion,
 };
 <span class="kw">use </span>sp_state_machine::TestExternalities;
@@ -1791,37 +1803,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">type </span>SnapshotVersion = Compact&lt;u16&gt;;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"remote-ext"</span>;
-<span class="kw">const </span>DEFAULT_HTTP_ENDPOINT: <span class="kw-2">&amp;</span>str = <span class="string">"https://rpc.polkadot.io:443"</span>;
-<span class="kw">const </span>SNAPSHOT_VERSION: SnapshotVersion = Compact(<span class="number">3</span>);
+<span class="kw">const </span>DEFAULT_HTTP_ENDPOINT: <span class="kw-2">&amp;</span>str = <span class="string">"https://polkadot-try-runtime-node.parity-chains.parity.io:443"</span>;
+<span class="kw">const </span>SNAPSHOT_VERSION: SnapshotVersion = Compact(<span class="number">4</span>);
 
 <span class="doccomment">/// The snapshot that we store on disk.
 </span><span class="attr">#[derive(Decode, Encode)]
-</span><span class="kw">struct </span>Snapshot&lt;H&gt; {
+</span><span class="kw">struct </span>Snapshot&lt;B: BlockT&gt; {
 	snapshot_version: SnapshotVersion,
 	state_version: StateVersion,
-	block_hash: H,
 	<span class="comment">// &lt;Vec&lt;Key, (Value, MemoryDbRefCount)&gt;&gt;
 	</span>raw_storage: Vec&lt;(Vec&lt;u8&gt;, (Vec&lt;u8&gt;, i32))&gt;,
-	storage_root: H,
+	<span class="comment">// The storage root of the state. This may vary from the storage root in the header, if not the
+	// entire state was fetched.
+	</span>storage_root: B::Hash,
+	header: B::Header,
 }
 
-<span class="kw">impl</span>&lt;H: Decode&gt; Snapshot&lt;H&gt; {
+<span class="kw">impl</span>&lt;B: BlockT&gt; Snapshot&lt;B&gt; {
 	<span class="kw">pub fn </span>new(
 		state_version: StateVersion,
-		block_hash: H,
 		raw_storage: Vec&lt;(Vec&lt;u8&gt;, (Vec&lt;u8&gt;, i32))&gt;,
-		storage_root: H,
+		storage_root: B::Hash,
+		header: B::Header,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			snapshot_version: SNAPSHOT_VERSION,
 			state_version,
-			block_hash,
 			raw_storage,
 			storage_root,
+			header,
 		}
 	}
 
-	<span class="kw">fn </span>load(path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;Snapshot&lt;H&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	<span class="kw">fn </span>load(path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;Snapshot&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>bytes = fs::read(path).map_err(|<span class="kw">_</span>| <span class="string">"fs::read failed."</span>)<span class="question-mark">?</span>;
 		<span class="comment">// The first item in the SCALE encoded struct bytes is the snapshot version. We decode and
 		// check that first, before proceeding to decode the rest of the snapshot.
@@ -1838,21 +1852,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An externalities that acts exactly the same as [`sp_io::TestExternalities`] but has a few extra
 /// bits and pieces to it, and can be loaded remotely.
-</span><span class="kw">pub struct </span>RemoteExternalities&lt;H: Hash&gt; {
+</span><span class="kw">pub struct </span>RemoteExternalities&lt;B: BlockT&gt; {
 	<span class="doccomment">/// The inner externalities.
-	</span><span class="kw">pub </span>inner_ext: TestExternalities&lt;H&gt;,
-	<span class="doccomment">/// The block hash with which we created this externality env.
-	</span><span class="kw">pub </span>block_hash: H::Out,
+	</span><span class="kw">pub </span>inner_ext: TestExternalities&lt;HashingFor&lt;B&gt;&gt;,
+	<span class="doccomment">/// The block header which we created this externality env.
+	</span><span class="kw">pub </span>header: B::Header,
 }
 
-<span class="kw">impl</span>&lt;H: Hash&gt; Deref <span class="kw">for </span>RemoteExternalities&lt;H&gt; {
-	<span class="kw">type </span>Target = TestExternalities&lt;H&gt;;
+<span class="kw">impl</span>&lt;B: BlockT&gt; Deref <span class="kw">for </span>RemoteExternalities&lt;B&gt; {
+	<span class="kw">type </span>Target = TestExternalities&lt;HashingFor&lt;B&gt;&gt;;
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.inner_ext
 	}
 }
 
-<span class="kw">impl</span>&lt;H: Hash&gt; DerefMut <span class="kw">for </span>RemoteExternalities&lt;H&gt; {
+<span class="kw">impl</span>&lt;B: BlockT&gt; DerefMut <span class="kw">for </span>RemoteExternalities&lt;B&gt; {
 	<span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::Target {
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner_ext
 	}
@@ -2592,7 +2606,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;B: BlockT + DeserializeOwned&gt; Builder&lt;B&gt;
+<span class="kw">impl</span>&lt;B: BlockT&gt; Builder&lt;B&gt;
 <span class="kw">where
 	</span>B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
@@ -2763,6 +2777,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
+	<span class="kw">async fn </span>load_header(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;B::Header, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="kw">let </span>retry_strategy =
+			FixedInterval::new(<span class="self">Self</span>::KEYS_PAGE_RETRY_INTERVAL).take(<span class="self">Self</span>::MAX_RETRIES);
+		<span class="kw">let </span>get_header_closure = || {
+			ChainApi::&lt;(), <span class="kw">_</span>, B::Header, ()&gt;::header(
+				<span class="self">self</span>.as_online().rpc_client(),
+				<span class="prelude-val">Some</span>(<span class="self">self</span>.as_online().at_expected()),
+			)
+		};
+		Retry::spawn(retry_strategy, get_header_closure)
+			.<span class="kw">await
+			</span>.map_err(|<span class="kw">_</span>| <span class="string">"Failed to fetch header for block from network"</span>)<span class="question-mark">?
+			</span>.ok_or(<span class="string">"Network returned None block header"</span>)
+	}
+
 	<span class="doccomment">/// Load the data from a remote server. The main code path is calling into `load_top_remote` and
 	/// `load_child_remote`.
 	///
@@ -2791,13 +2820,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// If we need to save a snapshot, save the raw storage and root hash to the snapshot.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(path) = <span class="self">self</span>.as_online().state_snapshot.clone().map(|c| c.path) {
 			<span class="kw">let </span>(raw_storage, storage_root) = pending_ext.into_raw_snapshot();
-			<span class="kw">let </span>snapshot = Snapshot::&lt;B::Hash&gt;::new(
+			<span class="kw">let </span>snapshot = Snapshot::&lt;B&gt;::new(
 				state_version,
-				<span class="self">self</span>.as_online()
-					.at
-					.expect(<span class="string">"set to `Some` in `init_remote_client`; must be called before; qed"</span>),
 				raw_storage.clone(),
 				storage_root,
+				<span class="self">self</span>.load_header().<span class="kw">await</span><span class="question-mark">?</span>,
 			);
 			<span class="kw">let </span>encoded = snapshot.encode();
 			<span class="macro">log::info!</span>(
@@ -2819,22 +2846,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(pending_ext)
 	}
 
-	<span class="kw">async fn </span>do_load_remote(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	<span class="kw">async fn </span>do_load_remote(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="self">self</span>.init_remote_client().<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="kw">let </span>block_hash = <span class="self">self</span>.as_online().at_expected();
 		<span class="kw">let </span>inner_ext = <span class="self">self</span>.load_remote_and_maybe_save().<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(RemoteExternalities { block_hash, inner_ext })
+		<span class="prelude-val">Ok</span>(RemoteExternalities { header: <span class="self">self</span>.load_header().<span class="kw">await</span><span class="question-mark">?</span>, inner_ext })
 	}
 
 	<span class="kw">fn </span>do_load_offline(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		config: OfflineConfig,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>sp = Spinner::with_timer(Spinners::Dots, <span class="string">"Loading snapshot..."</span>.into());
 		<span class="kw">let </span>start = Instant::now();
 		<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"Loading snapshot from {:?}"</span>, <span class="kw-2">&amp;</span>config.state_snapshot.path);
-		<span class="kw">let </span>Snapshot { snapshot_version: <span class="kw">_</span>, block_hash, state_version, raw_storage, storage_root } =
-			Snapshot::&lt;B::Hash&gt;::load(<span class="kw-2">&amp;</span>config.state_snapshot.path)<span class="question-mark">?</span>;
+		<span class="kw">let </span>Snapshot { snapshot_version: <span class="kw">_</span>, header, state_version, raw_storage, storage_root } =
+			Snapshot::&lt;B&gt;::load(<span class="kw-2">&amp;</span>config.state_snapshot.path)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>inner_ext = TestExternalities::from_raw_snapshot(
 			raw_storage,
@@ -2843,12 +2869,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		sp.stop_with_message(<span class="macro">format!</span>(<span class="string">"✅ Loaded snapshot ({:.2}s)"</span>, start.elapsed().as_secs_f32()));
 
-		<span class="prelude-val">Ok</span>(RemoteExternalities { inner_ext, block_hash })
+		<span class="prelude-val">Ok</span>(RemoteExternalities { inner_ext, header })
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>pre_build(
-		<span class="kw-2">mut </span><span class="self">self</span>,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>pre_build(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = <span class="kw">match </span><span class="self">self</span>.mode.clone() {
 			Mode::Offline(config) =&gt; <span class="self">self</span>.do_load_offline(config)<span class="question-mark">?</span>,
 			Mode::Online(<span class="kw">_</span>) =&gt; <span class="self">self</span>.do_load_remote().<span class="kw">await</span><span class="question-mark">?</span>,
@@ -2887,7 +2911,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Public methods
-</span><span class="kw">impl</span>&lt;B: BlockT + DeserializeOwned&gt; Builder&lt;B&gt;
+</span><span class="kw">impl</span>&lt;B: BlockT&gt; Builder&lt;B&gt;
 <span class="kw">where
 	</span>B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
@@ -2924,7 +2948,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self
 	</span>}
 
-	<span class="kw">pub async fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	<span class="kw">pub async fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = <span class="self">self</span>.pre_build().<span class="kw">await</span><span class="question-mark">?</span>;
 		ext.commit_all().unwrap();
 
@@ -2959,7 +2983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		init_logger();
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Offline(OfflineConfig {
-				state_snapshot: SnapshotConfig::new(<span class="string">"test_data/proxy_test"</span>),
+				state_snapshot: SnapshotConfig::new(<span class="string">"test_data/test.snap"</span>),
 			}))
 			.build()
 			.<span class="kw">await
@@ -2974,7 +2998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// get the first key from the snapshot file.
 		</span><span class="kw">let </span>some_key = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Offline(OfflineConfig {
-				state_snapshot: SnapshotConfig::new(<span class="string">"test_data/proxy_test"</span>),
+				state_snapshot: SnapshotConfig::new(<span class="string">"test_data/test.snap"</span>),
 			}))
 			.build()
 			.<span class="kw">await
@@ -2988,7 +3012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Offline(OfflineConfig {
-				state_snapshot: SnapshotConfig::new(<span class="string">"test_data/proxy_test"</span>),
+				state_snapshot: SnapshotConfig::new(<span class="string">"test_data/test.snap"</span>),
 			}))
 			.blacklist_hashed_key(<span class="kw-2">&amp;</span>some_key)
 			.build()
@@ -3074,7 +3098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await
 			</span>.unwrap();
 
-		<span class="macro">assert_eq!</span>(ext.block_hash, cached_ext.block_hash);
+		<span class="macro">assert_eq!</span>(ext.header.hash(), cached_ext.header.hash());
 	}
 
 	<span class="attr">#[tokio::test]
