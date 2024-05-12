@@ -431,6 +431,22 @@ pub mod pallet {
 			/// The core whose workload is no longer available to be renewed for `when`.
 			core: CoreIndex,
 		},
+		AutoRenewalEnabled {
+			/// The core for which the renewal was enabled.
+			core: CoreIndex,
+			/// The task for which the renewal was enabled.
+			task: TaskId,
+		},
+		/// Failed to auto-renew a core, likely due to the payer account not being sufficiently
+		/// funded.
+		AutoRenewalFailed {
+			/// The core for which the renewal failed.
+			core: CoreIndex,
+			/// The task for which the renewal failed.
+			task: TaskId,
+			/// The account which was supposed to pay for renewal.
+			payer: T::AccountId,
+		},
 	}
 
 	#[pallet::error]

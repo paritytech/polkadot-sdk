@@ -1414,11 +1414,36 @@ fn enable_auto_renew_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let record = Regions::<Test>::get(region_id).unwrap();
 
-		assert_ok!(Broker::do_enable_auto_renew(1001, region.core, None));
+		// Cannot enable auto renewal with provisional finality:
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Provisional));
+		assert_noop!(
+			Broker::do_enable_auto_renew(1001, region_id.core, None),
+			Error::<Test>::NotAllowed
+		);
+
+		// Eligible for renewal after final assignment:
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		assert!(AllowedRenewals::<Test>::get(AllowedRenewalId {
+			core: region_id.core,
+			when: record.end
+		})
+		.is_some());
+
+		// Only the task's sovereign account can enable auto renewal.
+		assert_noop!(
+			Broker::do_enable_auto_renew(1, region_id.core, None),
+			Error::<Test>::NoPermission
+		);
+
+		// Works when calling with the sovereign account:
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, None));
 		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001)]);
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalEnabled { core: region_id.core, task: 1001 }.into(),
+		);
 	});
 }
 

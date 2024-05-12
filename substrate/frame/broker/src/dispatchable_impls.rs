@@ -521,7 +521,7 @@ impl<T: Config> Pallet<T> {
 		})
 		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
 
-		// TODO: event
+		Self::deposit_event(Event::AutoRenewalEnabled { core, task: task_id });
 		Ok(())
 	}
 
