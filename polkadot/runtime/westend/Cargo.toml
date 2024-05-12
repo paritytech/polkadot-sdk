@@ -11,6 +11,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+hex = { version = "0.4", default-features = false }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
@@ -133,6 +134,7 @@ no_std = []
 only-staking = []
 std = [
 	"authority-discovery-primitives/std",
+	"hex/std",
 	"babe-primitives/std",
 	"beefy-primitives/std",
 	"binary-merkle-tree/std",

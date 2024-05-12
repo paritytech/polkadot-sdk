@@ -365,6 +365,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
+use frame_support::traits::tokens::Fortitude::Polite;
+use frame_support::traits::tokens::Preservation::Expendable;
 use sp_core::U256;
 use sp_runtime::{
 	traits::{
@@ -1259,6 +1261,7 @@ impl<T: Config> BondedPool<T> {
 	) -> Result<BalanceOf<T>, DispatchError> {
 		// Cache the value
 		let bonded_account = self.bonded_account();
+		log!(error, "before tx: {:?}", T::Currency::reducible_balance(&bonded_account, Expendable, Polite));
 		T::Currency::transfer(
 			who,
 			&bonded_account,
@@ -1268,6 +1271,8 @@ impl<T: Config> BondedPool<T> {
 				BondType::Later => Preservation::Preserve,
 			},
 		)?;
+
+		log!(error, "after tx before staking: {:?}", T::Currency::reducible_balance(&bonded_account, Expendable, Polite));
 		// We must calculate the points issued *before* we bond who's funds, else points:balance
 		// ratio will be wrong.
 		let points_issued = self.issue(amount);
@@ -1279,6 +1284,7 @@ impl<T: Config> BondedPool<T> {
 			// found, we exit early.
 			BondType::Later => T::Staking::bond_extra(&bonded_account, amount)?,
 		}
+		log!(error, "after staking: {:?}", T::Currency::reducible_balance(&bonded_account, Expendable, Polite));
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);
 		});
@@ -1577,6 +1583,8 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 pub mod pallet {
 	use super::*;
 	use frame_support::traits::StorageVersion;
+	use frame_support::traits::tokens::Fortitude::Polite;
+	use frame_support::traits::tokens::Preservation::Expendable;
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_runtime::Perbill;
 
@@ -2253,17 +2261,19 @@ pub mod pallet {
 			let mut sub_pools =
 				SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::SubPoolsNotFound)?;
 
+			log!(error, "pool account consumer count before withdraw: {:?}", frame_system::Pallet::<T>::consumers(&bonded_pool.bonded_account()));
 			bonded_pool.ok_to_withdraw_unbonded_with(&caller, &member_account)?;
 
 			// NOTE: must do this after we have done the `ok_to_withdraw_unbonded_other_with` check.
 			let withdrawn_points = member.withdraw_unlocked(current_era);
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
-
+			log!(error, "pool account consumer count before withdraw 02: {:?}", frame_system::Pallet::<T>::consumers(&bonded_pool.bonded_account()));
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
 			// `transferrable_balance` is correct.
 			let stash_killed =
 				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)?;
 
+			log!(error, "pool account consumer count after withdraw: {:?}", frame_system::Pallet::<T>::consumers(&bonded_pool.bonded_account()));
 			// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
 			ensure!(
@@ -2297,6 +2307,8 @@ pub mod pallet {
 				// order to ensure members can leave the pool and it can be destroyed.
 				.min(bonded_pool.transferable_balance());
 
+			log!(error, "pool account consumer count just before trying transfer: {:?}", frame_system::Pallet::<T>::consumers(&bonded_pool.bonded_account()));
+			log!(error, "ank4n: balance to transfer: {:?}", balance_to_unbond);
 			T::Currency::transfer(
 				&bonded_pool.bonded_account(),
 				&member_account,
@@ -2433,7 +2445,10 @@ pub mod pallet {
 				Error::<T>::MinimumBondNotMet
 			);
 
-			T::Staking::nominate(&bonded_pool.bonded_account(), validators)
+			log!(error, "before nominate: {:?}", T::Currency::reducible_balance(&bonded_pool.bonded_account(), Expendable, Polite));
+			let out = T::Staking::nominate(&bonded_pool.bonded_account(), validators);
+			log!(error, "after nominate: {:?}", T::Currency::reducible_balance(&bonded_pool.bonded_account(), Expendable, Polite));
+			out
 		}
 
 		/// Set a new state for the pool.
@@ -3101,7 +3116,6 @@ impl<T: Config> Pallet<T> {
 
 		bonded_pool.try_inc_members()?;
 		let points = bonded_pool.try_bond_funds(&who, amount, BondType::Create)?;
-
 		// Transfer the minimum balance for the reward account.
 		T::Currency::transfer(
 			&who,

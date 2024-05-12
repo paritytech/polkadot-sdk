@@ -963,6 +963,11 @@ pub mod pallet {
 				return Err(Error::<T>::InsufficientBond.into())
 			}
 
+			crate::log!(
+				error,
+				"staking::bond.. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&stash)
+			);
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
 			let stash_balance = T::Currency::free_balance(&stash);
@@ -972,7 +977,18 @@ pub mod pallet {
 
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.
+			crate::log!(
+				error,
+				"staking::bond 02 before ledger bond.. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&stash)
+			);
 			ledger.bond(payee)?;
+
+			crate::log!(
+				error,
+				"staking::bond 03 finally.. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&stash)
+			);
 
 			Ok(())
 		}

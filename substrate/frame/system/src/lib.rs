@@ -1491,8 +1491,16 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This *MUST* only be done once for every time you called `inc_providers` on `who`.
 	pub fn dec_providers(who: &T::AccountId) -> Result<DecRefStatus, DispatchError> {
+		log::error!(
+			target: LOG_TARGET,
+			"ank4n: dec provider for {:?}", who,
+		);
 		Account::<T>::try_mutate_exists(who, |maybe_account| {
 			if let Some(mut account) = maybe_account.take() {
+				log::error!(
+					target: LOG_TARGET,
+					"ank4n: dec provider: account {:?}", account,
+				);
 				if account.providers == 0 {
 					// Logic error - cannot decrement beyond zero.
 					log::error!(
@@ -1601,6 +1609,10 @@ impl<T: Config> Pallet<T> {
 	/// be less than `MaxConsumers::max_consumers()` or this will return an error.
 	pub fn inc_consumers(who: &T::AccountId) -> Result<(), DispatchError> {
 		Account::<T>::try_mutate(who, |a| {
+			log::error!(
+			target: LOG_TARGET,
+			"ank4n: inc consumers for {:?}, currency consumers: {:?}", who, a.consumers
+		);
 			if a.providers > 0 {
 				if a.consumers < T::MaxConsumers::max_consumers() {
 					a.consumers = a.consumers.saturating_add(1);
@@ -1619,6 +1631,10 @@ impl<T: Config> Pallet<T> {
 	/// The account `who`'s `providers` must be non-zero or this will return an error.
 	pub fn inc_consumers_without_limit(who: &T::AccountId) -> Result<(), DispatchError> {
 		Account::<T>::try_mutate(who, |a| {
+			log::error!(
+			target: LOG_TARGET,
+			"ank4n: inc consumers w/o limit for {:?}, currency consumers: {:?}", who, a.consumers
+		);
 			if a.providers > 0 {
 				a.consumers = a.consumers.saturating_add(1);
 				Ok(())
@@ -1632,6 +1648,10 @@ impl<T: Config> Pallet<T> {
 	/// you called `inc_consumers` on `who`.
 	pub fn dec_consumers(who: &T::AccountId) {
 		Account::<T>::mutate(who, |a| {
+			log::error!(
+			target: LOG_TARGET,
+			"ank4n: dec consumers for {:?}, currency consumers: {:?}", who, a.consumers
+		);
 			if a.consumers > 0 {
 				a.consumers -= 1;
 			} else {

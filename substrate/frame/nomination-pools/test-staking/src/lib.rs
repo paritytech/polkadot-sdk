@@ -36,11 +36,16 @@ fn pool_lifecycle_e2e() {
 		assert_eq!(Balances::minimum_balance(), 5);
 		assert_eq!(Staking::current_era(), None);
 
+		let pool_acc = 20318131474730217858575332831085;
+		println!("System account 01: {:?}", System::account(pool_acc));
 		// create the pool, we know this has id 1.
+		println!("** creating pool**");
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		println!("System account 02: {:?}", System::account(pool_acc));
 		assert_eq!(LastPoolId::<Runtime>::get(), 1);
 
 		// have the pool nominate.
+		println!("** nominating**");
 		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
 
 		assert_eq!(
@@ -56,7 +61,9 @@ fn pool_lifecycle_e2e() {
 		);
 
 		// have two members join
+		println!("** new joiner 20**");
 		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+		println!("** new joiner 21**");
 		assert_ok!(Pools::join(RuntimeOrigin::signed(21), 10, 1));
 
 		assert_eq!(
@@ -75,6 +82,7 @@ fn pool_lifecycle_e2e() {
 		);
 
 		// pool goes into destroying
+		println!("** destroying**");
 		assert_ok!(Pools::set_state(RuntimeOrigin::signed(10), 1, PoolState::Destroying));
 
 		// depositor cannot unbond yet.
@@ -84,7 +92,9 @@ fn pool_lifecycle_e2e() {
 		);
 
 		// now the members want to unbond.
+		println!("** unbonding**");
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 10));
+		println!("** unbonding**");
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(21), 21, 10));
 
 		assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().unbonding_eras.len(), 1);
@@ -132,7 +142,9 @@ fn pool_lifecycle_e2e() {
 		);
 
 		// but members can now withdraw.
+		println!("** withdraw unbonded 20**");
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
+		println!("** withdraw unbonded 21**");
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(21), 21, 0));
 		assert!(PoolMembers::<Runtime>::get(20).is_none());
 		assert!(PoolMembers::<Runtime>::get(21).is_none());
@@ -158,7 +170,9 @@ fn pool_lifecycle_e2e() {
 			pallet_staking::Error::<Runtime>::InsufficientBond
 		);
 
+		println!("** chill**");
 		assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
+		println!("**creator unbond**");
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 50));
 
 		assert_eq!(
@@ -175,6 +189,7 @@ fn pool_lifecycle_e2e() {
 
 		// waiting another bonding duration:
 		CurrentEra::<Runtime>::set(Some(BondingDuration::get() * 2));
+		println!("** creator withdraw unbonded **");
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 1));
 
 		// pools is fully destroyed now.
