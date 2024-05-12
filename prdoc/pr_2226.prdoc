@@ -4,7 +4,8 @@ doc:
   - audience: Node Operator
     description: |
       On each committed offence (no matter slashable or not) the offending validator will be
-      disabled for a whole era.
+      disabled for a whole era. Offenders are no longer chilled so the node operator should monitor
+      the behavior of their validators and act swiftly if they are raising disputes.
   - audience: Runtime Dev
     description: |
       The disabling strategy in staking pallet is no longer hardcoded but abstracted away via
@@ -14,7 +15,13 @@ doc:
       will be used on Kusama and Polkadot. In nutshell `UpToLimitDisablingStrategy`
       disables offenders up to the configured threshold. Offending validators are not disabled for
       offences in previous eras. The threshold is controlled via `DISABLING_LIMIT_FACTOR` (a generic
-      parameter of `UpToLimitDisablingStrategy`).
+      parameter of `UpToLimitDisablingStrategy`). Also offending validators are no longer chilled
+      after an offence is committed. This change is made to protect the network in case of honest nodes being slashed.
+  - audience: RuntimeUser
+    description: |
+      Nominators should be aware that the validators are no longer chilled if they commit an offence.
+      This means that token holders should be extra careful, monitor closely the behavior of their
+      nominees and take measures if they commit an offence.
 
 migrations:
   db: []
