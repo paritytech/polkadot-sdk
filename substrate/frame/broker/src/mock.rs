@@ -258,6 +258,10 @@ pub fn new_config() -> ConfigRecordOf<Test> {
 	}
 }
 
+pub fn endow(who: u64, amount: u64) {
+	assert_ok!(<<Test as Config>::Currency as Mutate<_>>::mint_into(&who, amount));
+}
+
 pub struct TestExt(ConfigRecordOf<Test>);
 #[allow(dead_code)]
 impl TestExt {
@@ -306,7 +310,7 @@ impl TestExt {
 	}
 
 	pub fn endow(self, who: u64, amount: u64) -> Self {
-		assert_ok!(<<Test as Config>::Currency as Mutate<_>>::mint_into(&who, amount));
+		endow(who, amount);
 		self
 	}
 

@@ -1411,8 +1411,8 @@ fn renewal_works_leases_ended_before_start_sales() {
 
 #[test]
 fn enable_auto_renew_works() {
-	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 3));
 		advance_to(2);
 		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
 		let record = Regions::<Test>::get(region_id).unwrap();
@@ -1441,6 +1441,52 @@ fn enable_auto_renew_works() {
 		// Works when calling with the sovereign account:
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, None));
 		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001)]);
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalEnabled { core: region_id.core, task: 1001 }.into(),
+		);
+
+		// Enabling auto-renewal for more cores to ensure they are sorted based on core index.
+		let region_2 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_3 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
+		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
+		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, None));
+		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, None));
+
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001), (1, 1002), (2, 1003)]);
+	});
+}
+
+#[test]
+fn enable_auto_renew_renews() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		// advance to next bulk sale:
+		advance_to(6);
+
+		// Since we didn't renew for the next bulk period, enabling auto-renewal will renew.
+
+		// Will fail because we didn't fund the sovereign account:
+		assert_noop!(
+			Broker::do_enable_auto_renew(1001, region_id.core, None),
+			TokenError::FundsUnavailable
+		);
+
+		// Will succeed after funding the sovereign account:
+		endow(1001, 1000);
+
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, None));
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001)]);
+		assert!(AllowedRenewals::<Test>::get(AllowedRenewalId {
+			core: region_id.core,
+			when: 10 // region end after renewal
+		})
+		.is_some());
+
 		System::assert_has_event(
 			Event::<Test>::AutoRenewalEnabled { core: region_id.core, task: 1001 }.into(),
 		);
