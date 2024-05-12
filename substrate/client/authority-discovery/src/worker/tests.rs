@@ -800,7 +800,7 @@ fn records_with_incorrectly_signed_creation_time_are_ignored() {
 	assert_eq!(
 		Some(HashSet::from([addr])),
 		cached_remote_addresses,
-		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+		"Expect `Multiaddr` to remain the same",
 	);
 	assert!(network
 		.as_ref()
