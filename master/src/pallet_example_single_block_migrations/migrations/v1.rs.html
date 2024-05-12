@@ -414,10 +414,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Write the new value to storage
 			</span><span class="kw">let </span>new = <span class="kw">crate</span>::CurrentAndPreviousValue { current: old_value, previous: <span class="prelude-val">None </span>};
 			<span class="kw">crate</span>::Value::&lt;T&gt;::put(new);
-			<span class="comment">// One read for the old value, one write for the new value
-			</span>T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
+			<span class="comment">// One read + write for taking the old value, and one write for setting the new value
+			</span>T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>)
 		} <span class="kw">else </span>{
-			<span class="comment">// One read for trying to access the old value
+			<span class="comment">// No writes since there was no old value, just one read for checking
 			</span>T::DbWeight::get().reads(<span class="number">1</span>)
 		}
 	}
@@ -531,7 +531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// value.
 			</span><span class="macro">assert_eq!</span>(
 				weight,
-				&lt;MockRuntime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
+				&lt;MockRuntime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>)
 			);
 
 			<span class="comment">// After the migration, the new value should be set as the `current` value.

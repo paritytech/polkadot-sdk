@@ -489,7 +489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 			<span class="kw">let </span>bounded = BoundedVec::&lt;<span class="kw">_</span>, T::MaxProposals&gt;::truncate_from(props.clone());
 			PublicProps::&lt;T&gt;::put(bounded);
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>));
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>));
 
 			<span class="kw">if </span>props.len() <span class="kw">as </span>u32 &gt; T::MaxProposals::get() {
 				<span class="macro">log::error!</span>(
@@ -507,7 +507,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			StorageVersion::new(<span class="number">1</span>).put::&lt;Pallet&lt;T&gt;&gt;();
 
-			weight.saturating_add(T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>))
+			weight.saturating_add(T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">3</span>))
 		}
 
 		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]

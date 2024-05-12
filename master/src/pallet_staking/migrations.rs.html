@@ -1116,7 +1116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				StorageVersion::&lt;T&gt;::put(ObsoleteReleases::V10_0_0);
 
 				<span class="macro">log!</span>(info, <span class="string">"MigrateToV10 executed successfully"</span>);
-				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
+				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>)
 			} <span class="kw">else </span>{
 				<span class="macro">log!</span>(warn, <span class="string">"MigrateToV10 should be removed."</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
