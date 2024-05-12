@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715382265326,
+  "lastUpdate": 1715534724411,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -9411,6 +9411,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16454326094000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9e0e5fcd0a814ab30d15b3f8920c8d9ab3970e11",
+          "message": "xcm-emlator: Use `BlockNumberFor` instead of `parachains_common::BlockNumber=u32` (#4434)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/4428",
+          "timestamp": "2024-05-12T15:16:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9e0e5fcd0a814ab30d15b3f8920c8d9ab3970e11"
+        },
+        "date": 1715534697453,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666662,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010278997080000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012338754953333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16067164566666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023009661859999996,
             "unit": "seconds"
           }
         ]
