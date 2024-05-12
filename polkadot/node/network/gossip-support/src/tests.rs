@@ -818,7 +818,7 @@ fn issues_update_authorities_after_session() {
 // Test we connect to authorities that changed their address `TRY_RERESOLVE_AUTHORITIES` rate
 // and that is is no-op if no authority changed.
 #[test]
-fn test_quickly_connect_to_authorithies_that_changed_address() {
+fn test_quickly_connect_to_authorities_that_changed_address() {
 	let hash = Hash::repeat_byte(0xAA);
 
 	let authorities = PAST_PRESENT_FUTURE_AUTHORITIES.clone();
