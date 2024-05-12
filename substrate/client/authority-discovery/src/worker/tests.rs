@@ -703,7 +703,7 @@ fn strict_accept_address_without_creation_time() {
 	assert_eq!(
 		Some(HashSet::from([addr])),
 		cached_remote_addresses,
-		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+		"Expect worker to cache address without creation time",
 	);
 }
 
@@ -724,7 +724,7 @@ fn keep_last_received_if_no_creation_time() {
 	assert_eq!(
 		Some(HashSet::from([addr])),
 		cached_remote_addresses,
-		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+		"Expect worker to cache address without creation time",
 	);
 
 	assert!(network
@@ -746,7 +746,7 @@ fn keep_last_received_if_no_creation_time() {
 	assert_eq!(
 		Some(HashSet::from([addr2])),
 		cached_remote_addresses,
-		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+		"Expect worker to cache last received when no creation time",
 	);
 	assert!(network
 		.as_ref()
@@ -771,7 +771,7 @@ fn records_with_incorrectly_signed_creation_time_are_ignored() {
 	assert_eq!(
 		Some(HashSet::from([addr.clone()])),
 		cached_remote_addresses,
-		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+		"Expect worker to cache record with creation time",
 	);
 	assert!(network
 		.as_ref()
@@ -825,7 +825,7 @@ fn newer_records_overwrite_older_ones() {
 	assert_eq!(
 		Some(HashSet::from([old_record])),
 		cached_remote_addresses,
-		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+		"Expect worker to cache record with creation time",
 	);
 
 	let nothing_updated = network
@@ -848,7 +848,7 @@ fn newer_records_overwrite_older_ones() {
 	assert_eq!(
 		Some(HashSet::from([new_record])),
 		cached_remote_addresses,
-		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+		"Expect worker to store the newest recrod",
 	);
 
 	let result = network
@@ -885,7 +885,7 @@ fn older_records_dont_affect_newer_ones() {
 	assert_eq!(
 		Some(HashSet::from([new_record.clone()])),
 		cached_remote_addresses,
-		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+		"Expect worker to store new record",
 	);
 
 	let nothing_updated = network
@@ -899,7 +899,7 @@ fn older_records_dont_affect_newer_ones() {
 	assert_eq!(
 		Some(HashSet::from([new_record])),
 		cached_remote_addresses,
-		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+		"Expect worker to not update stored record",
 	);
 
 	let update_peers_info = network
