@@ -696,7 +696,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							let query_id = self.discovery.put_value(key.clone(), value).await;
 							self.pending_put_values.insert(query_id, (key, Instant::now()));
 						}
-
 						NetworkServiceCommand::PutValueTo { record, peers, update_local_storage} => {
 							let kademlia_key = record.key.to_vec().into();
 							let query_id = self.discovery.put_value_to_peers(record, peers, update_local_storage).await;
