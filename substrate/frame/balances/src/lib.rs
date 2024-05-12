@@ -984,6 +984,10 @@ pub mod pallet {
 			let mut after_frozen = Zero::zero();
 			// TODO: Revisit this assumption. We no manipulate consumer/provider refs.
 			// No way this can fail since we do not alter the existential balances.
+			log::error!(
+					target: LOG_TARGET,
+					"ank4n: Consumers before mutating account {:?}", system::Pallet::<T>::consumers(who),
+				);
 			let res = Self::mutate_account(who, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
@@ -995,6 +999,11 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			});
+
+			log::error!(
+					target: LOG_TARGET,
+					"ank4n: Consumers after mutating account, before removing lock {:?}", system::Pallet::<T>::consumers(who),
+				);
 			debug_assert!(res.is_ok());
 			if let Ok((_, maybe_dust)) = res {
 				debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
@@ -1021,6 +1030,11 @@ pub mod pallet {
 					);
 				}
 			}
+
+			log::error!(
+					target: LOG_TARGET,
+					"ank4n: Consumers after removing lock {:?}", system::Pallet::<T>::consumers(who),
+				);
 
 			if prev_frozen > after_frozen {
 				let amount = prev_frozen.saturating_sub(after_frozen);

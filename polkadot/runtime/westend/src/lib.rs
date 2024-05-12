@@ -2177,6 +2177,7 @@ sp_api::impl_runtime_apis! {
 mod remote_tests {
 	use super::*;
 	use frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
+	use pallet_nomination_pools::{BondedPool, Error, PoolState};
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
@@ -2209,6 +2210,67 @@ mod remote_tests {
 			.await
 			.unwrap();
 		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
+	}
+
+	#[tokio::test]
+	async fn nomination_pool_test() {
+		// use frame_support::migrations::SteppedMigration;
+		// use frame_support::traits::TryState;
+		sp_tracing::try_init_simple();
+		let transport: Transport = var("WS")
+			.unwrap_or(
+				// "wss://kusama-rpc.polkadot.io:443"
+				"ws://127.0.0.1:9900".to_string(),
+			)
+			.into();
+		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		// let mut block_hash = [0u8; 32];
+		// hex::decode_to_slice("d6de3578519ffe90e57eae0606c90f4921693d1d08fe21b8493d947ce34653eb",
+		// &mut block_hash).unwrap(); println!("my block hash: {:?}", H256::from(block_hash));
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					OnlineConfig {
+						// at: Some(H256::from(block_hash)),
+						state_snapshot: Some(state_snapshot),
+						transport,
+						// pallets: vec!["staking".into(), "nomination-pools".into()],
+						..Default::default()
+					},
+				)
+			} else {
+				Mode::Online(OnlineConfig { transport, ..Default::default() })
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(|| {
+			let pool_id = 231;
+			/*
+			pallet_nomination_pools::BondedPools::<Runtime>::iter().for_each(|(id, bonded_pool)|
+			{ 	let bonded_account = NominationPools::create_bonded_account(id);
+				let account = System::account(bonded_account);
+				println!("pool: {:?}", id);
+				println!("bonded account: {:?}", account);
+				// if bonded_pool.state == PoolState::Destroying && id != 231 {
+				// 	println!("withdraw unbonded for pool: {:?}", id);
+				// 	let creator = bonded_pool.roles.root.as_ref().unwrap();
+				// 	NominationPools::withdraw_unbonded(RuntimeOrigin::signed(creator.clone()),
+			creator.clone().into(), 0); 	// }
+
+			});
+*/
+			let bonded_pool = pallet_nomination_pools::BondedPool::<Runtime>::get(pool_id)
+				.ok_or(Error::<Runtime>::PoolNotFound)
+				.unwrap();
+			let creator = bonded_pool.roles.root.as_ref().unwrap();
+			NominationPools::withdraw_unbonded(
+				RuntimeOrigin::signed(creator.clone()),
+				creator.clone().into(),
+				0,
+			);
+		});
 	}
 }
 

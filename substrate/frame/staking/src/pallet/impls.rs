@@ -105,6 +105,11 @@ impl<T: Config> Pallet<T> {
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
 	) -> Result<Weight, DispatchError> {
+		crate::log!(
+				error,
+				"do withdraw unbonded, 01.. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&controller)
+			);
 		let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		if let Some(current_era) = Self::current_era() {
@@ -116,13 +121,33 @@ impl<T: Config> Pallet<T> {
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
+				crate::log!(
+				error,
+				"do withdraw unbonded, 02 (before kill stash).. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&controller)
+			);
 				Self::kill_stash(&stash, num_slashing_spans)?;
 				// Remove the lock.
+				crate::log!(
+				error,
+				"do withdraw unbonded, 03 (before remove lock)... Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&controller)
+			);
 				T::Currency::remove_lock(STAKING_ID, &stash);
 
+				crate::log!(
+				error,
+				"do withdraw unbonded, after remove lock.. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&controller)
+			);
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
 				// This was the consequence of a partial unbond. just update the ledger and move on.
+				crate::log!(
+				error,
+				"do withdraw unbonded, 04 should not come here 01.. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&controller)
+			);
 				Self::update_ledger(&controller, &ledger);
 
 				// This is only an update, so we use less overall weight.

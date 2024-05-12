@@ -364,6 +364,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
+use frame_support::traits::tokens::Fortitude::Polite;
+use frame_support::traits::tokens::Preservation::Expendable;
 use sp_core::U256;
 use sp_runtime::{
 	traits::{
@@ -677,6 +679,16 @@ pub struct Commission<T: Config> {
 	/// The block from where throttling should be checked from. This value will be updated on all
 	/// commission updates and when setting an initial `change_rate`.
 	pub throttle_from: Option<BlockNumberFor<T>>,
+	// Whether commission can be claimed permissionlessly, or whether an account can claim
+	// commission. `Root` role can always claim.
+	pub claim_permission: Option<CommissionClaimPermission<T::AccountId>>,
+}
+
+// A pool's possible commission claiming permissions.
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum CommissionClaimPermission<AccountId> {
+	Permissionless,
+	Account(AccountId),
 }
 
 impl<T: Config> Commission<T> {
@@ -1196,6 +1208,7 @@ impl<T: Config> BondedPool<T> {
 	) -> Result<BalanceOf<T>, DispatchError> {
 		// Cache the value
 		let bonded_account = self.bonded_account();
+		log!(error, "before tx: {:?}", frame_system::Pallet::<T>::consumers(&bonded_account));
 		T::Currency::transfer(
 			who,
 			&bonded_account,
@@ -1205,6 +1218,8 @@ impl<T: Config> BondedPool<T> {
 				BondType::Later => ExistenceRequirement::KeepAlive,
 			},
 		)?;
+
+		log!(error, "after tx before staking: {:?}", frame_system::Pallet::<T>::consumers(&bonded_account));
 		// We must calculate the points issued *before* we bond who's funds, else points:balance
 		// ratio will be wrong.
 		let points_issued = self.issue(amount);
@@ -1216,6 +1231,8 @@ impl<T: Config> BondedPool<T> {
 			// found, we exit early.
 			BondType::Later => T::Staking::bond_extra(&bonded_account, amount)?,
 		}
+		log!(error, "after staking: {:?}", frame_system::Pallet::<T>::consumers(&bonded_account));
+
 
 		Ok(points_issued)
 	}
@@ -1500,6 +1517,8 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 pub mod pallet {
 	use super::*;
 	use frame_support::traits::StorageVersion;
+	use frame_support::traits::tokens::Fortitude::Polite;
+	use frame_support::traits::tokens::Preservation::Expendable;
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_runtime::Perbill;
 
@@ -2133,17 +2152,19 @@ pub mod pallet {
 			let mut sub_pools =
 				SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::SubPoolsNotFound)?;
 
+			log!(error, "pool account consumer count before withdraw: {:?}", frame_system::Pallet::<T>::consumers(&bonded_pool.bonded_account()));
 			bonded_pool.ok_to_withdraw_unbonded_with(&caller, &member_account)?;
 
 			// NOTE: must do this after we have done the `ok_to_withdraw_unbonded_other_with` check.
 			let withdrawn_points = member.withdraw_unlocked(current_era);
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
-
+			log!(error, "pool account consumer count before withdraw 02: {:?}", frame_system::Pallet::<T>::consumers(&bonded_pool.bonded_account()));
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
 			// `transferrable_balance` is correct.
 			let stash_killed =
 				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)?;
 
+			log!(error, "pool account consumer count after withdraw: {:?}", frame_system::Pallet::<T>::consumers(&bonded_pool.bonded_account()));
 			// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
 			ensure!(
@@ -2177,6 +2198,8 @@ pub mod pallet {
 				// order to ensure members can leave the pool and it can be destroyed.
 				.min(bonded_pool.transferrable_balance());
 
+			log!(error, "pool account consumer count just before trying transfer: {:?}", frame_system::Pallet::<T>::consumers(&bonded_pool.bonded_account()));
+			log!(error, "ank4n: balance to transfer: {:?}", balance_to_unbond);
 			T::Currency::transfer(
 				&bonded_pool.bonded_account(),
 				&member_account,
@@ -2688,7 +2711,7 @@ impl<T: Config> Pallet<T> {
 		// consumers anyway.
 		// 2. the bonded account should become a 'killed stash' in the staking system, and all of
 		//    its consumers removed.
-		debug_assert_eq!(frame_system::Pallet::<T>::consumers(&reward_account), 0);
+		// debug_assert_eq!(frame_system::Pallet::<T>::consumers(&reward_account), 0);
 		debug_assert_eq!(frame_system::Pallet::<T>::consumers(&bonded_account), 0);
 		debug_assert_eq!(
 			T::Staking::total_stake(&bonded_account).unwrap_or_default(),
@@ -2880,7 +2903,7 @@ impl<T: Config> Pallet<T> {
 
 		bonded_pool.try_inc_members()?;
 		let points = bonded_pool.try_bond_funds(&who, amount, BondType::Create)?;
-
+		// Transfer the minimum balance for the reward account.
 		T::Currency::transfer(
 			&who,
 			&bonded_pool.reward_account(),

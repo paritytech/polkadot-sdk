@@ -23,6 +23,15 @@ use frame_support::traits::tokens::{
 	Provenance::{self, Minted},
 };
 
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: $crate::LOG_TARGET,
+			concat!("[{:?}] 🏊‍♂️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
 impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> {
 	type Balance = T::Balance;
 
@@ -47,7 +56,9 @@ impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> 
 		force: Fortitude,
 	) -> Self::Balance {
 		let a = Self::account(who);
+		let acct = frame_system::Account::<T>::get(who);
 		let mut untouchable = Zero::zero();
+		log!(error, "ank4n: who {:?}, reducible_balance | account: {:?}", who, acct);
 		if force == Polite {
 			// Frozen balance applies to total. Anything on hold therefore gets discounted from the
 			// limit given by the freezes.
@@ -62,6 +73,7 @@ impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> 
 			|| preservation == Expendable && !a.free.is_zero() &&
 				!frame_system::Pallet::<T>::can_dec_provider(who)
 		{
+			// log!(error, "ank4n: reducible_balance | preservation: {:?}, providers: {:?}, consumers: {:?}, can_dec_provider: {:?}", preservation, frame_system::Pallet::<T>::providers(who), frame_system::Pallet::<T>::consumers(who), frame_system::Pallet::<T>::can_dec_provider(who));
 			// ..then the ED needed..
 			untouchable = untouchable.max(T::ExistentialDeposit::get());
 		}
@@ -111,12 +123,15 @@ impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> 
 		}
 
 		let account = Self::account(who);
+
+		// log!(error, "ank4n: who: {:?}, account: {:?}", who, account);
 		let new_free_balance = match account.free.checked_sub(&amount) {
 			Some(x) => x,
 			None => return WithdrawConsequence::BalanceLow,
 		};
 
 		let liquid = Self::reducible_balance(who, Expendable, Polite);
+		// log!(error, "ank4n: who: {:?}, liquid: {:?}, amount: {:?}", who, liquid, amount);
 		if amount > liquid {
 			return WithdrawConsequence::Frozen
 		}
@@ -139,6 +154,7 @@ impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> 
 		let new_total_balance = new_free_balance.saturating_add(account.reserved);
 
 		// Eventual free funds must be no less than the frozen balance.
+		// log!(error, "ank4n: new_total_balance: {:?}, account.frozen: {:?}", new_total_balance, account.frozen);
 		if new_total_balance < account.frozen {
 			return WithdrawConsequence::Frozen
 		}

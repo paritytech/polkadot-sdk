@@ -856,6 +856,11 @@ pub mod pallet {
 				return Err(Error::<T>::InsufficientBond.into())
 			}
 
+			crate::log!(
+				error,
+				"staking::bond.. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&stash)
+			);
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
 			// You're auto-bonded forever, here. We might improve this by only bonding when
@@ -882,7 +887,21 @@ pub mod pallet {
 					// satisfied.
 					.defensive_map_err(|_| Error::<T>::BoundNotMet)?,
 			};
+
+			crate::log!(
+				error,
+				"staking::bond 02 before ledger bond.. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&stash)
+			);
+
 			Self::update_ledger(&controller_to_be_deprecated, &item);
+
+			crate::log!(
+				error,
+				"staking::bond 03 finally.. Consumers: {:?}",
+				frame_system::Pallet::<T>::consumers(&stash)
+			);
+
 			Ok(())
 		}
 
