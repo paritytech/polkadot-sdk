@@ -767,6 +767,32 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Burn the specified liquid free balance from the origin account.
+		///
+		/// If the origin's account ends up below the existential deposit as a result
+		/// of the burn and `keep_alive` is false, the account will be reaped.
+		///
+		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
+		/// this `burn` operation will reduce total issuance by the amount _burned_.
+		#[pallet::call_index(10)]
+		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
+		pub fn burn(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: T::Balance,
+			keep_alive: bool,
+		) -> DispatchResult {
+			let source = ensure_signed(origin)?;
+			let preservation = if keep_alive { Preserve } else { Expendable };
+			<Self as fungible::Mutate<_>>::burn_from(
+				&source,
+				value,
+				preservation,
+				Precision::Exact,
+				Polite,
+			)?;
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -952,6 +978,13 @@ pub mod pallet {
 					frame_system::Pallet::<T>::dec_consumers(who);
 				}
 				if !did_consume && does_consume {
+					frame_system::Pallet::<T>::inc_consumers(who)?;
+				}
+				if does_consume && frame_system::Pallet::<T>::consumers(who) == 0 {
+					// NOTE: This is a failsafe and should not happen for normal accounts. A normal
+					// account should have gotten a consumer ref in `!did_consume && does_consume`
+					// at some point.
+					log::error!(target: LOG_TARGET, "Defensively bumping a consumer ref.");
 					frame_system::Pallet::<T>::inc_consumers(who)?;
 				}
 				if did_provide && !does_provide {
