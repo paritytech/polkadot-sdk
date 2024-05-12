@@ -1749,6 +1749,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1598" id="1598">1598</a>
 <a href="#1599" id="1599">1599</a>
 <a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1785,7 +1787,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	weights::{Weight, WeightMeter},
 };
-<span class="kw">pub use </span>frame_system::{Config <span class="kw">as </span>SystemConfig, Pallet <span class="kw">as </span>SystemPallet};
+<span class="kw">pub use </span>frame_system::{
+	pallet_prelude::BlockNumberFor, Config <span class="kw">as </span>SystemConfig, Pallet <span class="kw">as </span>SystemPallet,
+};
 <span class="kw">pub use </span>pallet_balances::AccountData;
 <span class="kw">pub use </span>pallet_message_queue;
 <span class="kw">pub use </span>sp_arithmetic::traits::Bounded;
@@ -1805,7 +1809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>cumulus_primitives_parachain_inherent::ParachainInherentData;
 <span class="kw">pub use </span>cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 <span class="kw">pub use </span>pallet_message_queue::{Config <span class="kw">as </span>MessageQueueConfig, Pallet <span class="kw">as </span>MessageQueuePallet};
-<span class="kw">pub use </span>parachains_common::{AccountId, Balance, BlockNumber};
+<span class="kw">pub use </span>parachains_common::{AccountId, Balance};
 <span class="kw">pub use </span>polkadot_primitives;
 <span class="kw">pub use </span>polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 
@@ -2408,7 +2412,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							.clone()
 						);
 						&lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::System::initialize(<span class="kw-2">&amp;</span>block_number, <span class="kw-2">&amp;</span>parent_head_data.hash(), <span class="kw-2">&amp;</span>Default::default());
-						&lt;&lt;<span class="self">Self </span><span class="kw">as </span>Parachain&gt;::ParachainSystem <span class="kw">as </span>Hooks&lt;<span class="macro-nonterminal">$crate::BlockNumber</span>&gt;&gt;::on_initialize(block_number);
+						&lt;&lt;<span class="self">Self </span><span class="kw">as </span>Parachain&gt;::ParachainSystem <span class="kw">as </span>Hooks&lt;<span class="macro-nonterminal">$crate::BlockNumberFor</span>&lt;<span class="self">Self</span>::Runtime&gt;&gt;&gt;::on_initialize(block_number);
 
 						<span class="kw">let _ </span>= &lt;<span class="self">Self </span><span class="kw">as </span>Parachain&gt;::ParachainSystem::set_validation_data(
 							&lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::RuntimeOrigin::none(),
