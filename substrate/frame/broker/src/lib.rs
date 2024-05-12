@@ -101,7 +101,10 @@ pub mod pallet {
 
 		/// Type used for getting the associated account of a task. This account is controlled by
 		/// the task itself.
-		type SovereignAccountOf: Convert<TaskId, Self::AccountId>;
+		type SovereignAccountOf: TaskAccountInterface<
+			AccountId = Self::AccountId,
+			OuterOrigin = Self::RuntimeOrigin,
+		>;
 
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
@@ -842,6 +845,8 @@ pub mod pallet {
 		/// Callable by the account associated with the task on the specified core. This account
 		/// will be charged at the start of every bulk period for renewing core time.
 		///
+		/// - `origin`: Must be the sovereign account of the task
+		/// - `core`: The core for which we want to enable auto renewal.
 		/// The optional `workload_end_hint` parameter should be used when enabling auto-renewal for
 		/// the core which holds a legacy lease, as it would be inefficient to look it up otherwise.
 		#[pallet::call_index(20)]
@@ -851,8 +856,9 @@ pub mod pallet {
 			core: CoreIndex,
 			workload_end_hint: Option<Timeslice>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			Self::do_enable_auto_renew(who, core, workload_end_hint)?;
+			// Only the sovereign account of the task can enable auto-renewal.
+			let task = T::SovereignAccountOf::ensure_task_sovereign_account(origin)?;
+			Self::do_enable_auto_renew(task, core, workload_end_hint)?;
 
 			// The caller must pay for the transaction otherwise spamming would be possible by
 			// turning auto-renewal on and off.

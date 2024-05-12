@@ -470,7 +470,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_enable_auto_renew(
-		who: T::AccountId,
+		task: TaskId,
 		core: CoreIndex,
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
@@ -484,7 +484,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(record) =
 				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_begin })
 			{
-				Self::do_renew(who.clone(), core)?;
+				Self::do_renew(T::SovereignAccountOf::sovereign_account(task), core)?;
 				record
 			} else {
 				// If we couldn't find the renewal record for the current bulk period we should
@@ -506,22 +506,22 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::NotAllowed.into())
 		};
 
-		let CoreAssignment::Task(task_id) = schedule_item.assignment else {
+		if let CoreAssignment::Task(core_task) = schedule_item.assignment {
+			// Sovereign account of a task can only enable auto renewal for its own core.
+			ensure!(task == core_task, Error::<T>::NoPermission);
+		} else {
 			return Err(Error::<T>::NonTaskAutoRenewal.into())
 		};
-
-		// Only the sovereign account of the task can enable auto-renewal.
-		ensure!(who == T::SovereignAccountOf::convert(task_id), Error::<T>::NoPermission);
 
 		AutoRenewals::<T>::try_mutate(|renewals| {
 			let pos = renewals
 				.binary_search_by(|r: &(CoreIndex, TaskId)| r.0.cmp(&core))
 				.unwrap_or_else(|e| e);
-			renewals.try_insert(pos, (core, task_id))
+			renewals.try_insert(pos, (core, task))
 		})
 		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
 
-		Self::deposit_event(Event::AutoRenewalEnabled { core, task: task_id });
+		Self::deposit_event(Event::AutoRenewalEnabled { core, task });
 		Ok(())
 	}
 

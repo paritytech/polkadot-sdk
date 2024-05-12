@@ -1458,6 +1458,9 @@ fn enable_auto_renew_works() {
 }
 
 #[test]
+fn enable_auto_renewal_with_end_hint_works() {}
+
+#[test]
 fn enable_auto_renew_renews() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));

@@ -22,7 +22,7 @@ use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
-use sp_runtime::traits::BlockNumberProvider;
+use sp_runtime::traits::{BadOrigin, BlockNumberProvider};
 use sp_std::vec::Vec;
 
 /// Index of a Polkadot Core.
@@ -145,4 +145,19 @@ impl CoretimeInterface for () {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_notify_revenue_info(_when: RCBlockNumberOf<Self>, _revenue: Self::Balance) {}
+}
+
+/// TODO
+pub trait TaskAccountInterface {
+	/// TODO
+	type AccountId;
+	/// TODO
+	type OuterOrigin: Into<Result<Self::TaskOrigin, Self::OuterOrigin>>;
+	/// TODO
+	type TaskOrigin;
+
+	/// TODO
+	fn ensure_task_sovereign_account(o: Self::OuterOrigin) -> Result<TaskId, BadOrigin>;
+	/// TODO
+	fn sovereign_account(task: TaskId) -> Self::AccountId;
 }

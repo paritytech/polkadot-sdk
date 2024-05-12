@@ -21,7 +21,7 @@ use sp_arithmetic::{
 	traits::{One, SaturatedConversion, Saturating, Zero},
 	FixedPointNumber,
 };
-use sp_runtime::traits::{Convert, ConvertBack};
+use sp_runtime::traits::ConvertBack;
 use sp_std::{vec, vec::Vec};
 use CompletionStatus::Complete;
 
@@ -336,7 +336,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn renew_cores() {
 		let renewals = AutoRenewals::<T>::get();
 		renewals.into_iter().for_each(|(core, task)| {
-			let payer = T::SovereignAccountOf::convert(task);
+			let payer = T::SovereignAccountOf::sovereign_account(task);
 			if let Err(_) = Self::do_renew(payer.clone(), core) {
 				Self::deposit_event(Event::<T>::AutoRenewalFailed { core, task, payer });
 			}

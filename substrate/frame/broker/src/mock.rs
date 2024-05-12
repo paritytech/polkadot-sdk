@@ -27,11 +27,11 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::{EnsureRoot, EnsureSignedBy};
+use frame_system::{EnsureRoot, EnsureSignedBy, RawOrigin};
 use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Convert, Identity},
+	traits::{BadOrigin, BlockNumberProvider, Identity},
 	BuildStorage, Saturating,
 };
 use sp_std::collections::btree_map::BTreeMap;
@@ -187,10 +187,21 @@ ord_parameter_types! {
 }
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
-pub struct TaskToAccountId;
+pub struct TaskSovereignAccount;
 // Dummy implementation which converts `TaskId` to `AccountId`.
-impl Convert<TaskId, u64> for TaskToAccountId {
-	fn convert(task: TaskId) -> u64 {
+impl TaskAccountInterface for TaskSovereignAccount {
+	type AccountId = u64;
+	type OuterOrigin = RuntimeOrigin;
+	type TaskOrigin = RawOrigin<u64>;
+
+	fn ensure_task_sovereign_account(o: RuntimeOrigin) -> Result<TaskId, BadOrigin> {
+		match o.into() {
+			Ok(RawOrigin::Signed(account)) => Ok(account as TaskId),
+			_ => Err(BadOrigin),
+		}
+	}
+
+	fn sovereign_account(task: TaskId) -> u64 {
 		task.into()
 	}
 }
@@ -208,7 +219,7 @@ impl crate::Config for Test {
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
 	type PriceAdapter = Linear;
-	type SovereignAccountOf = TaskToAccountId;
+	type SovereignAccountOf = TaskSovereignAccount;
 	type MaxAutoRenewals = ConstU32<5>;
 }
 
