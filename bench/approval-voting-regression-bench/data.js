@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715381968918,
+  "lastUpdate": 1715534410749,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3101,6 +3101,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 8.299465111939956,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9e0e5fcd0a814ab30d15b3f8920c8d9ab3970e11",
+          "message": "xcm-emlator: Use `BlockNumberFor` instead of `parachains_common::BlockNumber=u32` (#4434)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/4428",
+          "timestamp": "2024-05-12T15:16:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9e0e5fcd0a814ab30d15b3f8920c8d9ab3970e11"
+        },
+        "date": 1715534384622,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63547.999999999985,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.904712378400082,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.905309556839994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.53526453698008,
             "unit": "seconds"
           }
         ]
