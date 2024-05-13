@@ -4864,7 +4864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>generate_proof(
 			block_numbers: Vec&lt;BlockNumber&gt;,
 			best_known_block_number: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;mmr::EncodableOpaqueLeaf&gt;, mmr::Proof&lt;mmr::Hash&gt;), mmr::Error&gt; {
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;mmr::EncodableOpaqueLeaf&gt;, mmr::LeafProof&lt;mmr::Hash&gt;), mmr::Error&gt; {
 			Mmr::generate_proof(block_numbers, best_known_block_number).map(
 				|(leaves, proof)| {
 					(
@@ -4878,7 +4878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		}
 
-		<span class="kw">fn </span>verify_proof(leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;, proof: mmr::Proof&lt;mmr::Hash&gt;)
+		<span class="kw">fn </span>verify_proof(leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;, proof: mmr::LeafProof&lt;mmr::Hash&gt;)
 			-&gt; <span class="prelude-ty">Result</span>&lt;(), mmr::Error&gt;
 		{
 			<span class="kw">let </span>leaves = leaves.into_iter().map(|leaf|
@@ -4891,7 +4891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>verify_proof_stateless(
 			root: mmr::Hash,
 			leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;,
-			proof: mmr::Proof&lt;mmr::Hash&gt;
+			proof: mmr::LeafProof&lt;mmr::Hash&gt;
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), mmr::Error&gt; {
 			<span class="kw">let </span>nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::&lt;mmr::Hashing, <span class="kw">_</span>&gt;(root, nodes, proof)

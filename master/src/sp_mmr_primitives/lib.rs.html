@@ -793,6 +793,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#642" id="642">642</a>
 <a href="#643" id="643">643</a>
 <a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1147,13 +1161,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An MMR proof data for a group of leaves.
 </span><span class="attr">#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
-</span><span class="kw">pub struct </span>Proof&lt;Hash&gt; {
+</span><span class="kw">pub struct </span>LeafProof&lt;Hash&gt; {
 	<span class="doccomment">/// The indices of the leaves the proof is for.
 	</span><span class="kw">pub </span>leaf_indices: Vec&lt;LeafIndex&gt;,
 	<span class="doccomment">/// Number of leaves in MMR, when the proof was generated.
 	</span><span class="kw">pub </span>leaf_count: NodeIndex,
-	<span class="doccomment">/// Proof elements (hashes of siblings of inner nodes on the path to the leaf).
+	<span class="doccomment">/// Proof elements (hashes of siblings of inner nodes on the path to the leafs).
 	</span><span class="kw">pub </span>items: Vec&lt;Hash&gt;,
+}
+
+<span class="doccomment">/// An MMR ancestry proof for a prior mmr root.
+</span><span class="attr">#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+</span><span class="kw">pub struct </span>AncestryProof&lt;Hash&gt; {
+	<span class="doccomment">/// Peaks of the ancestor's mmr
+	</span><span class="kw">pub </span>prev_peaks: Vec&lt;Hash&gt;,
+	<span class="doccomment">/// Number of leaves in the ancestor's MMR.
+	</span><span class="kw">pub </span>prev_leaf_count: u64,
+	<span class="doccomment">/// Number of leaves in MMR, when the proof was generated.
+	</span><span class="kw">pub </span>leaf_count: NodeIndex,
+	<span class="doccomment">/// Proof elements
+	/// (positions and hashes of siblings of inner nodes on the path to the previous peaks).
+	</span><span class="kw">pub </span>items: Vec&lt;(u64, Hash)&gt;,
 }
 
 <span class="doccomment">/// Merkle Mountain Range operation error.
@@ -1232,14 +1260,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>generate_proof(
 			block_numbers: Vec&lt;BlockNumber&gt;,
 			best_known_block_number: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;EncodableOpaqueLeaf&gt;, Proof&lt;Hash&gt;), Error&gt;;
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;EncodableOpaqueLeaf&gt;, LeafProof&lt;Hash&gt;), Error&gt;;
 
 		<span class="doccomment">/// Verify MMR proof against on-chain MMR for a batch of leaves.
 		///
 		/// Note this function will use on-chain MMR root hash and check if the proof matches the hash.
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
-		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		</span><span class="kw">fn </span>verify_proof(leaves: Vec&lt;EncodableOpaqueLeaf&gt;, proof: Proof&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
+		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [LeafProof]
+		</span><span class="kw">fn </span>verify_proof(leaves: Vec&lt;EncodableOpaqueLeaf&gt;, proof: LeafProof&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 		<span class="doccomment">/// Verify MMR proof against given root hash for a batch of leaves.
 		///
@@ -1247,8 +1275,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// proof is verified against given MMR root hash.
 		///
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
-		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		</span><span class="kw">fn </span>verify_proof_stateless(root: Hash, leaves: Vec&lt;EncodableOpaqueLeaf&gt;, proof: Proof&lt;Hash&gt;)
+		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [LeafProof]
+		</span><span class="kw">fn </span>verify_proof_stateless(root: Hash, leaves: Vec&lt;EncodableOpaqueLeaf&gt;, proof: LeafProof&lt;Hash&gt;)
 			-&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 	}
 }
@@ -1267,12 +1295,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">type </span>Test = DataOrHash&lt;Keccak256, String&gt;;
 	<span class="kw">type </span>TestCompact = Compact&lt;Keccak256, (Test, Test)&gt;;
-	<span class="kw">type </span>TestProof = Proof&lt;&lt;Keccak256 <span class="kw">as </span>traits::Hash&gt;::Output&gt;;
+	<span class="kw">type </span>TestProof = LeafProof&lt;&lt;Keccak256 <span class="kw">as </span>traits::Hash&gt;::Output&gt;;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_encode_decode_proof() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>proof: TestProof = Proof {
+		</span><span class="kw">let </span>proof: TestProof = LeafProof {
 			leaf_indices: <span class="macro">vec!</span>[<span class="number">5</span>],
 			leaf_count: <span class="number">10</span>,
 			items: <span class="macro">vec!</span>[

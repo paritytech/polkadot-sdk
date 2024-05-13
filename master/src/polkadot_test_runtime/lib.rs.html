@@ -2400,11 +2400,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>generate_proof(
 			_block_numbers: Vec&lt;BlockNumber&gt;,
 			_best_known_block_number: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;mmr::EncodableOpaqueLeaf&gt;, mmr::Proof&lt;Hash&gt;), mmr::Error&gt; {
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;mmr::EncodableOpaqueLeaf&gt;, mmr::LeafProof&lt;Hash&gt;), mmr::Error&gt; {
 			<span class="prelude-val">Err</span>(mmr::Error::PalletNotIncluded)
 		}
 
-		<span class="kw">fn </span>verify_proof(_leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;, _proof: mmr::Proof&lt;Hash&gt;)
+		<span class="kw">fn </span>verify_proof(_leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;, _proof: mmr::LeafProof&lt;Hash&gt;)
 			-&gt; <span class="prelude-ty">Result</span>&lt;(), mmr::Error&gt;
 		{
 			<span class="prelude-val">Err</span>(mmr::Error::PalletNotIncluded)
@@ -2413,7 +2413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>verify_proof_stateless(
 			_root: Hash,
 			_leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;,
-			_proof: mmr::Proof&lt;Hash&gt;
+			_proof: mmr::LeafProof&lt;Hash&gt;
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), mmr::Error&gt; {
 			<span class="prelude-val">Err</span>(mmr::Error::PalletNotIncluded)
 		}

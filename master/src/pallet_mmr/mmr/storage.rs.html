@@ -372,6 +372,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -434,7 +448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T, I, L&gt; mmr_lib::MMRStore&lt;NodeOf&lt;T, I, L&gt;&gt; <span class="kw">for </span>Storage&lt;OffchainStorage, T, I, L&gt;
+<span class="kw">impl</span>&lt;T, I, L&gt; mmr_lib::MMRStoreReadOps&lt;NodeOf&lt;T, I, L&gt;&gt; <span class="kw">for </span>Storage&lt;OffchainStorage, T, I, L&gt;
 <span class="kw">where
 	</span>T: Config&lt;I&gt;,
 	I: <span class="lifetime">'static</span>,
@@ -472,13 +486,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="prelude-val">Ok</span>(sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, <span class="kw-2">&amp;</span>temp_key)
 			.and_then(|v| codec::Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>v).ok()))
 	}
+}
 
+<span class="kw">impl</span>&lt;T, I, L&gt; mmr_lib::MMRStoreWriteOps&lt;NodeOf&lt;T, I, L&gt;&gt; <span class="kw">for </span>Storage&lt;OffchainStorage, T, I, L&gt;
+<span class="kw">where
+	</span>T: Config&lt;I&gt;,
+	I: <span class="lifetime">'static</span>,
+	L: primitives::FullLeaf + codec::Decode,
+{
 	<span class="kw">fn </span>append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: NodeIndex, <span class="kw">_</span>: Vec&lt;NodeOf&lt;T, I, L&gt;&gt;) -&gt; mmr_lib::Result&lt;()&gt; {
 		<span class="macro">panic!</span>(<span class="string">"MMR must not be altered in the off-chain context."</span>)
 	}
 }
 
-<span class="kw">impl</span>&lt;T, I, L&gt; mmr_lib::MMRStore&lt;NodeOf&lt;T, I, L&gt;&gt; <span class="kw">for </span>Storage&lt;RuntimeStorage, T, I, L&gt;
+<span class="kw">impl</span>&lt;T, I, L&gt; mmr_lib::MMRStoreReadOps&lt;NodeOf&lt;T, I, L&gt;&gt; <span class="kw">for </span>Storage&lt;RuntimeStorage, T, I, L&gt;
 <span class="kw">where
 	</span>T: Config&lt;I&gt;,
 	I: <span class="lifetime">'static</span>,
@@ -487,7 +508,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>get_elem(<span class="kw-2">&amp;</span><span class="self">self</span>, pos: NodeIndex) -&gt; mmr_lib::Result&lt;<span class="prelude-ty">Option</span>&lt;NodeOf&lt;T, I, L&gt;&gt;&gt; {
 		<span class="prelude-val">Ok</span>(Nodes::&lt;T, I&gt;::get(pos).map(Node::Hash))
 	}
+}
 
+<span class="kw">impl</span>&lt;T, I, L&gt; mmr_lib::MMRStoreWriteOps&lt;NodeOf&lt;T, I, L&gt;&gt; <span class="kw">for </span>Storage&lt;RuntimeStorage, T, I, L&gt;
+<span class="kw">where
+	</span>T: Config&lt;I&gt;,
+	I: <span class="lifetime">'static</span>,
+	L: primitives::FullLeaf,
+{
 	<span class="kw">fn </span>append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pos: NodeIndex, elems: Vec&lt;NodeOf&lt;T, I, L&gt;&gt;) -&gt; mmr_lib::Result&lt;()&gt; {
 		<span class="kw">if </span>elems.is_empty() {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())

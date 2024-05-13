@@ -542,7 +542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
 	Bytes,
 };
-<span class="kw">use </span>sp_mmr_primitives::{Error <span class="kw">as </span>MmrError, Proof};
+<span class="kw">use </span>sp_mmr_primitives::{Error <span class="kw">as </span>MmrError, LeafProof};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
 <span class="kw">pub use </span>sp_mmr_primitives::MmrApi <span class="kw">as </span>MmrRuntimeApi;
@@ -558,17 +558,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>block_hash: BlockHash,
 	<span class="doccomment">/// SCALE-encoded vector of `LeafData`.
 	</span><span class="kw">pub </span>leaves: Bytes,
-	<span class="doccomment">/// SCALE-encoded proof data. See [sp_mmr_primitives::Proof].
+	<span class="doccomment">/// SCALE-encoded proof data. See [sp_mmr_primitives::LeafProof].
 	</span><span class="kw">pub </span>proof: Bytes,
 }
 
 <span class="kw">impl</span>&lt;BlockHash&gt; LeavesProof&lt;BlockHash&gt; {
 	<span class="doccomment">/// Create new `LeavesProof` from a given vector of `Leaf` and a
-	/// [sp_mmr_primitives::Proof].
+	/// [sp_mmr_primitives::LeafProof].
 	</span><span class="kw">pub fn </span>new&lt;Leaf, MmrHash&gt;(
 		block_hash: BlockHash,
 		leaves: Vec&lt;Leaf&gt;,
-		proof: Proof&lt;MmrHash&gt;,
+		proof: LeafProof&lt;MmrHash&gt;,
 	) -&gt; <span class="self">Self
 	</span><span class="kw">where
 		</span>Leaf: Encode,
@@ -764,7 +764,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>should_serialize_leaf_proof() {
 		<span class="comment">// given
 		</span><span class="kw">let </span>leaf = <span class="macro">vec!</span>[<span class="number">1_u8</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>];
-		<span class="kw">let </span>proof = Proof {
+		<span class="kw">let </span>proof = LeafProof {
 			leaf_indices: <span class="macro">vec!</span>[<span class="number">1</span>],
 			leaf_count: <span class="number">9</span>,
 			items: <span class="macro">vec!</span>[H256::repeat_byte(<span class="number">1</span>), H256::repeat_byte(<span class="number">2</span>)],
@@ -787,7 +787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// given
 		</span><span class="kw">let </span>leaf_a = <span class="macro">vec!</span>[<span class="number">1_u8</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>];
 		<span class="kw">let </span>leaf_b = <span class="macro">vec!</span>[<span class="number">2_u8</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>];
-		<span class="kw">let </span>proof = Proof {
+		<span class="kw">let </span>proof = LeafProof {
 			leaf_indices: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>],
 			leaf_count: <span class="number">9</span>,
 			items: <span class="macro">vec!</span>[H256::repeat_byte(<span class="number">1</span>), H256::repeat_byte(<span class="number">2</span>)],
@@ -812,7 +812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			block_hash: H256::repeat_byte(<span class="number">0</span>),
 			leaves: Bytes(<span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">1_u8</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]].encode()),
 			proof: Bytes(
-				Proof {
+				LeafProof {
 					leaf_indices: <span class="macro">vec!</span>[<span class="number">1</span>],
 					leaf_count: <span class="number">9</span>,
 					items: <span class="macro">vec!</span>[H256::repeat_byte(<span class="number">1</span>), H256::repeat_byte(<span class="number">2</span>)],
@@ -839,7 +839,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			block_hash: H256::repeat_byte(<span class="number">0</span>),
 			leaves: Bytes(<span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">1_u8</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="macro">vec!</span>[<span class="number">2_u8</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]].encode()),
 			proof: Bytes(
-				Proof {
+				LeafProof {
 					leaf_indices: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>],
 					leaf_count: <span class="number">9</span>,
 					items: <span class="macro">vec!</span>[H256::repeat_byte(<span class="number">1</span>), H256::repeat_byte(<span class="number">2</span>)],

@@ -851,11 +851,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>generate_proof(
 			<span class="kw">_</span>: Vec&lt;BlockNumber&gt;,
 			<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;sp_mmr_primitives::EncodableOpaqueLeaf&gt;, sp_mmr_primitives::Proof&lt;Hash&gt;), sp_mmr_primitives::Error&gt; {
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;sp_mmr_primitives::EncodableOpaqueLeaf&gt;, sp_mmr_primitives::LeafProof&lt;Hash&gt;), sp_mmr_primitives::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>verify_proof(<span class="kw">_</span>: Vec&lt;sp_mmr_primitives::EncodableOpaqueLeaf&gt;, <span class="kw">_</span>: sp_mmr_primitives::Proof&lt;Hash&gt;)
+		<span class="kw">fn </span>verify_proof(<span class="kw">_</span>: Vec&lt;sp_mmr_primitives::EncodableOpaqueLeaf&gt;, <span class="kw">_</span>: sp_mmr_primitives::LeafProof&lt;Hash&gt;)
 			-&gt; <span class="prelude-ty">Result</span>&lt;(), sp_mmr_primitives::Error&gt;
 		{
 			<span class="macro">unimplemented!</span>()
@@ -864,7 +864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>verify_proof_stateless(
 			<span class="kw">_</span>: Hash,
 			<span class="kw">_</span>: Vec&lt;sp_mmr_primitives::EncodableOpaqueLeaf&gt;,
-			<span class="kw">_</span>: sp_mmr_primitives::Proof&lt;Hash&gt;
+			<span class="kw">_</span>: sp_mmr_primitives::LeafProof&lt;Hash&gt;
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_mmr_primitives::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
