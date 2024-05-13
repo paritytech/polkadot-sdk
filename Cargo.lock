@@ -830,7 +830,6 @@ dependencies = [
  "pallet-nfts-runtime-api",
  "pallet-proxy",
  "pallet-session",
- "pallet-state-trie-migration",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -2601,6 +2600,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56ccb671c5921be8a84686e6212ca184cb1d7c51cadcdbfcbd1cc3f042f5dfb8"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "ckb-merkle-mountain-range"
+version = "0.6.0"
+source = "git+https://github.com/paritytech/merkle-mountain-range.git?branch=master#537f0e3f67c5adf7afff0800bbb81f02f17570a1"
+dependencies = [
+ "cfg-if",
+ "itertools 0.10.5",
 ]
 
 [[package]]
@@ -9763,7 +9771,7 @@ dependencies = [
  "bp-beefy",
  "bp-runtime",
  "bp-test-utils",
- "ckb-merkle-mountain-range",
+ "ckb-merkle-mountain-range 0.5.2",
  "frame-support",
  "frame-system",
  "log",
@@ -19550,7 +19558,7 @@ name = "sp-mmr-primitives"
 version = "26.0.0"
 dependencies = [
  "array-bytes",
- "ckb-merkle-mountain-range",
+ "ckb-merkle-mountain-range 0.6.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -20203,7 +20211,6 @@ dependencies = [
  "staging-node-inspect",
  "substrate-build-script-utils",
  "substrate-cli-test-utils",
- "substrate-frame-cli",
  "substrate-rpc-client",
  "tempfile",
  "tokio",
@@ -20529,18 +20536,6 @@ dependencies = [
  "staging-node-cli",
  "substrate-rpc-client",
  "tokio",
-]
-
-[[package]]
-name = "substrate-frame-cli"
-version = "32.0.0"
-dependencies = [
- "clap 4.5.3",
- "frame-support",
- "frame-system",
- "sc-cli",
- "sp-core",
- "sp-runtime",
 ]
 
 [[package]]
