@@ -14,7 +14,7 @@ jobs:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: arc-runners-polkadot-sdk-default
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 10
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -24,7 +24,7 @@ jobs:
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
   fmt:
-    runs-on: arc-runners-polkadot-sdk-default
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -34,7 +34,7 @@ jobs:
       - name: Cargo fmt
         run: cargo +nightly fmt --all -- --check
   check-dependency-rules:
-    runs-on: arc-runners-polkadot-sdk-default
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -46,8 +46,7 @@ jobs:
           cd substrate/
           ../.gitlab/ensure-deps.sh
   check-rust-feature-propagation:
-    runs-on: arc-runners-polkadot-sdk-default
-    # runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -57,8 +56,7 @@ jobs:
       - name: run zepter
         run: zepter run check
   test-rust-features:
-    runs-on: arc-runners-polkadot-sdk-default
-    # runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -68,7 +66,7 @@ jobs:
       - name: run rust features
         run: bash .gitlab/rust-features.sh .
   check-toml-format:
-    runs-on: arc-runners-polkadot-sdk-default
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 10
     needs: [set-image]
     container:
