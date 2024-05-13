@@ -19,6 +19,11 @@ docify = "0.2.8"
 
 [dev-dependencies]
 substrate-wasm-builder = { path = "../../utils/wasm-builder", features = ["metadata-hash"] }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sp-api = { path = "../../primitives/api" }
+sp-transaction-pool = { path = "../../primitives/transaction-pool" }
+merkleized-metadata = { git = "https://github.com/bkchr/merkleized-metadata.git" }
+frame-metadata = { version = "16.0.0", features = ["current"] }
 
 [features]
 default = ["std"]

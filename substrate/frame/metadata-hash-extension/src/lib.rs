@@ -79,6 +79,23 @@ enum Mode {
 	Enabled,
 }
 
+#[derive(Default, Debug, PartialEq, Clone, Copy, Eq)]
+enum MetadataHash {
+	#[default]
+	FetchFromEnv,
+	Custom([u8; 32]),
+}
+
+impl MetadataHash {
+	fn hash(&self) -> Option<[u8; 32]> {
+		match self {
+			Self::FetchFromEnv =>
+				option_env!("RUNTIME_METADATA_HASH").map(array_bytes::hex2array_unchecked),
+			Self::Custom(hash) => Some(*hash),
+		}
+	}
+}
+
 /// Extension for optionally checking the metadata hash.
 ///
 /// The metadata hash is cryptographical representation of the runtime metadata. This metadata hash
@@ -105,6 +122,8 @@ enum Mode {
 pub struct CheckMetadataHash<T> {
 	_phantom: core::marker::PhantomData<T>,
 	mode: Mode,
+	#[codec(skip)]
+	metadata_hash: MetadataHash,
 }
 
 impl<T> CheckMetadataHash<T> {
@@ -113,6 +132,15 @@ impl<T> CheckMetadataHash<T> {
 		Self {
 			_phantom: core::marker::PhantomData,
 			mode: if enable { Mode::Enabled } else { Mode::Disabled },
+			metadata_hash: MetadataHash::FetchFromEnv,
+		}
+	}
+
+	pub fn new_with_custom_hash(metadata_hash: [u8; 32]) -> Self {
+		Self {
+			_phantom: core::marker::PhantomData,
+			mode: Mode::Enabled,
+			metadata_hash: MetadataHash::Custom(metadata_hash),
 		}
 	}
 }
@@ -127,8 +155,8 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		match self.mode {
 			Mode::Disabled => Ok(EncodeNoneToEmpty(None)),
-			Mode::Enabled => match option_env!("RUNTIME_METADATA_HASH") {
-				Some(hash) => Ok(EncodeNoneToEmpty(Some(array_bytes::hex2array_unchecked(hash)))),
+			Mode::Enabled => match self.metadata_hash.hash() {
+				Some(hash) => Ok(EncodeNoneToEmpty(Some(hash))),
 				None => Err(UnknownTransaction::CannotLookup.into()),
 			},
 		}

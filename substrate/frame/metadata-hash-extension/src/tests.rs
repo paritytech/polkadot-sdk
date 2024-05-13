@@ -17,8 +17,20 @@
 
 use crate::CheckMetadataHash;
 use codec::{Decode, Encode};
+use frame_metadata::RuntimeMetadataPrefixed;
 use frame_support::derive_impl;
-use sp_runtime::{traits::SignedExtension, transaction_validity::UnknownTransaction};
+use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
+use sp_api::ProvideRuntimeApi;
+use sp_runtime::{
+	traits::{Extrinsic as _, SignedExtension},
+	transaction_validity::{TransactionSource, UnknownTransaction},
+};
+use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+use substrate_test_runtime_client::{
+	prelude::*,
+	runtime::{self, ExtrinsicBuilder},
+	DefaultTestClientBuilderExt, TestClient, TestClientBuilder,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -49,6 +61,45 @@ fn rejects_unknown_mode() {
 fn when_metadata_check_is_disabled_it_encodes_to_nothing() {
 	let ext = CheckMetadataHash::<Test>::decode(&mut &0u8.encode()[..]).unwrap();
 	assert!(ext.additional_signed().unwrap().encode().is_empty());
+}
+
+fn generate_metadata_hash() -> [u8; 32] {
+	let metadata = runtime::Runtime::metadata_at_version(15).unwrap();
+
+	let metadata = RuntimeMetadataPrefixed::decode(&mut &metadata[..])
+		.expect("Invalid encoded metadata?")
+		.1;
+
+	let runtime_version = runtime::VERSION;
+	let base58_prefix = 0;
+
+	let extra_info = ExtraInfo {
+		spec_version: runtime_version.spec_version,
+		spec_name: runtime_version.spec_name.into(),
+		base58_prefix,
+		decimals: 10,
+		token_symbol: "TOKEN".into(),
+	};
+
+	generate_metadata_digest(&metadata, extra_info).unwrap().hash()
+}
+
+#[test]
+fn calling_runtime_function() {
+	let client = TestClientBuilder::new().build();
+	let runtime_api = client.runtime_api();
+	let best_hash = client.chain_info().best_hash;
+
+	let valid_transaction = ExtrinsicBuilder::new_include_data(vec![1, 2, 3])
+		.metadata_hash(generate_metadata_hash())
+		.build();
+	// Ensure that the transaction is signed.
+	assert!(valid_transaction.is_signed().unwrap());
+
+	assert!(runtime_api
+		.validate_transaction(best_hash, TransactionSource::External, valid_transaction, best_hash)
+		.unwrap()
+		.is_ok());
 }
 
 #[allow(unused)]

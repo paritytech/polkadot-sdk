@@ -5795,11 +5795,16 @@ version = "0.1.0"
 dependencies = [
  "array-bytes",
  "docify",
+ "frame-metadata",
  "frame-support",
  "frame-system",
+ "merkleized-metadata",
  "parity-scale-codec",
  "scale-info",
+ "sp-api",
  "sp-runtime",
+ "sp-transaction-pool",
+ "substrate-test-runtime-client",
  "substrate-wasm-builder",
 ]
 
@@ -20764,6 +20769,7 @@ version = "2.0.0"
 dependencies = [
  "array-bytes",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
