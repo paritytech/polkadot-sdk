@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715596821625,
+  "lastUpdate": 1715619390800,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -9619,6 +9619,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010393080826666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov",
+            "email": "tsvetomir@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fb7362f67e3ac345073b203e029bcb561822f09c",
+          "message": "Bump `proc-macro-crate` to the latest version (#4409)\n\nThis PR bumps `proc-macro-crate` to the latest version.\n\nIn order to test a runtime from\nhttps://github.com/polkadot-fellows/runtimes/ with the latest version of\npolkadot-sdk one needs to use `cargo vendor` to extract all runtime\ndependencies, patch them by hand and then build the runtime.\n\nHowever at the moment 'vendored' builds fail due to\nhttps://github.com/bkchr/proc-macro-crate/issues/48. To fix this\n`proc-macro-crate` should be updated to version `3.0.1` or higher.\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-05-13T14:58:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb7362f67e3ac345073b203e029bcb561822f09c"
+        },
+        "date": 1715619364920,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011984120606666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15819738402666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.021951596133333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009504680233333338,
             "unit": "seconds"
           }
         ]
