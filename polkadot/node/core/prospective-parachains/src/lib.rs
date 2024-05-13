@@ -325,7 +325,7 @@ async fn handle_active_leaves_update<Context>(
 }
 
 fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
-	metrics.time_prune_view_candidate_storage();
+	let _timer = metrics.time_prune_view_candidate_storage();
 
 	let active_leaves = &view.active_leaves;
 	let mut live_candidates = HashSet::new();
@@ -454,7 +454,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 	tx: oneshot::Sender<bool>,
 	metrics: &Metrics,
 ) {
-	metrics.time_introduce_seconded_candidate();
+	let _timer = metrics.time_introduce_seconded_candidate();
 
 	let IntroduceSecondedCandidateRequest {
 		candidate_para: para,
@@ -733,7 +733,7 @@ fn answer_hypothetical_membership_request(
 	tx: oneshot::Sender<Vec<(HypotheticalCandidate, HypotheticalMembership)>>,
 	metrics: &Metrics,
 ) {
-	metrics.time_hypothetical_membership_request();
+	let _timer = metrics.time_hypothetical_membership_request();
 
 	let mut response = Vec::with_capacity(request.candidates.len());
 	for candidate in request.candidates {

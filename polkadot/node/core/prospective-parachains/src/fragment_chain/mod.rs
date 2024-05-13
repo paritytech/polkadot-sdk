@@ -38,7 +38,7 @@
 //! being in scope), we proceed with the backing process, hoping that its predecessors will be
 //! backed soon enough. This is commonly called a potential candidate. Note that not all potential
 //! candidates will be maintained in the CandidateStorage. The total number of connected + potential
-//! candidates will be at most max_candidate_dapth + 1.
+//! candidates will be at most max_candidate_depth + 1.
 //!
 //! This module also makes use of types provided by the Inclusion Emulator module, such as
 //! [`Fragment`] and [`Constraints`]. These perform the actual job of checking for validity of
