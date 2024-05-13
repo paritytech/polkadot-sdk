@@ -41,10 +41,10 @@ pub extern "C" fn call() {
 	api::call_v2(
 		uapi::CallFlags::from_bits(flags).unwrap(),
 		callee_addr,
-		0u64,                							// How much ref_time to devote for the execution. 0 = all.
-		0u64,                							// How much proof_size to devote for the execution. 0 = all.
-		None,                							// No deposit limit.
-		&value.to_le_bytes(), 							// Value transferred to the contract.
+		0u64,                 // How much ref_time to devote for the execution. 0 = all.
+		0u64,                 // How much proof_size to devote for the execution. 0 = all.
+		None,                 // No deposit limit.
+		&value.to_le_bytes(), // Value transferred to the contract.
 		forwarded_input,
 		None,
 	)
