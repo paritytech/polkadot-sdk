@@ -113,7 +113,7 @@ impl pallet_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
 	type Reward = ();
-	type SessionsPerEra =  ConstU32<1>;
+	type SessionsPerEra = ConstU32<1>;
 	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
@@ -232,7 +232,11 @@ impl ExtBuilder {
 		ext.execute_with(test);
 		ext.execute_with(|| {
 			#[cfg(feature = "try-runtime")]
-			<AllPalletsWithSystem as frame_support::traits::TryState<u64>>::try_state(frame_system::Pallet::<Runtime>::block_number(), frame_support::traits::TryStateSelect::All).unwrap();
+			<AllPalletsWithSystem as frame_support::traits::TryState<u64>>::try_state(
+				frame_system::Pallet::<Runtime>::block_number(),
+				frame_support::traits::TryStateSelect::All,
+			)
+			.unwrap();
 			#[cfg(not(feature = "try-runtime"))]
 			DelegatedStaking::do_try_state().unwrap();
 		});
