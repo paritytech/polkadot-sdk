@@ -76,10 +76,9 @@ mod benchmarks {
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let post_info = PostDispatchInfo {
-			actual_weight: Some(Weight::from_parts(10, 0)),
-			pays_fee: Pays::Yes,
-		};
+		// Submit a lower post info weight to trigger the refund path.
+		let post_info =
+			PostDispatchInfo { actual_weight: Some(Weight::from_parts(5, 0)), pays_fee: Pays::Yes };
 
 		#[block]
 		{
@@ -105,10 +104,9 @@ mod benchmarks {
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let post_info = PostDispatchInfo {
-			actual_weight: Some(Weight::from_parts(10, 0)),
-			pays_fee: Pays::Yes,
-		};
+		// Submit a lower post info weight to trigger the refund path.
+		let post_info =
+			PostDispatchInfo { actual_weight: Some(Weight::from_parts(5, 0)), pays_fee: Pays::Yes };
 
 		#[block]
 		{
