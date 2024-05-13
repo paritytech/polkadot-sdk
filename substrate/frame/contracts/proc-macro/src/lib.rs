@@ -169,7 +169,7 @@ impl HostFn {
 
 		// process attributes
 		let msg =
-			"only #[version(<u8>)], #[unstable], #[prefixed_alias] and #[deprecated] attributes are allowed.";
+			"only #[version(<u8>)], #[unstable], #[prefixed_alias], #[deprecated] and #[mutable] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
@@ -177,6 +177,7 @@ impl HostFn {
 		let mut is_stable = true;
 		let mut alias_to = None;
 		let mut not_deprecated = true;
+		let mut mutable = false;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
 			match ident.as_str() {
@@ -206,9 +207,25 @@ impl HostFn {
 					}
 					not_deprecated = false;
 				},
+				"mutable" => {
+					if mutable {
+						return Err(err(span, "#[mutable] can only be specified once"))
+					}
+					mutable = true;
+				},
 				_ => return Err(err(span, msg)),
 			}
 		}
+
+		if mutable {
+			let stmt = syn::parse_quote! {
+				if ctx.ext.is_read_only() {
+					return Err(Error::<E::T>::StateChangeDenied.into());
+				}
+			};
+			item.block.stmts.insert(0, stmt);
+		}
+
 		let name = item.sig.ident.to_string();
 
 		if !(is_stable || not_deprecated) {

@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This fixture tests if read-only call works as expected.
+//! This fixture calls the account_id with the 2D Weight limit.
+//! It returns the result of the call as output data.
 #![no_std]
 #![no_main]
 
@@ -32,18 +33,19 @@ pub extern "C" fn call() {
 	input!(
 		256,
 		callee_addr: [u8; 32],
-		callee_input: [u8],
+		flags: u32,
+		value: u64,
+		forwarded_input: [u8],
 	);
 
-	// Call the callee
 	api::call_v2(
-		uapi::CallFlags::READ_ONLY,
+		uapi::CallFlags::from_bits(flags).unwrap(),
 		callee_addr,
-		0u64,                // How much ref_time to devote for the execution. 0 = all.
-		0u64,                // How much proof_size to devote for the execution. 0 = all.
-		None,                // No deposit limit.
-		&0u64.to_le_bytes(), // Value transferred to the contract.
-		callee_input,
+		0u64,                							// How much ref_time to devote for the execution. 0 = all.
+		0u64,                							// How much proof_size to devote for the execution. 0 = all.
+		None,                							// No deposit limit.
+		&value.to_le_bytes(), 							// Value transferred to the contract.
+		forwarded_input,
 		None,
 	)
 	.unwrap();

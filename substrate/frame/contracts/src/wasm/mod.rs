@@ -800,6 +800,10 @@ mod tests {
 			self.delegate_dependencies.borrow_mut().remove(code);
 			Ok(())
 		}
+
+		fn is_read_only(&self) -> bool {
+			false
+		}
 	}
 
 	/// Execute the supplied code.
