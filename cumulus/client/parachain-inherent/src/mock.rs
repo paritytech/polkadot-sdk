@@ -172,7 +172,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 		let relay_parent_number =
 			self.relay_offset + self.relay_blocks_per_para_block * self.current_para_block;
 		sproof_builder.current_slot =
-			(relay_parent_number as u64).into() / RELAY_CHAIN_SLOT_DURATION_MILLIS;
+			((relay_parent_number / RELAY_CHAIN_SLOT_DURATION_MILLIS) as u64).into();
 
 		// Process the downward messages and set up the correct head
 		let mut downward_messages = Vec::new();
