@@ -20,12 +20,13 @@ use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
-	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex,
+	async_backing, slashing,
+	vstaging::{self, ApprovalVotingParams},
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that
@@ -530,7 +531,7 @@ pub(crate) enum RequestResult {
 	// The structure of each variant is (relay_parent, [params,]*, result)
 	Authorities(Hash, Vec<AuthorityDiscoveryId>),
 	Validators(Hash, Vec<ValidatorId>),
-	MinimumBackingVotes(SessionIndex, u32),
+	MinimumBackingVotes(Hash, SessionIndex, u32),
 	ValidatorGroups(Hash, (Vec<Vec<ValidatorIndex>>, GroupRotationInfo)),
 	AvailabilityCores(Hash, Vec<CoreState>),
 	PersistedValidationData(Hash, ParaId, OccupiedCoreAssumption, Option<PersistedValidationData>),
@@ -558,16 +559,19 @@ pub(crate) enum RequestResult {
 	FetchOnChainVotes(Hash, Option<ScrapedOnChainVotes>),
 	PvfsRequirePrecheck(Hash, Vec<ValidationCodeHash>),
 	// This is a request with side-effects and no result, hence ().
-	#[allow(dead_code)]
-	SubmitPvfCheckStatement(()),
+	SubmitPvfCheckStatement(Hash, PvfCheckStatement, ValidatorSignature, ()),
 	ValidationCodeHash(Hash, ParaId, OccupiedCoreAssumption, Option<ValidationCodeHash>),
 	Version(Hash, u32),
 	Disputes(Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>),
 	UnappliedSlashes(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
 	KeyOwnershipProof(Hash, ValidatorId, Option<slashing::OpaqueKeyOwnershipProof>),
 	// This is a request with side-effects.
-	#[allow(dead_code)]
-	SubmitReportDisputeLost(Option<()>),
+	SubmitReportDisputeLost(
+		Hash,
+		slashing::DisputeProof,
+		slashing::OpaqueKeyOwnershipProof,
+		Option<()>,
+	),
 	ApprovalVotingParams(Hash, SessionIndex, ApprovalVotingParams),
 	DisabledValidators(Hash, Vec<ValidatorIndex>),
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),

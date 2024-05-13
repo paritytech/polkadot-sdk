@@ -388,45 +388,22 @@ pub mod pallet {
 const LOG_TARGET: &str = "runtime::inclusion";
 
 /// The reason that a candidate's outputs were rejected for.
+#[derive(derive_more::From)]
 #[cfg_attr(feature = "std", derive(Debug))]
-enum AcceptanceCheckErr {
+enum AcceptanceCheckErr<BlockNumber> {
 	HeadDataTooLarge,
 	/// Code upgrades are not permitted at the current time.
 	PrematureCodeUpgrade,
 	/// The new runtime blob is too large.
 	NewCodeTooLarge,
 	/// The candidate violated this DMP acceptance criteria.
-	ProcessedDownwardMessages,
+	ProcessedDownwardMessages(dmp::ProcessedDownwardMessagesAcceptanceErr),
 	/// The candidate violated this UMP acceptance criteria.
-	UpwardMessages,
+	UpwardMessages(UmpAcceptanceCheckErr),
 	/// The candidate violated this HRMP watermark acceptance criteria.
-	HrmpWatermark,
+	HrmpWatermark(hrmp::HrmpWatermarkAcceptanceErr<BlockNumber>),
 	/// The candidate violated this outbound HRMP acceptance criteria.
-	OutboundHrmp,
-}
-
-impl From<dmp::ProcessedDownwardMessagesAcceptanceErr> for AcceptanceCheckErr {
-	fn from(_: dmp::ProcessedDownwardMessagesAcceptanceErr) -> Self {
-		Self::ProcessedDownwardMessages
-	}
-}
-
-impl From<UmpAcceptanceCheckErr> for AcceptanceCheckErr {
-	fn from(_: UmpAcceptanceCheckErr) -> Self {
-		Self::UpwardMessages
-	}
-}
-
-impl<BlockNumber> From<hrmp::HrmpWatermarkAcceptanceErr<BlockNumber>> for AcceptanceCheckErr {
-	fn from(_: hrmp::HrmpWatermarkAcceptanceErr<BlockNumber>) -> Self {
-		Self::HrmpWatermark
-	}
-}
-
-impl From<hrmp::OutboundHrmpAcceptanceErr> for AcceptanceCheckErr {
-	fn from(_: hrmp::OutboundHrmpAcceptanceErr) -> Self {
-		Self::OutboundHrmp
-	}
+	OutboundHrmp(hrmp::OutboundHrmpAcceptanceErr),
 }
 
 /// An error returned by [`Pallet::check_upward_messages`] that indicates a violation of one of
@@ -1162,7 +1139,7 @@ const fn availability_threshold(n_validators: usize) -> usize {
 	supermajority_threshold(n_validators)
 }
 
-impl AcceptanceCheckErr {
+impl<BlockNumber> AcceptanceCheckErr<BlockNumber> {
 	/// Returns the same error so that it can be threaded through a needle of `DispatchError` and
 	/// ultimately returned from a `Dispatchable`.
 	fn strip_into_dispatch_err<T: Config>(self) -> Error<T> {
@@ -1171,10 +1148,10 @@ impl AcceptanceCheckErr {
 			HeadDataTooLarge => Error::<T>::HeadDataTooLarge,
 			PrematureCodeUpgrade => Error::<T>::PrematureCodeUpgrade,
 			NewCodeTooLarge => Error::<T>::NewCodeTooLarge,
-			ProcessedDownwardMessages => Error::<T>::IncorrectDownwardMessageHandling,
-			UpwardMessages => Error::<T>::InvalidUpwardMessages,
-			HrmpWatermark => Error::<T>::HrmpWatermarkMishandling,
-			OutboundHrmp => Error::<T>::InvalidOutboundHrmp,
+			ProcessedDownwardMessages(_) => Error::<T>::IncorrectDownwardMessageHandling,
+			UpwardMessages(_) => Error::<T>::InvalidUpwardMessages,
+			HrmpWatermark(_) => Error::<T>::HrmpWatermarkMishandling,
+			OutboundHrmp(_) => Error::<T>::InvalidOutboundHrmp,
 		}
 	}
 }
@@ -1326,7 +1303,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		upward_messages: &[primitives::UpwardMessage],
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[primitives::OutboundHrmpMessage<ParaId>],
-	) -> Result<(), AcceptanceCheckErr> {
+	) -> Result<(), AcceptanceCheckErr<BlockNumberFor<T>>> {
 		ensure!(
 			head_data.0.len() <= self.config.max_head_data_size as _,
 			AcceptanceCheckErr::HeadDataTooLarge,

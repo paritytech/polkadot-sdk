@@ -148,7 +148,6 @@ enum ApprovalEntryError {
 	InvalidCandidateIndex,
 	DuplicateApproval,
 	UnknownAssignment,
-	#[allow(dead_code)]
 	AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
 }
 

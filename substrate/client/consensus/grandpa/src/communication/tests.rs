@@ -51,8 +51,10 @@ use std::{
 
 #[derive(Debug)]
 pub(crate) enum Event {
+	EventStream(TracingUnboundedSender<NetworkEvent>),
 	WriteNotification(PeerId, Vec<u8>),
 	Report(PeerId, ReputationChange),
+	Announce(Hash),
 }
 
 #[derive(Clone)]
@@ -139,7 +141,9 @@ impl NetworkEventStream for TestNetwork {
 		&self,
 		_name: &'static str,
 	) -> Pin<Box<dyn Stream<Item = NetworkEvent> + Send>> {
-		futures::stream::pending().boxed()
+		let (tx, rx) = tracing_unbounded("test", 100_000);
+		let _ = self.sender.unbounded_send(Event::EventStream(tx));
+		Box::pin(rx)
 	}
 }
 
@@ -162,8 +166,8 @@ impl NetworkNotification for TestNetwork {
 }
 
 impl NetworkBlock<Hash, NumberFor<Block>> for TestNetwork {
-	fn announce_block(&self, _: Hash, _data: Option<Vec<u8>>) {
-		unimplemented!();
+	fn announce_block(&self, hash: Hash, _data: Option<Vec<u8>>) {
+		let _ = self.sender.unbounded_send(Event::Announce(hash));
 	}
 
 	fn new_best_block_imported(&self, _hash: Hash, _number: NumberFor<Block>) {
