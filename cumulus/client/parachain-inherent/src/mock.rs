@@ -167,7 +167,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 		// Use the "sproof" (spoof proof) builder to build valid mock state root and proof.
 		let mut sproof_builder =
 			RelayStateSproofBuilder { para_id: self.xcm_config.para_id, ..Default::default() };
-		
+
 		// Calculate the mocked relay block based on the current para block
 		let relay_parent_number =
 			self.relay_offset + self.relay_blocks_per_para_block * self.current_para_block;
