@@ -79,14 +79,18 @@ enum Mode {
 	Enabled,
 }
 
+/// Wrapper around the metadata hash and from where to get it from.
 #[derive(Default, Debug, PartialEq, Clone, Copy, Eq)]
 enum MetadataHash {
+	/// Fetch it from the `RUNTIME_METADATA_HASH` env variable at compile time.
 	#[default]
 	FetchFromEnv,
+	/// Use the given metadata hash.
 	Custom([u8; 32]),
 }
 
 impl MetadataHash {
+	/// Returns the metadata hash.
 	fn hash(&self) -> Option<[u8; 32]> {
 		match self {
 			Self::FetchFromEnv =>
@@ -136,6 +140,9 @@ impl<T> CheckMetadataHash<T> {
 		}
 	}
 
+	/// Create an instance that uses the given `metadata_hash`.
+	///
+	/// This is useful for testing the extension.
 	pub fn new_with_custom_hash(metadata_hash: [u8; 32]) -> Self {
 		Self {
 			_phantom: core::marker::PhantomData,

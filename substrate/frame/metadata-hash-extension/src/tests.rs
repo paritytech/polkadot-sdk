@@ -18,7 +18,10 @@
 use crate::CheckMetadataHash;
 use codec::{Decode, Encode};
 use frame_metadata::RuntimeMetadataPrefixed;
-use frame_support::derive_impl;
+use frame_support::{
+	derive_impl,
+	pallet_prelude::{InvalidTransaction, TransactionValidityError},
+};
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::{
@@ -29,7 +32,7 @@ use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use substrate_test_runtime_client::{
 	prelude::*,
 	runtime::{self, ExtrinsicBuilder},
-	DefaultTestClientBuilderExt, TestClient, TestClientBuilder,
+	DefaultTestClientBuilderExt, TestClientBuilder,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -63,6 +66,7 @@ fn when_metadata_check_is_disabled_it_encodes_to_nothing() {
 	assert!(ext.additional_signed().unwrap().encode().is_empty());
 }
 
+/// Generate the metadata hash for the `test-runtime`.
 fn generate_metadata_hash() -> [u8; 32] {
 	let metadata = runtime::Runtime::metadata_at_version(15).unwrap();
 
@@ -85,7 +89,7 @@ fn generate_metadata_hash() -> [u8; 32] {
 }
 
 #[test]
-fn calling_runtime_function() {
+fn ensure_check_metadata_works_on_real_extrinsics() {
 	let client = TestClientBuilder::new().build();
 	let runtime_api = client.runtime_api();
 	let best_hash = client.chain_info().best_hash;
@@ -100,6 +104,26 @@ fn calling_runtime_function() {
 		.validate_transaction(best_hash, TransactionSource::External, valid_transaction, best_hash)
 		.unwrap()
 		.is_ok());
+
+	// Including some random metadata hash should make the transaction invalid.
+	let invalid_transaction = ExtrinsicBuilder::new_include_data(vec![1, 2, 3])
+		.metadata_hash([10u8; 32])
+		.build();
+	// Ensure that the transaction is signed.
+	assert!(invalid_transaction.is_signed().unwrap());
+
+	assert_eq!(
+		TransactionValidityError::from(InvalidTransaction::BadProof),
+		runtime_api
+			.validate_transaction(
+				best_hash,
+				TransactionSource::External,
+				invalid_transaction,
+				best_hash
+			)
+			.unwrap()
+			.unwrap_err()
+	);
 }
 
 #[allow(unused)]
