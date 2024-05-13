@@ -29,12 +29,23 @@ pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-featur
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
 
+pallet-aura = { path = "../../../substrate/frame/aura", default-features = false }
+pallet-assets = { path = "../../../substrate/frame/assets", default-features = false }
+
 # genesis builder that allows us to interact with runtime genesis config
 sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
 
-# local pallet templates
+# local pallets
 pallet-minimal-template = { path = "../pallets/template", default-features = false }
+pallet-dex = { path = "../pallets/dex", default-features = false }
+pallet-dpos = { path = "../pallets/dpos", default-features = false }
+pallet-voting = {  path = "../pallets/voting", default-features = false }
+pallet-multisig-template = { path = "../pallets/multisig", default-features = false }
+pallet-treasury-template = { path = "../pallets/treasury", default-features = false }
+pallet-free-tx = { path = "../pallets/free-tx", default-features = false }
+
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }
@@ -53,9 +64,51 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 
+	"pallet-aura/std",
+	"pallet-assets/std",
+
 	"pallet-minimal-template/std",
+	"pallet-dex/std",
+	"pallet-dpos/std",
+	"pallet-voting/std",
+	"pallet-multisig-template/std",
+	"pallet-treasury-template/std",
+	"pallet-free-tx/std",
 
 	"sp-genesis-builder/std",
 	"sp-runtime/std",
 	"substrate-wasm-builder",
+
+	"sp-consensus-aura/std",
+]
+runtime-benchmarks = [
+	"frame/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-dex/runtime-benchmarks",
+	"pallet-dpos/runtime-benchmarks",
+	"pallet-voting/runtime-benchmarks",
+	"pallet-multisig-template/runtime-benchmarks",
+	"pallet-treasury-template/runtime-benchmarks",
+	"pallet-free-tx/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-minimal-template/runtime-benchmarks",
+]
+try-runtime = [
+	"frame/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-dex/try-runtime",
+	"pallet-dpos/try-runtime",
+	"pallet-voting/try-runtime",
+	"pallet-multisig-template/try-runtime",
+	"pallet-treasury-template/try-runtime",
+	"pallet-free-tx/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-minimal-template/try-runtime",
 ]

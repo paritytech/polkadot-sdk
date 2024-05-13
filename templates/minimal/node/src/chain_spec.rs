@@ -15,9 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use runtime::{BalancesConfig, SudoConfig, WASM_BINARY};
+use runtime::{AuraConfig, BalancesConfig, SudoConfig, WASM_BINARY};
 use sc_service::{ChainType, Properties};
 use serde_json::{json, Value};
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::{Pair, Public};
 use sp_keyring::AccountKeyring;
 
 /// This is a specialization of the general Substrate ChainSpec type.
@@ -28,6 +30,18 @@ fn props() -> Properties {
 	properties.insert("tokenDecimals".to_string(), 0.into());
 	properties.insert("tokenSymbol".to_string(), "MINI".into());
 	properties
+}
+
+/// Generate a crypto pair from seed.
+pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+	TPublic::Pair::from_string(&format!("//{}", seed), None)
+		.expect("static values are valid; qed")
+		.public()
+}
+
+/// Generate an Aura authority key.
+pub fn authority_keys_from_seed(s: &str) -> AuraId {
+	get_from_seed::<AuraId>(s)
 }
 
 pub fn development_config() -> Result<ChainSpec, String> {
@@ -48,8 +62,12 @@ fn testnet_genesis() -> Value {
 	let balances = AccountKeyring::iter()
 		.map(|a| (a.to_account_id(), endowment))
 		.collect::<Vec<_>>();
+	let initial_authorities = vec![authority_keys_from_seed("Alice")];
 	json!({
 		"balances": BalancesConfig { balances },
 		"sudo": SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
+		"aura": AuraConfig {
+			authorities: initial_authorities,
+		},
 	})
 }

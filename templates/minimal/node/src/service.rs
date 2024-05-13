@@ -18,18 +18,18 @@
 use futures::FutureExt;
 use runtime::{self, interface::OpaqueBlock as Block, RuntimeApi};
 use sc_client_api::backend::Backend;
+use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_executor::WasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_runtime::traits::Block as BlockT;
+use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::sync::Arc;
-
-use crate::cli::Consensus;
 
 #[cfg(feature = "runtime-benchmarks")]
 type HostFunctions =
-	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
+	(sp_io::SubstrateHostFunctions, frame::deps::frame_benchmarking::benchmarking::HostFunctions);
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = sp_io::SubstrateHostFunctions;
@@ -86,11 +86,30 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		client.clone(),
 	);
 
-	let import_queue = sc_consensus_manual_seal::import_queue(
-		Box::new(client.clone()),
-		&task_manager.spawn_essential_handle(),
-		config.prometheus_registry(),
-	);
+	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+
+	let import_queue =
+		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
+			block_import: client.clone(),
+			justification_import: None,
+			client: client.clone(),
+			create_inherent_data_providers: move |_, ()| async move {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+				let slot =
+					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+						*timestamp,
+						slot_duration,
+					);
+
+				Ok((slot, timestamp))
+			},
+			spawner: &task_manager.spawn_essential_handle(),
+			registry: config.prometheus_registry(),
+			check_for_equivocation: Default::default(),
+			telemetry: telemetry.as_ref().map(|x| x.handle()),
+			compatibility_mode: Default::default(),
+		})?;
 
 	Ok(sc_service::PartialComponents {
 		client,
@@ -107,7 +126,6 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 /// Builds a new service for a full client.
 pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
-	consensus: Consensus,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -177,6 +195,10 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 
 	let prometheus_registry = config.prometheus_registry().cloned();
 
+	let role = config.role.clone();
+	let force_authoring = config.force_authoring;
+	let backoff_authoring_blocks: Option<()> = None;
+
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		network,
 		client: client.clone(),
@@ -187,76 +209,57 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		backend,
 		system_rpc_tx,
 		tx_handler_controller,
-		sync_service,
+		sync_service: sync_service.clone(),
 		config,
 		telemetry: telemetry.as_mut(),
 	})?;
 
-	let proposer = sc_basic_authorship::ProposerFactory::new(
-		task_manager.spawn_handle(),
-		client.clone(),
-		transaction_pool.clone(),
-		prometheus_registry.as_ref(),
-		telemetry.as_ref().map(|x| x.handle()),
-	);
+	if role.is_authority() {
+		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
+			task_manager.spawn_handle(),
+			client.clone(),
+			transaction_pool.clone(),
+			prometheus_registry.as_ref(),
+			telemetry.as_ref().map(|x| x.handle()),
+		);
 
-	match consensus {
-		Consensus::InstantSeal => {
-			let params = sc_consensus_manual_seal::InstantSealParams {
-				block_import: client.clone(),
-				env: proposer,
-				client,
-				pool: transaction_pool,
+		let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+
+		let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _>(
+			StartAuraParams {
+				slot_duration,
+				client: client.clone(),
 				select_chain,
-				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
-			};
-
-			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
-
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"instant-seal",
-				None,
-				authorship_future,
-			);
-		},
-		Consensus::ManualSeal(block_time) => {
-			let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
-			task_manager.spawn_handle().spawn("block_authoring", None, async move {
-				loop {
-					futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
-					sink.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
-						create_empty: true,
-						finalize: true,
-						parent_hash: None,
-						sender: None,
-					})
-					.unwrap();
-				}
-			});
-
-			let params = sc_consensus_manual_seal::ManualSealParams {
 				block_import: client.clone(),
-				env: proposer,
-				client,
-				pool: transaction_pool,
-				select_chain,
-				commands_stream: Box::pin(commands_stream),
-				consensus_data_provider: None,
+				proposer_factory,
 				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
-			};
-			let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"manual-seal",
-				None,
-				authorship_future,
-			);
-		},
+					let slot =
+						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+							*timestamp,
+							slot_duration,
+						);
+
+					Ok((slot, timestamp))
+				},
+				force_authoring,
+				backoff_authoring_blocks,
+				keystore: keystore_container.keystore(),
+				sync_oracle: sync_service.clone(),
+				justification_sync_link: sync_service.clone(),
+				block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
+				max_block_proposal_slot_portion: None,
+				telemetry: telemetry.as_ref().map(|x| x.handle()),
+				compatibility_mode: Default::default(),
+			},
+		)?;
+
+		// the AURA authoring task is considered essential, i.e. if it
+		// fails we take down the service with it.
+		task_manager
+			.spawn_essential_handle()
+			.spawn_blocking("aura", Some("block-authoring"), aura);
 	}
 
 	network_starter.start_network();

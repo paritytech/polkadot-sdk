@@ -31,3 +31,9 @@ frame = { package = "polkadot-sdk-frame", path = "../../../../substrate/frame", 
 [features]
 default = ["std"]
 std = ["codec/std", "frame/std", "scale-info/std"]
+runtime-benchmarks = [
+	"frame/runtime-benchmarks"
+]
+try-runtime = [
+	"frame/try-runtime"
+]

@@ -16,15 +16,17 @@
 // limitations under the License.
 
 use crate::{
+	benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
 	chain_spec,
 	cli::{Cli, Subcommand},
 	service,
 };
+use frame::traits::Get;
+use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
+use runtime::interface::{Balance, Block, MinimumBalance};
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
-
-#[cfg(feature = "try-runtime")]
-use try_runtime_cli::block_building_info::timestamp_with_aura_info;
+use sp_keyring::Sr25519Keyring;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -116,16 +118,85 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run::<runtime::interface::OpaqueBlock>(&config))
 		},
+		Some(Subcommand::Benchmark(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+
+			runner.sync_run(|config| {
+				// This switch needs to be in the client, since the client decides
+				// which sub-commands it wants to support.
+				match cmd {
+					BenchmarkCmd::Pallet(cmd) => {
+						if !cfg!(feature = "runtime-benchmarks") {
+							return Err(
+								"Runtime benchmarking wasn't enabled when building the node. \
+							You can enable it with `--features runtime-benchmarks`."
+									.into(),
+							)
+						}
+
+						cmd.run_with_spec::<sp_runtime::traits::HashingFor<Block>, ()>(Some(
+							config.chain_spec,
+						))
+					},
+					BenchmarkCmd::Block(cmd) => {
+						let PartialComponents { client, .. } = service::new_partial(&config)?;
+						cmd.run(client)
+					},
+					#[cfg(not(feature = "runtime-benchmarks"))]
+					BenchmarkCmd::Storage(_) => Err(
+						"Storage benchmarking can be enabled with `--features runtime-benchmarks`."
+							.into(),
+					),
+					#[cfg(feature = "runtime-benchmarks")]
+					BenchmarkCmd::Storage(cmd) => {
+						let PartialComponents { client, backend, .. } =
+							service::new_partial(&config)?;
+						let db = backend.expose_db();
+						let storage = backend.expose_storage();
+
+						cmd.run(config, client, db, storage)
+					},
+					BenchmarkCmd::Overhead(cmd) => {
+						let PartialComponents { client, .. } = service::new_partial(&config)?;
+						let ext_builder = RemarkBuilder::new(client.clone());
+
+						cmd.run(
+							config,
+							client,
+							inherent_benchmark_data()?,
+							Vec::new(),
+							&ext_builder,
+						)
+					},
+					BenchmarkCmd::Extrinsic(cmd) => {
+						let PartialComponents { client, .. } = service::new_partial(&config)?;
+						// Register the *Remark* and *TKA* builders.
+						let ext_factory = ExtrinsicFactory(vec![
+							Box::new(RemarkBuilder::new(client.clone())),
+							Box::new(TransferKeepAliveBuilder::new(
+								client.clone(),
+								Sr25519Keyring::Alice.to_account_id(),
+								<MinimumBalance as Get<Balance>>::get(),
+							)),
+						]);
+
+						cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
+					},
+					BenchmarkCmd::Machine(cmd) =>
+						cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()),
+				}
+			})
+		},
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
 				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p =>
-						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)
+						service::new_full::<sc_network::NetworkWorker<_, _>>(config)
 							.map_err(sc_cli::Error::Service),
 					sc_network::config::NetworkBackendType::Litep2p => service::new_full::<
 						sc_network::Litep2pNetworkBackend,
-					>(config, cli.consensus)
+					>(config)
 					.map_err(sc_cli::Error::Service),
 				}
 			})

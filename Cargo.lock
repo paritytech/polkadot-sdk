@@ -8463,6 +8463,7 @@ name = "minimal-template-node"
 version = "0.0.0"
 dependencies = [
  "clap 4.5.3",
+ "frame-benchmarking-cli",
  "futures",
  "futures-timer",
  "jsonrpsee",
@@ -8472,7 +8473,7 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
- "sc-consensus-manual-seal",
+ "sc-consensus-aura",
  "sc-executor",
  "sc-network",
  "sc-offchain",
@@ -8485,6 +8486,9 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-inherents",
  "sp-io",
  "sp-keyring",
  "sp-runtime",
@@ -8497,15 +8501,24 @@ dependencies = [
 name = "minimal-template-runtime"
 version = "0.0.0"
 dependencies = [
+ "pallet-assets",
+ "pallet-aura",
  "pallet-balances",
+ "pallet-dex",
+ "pallet-dpos",
+ "pallet-free-tx",
  "pallet-minimal-template",
+ "pallet-multisig-template",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury-template",
+ "pallet-voting",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "sp-consensus-aura",
  "sp-genesis-builder",
  "sp-runtime",
  "substrate-wasm-builder",
@@ -10201,6 +10214,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-dex"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-dpos"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-aura",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-election-provider-e2e-test"
 version = "1.0.0"
 dependencies = [
@@ -10449,6 +10498,22 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-free-tx"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -10710,6 +10775,22 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-multisig-template"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -11559,6 +11640,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-treasury-template"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-tx-pause"
 version = "9.0.0"
 dependencies = [
@@ -11621,6 +11719,22 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-voting"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -13940,10 +14054,13 @@ name = "polkadot-sdk-frame"
 version = "0.1.0"
 dependencies = [
  "docify",
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "log",
  "pallet-examples",
  "parity-scale-codec",
@@ -13960,6 +14077,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-std 14.0.0",
+ "sp-storage 19.0.0",
  "sp-transaction-pool",
  "sp-version",
 ]
