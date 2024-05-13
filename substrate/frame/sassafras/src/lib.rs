@@ -47,7 +47,7 @@
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use log::{debug, trace, warn};
+use log::{debug, error, trace, warn};
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -495,11 +495,15 @@ impl<T: Config> Pallet<T> {
 		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
 
 		debug!(target: LOG_TARGET, "Building ring verifier (ring size: {})", pks.len());
-		let verifier_key = ring_ctx
-			.verifier_key(&pks)
-			.expect("Failed to build ring verifier key. This is a bug");
-
-		RingVerifierKey::<T>::put(verifier_key);
+		let maybe_verifier_key = ring_ctx.verifier_key(&pks);
+		if maybe_verifier_key.is_none() {
+			error!(
+				target: LOG_TARGET,
+				"Failed to build verifier key. This should never happen,\n
+				 falling back to AURA for next epoch as last resort"
+			);
+		}
+		RingVerifierKey::<T>::set(maybe_verifier_key);
 	}
 
 	/// Enact an epoch change.
