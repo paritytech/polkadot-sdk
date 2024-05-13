@@ -150,18 +150,12 @@ pub fn expand_outer_inherent(
 						}
 					)*
 
-
 					// If there is no pallet apart from System, the true branch will be unreachable.
 					#[allow(unreachable_code)]
-					match is_inherent {
-						true => {
-							inherents.push(call);
-						}
-						false => {
-							// Inherents are before any other extrinsics.
-							// No module marked it as inherent thus it is not.
-							break
-						}
+					if is_inherent {
+						inherents.push(call);
+					} else {
+						break;
 					}
 				}
 

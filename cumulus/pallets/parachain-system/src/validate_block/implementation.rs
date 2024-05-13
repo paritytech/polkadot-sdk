@@ -240,25 +240,21 @@ where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
 {
-	let xts = block
+	block
 		.extrinsics()
 		.iter()
 		// Inherents are at the front of the block and are unsigned.
 		//
 		// If `is_signed` is returning `None`, we keep it safe and assume that it is "signed".
 		// We are searching for unsigned transactions anyway.
-		.take_while(|e| !e.is_signed().unwrap_or(true));
-	for xt in xts {
-		if let Some(call) = xt.call().is_sub_type() {
-			match call {
-				crate::Call::set_validation_data { data: validation_data } =>
-					return validation_data.clone(),
-				_ => {},
-			}
-		}
-	}
-
-	panic!("Could not find `set_validation_data` inherent")
+		.take_while(|e| !e.is_signed().unwrap_or(true))
+		.filter_map(|e| match e.call().is_sub_type() {
+			Some(crate::Call::set_validation_data { data: validation_data }) =>
+				Some(validation_data.clone()),
+			_ => None,
+		})
+		.next()
+		.expect("Could not find `set_validation_data` inherent")
 }
 
 /// Validate the given [`PersistedValidationData`] against the [`MemoryOptimizedValidationParams`].

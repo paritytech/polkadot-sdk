@@ -77,7 +77,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(enable_alloc_error_handler, feature(alloc_error_handler))]
 
-use sp_std::{vec, vec::Vec};
+use sp_std::vec::Vec;
 
 #[cfg(feature = "std")]
 use tracing;
@@ -116,7 +116,7 @@ use sp_runtime_interface::{
 	runtime_interface, Pointer,
 };
 
-use codec::{Decode, Encode, Error};
+use codec::{Decode, Encode};
 
 #[cfg(feature = "std")]
 use secp256k1::{
@@ -1821,37 +1821,6 @@ pub type SubstrateHostFunctions = (
 	offchain_index::HostFunctions,
 	transaction_index::HostFunctions,
 );
-
-/// Chainable Input implementation that reads from an underlying input
-/// and also stores the read bytes in an internal buffer.
-pub struct CopyReader<'a, I> {
-	input: &'a mut I,
-	buf: Vec<u8>,
-}
-
-impl<'a, I: codec::Input> CopyReader<'a, I> {
-	/// Create a new instance.
-	pub fn new(input: &'a mut I) -> Self {
-		Self { input, buf: vec![] }
-	}
-
-	/// Extracts the copied data.
-	pub fn into_vec(self) -> Vec<u8> {
-		self.buf
-	}
-}
-
-impl<'a, I: codec::Input> codec::Input for CopyReader<'a, I> {
-	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
-		self.input.remaining_len()
-	}
-
-	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
-		self.input.read(into)?;
-		self.buf.extend_from_slice(into);
-		Ok(())
-	}
-}
 
 #[cfg(test)]
 mod tests {

@@ -28,10 +28,41 @@ use crate::{
 };
 use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
-use sp_io::{hashing::blake2_256, CopyReader};
+use sp_io::hashing::blake2_256;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::format;
 use sp_std::{fmt, marker::PhantomData, prelude::*};
+
+/// Chainable Input implementation that reads from an underlying input
+/// and also stores the read bytes in an internal buffer.
+struct CopyReader<'a, I> {
+	input: &'a mut I,
+	buf: Vec<u8>,
+}
+
+impl<'a, I: Input> CopyReader<'a, I> {
+	/// Create a new instance.
+	pub fn new(input: &'a mut I) -> Self {
+		Self { input, buf: vec![] }
+	}
+
+	/// Extracts the copied data.
+	pub fn into_vec(self) -> Vec<u8> {
+		self.buf
+	}
+}
+
+impl<'a, I: Input> Input for CopyReader<'a, I> {
+	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+		self.input.remaining_len()
+	}
+
+	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+		self.input.read(into)?;
+		self.buf.extend_from_slice(into);
+		Ok(())
+	}
+}
 
 /// Current version of the [`UncheckedExtrinsic`] encoded format.
 ///
@@ -147,7 +178,8 @@ impl<Address, Call: Decode, Signature, Extra: SignedExtension>
 	/// Get the function that should be called in a decoded form.
 	pub fn decode_function(&self) -> Call {
 		Call::decode(&mut &self.encoded_function[..]).expect(
-			"We always check if the function is valid before setting the encoded_function field",
+			"We always check if the function is valid \
+			before setting the encoded_function field; qed",
 		)
 	}
 }

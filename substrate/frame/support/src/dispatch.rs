@@ -368,7 +368,7 @@ where
 }
 
 /// Implementation for unchecked extrinsic.
-impl<Address, Call: Encode + Decode, Signature, Extra> GetDispatchInfo
+impl<Address, Call: Decode, Signature, Extra> GetDispatchInfo
 	for UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Call: GetDispatchInfo,
