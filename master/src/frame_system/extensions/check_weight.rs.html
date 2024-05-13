@@ -907,6 +907,97 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -973,17 +1064,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Checks if the current extrinsic can fit into the block with respect to block weight limits.
-	///
-	/// Upon successes, it returns the new block weight as a `Result`.
-	</span><span class="kw">fn </span>check_block_weight(
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::ConsumedWeight, TransactionValidityError&gt; {
-		<span class="kw">let </span>maximum_weight = T::BlockWeights::get();
-		<span class="kw">let </span>all_weight = Pallet::&lt;T&gt;::block_weight();
-		calculate_consumed_weight::&lt;T::RuntimeCall&gt;(maximum_weight, all_weight, info)
-	}
-
 	<span class="doccomment">/// Checks if the current extrinsic can fit into the block with respect to block length limits.
 	///
 	/// Upon successes, it returns the new block length as a `Result`.
@@ -1022,7 +1102,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		len: usize,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
 		<span class="kw">let </span>next_len = <span class="self">Self</span>::check_block_length(info, len)<span class="question-mark">?</span>;
-		<span class="kw">let </span>next_weight = <span class="self">Self</span>::check_block_weight(info)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>all_weight = Pallet::&lt;T&gt;::block_weight();
+		<span class="kw">let </span>maximum_weight = T::BlockWeights::get();
+		<span class="kw">let </span>next_weight =
+			calculate_consumed_weight::&lt;T::RuntimeCall&gt;(<span class="kw-2">&amp;</span>maximum_weight, all_weight, info)<span class="question-mark">?</span>;
+		check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, next_len, <span class="kw-2">&amp;</span>next_weight)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_extrinsic_weight(info)<span class="question-mark">?</span>;
 
 		<span class="kw">crate</span>::AllExtrinsicsLen::&lt;T&gt;::put(next_len);
@@ -1045,8 +1130,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">pub fn </span>calculate_consumed_weight&lt;Call&gt;(
-	maximum_weight: BlockWeights,
+<span class="doccomment">/// Check that the combined extrinsic length and proof size together do not exceed the PoV limit.
+</span><span class="kw">pub fn </span>check_combined_proof_size(
+	maximum_weight: <span class="kw-2">&amp;</span>BlockWeights,
+	next_len: u32,
+	next_weight: <span class="kw-2">&amp;</span><span class="kw">crate</span>::ConsumedWeight,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
+	<span class="comment">// This extra check ensures that the extrinsic length does not push the
+	// PoV over the limit.
+	</span><span class="kw">let </span>total_pov_size = next_weight.total().proof_size().saturating_add(next_len <span class="kw">as </span>u64);
+	<span class="kw">if </span>total_pov_size &gt; maximum_weight.max_block.proof_size() {
+		<span class="macro">log::debug!</span>(
+			target: LOG_TARGET,
+			<span class="string">"Extrinsic exceeds total pov size: {}kb, limit: {}kb"</span>,
+			total_pov_size <span class="kw">as </span>f64/<span class="number">1024.0</span>,
+			maximum_weight.max_block.proof_size() <span class="kw">as </span>f64/<span class="number">1024.0
+		</span>);
+		<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into())
+	}
+	<span class="prelude-val">Ok</span>(())
+}
+
+<span class="doccomment">/// Checks if the current extrinsic can fit into the block with respect to block weight limits.
+///
+/// Upon successes, it returns the new block weight as a `Result`.
+</span><span class="kw">pub fn </span>calculate_consumed_weight&lt;Call&gt;(
+	maximum_weight: <span class="kw-2">&amp;</span>BlockWeights,
 	<span class="kw-2">mut </span>all_weight: <span class="kw">crate</span>::ConsumedWeight,
 	info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;Call&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::ConsumedWeight, TransactionValidityError&gt;
@@ -1651,16 +1760,89 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// when
 		</span><span class="macro">assert_ok!</span>(calculate_consumed_weight::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			maximum_weight.clone(),
+			<span class="kw-2">&amp;</span>maximum_weight,
 			all_weight.clone(),
-			<span class="kw-2">&amp;</span>mandatory1
+			<span class="kw-2">&amp;</span>mandatory1,
 		));
 		<span class="macro">assert_err!</span>(
 			calculate_consumed_weight::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-				maximum_weight,
+				<span class="kw-2">&amp;</span>maximum_weight,
 				all_weight,
-				<span class="kw-2">&amp;</span>mandatory2
+				<span class="kw-2">&amp;</span>mandatory2,
 			),
+			InvalidTransaction::ExhaustsResources
+		);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>maximum_proof_size_includes_length() {
+		<span class="kw">let </span>maximum_weight = BlockWeights::builder()
+			.base_block(Weight::zero())
+			.for_class(DispatchClass::non_mandatory(), |w| {
+				w.base_extrinsic = Weight::zero();
+				w.max_total = <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">20</span>, <span class="number">10</span>));
+			})
+			.for_class(DispatchClass::Mandatory, |w| {
+				w.base_extrinsic = Weight::zero();
+				w.reserved = <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">5</span>, <span class="number">10</span>));
+				w.max_total = <span class="prelude-val">None</span>;
+			})
+			.build_or_panic();
+
+		<span class="macro">assert_eq!</span>(maximum_weight.max_block, Weight::from_parts(<span class="number">20</span>, <span class="number">10</span>));
+
+		<span class="comment">// We have 10 reftime and 5 proof size left over.
+		</span><span class="kw">let </span>next_weight = <span class="kw">crate</span>::ConsumedWeight::new(|class| <span class="kw">match </span>class {
+			DispatchClass::Normal =&gt; Weight::from_parts(<span class="number">10</span>, <span class="number">5</span>),
+			DispatchClass::Operational =&gt; Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>),
+			DispatchClass::Mandatory =&gt; Weight::zero(),
+		});
+
+		<span class="comment">// Simple checks for the length
+		</span><span class="macro">assert_ok!</span>(check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">0</span>, <span class="kw-2">&amp;</span>next_weight));
+		<span class="macro">assert_ok!</span>(check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">5</span>, <span class="kw-2">&amp;</span>next_weight));
+		<span class="macro">assert_err!</span>(
+			check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">6</span>, <span class="kw-2">&amp;</span>next_weight),
+			InvalidTransaction::ExhaustsResources
+		);
+
+		<span class="comment">// We have 10 reftime and 0 proof size left over.
+		</span><span class="kw">let </span>next_weight = <span class="kw">crate</span>::ConsumedWeight::new(|class| <span class="kw">match </span>class {
+			DispatchClass::Normal =&gt; Weight::from_parts(<span class="number">10</span>, <span class="number">10</span>),
+			DispatchClass::Operational =&gt; Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>),
+			DispatchClass::Mandatory =&gt; Weight::zero(),
+		});
+		<span class="macro">assert_ok!</span>(check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">0</span>, <span class="kw-2">&amp;</span>next_weight));
+		<span class="macro">assert_err!</span>(
+			check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">1</span>, <span class="kw-2">&amp;</span>next_weight),
+			InvalidTransaction::ExhaustsResources
+		);
+
+		<span class="comment">// We have 10 reftime and 2 proof size left over.
+		// Used weight is spread across dispatch classes this time.
+		</span><span class="kw">let </span>next_weight = <span class="kw">crate</span>::ConsumedWeight::new(|class| <span class="kw">match </span>class {
+			DispatchClass::Normal =&gt; Weight::from_parts(<span class="number">10</span>, <span class="number">5</span>),
+			DispatchClass::Operational =&gt; Weight::from_parts(<span class="number">0</span>, <span class="number">3</span>),
+			DispatchClass::Mandatory =&gt; Weight::zero(),
+		});
+		<span class="macro">assert_ok!</span>(check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">0</span>, <span class="kw-2">&amp;</span>next_weight));
+		<span class="macro">assert_ok!</span>(check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">2</span>, <span class="kw-2">&amp;</span>next_weight));
+		<span class="macro">assert_err!</span>(
+			check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">3</span>, <span class="kw-2">&amp;</span>next_weight),
+			InvalidTransaction::ExhaustsResources
+		);
+
+		<span class="comment">// Ref time is over the limit. Should not happen, but we should make sure that it is
+		// ignored.
+		</span><span class="kw">let </span>next_weight = <span class="kw">crate</span>::ConsumedWeight::new(|class| <span class="kw">match </span>class {
+			DispatchClass::Normal =&gt; Weight::from_parts(<span class="number">30</span>, <span class="number">5</span>),
+			DispatchClass::Operational =&gt; Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>),
+			DispatchClass::Mandatory =&gt; Weight::zero(),
+		});
+		<span class="macro">assert_ok!</span>(check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">0</span>, <span class="kw-2">&amp;</span>next_weight));
+		<span class="macro">assert_ok!</span>(check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">5</span>, <span class="kw-2">&amp;</span>next_weight));
+		<span class="macro">assert_err!</span>(
+			check_combined_proof_size(<span class="kw-2">&amp;</span>maximum_weight, <span class="number">6</span>, <span class="kw-2">&amp;</span>next_weight),
 			InvalidTransaction::ExhaustsResources
 		);
 	}
