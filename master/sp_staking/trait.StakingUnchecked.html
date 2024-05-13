@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         keyless_who: &amp;Self::<a class="associatedtype" href="trait.StakingInterface.html#associatedtype.AccountId" title="type sp_staking::StakingInterface::AccountId">AccountId</a>,
         value: Self::<a class="associatedtype" href="trait.StakingInterface.html#associatedtype.Balance" title="type sp_staking::StakingInterface::Balance">Balance</a>,
         payee: &amp;Self::<a class="associatedtype" href="trait.StakingInterface.html#associatedtype.AccountId" title="type sp_staking::StakingInterface::AccountId">AccountId</a>
-    ) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
+    ) -&gt; DispatchResult;
 <span class="item-spacer"></span>    fn <a href="#tymethod.migrate_to_direct_staker" class="fn">migrate_to_direct_staker</a>(who: &amp;Self::<a class="associatedtype" href="trait.StakingInterface.html#associatedtype.AccountId" title="type sp_staking::StakingInterface::AccountId">AccountId</a>);
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Set of low level apis to manipulate staking ledger.</p>
 <p>These apis bypass some or all safety checks and should only be used if you know what you are
@@ -166,7 +166,7 @@ doing.</p>
     keyless_who: &amp;Self::<a class="associatedtype" href="trait.StakingInterface.html#associatedtype.AccountId" title="type sp_staking::StakingInterface::AccountId">AccountId</a>,
     value: Self::<a class="associatedtype" href="trait.StakingInterface.html#associatedtype.Balance" title="type sp_staking::StakingInterface::Balance">Balance</a>,
     payee: &amp;Self::<a class="associatedtype" href="trait.StakingInterface.html#associatedtype.AccountId" title="type sp_staking::StakingInterface::AccountId">AccountId</a>
-) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Book-keep a new bond for <code>keyless_who</code> without applying any locks (hence virtual).</p>
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Book-keep a new bond for <code>keyless_who</code> without applying any locks (hence virtual).</p>
 <p>It is important that <code>keyless_who</code> is a keyless account and therefore cannot interact with
 staking pallet directly. Caller is responsible for ensuring the passed amount is locked and
 valid.</p>

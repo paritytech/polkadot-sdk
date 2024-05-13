@@ -155,8 +155,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     fn <a href="#tymethod.query" class="fn">query</a>(
         origin: Origin,
         timeout: Timeout,
-        match_querier: <a class="enum" href="../staging_xcm/enum.VersionedLocation.html" title="enum staging_xcm::VersionedLocation">VersionedLocation</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="test_utils/type.QueryId.html" title="type staging_xcm_builder::test_utils::QueryId">QueryId</a>, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;;
+        match_querier: VersionedLocation
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="test_utils/type.QueryId.html" title="type staging_xcm_builder::test_utils::QueryId">QueryId</a>, DispatchError&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Query a remote location, from a given origin.</p>
 <p>An implementation of that trait will handle the low-level details of querying a remote location,
 such as:</p>
@@ -169,8 +169,8 @@ such as:</p>
 </div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.query" class="method"><a class="src rightside" href="../src/staging_xcm_builder/controller.rs.html#131-135">source</a><h4 class="code-header">fn <a href="#tymethod.query" class="fn">query</a>(
     origin: Origin,
     timeout: Timeout,
-    match_querier: <a class="enum" href="../staging_xcm/enum.VersionedLocation.html" title="enum staging_xcm::VersionedLocation">VersionedLocation</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="test_utils/type.QueryId.html" title="type staging_xcm_builder::test_utils::QueryId">QueryId</a>, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Query a remote location.</p>
+    match_querier: VersionedLocation
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="test_utils/type.QueryId.html" title="type staging_xcm_builder::test_utils::QueryId">QueryId</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Query a remote location.</p>
 <h5 id="parameters"><a class="doc-anchor" href="#parameters">§</a>Parameters</h5>
 <ul>
 <li><code>origin</code>: the origin of the call, used to determine the responder.</li>
@@ -180,8 +180,8 @@ such as:</p>
 </div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-QueryController%3COrigin,+Timeout%3E-for-()" class="impl"><a class="src rightside" href="../src/staging_xcm_builder/controller.rs.html#182-192">source</a><a href="#impl-QueryController%3COrigin,+Timeout%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;Origin, Timeout&gt; <a class="trait" href="trait.QueryController.html" title="trait staging_xcm_builder::QueryController">QueryController</a>&lt;Origin, Timeout&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="associatedtype.WeightInfo-1" class="associatedtype trait-impl"><a href="#associatedtype.WeightInfo-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a> = <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a></h4></section><section id="method.query" class="method trait-impl"><a class="src rightside" href="../src/staging_xcm_builder/controller.rs.html#185-191">source</a><a href="#method.query" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.query" class="fn">query</a>(
     _origin: Origin,
     _timeout: Timeout,
-    _match_querier: <a class="enum" href="../staging_xcm/enum.VersionedLocation.html" title="enum staging_xcm::VersionedLocation">VersionedLocation</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="test_utils/type.QueryId.html" title="type staging_xcm_builder::test_utils::QueryId">QueryId</a>, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/staging_xcm_builder/controller/trait.QueryController.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+    _match_querier: VersionedLocation
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="test_utils/type.QueryId.html" title="type staging_xcm_builder::test_utils::QueryId">QueryId</a>, DispatchError&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/staging_xcm_builder/controller/trait.QueryController.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
 </body></html>
