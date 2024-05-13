@@ -18,7 +18,7 @@
 
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
 use primitives::Id as ParaId;
 use runtime_parachains::{
 	configuration::{self, HostConfiguration},
@@ -27,6 +27,7 @@ use runtime_parachains::{
 use sp_runtime::FixedPointNumber;
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::prelude::*;
+use xcm_builder::InspectMessageQueues;
 use SendError::*;
 
 /// Simple value-bearing trait for determining/expressing the assets required to be paid for a
@@ -135,6 +136,24 @@ where
 		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
 			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
+	}
+}
+
+impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		dmp::DownwardMessageQueues::<T>::iter()
+			.map(|(para_id, messages)| {
+				let decoded_messages: Vec<VersionedXcm<()>> = messages
+					.iter()
+					.map(|downward_message| {
+						let message = VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap();
+						log::trace!(target: "xcm::DownwardMessageQueues::get_messages", "Message: {:?}, sent at: {:?}", message, downward_message.sent_at);
+						message
+					})
+					.collect();
+				(VersionedLocation::V4(Parachain(para_id.into()).into()), decoded_messages)
+			})
+			.collect()
 	}
 }
 
