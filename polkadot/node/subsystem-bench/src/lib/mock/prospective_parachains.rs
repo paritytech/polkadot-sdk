@@ -52,29 +52,23 @@ impl MockProspectiveParachains {
 					if signal == OverseerSignal::Conclude {
 						return
 					},
-				orchestra::FromOrchestra::Communication { msg } => {
-					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
-
-					match msg {
-						ProspectiveParachainsMessage::GetMinimumRelayParents(_relay_parent, tx) => {
-							tx.send(vec![]).unwrap();
-						},
-						ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx) => {
-							tx.send(
-								req.candidates
-									.iter()
-									.cloned()
-									.map(|candidate| {
-										(candidate, vec![(Hash::repeat_byte(0), vec![0])])
-									})
-									.collect(),
-							)
-							.unwrap();
-						},
-						_ => {
-							unimplemented!("Unexpected chain-api message")
-						},
-					}
+				orchestra::FromOrchestra::Communication { msg } => match msg {
+					ProspectiveParachainsMessage::GetMinimumRelayParents(_relay_parent, tx) => {
+						tx.send(vec![]).unwrap();
+					},
+					ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx) => {
+						tx.send(
+							req.candidates
+								.iter()
+								.cloned()
+								.map(|candidate| (candidate, vec![(Hash::repeat_byte(0), vec![0])]))
+								.collect(),
+						)
+						.unwrap();
+					},
+					_ => {
+						unimplemented!("Unexpected chain-api message")
+					},
 				},
 			}
 		}

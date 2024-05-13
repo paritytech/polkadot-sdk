@@ -16,7 +16,9 @@
 
 use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
+	mock::runtime_api::session_info_for_peers,
 	network::{HandleNetworkMessage, NetworkMessage},
+	NODE_UNDER_TEST,
 };
 use bitvec::order::Lsb0;
 use itertools::Itertools;
@@ -36,8 +38,8 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CompactStatement,
-	Hash, Header, PersistedValidationData, SignedStatement, SigningContext, ValidatorIndex,
-	ValidatorPair,
+	Hash, Header, Id, PersistedValidationData, SessionInfo, SignedStatement, SigningContext,
+	UncheckedSigned, ValidatorIndex, ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, dummy_head_data, dummy_pvd,
@@ -51,6 +53,8 @@ use std::{
 		Arc,
 	},
 };
+
+const LOG_TARGET: &str = "subsystem-bench::test-state";
 
 #[derive(Clone)]
 pub struct TestState {
@@ -72,13 +76,26 @@ pub struct TestState {
 	pub validator_pairs: Vec<ValidatorPair>,
 	// TODO
 	pub statements_tracker: HashMap<CandidateHash, HashMap<u32, Arc<AtomicBool>>>,
+	pub manifests_tracker: HashMap<CandidateHash, Arc<AtomicBool>>,
+	pub session_info: SessionInfo,
+	pub statements: HashMap<CandidateHash, Vec<UncheckedSigned<CompactStatement>>>,
+	pub node_group: Vec<ValidatorIndex>,
+	pub connected_validators: Vec<usize>,
 }
 
 impl TestState {
 	pub fn new(config: &TestConfiguration) -> Self {
+		let test_authorities = config.generate_authorities();
+		let session_info = session_info_for_peers(config, &test_authorities);
+		let node_group = session_info
+			.validator_groups
+			.iter()
+			.find(|g| g.contains(&ValidatorIndex(NODE_UNDER_TEST)))
+			.unwrap()
+			.clone();
 		let mut state = Self {
 			config: config.clone(),
-			test_authorities: config.generate_authorities(),
+			test_authorities,
 			block_infos: (1..=config.num_blocks).map(generate_block_info).collect(),
 			candidate_receipts: Default::default(),
 			commited_candidate_receipts: Default::default(),
@@ -86,6 +103,11 @@ impl TestState {
 			block_headers: Default::default(),
 			validator_pairs: Default::default(),
 			statements_tracker: Default::default(),
+			manifests_tracker: Default::default(),
+			session_info,
+			node_group,
+			statements: Default::default(),
+			connected_validators: Default::default(),
 		};
 
 		state.block_headers = state.block_infos.iter().map(generate_block_header).collect();
@@ -104,6 +126,7 @@ impl TestState {
 				let candidate_index =
 					*pov_size_to_candidate.get(pov_size).expect("pov_size always exists; qed");
 				let mut receipt = receipt_templates[candidate_index].clone();
+				receipt.descriptor.para_id = Id::new(core_idx as u32 + 1);
 				receipt.descriptor.relay_parent = block_info.hash;
 
 				state.candidate_receipts.entry(block_info.hash).or_default().push(
@@ -117,6 +140,7 @@ impl TestState {
 						.map(|index| (index as u32, Arc::new(AtomicBool::new(index <= 1))))
 						.collect::<HashMap<_, _>>(),
 				);
+				state.manifests_tracker.insert(receipt.hash(), Arc::new(AtomicBool::new(false)));
 				state
 					.commited_candidate_receipts
 					.entry(block_info.hash)
@@ -125,8 +149,50 @@ impl TestState {
 			}
 		}
 
+		let groups = state.session_info.validator_groups.clone();
+
+		for block_info in state.block_infos.iter() {
+			for (index, group) in groups.iter().enumerate() {
+				let candidate =
+					state.candidate_receipts.get(&block_info.hash).unwrap().get(index).unwrap();
+				let statements = group
+					.iter()
+					.map(|&v| {
+						sign_statement(
+							CompactStatement::Seconded(candidate.hash()),
+							block_info.hash,
+							v,
+							state.validator_pairs.get(v.0 as usize).unwrap(),
+						)
+					})
+					.collect_vec();
+				state.statements.insert(candidate.hash(), statements);
+			}
+		}
+
 		state
 	}
+}
+
+fn sign_statement(
+	statement: CompactStatement,
+	relay_parent: H256,
+	validator_index: ValidatorIndex,
+	pair: &ValidatorPair,
+) -> UncheckedSigned<CompactStatement> {
+	let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+	let payload = statement.signing_payload(&context);
+
+	SignedStatement::new(
+		statement,
+		validator_index,
+		pair.sign(&payload[..]),
+		&context,
+		&pair.public(),
+	)
+	.unwrap()
+	.as_unchecked()
+	.to_owned()
 }
 
 fn generate_block_info(block_num: usize) -> BlockInfo {
@@ -192,7 +258,13 @@ impl HandleNetworkMessage for TestState {
 		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
-			NetworkMessage::RequestFromNode(_authority_id, Requests::AttestedCandidateV2(req)) => {
+			NetworkMessage::RequestFromNode(authority_id, Requests::AttestedCandidateV2(req)) => {
+				let index = self
+					.test_authorities
+					.validator_authority_id
+					.iter()
+					.position(|v| v == &authority_id)
+					.expect("Should exist");
 				let payload = req.payload;
 				let candidate_receipt = self
 					.commited_candidate_receipts
@@ -202,10 +274,16 @@ impl HandleNetworkMessage for TestState {
 					.expect("Pregenerated")
 					.clone();
 				let persisted_validation_data = self.pvd.clone();
+				let mut statements = self.statements.get(&payload.candidate_hash).unwrap().clone();
+				if self.node_group.contains(&ValidatorIndex(index as u32)) &&
+					statements.iter().any(|s| s.unchecked_validator_index().0 == index as u32)
+				{
+					statements.retain(|s| s.unchecked_validator_index().0 == index as u32)
+				}
 				let res = AttestedCandidateResponse {
 					candidate_receipt,
 					persisted_validation_data,
-					statements: vec![],
+					statements,
 				};
 				let _ = req.pending_response.send(Ok((res.encode(), ProtocolName::from(""))));
 				None
@@ -223,7 +301,6 @@ impl HandleNetworkMessage for TestState {
 					.position(|v| v == &authority_id)
 					.expect("Should exist");
 				let candidate_hash = *statement.unchecked_payload().candidate_hash();
-				gum::debug!("ValidatorIndex({}) received {:?}", index, statement);
 
 				let sent = self
 					.statements_tracker
@@ -239,7 +316,9 @@ impl HandleNetworkMessage for TestState {
 					sent.store(true, Ordering::SeqCst);
 				}
 
-				if index > self.config.max_validators_per_core - 1 {
+				let group_statements = self.statements.get(&candidate_hash).unwrap();
+				if !group_statements.iter().any(|s| s.unchecked_validator_index().0 == index as u32)
+				{
 					return None
 				}
 
@@ -281,6 +360,7 @@ impl HandleNetworkMessage for TestState {
 					.iter()
 					.position(|v| v == &authority_id)
 					.expect("Should exist");
+				gum::info!(target: LOG_TARGET, index = ?index, "Received BackedCandidateManifest");
 				let ack = BackedCandidateAcknowledgement {
 					candidate_hash: manifest.candidate_hash,
 					statement_knowledge: StatementFilter {
@@ -288,7 +368,6 @@ impl HandleNetworkMessage for TestState {
 						validated_in_group: bitvec::bitvec![u8, Lsb0; 0,0,1,0,0],
 					},
 				};
-				gum::debug!("ValidatorIndex({}) sends {:?}", index, ack);
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).expect("Must exist"),
@@ -297,6 +376,35 @@ impl HandleNetworkMessage for TestState {
 						)),
 					))
 					.unwrap();
+
+				self.manifests_tracker
+					.get(&manifest.candidate_hash)
+					.expect("Pregenerated")
+					.as_ref()
+					.store(true, Ordering::SeqCst);
+
+				None
+			},
+			NetworkMessage::MessageFromNode(
+				authority_id,
+				Versioned::V3(ValidationProtocol::StatementDistribution(
+					StatementDistributionMessage::BackedCandidateKnown(ack),
+				)),
+			) => {
+				let index = self
+					.test_authorities
+					.validator_authority_id
+					.iter()
+					.position(|v| v == &authority_id)
+					.expect("Should exist");
+				gum::info!(target: LOG_TARGET, index = ?index, "Received BackedCandidateKnown");
+
+				self.manifests_tracker
+					.get(&ack.candidate_hash)
+					.expect("Pregenerated")
+					.as_ref()
+					.store(true, Ordering::SeqCst);
+
 				None
 			},
 			_ => Some(message),

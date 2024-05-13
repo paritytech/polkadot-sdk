@@ -203,7 +203,7 @@ fn main() -> eyre::Result<()> {
 		.filter(Some("hyper"), log::LevelFilter::Info)
 		// Avoid `Terminating due to subsystem exit subsystem` warnings
 		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
-		.filter(None, log::LevelFilter::Info)
+		.filter(None, log::LevelFilter::Debug)
 		.format_timestamp_millis()
 		.try_init()
 		.unwrap();

@@ -16,6 +16,7 @@
 
 //! A generic candidate backing subsystem mockup suitable to be used in benchmarks.
 
+use crate::NODE_UNDER_TEST;
 use futures::{channel::mpsc::UnboundedSender, FutureExt, SinkExt};
 use overseer::AllMessages;
 use polkadot_node_primitives::{SignedFullStatementWithPVD, Statement, StatementWithPVD};
@@ -23,9 +24,11 @@ use polkadot_node_subsystem::{
 	messages::CandidateBackingMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
-use polkadot_primitives::{PersistedValidationData, SigningContext, ValidatorIndex, ValidatorPair};
+use polkadot_primitives::{
+	CandidateHash, PersistedValidationData, SigningContext, ValidatorIndex, ValidatorPair,
+};
 use sp_core::Pair;
-use crate::NODE_UNDER_TEST;
+use std::collections::HashMap;
 
 const LOG_TARGET: &str = "subsystem-bench::candidate-backing-mock";
 
@@ -33,6 +36,7 @@ pub struct MockCandidateBacking {
 	to_subsystems: UnboundedSender<AllMessages>,
 	pair: ValidatorPair,
 	pvd: PersistedValidationData,
+	node_group: Vec<ValidatorIndex>,
 }
 
 impl MockCandidateBacking {
@@ -40,8 +44,9 @@ impl MockCandidateBacking {
 		to_subsystems: UnboundedSender<AllMessages>,
 		pair: ValidatorPair,
 		pvd: PersistedValidationData,
+		node_group: Vec<ValidatorIndex>,
 	) -> Self {
-		Self { to_subsystems, pair, pvd }
+		Self { to_subsystems, pair, pvd, node_group }
 	}
 }
 
@@ -57,6 +62,8 @@ impl<Context> MockCandidateBacking {
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 impl MockCandidateBacking {
 	async fn run<Context>(mut self, mut ctx: Context) {
+		let mut tracker: HashMap<CandidateHash, u32> = Default::default();
+
 		loop {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 			match msg {
@@ -68,58 +75,75 @@ impl MockCandidateBacking {
 					gum::trace!(target: LOG_TARGET, msg=?msg, "recv message");
 
 					match msg {
-						CandidateBackingMessage::Statement(relay_parent, statement) =>
+						// If a statement is not from a node group - ignore it.
+						// For the first seconded send Share
+						// For the seconde statement send Backed
+						CandidateBackingMessage::Statement(relay_parent, statement) => {
+							let validator_id = statement.validator_index();
+							let is_from_node_group = self.node_group.contains(&validator_id);
 							match statement.payload() {
 								StatementWithPVD::Seconded(receipt, _pvd) => {
 									let candidate_hash = receipt.hash();
-									let statement = Statement::Valid(candidate_hash);
-									let context = SigningContext {
-										parent_hash: relay_parent,
-										session_index: 0,
-									};
-									let payload = statement.to_compact().signing_payload(&context);
-									let signature = self.pair.sign(&payload[..]);
-									let message = AllMessages::StatementDistribution(
-										polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
-											relay_parent,
-											SignedFullStatementWithPVD::new(
-												statement.supply_pvd(self.pvd.clone()),
-												ValidatorIndex(NODE_UNDER_TEST),
-												signature,
-												&context,
-												&self.pair.public(),
-											)
-											.unwrap(),
-										),
-									);
-									let _ = self.to_subsystems.send(message).await;
+									tracker
+										.entry(candidate_hash)
+										.and_modify(|v| {
+											*v += 1;
+										})
+										.or_insert(1);
+
+									let received = *tracker.get(&candidate_hash).unwrap();
+									if received == 1 && is_from_node_group {
+										let statement = Statement::Valid(candidate_hash);
+										let context = SigningContext {
+											parent_hash: relay_parent,
+											session_index: 0,
+										};
+										let payload =
+											statement.to_compact().signing_payload(&context);
+										let signature = self.pair.sign(&payload[..]);
+										let message = AllMessages::StatementDistribution(
+    										polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
+    											relay_parent,
+    											SignedFullStatementWithPVD::new(
+    												statement.supply_pvd(self.pvd.clone()),
+    												ValidatorIndex(NODE_UNDER_TEST),
+    												signature,
+    												&context,
+    												&self.pair.public(),
+    											)
+    											.unwrap(),
+    										)
+										);
+										let _ = self.to_subsystems.send(message).await;
+									}
+
+									if received == 2 {
+										let message = AllMessages::StatementDistribution(
+											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(candidate_hash),
+										);
+										let _ = self.to_subsystems.send(message).await;
+									}
 								},
 								StatementWithPVD::Valid(candidate_hash) => {
-									let statement = Statement::Valid(*candidate_hash);
-									let context = SigningContext {
-										parent_hash: relay_parent,
-										session_index: 0,
-									};
-									let payload = statement.to_compact().signing_payload(&context);
-									let signature = self.pair.sign(&payload[..]);
-									let message = AllMessages::StatementDistribution(
-									polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
-										relay_parent,
-										SignedFullStatementWithPVD::new(
-											statement.supply_pvd(self.pvd.clone()),
-											ValidatorIndex(NODE_UNDER_TEST),
-											signature,
-											&context,
-											&self.pair.public(),
-										)
-										.unwrap(),
-									),
-								);
-									let _ = self.to_subsystems.send(message).await;
+									tracker
+										.entry(*candidate_hash)
+										.and_modify(|v| {
+											*v += 1;
+										})
+										.or_insert(1);
+
+									let received = *tracker.get(candidate_hash).unwrap();
+									if received == 2 {
+										let message = AllMessages::StatementDistribution(
+											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(*candidate_hash),
+										);
+										let _ = self.to_subsystems.send(message).await;
+									}
 								},
-							},
+							}
+						},
 						_ => {
-							unimplemented!("Unexpected chain-api message")
+							unimplemented!("Unexpected candidate-backing message")
 						},
 					}
 				},
