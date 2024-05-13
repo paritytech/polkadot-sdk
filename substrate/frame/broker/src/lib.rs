@@ -847,7 +847,7 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be the sovereign account of the task
 		/// - `core`: The core for which we want to enable auto renewal.
-		/// The optional `workload_end_hint` parameter should be used when enabling auto-renewal for
+		/// - `workload_end_hint` parameter should be used when enabling auto-renewal for
 		/// the core which holds a legacy lease, as it would be inefficient to look it up otherwise.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::notify_core_count())]

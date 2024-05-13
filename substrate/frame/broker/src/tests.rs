@@ -1458,7 +1458,32 @@ fn enable_auto_renew_works() {
 }
 
 #[test]
-fn enable_auto_renewal_with_end_hint_works() {}
+fn enable_auto_renewal_with_end_hint_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let record = AllowedRenewalRecord {
+			price: 100,
+			completion: CompletionStatus::Complete(
+				vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
+					.try_into()
+					.unwrap(),
+			),
+		};
+		// Each lease-holding parachain should be allowed to renew. Although the `when` field will
+		// likely be to a later timeslice.
+		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 1, when: 20 }, &record);
+
+		// Will fail if we don't provide the end hint since it expects it to be at next sale start
+		// or end.
+		assert_noop!(Broker::do_enable_auto_renew(2001, 1, None), Error::<Test>::NotAllowed);
+
+		assert_ok!(Broker::do_enable_auto_renew(2001, 1, Some(20)),);
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(1, 2001)]);
+		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 1, task: 2001 }.into());
+	});
+}
 
 #[test]
 fn enable_auto_renew_renews() {

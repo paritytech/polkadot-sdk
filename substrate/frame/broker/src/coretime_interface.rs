@@ -149,14 +149,17 @@ impl CoretimeInterface for () {
 
 /// Trait for retrieving the associated account and origin of a task.
 ///
-/// For parachains, this refers to the sovereign account, which is controlled by the parachain itself.
+/// For parachains, this refers to the sovereign account, which is controlled by the parachain
+/// itself.
 pub trait TaskAccountInterface {
 	/// The type for representing accounts.
 	type AccountId;
+
 	/// The overarching origin type.
 	type OuterOrigin: Into<Result<Self::TaskOrigin, Self::OuterOrigin>>;
-	/// The custom task origin. Given that all tasks on Polkadot are parachains this will most likely 
-	// be the `Parachain` origin. 
+
+	/// The custom task origin. Given that all tasks on Polkadot are parachains this will most
+	/// likely be the `Parachain` origin.
 	type TaskOrigin;
 
 	/// Ensures that the origin is a task origin and returns the associated `TaskId`.
