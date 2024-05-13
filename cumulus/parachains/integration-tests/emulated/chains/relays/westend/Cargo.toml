@@ -25,6 +25,8 @@ pallet-staking = { path = "../../../../../../../substrate/frame/staking", defaul
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false }
 westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants", default-features = false }
 westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
+xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../../../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 # Cumulus
 parachains-common = { path = "../../../../../common" }

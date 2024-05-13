@@ -209,6 +209,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = XcmPallet;
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, KusamaNetwork>;

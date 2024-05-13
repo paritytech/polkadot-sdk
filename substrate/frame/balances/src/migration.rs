@@ -91,7 +91,7 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for ResetInactive<T, I> {
 			StorageVersion::new(0).put::<Pallet<T, I>>();
 
 			log::info!(target: LOG_TARGET, "Storage to version 0");
-			T::DbWeight::get().reads_writes(1, 2)
+			T::DbWeight::get().reads_writes(1, 3)
 		} else {
 			log::info!(
 				target: LOG_TARGET,
