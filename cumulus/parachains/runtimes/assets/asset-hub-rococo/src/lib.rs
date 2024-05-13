@@ -981,9 +981,14 @@ pub type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	frame_support::migrations::RemovePallet<StateTrieMigrationName, RocksDbWeight>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
+
+parameter_types! {
+	pub const StateTrieMigrationName: &'static str = "StateTrieMigration";
+}
 
 /// Migration to initialize storage versions for pallets added after genesis.
 ///
