@@ -1063,6 +1063,10 @@ pub mod pallet {
 			let mut after_frozen = Zero::zero();
 			// No way this can fail since we do not alter the existential balances.
 			// TODO: Revisit this assumption.
+			log::error!(
+					target: LOG_TARGET,
+					"ank4n: consumers before mutate_account: {:?}", frame_system::Pallet::<T>::consumers(who)
+				);
 			let res = Self::mutate_account(who, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
