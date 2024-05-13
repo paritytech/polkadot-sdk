@@ -28,6 +28,7 @@ jobs:
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
+  # rococo and westend are disabled for now (no access to parity-chains.parity.io)
   check-runtime-migration:
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
@@ -37,10 +38,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        network:
-          [
-            westend,
-            rococo,
+        network: [
+            # westend,
+            # rococo,
             asset-hub-westend,
             asset-hub-rococo,
             bridge-hub-westend,
@@ -50,18 +50,18 @@ jobs:
             coretime-rococo,
           ]
         include:
-          - network: westend
-            package: westend-runtime
-            wasm: westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-try-runtime-node.parity-chains.parity.io:443"
-            subcommand_extra_args: "--no-weight-warnings"
-            command_extra_args: ""
-          - network: rococo
-            package: rococo-runtime
-            wasm: rococo_runtime.compact.compressed.wasm
-            uri: "wss://rococo-try-runtime-node.parity-chains.parity.io:443"
-            subcommand_extra_args: "--no-weight-warnings"
-            command_extra_args: ""
+          # - network: westend
+          #   package: westend-runtime
+          #   wasm: westend_runtime.compact.compressed.wasm
+          #   uri: "wss://westend-try-runtime-node.parity-chains.parity.io:443"
+          #   subcommand_extra_args: "--no-weight-warnings"
+          #   command_extra_args: ""
+          # - network: rococo
+          #   package: rococo-runtime
+          #   wasm: rococo_runtime.compact.compressed.wasm
+          #   uri: "wss://rococo-try-runtime-node.parity-chains.parity.io:443"
+          #   subcommand_extra_args: "--no-weight-warnings"
+          #   command_extra_args: ""
           - network: asset-hub-westend
             package: asset-hub-westend-runtime
             wasm: asset_hub_westend_runtime.compact.compressed.wasm
