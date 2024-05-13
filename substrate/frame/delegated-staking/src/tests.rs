@@ -229,11 +229,7 @@ fn agent_restrictions() {
 
 		// agent cannot delegate to self
 		assert_noop!(
-			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(agent_one).into(),
-				agent_one,
-				10
-			),
+			DelegatedStaking::delegate_to_agent(RawOrigin::Signed(agent_one).into(), agent_one, 10),
 			Error::<T>::InvalidDelegation
 		);
 	});
