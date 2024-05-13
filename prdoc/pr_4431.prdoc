@@ -13,3 +13,5 @@ doc:
 crates:
   - name: polkadot-statement-distribution
     bump: patch
+  - name: polkadot
+    bump: none
