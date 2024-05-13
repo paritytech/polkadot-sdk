@@ -20198,7 +20198,6 @@ dependencies = [
  "staging-node-inspect",
  "substrate-build-script-utils",
  "substrate-cli-test-utils",
- "substrate-frame-cli",
  "substrate-rpc-client",
  "tempfile",
  "tokio",
@@ -20524,18 +20523,6 @@ dependencies = [
  "staging-node-cli",
  "substrate-rpc-client",
  "tokio",
-]
-
-[[package]]
-name = "substrate-frame-cli"
-version = "32.0.0"
-dependencies = [
- "clap 4.5.3",
- "frame-support",
- "frame-system",
- "sc-cli",
- "sp-core",
- "sp-runtime",
 ]
 
 [[package]]
