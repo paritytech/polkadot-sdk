@@ -147,17 +147,21 @@ impl CoretimeInterface for () {
 	fn ensure_notify_revenue_info(_when: RCBlockNumberOf<Self>, _revenue: Self::Balance) {}
 }
 
-/// TODO
+/// Trait for retrieving the associated account and origin of a task.
+///
+/// For parachains, this refers to the sovereign account, which is controlled by the parachain itself.
 pub trait TaskAccountInterface {
-	/// TODO
+	/// The type for representing accounts.
 	type AccountId;
-	/// TODO
+	/// The overarching origin type.
 	type OuterOrigin: Into<Result<Self::TaskOrigin, Self::OuterOrigin>>;
-	/// TODO
+	/// The custom task origin. Given that all tasks on Polkadot are parachains this will most likely 
+	// be the `Parachain` origin. 
 	type TaskOrigin;
 
-	/// TODO
+	/// Ensures that the origin is a task origin and returns the associated `TaskId`.
 	fn ensure_task_sovereign_account(o: Self::OuterOrigin) -> Result<TaskId, BadOrigin>;
-	/// TODO
+
+	/// Returns the associated account of a task.
 	fn sovereign_account(task: TaskId) -> Self::AccountId;
 }
