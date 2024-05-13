@@ -2122,10 +2122,10 @@ pub mod pallet {
 			);
 
 			Self::do_drop_dangling_nominations(&nominator, Some(&target))
-				.map(|count| {
+				.map(|nominations| {
 					Self::deposit_event(Event::<T>::DanglingNominationsDropped {
 						nominator,
-						count,
+						count: 0, // TODO
 					});
 
 					Pays::No.into()

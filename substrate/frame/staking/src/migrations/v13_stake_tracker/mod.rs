@@ -27,7 +27,7 @@ use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	traits::Defensive,
 };
-use pallet_stake_tracker::Config as STConfig;
+use pallet_stake_tracker::{Config as STConfig, Pallet as STPallet};
 use sp_staking::StakingInterface;
 use sp_std::prelude::*;
 
@@ -69,25 +69,40 @@ impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weight
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
+		log::info!("remaining step weight: {:?}", meter.remaining());
+
+		/*
+		// TODO(remove): configs and state for partial checks.
+		#[cfg(any(test, feature = "try-runtime"))]
+		const TRY_STATE_INTERVAL: usize = 15;
+		#[cfg(any(test, feature = "try-runtime"))]
+		let mut voters_processed: Vec<T::AccountId> = vec![];
+		*/
+
 		// Do as much progress as possible per step.
 		while meter.try_consume(required).is_ok() {
-			// 1. get next validator in the Validators map.
+			// fetch the next nominator to migrate.
 			let mut iter = if let Some(ref last_nom) = cursor {
 				Nominators::<T>::iter_from(Nominators::<T>::hashed_key_for(last_nom))
 			} else {
-				// first step, start from beginning of the validator's map.
 				Nominators::<T>::iter()
 			};
 
 			if let Some((nominator, _)) = iter.next() {
-				let nominator_stake =
-					Pallet::<T>::stake(&nominator).defensive_unwrap_or_default().total;
+				let nominator_stake = STPallet::<T>::vote_of(&nominator);
+
+				// TODO: clean up.
 				let nominations = Nominators::<T>::get(&nominator)
 					.map(|n| n.targets.into_inner())
 					.unwrap_or_default();
 				let original_noms_len = nominations.len();
 
 				let nominations = pallet_stake_tracker::Pallet::<T>::ensure_dedup(nominations);
+				// try to remove dangling and bad targets.
+				let nominations = Pallet::<T>::do_drop_dangling_nominations(&nominator, None)
+					.map(|n| n.into_inner())
+					.unwrap_or(nominations);
+				// ---
 
 				log!(
 					info,
@@ -98,6 +113,7 @@ impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weight
 					iter.count()
 				);
 
+				// `Nominators` may have unbonded stashes -- chill them.
 				if Pallet::<T>::active_stake(&nominator).unwrap_or_default() <
 					Pallet::<T>::minimum_nominator_bond()
 				{
@@ -114,24 +130,10 @@ impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weight
 
 				// iter over up to `MaxNominationsOf<T>` targets of `nominator`.
 				for target in nominations.into_iter() {
-					if Pallet::<T>::status(&target).is_err() {
-						// drop all dangling nominations for this nominator.
-						let res = Pallet::<T>::do_drop_dangling_nominations(&nominator, None);
-						log!(
-							info,
-							"mmb: dropped *all* dangling nominations (result with count: {:?})",
-							res
-						);
-
-						continue
-					};
-
-					log!(info, "mmb: processing {:?} - {:?}", target, Pallet::<T>::status(&target));
-
 					if let Ok(current_stake) = <T as STConfig>::TargetList::get_score(&target) {
-						// target is not in the target list. update with nominator's stake.
-
-						if let Some(total_stake) = current_stake.checked_add(nominator_stake) {
+						// target is in the target list. update with nominator's stake.
+						if let Some(total_stake) = current_stake.checked_add(nominator_stake.into())
+						{
 							let _ = <T as STConfig>::TargetList::on_update(&target, total_stake)
 								.defensive();
 						} else {
@@ -141,16 +143,29 @@ impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weight
 					} else {
 						// target is not in the target list, insert new node and consider self
 						// stake.
-						let self_stake = Pallet::<T>::stake(&target).defensive_unwrap_or_default();
-						if let Some(total_stake) = self_stake.total.checked_add(nominator_stake) {
-							let _ = <T as STConfig>::TargetList::on_insert(target, total_stake)
-								.defensive();
+						let self_stake = STPallet::<T>::vote_of(&target);
+						if let Some(total_stake) = self_stake.checked_add(nominator_stake) {
+							let _ =
+								<T as STConfig>::TargetList::on_insert(target, total_stake.into())
+									.defensive();
 						} else {
 							log!(error, "target stake overflow. exit.");
 							return Err(SteppedMigrationError::Failed)
 						}
 					}
 				}
+
+				/*
+				// TODO(remove): performs partial checks.
+				#[cfg(any(test, feature = "try-runtime"))]
+				{
+					voters_processed.push(nominator.clone());
+					if voters_processed.len() % TRY_STATE_INTERVAL == 0 {
+						STPallet::<T>::do_try_state_approvals(Some(voters_processed.clone()))
+							.unwrap();
+					}
+				}
+				*/
 
 				// progress cursor.
 				cursor = Some(nominator)

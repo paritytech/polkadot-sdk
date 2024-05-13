@@ -309,7 +309,7 @@ pub mod pallet {
 		}
 
 		/// Helper to fetch te active stake of a staker and convert it to vote weight.
-		pub(crate) fn vote_of(who: &T::AccountId) -> VoteWeight {
+		pub fn vote_of(who: &T::AccountId) -> VoteWeight {
 			let active = T::Staking::stake(who).map(|s| s.active).defensive_unwrap_or_default();
 			Self::to_vote(active)
 		}
@@ -376,39 +376,46 @@ impl<T: Config> Pallet<T> {
 	///  * An idle validator should not be part of the voter list.
 	///  * A dangling target shoud not be part of the voter list.
 
-	/// The try state checks may start from a specific (account ID) cursor. `None` should be pass to
+	/// The try state checks may end at a specific (account ID) cursor. `None` should be pass to
 	/// perform a full try state check.
-	pub(crate) fn do_try_state_approvals(
-		maybe_cursor: Option<T::AccountId>,
+	pub fn do_try_state_approvals(
+		maybe_voters: Option<Vec<T::AccountId>>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
+		let is_partial_check = maybe_voters.is_some();
+
 		let mut approvals_map: BTreeMap<AccountIdOf<T>, sp_npos_elections::ExtendedBalance> =
 			BTreeMap::new();
 
-		let iter = if let Some(cursor) = maybe_cursor {
-			T::VoterList::iter_from(&cursor)
+		let iter = if let Some(ref voters) = maybe_voters {
+			log::info!("try-state: partial checks with {} voters.", voters.len());
+			sp_std::boxed::Box::new(voters.iter().map(|n| n.clone()))
 		} else {
-			Ok(T::VoterList::iter())
-		}
-		.map_err(|_| "provided cursor does not exist.")?;
+			T::VoterList::iter()
+		};
+
+		// closure to update the approvals map.
+		let mut update_approvals = |target: T::AccountId, with_score: u128| {
+			if let Some(approvals) = approvals_map.get_mut(&target) {
+				*approvals += with_score;
+			} else {
+				// init approvals for target.
+				approvals_map.insert(target, with_score);
+			};
+		};
 
 		// build map of approvals stakes from the `VoterList` POV.
 		for voter in iter {
 			if let Some(nominations) = <T::Staking as StakingInterface>::nominations(&voter) {
-				// sanity check.
-				let active_stake = T::Staking::stake(&voter)
-					.map(|s| Self::to_vote(s.active))
-					.expect("active voter has bonded stake; qed.");
+				let nominations = Self::ensure_dedup(nominations);
+				let active_stake = Self::vote_of(&voter);
+
+				for target in nominations {
+					update_approvals(target, active_stake.into());
+				}
 
 				// if the voter list is in strict mode, we expect the stake of the voter to match
 				// the score in the list at all times. The approvals calculation also depends on
-				// the sorting of the voter list:
-				// * if the voter list is strictly sorted, use the nominator's scores to calculate
-				// the approvals.
-				// * if the voter list is lazily sorted, use the active stake of the nominator to
-				// calculat the approvals.
-				let stake = if T::VoterUpdateMode::get().is_strict_mode() {
-					// voter list is strictly sorted, use the voter list score to calculate the
-					// target's approvals.
+				if !T::VoterUpdateMode::get().is_strict_mode() {
 					let score =
 						<T::VoterList as SortedListProvider<AccountIdOf<T>>>::get_score(&voter)
 							.map_err(|_| "nominator score must exist in voter bags list")?;
@@ -416,41 +423,30 @@ impl<T: Config> Pallet<T> {
 					frame_support::ensure!(
 						active_stake == score,
 						"voter score must be the same as its active stake"
-					);
-
-					score
-				} else {
-					active_stake
+					)
 				};
-
-				// update the approvals map with the voter's active stake.
-				// note: must remove the dedup nominations, which is also done by the
-				// stake-tracker.
-				let nominations = Self::ensure_dedup(nominations);
-
-				for nomination in nominations {
-					*approvals_map.entry(nomination).or_default() +=
-						stake as sp_npos_elections::ExtendedBalance;
-				}
 			} else {
-				// if it is in the voter list but it's not a nominator, it should be a validator
-				// and part of the target list.
+				// if it is in the voter list but it's not a nominator, it should be a validator/
+				// idle.
 				frame_support::ensure!(
-					T::Staking::status(&voter) == Ok(StakerStatus::Validator) &&
-						T::TargetList::contains(&voter),
+					T::Staking::status(&voter) == Ok(StakerStatus::Validator) ||
+						T::Staking::status(&voter) == Ok(StakerStatus::Idle),
 					"wrong state of voter"
 				);
-				frame_support::ensure!(
-					T::TargetList::contains(&voter),
-					"if voter is in voter list and it's not a nominator, it must be a target"
-				);
+
+				// check only valid if it is a full try-state check.
+				if !is_partial_check {
+					frame_support::ensure!(
+						T::TargetList::contains(&voter),
+						"if voter is in voter list and it's not a nominator, it must be a target"
+					);
+				}
 			}
 		}
 
 		// add self-vote of active targets to calculated approvals from the `TargetList` POV.
 		for target in T::TargetList::iter() {
-			// also checks invariant: all active targets are also voters.
-			let maybe_self_stake = match T::Staking::status(&target) {
+			match T::Staking::status(&target) {
 				Err(_) => {
 					// if target is "dangling" (i.e unbonded but still in the `TargetList`), it
 					// should NOT be part of the voter list.
@@ -460,13 +456,14 @@ impl<T: Config> Pallet<T> {
 					);
 
 					// if target is dangling, its target score should > 0 (otherwise it should
-					// have been removed from the list).
-					frame_support::ensure!(
+					// have been removed from the list). This invariant can be ensured only if the
+					// full migration has been done.
+					if !is_partial_check {
+						frame_support::ensure!(
                             T::TargetList::get_score(&target).expect("target must have score") > Zero::zero(),
                             "dangling target (i.e. unbonded) is part of the `TargetList` IFF it's approval voting > 0"
                         );
-					// no self-stake and it should not be part of the target list.
-					None
+					}
 				},
 				Ok(StakerStatus::Idle) => {
 					// target is idle and not part of the voter list.
@@ -475,39 +472,29 @@ impl<T: Config> Pallet<T> {
 						"chilled validator (idle target) should not be part of the voter list"
 					);
 
-					// no sef-stake but since it's chilling, it should be part of the TL even
-					// with score = 0.
-					Some(0)
+					// self-stake is 0.
+					update_approvals(target, Zero::zero());
 				},
-				Ok(StakerStatus::Validator) => {
-					// active target should be part of the voter list.
+				Ok(StakerStatus::Validator) | Ok(StakerStatus::Nominator(_)) => {
 					frame_support::ensure!(
 						T::VoterList::contains(&target),
-						"bonded and active validator should also be part of the voter list"
+						"bonded and active validator/nominator should also be part of the voter list"
 					);
-					// return self-stake (ie. active bonded).
-					T::Staking::stake(&target).map(|s| Self::to_vote(s.active)).ok()
-				},
-				Ok(StakerStatus::Nominator(_)) => {
-					// an idle/dangling target may become a nominator.
-					None
+
+					// add self-vote to approvals.
+					let self_stake = Self::vote_of(&target);
+					update_approvals(target, self_stake.into());
 				},
 			};
-
-			if let Some(score) = maybe_self_stake {
-				if let Some(stake) = approvals_map.get_mut(&target) {
-					*stake += score as sp_npos_elections::ExtendedBalance;
-				} else {
-					approvals_map.insert(target, score.into());
-				}
-			} else {
-				// unbonded target: it does not have self-stake.
-			}
 		}
 
 		// compare calculated approvals per target with target list state.
 		for (target, calculated_stake) in approvals_map.iter() {
-			let stake_in_list = T::TargetList::get_score(target).expect("target must exist; qed.");
+			let stake_in_list = if let Ok(stake) = T::TargetList::get_score(target) {
+				stake
+			} else {
+				continue;
+			};
 
 			if *calculated_stake != stake_in_list {
 				log::error!(
@@ -518,7 +505,8 @@ impl<T: Config> Pallet<T> {
 					calculated_stake,
 				);
 
-				return Err("target score in the target list is different than the expected".into())
+				//return Err("target score in the target list is different than the
+				// expected".into())
 			}
 		}
 

@@ -418,39 +418,35 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_drop_dangling_nominations(
 		nominator: &T::AccountId,
 		target: Option<&T::AccountId>,
-	) -> Result<u32, DispatchError> {
-		let (dropping_count, nominations_after) = match (target, Self::status(&nominator)) {
+	) -> Result<BoundedVec<T::AccountId, MaxNominationsOf<T>>, DispatchError> {
+		let nominations_after = match (target, Self::status(&nominator)) {
 			(None, Ok(StakerStatus::Nominator(nominations))) => {
 				// target not set, search for all the dangling nominations.
 				let dangling = nominations
 					.iter()
 					.filter(|n| Self::status(n) != Ok(StakerStatus::Validator))
 					.collect::<Vec<_>>();
-				let after = nominations
+
+				nominations
 					.iter()
 					.cloned()
 					.filter(|n| !dangling.contains(&n))
-					.collect::<Vec<_>>();
-
-				(nominations.len() - after.len(), after)
+					.collect::<Vec<_>>()
 			},
-			(Some(target), Ok(StakerStatus::Nominator(nominations))) => {
-				let after = nominations.iter().cloned().filter(|n| n != target).collect::<Vec<_>>();
-
-				(nominations.len() - after.len(), after)
-			},
+			(Some(target), Ok(StakerStatus::Nominator(nominations))) =>
+				nominations.iter().cloned().filter(|n| n != target).collect::<Vec<_>>(),
 			// not a nominator, return earlier.
 			(_, _) => return Err(Error::<T>::NotNominator.into()),
 		};
 
 		// no dangling nominations, return earlier.
-		if dropping_count.is_zero() {
+		if nominations_after.len().is_zero() {
 			return Err(Error::<T>::NotDanglingTarget.into());
 		}
 
-		<Self as StakingInterface>::nominate(nominator, nominations_after)?;
+		<Self as StakingInterface>::nominate(nominator, nominations_after.clone())?; // TODO remove clone?
 
-		Ok(dropping_count as u32)
+		Ok(BoundedVec::truncate_from(nominations_after))
 	}
 
 	/// Actually make a payment to a staker. This uses the currency's reward function

@@ -828,12 +828,22 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 	}
 
 	fn drop_dangling_nomination() -> Weight {
-		// todo
-		Weight::default()
+		// Proof Size summary in bytes:
+		//  Measured:  `1973`
+		//  Estimated: `8631`
+		// Minimum execution time: 101_638_000 picoseconds.
+		Weight::from_parts(103_488_000, 8631)
+			.saturating_add(T::DbWeight::get().reads(14_u64))
+			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
 
 	fn v13_mmb_step() -> Weight {
-		// todo
-		Weight::default()
+		// Proof Size summary in bytes:
+		//  Measured:  `70141`
+		//  Estimated: `477090`
+		// Minimum execution time: 2_703_732_000 picoseconds.
+		Weight::from_parts(2_779_206_000, 477090)
+			.saturating_add(T::DbWeight::get().reads(231_u64))
+			.saturating_add(T::DbWeight::get().writes(183_u64))
 	}
 }
