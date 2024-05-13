@@ -16,7 +16,7 @@ parity-scale-codec = "3.6.1"
 kvdb = "0.13.0"
 thiserror = { workspace = true }
 schnellru = "0.2.1"
-fatality = "0.0.6"
+fatality = "0.1.0"
 
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
