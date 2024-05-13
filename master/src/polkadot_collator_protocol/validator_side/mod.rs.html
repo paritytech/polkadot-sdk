@@ -2210,6 +2210,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2059" id="2059">2059</a>
 <a href="#2060" id="2060">2060</a>
 <a href="#2061" id="2061">2061</a>
+<a href="#2062" id="2062">2062</a>
+<a href="#2063" id="2063">2063</a>
+<a href="#2064" id="2064">2064</a>
+<a href="#2065" id="2065">2065</a>
+<a href="#2066" id="2066">2066</a>
+<a href="#2067" id="2067">2067</a>
+<a href="#2068" id="2068">2068</a>
+<a href="#2069" id="2069">2069</a>
+<a href="#2070" id="2070">2070</a>
+<a href="#2071" id="2071">2071</a>
+<a href="#2072" id="2072">2072</a>
+<a href="#2073" id="2073">2073</a>
+<a href="#2074" id="2074">2074</a>
+<a href="#2075" id="2075">2075</a>
+<a href="#2076" id="2076">2076</a>
+<a href="#2077" id="2077">2077</a>
+<a href="#2078" id="2078">2078</a>
+<a href="#2079" id="2079">2079</a>
+<a href="#2080" id="2080">2080</a>
+<a href="#2081" id="2081">2081</a>
+<a href="#2082" id="2082">2082</a>
+<a href="#2083" id="2083">2083</a>
+<a href="#2084" id="2084">2084</a>
+<a href="#2085" id="2085">2085</a>
+<a href="#2086" id="2086">2086</a>
+<a href="#2087" id="2087">2087</a>
+<a href="#2088" id="2088">2088</a>
+<a href="#2089" id="2089">2089</a>
+<a href="#2090" id="2090">2090</a>
+<a href="#2091" id="2091">2091</a>
+<a href="#2092" id="2092">2092</a>
+<a href="#2093" id="2093">2093</a>
+<a href="#2094" id="2094">2094</a>
+<a href="#2095" id="2095">2095</a>
+<a href="#2096" id="2096">2096</a>
+<a href="#2097" id="2097">2097</a>
+<a href="#2098" id="2098">2098</a>
+<a href="#2099" id="2099">2099</a>
+<a href="#2100" id="2100">2100</a>
+<a href="#2101" id="2101">2101</a>
+<a href="#2102" id="2102">2102</a>
+<a href="#2103" id="2103">2103</a>
+<a href="#2104" id="2104">2104</a>
+<a href="#2105" id="2105">2105</a>
+<a href="#2106" id="2106">2106</a>
+<a href="#2107" id="2107">2107</a>
+<a href="#2108" id="2108">2108</a>
+<a href="#2109" id="2109">2109</a>
+<a href="#2110" id="2110">2110</a>
+<a href="#2111" id="2111">2111</a>
+<a href="#2112" id="2112">2112</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2271,15 +2322,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{Error, FetchError, <span class="prelude-ty">Result</span>, SecondingError};
 
+<span class="kw">use </span><span class="self">self</span>::collation::BlockedCollationId;
+
 <span class="kw">use super</span>::{modify_reputation, tick_stream, LOG_TARGET};
 
 <span class="kw">mod </span>collation;
 <span class="kw">mod </span>metrics;
 
 <span class="kw">use </span>collation::{
-	fetched_collation_sanity_check, BlockedAdvertisement, CollationEvent, CollationFetchError,
-	CollationFetchRequest, CollationStatus, Collations, FetchedCollation, PendingCollation,
-	PendingCollationFetch, ProspectiveCandidate,
+	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
+	CollationStatus, Collations, FetchedCollation, PendingCollation, PendingCollationFetch,
+	ProspectiveCandidate,
 };
 
 <span class="attr">#[cfg(test)]
@@ -2600,7 +2653,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `active_leaves`, the opposite doesn't hold true.
 	///
 	/// Relay-chain blocks which don't support prospective parachains are
-	/// never included in the fragment trees of active leaves which do. In
+	/// never included in the fragment chains of active leaves which do. In
 	/// particular, this means that if a given relay parent belongs to implicit
 	/// ancestry of some active leaf, then it does support prospective parachains.
 	</span>implicit_view: ImplicitView,
@@ -2633,14 +2686,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Span per relay parent.
 	</span>span_per_relay_parent: HashMap&lt;Hash, PerLeafSpan&gt;,
 
-	<span class="doccomment">/// Advertisements that were accepted as valid by collator protocol but rejected by backing.
-	///
-	/// It's only legal to fetch collations that are either built on top of the root
-	/// of some fragment tree or have a parent node which represents backed candidate.
-	/// Otherwise, a validator will keep such advertisement in the memory and re-trigger
-	/// requests to backing on new backed candidates and activations.
-	</span>blocked_advertisements: HashMap&lt;(ParaId, Hash), Vec&lt;BlockedAdvertisement&gt;&gt;,
-
 	<span class="doccomment">/// When a timer in this `FuturesUnordered` triggers, we should dequeue the next request
 	/// attempt in the corresponding `collations_per_relay_parent`.
 	///
@@ -2652,6 +2697,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Collations that we have successfully requested from peers and waiting
 	/// on validation.
 	</span>fetched_candidates: HashMap&lt;FetchedCollation, CollationEvent&gt;,
+
+	<span class="doccomment">/// Collations which we haven't been able to second due to their parent not being known by
+	/// prospective-parachains. Mapped from the paraid and parent_head_hash to the fetched
+	/// collation data. Only needed for async backing. For elastic scaling, the fetched collation
+	/// must contain the full parent head data.
+	</span>blocked_from_seconding: HashMap&lt;BlockedCollationId, Vec&lt;PendingCollationFetch&gt;&gt;,
 
 	<span class="doccomment">/// Aggregated reputation change
 	</span>reputation: ReputationAggregator,
@@ -3165,6 +3216,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Advertisement is invalid.
 	</span><span class="attr">#[allow(dead_code)]
 	</span>Invalid(InsertAdvertisementError),
+	<span class="doccomment">/// Seconding not allowed by backing subsystem
+	</span>BlockedByBacking,
 }
 
 <span class="kw">impl </span>AdvertisementError {
@@ -3174,7 +3227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			InvalidAssignment =&gt; <span class="prelude-val">Some</span>(COST_WRONG_PARA),
 			ProtocolMisuse =&gt; <span class="prelude-val">Some</span>(COST_PROTOCOL_MISUSE),
 			RelayParentUnknown | UndeclaredCollator | Invalid(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(COST_UNEXPECTED_MESSAGE),
-			UnknownPeer | SecondedLimitReached =&gt; <span class="prelude-val">None</span>,
+			UnknownPeer | SecondedLimitReached | BlockedByBacking =&gt; <span class="prelude-val">None</span>,
 		}
 	}
 }
@@ -3213,56 +3266,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>})
 }
 
-<span class="doccomment">/// Checks whether any of the advertisements are unblocked and attempts to fetch them.
-</span><span class="kw">async fn </span>request_unblocked_collations&lt;Sender, I&gt;(sender: <span class="kw-2">&amp;mut </span>Sender, state: <span class="kw-2">&amp;mut </span>State, blocked: I)
-<span class="kw">where
-	</span>Sender: CollatorProtocolSenderTrait,
-	I: IntoIterator&lt;Item = ((ParaId, Hash), Vec&lt;BlockedAdvertisement&gt;)&gt;,
-{
-	<span class="kw">let </span>_timer = state.metrics.time_request_unblocked_collations();
-
-	<span class="kw">for </span>(key, <span class="kw-2">mut </span>value) <span class="kw">in </span>blocked {
-		<span class="kw">let </span>(para_id, para_head) = key;
-		<span class="kw">let </span>blocked = std::mem::take(<span class="kw-2">&amp;mut </span>value);
-		<span class="kw">for </span>blocked <span class="kw">in </span>blocked {
-			<span class="kw">let </span>is_seconding_allowed = can_second(
-				sender,
-				para_id,
-				blocked.candidate_relay_parent,
-				blocked.candidate_hash,
-				para_head,
-			)
-			.<span class="kw">await</span>;
-
-			<span class="kw">if </span>is_seconding_allowed {
-				<span class="kw">let </span>result = enqueue_collation(
-					sender,
-					state,
-					blocked.candidate_relay_parent,
-					para_id,
-					blocked.peer_id,
-					blocked.collator_id,
-					<span class="prelude-val">Some</span>((blocked.candidate_hash, para_head)),
-				)
-				.<span class="kw">await</span>;
-				<span class="kw">if let </span><span class="prelude-val">Err</span>(fetch_error) = result {
-					<span class="macro">gum::debug!</span>(
-						target: LOG_TARGET,
-						relay_parent = <span class="question-mark">?</span>blocked.candidate_relay_parent,
-						para_id = <span class="question-mark">?</span>para_id,
-						peer_id = <span class="question-mark">?</span>blocked.peer_id,
-						error = %fetch_error,
-						<span class="string">"Failed to request unblocked collation"</span>,
-					);
-				}
-			} <span class="kw">else </span>{
-				<span class="comment">// Keep the advertisement.
-				</span>value.push(blocked);
-			}
+<span class="comment">// Try seconding any collations which were waiting on the validation of their parent
+</span><span class="attr">#[overseer::contextbounds(CollatorProtocol, prefix = <span class="self">self</span>::overseer)]
+</span><span class="kw">async fn </span>second_unblocked_collations&lt;Context&gt;(
+	ctx: <span class="kw-2">&amp;mut </span>Context,
+	state: <span class="kw-2">&amp;mut </span>State,
+	para_id: ParaId,
+	head_data: HeadData,
+	head_data_hash: Hash,
+) {
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(unblocked_collations) = state
+		.blocked_from_seconding
+		.remove(<span class="kw-2">&amp;</span>BlockedCollationId { para_id, parent_head_data_hash: head_data_hash })
+	{
+		<span class="kw">if </span>!unblocked_collations.is_empty() {
+			<span class="macro">gum::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">"Candidate outputting head data with hash {} unblocked {} collations for seconding."</span>,
+				head_data_hash,
+				unblocked_collations.len()
+			);
 		}
 
-		<span class="kw">if </span>!value.is_empty() {
-			state.blocked_advertisements.insert(key, value);
+		<span class="kw">for </span><span class="kw-2">mut </span>unblocked_collation <span class="kw">in </span>unblocked_collations {
+			unblocked_collation.maybe_parent_head_data = <span class="prelude-val">Some</span>(head_data.clone());
+			<span class="kw">let </span>peer_id = unblocked_collation.collation_event.pending_collation.peer_id;
+			<span class="kw">let </span>relay_parent = unblocked_collation.candidate_receipt.descriptor.relay_parent;
+
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = kick_off_seconding(ctx, state, unblocked_collation).<span class="kw">await </span>{
+				<span class="macro">gum::warn!</span>(
+					target: LOG_TARGET,
+					<span class="question-mark">?</span>relay_parent,
+					<span class="question-mark">?</span>para_id,
+					<span class="question-mark">?</span>peer_id,
+					error = %err,
+					<span class="string">"Seconding aborted due to an error"</span>,
+				);
+
+				<span class="kw">if </span>err.is_malicious() {
+					<span class="comment">// Report malicious peer.
+					</span>modify_reputation(
+						<span class="kw-2">&amp;mut </span>state.reputation,
+						ctx.sender(),
+						peer_id,
+						COST_REPORT_BAD,
+					)
+					.<span class="kw">await</span>;
+				}
+			}
 		}
 	}
 }
@@ -3322,10 +3373,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>((candidate_hash, parent_head_data_hash)) = prospective_candidate {
-		<span class="comment">// We need to queue the advertisement if we are not allowed to second it.
+		<span class="comment">// Check if backing subsystem allows to second this candidate.
 		//
-		// This is also only important when async backing is enabled.
-		</span><span class="kw">let </span>queue_advertisement = relay_parent_mode.is_enabled() &amp;&amp;
+		// This is also only important when async backing or elastic scaling is enabled.
+		</span><span class="kw">let </span>seconding_not_allowed = relay_parent_mode.is_enabled() &amp;&amp;
 			!can_second(
 				sender,
 				collator_para_id,
@@ -3335,26 +3386,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.<span class="kw">await</span>;
 
-		<span class="kw">if </span>queue_advertisement {
-			<span class="macro">gum::debug!</span>(
-				target: LOG_TARGET,
-				relay_parent = <span class="question-mark">?</span>relay_parent,
-				para_id = <span class="question-mark">?</span>para_id,
-				<span class="question-mark">?</span>candidate_hash,
-				<span class="string">"Seconding is not allowed by backing, queueing advertisement"</span>,
-			);
-			state
-				.blocked_advertisements
-				.entry((collator_para_id, parent_head_data_hash))
-				.or_default()
-				.push(BlockedAdvertisement {
-					peer_id,
-					collator_id: collator_id.clone(),
-					candidate_relay_parent: relay_parent,
-					candidate_hash,
-				});
-
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		<span class="kw">if </span>seconding_not_allowed {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(AdvertisementError::BlockedByBacking)
 		}
 	}
 
@@ -3570,20 +3603,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			state.span_per_relay_parent.remove(<span class="kw-2">&amp;</span>removed);
 		}
 	}
-	<span class="comment">// Remove blocked advertisements that left the view.
-	</span>state.blocked_advertisements.retain(|<span class="kw">_</span>, ads| {
-		ads.retain(|ad| state.per_relay_parent.contains_key(<span class="kw-2">&amp;</span>ad.candidate_relay_parent));
 
-		!ads.is_empty()
+	<span class="comment">// Remove blocked seconding requests that left the view.
+	</span>state.blocked_from_seconding.retain(|<span class="kw">_</span>, collations| {
+		collations.retain(|collation| {
+			state
+				.per_relay_parent
+				.contains_key(<span class="kw-2">&amp;</span>collation.candidate_receipt.descriptor.relay_parent)
+		});
+
+		!collations.is_empty()
 	});
-	<span class="comment">// Re-trigger previously failed requests again.
-	//
-	// This makes sense for several reasons, one simple example: if a hypothetical depth
-	// for an advertisement initially exceeded the limit and the candidate was included
-	// in a new leaf.
-	</span><span class="kw">let </span>maybe_unblocked = std::mem::take(<span class="kw-2">&amp;mut </span>state.blocked_advertisements);
-	<span class="comment">// Could be optimized to only sanity check new leaves.
-	</span>request_unblocked_collations(sender, state, maybe_unblocked).<span class="kw">await</span>;
 
 	<span class="kw">for </span>(peer_id, peer_data) <span class="kw">in </span>state.peer_data.iter_mut() {
 		peer_data.prune_old_advertisements(
@@ -3720,6 +3750,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">return
 				</span>},
 			};
+			<span class="kw">let </span>output_head_data = receipt.commitments.head_data.clone();
+			<span class="kw">let </span>output_head_data_hash = receipt.descriptor.para_head;
 			<span class="kw">let </span>fetched_collation = FetchedCollation::from(<span class="kw-2">&amp;</span>receipt.to_plain());
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(CollationEvent { collator_id, pending_collation, .. }) =
 				state.fetched_candidates.remove(<span class="kw-2">&amp;</span>fetched_collation)
@@ -3748,6 +3780,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					rp_state.collations.status = CollationStatus::Seconded;
 					rp_state.collations.note_seconded();
 				}
+
+				<span class="comment">// See if we've unblocked other collations for seconding.
+				</span>second_unblocked_collations(
+					ctx,
+					state,
+					fetched_collation.para_id,
+					output_head_data,
+					output_head_data_hash,
+				)
+				.<span class="kw">await</span>;
+
 				<span class="comment">// If async backing is enabled, make an attempt to fetch next collation.
 				</span><span class="kw">let </span>maybe_candidate_hash =
 					prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
@@ -3766,11 +3809,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 			}
 		},
-		Backed { para_id, para_head } =&gt; {
-			<span class="kw">let </span>maybe_unblocked = state.blocked_advertisements.remove_entry(<span class="kw-2">&amp;</span>(para_id, para_head));
-			request_unblocked_collations(ctx.sender(), state, maybe_unblocked).<span class="kw">await</span>;
-		},
 		Invalid(parent, candidate_receipt) =&gt; {
+			<span class="comment">// Remove collations which were blocked from seconding and had this candidate as parent.
+			</span>state.blocked_from_seconding.remove(<span class="kw-2">&amp;</span>BlockedCollationId {
+				para_id: candidate_receipt.descriptor.para_id,
+				parent_head_data_hash: candidate_receipt.descriptor.para_head,
+			});
+
 			<span class="kw">let </span>fetched_collation = FetchedCollation::from(<span class="kw-2">&amp;</span>candidate_receipt);
 			<span class="kw">let </span>candidate_hash = fetched_collation.candidate_hash;
 			<span class="kw">let </span>id = <span class="kw">match </span>state.fetched_candidates.entry(fetched_collation) {
@@ -3880,29 +3925,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 
 				<span class="kw">let </span>CollationEvent {collator_id, pending_collation, .. } = res.collation_event.clone();
-				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = kick_off_seconding(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state, res).<span class="kw">await </span>{
-					<span class="macro">gum::warn!</span>(
-						target: LOG_TARGET,
-						relay_parent = <span class="question-mark">?</span>pending_collation.relay_parent,
-						para_id = <span class="question-mark">?</span>pending_collation.para_id,
-						peer_id = <span class="question-mark">?</span>pending_collation.peer_id,
-						error = %err,
-						<span class="string">"Seconding aborted due to an error"</span>,
-					);
 
-					<span class="kw">if </span>err.is_malicious() {
-						<span class="comment">// Report malicious peer.
-						</span>modify_reputation(<span class="kw-2">&amp;mut </span>state.reputation, ctx.sender(), pending_collation.peer_id, COST_REPORT_BAD).<span class="kw">await</span>;
+				<span class="kw">match </span>kick_off_seconding(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state, res).<span class="kw">await </span>{
+					<span class="prelude-val">Err</span>(err) =&gt; {
+						<span class="macro">gum::warn!</span>(
+							target: LOG_TARGET,
+							relay_parent = <span class="question-mark">?</span>pending_collation.relay_parent,
+							para_id = <span class="question-mark">?</span>pending_collation.para_id,
+							peer_id = <span class="question-mark">?</span>pending_collation.peer_id,
+							error = %err,
+							<span class="string">"Seconding aborted due to an error"</span>,
+						);
+
+						<span class="kw">if </span>err.is_malicious() {
+							<span class="comment">// Report malicious peer.
+							</span>modify_reputation(<span class="kw-2">&amp;mut </span>state.reputation, ctx.sender(), pending_collation.peer_id, COST_REPORT_BAD).<span class="kw">await</span>;
+						}
+						<span class="kw">let </span>maybe_candidate_hash =
+						pending_collation.prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
+						dequeue_next_collation_and_fetch(
+							<span class="kw-2">&amp;mut </span>ctx,
+							<span class="kw-2">&amp;mut </span>state,
+							pending_collation.relay_parent,
+							(collator_id, maybe_candidate_hash),
+						)
+						.<span class="kw">await</span>;
+					},
+					<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; {
+						<span class="comment">// No hard error occurred, but we can try fetching another collation.
+						</span><span class="kw">let </span>maybe_candidate_hash =
+						pending_collation.prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
+						dequeue_next_collation_and_fetch(
+							<span class="kw-2">&amp;mut </span>ctx,
+							<span class="kw-2">&amp;mut </span>state,
+							pending_collation.relay_parent,
+							(collator_id, maybe_candidate_hash),
+						)
+						.<span class="kw">await</span>;
 					}
-					<span class="kw">let </span>maybe_candidate_hash =
-					pending_collation.prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
-					dequeue_next_collation_and_fetch(
-						<span class="kw-2">&amp;mut </span>ctx,
-						<span class="kw-2">&amp;mut </span>state,
-						pending_collation.relay_parent,
-						(collator_id, maybe_candidate_hash),
-					)
-					.<span class="kw">await</span>;
+					<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {}
 				}
 			}
 			res = state.collation_fetch_timeouts.select_next_some() =&gt; {
@@ -4012,12 +4073,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Handle a fetched collation result.
+/// Returns whether or not seconding has begun.
 </span><span class="attr">#[overseer::contextbounds(CollatorProtocol, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>kick_off_seconding&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	state: <span class="kw-2">&amp;mut </span>State,
 	PendingCollationFetch { <span class="kw-2">mut </span>collation_event, candidate_receipt, pov, maybe_parent_head_data }: PendingCollationFetch,
-) -&gt; std::result::Result&lt;(), SecondingError&gt; {
+) -&gt; std::result::Result&lt;bool, SecondingError&gt; {
 	<span class="kw">let </span>pending_collation = collation_event.pending_collation;
 	<span class="kw">let </span>relay_parent = pending_collation.relay_parent;
 
@@ -4030,7 +4092,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				relay_parent = <span class="question-mark">?</span>relay_parent,
 				<span class="string">"Fetched collation for a parent out of view"</span>,
 			);
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
 		},
 	};
 	<span class="kw">let </span>collations = <span class="kw-2">&amp;mut </span>per_relay_parent.collations;
@@ -4040,7 +4102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		collation_event.pending_collation.commitments_hash =
 			<span class="prelude-val">Some</span>(candidate_receipt.commitments_hash);
 
-		<span class="kw">let </span>(maybe_pvd, maybe_parent_head_and_hash) = <span class="kw">match </span>(
+		<span class="kw">let </span>(maybe_pvd, maybe_parent_head, maybe_parent_head_hash) = <span class="kw">match </span>(
 			collation_event.collator_protocol_version,
 			collation_event.pending_collation.prospective_candidate,
 		) {
@@ -4056,7 +4118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)
 				.<span class="kw">await</span><span class="question-mark">?</span>;
 
-				(pvd, maybe_parent_head_data.map(|head_data| (head_data, parent_head_data_hash)))
+				(pvd, maybe_parent_head_data, <span class="prelude-val">Some</span>(parent_head_data_hash))
 			},
 			<span class="comment">// Support V2 collators without async backing enabled.
 			</span>(CollationVersion::V2, <span class="prelude-val">Some</span>(<span class="kw">_</span>)) | (CollationVersion::V1, <span class="kw">_</span>) =&gt; {
@@ -4066,20 +4128,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					candidate_receipt.descriptor().para_id,
 				)
 				.<span class="kw">await</span><span class="question-mark">?</span>;
-				(pvd, <span class="prelude-val">None</span>)
+				(
+					<span class="prelude-val">Some</span>(pvd.ok_or(SecondingError::PersistedValidationDataNotFound)<span class="question-mark">?</span>),
+					maybe_parent_head_data,
+					<span class="prelude-val">None</span>,
+				)
 			},
 			<span class="kw">_ </span>=&gt; {
 				<span class="comment">// `handle_advertisement` checks for protocol mismatch.
-				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
+				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
 			},
 		};
-		<span class="kw">let </span>pvd = maybe_pvd.ok_or(SecondingError::PersistedValidationDataNotFound)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>pvd = <span class="kw">match </span>(maybe_pvd, maybe_parent_head.clone(), maybe_parent_head_hash) {
+			(<span class="prelude-val">Some</span>(pvd), <span class="kw">_</span>, <span class="kw">_</span>) =&gt; pvd,
+			(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(parent_head_data_hash)) =&gt; {
+				<span class="comment">// In this case, the collator did not supply the head data and neither could
+				// prospective-parachains. We add this to the blocked_from_seconding collection
+				// until we second its parent.
+				</span><span class="kw">let </span>blocked_collation = PendingCollationFetch {
+					collation_event,
+					candidate_receipt,
+					pov,
+					maybe_parent_head_data: <span class="prelude-val">None</span>,
+				};
+				<span class="macro">gum::debug!</span>(
+					target: LOG_TARGET,
+					candidate_hash = <span class="question-mark">?</span>blocked_collation.candidate_receipt.hash(),
+					relay_parent = <span class="question-mark">?</span>blocked_collation.candidate_receipt.descriptor.relay_parent,
+					<span class="string">"Collation having parent head data hash {} is blocked from seconding. Waiting on its parent to be validated."</span>,
+					parent_head_data_hash
+				);
+				state
+					.blocked_from_seconding
+					.entry(BlockedCollationId {
+						para_id: blocked_collation.candidate_receipt.descriptor.para_id,
+						parent_head_data_hash,
+					})
+					.or_insert_with(Vec::new)
+					.push(blocked_collation);
+
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+			},
+			(<span class="prelude-val">None</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+				<span class="comment">// Even though we already have the parent head data, the pvd fetching failed. We
+				// don't need to wait for seconding another collation outputting this head data.
+				</span><span class="kw">return </span><span class="prelude-val">Err</span>(SecondingError::PersistedValidationDataNotFound)
+			},
+		};
 
 		fetched_collation_sanity_check(
 			<span class="kw-2">&amp;</span>collation_event.pending_collation,
 			<span class="kw-2">&amp;</span>candidate_receipt,
 			<span class="kw-2">&amp;</span>pvd,
-			maybe_parent_head_and_hash,
+			maybe_parent_head.and_then(|head| maybe_parent_head_hash.map(|hash| (head, hash))),
 		)<span class="question-mark">?</span>;
 
 		ctx.send_message(CandidateBackingMessage::Second(
@@ -4094,7 +4196,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>collations.status = CollationStatus::WaitingOnValidation;
 
 		entry.insert(collation_event);
-		<span class="prelude-val">Ok</span>(())
+		<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 	} <span class="kw">else </span>{
 		<span class="prelude-val">Err</span>(SecondingError::Duplicate)
 	}

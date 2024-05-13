@@ -161,9 +161,11 @@ candidates of the same para that follow it in the input vector. In other words, 
 candidates are supplied in dependency order, we must ensure that this dependency order is
 preserved.</p>
 </div><section id="variant.CanSecond" class="variant"><a href="#variant.CanSecond" class="anchor">§</a><h3 class="code-header">CanSecond(<a class="struct" href="struct.CanSecondRequest.html" title="struct malus::interceptor::CanSecondRequest">CanSecondRequest</a>, Sender&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>&gt;)</h3></section><div class="docblock"><p>Request the subsystem to check whether it’s allowed to second given candidate.
-The rule is to only fetch collations that are either built on top of the root
-of some fragment tree or have a parent node which represents backed candidate.</p>
-<p>Always responses with <code>false</code> if async backing is disabled for candidate’s relay
+The rule is to only fetch collations that can either be directly chained to any
+FragmentChain in the view or there is at least one FragmentChain where this candidate is a
+potentially unconnected candidate (we predict that it may become connected to a
+FragmentChain in the future).</p>
+<p>Always responds with <code>false</code> if async backing is disabled for candidate’s relay
 parent.</p>
 </div><section id="variant.Second" class="variant"><a href="#variant.Second" class="anchor">§</a><h3 class="code-header">Second(H256, <a class="struct" href="../../polkadot_primitives/v7/struct.CandidateReceipt.html" title="struct polkadot_primitives::v7::CandidateReceipt">CandidateReceipt</a>, <a class="struct" href="../../polkadot_primitives/v7/struct.PersistedValidationData.html" title="struct polkadot_primitives::v7::PersistedValidationData">PersistedValidationData</a>, <a class="struct" href="../../polkadot_node_primitives/struct.PoV.html" title="struct polkadot_node_primitives::PoV">PoV</a>)</h3></section><div class="docblock"><p>Note that the Candidate Backing subsystem should second the given candidate in the context
 of the given relay-parent (ref. by hash). This candidate must be validated.</p>

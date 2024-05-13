@@ -201,6 +201,71 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -217,11 +282,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>polkadot_node_subsystem_util::metrics::{<span class="self">self</span>, prometheus};
+</span><span class="kw">use </span>polkadot_node_subsystem::prometheus::Opts;
+<span class="kw">use </span>polkadot_node_subsystem_util::metrics::{
+	<span class="self">self</span>,
+	prometheus::{<span class="self">self</span>, GaugeVec, U64},
+};
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>MetricsInner {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) prune_view_candidate_storage: prometheus::Histogram,
+	prune_view_candidate_storage: prometheus::Histogram,
+	introduce_seconded_candidate: prometheus::Histogram,
+	hypothetical_membership: prometheus::Histogram,
+	candidate_storage_count: prometheus::GaugeVec&lt;U64&gt;,
 }
 
 <span class="doccomment">/// Candidate backing metrics.
@@ -237,6 +309,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.as_ref()
 			.map(|metrics| metrics.prune_view_candidate_storage.start_timer())
 	}
+
+	<span class="doccomment">/// Provide a timer for handling `IntroduceSecondedCandidate` which observes on drop.
+	</span><span class="kw">pub fn </span>time_introduce_seconded_candidate(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;metrics::prometheus::prometheus::HistogramTimer&gt; {
+		<span class="self">self</span>.<span class="number">0
+			</span>.as_ref()
+			.map(|metrics| metrics.introduce_seconded_candidate.start_timer())
+	}
+
+	<span class="doccomment">/// Provide a timer for handling `GetHypotheticalMembership` which observes on drop.
+	</span><span class="kw">pub fn </span>time_hypothetical_membership_request(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;metrics::prometheus::prometheus::HistogramTimer&gt; {
+		<span class="self">self</span>.<span class="number">0</span>.as_ref().map(|metrics| metrics.hypothetical_membership.start_timer())
+	}
+
+	<span class="doccomment">/// Record the size of the candidate storage. First param is the connected candidates count,
+	/// second param is the unconnected candidates count.
+	</span><span class="kw">pub fn </span>record_candidate_storage_size(<span class="kw-2">&amp;</span><span class="self">self</span>, connected_count: u64, unconnected_count: u64) {
+		<span class="self">self</span>.<span class="number">0</span>.as_ref().map(|metrics| {
+			metrics
+				.candidate_storage_count
+				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"connected"</span>])
+				.set(connected_count)
+		});
+
+		<span class="self">self</span>.<span class="number">0</span>.as_ref().map(|metrics| {
+			metrics
+				.candidate_storage_count
+				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"unconnected"</span>])
+				.set(unconnected_count)
+		});
+	}
 }
 
 <span class="kw">impl </span>metrics::Metrics <span class="kw">for </span>Metrics {
@@ -247,6 +353,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">"polkadot_parachain_prospective_parachains_prune_view_candidate_storage"</span>,
 					<span class="string">"Time spent within `prospective_parachains::prune_view_candidate_storage`"</span>,
 				))<span class="question-mark">?</span>,
+				registry,
+			)<span class="question-mark">?</span>,
+			introduce_seconded_candidate: prometheus::register(
+				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
+					<span class="string">"polkadot_parachain_prospective_parachains_introduce_seconded_candidate"</span>,
+					<span class="string">"Time spent within `prospective_parachains::handle_introduce_seconded_candidate`"</span>,
+				))<span class="question-mark">?</span>,
+				registry,
+			)<span class="question-mark">?</span>,
+			hypothetical_membership: prometheus::register(
+				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
+					<span class="string">"polkadot_parachain_prospective_parachains_hypothetical_membership"</span>,
+					<span class="string">"Time spent responding to `GetHypotheticalMembership`"</span>,
+				))<span class="question-mark">?</span>,
+				registry,
+			)<span class="question-mark">?</span>,
+			candidate_storage_count: prometheus::register(
+				GaugeVec::new(
+					Opts::new(
+						<span class="string">"polkadot_parachain_prospective_parachains_candidate_storage_count"</span>,
+						<span class="string">"Number of candidates present in the candidate storage, split by connected and unconnected"
+					</span>),
+					<span class="kw-2">&amp;</span>[<span class="string">"type"</span>],
+				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 		};

@@ -2342,96 +2342,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2191" id="2191">2191</a>
 <a href="#2192" id="2192">2192</a>
 <a href="#2193" id="2193">2193</a>
-<a href="#2194" id="2194">2194</a>
-<a href="#2195" id="2195">2195</a>
-<a href="#2196" id="2196">2196</a>
-<a href="#2197" id="2197">2197</a>
-<a href="#2198" id="2198">2198</a>
-<a href="#2199" id="2199">2199</a>
-<a href="#2200" id="2200">2200</a>
-<a href="#2201" id="2201">2201</a>
-<a href="#2202" id="2202">2202</a>
-<a href="#2203" id="2203">2203</a>
-<a href="#2204" id="2204">2204</a>
-<a href="#2205" id="2205">2205</a>
-<a href="#2206" id="2206">2206</a>
-<a href="#2207" id="2207">2207</a>
-<a href="#2208" id="2208">2208</a>
-<a href="#2209" id="2209">2209</a>
-<a href="#2210" id="2210">2210</a>
-<a href="#2211" id="2211">2211</a>
-<a href="#2212" id="2212">2212</a>
-<a href="#2213" id="2213">2213</a>
-<a href="#2214" id="2214">2214</a>
-<a href="#2215" id="2215">2215</a>
-<a href="#2216" id="2216">2216</a>
-<a href="#2217" id="2217">2217</a>
-<a href="#2218" id="2218">2218</a>
-<a href="#2219" id="2219">2219</a>
-<a href="#2220" id="2220">2220</a>
-<a href="#2221" id="2221">2221</a>
-<a href="#2222" id="2222">2222</a>
-<a href="#2223" id="2223">2223</a>
-<a href="#2224" id="2224">2224</a>
-<a href="#2225" id="2225">2225</a>
-<a href="#2226" id="2226">2226</a>
-<a href="#2227" id="2227">2227</a>
-<a href="#2228" id="2228">2228</a>
-<a href="#2229" id="2229">2229</a>
-<a href="#2230" id="2230">2230</a>
-<a href="#2231" id="2231">2231</a>
-<a href="#2232" id="2232">2232</a>
-<a href="#2233" id="2233">2233</a>
-<a href="#2234" id="2234">2234</a>
-<a href="#2235" id="2235">2235</a>
-<a href="#2236" id="2236">2236</a>
-<a href="#2237" id="2237">2237</a>
-<a href="#2238" id="2238">2238</a>
-<a href="#2239" id="2239">2239</a>
-<a href="#2240" id="2240">2240</a>
-<a href="#2241" id="2241">2241</a>
-<a href="#2242" id="2242">2242</a>
-<a href="#2243" id="2243">2243</a>
-<a href="#2244" id="2244">2244</a>
-<a href="#2245" id="2245">2245</a>
-<a href="#2246" id="2246">2246</a>
-<a href="#2247" id="2247">2247</a>
-<a href="#2248" id="2248">2248</a>
-<a href="#2249" id="2249">2249</a>
-<a href="#2250" id="2250">2250</a>
-<a href="#2251" id="2251">2251</a>
-<a href="#2252" id="2252">2252</a>
-<a href="#2253" id="2253">2253</a>
-<a href="#2254" id="2254">2254</a>
-<a href="#2255" id="2255">2255</a>
-<a href="#2256" id="2256">2256</a>
-<a href="#2257" id="2257">2257</a>
-<a href="#2258" id="2258">2258</a>
-<a href="#2259" id="2259">2259</a>
-<a href="#2260" id="2260">2260</a>
-<a href="#2261" id="2261">2261</a>
-<a href="#2262" id="2262">2262</a>
-<a href="#2263" id="2263">2263</a>
-<a href="#2264" id="2264">2264</a>
-<a href="#2265" id="2265">2265</a>
-<a href="#2266" id="2266">2266</a>
-<a href="#2267" id="2267">2267</a>
-<a href="#2268" id="2268">2268</a>
-<a href="#2269" id="2269">2269</a>
-<a href="#2270" id="2270">2270</a>
-<a href="#2271" id="2271">2271</a>
-<a href="#2272" id="2272">2272</a>
-<a href="#2273" id="2273">2273</a>
-<a href="#2274" id="2274">2274</a>
-<a href="#2275" id="2275">2275</a>
-<a href="#2276" id="2276">2276</a>
-<a href="#2277" id="2277">2277</a>
-<a href="#2278" id="2278">2278</a>
-<a href="#2279" id="2279">2279</a>
-<a href="#2280" id="2280">2280</a>
-<a href="#2281" id="2281">2281</a>
-<a href="#2282" id="2282">2282</a>
-<a href="#2283" id="2283">2283</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2464,7 +2374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! assigned group of validators may be backed on-chain and proceed to the availability
 //! stage.
 //!
-//! Depth is a concept relating to asynchronous backing, by which validators
+//! Depth is a concept relating to asynchronous backing, by which
 //! short sub-chains of candidates are backed and extended off-chain, and then placed
 //! asynchronously into blocks of the relay chain as those are authored and as the
 //! relay-chain state becomes ready for them. Asynchronous backing allows parachains to
@@ -2500,7 +2410,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![deny(unused_crate_dependencies)]
 
 </span><span class="kw">use </span>std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{HashMap, HashSet},
 	sync::Arc,
 };
 
@@ -2522,7 +2432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	messages::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
-		HypotheticalCandidate, HypotheticalFrontierRequest, IntroduceCandidateRequest,
+		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
 		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, RuntimeApiMessage,
 		RuntimeApiRequest, StatementDistributionMessage, StoreAvailableDataError,
 	},
@@ -2676,20 +2586,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">struct </span>PerCandidateState {
 	persisted_validation_data: PersistedValidationData,
 	seconded_locally: bool,
-	para_id: ParaId,
 	relay_parent: Hash,
 }
 
-<span class="kw">struct </span>ActiveLeafState {
-	prospective_parachains_mode: ProspectiveParachainsMode,
-	<span class="doccomment">/// The candidates seconded at various depths under this active
-	/// leaf with respect to parachain id. A candidate can only be
-	/// seconded when its hypothetical frontier under every active leaf
-	/// has an empty entry in this map.
-	///
-	/// When prospective parachains are disabled, the only depth
-	/// which is allowed is 0.
-	</span>seconded_at_depth: HashMap&lt;ParaId, BTreeMap&lt;usize, CandidateHash&gt;&gt;,
+<span class="kw">enum </span>ActiveLeafState {
+	<span class="comment">// If prospective-parachains is disabled, one validator may only back one candidate per
+	// paraid.
+	</span>ProspectiveParachainsDisabled { seconded: HashSet&lt;ParaId&gt; },
+	ProspectiveParachainsEnabled { max_candidate_depth: usize, allowed_ancestry_len: usize },
+}
+
+<span class="kw">impl </span>ActiveLeafState {
+	<span class="kw">fn </span>new(mode: ProspectiveParachainsMode) -&gt; <span class="self">Self </span>{
+		<span class="kw">match </span>mode {
+			ProspectiveParachainsMode::Disabled =&gt;
+				<span class="self">Self</span>::ProspectiveParachainsDisabled { seconded: HashSet::new() },
+			ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len } =&gt;
+				<span class="self">Self</span>::ProspectiveParachainsEnabled { max_candidate_depth, allowed_ancestry_len },
+		}
+	}
+
+	<span class="kw">fn </span>add_seconded_candidate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, para_id: ParaId) {
+		<span class="kw">if let </span><span class="self">Self</span>::ProspectiveParachainsDisabled { seconded } = <span class="self">self </span>{
+			seconded.insert(para_id);
+		}
+	}
+}
+
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>ActiveLeafState&gt; <span class="kw">for </span>ProspectiveParachainsMode {
+	<span class="kw">fn </span>from(state: <span class="kw-2">&amp;</span>ActiveLeafState) -&gt; <span class="self">Self </span>{
+		<span class="kw">match </span><span class="kw-2">*</span>state {
+			ActiveLeafState::ProspectiveParachainsDisabled { .. } =&gt;
+				ProspectiveParachainsMode::Disabled,
+			ActiveLeafState::ProspectiveParachainsEnabled {
+				max_candidate_depth,
+				allowed_ancestry_len,
+			} =&gt; ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len },
+		}
+	}
 }
 
 <span class="doccomment">/// The state of the subsystem.
@@ -2711,11 +2645,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///      parachains.
 	///
 	/// Relay-chain blocks which don't support prospective parachains are
-	/// never included in the fragment trees of active leaves which do.
+	/// never included in the fragment chains of active leaves which do.
 	///
 	/// While it would be technically possible to support such leaves in
-	/// fragment trees, it only benefits the transition period when asynchronous
-	/// backing is being enabled and complicates code complexity.
+	/// fragment chains, it only benefits the transition period when asynchronous
+	/// backing is being enabled and complicates code.
 	</span>per_relay_parent: HashMap&lt;Hash, PerRelayParentState&gt;,
 	<span class="doccomment">/// State tracked for all candidates relevant to the implicit view.
 	///
@@ -3298,17 +3232,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			}
 
-			state.per_leaf.insert(
-				leaf.hash,
-				ActiveLeafState {
-					prospective_parachains_mode: ProspectiveParachainsMode::Disabled,
-					<span class="comment">// This is empty because the only allowed relay-parent and depth
-					// when prospective parachains are disabled is the leaf hash and 0,
-					// respectively. We've just learned about the leaf hash, so we cannot
-					// have any candidates seconded with it as a relay-parent yet.
-					</span>seconded_at_depth: HashMap::new(),
-				},
-			);
+			state
+				.per_leaf
+				.insert(leaf.hash, ActiveLeafState::new(ProspectiveParachainsMode::Disabled));
 
 			(<span class="macro">vec!</span>[leaf.hash], ProspectiveParachainsMode::Disabled)
 		},
@@ -3316,63 +3242,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>fresh_relay_parents =
 				state.implicit_view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf.hash, <span class="prelude-val">None</span>);
 
-			<span class="comment">// At this point, all candidates outside of the implicit view
-			// have been cleaned up. For all which remain, which we've seconded,
-			// we ask the prospective parachains subsystem where they land in the fragment
-			// tree for the given active leaf. This comprises our `seconded_at_depth`.
+			<span class="kw">let </span>active_leaf_state = ActiveLeafState::new(prospective_parachains_mode);
 
-			</span><span class="kw">let </span>remaining_seconded = state
-				.per_candidate
-				.iter()
-				.filter(|(<span class="kw">_</span>, cd)| cd.seconded_locally)
-				.map(|(c_hash, cd)| (<span class="kw-2">*</span>c_hash, cd.para_id));
-
-			<span class="comment">// one-to-one correspondence to remaining_seconded
-			</span><span class="kw">let </span><span class="kw-2">mut </span>membership_answers = FuturesOrdered::new();
-
-			<span class="kw">for </span>(candidate_hash, para_id) <span class="kw">in </span>remaining_seconded {
-				<span class="kw">let </span>(tx, rx) = oneshot::channel();
-				membership_answers
-					.push_back(rx.map_ok(<span class="kw">move </span>|membership| (para_id, candidate_hash, membership)));
-
-				ctx.send_message(ProspectiveParachainsMessage::GetTreeMembership(
-					para_id,
-					candidate_hash,
-					tx,
-				))
-				.<span class="kw">await</span>;
-			}
-
-			<span class="kw">let </span><span class="kw-2">mut </span>seconded_at_depth = HashMap::new();
-			<span class="kw">while let </span><span class="prelude-val">Some</span>(response) = membership_answers.next().<span class="kw">await </span>{
-				<span class="kw">match </span>response {
-					<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; {
-						<span class="macro">gum::warn!</span>(
-							target: LOG_TARGET,
-							<span class="string">"Prospective parachains subsystem unreachable for membership request"</span>,
-						);
-					},
-					<span class="prelude-val">Ok</span>((para_id, candidate_hash, membership)) =&gt; {
-						<span class="comment">// This request gives membership in all fragment trees. We have some
-						// wasted data here, and it can be optimized if it proves
-						// relevant to performance.
-						</span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, depths)) =
-							membership.into_iter().find(|(leaf_hash, <span class="kw">_</span>)| leaf_hash == <span class="kw-2">&amp;</span>leaf.hash)
-						{
-							<span class="kw">let </span>para_entry: <span class="kw-2">&amp;mut </span>BTreeMap&lt;usize, CandidateHash&gt; =
-								seconded_at_depth.entry(para_id).or_default();
-							<span class="kw">for </span>depth <span class="kw">in </span>depths {
-								para_entry.insert(depth, candidate_hash);
-							}
-						}
-					},
-				}
-			}
-
-			state.per_leaf.insert(
-				leaf.hash,
-				ActiveLeafState { prospective_parachains_mode, seconded_at_depth },
-			);
+			state.per_leaf.insert(leaf.hash, active_leaf_state);
 
 			<span class="kw">let </span>fresh_relay_parent = <span class="kw">match </span>fresh_relay_parents {
 				<span class="prelude-val">Some</span>(f) =&gt; f.to_vec(),
@@ -3415,7 +3287,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// block itself did.
 				</span>leaf_mode
 			},
-			<span class="prelude-val">Some</span>(l) =&gt; l.prospective_parachains_mode,
+			<span class="prelude-val">Some</span>(l) =&gt; l.into(),
 		};
 
 		<span class="comment">// construct a `PerRelayParent` from the runtime API
@@ -3681,20 +3553,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">enum </span>SecondingAllowed {
 	No,
-	Yes(Vec&lt;(Hash, Vec&lt;usize&gt;)&gt;),
+	<span class="comment">// On which leaves is seconding allowed.
+	</span>Yes(Vec&lt;Hash&gt;),
 }
 
-<span class="doccomment">/// Checks whether a candidate can be seconded based on its hypothetical frontiers in the fragment
-/// tree and what we've already seconded in all active leaves.
+<span class="doccomment">/// Checks whether a candidate can be seconded based on its hypothetical membership in the fragment
+/// chain.
 </span><span class="attr">#[overseer::contextbounds(CandidateBacking, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>seconding_sanity_check&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	active_leaves: <span class="kw-2">&amp;</span>HashMap&lt;Hash, ActiveLeafState&gt;,
 	implicit_view: <span class="kw-2">&amp;</span>ImplicitView,
 	hypothetical_candidate: HypotheticalCandidate,
-	backed_in_path_only: bool,
 ) -&gt; SecondingAllowed {
-	<span class="kw">let </span><span class="kw-2">mut </span>membership = Vec::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>leaves_for_seconding = Vec::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>responses = FuturesOrdered::&lt;BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, oneshot::Canceled&gt;&gt;&gt;::new();
 
 	<span class="kw">let </span>candidate_para = hypothetical_candidate.candidate_para();
@@ -3702,7 +3574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>candidate_hash = hypothetical_candidate.candidate_hash();
 
 	<span class="kw">for </span>(head, leaf_state) <span class="kw">in </span>active_leaves {
-		<span class="kw">if </span>leaf_state.prospective_parachains_mode.is_enabled() {
+		<span class="kw">if </span>ProspectiveParachainsMode::from(leaf_state).is_enabled() {
 			<span class="comment">// Check that the candidate relay parent is allowed for para, skip the
 			// leaf otherwise.
 			</span><span class="kw">let </span>allowed_parents_for_para =
@@ -3712,40 +3584,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="kw">let </span>(tx, rx) = oneshot::channel();
-			ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalFrontier(
-				HypotheticalFrontierRequest {
+			ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
+				HypotheticalMembershipRequest {
 					candidates: <span class="macro">vec!</span>[hypothetical_candidate.clone()],
-					fragment_tree_relay_parent: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>head),
-					backed_in_path_only,
+					fragment_chain_relay_parent: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>head),
 				},
 				tx,
 			))
 			.<span class="kw">await</span>;
-			<span class="kw">let </span>response = rx.map_ok(<span class="kw">move </span>|frontiers| {
-				<span class="kw">let </span>depths: Vec&lt;usize&gt; = frontiers
+			<span class="kw">let </span>response = rx.map_ok(<span class="kw">move </span>|candidate_memberships| {
+				<span class="kw">let </span>is_member_or_potential = candidate_memberships
 					.into_iter()
-					.flat_map(|(candidate, memberships)| {
-						<span class="macro">debug_assert_eq!</span>(candidate.candidate_hash(), candidate_hash);
-						memberships.into_iter().flat_map(|(relay_parent, depths)| {
-							<span class="macro">debug_assert_eq!</span>(relay_parent, <span class="kw-2">*</span>head);
-							depths
-						})
+					.find_map(|(candidate, leaves)| {
+						(candidate.candidate_hash() == candidate_hash).then_some(leaves)
 					})
-					.collect();
-				(depths, head, leaf_state)
+					.and_then(|leaves| leaves.into_iter().find(|leaf| leaf == head))
+					.is_some();
+
+				(is_member_or_potential, head)
 			});
 			responses.push_back(response.boxed());
 		} <span class="kw">else </span>{
 			<span class="kw">if </span><span class="kw-2">*</span>head == candidate_relay_parent {
-				<span class="kw">if </span>leaf_state
-					.seconded_at_depth
-					.get(<span class="kw-2">&amp;</span>candidate_para)
-					.map_or(<span class="bool-val">false</span>, |occupied| occupied.contains_key(<span class="kw-2">&amp;</span><span class="number">0</span>))
-				{
-					<span class="comment">// The leaf is already occupied.
-					</span><span class="kw">return </span>SecondingAllowed::No
+				<span class="kw">if let </span>ActiveLeafState::ProspectiveParachainsDisabled { seconded } = leaf_state {
+					<span class="kw">if </span>seconded.contains(<span class="kw-2">&amp;</span>candidate_para) {
+						<span class="comment">// The leaf is already occupied. For non-prospective parachains, we only
+						// second one candidate.
+						</span><span class="kw">return </span>SecondingAllowed::No
+					}
 				}
-				responses.push_back(futures::future::ok((<span class="macro">vec!</span>[<span class="number">0</span>], head, leaf_state)).boxed());
+				responses.push_back(futures::future::ok((<span class="bool-val">true</span>, head)).boxed());
 			}
 		}
 	}
@@ -3759,38 +3627,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; {
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">"Failed to reach prospective parachains subsystem for hypothetical frontiers"</span>,
+					<span class="string">"Failed to reach prospective parachains subsystem for hypothetical membership"</span>,
 				);
 
 				<span class="kw">return </span>SecondingAllowed::No
 			},
-			<span class="prelude-val">Ok</span>((depths, head, leaf_state)) =&gt; {
-				<span class="kw">for </span>depth <span class="kw">in </span><span class="kw-2">&amp;</span>depths {
-					<span class="kw">if </span>leaf_state
-						.seconded_at_depth
-						.get(<span class="kw-2">&amp;</span>candidate_para)
-						.map_or(<span class="bool-val">false</span>, |occupied| occupied.contains_key(<span class="kw-2">&amp;</span>depth))
-					{
-						<span class="macro">gum::debug!</span>(
-							target: LOG_TARGET,
-							<span class="question-mark">?</span>candidate_hash,
-							depth,
-							leaf_hash = <span class="question-mark">?</span>head,
-							<span class="string">"Refusing to second candidate at depth - already occupied."
-						</span>);
-
-						<span class="kw">return </span>SecondingAllowed::No
-					}
-				}
-
-				membership.push((<span class="kw-2">*</span>head, depths));
+			<span class="prelude-val">Ok</span>((is_member_or_potential, head)) =&gt; <span class="kw">match </span>is_member_or_potential {
+				<span class="bool-val">false </span>=&gt; {
+					<span class="macro">gum::debug!</span>(
+						target: LOG_TARGET,
+						<span class="question-mark">?</span>candidate_hash,
+						leaf_hash = <span class="question-mark">?</span>head,
+						<span class="string">"Refusing to second candidate at leaf. Is not a potential member."</span>,
+					);
+				},
+				<span class="bool-val">true </span>=&gt; {
+					leaves_for_seconding.push(<span class="kw-2">*</span>head);
+				},
 			},
 		}
 	}
 
-	<span class="comment">// At this point we've checked the depths of the candidate against all active
-	// leaves.
-	</span>SecondingAllowed::Yes(membership)
+	<span class="kw">if </span>leaves_for_seconding.is_empty() {
+		SecondingAllowed::No
+	} <span class="kw">else </span>{
+		SecondingAllowed::Yes(leaves_for_seconding)
+	}
 }
 
 <span class="doccomment">/// Performs seconding sanity check for an advertisement.
@@ -3819,16 +3681,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>state.per_leaf,
 			<span class="kw-2">&amp;</span>state.implicit_view,
 			hypothetical_candidate,
-			<span class="bool-val">true</span>,
 		)
 		.<span class="kw">await</span>;
 
 		<span class="kw">match </span>result {
 			SecondingAllowed::No =&gt; <span class="bool-val">false</span>,
-			SecondingAllowed::Yes(membership) =&gt; {
-				<span class="comment">// Candidate should be recognized by at least some fragment tree.
-				</span>membership.iter().any(|(<span class="kw">_</span>, m)| !m.is_empty())
-			},
+			SecondingAllowed::Yes(leaves) =&gt; !leaves.is_empty(),
 		}
 	} <span class="kw">else </span>{
 		<span class="comment">// Relay parent is unknown or async backing is disabled.
@@ -3869,20 +3727,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							commitments,
 						};
 
-						<span class="kw">let </span>parent_head_data_hash = persisted_validation_data.parent_head.hash();
-						<span class="comment">// Note that `GetHypotheticalFrontier` doesn't account for recursion,
-						// i.e. candidates can appear at multiple depths in the tree and in fact
-						// at all depths, and we don't know what depths a candidate will ultimately
-						// occupy because that's dependent on other candidates we haven't yet
-						// received.
-						//
-						// The only way to effectively rule this out is to have candidate receipts
-						// directly commit to the parachain block number or some other incrementing
-						// counter. That requires a major primitives format upgrade, so for now
-						// we just rule out trivial cycles.
-						</span><span class="kw">if </span>parent_head_data_hash == receipt.commitments.head_data.hash() {
-							<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-						}
 						<span class="kw">let </span>hypothetical_candidate = HypotheticalCandidate::Complete {
 							candidate_hash,
 							receipt: Arc::new(receipt.clone()),
@@ -3891,12 +3735,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// sanity check that we're allowed to second the candidate
 						// and that it doesn't conflict with other candidates we've
 						// seconded.
-						</span><span class="kw">let </span>fragment_tree_membership = <span class="kw">match </span>seconding_sanity_check(
+						</span><span class="kw">let </span>hypothetical_membership = <span class="kw">match </span>seconding_sanity_check(
 							ctx,
 							<span class="kw-2">&amp;</span>state.per_leaf,
 							<span class="kw-2">&amp;</span>state.implicit_view,
 							hypothetical_candidate,
-							<span class="bool-val">false</span>,
 						)
 						.<span class="kw">await
 						</span>{
@@ -3951,8 +3794,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="prelude-val">Some</span>(p) =&gt; p.seconded_locally = <span class="bool-val">true</span>,
 							}
 
-							<span class="comment">// update seconded depths in active leaves.
-							</span><span class="kw">for </span>(leaf, depths) <span class="kw">in </span>fragment_tree_membership {
+							<span class="comment">// record seconded candidates for non-prospective-parachains mode.
+							</span><span class="kw">for </span>leaf <span class="kw">in </span>hypothetical_membership {
 								<span class="kw">let </span>leaf_data = <span class="kw">match </span>state.per_leaf.get_mut(<span class="kw-2">&amp;</span>leaf) {
 									<span class="prelude-val">None </span>=&gt; {
 										<span class="macro">gum::warn!</span>(
@@ -3966,14 +3809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="prelude-val">Some</span>(d) =&gt; d,
 								};
 
-								<span class="kw">let </span>seconded_at_depth = leaf_data
-									.seconded_at_depth
-									.entry(candidate.descriptor().para_id)
-									.or_default();
-
-								<span class="kw">for </span>depth <span class="kw">in </span>depths {
-									seconded_at_depth.insert(depth, candidate_hash);
-								}
+								leaf_data.add_seconded_candidate(candidate.descriptor().para_id);
 							}
 
 							rp_state.issued_statements.insert(candidate_hash);
@@ -4084,7 +3920,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// and any of the following are true:
 /// 1. There is no `PersistedValidationData` attached.
 /// 2. Prospective parachains are enabled for the relay parent and the prospective parachains
-///    subsystem returned an empty `FragmentTreeMembership` i.e. did not recognize the candidate as
+///    subsystem returned an empty `HypotheticalMembership` i.e. did not recognize the candidate as
 ///    being applicable to any of the active leaves.
 </span><span class="attr">#[overseer::contextbounds(CandidateBacking, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>import_statement&lt;Context&gt;(
@@ -4120,8 +3956,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!per_candidate.contains_key(<span class="kw-2">&amp;</span>candidate_hash) {
 			<span class="kw">if </span>rp_state.prospective_parachains_mode.is_enabled() {
 				<span class="kw">let </span>(tx, rx) = oneshot::channel();
-				ctx.send_message(ProspectiveParachainsMessage::IntroduceCandidate(
-					IntroduceCandidateRequest {
+				ctx.send_message(ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					IntroduceSecondedCandidateRequest {
 						candidate_para: candidate.descriptor().para_id,
 						candidate_receipt: candidate.clone(),
 						persisted_validation_data: pvd.clone(),
@@ -4139,17 +3975,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::RejectedByProspectiveParachains)
 					},
-					<span class="prelude-val">Ok</span>(membership) =&gt;
-						<span class="kw">if </span>membership.is_empty() {
-							<span class="kw">return </span><span class="prelude-val">Err</span>(Error::RejectedByProspectiveParachains)
-						},
+					<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::RejectedByProspectiveParachains),
+					<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {},
 				}
-
-				ctx.send_message(ProspectiveParachainsMessage::CandidateSeconded(
-					candidate.descriptor().para_id,
-					candidate_hash,
-				))
-				.<span class="kw">await</span>;
 			}
 
 			<span class="comment">// Only save the candidate if it was approved by prospective parachains.
@@ -4159,7 +3987,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					persisted_validation_data: pvd.clone(),
 					<span class="comment">// This is set after importing when seconding locally.
 					</span>seconded_locally: <span class="bool-val">false</span>,
-					para_id: candidate.descriptor().para_id,
 					relay_parent: candidate.descriptor().relay_parent,
 				},
 			);
@@ -4219,13 +4046,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						para_id,
 						candidate_hash,
 					))
-					.<span class="kw">await</span>;
-					<span class="comment">// Backed candidate potentially unblocks new advertisements,
-					// notify collator protocol.
-					</span>ctx.send_message(CollatorProtocolMessage::Backed {
-						para_id,
-						para_head: backed.candidate().descriptor.para_head,
-					})
 					.<span class="kw">await</span>;
 					<span class="comment">// Notify statement distribution of backed candidate.
 					</span>ctx.send_message(StatementDistributionMessage::Backed(candidate_hash)).<span class="kw">await</span>;
@@ -4450,7 +4270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(summary) = summary {
 		<span class="comment">// import_statement already takes care of communicating with the
 		// prospective parachains subsystem. At this point, the candidate
-		// has already been accepted into the fragment trees.
+		// has already been accepted by the subsystem.
 
 		</span><span class="kw">let </span>candidate_hash = summary.candidate;
 

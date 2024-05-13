@@ -1125,6 +1125,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#974" id="974">974</a>
 <a href="#975" id="975">975</a>
 <a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1148,22 +1172,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! This is the main coordinator of work within the node for the collation and
 //! backing phases of parachain consensus.
 //!
-//! This is primarily an implementation of "Fragment Trees", as described in
+//! This is primarily an implementation of "Fragment Chains", as described in
 //! [`polkadot_node_subsystem_util::inclusion_emulator`].
 //!
 //! This subsystem also handles concerns such as the relay-chain being forkful and session changes.
 
-</span><span class="kw">use </span>std::{
-	borrow::Cow,
-	collections::{HashMap, HashSet},
-};
+</span><span class="kw">use </span>std::collections::{HashMap, HashSet};
 
+<span class="kw">use </span>fragment_chain::{FragmentChain, PotentialAddition};
 <span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>polkadot_node_subsystem::{
 	messages::{
-		Ancestors, ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
-		HypotheticalFrontierRequest, IntroduceCandidateRequest, ParentHeadData,
+		Ancestors, ChainApiMessage, HypotheticalCandidate, HypotheticalMembership,
+		HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest, ParentHeadData,
 		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
@@ -1183,7 +1205,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, <span class="prelude-ty">Result</span>},
 	fragment_chain::{
-		CandidateStorage, CandidateStorageInsertionError, FragmentTree, Scope <span class="kw">as </span>TreeScope,
+		CandidateState, CandidateStorage, CandidateStorageInsertionError,
+		Scope <span class="kw">as </span>FragmentChainScope,
 	},
 };
 
@@ -1199,7 +1222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">struct </span>RelayBlockViewData {
 	<span class="comment">// Scheduling info for paras and upcoming paras.
-	</span>fragment_trees: HashMap&lt;ParaId, FragmentTree&gt;,
+	</span>fragment_chains: HashMap&lt;ParaId, FragmentChain&gt;,
 	pending_availability: HashSet&lt;CandidateHash&gt;,
 }
 
@@ -1268,12 +1291,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) =&gt; {},
 			FromOrchestra::Communication { msg } =&gt; <span class="kw">match </span>msg {
-				ProspectiveParachainsMessage::IntroduceCandidate(request, tx) =&gt;
-					handle_candidate_introduced(<span class="kw-2">&amp;mut *</span>ctx, view, request, tx).<span class="kw">await</span><span class="question-mark">?</span>,
-				ProspectiveParachainsMessage::CandidateSeconded(para, candidate_hash) =&gt;
-					handle_candidate_seconded(view, para, candidate_hash),
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(request, tx) =&gt;
+					handle_introduce_seconded_candidate(<span class="kw-2">&amp;mut *</span>ctx, view, request, tx, metrics).<span class="kw">await</span>,
 				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) =&gt;
-					handle_candidate_backed(<span class="kw-2">&amp;mut *</span>ctx, view, para, candidate_hash).<span class="kw">await</span><span class="question-mark">?</span>,
+					handle_candidate_backed(<span class="kw-2">&amp;mut *</span>ctx, view, para, candidate_hash).<span class="kw">await</span>,
 				ProspectiveParachainsMessage::GetBackableCandidates(
 					relay_parent,
 					para,
@@ -1281,10 +1302,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					ancestors,
 					tx,
 				) =&gt; answer_get_backable_candidates(<span class="kw-2">&amp;</span>view, relay_parent, para, count, ancestors, tx),
-				ProspectiveParachainsMessage::GetHypotheticalFrontier(request, tx) =&gt;
-					answer_hypothetical_frontier_request(<span class="kw-2">&amp;</span>view, request, tx),
-				ProspectiveParachainsMessage::GetTreeMembership(para, candidate, tx) =&gt;
-					answer_tree_membership_request(<span class="kw-2">&amp;</span>view, para, candidate, tx),
+				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx) =&gt;
+					answer_hypothetical_membership_request(<span class="kw-2">&amp;</span>view, request, tx, metrics),
 				ProspectiveParachainsMessage::GetMinimumRelayParents(relay_parent, tx) =&gt;
 					answer_minimum_relay_parents_request(<span class="kw-2">&amp;</span>view, relay_parent, tx),
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) =&gt;
@@ -1302,8 +1321,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) -&gt; JfyiErrorResult&lt;()&gt; {
 	<span class="comment">// 1. clean up inactive leaves
-	// 2. determine all scheduled para at new block
-	// 3. construct new fragment tree for each para for each new leaf
+	// 2. determine all scheduled paras at the new block
+	// 3. construct new fragment chain for each para for each new leaf
 	// 4. prune candidate storage.
 
 	</span><span class="kw">for </span>deactivated <span class="kw">in </span><span class="kw-2">&amp;</span>update.deactivated {
@@ -1330,9 +1349,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		};
 
-		<span class="kw">let </span><span class="kw-2">mut </span>pending_availability = HashSet::new();
-		<span class="kw">let </span>scheduled_paras =
-			fetch_upcoming_paras(<span class="kw-2">&amp;mut *</span>ctx, hash, <span class="kw-2">&amp;mut </span>pending_availability).<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>scheduled_paras = fetch_upcoming_paras(<span class="kw-2">&amp;mut *</span>ctx, hash).<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="kw">let </span>block_info: RelayChainBlockInfo =
 			<span class="kw">match </span>fetch_block_info(<span class="kw-2">&amp;mut *</span>ctx, <span class="kw-2">&amp;mut </span>temp_header_cache, hash).<span class="kw">await</span><span class="question-mark">? </span>{
@@ -1354,29 +1371,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>ancestry =
 			fetch_ancestry(<span class="kw-2">&amp;mut *</span>ctx, <span class="kw-2">&amp;mut </span>temp_header_cache, hash, allowed_ancestry_len).<span class="kw">await</span><span class="question-mark">?</span>;
 
+		<span class="kw">let </span><span class="kw-2">mut </span>all_pending_availability = HashSet::new();
+
 		<span class="comment">// Find constraints.
-		</span><span class="kw">let </span><span class="kw-2">mut </span>fragment_trees = HashMap::new();
+		</span><span class="kw">let </span><span class="kw-2">mut </span>fragment_chains = HashMap::new();
 		<span class="kw">for </span>para <span class="kw">in </span>scheduled_paras {
 			<span class="kw">let </span>candidate_storage =
-				view.candidate_storage.entry(para).or_insert_with(CandidateStorage::new);
+				view.candidate_storage.entry(para).or_insert_with(CandidateStorage::default);
 
 			<span class="kw">let </span>backing_state = fetch_backing_state(<span class="kw-2">&amp;mut *</span>ctx, hash, para).<span class="kw">await</span><span class="question-mark">?</span>;
 
-			<span class="kw">let </span>(constraints, pending_availability) = <span class="kw">match </span>backing_state {
-				<span class="prelude-val">Some</span>(c) =&gt; c,
-				<span class="prelude-val">None </span>=&gt; {
-					<span class="comment">// This indicates a runtime conflict of some kind.
+			<span class="kw">let </span><span class="prelude-val">Some</span>((constraints, pending_availability)) = backing_state <span class="kw">else </span>{
+				<span class="comment">// This indicates a runtime conflict of some kind.
+				</span><span class="macro">gum::debug!</span>(
+					target: LOG_TARGET,
+					para_id = <span class="question-mark">?</span>para,
+					relay_parent = <span class="question-mark">?</span>hash,
+					<span class="string">"Failed to get inclusion backing state."
+				</span>);
 
-					</span><span class="macro">gum::debug!</span>(
-						target: LOG_TARGET,
-						para_id = <span class="question-mark">?</span>para,
-						relay_parent = <span class="question-mark">?</span>hash,
-						<span class="string">"Failed to get inclusion backing state."
-					</span>);
+				<span class="kw">continue
+			</span>};
 
-					<span class="kw">continue
-				</span>},
-			};
+			all_pending_availability.extend(pending_availability.iter().map(|c| c.candidate_hash));
 
 			<span class="kw">let </span>pending_availability = preprocess_candidates_pending_availability(
 				ctx,
@@ -1388,15 +1405,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>compact_pending = Vec::with_capacity(pending_availability.len());
 
 			<span class="kw">for </span>c <span class="kw">in </span>pending_availability {
-				<span class="kw">let </span>res = candidate_storage.add_candidate(c.candidate, c.persisted_validation_data);
+				<span class="kw">let </span>res = candidate_storage.add_candidate(
+					c.candidate,
+					c.persisted_validation_data,
+					CandidateState::Backed,
+				);
 				<span class="kw">let </span>candidate_hash = c.compact.candidate_hash;
-				compact_pending.push(c.compact);
 
 				<span class="kw">match </span>res {
-					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) | <span class="prelude-val">Err</span>(CandidateStorageInsertionError::CandidateAlreadyKnown(<span class="kw">_</span>)) =&gt; {
-						<span class="comment">// Anything on-chain is guaranteed to be backed.
-						</span>candidate_storage.mark_backed(<span class="kw-2">&amp;</span>candidate_hash);
-					},
+					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) | <span class="prelude-val">Err</span>(CandidateStorageInsertionError::CandidateAlreadyKnown(<span class="kw">_</span>)) =&gt; {},
 					<span class="prelude-val">Err</span>(err) =&gt; {
 						<span class="macro">gum::warn!</span>(
 							target: LOG_TARGET,
@@ -1405,11 +1422,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="question-mark">?</span>err,
 							<span class="string">"Scraped invalid candidate pending availability"</span>,
 						);
-					},
+
+						<span class="kw">break
+					</span>},
 				}
+
+				compact_pending.push(c.compact);
 			}
 
-			<span class="kw">let </span>scope = TreeScope::with_ancestors(
+			<span class="kw">let </span>scope = FragmentChainScope::with_ancestors(
 				para,
 				block_info.clone(),
 				constraints,
@@ -1424,16 +1445,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				relay_parent = <span class="question-mark">?</span>hash,
 				min_relay_parent = scope.earliest_relay_parent().number,
 				para_id = <span class="question-mark">?</span>para,
-				<span class="string">"Creating fragment tree"
+				<span class="string">"Creating fragment chain"
 			</span>);
 
-			<span class="kw">let </span>tree = FragmentTree::populate(scope, <span class="kw-2">&amp;*</span>candidate_storage);
+			<span class="kw">let </span>chain = FragmentChain::populate(scope, <span class="kw-2">&amp;*</span>candidate_storage);
 
-			fragment_trees.insert(para, tree);
+			<span class="macro">gum::trace!</span>(
+				target: LOG_TARGET,
+				relay_parent = <span class="question-mark">?</span>hash,
+				para_id = <span class="question-mark">?</span>para,
+				<span class="string">"Populated fragment chain with {} candidates"</span>,
+				chain.len()
+			);
+
+			fragment_chains.insert(para, chain);
 		}
 
-		view.active_leaves
-			.insert(hash, RelayBlockViewData { fragment_trees, pending_availability });
+		view.active_leaves.insert(
+			hash,
+			RelayBlockViewData { fragment_chains, pending_availability: all_pending_availability },
+		);
 	}
 
 	<span class="kw">if </span>!update.deactivated.is_empty() {
@@ -1445,18 +1476,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>prune_view_candidate_storage(view: <span class="kw-2">&amp;mut </span>View, metrics: <span class="kw-2">&amp;</span>Metrics) {
-	metrics.time_prune_view_candidate_storage();
+	<span class="kw">let </span>_timer = metrics.time_prune_view_candidate_storage();
 
 	<span class="kw">let </span>active_leaves = <span class="kw-2">&amp;</span>view.active_leaves;
 	<span class="kw">let </span><span class="kw-2">mut </span>live_candidates = HashSet::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>live_paras = HashSet::new();
 	<span class="kw">for </span>sub_view <span class="kw">in </span>active_leaves.values() {
-		<span class="kw">for </span>(para_id, fragment_tree) <span class="kw">in </span><span class="kw-2">&amp;</span>sub_view.fragment_trees {
-			live_candidates.extend(fragment_tree.candidates());
+		live_candidates.extend(sub_view.pending_availability.iter().cloned());
+
+		<span class="kw">for </span>(para_id, fragment_chain) <span class="kw">in </span><span class="kw-2">&amp;</span>sub_view.fragment_chains {
+			live_candidates.extend(fragment_chain.to_vec());
 			live_paras.insert(<span class="kw-2">*</span>para_id);
 		}
+	}
 
-		live_candidates.extend(sub_view.pending_availability.iter().cloned());
+	<span class="kw">let </span>connected_candidates_count = live_candidates.len();
+	<span class="kw">for </span>(leaf, sub_view) <span class="kw">in </span>active_leaves.iter() {
+		<span class="kw">for </span>(para_id, fragment_chain) <span class="kw">in </span><span class="kw-2">&amp;</span>sub_view.fragment_chains {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(storage) = view.candidate_storage.get(para_id) {
+				<span class="kw">let </span>unconnected_potential =
+					fragment_chain.find_unconnected_potential_candidates(storage, <span class="prelude-val">None</span>);
+				<span class="kw">if </span>!unconnected_potential.is_empty() {
+					<span class="macro">gum::trace!</span>(
+						target: LOG_TARGET,
+						<span class="question-mark">?</span>leaf,
+						<span class="string">"Keeping {} unconnected candidates for paraid {} in storage: {:?}"</span>,
+						unconnected_potential.len(),
+						para_id,
+						unconnected_potential
+					);
+				}
+				live_candidates.extend(unconnected_potential);
+			}
+		}
 	}
 
 	view.candidate_storage.retain(|para_id, storage| {
@@ -1470,7 +1522,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// This maintains a convenient invariant that para-id storage exists
 		// as long as there's an active head which schedules the para.
 		</span><span class="bool-val">true
-	</span>})
+	</span>});
+
+	<span class="kw">for </span>(para_id, storage) <span class="kw">in </span>view.candidate_storage.iter() {
+		<span class="macro">gum::trace!</span>(
+			target: LOG_TARGET,
+			<span class="string">"Keeping a total of {} connected candidates for paraid {} in storage"</span>,
+			storage.candidates().count(),
+			para_id,
+		);
+	}
+
+	metrics.record_candidate_storage_size(
+		connected_candidates_count <span class="kw">as </span>u64,
+		live_candidates.len().saturating_sub(connected_candidates_count) <span class="kw">as </span>u64,
+	);
 }
 
 <span class="kw">struct </span>ImportablePendingAvailability {
@@ -1492,22 +1558,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>expected_count = pending_availability.len();
 
 	<span class="kw">for </span>(i, pending) <span class="kw">in </span>pending_availability.into_iter().enumerate() {
-		<span class="kw">let </span>relay_parent =
-			<span class="kw">match </span>fetch_block_info(ctx, cache, pending.descriptor.relay_parent).<span class="kw">await</span><span class="question-mark">? </span>{
-				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">gum::debug!</span>(
-						target: LOG_TARGET,
-						<span class="question-mark">?</span>pending.candidate_hash,
-						<span class="question-mark">?</span>pending.descriptor.para_id,
-						index = <span class="question-mark">?</span>i,
-						<span class="question-mark">?</span>expected_count,
-						<span class="string">"Had to stop processing pending candidates early due to missing info."</span>,
-					);
+		<span class="kw">let </span><span class="prelude-val">Some</span>(relay_parent) =
+			fetch_block_info(ctx, cache, pending.descriptor.relay_parent).<span class="kw">await</span><span class="question-mark">?
+		</span><span class="kw">else </span>{
+			<span class="macro">gum::debug!</span>(
+				target: LOG_TARGET,
+				<span class="question-mark">?</span>pending.candidate_hash,
+				<span class="question-mark">?</span>pending.descriptor.para_id,
+				index = <span class="question-mark">?</span>i,
+				<span class="question-mark">?</span>expected_count,
+				<span class="string">"Had to stop processing pending candidates early due to missing info."</span>,
+			);
 
-					<span class="kw">break
-				</span>},
-				<span class="prelude-val">Some</span>(b) =&gt; b,
-			};
+			<span class="kw">break
+		</span>};
 
 		<span class="kw">let </span>next_required_parent = pending.commitments.head_data.clone();
 		importable.push(ImportablePendingAvailability {
@@ -1534,104 +1598,139 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[overseer::contextbounds(ProspectiveParachains, prefix = <span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>handle_candidate_introduced&lt;Context&gt;(
+</span><span class="kw">async fn </span>handle_introduce_seconded_candidate&lt;Context&gt;(
 	_ctx: <span class="kw-2">&amp;mut </span>Context,
 	view: <span class="kw-2">&amp;mut </span>View,
-	request: IntroduceCandidateRequest,
-	tx: oneshot::Sender&lt;FragmentTreeMembership&gt;,
-) -&gt; JfyiErrorResult&lt;()&gt; {
-	<span class="kw">let </span>IntroduceCandidateRequest {
+	request: IntroduceSecondedCandidateRequest,
+	tx: oneshot::Sender&lt;bool&gt;,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
+) {
+	<span class="kw">let </span>_timer = metrics.time_introduce_seconded_candidate();
+
+	<span class="kw">let </span>IntroduceSecondedCandidateRequest {
 		candidate_para: para,
 		candidate_receipt: candidate,
 		persisted_validation_data: pvd,
 	} = request;
 
-	<span class="comment">// Add the candidate to storage.
-	// Then attempt to add it to all trees.
-	</span><span class="kw">let </span>storage = <span class="kw">match </span>view.candidate_storage.get_mut(<span class="kw-2">&amp;</span>para) {
-		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::warn!</span>(
-				target: LOG_TARGET,
-				para_id = <span class="question-mark">?</span>para,
-				candidate_hash = <span class="question-mark">?</span>candidate.hash(),
-				<span class="string">"Received seconded candidate for inactive para"</span>,
-			);
+	<span class="kw">let </span><span class="prelude-val">Some</span>(storage) = view.candidate_storage.get_mut(<span class="kw-2">&amp;</span>para) <span class="kw">else </span>{
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			para_id = <span class="question-mark">?</span>para,
+			candidate_hash = <span class="question-mark">?</span>candidate.hash(),
+			<span class="string">"Received seconded candidate for inactive para"</span>,
+		);
 
-			<span class="kw">let _ </span>= tx.send(Vec::new());
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-		},
-		<span class="prelude-val">Some</span>(storage) =&gt; storage,
-	};
+		<span class="kw">let _ </span>= tx.send(<span class="bool-val">false</span>);
+		<span class="kw">return
+	</span>};
 
-	<span class="kw">let </span>candidate_hash = <span class="kw">match </span>storage.add_candidate(candidate, pvd) {
-		<span class="prelude-val">Ok</span>(c) =&gt; c,
-		<span class="prelude-val">Err</span>(CandidateStorageInsertionError::CandidateAlreadyKnown(c)) =&gt; {
-			<span class="comment">// Candidate known - return existing fragment tree membership.
-			</span><span class="kw">let _ </span>= tx.send(fragment_tree_membership(<span class="kw-2">&amp;</span>view.active_leaves, para, c));
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-		},
-		<span class="prelude-val">Err</span>(CandidateStorageInsertionError::PersistedValidationDataMismatch) =&gt; {
-			<span class="comment">// We can't log the candidate hash without either doing more ~expensive
-			// hashing but this branch indicates something is seriously wrong elsewhere
-			// so it's doubtful that it would affect debugging.
+	<span class="kw">let </span>parent_head_hash = pvd.parent_head.hash();
+	<span class="kw">let </span>output_head_hash = <span class="prelude-val">Some</span>(candidate.commitments.head_data.hash());
 
-			</span><span class="macro">gum::warn!</span>(
+	<span class="comment">// We first introduce the candidate in the storage and then try to extend the chain.
+	// If the candidate gets included in the chain, we can keep it in storage.
+	// If it doesn't, check that it's still a potential candidate in at least one fragment chain.
+	// If it's not, we can remove it.
+
+	</span><span class="kw">let </span>candidate_hash =
+		<span class="kw">match </span>storage.add_candidate(candidate.clone(), pvd, CandidateState::Seconded) {
+			<span class="prelude-val">Ok</span>(c) =&gt; c,
+			<span class="prelude-val">Err</span>(CandidateStorageInsertionError::CandidateAlreadyKnown(<span class="kw">_</span>)) =&gt; {
+				<span class="macro">gum::debug!</span>(
+					target: LOG_TARGET,
+					para = <span class="question-mark">?</span>para,
+					<span class="string">"Attempting to introduce an already known candidate: {:?}"</span>,
+					candidate.hash()
+				);
+				<span class="comment">// Candidate already known.
+				</span><span class="kw">let _ </span>= tx.send(<span class="bool-val">true</span>);
+				<span class="kw">return
+			</span>},
+			<span class="prelude-val">Err</span>(CandidateStorageInsertionError::PersistedValidationDataMismatch) =&gt; {
+				<span class="comment">// We can't log the candidate hash without either doing more ~expensive
+				// hashing but this branch indicates something is seriously wrong elsewhere
+				// so it's doubtful that it would affect debugging.
+
+				</span><span class="macro">gum::warn!</span>(
+					target: LOG_TARGET,
+					para = <span class="question-mark">?</span>para,
+					<span class="string">"Received seconded candidate had mismatching validation data"</span>,
+				);
+
+				<span class="kw">let _ </span>= tx.send(<span class="bool-val">false</span>);
+				<span class="kw">return
+			</span>},
+		};
+
+	<span class="kw">let </span><span class="kw-2">mut </span>keep_in_storage = <span class="bool-val">false</span>;
+	<span class="kw">for </span>(relay_parent, leaf_data) <span class="kw">in </span>view.active_leaves.iter_mut() {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(chain) = leaf_data.fragment_chains.get_mut(<span class="kw-2">&amp;</span>para) {
+			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				para = <span class="question-mark">?</span>para,
-				<span class="string">"Received seconded candidate had mismatching validation data"</span>,
+				<span class="question-mark">?</span>relay_parent,
+				<span class="string">"Candidates in chain before trying to introduce a new one: {:?}"</span>,
+				chain.to_vec()
 			);
+			chain.extend_from_storage(<span class="kw-2">&amp;*</span>storage);
+			<span class="kw">if </span>chain.contains_candidate(<span class="kw-2">&amp;</span>candidate_hash) {
+				keep_in_storage = <span class="bool-val">true</span>;
 
-			<span class="kw">let _ </span>= tx.send(Vec::new());
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-		},
-	};
+				<span class="macro">gum::trace!</span>(
+					target: LOG_TARGET,
+					<span class="question-mark">?</span>relay_parent,
+					para = <span class="question-mark">?</span>para,
+					<span class="question-mark">?</span>candidate_hash,
+					<span class="string">"Added candidate to chain."</span>,
+				);
+			} <span class="kw">else </span>{
+				<span class="kw">match </span>chain.can_add_candidate_as_potential(
+					<span class="kw-2">&amp;</span>storage,
+					<span class="kw-2">&amp;</span>candidate_hash,
+					<span class="kw-2">&amp;</span>candidate.descriptor.relay_parent,
+					parent_head_hash,
+					output_head_hash,
+				) {
+					PotentialAddition::Anyhow =&gt; {
+						<span class="macro">gum::trace!</span>(
+							target: LOG_TARGET,
+							para = <span class="question-mark">?</span>para,
+							<span class="question-mark">?</span>relay_parent,
+							<span class="question-mark">?</span>candidate_hash,
+							<span class="string">"Kept candidate as unconnected potential."</span>,
+						);
 
-	<span class="kw">let </span><span class="kw-2">mut </span>membership = Vec::new();
-	<span class="kw">for </span>(relay_parent, leaf_data) <span class="kw">in </span><span class="kw-2">&amp;mut </span>view.active_leaves {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(tree) = leaf_data.fragment_trees.get_mut(<span class="kw-2">&amp;</span>para) {
-			tree.add_and_populate(candidate_hash, <span class="kw-2">&amp;*</span>storage);
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(depths) = tree.candidate(<span class="kw-2">&amp;</span>candidate_hash) {
-				membership.push((<span class="kw-2">*</span>relay_parent, depths));
+						keep_in_storage = <span class="bool-val">true</span>;
+					},
+					<span class="kw">_ </span>=&gt; {
+						<span class="macro">gum::trace!</span>(
+							target: LOG_TARGET,
+							para = <span class="question-mark">?</span>para,
+							<span class="question-mark">?</span>relay_parent,
+							<span class="string">"Not introducing a new candidate: {:?}"</span>,
+							candidate_hash
+						);
+					},
+				}
 			}
 		}
 	}
 
-	<span class="kw">if </span>membership.is_empty() {
+	<span class="comment">// If there is at least one leaf where this candidate can be added or potentially added in the
+	// future, keep it in storage.
+	</span><span class="kw">if </span>!keep_in_storage {
 		storage.remove_candidate(<span class="kw-2">&amp;</span>candidate_hash);
+
+		<span class="macro">gum::debug!</span>(
+			target: LOG_TARGET,
+			para = <span class="question-mark">?</span>para,
+			candidate = <span class="question-mark">?</span>candidate_hash,
+			<span class="string">"Newly-seconded candidate cannot be kept under any active leaf"</span>,
+		);
 	}
 
-	<span class="kw">let _ </span>= tx.send(membership);
-
-	<span class="prelude-val">Ok</span>(())
-}
-
-<span class="kw">fn </span>handle_candidate_seconded(view: <span class="kw-2">&amp;mut </span>View, para: ParaId, candidate_hash: CandidateHash) {
-	<span class="kw">let </span>storage = <span class="kw">match </span>view.candidate_storage.get_mut(<span class="kw-2">&amp;</span>para) {
-		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::warn!</span>(
-				target: LOG_TARGET,
-				para_id = <span class="question-mark">?</span>para,
-				<span class="question-mark">?</span>candidate_hash,
-				<span class="string">"Received instruction to second unknown candidate"</span>,
-			);
-
-			<span class="kw">return
-		</span>},
-		<span class="prelude-val">Some</span>(storage) =&gt; storage,
-	};
-
-	<span class="kw">if </span>!storage.contains(<span class="kw-2">&amp;</span>candidate_hash) {
-		<span class="macro">gum::warn!</span>(
-			target: LOG_TARGET,
-			para_id = <span class="question-mark">?</span>para,
-			<span class="question-mark">?</span>candidate_hash,
-			<span class="string">"Received instruction to second unknown candidate"</span>,
-		);
-
-		<span class="kw">return
-	</span>}
-
-	storage.mark_seconded(<span class="kw-2">&amp;</span>candidate_hash);
+	<span class="kw">let _ </span>= tx.send(keep_in_storage);
 }
 
 <span class="attr">#[overseer::contextbounds(ProspectiveParachains, prefix = <span class="self">self</span>::overseer)]
@@ -1640,20 +1739,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	view: <span class="kw-2">&amp;mut </span>View,
 	para: ParaId,
 	candidate_hash: CandidateHash,
-) -&gt; JfyiErrorResult&lt;()&gt; {
-	<span class="kw">let </span>storage = <span class="kw">match </span>view.candidate_storage.get_mut(<span class="kw-2">&amp;</span>para) {
-		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::warn!</span>(
-				target: LOG_TARGET,
-				para_id = <span class="question-mark">?</span>para,
-				<span class="question-mark">?</span>candidate_hash,
-				<span class="string">"Received instruction to back unknown candidate"</span>,
-			);
+) {
+	<span class="kw">let </span><span class="prelude-val">Some</span>(storage) = view.candidate_storage.get_mut(<span class="kw-2">&amp;</span>para) <span class="kw">else </span>{
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			para_id = <span class="question-mark">?</span>para,
+			<span class="question-mark">?</span>candidate_hash,
+			<span class="string">"Received instruction to back a candidate for unscheduled para"</span>,
+		);
 
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-		},
-		<span class="prelude-val">Some</span>(storage) =&gt; storage,
-	};
+		<span class="kw">return
+	</span>};
 
 	<span class="kw">if </span>!storage.contains(<span class="kw-2">&amp;</span>candidate_hash) {
 		<span class="macro">gum::warn!</span>(
@@ -1663,8 +1759,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"Received instruction to back unknown candidate"</span>,
 		);
 
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-	}
+		<span class="kw">return
+	</span>}
 
 	<span class="kw">if </span>storage.is_backed(<span class="kw-2">&amp;</span>candidate_hash) {
 		<span class="macro">gum::debug!</span>(
@@ -1674,11 +1770,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"Received redundant instruction to mark candidate as backed"</span>,
 		);
 
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-	}
+		<span class="kw">return
+	</span>}
 
 	storage.mark_backed(<span class="kw-2">&amp;</span>candidate_hash);
-	<span class="prelude-val">Ok</span>(())
 }
 
 <span class="kw">fn </span>answer_get_backable_candidates(
@@ -1689,62 +1784,71 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ancestors: Ancestors,
 	tx: oneshot::Sender&lt;Vec&lt;(CandidateHash, Hash)&gt;&gt;,
 ) {
-	<span class="kw">let </span>data = <span class="kw">match </span>view.active_leaves.get(<span class="kw-2">&amp;</span>relay_parent) {
-		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::debug!</span>(
-				target: LOG_TARGET,
-				<span class="question-mark">?</span>relay_parent,
-				para_id = <span class="question-mark">?</span>para,
-				<span class="string">"Requested backable candidate for inactive relay-parent."
-			</span>);
+	<span class="kw">let </span><span class="prelude-val">Some</span>(data) = view.active_leaves.get(<span class="kw-2">&amp;</span>relay_parent) <span class="kw">else </span>{
+		<span class="macro">gum::debug!</span>(
+			target: LOG_TARGET,
+			<span class="question-mark">?</span>relay_parent,
+			para_id = <span class="question-mark">?</span>para,
+			<span class="string">"Requested backable candidate for inactive relay-parent."
+		</span>);
 
-			<span class="kw">let _ </span>= tx.send(<span class="macro">vec!</span>[]);
-			<span class="kw">return
-		</span>},
-		<span class="prelude-val">Some</span>(d) =&gt; d,
-	};
+		<span class="kw">let _ </span>= tx.send(<span class="macro">vec!</span>[]);
+		<span class="kw">return
+	</span>};
 
-	<span class="kw">let </span>tree = <span class="kw">match </span>data.fragment_trees.get(<span class="kw-2">&amp;</span>para) {
-		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::debug!</span>(
-				target: LOG_TARGET,
-				<span class="question-mark">?</span>relay_parent,
-				para_id = <span class="question-mark">?</span>para,
-				<span class="string">"Requested backable candidate for inactive para."
-			</span>);
+	<span class="kw">let </span><span class="prelude-val">Some</span>(chain) = data.fragment_chains.get(<span class="kw-2">&amp;</span>para) <span class="kw">else </span>{
+		<span class="macro">gum::debug!</span>(
+			target: LOG_TARGET,
+			<span class="question-mark">?</span>relay_parent,
+			para_id = <span class="question-mark">?</span>para,
+			<span class="string">"Requested backable candidate for inactive para."
+		</span>);
 
-			<span class="kw">let _ </span>= tx.send(<span class="macro">vec!</span>[]);
-			<span class="kw">return
-		</span>},
-		<span class="prelude-val">Some</span>(tree) =&gt; tree,
-	};
+		<span class="kw">let _ </span>= tx.send(<span class="macro">vec!</span>[]);
+		<span class="kw">return
+	</span>};
 
-	<span class="kw">let </span>storage = <span class="kw">match </span>view.candidate_storage.get(<span class="kw-2">&amp;</span>para) {
-		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::warn!</span>(
-				target: LOG_TARGET,
-				<span class="question-mark">?</span>relay_parent,
-				para_id = <span class="question-mark">?</span>para,
-				<span class="string">"No candidate storage for active para"</span>,
-			);
+	<span class="kw">let </span><span class="prelude-val">Some</span>(storage) = view.candidate_storage.get(<span class="kw-2">&amp;</span>para) <span class="kw">else </span>{
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			<span class="question-mark">?</span>relay_parent,
+			para_id = <span class="question-mark">?</span>para,
+			<span class="string">"No candidate storage for active para"</span>,
+		);
 
-			<span class="kw">let _ </span>= tx.send(<span class="macro">vec!</span>[]);
-			<span class="kw">return
-		</span>},
-		<span class="prelude-val">Some</span>(s) =&gt; s,
-	};
+		<span class="kw">let _ </span>= tx.send(<span class="macro">vec!</span>[]);
+		<span class="kw">return
+	</span>};
 
-	<span class="kw">let </span>backable_candidates: Vec&lt;<span class="kw">_</span>&gt; = tree
+	<span class="macro">gum::trace!</span>(
+		target: LOG_TARGET,
+		<span class="question-mark">?</span>relay_parent,
+		para_id = <span class="question-mark">?</span>para,
+		<span class="string">"Candidate storage for para: {:?}"</span>,
+		storage.candidates().map(|candidate| candidate.hash()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+	);
+
+	<span class="macro">gum::trace!</span>(
+		target: LOG_TARGET,
+		<span class="question-mark">?</span>relay_parent,
+		para_id = <span class="question-mark">?</span>para,
+		<span class="string">"Candidate chain for para: {:?}"</span>,
+		chain.to_vec()
+	);
+
+	<span class="kw">let </span>backable_candidates: Vec&lt;<span class="kw">_</span>&gt; = chain
 		.find_backable_chain(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
 		.into_iter()
 		.filter_map(|child_hash| {
-			storage.relay_parent_by_candidate_hash(<span class="kw-2">&amp;</span>child_hash).map_or_else(
+			storage.relay_parent_of_candidate(<span class="kw-2">&amp;</span>child_hash).map_or_else(
 				|| {
-					<span class="macro">gum::error!</span>(
+					<span class="comment">// Here, we'd actually need to trim all of the candidates that follow. Or
+					// not, the runtime will do this. Impossible scenario anyway.
+					</span><span class="macro">gum::error!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>child_hash,
 						para_id = <span class="question-mark">?</span>para,
-						<span class="string">"Candidate is present in fragment tree but not in candidate's storage!"</span>,
+						<span class="string">"Candidate is present in fragment chain but not in candidate's storage!"</span>,
 					);
 					<span class="prelude-val">None
 				</span>},
@@ -1766,6 +1870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>relay_parent,
 			<span class="question-mark">?</span>backable_candidates,
+			<span class="question-mark">?</span>ancestors,
 			<span class="string">"Found backable candidates"</span>,
 		);
 	}
@@ -1773,88 +1878,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let _ </span>= tx.send(backable_candidates);
 }
 
-<span class="kw">fn </span>answer_hypothetical_frontier_request(
+<span class="kw">fn </span>answer_hypothetical_membership_request(
 	view: <span class="kw-2">&amp;</span>View,
-	request: HypotheticalFrontierRequest,
-	tx: oneshot::Sender&lt;Vec&lt;(HypotheticalCandidate, FragmentTreeMembership)&gt;&gt;,
+	request: HypotheticalMembershipRequest,
+	tx: oneshot::Sender&lt;Vec&lt;(HypotheticalCandidate, HypotheticalMembership)&gt;&gt;,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
+	<span class="kw">let </span>_timer = metrics.time_hypothetical_membership_request();
+
 	<span class="kw">let </span><span class="kw-2">mut </span>response = Vec::with_capacity(request.candidates.len());
 	<span class="kw">for </span>candidate <span class="kw">in </span>request.candidates {
-		response.push((candidate, Vec::new()));
+		response.push((candidate, <span class="macro">vec!</span>[]));
 	}
 
-	<span class="kw">let </span>required_active_leaf = request.fragment_tree_relay_parent;
+	<span class="kw">let </span>required_active_leaf = request.fragment_chain_relay_parent;
 	<span class="kw">for </span>(active_leaf, leaf_view) <span class="kw">in </span>view
 		.active_leaves
 		.iter()
 		.filter(|(h, <span class="kw">_</span>)| required_active_leaf.as_ref().map_or(<span class="bool-val">true</span>, |x| h == <span class="kw-2">&amp;</span>x))
 	{
-		<span class="kw">for </span><span class="kw-2">&amp;mut </span>(<span class="kw-2">ref </span>c, <span class="kw-2">ref mut </span>membership) <span class="kw">in </span><span class="kw-2">&amp;mut </span>response {
-			<span class="kw">let </span>fragment_tree = <span class="kw">match </span>leaf_view.fragment_trees.get(<span class="kw-2">&amp;</span>c.candidate_para()) {
-				<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
-				<span class="prelude-val">Some</span>(f) =&gt; f,
-			};
-			<span class="kw">let </span>candidate_storage = <span class="kw">match </span>view.candidate_storage.get(<span class="kw-2">&amp;</span>c.candidate_para()) {
-				<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
-				<span class="prelude-val">Some</span>(storage) =&gt; storage,
-			};
+		<span class="kw">for </span><span class="kw-2">&amp;mut </span>(<span class="kw-2">ref </span>candidate, <span class="kw-2">ref mut </span>membership) <span class="kw">in </span><span class="kw-2">&amp;mut </span>response {
+			<span class="kw">let </span>para_id = <span class="kw-2">&amp;</span>candidate.candidate_para();
+			<span class="kw">let </span><span class="prelude-val">Some</span>(fragment_chain) = leaf_view.fragment_chains.get(para_id) <span class="kw">else </span>{ <span class="kw">continue </span>};
+			<span class="kw">let </span><span class="prelude-val">Some</span>(candidate_storage) = view.candidate_storage.get(para_id) <span class="kw">else </span>{ <span class="kw">continue </span>};
 
-			<span class="kw">let </span>candidate_hash = c.candidate_hash();
-			<span class="kw">let </span>hypothetical = <span class="kw">match </span>c {
-				HypotheticalCandidate::Complete { receipt, persisted_validation_data, .. } =&gt;
-					fragment_chain::HypotheticalCandidate::Complete {
-						receipt: Cow::Borrowed(receipt),
-						persisted_validation_data: Cow::Borrowed(persisted_validation_data),
-					},
-				HypotheticalCandidate::Incomplete {
-					parent_head_data_hash,
-					candidate_relay_parent,
-					..
-				} =&gt; fragment_chain::HypotheticalCandidate::Incomplete {
-					relay_parent: <span class="kw-2">*</span>candidate_relay_parent,
-					parent_head_data_hash: <span class="kw-2">*</span>parent_head_data_hash,
-				},
-			};
-
-			<span class="kw">let </span>depths = fragment_tree.hypothetical_depths(
-				candidate_hash,
-				hypothetical,
-				candidate_storage,
-				request.backed_in_path_only,
-			);
-
-			<span class="kw">if </span>!depths.is_empty() {
-				membership.push((<span class="kw-2">*</span>active_leaf, depths));
+			<span class="kw">if </span>fragment_chain.hypothetical_membership(candidate.clone(), candidate_storage) {
+				membership.push(<span class="kw-2">*</span>active_leaf);
 			}
 		}
 	}
 
 	<span class="kw">let _ </span>= tx.send(response);
-}
-
-<span class="kw">fn </span>fragment_tree_membership(
-	active_leaves: <span class="kw-2">&amp;</span>HashMap&lt;Hash, RelayBlockViewData&gt;,
-	para: ParaId,
-	candidate: CandidateHash,
-) -&gt; FragmentTreeMembership {
-	<span class="kw">let </span><span class="kw-2">mut </span>membership = Vec::new();
-	<span class="kw">for </span>(relay_parent, view_data) <span class="kw">in </span>active_leaves {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(tree) = view_data.fragment_trees.get(<span class="kw-2">&amp;</span>para) {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(depths) = tree.candidate(<span class="kw-2">&amp;</span>candidate) {
-				membership.push((<span class="kw-2">*</span>relay_parent, depths));
-			}
-		}
-	}
-	membership
-}
-
-<span class="kw">fn </span>answer_tree_membership_request(
-	view: <span class="kw-2">&amp;</span>View,
-	para: ParaId,
-	candidate: CandidateHash,
-	tx: oneshot::Sender&lt;FragmentTreeMembership&gt;,
-) {
-	<span class="kw">let _ </span>= tx.send(fragment_tree_membership(<span class="kw-2">&amp;</span>view.active_leaves, para, candidate));
 }
 
 <span class="kw">fn </span>answer_minimum_relay_parents_request(
@@ -1864,8 +1918,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="kw">let </span><span class="kw-2">mut </span>v = Vec::new();
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(leaf_data) = view.active_leaves.get(<span class="kw-2">&amp;</span>relay_parent) {
-		<span class="kw">for </span>(para_id, fragment_tree) <span class="kw">in </span><span class="kw-2">&amp;</span>leaf_data.fragment_trees {
-			v.push((<span class="kw-2">*</span>para_id, fragment_tree.scope().earliest_relay_parent().number));
+		<span class="kw">for </span>(para_id, fragment_chain) <span class="kw">in </span><span class="kw-2">&amp;</span>leaf_data.fragment_chains {
+			v.push((<span class="kw-2">*</span>para_id, fragment_chain.scope().earliest_relay_parent().number));
 		}
 	}
 
@@ -1879,9 +1933,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="comment">// 1. Try to get the head-data from the candidate store if known.
 	// 2. Otherwise, it might exist as the base in some relay-parent and we can find it by iterating
-	//    fragment trees.
+	//    fragment chains.
 	// 3. Otherwise, it is unknown.
-	// 4. Also try to find the relay parent block info by scanning fragment trees.
+	// 4. Also try to find the relay parent block info by scanning fragment chains.
 	// 5. If head data and relay parent block info are found - success. Otherwise, failure.
 
 	</span><span class="kw">let </span>storage = <span class="kw">match </span>view.candidate_storage.get(<span class="kw-2">&amp;</span>request.para_id) {
@@ -1903,35 +1957,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>relay_parent_info = <span class="prelude-val">None</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>max_pov_size = <span class="prelude-val">None</span>;
 
-	<span class="kw">for </span>fragment_tree <span class="kw">in </span>view
+	<span class="kw">for </span>fragment_chain <span class="kw">in </span>view
 		.active_leaves
 		.values()
-		.filter_map(|x| x.fragment_trees.get(<span class="kw-2">&amp;</span>request.para_id))
+		.filter_map(|x| x.fragment_chains.get(<span class="kw-2">&amp;</span>request.para_id))
 	{
 		<span class="kw">if </span>head_data.is_some() &amp;&amp; relay_parent_info.is_some() &amp;&amp; max_pov_size.is_some() {
 			<span class="kw">break
 		</span>}
 		<span class="kw">if </span>relay_parent_info.is_none() {
-			relay_parent_info =
-				fragment_tree.scope().ancestor_by_hash(<span class="kw-2">&amp;</span>request.candidate_relay_parent);
+			relay_parent_info = fragment_chain.scope().ancestor(<span class="kw-2">&amp;</span>request.candidate_relay_parent);
 		}
 		<span class="kw">if </span>head_data.is_none() {
-			<span class="kw">let </span>required_parent = <span class="kw-2">&amp;</span>fragment_tree.scope().base_constraints().required_parent;
+			<span class="kw">let </span>required_parent = <span class="kw-2">&amp;</span>fragment_chain.scope().base_constraints().required_parent;
 			<span class="kw">if </span>required_parent.hash() == parent_head_data_hash {
 				head_data = <span class="prelude-val">Some</span>(required_parent.clone());
 			}
 		}
 		<span class="kw">if </span>max_pov_size.is_none() {
-			<span class="kw">let </span>contains_ancestor = fragment_tree
-				.scope()
-				.ancestor_by_hash(<span class="kw-2">&amp;</span>request.candidate_relay_parent)
-				.is_some();
+			<span class="kw">let </span>contains_ancestor =
+				fragment_chain.scope().ancestor(<span class="kw-2">&amp;</span>request.candidate_relay_parent).is_some();
 			<span class="kw">if </span>contains_ancestor {
 				<span class="comment">// We are leaning hard on two assumptions here.
-				// 1. That the fragment tree never contains allowed relay-parents whose session for
+				// 1. That the fragment chain never contains allowed relay-parents whose session for
 				//    children is different from that of the base block's.
 				// 2. That the max_pov_size is only configurable per session.
-				</span>max_pov_size = <span class="prelude-val">Some</span>(fragment_tree.scope().base_constraints().max_pov_size);
+				</span>max_pov_size = <span class="prelude-val">Some</span>(fragment_chain.scope().base_constraints().max_pov_size);
 			}
 		}
 	}
@@ -1970,7 +2021,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">async fn </span>fetch_upcoming_paras&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	relay_parent: Hash,
-	pending_availability: <span class="kw-2">&amp;mut </span>HashSet&lt;CandidateHash&gt;,
 ) -&gt; JfyiErrorResult&lt;Vec&lt;ParaId&gt;&gt; {
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
@@ -1987,8 +2037,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>core <span class="kw">in </span>cores {
 		<span class="kw">match </span>core {
 			CoreState::Occupied(occupied) =&gt; {
-				pending_availability.insert(occupied.candidate_hash);
-
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(next_up_on_available) = occupied.next_up_on_available {
 					upcoming.insert(next_up_on_available.para_id);
 				}

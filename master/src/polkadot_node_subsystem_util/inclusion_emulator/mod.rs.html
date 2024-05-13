@@ -1586,16 +1586,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1435" id="1435">1435</a>
 <a href="#1436" id="1436">1436</a>
 <a href="#1437" id="1437">1437</a>
-<a href="#1438" id="1438">1438</a>
-<a href="#1439" id="1439">1439</a>
-<a href="#1440" id="1440">1440</a>
-<a href="#1441" id="1441">1441</a>
-<a href="#1442" id="1442">1442</a>
-<a href="#1443" id="1443">1443</a>
-<a href="#1444" id="1444">1444</a>
-<a href="#1445" id="1445">1445</a>
-<a href="#1446" id="1446">1446</a>
-<a href="#1447" id="1447">1447</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1637,8 +1627,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// # Usage
 ///
-/// It's expected that the users of this module will be building up trees of
-/// [`Fragment`]s and consistently pruning and adding to the tree.
+/// It's expected that the users of this module will be building up chains of
+/// [`Fragment`]s and consistently pruning and adding to the chains.
 ///
 /// ## Operating Constraints
 ///
@@ -1652,60 +1642,65 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// make an intelligent prediction about what might be accepted in the future based on
 /// prior fragments that also exist off-chain.
 ///
-/// ## Fragment Trees
+/// ## Fragment Chains
+///
+/// For simplicity and practicality, we expect that collators of the same parachain are
+/// cooperating and don't create parachain forks or cycles on the same relay chain active leaf.
+/// Therefore, higher-level code should maintain one fragment chain for each active leaf (not a
+/// fragment tree). If parachains do create forks, their performance in regards to async
+/// backing and elastic scaling will suffer, because different validators will have different
+/// predictions of the future.
 ///
 /// As the relay-chain grows, some predictions come true and others come false.
 /// And new predictions get made. These three changes correspond distinctly to the
-/// 3 primary operations on fragment trees.
+/// 3 primary operations on fragment chains.
 ///
-/// A fragment tree is a mental model for thinking about a forking series of predictions
-/// about a single parachain. There may be one or more fragment trees per parachain.
+/// Avoiding fragment-chain blowup is beyond the scope of this module. Higher-level must ensure
+/// proper spam protection.
 ///
-/// In expectation, most parachains will have a plausibly-unique authorship method which means
-/// that they should really be much closer to fragment-chains, maybe with an occasional fork.
-///
-/// Avoiding fragment-tree blowup is beyond the scope of this module.
-///
-/// ### Pruning Fragment Trees
+/// ### Pruning Fragment Chains
 ///
 /// When the relay-chain advances, we want to compare the new constraints of that relay-parent
-/// to the roots of the fragment trees we have. There are 3 cases:
+/// to the root of the fragment chain we have. There are 3 cases:
 ///
 /// 1. The root fragment is still valid under the new constraints. In this case, we do nothing.
-///    This is the "prediction still uncertain" case.
+///    This is the "prediction still uncertain" case. (Corresponds to some candidates still
+///    being pending availability).
 ///
-/// 2. The root fragment is invalid under the new constraints because it has been subsumed by
-///    the relay-chain. In this case, we can discard the root and split &amp; re-root the fragment
-///    tree under its descendants and compare to the new constraints again. This is the
-///    "prediction came true" case.
+/// 2. The root fragment (potentially along with a number of descendants) is invalid under the
+///    new constraints because it has been included by the relay-chain. In this case, we can
+///    discard the included chain and split &amp; re-root the chain under its descendants and
+///    compare to the new constraints again. This is the "prediction came true" case.
 ///
-/// 3. The root fragment is invalid under the new constraints because a competing parachain
-///    block has been included or it would never be accepted for some other reason. In this
-///    case we can discard the entire fragment tree. This is the "prediction came false" case.
+/// 3. The root fragment becomes invalid under the new constraints for any reason (if for
+///    example the parachain produced a fork and the block producer picked a different
+///    candidate to back). In this case we can discard the entire fragment chain. This is the
+///    "prediction came false" case.
 ///
 /// This is all a bit of a simplification because it assumes that the relay-chain advances
-/// without forks and is finalized instantly. In practice, the set of fragment-trees needs to
+/// without forks and is finalized instantly. In practice, the set of fragment-chains needs to
 /// be observable from the perspective of a few different possible forks of the relay-chain and
 /// not pruned too eagerly.
 ///
 /// Note that the fragments themselves don't need to change and the only thing we care about
 /// is whether the predictions they represent are still valid.
 ///
-/// ### Extending Fragment Trees
+/// ### Extending Fragment Chains
 ///
 /// As predictions fade into the past, new ones should be stacked on top.
 ///
 /// Every new relay-chain block is an opportunity to make a new prediction about the future.
-/// Higher-level logic should select the leaves of the fragment-trees to build upon or whether
-/// to create a new fragment-tree.
+/// Higher-level logic should decide whether to build upon an existing chain or whether
+/// to create a new fragment-chain.
 ///
 /// ### Code Upgrades
 ///
 /// Code upgrades are the main place where this emulation fails. The on-chain PVF upgrade
 /// scheduling logic is very path-dependent and intricate so we just assume that code upgrades
-/// can't be initiated and applied within a single fragment-tree. Fragment-trees aren't deep,
-/// in practice and code upgrades are fairly rare. So what's likely to happen around code
-/// upgrades is that the entire fragment-tree has to get discarded at some point.
+/// can't be initiated and applied within a single fragment-chain. Fragment-chains aren't deep,
+/// in practice (bounded by a linear function of the the number of cores assigned to a
+/// parachain) and code upgrades are fairly rare. So what's likely to happen around code
+/// upgrades is that the entire fragment-chain has to get discarded at some point.
 ///
 /// That means a few blocks of execution time lost, which is not a big deal for code upgrades
 /// in practice at most once every few weeks.
@@ -1714,10 +1709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CollatorId, CollatorSignature, Hash, HeadData, Id <span class="kw">as </span>ParaId, PersistedValidationData,
 	UpgradeRestriction, ValidationCodeHash,
 };
-<span class="kw">use </span>std::{
-	borrow::{Borrow, Cow},
-	collections::HashMap,
-};
+<span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="doccomment">/// Constraints on inbound HRMP channels.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
@@ -2122,9 +2114,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// here. But the erasure-root is not. This means that prospective candidates
 /// are not correlated to any session in particular.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
-</span><span class="kw">pub struct </span>ProspectiveCandidate&lt;<span class="lifetime">'a</span>&gt; {
+</span><span class="kw">pub struct </span>ProspectiveCandidate {
 	<span class="doccomment">/// The commitments to the output of the execution.
-	</span><span class="kw">pub </span>commitments: Cow&lt;<span class="lifetime">'a</span>, CandidateCommitments&gt;,
+	</span><span class="kw">pub </span>commitments: CandidateCommitments,
 	<span class="doccomment">/// The collator that created the candidate.
 	</span><span class="kw">pub </span>collator: CollatorId,
 	<span class="doccomment">/// The signature of the collator on the payload.
@@ -2135,32 +2127,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>pov_hash: Hash,
 	<span class="doccomment">/// The validation code hash used by the candidate.
 	</span><span class="kw">pub </span>validation_code_hash: ValidationCodeHash,
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ProspectiveCandidate&lt;<span class="lifetime">'a</span>&gt; {
-	<span class="kw">fn </span>into_owned(<span class="self">self</span>) -&gt; ProspectiveCandidate&lt;<span class="lifetime">'static</span>&gt; {
-		ProspectiveCandidate { commitments: Cow::Owned(<span class="self">self</span>.commitments.into_owned()), ..<span class="self">self </span>}
-	}
-
-	<span class="doccomment">/// Partially clone the prospective candidate, but borrow the
-	/// parts which are potentially heavy.
-	</span><span class="kw">pub fn </span>partial_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ProspectiveCandidate {
-		ProspectiveCandidate {
-			commitments: Cow::Borrowed(<span class="self">self</span>.commitments.borrow()),
-			collator: <span class="self">self</span>.collator.clone(),
-			collator_signature: <span class="self">self</span>.collator_signature.clone(),
-			persisted_validation_data: <span class="self">self</span>.persisted_validation_data.clone(),
-			pov_hash: <span class="self">self</span>.pov_hash,
-			validation_code_hash: <span class="self">self</span>.validation_code_hash,
-		}
-	}
-}
-
-<span class="attr">#[cfg(test)]
-</span><span class="kw">impl </span>ProspectiveCandidate&lt;<span class="lifetime">'static</span>&gt; {
-	<span class="kw">fn </span>commitments_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>CandidateCommitments {
-		<span class="self">self</span>.commitments.to_mut()
-	}
 }
 
 <span class="doccomment">/// Kinds of errors with the validity of a fragment.
@@ -2216,19 +2182,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This is a type which guarantees that the candidate is valid under the
 /// operating constraints.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
-</span><span class="kw">pub struct </span>Fragment&lt;<span class="lifetime">'a</span>&gt; {
+</span><span class="kw">pub struct </span>Fragment {
 	<span class="doccomment">/// The new relay-parent.
 	</span>relay_parent: RelayChainBlockInfo,
 	<span class="doccomment">/// The constraints this fragment is operating under.
 	</span>operating_constraints: Constraints,
 	<span class="doccomment">/// The core information about the prospective candidate.
-	</span>candidate: ProspectiveCandidate&lt;<span class="lifetime">'a</span>&gt;,
+	</span>candidate: Arc&lt;ProspectiveCandidate&gt;,
 	<span class="doccomment">/// Modifications to the constraints based on the outputs of
 	/// the candidate.
 	</span>modifications: ConstraintModifications,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Fragment&lt;<span class="lifetime">'a</span>&gt; {
+<span class="kw">impl </span>Fragment {
 	<span class="doccomment">/// Create a new fragment.
 	///
 	/// This fails if the fragment isn't in line with the operating
@@ -2240,10 +2206,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>new(
 		relay_parent: RelayChainBlockInfo,
 		operating_constraints: Constraints,
-		candidate: ProspectiveCandidate&lt;<span class="lifetime">'a</span>&gt;,
+		candidate: Arc&lt;ProspectiveCandidate&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, FragmentValidityError&gt; {
+		<span class="kw">let </span>modifications = <span class="self">Self</span>::check_against_constraints(
+			<span class="kw-2">&amp;</span>relay_parent,
+			<span class="kw-2">&amp;</span>operating_constraints,
+			<span class="kw-2">&amp;</span>candidate.commitments,
+			<span class="kw-2">&amp;</span>candidate.validation_code_hash,
+			<span class="kw-2">&amp;</span>candidate.persisted_validation_data,
+		)<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Ok</span>(Fragment { relay_parent, operating_constraints, candidate, modifications })
+	}
+
+	<span class="doccomment">/// Check the candidate against the operating constrains and return the constraint modifications
+	/// made by this candidate.
+	</span><span class="kw">pub fn </span>check_against_constraints(
+		relay_parent: <span class="kw-2">&amp;</span>RelayChainBlockInfo,
+		operating_constraints: <span class="kw-2">&amp;</span>Constraints,
+		commitments: <span class="kw-2">&amp;</span>CandidateCommitments,
+		validation_code_hash: <span class="kw-2">&amp;</span>ValidationCodeHash,
+		persisted_validation_data: <span class="kw-2">&amp;</span>PersistedValidationData,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ConstraintModifications, FragmentValidityError&gt; {
 		<span class="kw">let </span>modifications = {
-			<span class="kw">let </span>commitments = <span class="kw-2">&amp;</span>candidate.commitments;
 			ConstraintModifications {
 				required_parent: <span class="prelude-val">Some</span>(commitments.head_data.clone()),
 				hrmp_watermark: <span class="prelude-val">Some</span>({
@@ -2287,11 +2272,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validate_against_constraints(
 			<span class="kw-2">&amp;</span>operating_constraints,
 			<span class="kw-2">&amp;</span>relay_parent,
-			<span class="kw-2">&amp;</span>candidate,
+			commitments,
+			persisted_validation_data,
+			validation_code_hash,
 			<span class="kw-2">&amp;</span>modifications,
 		)<span class="question-mark">?</span>;
 
-		<span class="prelude-val">Ok</span>(Fragment { relay_parent, operating_constraints, candidate, modifications })
+		<span class="prelude-val">Ok</span>(modifications)
 	}
 
 	<span class="doccomment">/// Access the relay parent information.
@@ -2305,7 +2292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Access the underlying prospective candidate.
-	</span><span class="kw">pub fn </span>candidate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProspectiveCandidate&lt;<span class="lifetime">'a</span>&gt; {
+	</span><span class="kw">pub fn </span>candidate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProspectiveCandidate {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.candidate
 	}
 
@@ -2313,31 +2300,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>constraint_modifications(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ConstraintModifications {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.modifications
 	}
-
-	<span class="doccomment">/// Convert the fragment into an owned variant.
-	</span><span class="kw">pub fn </span>into_owned(<span class="self">self</span>) -&gt; Fragment&lt;<span class="lifetime">'static</span>&gt; {
-		Fragment { candidate: <span class="self">self</span>.candidate.into_owned(), ..<span class="self">self </span>}
-	}
-
-	<span class="doccomment">/// Validate this fragment against some set of constraints
-	/// instead of the operating constraints.
-	</span><span class="kw">pub fn </span>validate_against_constraints(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		constraints: <span class="kw-2">&amp;</span>Constraints,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), FragmentValidityError&gt; {
-		validate_against_constraints(
-			constraints,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.relay_parent,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.candidate,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.modifications,
-		)
-	}
 }
 
 <span class="kw">fn </span>validate_against_constraints(
 	constraints: <span class="kw-2">&amp;</span>Constraints,
 	relay_parent: <span class="kw-2">&amp;</span>RelayChainBlockInfo,
-	candidate: <span class="kw-2">&amp;</span>ProspectiveCandidate,
+	commitments: <span class="kw-2">&amp;</span>CandidateCommitments,
+	persisted_validation_data: <span class="kw-2">&amp;</span>PersistedValidationData,
+	validation_code_hash: <span class="kw-2">&amp;</span>ValidationCodeHash,
 	modifications: <span class="kw-2">&amp;</span>ConstraintModifications,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), FragmentValidityError&gt; {
 	<span class="kw">let </span>expected_pvd = PersistedValidationData {
@@ -2347,17 +2317,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		max_pov_size: constraints.max_pov_size <span class="kw">as </span>u32,
 	};
 
-	<span class="kw">if </span>expected_pvd != candidate.persisted_validation_data {
+	<span class="kw">if </span>expected_pvd != <span class="kw-2">*</span>persisted_validation_data {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(FragmentValidityError::PersistedValidationDataMismatch(
 			expected_pvd,
-			candidate.persisted_validation_data.clone(),
+			persisted_validation_data.clone(),
 		))
 	}
 
-	<span class="kw">if </span>constraints.validation_code_hash != candidate.validation_code_hash {
+	<span class="kw">if </span>constraints.validation_code_hash != <span class="kw-2">*</span>validation_code_hash {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(FragmentValidityError::ValidationCodeMismatch(
 			constraints.validation_code_hash,
-			candidate.validation_code_hash,
+			<span class="kw-2">*</span>validation_code_hash,
 		))
 	}
 
@@ -2368,7 +2338,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		))
 	}
 
-	<span class="kw">if </span>candidate.commitments.new_validation_code.is_some() {
+	<span class="kw">if </span>commitments.new_validation_code.is_some() {
 		<span class="kw">match </span>constraints.upgrade_restriction {
 			<span class="prelude-val">None </span>=&gt; {},
 			<span class="prelude-val">Some</span>(UpgradeRestriction::Present) =&gt;
@@ -2376,11 +2346,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">let </span>announced_code_size = candidate
-		.commitments
-		.new_validation_code
-		.as_ref()
-		.map_or(<span class="number">0</span>, |code| code.<span class="number">0</span>.len());
+	<span class="kw">let </span>announced_code_size =
+		commitments.new_validation_code.as_ref().map_or(<span class="number">0</span>, |code| code.<span class="number">0</span>.len());
 
 	<span class="kw">if </span>announced_code_size &gt; constraints.max_code_size {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(FragmentValidityError::CodeSizeTooLarge(
@@ -2399,17 +2366,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">if </span>candidate.commitments.horizontal_messages.len() &gt; constraints.max_hrmp_num_per_candidate {
+	<span class="kw">if </span>commitments.horizontal_messages.len() &gt; constraints.max_hrmp_num_per_candidate {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(FragmentValidityError::HrmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_hrmp_num_per_candidate,
-			messages_submitted: candidate.commitments.horizontal_messages.len(),
+			messages_submitted: commitments.horizontal_messages.len(),
 		})
 	}
 
-	<span class="kw">if </span>candidate.commitments.upward_messages.len() &gt; constraints.max_ump_num_per_candidate {
+	<span class="kw">if </span>commitments.upward_messages.len() &gt; constraints.max_ump_num_per_candidate {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(FragmentValidityError::UmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_ump_num_per_candidate,
-			messages_submitted: candidate.commitments.upward_messages.len(),
+			messages_submitted: commitments.upward_messages.len(),
 		})
 	}
 
@@ -2782,21 +2749,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>make_candidate(
 		constraints: <span class="kw-2">&amp;</span>Constraints,
 		relay_parent: <span class="kw-2">&amp;</span>RelayChainBlockInfo,
-	) -&gt; ProspectiveCandidate&lt;<span class="lifetime">'static</span>&gt; {
+	) -&gt; ProspectiveCandidate {
 		<span class="kw">let </span>collator_pair = CollatorPair::generate().<span class="number">0</span>;
 		<span class="kw">let </span>collator = collator_pair.public();
 
 		<span class="kw">let </span>sig = collator_pair.sign(<span class="string">b"blabla"</span>.as_slice());
 
 		ProspectiveCandidate {
-			commitments: Cow::Owned(CandidateCommitments {
+			commitments: CandidateCommitments {
 				upward_messages: Default::default(),
 				horizontal_messages: Default::default(),
 				new_validation_code: <span class="prelude-val">None</span>,
 				head_data: HeadData::from(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]),
 				processed_downward_messages: <span class="number">0</span>,
 				hrmp_watermark: relay_parent.number,
-			}),
+			},
 			collator,
 			collator_signature: sig,
 			persisted_validation_data: PersistedValidationData {
@@ -2827,7 +2794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		candidate.validation_code_hash = got_code;
 
 		<span class="macro">assert_eq!</span>(
-			Fragment::new(relay_parent, constraints, candidate),
+			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			<span class="prelude-val">Err</span>(FragmentValidityError::ValidationCodeMismatch(expected_code, got_code,)),
 		)
 	}
@@ -2859,7 +2826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>got_pvd = candidate.persisted_validation_data.clone();
 
 		<span class="macro">assert_eq!</span>(
-			Fragment::new(relay_parent_b, constraints, candidate),
+			Fragment::new(relay_parent_b, constraints, Arc::new(candidate.clone())),
 			<span class="prelude-val">Err</span>(FragmentValidityError::PersistedValidationDataMismatch(expected_pvd, got_pvd,)),
 		);
 	}
@@ -2876,10 +2843,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>candidate = make_candidate(<span class="kw-2">&amp;</span>constraints, <span class="kw-2">&amp;</span>relay_parent);
 
 		<span class="kw">let </span>max_code_size = constraints.max_code_size;
-		candidate.commitments_mut().new_validation_code = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">0</span>; max_code_size + <span class="number">1</span>].into());
+		candidate.commitments.new_validation_code = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">0</span>; max_code_size + <span class="number">1</span>].into());
 
 		<span class="macro">assert_eq!</span>(
-			Fragment::new(relay_parent, constraints, candidate),
+			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			<span class="prelude-val">Err</span>(FragmentValidityError::CodeSizeTooLarge(max_code_size, max_code_size + <span class="number">1</span>,)),
 		);
 	}
@@ -2896,7 +2863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>candidate = make_candidate(<span class="kw-2">&amp;</span>constraints, <span class="kw-2">&amp;</span>relay_parent);
 
 		<span class="macro">assert_eq!</span>(
-			Fragment::new(relay_parent, constraints, candidate),
+			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			<span class="prelude-val">Err</span>(FragmentValidityError::RelayParentTooOld(<span class="number">5</span>, <span class="number">3</span>,)),
 		);
 	}
@@ -2915,7 +2882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>max_hrmp = constraints.max_hrmp_num_per_candidate;
 
 		candidate
-			.commitments_mut()
+			.commitments
 			.horizontal_messages
 			.try_extend((<span class="number">0</span>..max_hrmp + <span class="number">1</span>).map(|i| OutboundHrmpMessage {
 				recipient: ParaId::from(i <span class="kw">as </span>u32),
@@ -2924,7 +2891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 
 		<span class="macro">assert_eq!</span>(
-			Fragment::new(relay_parent, constraints, candidate),
+			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			<span class="prelude-val">Err</span>(FragmentValidityError::HrmpMessagesPerCandidateOverflow {
 				messages_allowed: max_hrmp,
 				messages_submitted: max_hrmp + <span class="number">1</span>,
@@ -2944,22 +2911,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>candidate = make_candidate(<span class="kw-2">&amp;</span>constraints, <span class="kw-2">&amp;</span>relay_parent);
 
 		<span class="comment">// Empty dmp queue is ok.
-		</span><span class="macro">assert!</span>(Fragment::new(relay_parent.clone(), constraints.clone(), candidate.clone()).is_ok());
+		</span><span class="macro">assert!</span>(Fragment::new(
+			relay_parent.clone(),
+			constraints.clone(),
+			Arc::new(candidate.clone())
+		)
+		.is_ok());
 		<span class="comment">// Unprocessed message that was sent later is ok.
 		</span>constraints.dmp_remaining_messages = <span class="macro">vec!</span>[relay_parent.number + <span class="number">1</span>];
-		<span class="macro">assert!</span>(Fragment::new(relay_parent.clone(), constraints.clone(), candidate.clone()).is_ok());
+		<span class="macro">assert!</span>(Fragment::new(
+			relay_parent.clone(),
+			constraints.clone(),
+			Arc::new(candidate.clone())
+		)
+		.is_ok());
 
 		<span class="kw">for </span>block_number <span class="kw">in </span><span class="number">0</span>..=relay_parent.number {
 			constraints.dmp_remaining_messages = <span class="macro">vec!</span>[block_number];
 
 			<span class="macro">assert_eq!</span>(
-				Fragment::new(relay_parent.clone(), constraints.clone(), candidate.clone()),
+				Fragment::new(
+					relay_parent.clone(),
+					constraints.clone(),
+					Arc::new(candidate.clone())
+				),
 				<span class="prelude-val">Err</span>(FragmentValidityError::DmpAdvancementRule),
 			);
 		}
 
-		candidate.commitments.to_mut().processed_downward_messages = <span class="number">1</span>;
-		<span class="macro">assert!</span>(Fragment::new(relay_parent, constraints, candidate).is_ok());
+		candidate.commitments.processed_downward_messages = <span class="number">1</span>;
+		<span class="macro">assert!</span>(Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())).is_ok());
 	}
 
 	<span class="attr">#[test]
@@ -2977,13 +2958,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		candidate
 			.commitments
-			.to_mut()
 			.upward_messages
 			.try_extend((<span class="number">0</span>..max_ump + <span class="number">1</span>).map(|i| <span class="macro">vec!</span>[i <span class="kw">as </span>u8]))
 			.unwrap();
 
 		<span class="macro">assert_eq!</span>(
-			Fragment::new(relay_parent, constraints, candidate),
+			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			<span class="prelude-val">Err</span>(FragmentValidityError::UmpMessagesPerCandidateOverflow {
 				messages_allowed: max_ump,
 				messages_submitted: max_ump + <span class="number">1</span>,
@@ -3003,10 +2983,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>candidate = make_candidate(<span class="kw-2">&amp;</span>constraints, <span class="kw-2">&amp;</span>relay_parent);
 
 		constraints.upgrade_restriction = <span class="prelude-val">Some</span>(UpgradeRestriction::Present);
-		candidate.commitments_mut().new_validation_code = <span class="prelude-val">Some</span>(ValidationCode(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]));
+		candidate.commitments.new_validation_code = <span class="prelude-val">Some</span>(ValidationCode(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]));
 
 		<span class="macro">assert_eq!</span>(
-			Fragment::new(relay_parent, constraints, candidate),
+			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			<span class="prelude-val">Err</span>(FragmentValidityError::CodeUpgradeRestricted),
 		);
 	}
@@ -3022,23 +3002,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>constraints = make_constraints();
 		<span class="kw">let </span><span class="kw-2">mut </span>candidate = make_candidate(<span class="kw-2">&amp;</span>constraints, <span class="kw-2">&amp;</span>relay_parent);
 
-		candidate.commitments_mut().horizontal_messages = HorizontalMessages::truncate_from(<span class="macro">vec!</span>[
+		candidate.commitments.horizontal_messages = HorizontalMessages::truncate_from(<span class="macro">vec!</span>[
 			OutboundHrmpMessage { recipient: ParaId::from(<span class="number">0 </span><span class="kw">as </span>u32), data: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>] },
 			OutboundHrmpMessage { recipient: ParaId::from(<span class="number">0 </span><span class="kw">as </span>u32), data: <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>] },
 		]);
 
 		<span class="macro">assert_eq!</span>(
-			Fragment::new(relay_parent.clone(), constraints.clone(), candidate.clone()),
+			Fragment::new(relay_parent.clone(), constraints.clone(), Arc::new(candidate.clone())),
 			<span class="prelude-val">Err</span>(FragmentValidityError::HrmpMessagesDescendingOrDuplicate(<span class="number">1</span>)),
 		);
 
-		candidate.commitments_mut().horizontal_messages = HorizontalMessages::truncate_from(<span class="macro">vec!</span>[
+		candidate.commitments.horizontal_messages = HorizontalMessages::truncate_from(<span class="macro">vec!</span>[
 			OutboundHrmpMessage { recipient: ParaId::from(<span class="number">1 </span><span class="kw">as </span>u32), data: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>] },
 			OutboundHrmpMessage { recipient: ParaId::from(<span class="number">0 </span><span class="kw">as </span>u32), data: <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>] },
 		]);
 
 		<span class="macro">assert_eq!</span>(
-			Fragment::new(relay_parent, constraints, candidate),
+			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			<span class="prelude-val">Err</span>(FragmentValidityError::HrmpMessagesDescendingOrDuplicate(<span class="number">1</span>)),
 		);
 	}

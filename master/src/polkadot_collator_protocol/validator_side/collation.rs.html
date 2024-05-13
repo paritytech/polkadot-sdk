@@ -525,10 +525,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -652,19 +648,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// v2 or v3 advertisement that was rejected by the backing
-/// subsystem. Validator may fetch it later if its fragment
-/// membership gets recognized before relay parent goes out of view.
-</span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>BlockedAdvertisement {
-	<span class="doccomment">/// Peer that advertised the collation.
-	</span><span class="kw">pub </span>peer_id: PeerId,
-	<span class="doccomment">/// Collator id.
-	</span><span class="kw">pub </span>collator_id: CollatorId,
-	<span class="doccomment">/// The relay-parent of the candidate.
-	</span><span class="kw">pub </span>candidate_relay_parent: Hash,
-	<span class="doccomment">/// Hash of the candidate.
-	</span><span class="kw">pub </span>candidate_hash: CandidateHash,
+<span class="doccomment">/// An identifier for a fetched collation that was blocked from being seconded because we don't have
+/// access to the parent's HeadData. Can be retried once the candidate outputting this head data is
+/// seconded.
+</span><span class="attr">#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+</span><span class="kw">pub struct </span>BlockedCollationId {
+	<span class="doccomment">/// Para id.
+	</span><span class="kw">pub </span>para_id: ParaId,
+	<span class="doccomment">/// Hash of the parent head data.
+	</span><span class="kw">pub </span>parent_head_data_hash: Hash,
 }
 
 <span class="doccomment">/// Performs a sanity check between advertised and fetched collations.

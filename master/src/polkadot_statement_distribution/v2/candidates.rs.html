@@ -1698,12 +1698,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Whether statements from a candidate are importable.
 	///
 	/// This is only true when the candidate is known, confirmed,
-	/// and is importable in a fragment tree.
+	/// and is importable in a fragment chain.
 	</span><span class="kw">pub fn </span>is_importable(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
 		<span class="self">self</span>.get_confirmed(candidate_hash).map_or(<span class="bool-val">false</span>, |c| c.is_importable(<span class="prelude-val">None</span>))
 	}
 
-	<span class="doccomment">/// Note that a candidate is importable in a fragment tree indicated by the given
+	<span class="doccomment">/// Note that a candidate is importable in a fragment chain indicated by the given
 	/// leaf hash.
 	</span><span class="kw">pub fn </span>note_importable_under(<span class="kw-2">&amp;mut </span><span class="self">self</span>, candidate: <span class="kw-2">&amp;</span>HypotheticalCandidate, leaf_hash: Hash) {
 		<span class="kw">match </span>candidate {

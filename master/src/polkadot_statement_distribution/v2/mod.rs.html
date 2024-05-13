@@ -3635,6 +3635,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3484" id="3484">3484</a>
 <a href="#3485" id="3485">3485</a>
 <a href="#3486" id="3486">3486</a>
+<a href="#3487" id="3487">3487</a>
+<a href="#3488" id="3488">3488</a>
+<a href="#3489" id="3489">3489</a>
+<a href="#3490" id="3490">3490</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3674,7 +3678,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem::{
 	messages::{
 		network_bridge_event::NewGossipTopology, CandidateBackingMessage, HypotheticalCandidate,
-		HypotheticalFrontierRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		HypotheticalMembershipRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
 		ProspectiveParachainsMessage,
 	},
 	overseer, ActivatedLeaf,
@@ -4390,7 +4394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	new_leaf_fragment_tree_updates(ctx, state, activated.hash).<span class="kw">await</span>;
+	new_leaf_fragment_chain_updates(ctx, state, activated.hash).<span class="kw">await</span>;
 
 	<span class="prelude-val">Ok</span>(())
 }
@@ -5853,7 +5857,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>fragment_tree_update_inner&lt;Context&gt;(
+</span><span class="kw">async fn </span>fragment_chain_update_inner&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	state: <span class="kw-2">&amp;mut </span>State,
 	active_leaf_hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
@@ -5867,31 +5871,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="comment">// 2. find out which are in the frontier
-	</span><span class="kw">let </span>frontier = {
+	</span><span class="macro">gum::debug!</span>(
+		target: LOG_TARGET,
+		<span class="string">"Calling getHypotheticalMembership from statement distribution"
+	</span>);
+	<span class="kw">let </span>candidate_memberships = {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
-		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalFrontier(
-			HypotheticalFrontierRequest {
+		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
+			HypotheticalMembershipRequest {
 				candidates: hypotheticals,
-				fragment_tree_relay_parent: active_leaf_hash,
-				backed_in_path_only: <span class="bool-val">false</span>,
+				fragment_chain_relay_parent: active_leaf_hash,
 			},
 			tx,
 		))
 		.<span class="kw">await</span>;
 
 		<span class="kw">match </span>rx.<span class="kw">await </span>{
-			<span class="prelude-val">Ok</span>(frontier) =&gt; frontier,
+			<span class="prelude-val">Ok</span>(candidate_memberships) =&gt; candidate_memberships,
 			<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; <span class="kw">return</span>,
 		}
 	};
 	<span class="comment">// 3. note that they are importable under a given leaf hash.
-	</span><span class="kw">for </span>(hypo, membership) <span class="kw">in </span>frontier {
-		<span class="comment">// skip parablocks outside of the frontier
+	</span><span class="kw">for </span>(hypo, membership) <span class="kw">in </span>candidate_memberships {
+		<span class="comment">// skip parablocks which aren't potential candidates
 		</span><span class="kw">if </span>membership.is_empty() {
 			<span class="kw">continue
 		</span>}
 
-		<span class="kw">for </span>(leaf_hash, <span class="kw">_</span>) <span class="kw">in </span>membership {
+		<span class="kw">for </span>leaf_hash <span class="kw">in </span>membership {
 			state.candidates.note_importable_under(<span class="kw-2">&amp;</span>hypo, leaf_hash);
 		}
 
@@ -5935,31 +5942,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>new_leaf_fragment_tree_updates&lt;Context&gt;(
+</span><span class="kw">async fn </span>new_leaf_fragment_chain_updates&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	state: <span class="kw-2">&amp;mut </span>State,
 	leaf_hash: Hash,
 ) {
-	fragment_tree_update_inner(ctx, state, <span class="prelude-val">Some</span>(leaf_hash), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="kw">await
+	fragment_chain_update_inner(ctx, state, <span class="prelude-val">Some</span>(leaf_hash), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="kw">await
 </span>}
 
 <span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>prospective_backed_notification_fragment_tree_updates&lt;Context&gt;(
+</span><span class="kw">async fn </span>prospective_backed_notification_fragment_chain_updates&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	state: <span class="kw-2">&amp;mut </span>State,
 	para_id: ParaId,
 	para_head: Hash,
 ) {
-	fragment_tree_update_inner(ctx, state, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>((para_head, para_id)), <span class="prelude-val">None</span>).<span class="kw">await
+	fragment_chain_update_inner(ctx, state, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>((para_head, para_id)), <span class="prelude-val">None</span>).<span class="kw">await
 </span>}
 
 <span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>new_confirmed_candidate_fragment_tree_updates&lt;Context&gt;(
+</span><span class="kw">async fn </span>new_confirmed_candidate_fragment_chain_updates&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	state: <span class="kw-2">&amp;mut </span>State,
 	candidate: HypotheticalCandidate,
 ) {
-	fragment_tree_update_inner(ctx, state, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[candidate])).<span class="kw">await
+	fragment_chain_update_inner(ctx, state, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[candidate])).<span class="kw">await
 </span>}
 
 <span class="kw">struct </span>ManifestImportSuccess&lt;<span class="lifetime">'a</span>&gt; {
@@ -6502,7 +6509,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	.<span class="kw">await</span>;
 
 	<span class="comment">// Search for children of the backed candidate to request.
-	</span>prospective_backed_notification_fragment_tree_updates(
+	</span>prospective_backed_notification_fragment_chain_updates(
 		ctx,
 		state,
 		confirmed.para_id(),
@@ -6593,7 +6600,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		post_confirmation.hypothetical.relay_parent(),
 	)
 	.<span class="kw">await</span>;
-	new_confirmed_candidate_fragment_tree_updates(ctx, state, post_confirmation.hypothetical).<span class="kw">await</span>;
+	new_confirmed_candidate_fragment_chain_updates(ctx, state, post_confirmation.hypothetical)
+		.<span class="kw">await</span>;
 }
 
 <span class="doccomment">/// Dispatch pending requests for candidate data &amp; statements.
@@ -6822,8 +6830,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>confirmed = state.candidates.get_confirmed(<span class="kw-2">&amp;</span>candidate_hash).expect(<span class="string">"just confirmed; qed"</span>);
 
-	<span class="comment">// Although the candidate is confirmed, it isn't yet on the
-	// hypothetical frontier of the fragment tree. Later, when it is,
+	<span class="comment">// Although the candidate is confirmed, it isn't yet a
+	// hypothetical member of the fragment chain. Later, when it is,
 	// we will import statements.
 	</span><span class="kw">if </span>!confirmed.is_importable(<span class="prelude-val">None</span>) {
 		<span class="kw">return
