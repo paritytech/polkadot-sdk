@@ -395,6 +395,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -425,6 +435,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 
+<span class="doccomment">/// Relay chain slot duration, in milliseconds.
+</span><span class="kw">pub const </span>RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = <span class="number">6000</span>;
+
 <span class="doccomment">/// Inherent data provider that supplies mocked validation data.
 ///
 /// This is useful when running a node that is not actually backed by any relay chain.
@@ -442,6 +455,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>MockValidationDataInherentDataProvider&lt;R = ()&gt; {
 	<span class="doccomment">/// The current block number of the local block chain (the parachain)
 	</span><span class="kw">pub </span>current_para_block: u32,
+	<span class="doccomment">/// The current block head data of the local block chain (the parachain)
+	</span><span class="kw">pub </span>current_para_block_head: <span class="prelude-ty">Option</span>&lt;cumulus_primitives_core::relay_chain::HeadData&gt;,
 	<span class="doccomment">/// The relay block in which this parachain appeared to start. This will be the relay block
 	/// number in para block #P1
 	</span><span class="kw">pub </span>relay_offset: u32,
@@ -556,13 +571,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		inherent_data: <span class="kw-2">&amp;mut </span>InherentData,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_inherents::Error&gt; {
-		<span class="comment">// Calculate the mocked relay block based on the current para block
-		</span><span class="kw">let </span>relay_parent_number =
-			<span class="self">self</span>.relay_offset + <span class="self">self</span>.relay_blocks_per_para_block * <span class="self">self</span>.current_para_block;
-
 		<span class="comment">// Use the "sproof" (spoof proof) builder to build valid mock state root and proof.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>sproof_builder =
 			RelayStateSproofBuilder { para_id: <span class="self">self</span>.xcm_config.para_id, ..Default::default() };
+
+		<span class="comment">// Calculate the mocked relay block based on the current para block
+		</span><span class="kw">let </span>relay_parent_number =
+			<span class="self">self</span>.relay_offset + <span class="self">self</span>.relay_blocks_per_para_block * <span class="self">self</span>.current_para_block;
+		sproof_builder.current_slot =
+			((relay_parent_number / RELAY_CHAIN_SLOT_DURATION_MILLIS) <span class="kw">as </span>u64).into();
 
 		<span class="comment">// Process the downward messages and set up the correct head
 		</span><span class="kw">let </span><span class="kw-2">mut </span>downward_messages = Vec::new();
@@ -613,6 +630,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(key_values) = <span class="kw-2">&amp;</span><span class="self">self</span>.additional_key_values {
 			sproof_builder.additional_key_values = key_values.clone()
 		}
+
+		<span class="comment">// Inject current para block head, if any
+		</span>sproof_builder.included_para_head = <span class="self">self</span>.current_para_block_head.clone();
 
 		<span class="kw">let </span>(relay_parent_storage_root, proof) = sproof_builder.into_state_root_and_proof();
 
