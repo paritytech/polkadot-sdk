@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715558776131,
+  "lastUpdate": 1715596530431,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3242,6 +3242,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.3119468829001333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "477a120893ecd35f5e4f808cba10525424b5711d",
+          "message": "[ci] Add forklift to GHA ARC (#4372)\n\nPR adds forklift settings and forklift to test-github-actions\n\ncc https://github.com/paritytech/ci_cd/issues/939",
+          "timestamp": "2024-05-13T09:54:32Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/477a120893ecd35f5e4f808cba10525424b5711d"
+        },
+        "date": 1715596503300,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52945.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63549.69,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.55501807833011,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.5006567842001592,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.855586049150079,
             "unit": "seconds"
           }
         ]
