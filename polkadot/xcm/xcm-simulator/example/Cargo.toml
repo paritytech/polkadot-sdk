@@ -15,7 +15,7 @@ scale-info = { version = "2.10.0", features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
 frame-system = { version = "29.0.0", path = "../../../../substrate/frame/system" }
 frame-support = { version = "29.0.2", path = "../../../../substrate/frame/support" }
-pallet-balances = { version = "29.0.0", path = "../../../../substrate/frame/balances" }
+pallet-balances = { version = "29.0.2", path = "../../../../substrate/frame/balances" }
 pallet-message-queue = { version = "32.0.0", path = "../../../../substrate/frame/message-queue" }
 pallet-uniques = { version = "29.0.0", path = "../../../../substrate/frame/uniques" }
 sp-std = { version = "14.0.0", path = "../../../../substrate/primitives/std" }

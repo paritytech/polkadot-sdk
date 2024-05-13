@@ -29,7 +29,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", defaul
 
 # marked optional, used in benchmarking
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
-pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, optional = true, version = "29.0.0" }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, optional = true, version = "29.0.2" }
 
 [dev-dependencies]
 pallet-assets = { path = "../../../substrate/frame/assets" }

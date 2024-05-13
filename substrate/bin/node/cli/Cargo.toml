@@ -165,7 +165,7 @@ substrate-build-script-utils = { path = "../../../utils/build-script-utils", opt
 substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true, version = "33.0.0" }
 try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true, version = "0.39.0" }
 sc-cli = { path = "../../../client/cli", optional = true, version = "0.37.0" }
-pallet-balances = { version = "29.0.0", path = "../../../frame/balances" }
+pallet-balances = { version = "29.0.2", path = "../../../frame/balances" }
 sc-storage-monitor = { version = "0.17.0", path = "../../../client/storage-monitor" }
 
 [features]

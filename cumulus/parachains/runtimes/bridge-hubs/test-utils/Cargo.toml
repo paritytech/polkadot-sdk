@@ -23,7 +23,7 @@ sp-keyring = { version = "32.0.0", path = "../../../../../substrate/primitives/k
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-tracing = { version = "16.0.0", path = "../../../../../substrate/primitives/tracing" }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.0" }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.2" }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false, version = "29.0.0" }
 asset-test-utils = { version = "8.0.1", path = "../../assets/test-utils" }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.8.1" }

@@ -29,7 +29,7 @@ sp-std = { path = "../../../primitives/std", default-features = false, version =
 
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true, version = "29.0.0" }
 
-pallet-balances = { path = "../../balances", default-features = false, version = "29.0.0" }
+pallet-balances = { path = "../../balances", default-features = false, version = "29.0.2" }
 
 [dev-dependencies]
 sp-core = { path = "../../../primitives/core", default-features = false }

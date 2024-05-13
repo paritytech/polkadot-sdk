@@ -24,7 +24,7 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false, version = "24.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "32.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
-pallet-balances = { path = "../balances", default-features = false, optional = true, version = "29.0.0" }
+pallet-balances = { path = "../balances", default-features = false, optional = true, version = "29.0.2" }
 pallet-utility = { path = "../utility", default-features = false, optional = true, version = "29.0.0" }
 pallet-proxy = { path = "../proxy", default-features = false, optional = true, version = "29.0.0" }
 

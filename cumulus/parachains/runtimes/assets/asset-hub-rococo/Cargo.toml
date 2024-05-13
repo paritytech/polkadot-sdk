@@ -28,7 +28,7 @@ pallet-assets = { path = "../../../../../substrate/frame/assets", default-featur
 pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false, version = "11.0.0" }
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false, version = "28.0.0" }
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false, version = "29.0.0" }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.0" }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.2" }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false, version = "32.0.0" }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false, version = "29.0.0" }
 pallet-nft-fractionalization = { path = "../../../../../substrate/frame/nft-fractionalization", default-features = false, version = "11.0.0" }

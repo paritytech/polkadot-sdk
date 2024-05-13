@@ -27,7 +27,7 @@ sp-io = { version = "31.0.0", path = "../../../substrate/primitives/io" }
 sp-timestamp = { version = "27.0.0", path = "../../../substrate/primitives/timestamp" }
 frame-system = { version = "29.0.0", path = "../../../substrate/frame/system" }
 pallet-transaction-payment = { version = "29.0.0", path = "../../../substrate/frame/transaction-payment" }
-pallet-balances = { version = "29.0.0", path = "../../../substrate/frame/balances" }
+pallet-balances = { version = "29.0.2", path = "../../../substrate/frame/balances" }
 polkadot-primitives = { version = "8.0.1", path = "../../../polkadot/primitives" }
 polkadot-parachain-primitives = { version = "7.0.0", path = "../../../polkadot/parachain" }
 cumulus-test-runtime = { version = "0.1.0", path = "../runtime" }

@@ -24,7 +24,7 @@ sp-std = { version = "14.0.0", path = "../../../substrate/primitives/std" }
 sp-runtime = { version = "32.0.0", path = "../../../substrate/primitives/runtime" }
 sp-arithmetic = { version = "24.0.0", path = "../../../substrate/primitives/arithmetic" }
 sp-tracing = { version = "16.0.0", path = "../../../substrate/primitives/tracing" }
-pallet-balances = { version = "29.0.0", path = "../../../substrate/frame/balances" }
+pallet-balances = { version = "29.0.2", path = "../../../substrate/frame/balances" }
 pallet-message-queue = { version = "32.0.0", path = "../../../substrate/frame/message-queue" }
 cumulus-primitives-core = { version = "0.8.0", path = "../../primitives/core" }
 cumulus-pallet-xcmp-queue = { version = "0.8.0", path = "../../pallets/xcmp-queue" }

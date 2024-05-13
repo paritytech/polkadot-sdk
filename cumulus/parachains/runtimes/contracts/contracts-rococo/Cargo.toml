@@ -45,7 +45,7 @@ frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/r
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false, version = "28.0.0" }
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false, version = "29.0.0" }
 pallet-insecure-randomness-collective-flip = { path = "../../../../../substrate/frame/insecure-randomness-collective-flip", default-features = false, version = "17.0.0" }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.0" }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.2" }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false, version = "29.0.0" }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false, version = "29.0.0" }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false, version = "28.0.0" }

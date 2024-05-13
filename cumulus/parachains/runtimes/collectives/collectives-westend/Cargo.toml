@@ -27,7 +27,7 @@ pallet-asset-rate = { path = "../../../../../substrate/frame/asset-rate", defaul
 pallet-alliance = { path = "../../../../../substrate/frame/alliance", default-features = false, version = "28.0.0" }
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false, version = "28.0.0" }
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false, version = "29.0.0" }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.0" }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.2" }
 pallet-collective = { path = "../../../../../substrate/frame/collective", default-features = false, version = "29.0.0" }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false, version = "29.0.0" }
 pallet-preimage = { path = "../../../../../substrate/frame/preimage", default-features = false, version = "29.0.0" }
