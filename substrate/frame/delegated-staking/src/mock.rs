@@ -32,8 +32,6 @@ use frame_election_provider_support::{
 };
 use frame_support::dispatch::RawOrigin;
 use pallet_staking::CurrentEra;
-use sp_core::U256;
-use sp_runtime::traits::Convert;
 use sp_staking::{Stake, StakingInterface};
 
 pub type T = Runtime;
@@ -149,19 +147,6 @@ impl delegated_staking::Config for Runtime {
 	type SlashRewardFraction = SlashRewardFraction;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;
-}
-
-pub struct BalanceToU256;
-impl Convert<Balance, U256> for BalanceToU256 {
-	fn convert(n: Balance) -> U256 {
-		n.into()
-	}
-}
-pub struct U256ToBalance;
-impl Convert<U256, Balance> for U256ToBalance {
-	fn convert(n: U256) -> Balance {
-		n.try_into().unwrap()
-	}
 }
 
 parameter_types! {
@@ -334,13 +319,7 @@ pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Even
 	events.into_iter().skip(already_seen).collect()
 }
 pub(crate) fn events_since_last_call() -> Vec<crate::Event<Runtime>> {
-	let events = System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(
-			|e| if let RuntimeEvent::DelegatedStaking(inner) = e { Some(inner) } else { None },
-		)
-		.collect::<Vec<_>>();
+	let events = System::read_events_for_pallet::<crate::Event<Runtime>>();
 	let already_seen = ObservedEventsDelegatedStaking::get();
 	ObservedEventsDelegatedStaking::set(events.len());
 	events.into_iter().skip(already_seen).collect()

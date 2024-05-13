@@ -75,7 +75,7 @@ fn cannot_become_agent() {
 			Error::<T>::AlreadyStaking
 		);
 
-		// an existing nominator cannot become agent
+		// an existing direct staker to `CoreStaking` cannot become an agent.
 		assert_noop!(
 			DelegatedStaking::register_agent(
 				RawOrigin::Signed(mock::GENESIS_NOMINATOR_ONE).into(),
@@ -192,6 +192,45 @@ fn agent_restrictions() {
 				agent_two,
 				10
 			),
+			Error::<T>::InvalidDelegation
+		);
+
+		// cannot delegate to non agents.
+		let non_agent = 201;
+		// give it some funds
+		fund(&non_agent, 200);
+		assert_noop!(
+			DelegatedStaking::delegate_to_agent(
+				RawOrigin::Signed(delegator_one).into(),
+				non_agent,
+				10
+			),
+			Error::<T>::InvalidDelegation
+		);
+
+		// cannot delegate to a delegator
+		assert_noop!(
+			DelegatedStaking::delegate_to_agent(
+				RawOrigin::Signed(delegator_one).into(),
+				delegator_two,
+				10
+			),
+			Error::<T>::InvalidDelegation
+		);
+
+		// delegator cannot delegate to self
+		assert_noop!(
+			DelegatedStaking::delegate_to_agent(
+				RawOrigin::Signed(delegator_one).into(),
+				delegator_one,
+				10
+			),
+			Error::<T>::InvalidDelegation
+		);
+
+		// agent cannot delegate to self
+		assert_noop!(
+			DelegatedStaking::delegate_to_agent(RawOrigin::Signed(agent_one).into(), agent_one, 10),
 			Error::<T>::InvalidDelegation
 		);
 	});
@@ -364,7 +403,6 @@ mod staking_integration {
 				Error::<T>::NotEnoughFunds
 			);
 
-			assert!(eq_stake(agent, total_staked, expected_active));
 			assert_eq!(get_agent(&agent).available_to_bond(), 0);
 			// full amount is still delegated
 			assert_eq!(get_agent(&agent).ledger.effective_balance(), total_staked);

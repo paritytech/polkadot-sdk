@@ -125,18 +125,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+mod impls;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+mod types;
 
 pub use pallet::*;
 
-mod types;
-
 use types::*;
-
-mod impls;
 
 use frame_support::{
 	pallet_prelude::*,
@@ -270,6 +268,9 @@ pub mod pallet {
 		///
 		/// Delegators can authorize `Agent`s to stake on their behalf by delegating their funds to
 		/// them. The `Agent` can then use the delegated funds to stake to [`Config::CoreStaking`].
+		///
+		/// An account that is directly staked to [`Config::CoreStaking`] cannot become an `Agent`.
+		/// However, they can migrate to become an agent using [`Self::migrate_to_agent`].
 		///
 		/// Implementation note: This function allows any account to become an agent. It is
 		/// important though that accounts that call [`StakingUnchecked::virtual_bond`] are keyless
