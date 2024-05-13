@@ -151,19 +151,6 @@ impl delegated_staking::Config for Runtime {
 	type CoreStaking = Staking;
 }
 
-pub struct BalanceToU256;
-impl Convert<Balance, U256> for BalanceToU256 {
-	fn convert(n: Balance) -> U256 {
-		n.into()
-	}
-}
-pub struct U256ToBalance;
-impl Convert<U256, Balance> for U256ToBalance {
-	fn convert(n: U256) -> Balance {
-		n.try_into().unwrap()
-	}
-}
-
 parameter_types! {
 	pub static MaxUnbonding: u32 = 8;
 }
