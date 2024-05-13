@@ -393,6 +393,16 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 	fn on_new_validator_set(_: &ValidatorSet<AuthorityId>, _: &ValidatorSet<AuthorityId>) {}
 }
 
+/// Hook containing helper methods for proving/checking commitment canonicity.
+pub trait AncestryHelper<BlockNumber> {
+	/// Type containing proved info about the canonical chain at a certain height.
+	type Proof;
+
+	/// Check if a commitment is pointing to a header on a non-canonical chain
+	/// against a canonicity proof generated at the same header height.
+	fn is_non_canonical(commitment: &Commitment<BlockNumber>, proof: Self::Proof) -> bool;
+}
+
 /// An opaque type used to represent the key ownership proof at the runtime API
 /// boundary. The inner value is an encoded representation of the actual key
 /// ownership proof which will be parameterized when defining the runtime. At

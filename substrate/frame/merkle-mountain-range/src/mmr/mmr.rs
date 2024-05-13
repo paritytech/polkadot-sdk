@@ -60,6 +60,42 @@ where
 		.map_err(|e| Error::Verify.log_debug(e))
 }
 
+pub fn verify_ancestry_proof<H, L>(
+	root: H::Output,
+	ancestry_proof: primitives::AncestryProof<H::Output>,
+) -> Result<H::Output, Error>
+where
+	H: sp_runtime::traits::Hash,
+	L: primitives::FullLeaf,
+{
+	let mmr_size = NodesUtils::new(ancestry_proof.leaf_count).size();
+
+	let prev_peaks_proof = mmr_lib::NodeMerkleProof::<Node<H, L>, Hasher<H, L>>::new(
+		mmr_size,
+		ancestry_proof
+			.items
+			.into_iter()
+			.map(|(index, hash)| (index, Node::Hash(hash)))
+			.collect(),
+	);
+
+	let raw_ancestry_proof = mmr_lib::AncestryProof::<Node<H, L>, Hasher<H, L>> {
+		prev_peaks: ancestry_proof.prev_peaks.into_iter().map(|hash| Node::Hash(hash)).collect(),
+		prev_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - 1),
+		proof: prev_peaks_proof,
+	};
+
+	let prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<Node<H, L>, Hasher<H, L>>(
+		raw_ancestry_proof.prev_peaks.clone(),
+	)
+	.map_err(|e| Error::Verify.log_debug(e))?;
+	raw_ancestry_proof
+		.verify_ancestor(Node::Hash(root), prev_root.clone())
+		.map_err(|e| Error::Verify.log_debug(e))?;
+
+	Ok(prev_root.hash())
+}
+
 /// A wrapper around an MMR library to expose limited functionality.
 ///
 /// Available functions depend on the storage kind ([Runtime](crate::mmr::storage::RuntimeStorage)
@@ -116,44 +152,6 @@ where
 			.collect();
 		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;
 		p.verify(root, leaves_positions_and_data)
-			.map_err(|e| Error::Verify.log_debug(e))
-	}
-
-	pub fn verify_ancestry_proof(
-		&self,
-		ancestry_proof: primitives::AncestryProof<HashOf<T, I>>,
-	) -> Result<bool, Error> {
-		let prev_peaks_proof =
-			mmr_lib::NodeMerkleProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>::new(
-				self.mmr.mmr_size(),
-				ancestry_proof
-					.items
-					.into_iter()
-					.map(|(index, hash)| (index, Node::Hash(hash)))
-					.collect(),
-			);
-
-		let raw_ancestry_proof = mmr_lib::AncestryProof::<
-			NodeOf<T, I, L>,
-			Hasher<HashingOf<T, I>, L>,
-		> {
-			prev_peaks: ancestry_proof
-				.prev_peaks
-				.into_iter()
-				.map(|hash| Node::Hash(hash))
-				.collect(),
-			prev_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - 1),
-			proof: prev_peaks_proof,
-		};
-
-		let prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<
-			NodeOf<T, I, L>,
-			Hasher<HashingOf<T, I>, L>,
-		>(raw_ancestry_proof.prev_peaks.clone())
-		.map_err(|e| Error::Verify.log_debug(e))?;
-		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;
-		raw_ancestry_proof
-			.verify_ancestor(root, prev_root)
 			.map_err(|e| Error::Verify.log_debug(e))
 	}
 

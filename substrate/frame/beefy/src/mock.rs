@@ -37,6 +37,7 @@ use sp_state_machine::BasicExternalities;
 use crate as pallet_beefy;
 
 pub use sp_consensus_beefy::{ecdsa_crypto::AuthorityId as BeefyId, ConsensusLog, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{AncestryHelper, Commitment};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -80,6 +81,18 @@ parameter_types! {
 	pub const ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * Period::get();
 	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+
+	pub storage CommitmentIsTargetingFork: bool = true;
+}
+
+pub struct MockAncestryHelper;
+
+impl<BlockNumber> AncestryHelper<BlockNumber> for MockAncestryHelper {
+	type Proof = ();
+
+	fn is_non_canonical(_commitment: &Commitment<BlockNumber>, _proof: Self::Proof) -> bool {
+		CommitmentIsTargetingFork::get()
+	}
 }
 
 impl pallet_beefy::Config for Test {
@@ -88,6 +101,7 @@ impl pallet_beefy::Config for Test {
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type OnNewValidatorSet = ();
+	type AncestryHelper = MockAncestryHelper;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =

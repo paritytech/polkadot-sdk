@@ -37,10 +37,11 @@ use sp_runtime::traits::{Convert, Member};
 use sp_std::prelude::*;
 
 use codec::Decode;
-use pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
+use pallet_mmr::{primitives::AncestryProof, LeafDataProvider, ParentNumberAndHash};
 use sp_consensus_beefy::{
+	known_payloads,
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
-	ValidatorSet as BeefyValidatorSet,
+	AncestryHelper, Commitment, ValidatorSet as BeefyValidatorSet,
 };
 
 use frame_support::{crypto::ecdsa::ECDSAExt, traits::Get};
@@ -169,6 +170,50 @@ where
 		// cache the result
 		BeefyAuthorities::<T>::put(&current);
 		BeefyNextAuthorities::<T>::put(&next);
+	}
+}
+
+impl<T: Config> AncestryHelper<BlockNumberFor<T>> for Pallet<T> {
+	type Proof = AncestryProof<MerkleRootOf<T>>;
+
+	fn is_non_canonical(commitment: &Commitment<BlockNumberFor<T>>, proof: Self::Proof) -> bool {
+		let commitment_leaf_count =
+			match pallet_mmr::Pallet::<T>::block_num_to_leaf_count(commitment.block_number) {
+				Ok(commitment_leaf_count) => commitment_leaf_count,
+				Err(_) => {
+					// We consider the commitment non-canonical if the `commitment.block_number`
+					// is invalid.
+					return true
+				},
+			};
+		if commitment_leaf_count != proof.prev_leaf_count {
+			// Can't prove that the commitment is non-canonical if the `commitment.block_number`
+			// doesn't match the ancestry proof.
+			return false;
+		}
+
+		let canonical_mmr_root = pallet_mmr::Pallet::<T>::mmr_root();
+		let canonical_prev_root =
+			match pallet_mmr::Pallet::<T>::verify_ancestry_proof(canonical_mmr_root, proof) {
+				Ok(canonical_prev_root) => canonical_prev_root,
+				Err(_) => {
+					// Can't prove that the commitment is non-canonical if the proof
+					// is invalid.
+					return false
+				},
+			};
+
+		let commitment_root =
+			match commitment.payload.get_decoded::<MerkleRootOf<T>>(&known_payloads::MMR_ROOT_ID) {
+				Some(commitment_root) => commitment_root,
+				None => {
+					// If the commitment doesn't contain any MMR root, while the proof is valid,
+					// the commitment is invalid
+					return true
+				},
+			};
+
+		canonical_prev_root != commitment_root
 	}
 }
 

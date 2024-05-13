@@ -41,8 +41,8 @@ use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 use sp_std::prelude::*;
 
 use sp_consensus_beefy::{
-	AuthorityIndex, BeefyAuthorityId, ConsensusLog, DoubleVotingProof, OnNewValidatorSet,
-	ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	AncestryHelper, AuthorityIndex, BeefyAuthorityId, ConsensusLog, DoubleVotingProof,
+	OnNewValidatorSet, ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 
 mod default_weights;
@@ -97,6 +97,9 @@ pub mod pallet {
 		/// externally apart from having it in the storage. For instance you might cache a light
 		/// weight MMR root over validators and make it available for Light Clients.
 		type OnNewValidatorSet: OnNewValidatorSet<<Self as Config>::BeefyId>;
+
+		/// Hook for checking commitment canonicity.
+		type AncestryHelper: AncestryHelper<BlockNumberFor<Self>>;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;

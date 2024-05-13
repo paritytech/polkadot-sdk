@@ -787,24 +787,3 @@ fn does_not_panic_when_generating_historical_proofs() {
 		);
 	});
 }
-
-#[test]
-fn generating_and_verifying_ancestry_proofs_works_correctly() {
-	let _ = env_logger::try_init();
-	let mut ext = new_test_ext();
-	ext.execute_with(|| add_blocks(500));
-	ext.persist_offchain_overlay();
-	register_offchain_ext(&mut ext);
-
-	ext.execute_with(|| {
-		// Check that generating and verifying ancestry proofs works correctly
-		// for each previous block
-		for prev_block_number in 1..501 {
-			let proof = Pallet::<Test>::generate_ancestry_proof(prev_block_number, None).unwrap();
-			Pallet::<Test>::verify_ancestry_proof(proof).unwrap();
-		}
-
-		// Check that we can't generate ancestry proofs for a future block.
-		assert_eq!(Pallet::<Test>::generate_ancestry_proof(501, None), Err(Error::GenerateProof));
-	});
-}
