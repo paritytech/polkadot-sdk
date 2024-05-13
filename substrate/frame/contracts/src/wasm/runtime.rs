@@ -1919,7 +1919,9 @@ pub mod env {
 
 		let event_data = ctx.read_sandbox_memory(memory, data_ptr, data_len)?;
 
-		Ok(ctx.ext.deposit_event(topics, event_data)?)
+		ctx.ext.deposit_event(topics, event_data);
+
+		Ok(())
 	}
 
 	/// Stores the current block number of the current contract into the supplied buffer.

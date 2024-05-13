@@ -15,8 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This fixture calls the account_id with the 2D Weight limit.
-//! It returns the result of the call as output data.
+//! This fixture calls the account_id with the flags and value.
 #![no_std]
 #![no_main]
 

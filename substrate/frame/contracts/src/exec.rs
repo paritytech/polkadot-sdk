@@ -255,7 +255,7 @@ pub trait Ext: sealing::Sealed {
 	/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<TopicOf<Self::T>>, data: Vec<u8>) -> DispatchResult;
+	fn deposit_event(&mut self, topics: Vec<TopicOf<Self::T>>, data: Vec<u8>);
 
 	/// Returns the current block number.
 	fn block_number(&self) -> BlockNumberFor<Self::T>;
@@ -1443,12 +1443,11 @@ where
 		T::Currency::minimum_balance()
 	}
 
-	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) -> DispatchResult {
+	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
 		Contracts::<Self::T>::deposit_event(
 			topics,
 			Event::ContractEmitted { contract: self.top_frame().account_id.clone(), data },
 		);
-		Ok(())
 	}
 
 	fn block_number(&self) -> BlockNumberFor<T> {

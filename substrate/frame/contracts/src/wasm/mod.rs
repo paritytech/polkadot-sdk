@@ -720,8 +720,8 @@ mod tests {
 		fn random(&self, subject: &[u8]) -> (SeedOf<Self::T>, BlockNumberFor<Self::T>) {
 			(H256::from_slice(subject), 42)
 		}
-		fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> DispatchResult {
-			Ok(self.events.push((topics, data)))
+		fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
+			self.events.push((topics, data))
 		}
 		fn block_number(&self) -> u64 {
 			121
