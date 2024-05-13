@@ -1,5 +1,4 @@
 TestConfiguration:
 - objective: StatementDistribution
-  num_blocks: 1
-  connectivity: 100
+  num_blocks: 10
   n_validators: 300

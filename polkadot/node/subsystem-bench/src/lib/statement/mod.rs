@@ -257,7 +257,8 @@ pub async fn benchmark_statement_distribution(
 	}
 
 	let test_start = Instant::now();
-	for block_info in state.block_infos.iter() {
+	for (iteration, block_info) in state.block_infos.iter().enumerate() {
+		let iteration = iteration + 1;
 		let block_num = block_info.number as usize;
 		gum::info!(target: LOG_TARGET, "Current block {}/{} {}", block_num, config.num_blocks, block_info.hash);
 		env.metrics().set_current_block(block_num);
@@ -318,131 +319,72 @@ pub async fn benchmark_statement_distribution(
 
 		let mut message_tracker = (0..groups.len()).map(|i| i == node_group_index).collect_vec();
 
-		let one_hop_validators = connected_neighbors_x
+		let one_hop_initiators = connected_neighbors_x
 			.iter()
 			.chain(connected_neighbors_y.iter())
-			.filter(|v| !node_group.contains(v));
-
-		// 1-hop messages
-		for validator_index in one_hop_validators {
-			let group_index =
-				groups.iter().position(|group| group.contains(validator_index)).unwrap();
-			let sent = message_tracker.get_mut(group_index).unwrap();
-			if *sent {
-				continue
-			}
-
-			*sent = true;
-			let seconding_index = validator_index.0 as usize;
-			let seconding_peer_id = *state.test_authorities.peer_ids.get(seconding_index).unwrap();
-			let candidate_hash = state
-				.candidate_receipts
-				.get(&block_info.hash)
-				.unwrap()
-				.get(group_index)
-				.unwrap()
-				.hash();
-			let manifest = BackedCandidateManifest {
-				relay_parent: block_info.hash,
-				candidate_hash,
-				group_index: GroupIndex(group_index as u32),
-				para_id: Id::new(group_index as u32 + 1),
-				parent_head_data_hash: state.pvd.parent_head.hash(),
-				statement_knowledge: StatementFilter {
-					seconded_in_group: BitVec::from_iter(
-						groups
-							.get(GroupIndex(group_index as u32))
-							.unwrap()
+			.filter(|v| !node_group.contains(v))
+			.map(|validator_index| {
+				let peer_id =
+					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+				let group_index =
+					groups.iter().position(|group| group.contains(validator_index)).unwrap();
+				(peer_id, group_index)
+			})
+			.collect_vec();
+		let two_hop_x_initiators = connected_neighbors_x
+			.iter()
+			.filter(|v| !node_group.contains(v))
+			.flat_map(|validator_index| {
+				let peer_id =
+					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+				topology
+					.compute_grid_neighbors_for(*validator_index)
+					.unwrap()
+					.validator_indices_y
+					.iter()
+					.map(|validator_neighbor| {
+						let group_index = groups
 							.iter()
-							.map(|v| state.connected_validators.contains(&(v.0 as usize))),
-					),
-					validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0, 0, 0],
-				},
-			};
-			let message = AllMessages::StatementDistribution(
-				StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
-					seconding_peer_id,
-					Versioned::V3(v3::StatementDistributionMessage::BackedCandidateManifest(
-						manifest,
-					)),
-				)),
-			);
-			env.send_message(message).await;
-		}
-
-		// 2-hop mssages X
-		for validator_index in connected_neighbors_x.iter().filter(|v| !node_group.contains(v)) {
-			let validator_neighbor = topology
-				.compute_grid_neighbors_for(*validator_index)
-				.unwrap()
-				.validator_indices_y
-				.into_iter()
-				.next()
-				.unwrap();
-			let group_index =
-				groups.iter().position(|group| group.contains(&validator_neighbor)).unwrap();
-
-			let sent = message_tracker.get_mut(group_index).unwrap();
-			if *sent {
-				continue
-			}
-			*sent = true;
-			let seconding_index = validator_index.0 as usize;
-			let seconding_peer_id = *state.test_authorities.peer_ids.get(seconding_index).unwrap();
-			let candidate_hash = state
-				.candidate_receipts
-				.get(&block_info.hash)
-				.unwrap()
-				.get(group_index)
-				.unwrap()
-				.hash();
-			let manifest = BackedCandidateManifest {
-				relay_parent: block_info.hash,
-				candidate_hash,
-				group_index: GroupIndex(group_index as u32),
-				para_id: Id::new(group_index as u32 + 1),
-				parent_head_data_hash: state.pvd.parent_head.hash(),
-				statement_knowledge: StatementFilter {
-					seconded_in_group: BitVec::from_iter(
-						groups
-							.get(GroupIndex(group_index as u32))
-							.unwrap()
+							.position(|group| group.contains(validator_neighbor))
+							.unwrap();
+						(peer_id, group_index)
+					})
+					.collect_vec()
+			})
+			.collect_vec();
+		let two_hop_y_initiators = connected_neighbors_y
+			.iter()
+			.filter(|v| !node_group.contains(v))
+			.flat_map(|validator_index| {
+				let peer_id =
+					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+				topology
+					.compute_grid_neighbors_for(*validator_index)
+					.unwrap()
+					.validator_indices_x
+					.iter()
+					.map(|validator_neighbor| {
+						let group_index = groups
 							.iter()
-							.map(|v| state.connected_validators.contains(&(v.0 as usize))),
-					),
-					validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0, 0, 0],
-				},
-			};
-			let message = AllMessages::StatementDistribution(
-				StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
-					seconding_peer_id,
-					Versioned::V3(v3::StatementDistributionMessage::BackedCandidateManifest(
-						manifest,
-					)),
-				)),
-			);
-			env.send_message(message).await;
-		}
+							.position(|group| group.contains(validator_neighbor))
+							.unwrap();
+						(peer_id, group_index)
+					})
+					.collect_vec()
+			})
+			.collect_vec();
 
-		// 2-hop mssages Y
-		for validator_index in connected_neighbors_y.iter().filter(|v| !node_group.contains(v)) {
-			let validator_neighbor = topology
-				.compute_grid_neighbors_for(*validator_index)
-				.unwrap()
-				.validator_indices_x
-				.into_iter()
-				.next()
-				.unwrap();
-			let group_index =
-				groups.iter().position(|group| group.contains(&validator_neighbor)).unwrap();
-
+		for (seconding_peer_id, group_index) in one_hop_initiators
+			.into_iter()
+			.chain(two_hop_x_initiators)
+			.chain(two_hop_y_initiators)
+		{
 			let sent = message_tracker.get_mut(group_index).unwrap();
 			if *sent {
 				continue
 			}
 			*sent = true;
-			let seconding_index = validator_index.0 as usize;
-			let seconding_peer_id = *state.test_authorities.peer_ids.get(seconding_index).unwrap();
+
 			let candidate_hash = state
 				.candidate_receipts
 				.get(&block_info.hash)
@@ -496,10 +438,9 @@ pub async fn benchmark_statement_distribution(
 						.collect::<Vec<_>>()
 						.len();
 					let message_count = message_tracker.iter().filter(|&&v| v).collect_vec().len();
-					let all_groups = message_tracker.len();
-					gum::info!(target: LOG_TARGET, ?message_count, ?manifest_count, ?all_groups);
-					if manifest_count < config.n_cores {
-						timeout = futures_timer::Delay::new(Duration::from_millis(100)).fuse();
+					gum::debug!(target: LOG_TARGET, ?message_count, ?manifest_count);
+					if manifest_count < config.n_cores * iteration  {
+						timeout = futures_timer::Delay::new(Duration::from_millis(50)).fuse();
 					} else {
 						break;
 					}

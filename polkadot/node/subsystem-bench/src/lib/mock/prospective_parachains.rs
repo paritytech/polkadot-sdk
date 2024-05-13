@@ -23,8 +23,6 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::Hash;
 
-const LOG_TARGET: &str = "subsystem-bench::prospective-parachains-mock";
-
 pub struct MockProspectiveParachains {}
 
 impl MockProspectiveParachains {
