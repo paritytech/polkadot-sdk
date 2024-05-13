@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715555943622,
+  "lastUpdate": 1715558776131,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3195,6 +3195,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.4393584506501176,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dastan",
+            "username": "dastansam",
+            "email": "88332432+dastansam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "efc2132fa2ece419d36af03c935b3c2c60440eb5",
+          "message": "migrations: `take()`should consume read and write operation weight (#4302)\n\n#### Problem\n`take()` consumes only 1 read worth of weight in\n`single-block-migrations` example, while `take()`\n[is](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/support/src/storage/unhashed.rs#L63)\n`get() + kill()`, i.e should be 1 read + 1 write. I think this could\nmislead developers who follow this example to write their migrations\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-05-12T22:35:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/efc2132fa2ece419d36af03c935b3c2c60440eb5"
+        },
+        "date": 1715558748528,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63539.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.53407298781997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.234906157319992,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3119468829001333,
             "unit": "seconds"
           }
         ]
