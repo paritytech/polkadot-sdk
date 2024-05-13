@@ -31,7 +31,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::dispatch::RawOrigin;
-use pallet_staking::CurrentEra;
+use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
 use sp_core::U256;
 use sp_runtime::traits::Convert;
 use sp_staking::{Stake, StakingInterface};
@@ -114,7 +114,7 @@ impl pallet_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
 	type Reward = ();
-	type SessionsPerEra = ();
+	type SessionsPerEra = ConstU32<1>;
 	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
@@ -253,6 +253,8 @@ impl ExtBuilder {
 		ext.execute_with(|| {
 			// for events to be deposited.
 			frame_system::Pallet::<Runtime>::set_block_number(1);
+			// set era for staking.
+			start_era(0);
 		});
 
 		ext
@@ -262,6 +264,13 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
+			#[cfg(feature = "try-runtime")]
+			<AllPalletsWithSystem as frame_support::traits::TryState<u64>>::try_state(
+				frame_system::Pallet::<Runtime>::block_number(),
+				frame_support::traits::TryStateSelect::All,
+			)
+			.unwrap();
+			#[cfg(not(feature = "try-runtime"))]
 			DelegatedStaking::do_try_state().unwrap();
 		});
 	}
@@ -307,6 +316,7 @@ pub(crate) fn setup_delegation_stake(
 
 pub(crate) fn start_era(era: sp_staking::EraIndex) {
 	CurrentEra::<T>::set(Some(era));
+	ActiveEra::<T>::set(Some(ActiveEraInfo { index: era, start: None }));
 }
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
@@ -322,12 +332,14 @@ parameter_types! {
 	static ObservedEventsDelegatedStaking: usize = 0;
 	static ObservedEventsPools: usize = 0;
 }
+
 pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Event<Runtime>> {
 	let events = System::read_events_for_pallet::<pallet_nomination_pools::Event<Runtime>>();
 	let already_seen = ObservedEventsPools::get();
 	ObservedEventsPools::set(events.len());
 	events.into_iter().skip(already_seen).collect()
 }
+
 pub(crate) fn events_since_last_call() -> Vec<crate::Event<Runtime>> {
 	let events = System::read_events_for_pallet::<crate::Event<Runtime>>();
 	let already_seen = ObservedEventsDelegatedStaking::get();
