@@ -18,8 +18,10 @@
 
 //! Substrate chain configurations.
 
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa_primitives::AuthorityId as GrandpaId;
+use polkadot_sdk::*;
+
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };

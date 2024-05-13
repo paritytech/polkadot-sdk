@@ -20,6 +20,10 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
+use polkadot_sdk::*;
+use polkadot_sdk::sc_consensus_beefy as beefy;
+use polkadot_sdk::sc_consensus_grandpa as grandpa;
+
 use crate::Cli;
 use codec::Encode;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -668,7 +672,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let beefy_params = beefy::BeefyParams {
 		client: client.clone(),
 		backend: backend.clone(),
-		payload_provider: beefy_primitives::mmr::MmrRootProvider::new(client.clone()),
+		payload_provider: sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone()),
 		runtime: client.clone(),
 		key_store: keystore.clone(),
 		network_params,
@@ -835,6 +839,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 
 #[cfg(test)]
 mod tests {
+	use polkadot_sdk::*;
 	use crate::service::{new_full_base, NewFullBase};
 	use codec::Encode;
 	use kitchensink_runtime::{

@@ -516,16 +516,20 @@ members = [
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
-
-	"templates/solochain/node",
-	"templates/solochain/pallets/template",
-	"templates/solochain/runtime",
-
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
+	"templates/solochain/node",
+	"templates/solochain/pallets/template",
+	"templates/solochain/runtime",
+	"umbrella",
 ]
-default-members = ["polkadot", "substrate/bin/node/cli"]
+
+default-members = [
+	"polkadot",
+	"substrate/bin/node/cli",
+	"umbrella",
+]
 
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }
