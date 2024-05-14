@@ -57,6 +57,7 @@
 //! certain amount of derivatives, telling the reserve to move real assets from its sovereign
 //! account to the destination's sovereign account, and then telling the recipient to mint the right
 //! amount of derivatives.
+//! In practice, the reserve chain can also be one of the source or destination.
 //!
 //! ## XCVM
 //!

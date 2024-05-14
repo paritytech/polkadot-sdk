@@ -48,17 +48,15 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	#[pallet::getter(fn parachain_id)]
 	pub(super) type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn received_dmp)]
 	/// A queue of received DMP messages
 	pub(super) type ReceivedDmp<T: Config> = StorageValue<_, Vec<Xcm<T::RuntimeCall>>, ValueQuery>;
 
 	impl<T: Config> Get<ParaId> for Pallet<T> {
 		fn get() -> ParaId {
-			Self::parachain_id()
+			ParachainId::<T>::get()
 		}
 	}
 
@@ -177,7 +175,7 @@ pub mod pallet {
 								limit,
 								Weight::zero(),
 							);
-							<ReceivedDmp<T>>::append(x);
+							ReceivedDmp::<T>::append(x);
 							Self::deposit_event(Event::ExecutedDownward {
 								message_id: id,
 								outcome,

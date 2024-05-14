@@ -30,7 +30,6 @@
 //!
 //! Rust Docs allow docs to be as close to the source as possible.
 //! They're also available offline automatically for anyone who has the `polkadot-sdk` repo locally.
-//! Given all the content is here, it's simple to .
 //!
 //! ## Docs structure
 #![doc = simple_mermaid::mermaid!("../mermaid/structure.mmd")]

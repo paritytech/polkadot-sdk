@@ -140,8 +140,8 @@
 //! ```ignore
 //! let message = Xcm(vec![
 //!   WithdrawAsset(assets),
-//!   BuyExecution { fees, weight_limit },
-//!   DepositAsset { assets, beneficiary },
+//!   BuyExecution { fees: assets, weight_limit },
+//!   DepositAsset { assets: AssetFilter(Wild(All)), beneficiary },
 //! ]);
 //! ```
 //!
@@ -149,9 +149,8 @@
 //! add the explicit fee payment step in the middle.
 //! `WithdrawAsset` withdraws assets from the account of the **origin** of the message for usage
 //! inside this message's execution. `BuyExecution` explicitly buys execution for this program using
-//! the assets specified in `fees`, with a sanity check of `weight_limit`. `DepositAsset` has the
-//! same operands as the original `TransferAsset` instruction, specifying `assets` and a
-//! `beneficiary` account.
+//! the assets specified in `fees`, with a sanity check of `weight_limit`. `DepositAsset` uses a
+//! wildcard, specifying all remaining `assets` after subtracting the fees and a `beneficiary` account.
 //!
 //! ## Next steps
 //!
