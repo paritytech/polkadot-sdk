@@ -2294,6 +2294,18 @@ impl BlockNumberProvider for () {
 	}
 }
 
+/// Interface for sponsoring account existence.
+pub trait AccountExistenceProvider<AccountId> {
+	/// Allow a `provider` to provide for a `beneficiary` account.
+	fn provide(provider: &AccountId, beneficiary: &AccountId) -> DispatchResult;
+}
+
+impl<AccountId> AccountExistenceProvider<AccountId> for () {
+	fn provide(_: &AccountId, _: &AccountId) -> DispatchResult {
+		Err(crate::DispatchError::Unavailable)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
