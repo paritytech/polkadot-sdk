@@ -188,7 +188,12 @@ full-node = [
 ]
 
 # Configure the native runtimes to use.
-westend-native = ["bitvec", "westend-runtime", "westend-runtime-constants"]
+westend-native = [
+	"bitvec",
+	"frame-metadata-hash-extension",
+	"westend-runtime",
+	"westend-runtime-constants",
+]
 rococo-native = [
 	"bitvec",
 	"frame-metadata-hash-extension",
