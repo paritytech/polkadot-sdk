@@ -7,29 +7,39 @@ COPY . /substrate
 # this should not be necessary. instead this https://hub.docker.com/layers/paritytech/ci-linux
 # should be updated to use a a newer version of Rust
 # we don't want the old version of RUST_NIGHTLY=2023-05-23
-RUN RUST_NIGHTLY=2024-05-12 && \
+RUN RUST_NIGHTLY="-2023-05-23" && \
 	CARGO_HOME=/usr/local/cargo && \
+	# uninstall old version of Rust to avoid conflicting rust installations
+	rustup toolchain uninstall stable && \
+	rustup toolchain uninstall "nightly${RUST_NIGHTLY}" && \
+	# uninstall and reinstall git to avoid this error
+	# == Info: GnuTLS recv error (-9): Error decoding the received TLS packet.
+	apt-get -y remove --purge git && \
+	apt-get -y update && \
+	apt-get -y install git && \
+	# reinstall Rust and use stable
+	rustup default stable && \
+	rustup update && \
+	rustup update nightly && \
+	rustup toolchain install nightly --profile minimal --component rustfmt && \
+	rustup target add wasm32-unknown-unknown --toolchain nightly && \
 	rustup component add rust-src rustfmt clippy && \
 	rustup target add wasm32-unknown-unknown && \
-	rustup toolchain install "nightly-${RUST_NIGHTLY}" --profile minimal --component rustfmt && \
-	rustup target add wasm32-unknown-unknown --toolchain "nightly-${RUST_NIGHTLY}" && \
-	ln -s "/usr/local/rustup/toolchains/nightly-${RUST_NIGHTLY}-x86_64-unknown-linux-gnu" /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu && \
-	### custom
-	rustup component add rust-src --toolchain "nightly-${RUST_NIGHTLY}" && \
-	rustup default "nightly-${RUST_NIGHTLY}" && \
+	ln -s "/usr/local/rustup/toolchains/nightly${RUST_NIGHTLY}-x86_64-unknown-linux-gnu" /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu && \
 	echo "rustc version is:" && \
 	rustc --version && \
 	# fix `unexpected disconnect while reading sideband packet`
+	# `error: RPC failed; curl 56 GnuTLS recv error (-9): Error decoding the received TLS packet`
 	# https://stackoverflow.com/questions/66366582/github-unexpected-disconnect-while-reading-sideband-packet
 	export GIT_TRACE_PACKET=1 && \
 	export GIT_TRACE=1 && \
 	export GIT_CURL_VERBOSE=1 && \
 	git config --global pack.window 1 && \
-	git config --global http.postBuffer 52428800 && \
+	git config --global http.postBuffer 1048576000 && \
+	git config --global https.postBuffer 1048576000 && \
 	git config --global core.compression 0 && \
+	git config --system core.longpaths true && \
 	git config --global http.version HTTP/1.1 && \
-	# rustup default stable && \
-	###
 	cargo install cargo-web wasm-pack cargo-deny cargo-spellcheck cargo-hack mdbook mdbook-mermaid mdbook-linkcheck mdbook-graphviz mdbook-last-changed && \
 	cargo install cargo-nextest --locked && \
 	cargo install diener --version 0.4.6 && \

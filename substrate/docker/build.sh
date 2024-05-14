@@ -17,7 +17,8 @@ echo "Building ${GITUSER}/${GITREPO}:latest docker image, hang on!"
 # improve the docker logs to actually allow debugging with BuildKit enabled since build time may take an hour
 export BUILDKIT_PROGRESS=plain
 export DOCKER_BUILDKIT=1
-time docker build --no-cache -f $PROJECT_ROOT/substrate/docker/substrate_builder.Dockerfile -t ${GITUSER}/${GITREPO}:latest .
+# alternatively use `docker build --no-cache ...``
+time docker build -f $PROJECT_ROOT/substrate/docker/substrate_builder.Dockerfile -t ${GITUSER}/${GITREPO}:latest .
 docker tag ${GITUSER}/${GITREPO}:latest ${GITUSER}/${GITREPO}:v${VERSION}
 
 # Show the list of available images for this repo
