@@ -229,6 +229,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -268,11 +288,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Generic extensions for Parachain ChainSpecs.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>Extensions {
 	<span class="doccomment">/// The relay chain of the Parachain.
+	</span><span class="attr">#[serde(alias = <span class="string">"relayChain"</span>, alias = <span class="string">"RelayChain"</span>)]
 	</span><span class="kw">pub </span>relay_chain: String,
 	<span class="doccomment">/// The id of the Parachain.
+	</span><span class="attr">#[serde(alias = <span class="string">"paraId"</span>, alias = <span class="string">"ParaId"</span>)]
 	</span><span class="kw">pub </span>para_id: u32,
 }
 
@@ -308,6 +329,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This function's return type must always match the session keys of the chain in tuple format.
 </span><span class="kw">pub fn </span>get_collator_keys_from_seed&lt;AuraId: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;AuraId::Pair <span class="kw">as </span>Pair&gt;::Public {
 	get_from_seed::&lt;AuraId&gt;(seed)
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>can_decode_extension_camel_and_snake_case() {
+		<span class="kw">let </span>camel_case = <span class="string">r#"{"relayChain":"relay","paraId":1}"#</span>;
+		<span class="kw">let </span>snake_case = <span class="string">r#"{"relay_chain":"relay","para_id":1}"#</span>;
+		<span class="kw">let </span>pascal_case = <span class="string">r#"{"RelayChain":"relay","ParaId":1}"#</span>;
+
+		<span class="kw">let </span>camel_case_extension: Extensions = serde_json::from_str(camel_case).unwrap();
+		<span class="kw">let </span>snake_case_extension: Extensions = serde_json::from_str(snake_case).unwrap();
+		<span class="kw">let </span>pascal_case_extension: Extensions = serde_json::from_str(pascal_case).unwrap();
+
+		<span class="macro">assert_eq!</span>(camel_case_extension, snake_case_extension);
+		<span class="macro">assert_eq!</span>(snake_case_extension, pascal_case_extension);
+	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

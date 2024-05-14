@@ -350,6 +350,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>parachain_template_runtime <span class="kw">as </span>runtime;
 <span class="kw">use </span>runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOSIT};
@@ -374,11 +375,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The extensions for the [`ChainSpec`].
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>Extensions {
 	<span class="doccomment">/// The relay chain of the Parachain.
+	</span><span class="attr">#[serde(alias = <span class="string">"relayChain"</span>, alias = <span class="string">"RelayChain"</span>)]
 	</span><span class="kw">pub </span>relay_chain: String,
 	<span class="doccomment">/// The id of the Parachain.
+	</span><span class="attr">#[serde(alias = <span class="string">"paraId"</span>, alias = <span class="string">"ParaId"</span>)]
 	</span><span class="kw">pub </span>para_id: u32,
 }
 
