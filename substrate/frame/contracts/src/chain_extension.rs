@@ -104,6 +104,11 @@ pub trait ChainExtension<C: Config> {
 	/// chain extensions. It is called whenever a contract calls the `seal_call_chain_extension`
 	/// imported wasm function.
 	///
+	/// Note that `seal_call_chain_extension` can be invoked within a read-only context,
+	/// where any state-changing calls are disallowed. This information can be obtained
+	/// using the call `env.ext().is_read_only()`.
+	/// It's crucial for the implementer to handle this scenario appropriately.
+	///
 	/// # Parameters
 	/// - `env`: Access to the remaining arguments and the execution environment.
 	///
