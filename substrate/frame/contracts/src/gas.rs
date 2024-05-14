@@ -38,7 +38,7 @@ impl ChargedAmount {
 }
 
 /// Meter for syncing the gas between the executor and the gas meter.
-#[derive(DefaultNoBound)]
+#[derive(Debug, DefaultNoBound)]
 struct EngineMeter<T: Config> {
 	fuel: u64,
 	_phantom: PhantomData<T>,
@@ -129,12 +129,13 @@ pub trait Token<T: Config>: Copy + Clone + TestAuxiliaries {
 
 /// A wrapper around a type-erased trait object of what used to be a `Token`.
 #[cfg(test)]
+#[derive(Debug)]
 pub struct ErasedToken {
 	pub description: String,
 	pub token: Box<dyn Any>,
 }
 
-#[derive(DefaultNoBound)]
+#[derive(Debug, DefaultNoBound)]
 pub struct GasMeter<T: Config> {
 	gas_limit: Weight,
 	/// Amount of gas left from initial gas limit. Can reach zero.

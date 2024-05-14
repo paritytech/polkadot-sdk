@@ -1369,8 +1369,10 @@ fn destroy_contract_and_transfer_funds() {
 			Contracts::contract_address(&addr_bob, &callee_code_hash, &[], &[0x47, 0x11]);
 		get_contract(&addr_charlie);
 
+		let result = builder::call(addr_bob).data(addr_charlie.encode()).build();
+
 		// Call BOB, which calls CHARLIE, forcing CHARLIE to self-destruct.
-		assert_ok!(builder::call(addr_bob).data(addr_charlie.encode()).build());
+		assert_ok!(result);
 
 		// Check that CHARLIE has moved on to the great beyond (ie. died).
 		assert!(get_contract_checked(&addr_charlie).is_none());

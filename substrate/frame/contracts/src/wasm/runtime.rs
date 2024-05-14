@@ -2089,11 +2089,12 @@ pub mod env {
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let call: <E::T as Config>::RuntimeCall =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
-		ctx.call_dispatchable::<CallRuntimeFailed>(
+		let res = ctx.call_dispatchable::<CallRuntimeFailed>(
 			call.get_dispatch_info(),
 			RuntimeCosts::CallRuntime,
 			|ctx| ctx.ext.call_runtime(call),
-		)
+		);
+		res
 	}
 
 	/// Execute an XCM program locally, using the contract's address as the origin.

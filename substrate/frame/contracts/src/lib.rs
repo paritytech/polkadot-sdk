@@ -108,7 +108,8 @@ pub mod weights;
 mod tests;
 use crate::{
 	exec::{
-		AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack as ExecStack,
+		AccountIdOf, ErrorOrigin, ExecError, ExecErrorWithContext, ExecReturnValueWithContext,
+		Executable, Ext, Key, MomentOf, Stack as ExecStack, StackContext,
 	},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -1481,11 +1482,11 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 	fn run(
 		self,
 		common: CommonInput<T>,
-		mut gas_meter: GasMeter<T>,
+		gas_meter: GasMeter<T>,
 	) -> InternalOutput<T, Self::Output> {
 		let CallInput { dest, determinism } = self;
 		let CommonInput { origin, value, data, debug_message, .. } = common;
-		let mut storage_meter =
+		let storage_meter =
 			match StorageMeter::new(&origin, common.storage_deposit_limit, common.value) {
 				Ok(meter) => meter,
 				Err(err) =>
@@ -1495,16 +1496,22 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 						storage_deposit: Default::default(),
 					},
 			};
+
 		let result = ExecStack::<T, WasmBlob<T>>::run_call(
 			origin.clone(),
 			dest.clone(),
-			&mut gas_meter,
-			&mut storage_meter,
+			gas_meter,
+			storage_meter,
 			value,
 			data.clone(),
 			debug_message,
 			determinism,
 		);
+
+		let (result, StackContext { gas_meter, storage_meter, .. }) = match result {
+			Ok(ExecReturnValueWithContext { result, context }) => (Ok(result), context),
+			Err(ExecErrorWithContext { error, context }) => (Err(error), context),
+		};
 
 		match storage_meter.try_into_deposit(&origin) {
 			Ok(storage_deposit) => InternalOutput { gas_meter, storage_deposit, result },
@@ -1529,9 +1536,7 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 		common: CommonInput<T>,
 		mut gas_meter: GasMeter<T>,
 	) -> InternalOutput<T, Self::Output> {
-		let mut storage_deposit = Default::default();
-		let try_exec = || {
-			let InstantiateInput { salt, .. } = self;
+		let try_setup = || {
 			let CommonInput { origin: contract_origin, .. } = common;
 			let origin = contract_origin.account_id()?;
 
@@ -1541,24 +1546,51 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 			};
 
 			let contract_origin = Origin::from_account_id(origin.clone());
-			let mut storage_meter =
+			let storage_meter =
 				StorageMeter::new(&contract_origin, common.storage_deposit_limit, common.value)?;
-			let CommonInput { value, data, debug_message, .. } = common;
-			let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
-				origin.clone(),
-				executable,
-				&mut gas_meter,
-				&mut storage_meter,
-				value,
-				data.clone(),
-				&salt,
-				debug_message,
-			);
-
-			storage_deposit = storage_meter.try_into_deposit(&contract_origin)?;
-			result
+			Ok((storage_meter, executable, contract_origin.clone(), origin.clone()))
 		};
-		InternalOutput { result: try_exec(), gas_meter, storage_deposit }
+
+		let (storage_meter, executable, contract_origin, origin) = match try_setup() {
+			Ok(value) => value,
+			Err(err) =>
+				return InternalOutput {
+					result: Err(err),
+					gas_meter,
+					storage_deposit: Default::default(),
+				},
+		};
+
+		let InstantiateInput { salt, .. } = self;
+		let CommonInput { value, data, debug_message, .. } = common;
+		let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
+			origin.clone(),
+			executable,
+			gas_meter,
+			storage_meter,
+			value,
+			data.clone(),
+			&salt,
+			debug_message,
+		);
+
+		let (result, StackContext { gas_meter, storage_meter, .. }) = match result {
+			Ok((account_id, ExecReturnValueWithContext { result, context })) =>
+				(Ok((account_id, result)), context),
+			Err(ExecErrorWithContext { error, context }) => (Err(error), context),
+		};
+
+		let storage_deposit = match storage_meter.try_into_deposit(&contract_origin) {
+			Ok(storage_deposit) => storage_deposit,
+			Err(err) =>
+				return InternalOutput {
+					result: Err(err.into()),
+					gas_meter,
+					storage_deposit: Default::default(),
+				},
+		};
+
+		InternalOutput { result, gas_meter, storage_deposit }
 	}
 
 	fn ensure_origin(&self, origin: Origin<T>) -> Result<(), DispatchError> {
