@@ -349,7 +349,6 @@ pub trait Ext: sealing::Sealed {
 	/// - [`Error::MaxDelegateDependenciesReached`]
 	/// - [`Error::CannotAddSelfAsDelegateDependency`]
 	/// - [`Error::DelegateDependencyAlreadyExists`]
-	/// - [`Error::StateChangeDenied`]
 	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
@@ -360,7 +359,6 @@ pub trait Ext: sealing::Sealed {
 	/// # Errors
 	///
 	/// - [`Error::DelegateDependencyNotFound`]
-	/// - [`Error::StateChangeDenied`]
 	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult;
 
 	/// Check if running in read-only context.
@@ -996,7 +994,7 @@ where
 					);
 				},
 				(ExportedFunction::Call, Some(code_hash)) =>
-					if !frame.read_only {
+					if !self.is_read_only() {
 						Contracts::<T>::deposit_event(
 							vec![T::Hashing::hash_of(account_id), T::Hashing::hash_of(&code_hash)],
 							Event::DelegateCalled { contract: account_id.clone(), code_hash },
@@ -1009,7 +1007,7 @@ where
 					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
-					if !frame.read_only {
+					if !self.is_read_only() {
 						let caller = self.caller();
 						Contracts::<T>::deposit_event(
 							vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(&account_id)],
@@ -1294,7 +1292,7 @@ where
 			value,
 			Weight::zero(),
 			BalanceOf::<T>::zero(),
-			self.top_frame().read_only,
+			self.is_read_only(),
 		)?;
 		self.run(executable, input_data)
 	}
@@ -1321,7 +1319,7 @@ where
 			value,
 			gas_limit,
 			deposit_limit,
-			self.top_frame().read_only,
+			self.is_read_only(),
 		)?;
 		let account_id = self.top_frame().account_id.clone();
 		self.run(executable, input_data).map(|ret| (account_id, ret))
@@ -2142,9 +2140,15 @@ mod tests {
 		let value = Default::default();
 		let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 			// Try to call into yourself.
-			let r =
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true, true);
+			let r = ctx.ext.call(
+				Weight::zero(),
+				BalanceOf::<Test>::zero(),
+				BOB,
+				0,
+				vec![],
+				true,
+				false,
+			);
 
 			ReachedBottom::mutate(|reached_bottom| {
 				if !*reached_bottom {
@@ -2210,7 +2214,7 @@ mod tests {
 					0,
 					vec![],
 					true,
-					true
+					false
 				),
 				Ok(_)
 			);
@@ -2358,7 +2362,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_origin());
 			// BOB calls CHARLIE
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2457,7 +2461,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_root());
 			// BOB calls CHARLIE.
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2498,7 +2502,7 @@ mod tests {
 					0,
 					vec![],
 					true,
-					true
+					false
 				),
 				Ok(_)
 			);
@@ -2879,7 +2883,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true, true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});
@@ -3405,7 +3409,15 @@ mod tests {
 
 			// a plain call should not influence the account counter
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), account_id, 0, vec![], false, true)
+				.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					account_id,
+					0,
+					vec![],
+					false,
+					false,
+				)
 				.unwrap();
 
 			exec_success()
