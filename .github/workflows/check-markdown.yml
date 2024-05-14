@@ -10,8 +10,8 @@ permissions:
 
 jobs:
   lint-markdown:
-    runs-on: ubuntu-latest
-
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 10
     steps:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
