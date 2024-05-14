@@ -445,7 +445,7 @@ pub struct Stack<'a, T: Config, E> {
 	/// client can freely choose the origin. This usually makes no sense but is still possible.
 	origin: Origin<T>,
 	/// The cost schedule used when charging from the gas meter.
-	schedule: &'a Schedule<T>,
+	schedule: Schedule<T>,
 	/// The gas meter where costs are charged to.
 	gas_meter: &'a mut GasMeter<T>,
 	/// The storage meter makes sure that the storage deposit limit is obeyed.
@@ -673,7 +673,6 @@ where
 		dest: T::AccountId,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
-		schedule: &'a Schedule<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		debug_message: Option<&'a mut DebugBufferVec<T>>,
@@ -684,7 +683,6 @@ where
 			origin,
 			gas_meter,
 			storage_meter,
-			schedule,
 			value,
 			debug_message,
 			determinism,
@@ -707,7 +705,6 @@ where
 		executable: E,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
-		schedule: &'a Schedule<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		salt: &[u8],
@@ -724,7 +721,6 @@ where
 			Origin::from_account_id(origin),
 			gas_meter,
 			storage_meter,
-			schedule,
 			value,
 			debug_message,
 			Determinism::Enforced,
@@ -749,7 +745,6 @@ where
 			origin,
 			gas_meter,
 			storage_meter,
-			schedule,
 			value,
 			debug_message,
 			determinism,
@@ -763,7 +758,6 @@ where
 		origin: Origin<T>,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
-		schedule: &'a Schedule<T>,
 		value: BalanceOf<T>,
 		debug_message: Option<&'a mut DebugBufferVec<T>>,
 		determinism: Determinism,
@@ -780,7 +774,7 @@ where
 
 		let stack = Self {
 			origin,
-			schedule,
+			schedule: T::Schedule::get(),
 			gas_meter,
 			storage_meter,
 			timestamp: T::Time::now(),
@@ -1441,7 +1435,7 @@ where
 	}
 
 	fn schedule(&self) -> &Schedule<Self::T> {
-		self.schedule
+		&self.schedule
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
@@ -1793,7 +1787,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, exec_ch);
 			let mut storage_meter =
 				storage::meter::Meter::new(&Origin::from_account_id(ALICE), Some(0), value)
@@ -1805,7 +1798,6 @@ mod tests {
 					BOB,
 					&mut gas_meter,
 					&mut storage_meter,
-					&schedule,
 					value,
 					vec![],
 					None,
@@ -1848,7 +1840,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&dest, success_ch);
 			set_balance(&origin, 100);
 			let balance = get_balance(&dest);
@@ -1861,7 +1852,6 @@ mod tests {
 				dest.clone(),
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				value,
 				vec![],
 				None,
@@ -1892,7 +1882,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&dest, delegate_ch);
 			set_balance(&origin, 100);
 			let balance = get_balance(&dest);
@@ -1905,7 +1894,6 @@ mod tests {
 				dest.clone(),
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				value,
 				vec![],
 				None,
@@ -1930,7 +1918,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&dest, return_ch);
 			set_balance(&origin, 100);
 			let balance = get_balance(&dest);
@@ -1943,7 +1930,6 @@ mod tests {
 				dest.clone(),
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				55,
 				vec![],
 				None,
@@ -1986,7 +1972,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			let contract_origin = Origin::from_account_id(origin);
 			let mut storage_meter =
 				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
@@ -1997,7 +1982,6 @@ mod tests {
 				dest,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -2021,7 +2005,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, return_ch);
 			let contract_origin = Origin::from_account_id(origin);
 			let mut storage_meter =
@@ -2032,7 +2015,6 @@ mod tests {
 				dest,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -2054,7 +2036,6 @@ mod tests {
 
 		// This one tests passing the input data into a contract via call.
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, input_data_ch);
 			let contract_origin = Origin::from_account_id(ALICE);
 			let mut storage_meter =
@@ -2065,7 +2046,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![1, 2, 3, 4],
 				None,
@@ -2087,7 +2067,6 @@ mod tests {
 			.with_code_hashes(MockLoader::code_hashes())
 			.build()
 			.execute_with(|| {
-				let schedule = <Test as Config>::Schedule::get();
 				let min_balance = <Test as Config>::Currency::minimum_balance();
 				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 				let executable =
@@ -2102,7 +2081,6 @@ mod tests {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					&schedule,
 					min_balance,
 					vec![1, 2, 3, 4],
 					&[],
@@ -2140,7 +2118,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			set_balance(&BOB, 1);
 			place_contract(&BOB, recurse_ch);
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -2152,7 +2129,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				value,
 				vec![],
 				None,
@@ -2196,7 +2172,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&dest, bob_ch);
 			place_contract(&CHARLIE, charlie_ch);
 			let contract_origin = Origin::from_account_id(origin.clone());
@@ -2208,7 +2183,6 @@ mod tests {
 				dest.clone(),
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -2233,7 +2207,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, bob_ch);
 
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -2244,7 +2217,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -2265,7 +2237,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, code_bob);
 			let contract_origin = Origin::from_account_id(ALICE);
 			let mut storage_meter =
@@ -2276,7 +2247,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![0],
 				None,
@@ -2295,7 +2265,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, bob_ch);
 			let contract_origin = Origin::from_account_id(ALICE);
 			let mut storage_meter =
@@ -2306,7 +2275,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![0],
 				None,
@@ -2333,7 +2301,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, code_bob);
 			place_contract(&CHARLIE, code_charlie);
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -2345,7 +2312,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![0],
 				None,
@@ -2364,7 +2330,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, code_bob);
 			let contract_origin = Origin::Root;
 			let mut storage_meter =
@@ -2375,7 +2340,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![0],
 				None,
@@ -2394,7 +2358,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, code_bob);
 			let contract_origin = Origin::Root;
 			let mut storage_meter =
@@ -2405,7 +2368,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				1,
 				vec![0],
 				None,
@@ -2432,7 +2394,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, code_bob);
 			place_contract(&CHARLIE, code_charlie);
 			let contract_origin = Origin::Root;
@@ -2444,7 +2405,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![0],
 				None,
@@ -2474,7 +2434,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, bob_ch);
 			place_contract(&CHARLIE, charlie_ch);
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -2486,7 +2445,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -2502,7 +2460,6 @@ mod tests {
 		let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
 
 		ExtBuilder::default().existential_deposit(15).build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			let executable = MockExecutable::from_storage(dummy_ch, &mut gas_meter).unwrap();
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -2515,7 +2472,6 @@ mod tests {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					&schedule,
 					0, // <- zero value
 					vec![],
 					&[],
@@ -2537,7 +2493,6 @@ mod tests {
 			.existential_deposit(15)
 			.build()
 			.execute_with(|| {
-				let schedule = <Test as Config>::Schedule::get();
 				let min_balance = <Test as Config>::Currency::minimum_balance();
 				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 				let executable = MockExecutable::from_storage(dummy_ch, &mut gas_meter).unwrap();
@@ -2556,7 +2511,6 @@ mod tests {
 						executable,
 						&mut gas_meter,
 						&mut storage_meter,
-						&schedule,
 						min_balance,
 						vec![],
 						&[],
@@ -2592,7 +2546,6 @@ mod tests {
 			.existential_deposit(15)
 			.build()
 			.execute_with(|| {
-				let schedule = <Test as Config>::Schedule::get();
 				let min_balance = <Test as Config>::Currency::minimum_balance();
 				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 				let executable = MockExecutable::from_storage(dummy_ch, &mut gas_meter).unwrap();
@@ -2611,7 +2564,6 @@ mod tests {
 						executable,
 						&mut gas_meter,
 						&mut storage_meter,
-						&schedule,
 						min_balance,
 						vec![],
 						&[],
@@ -2658,7 +2610,6 @@ mod tests {
 			.existential_deposit(15)
 			.build()
 			.execute_with(|| {
-				let schedule = <Test as Config>::Schedule::get();
 				let min_balance = <Test as Config>::Currency::minimum_balance();
 				set_balance(&ALICE, min_balance * 100);
 				place_contract(&BOB, instantiator_ch);
@@ -2676,7 +2627,6 @@ mod tests {
 						BOB,
 						&mut GasMeter::<Test>::new(GAS_LIMIT),
 						&mut storage_meter,
-						&schedule,
 						min_balance * 10,
 						vec![],
 						None,
@@ -2737,7 +2687,6 @@ mod tests {
 			.existential_deposit(15)
 			.build()
 			.execute_with(|| {
-				let schedule = <Test as Config>::Schedule::get();
 				set_balance(&ALICE, 1000);
 				set_balance(&BOB, 100);
 				place_contract(&BOB, instantiator_ch);
@@ -2751,7 +2700,6 @@ mod tests {
 						BOB,
 						&mut GasMeter::<Test>::new(GAS_LIMIT),
 						&mut storage_meter,
-						&schedule,
 						0,
 						vec![],
 						None,
@@ -2781,7 +2729,6 @@ mod tests {
 			.existential_deposit(15)
 			.build()
 			.execute_with(|| {
-				let schedule = <Test as Config>::Schedule::get();
 				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 				let executable =
 					MockExecutable::from_storage(terminate_ch, &mut gas_meter).unwrap();
@@ -2796,7 +2743,6 @@ mod tests {
 						executable,
 						&mut gas_meter,
 						&mut storage_meter,
-						&schedule,
 						100,
 						vec![],
 						&[],
@@ -2849,7 +2795,6 @@ mod tests {
 
 		// This one tests passing the input data into a contract via call.
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, code_bob);
 			place_contract(&CHARLIE, code_charlie);
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -2861,7 +2806,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![0],
 				None,
@@ -2886,7 +2830,6 @@ mod tests {
 			.with_code_hashes(MockLoader::code_hashes())
 			.build()
 			.execute_with(|| {
-				let schedule = <Test as Config>::Schedule::get();
 				let min_balance = <Test as Config>::Currency::minimum_balance();
 				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 				let executable = MockExecutable::from_storage(code, &mut gas_meter).unwrap();
@@ -2900,7 +2843,6 @@ mod tests {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					&schedule,
 					min_balance,
 					vec![],
 					&[],
@@ -2922,7 +2864,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 10);
 			place_contract(&BOB, code_hash);
@@ -2934,7 +2875,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				Some(&mut debug_buffer),
@@ -2958,7 +2898,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 10);
 			place_contract(&BOB, code_hash);
@@ -2970,7 +2909,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				Some(&mut debug_buffer),
@@ -2996,7 +2934,6 @@ mod tests {
 		let mut debug_buf_after = debug_buf_before.clone();
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule: Schedule<Test> = <Test as Config>::Schedule::get();
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 10);
@@ -3009,7 +2946,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				Some(&mut debug_buf_after),
@@ -3031,7 +2967,6 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, code_bob);
 			place_contract(&CHARLIE, code_charlie);
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -3044,7 +2979,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				CHARLIE.encode(),
 				None,
@@ -3058,7 +2992,6 @@ mod tests {
 					BOB,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					&schedule,
 					0,
 					BOB.encode(),
 					None,
@@ -3087,7 +3020,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, code_bob);
 			place_contract(&CHARLIE, code_charlie);
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -3101,7 +3033,6 @@ mod tests {
 					BOB,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					&schedule,
 					0,
 					vec![0],
 					None,
@@ -3125,7 +3056,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 10);
 			place_contract(&BOB, code_hash);
@@ -3138,7 +3068,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -3212,7 +3141,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 10);
 			place_contract(&BOB, code_hash);
@@ -3225,7 +3153,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -3313,7 +3240,6 @@ mod tests {
 			.with_code_hashes(MockLoader::code_hashes())
 			.build()
 			.execute_with(|| {
-				let schedule = <Test as Config>::Schedule::get();
 				let min_balance = <Test as Config>::Currency::minimum_balance();
 				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 				let fail_executable =
@@ -3334,7 +3260,6 @@ mod tests {
 					fail_executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					&schedule,
 					min_balance * 100,
 					vec![],
 					&[],
@@ -3348,7 +3273,6 @@ mod tests {
 					success_executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					&schedule,
 					min_balance * 100,
 					vec![],
 					&[],
@@ -3361,7 +3285,6 @@ mod tests {
 					succ_fail_executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					&schedule,
 					min_balance * 200,
 					vec![],
 					&[],
@@ -3374,7 +3297,6 @@ mod tests {
 					succ_succ_executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					&schedule,
 					min_balance * 200,
 					vec![],
 					&[],
@@ -3432,7 +3354,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 1000);
 			place_contract(&BOB, code_hash);
@@ -3443,7 +3364,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -3560,7 +3480,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 1000);
 			place_contract(&BOB, code_hash);
@@ -3571,7 +3490,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -3600,7 +3518,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 1000);
 			place_contract(&BOB, code_hash);
@@ -3611,7 +3528,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -3640,7 +3556,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 1000);
 			place_contract(&BOB, code_hash);
@@ -3651,7 +3566,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -3697,7 +3611,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 1000);
 			place_contract(&BOB, code_hash);
@@ -3708,7 +3621,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -3754,7 +3666,6 @@ mod tests {
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let schedule = <Test as Config>::Schedule::get();
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 1000);
 			place_contract(&BOB, code_hash);
@@ -3765,7 +3676,6 @@ mod tests {
 				BOB,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -3790,7 +3700,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, bob_ch);
 
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -3801,7 +3710,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,
@@ -3856,7 +3764,6 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				let min_balance = <Test as Config>::Currency::minimum_balance();
-				let schedule = <Test as Config>::Schedule::get();
 				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 				set_balance(&ALICE, min_balance * 1000);
 				place_contract(&BOB, code_hash);
@@ -3868,7 +3775,6 @@ mod tests {
 					BOB,
 					&mut gas_meter,
 					&mut storage_meter,
-					&schedule,
 					0,
 					vec![],
 					None,
@@ -3889,7 +3795,6 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
 			place_contract(&BOB, code_hash);
 
 			let contract_origin = Origin::from_account_id(ALICE);
@@ -3900,7 +3805,6 @@ mod tests {
 				BOB,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				&schedule,
 				0,
 				vec![],
 				None,

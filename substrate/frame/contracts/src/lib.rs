@@ -1495,13 +1495,11 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 						storage_deposit: Default::default(),
 					},
 			};
-		let schedule = T::Schedule::get();
 		let result = ExecStack::<T, WasmBlob<T>>::run_call(
 			origin.clone(),
 			dest.clone(),
 			&mut gas_meter,
 			&mut storage_meter,
-			&schedule,
 			value,
 			data.clone(),
 			debug_message,
@@ -1533,7 +1531,6 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 	) -> InternalOutput<T, Self::Output> {
 		let mut storage_deposit = Default::default();
 		let try_exec = || {
-			let schedule = T::Schedule::get();
 			let InstantiateInput { salt, .. } = self;
 			let CommonInput { origin: contract_origin, .. } = common;
 			let origin = contract_origin.account_id()?;
@@ -1552,7 +1549,6 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 				executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				&schedule,
 				value,
 				data.clone(),
 				&salt,
