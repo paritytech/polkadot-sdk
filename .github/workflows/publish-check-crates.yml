@@ -1,14 +1,16 @@
-name: Claim Crates
+name: Check publish
 
 on:
   push:
     branches:
       - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
 
 jobs:
-  claim-crates:
+  check-publish:
     runs-on: ubuntu-latest
-    environment: master
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
@@ -18,9 +20,7 @@ jobs:
           cache-on-failure: true
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.3.0
+        run: cargo install parity-publish@0.5.1
 
-      - name: parity-publish claim
-        env:
-          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATESIO_PUBLISH_CLAIM_TOKEN }}
-        run: parity-publish claim
+      - name: parity-publish check
+        run: parity-publish --color always check --allow-unpublished
