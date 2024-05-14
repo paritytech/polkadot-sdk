@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715645091961,
+  "lastUpdate": 1715682939139,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3383,6 +3383,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.899207171680029,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "115c2477eb287df55107cd95594100ba395ed239",
+          "message": "Bridge: use *-uri CLI arguments when starting relayer (#4451)\n\n`*-host` and `*-port` are obsolete and we'll hopefully remove them in\nthe future (already WIP for Rococo <> Westend relayer)",
+          "timestamp": "2024-05-14T08:34:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/115c2477eb287df55107cd95594100ba395ed239"
+        },
+        "date": 1715682911659,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63547.240000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 12.615147477179944,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 9.82655496778997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.57723289372031,
             "unit": "seconds"
           }
         ]
