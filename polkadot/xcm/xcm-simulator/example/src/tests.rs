@@ -19,7 +19,7 @@ use crate::*;
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
 use xcm::latest::QueryResponseInfo;
-use xcm_simulator::{TestExt, mock_message_queue::ReceivedDmp};
+use xcm_simulator::{mock_message_queue::ReceivedDmp, TestExt};
 
 // Helper function for forming buy execution message
 fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
