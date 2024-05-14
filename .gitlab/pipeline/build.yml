@@ -156,6 +156,20 @@ build-short-benchmark:
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
 
+build-disabling-e2e-tests:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  script:
+    - mkdir -p polkadot/zombienet-sdk-tests/artifacts
+    - curl -L  --output polkadot/zombienet-sdk-tests/artifacts/polkadot_metadata_small.scale https://github.com/paritytech/subxt/raw/master/artifacts/polkadot_metadata_small.scale
+    - cargo nextest archive --archive-file disabling-e2.tar.zst --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml
+    - mkdir -p artifacts
+    - cp ./disabling-e2.tar.zst ./artifacts/
+
 # build jobs from cumulus
 
 build-linux-stable-cumulus:
