@@ -31,6 +31,7 @@ sp-std = { path = "../../primitives/std", default-features = false }
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }
 pallet-balances = { path = "../balances" }
+pallet-assets = { path = "../assets" }
 
 [features]
 default = ["std"]
@@ -39,6 +40,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-assets/std",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",

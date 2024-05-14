@@ -24,7 +24,7 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{
-		fungible,
+		fungible, fungibles,
 		tokens::{
 			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
 			imbalance::ResolveAssetTo,
@@ -173,12 +173,36 @@ impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId,
 	}
 }
 
+pub struct DealWithFungiblesFees;
+impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFungiblesFees {
+	fn on_nonzero_unbalanced(credit: fungibles::Credit<AccountId, NativeAndAssets>) {
+		if credit.asset() == Native::get() {
+			FeeUnbalancedAmount::mutate(|a| *a += credit.peek());
+		}
+	}
+}
+
+pub struct DealWithFungiblesTips;
+impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFungiblesTips {
+	fn on_nonzero_unbalanced(
+		credit: fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
+	) {
+		if credit.asset() == Native::get() {
+			TipUnbalancedAmount::mutate(|a| *a += credit.peek());
+		}
+	}
+}
+
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
-	type OnChargeTransaction =
-		pallet_transaction_payment::FungiblesAdapter<NativeAndAssets, Native, (), ()>;
+	type OnChargeTransaction = pallet_transaction_payment::FungiblesAdapter<
+		NativeAndAssets,
+		Native,
+		DealWithFungiblesFees,
+		DealWithFungiblesTips,
+	>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();

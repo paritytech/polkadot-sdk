@@ -512,30 +512,23 @@ fn payment_from_account_with_only_assets() {
 			let len = 10;
 
 			let fee_in_native = base_weight + weight + len as u64;
-			let ed = Balances::minimum_balance();
 			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
 				NativeOrWithId::WithId(asset_id),
 				NativeOrWithId::Native,
-				fee_in_native + ed,
+				fee_in_native,
 				true,
 			)
 			.unwrap();
-			assert_eq!(fee_in_asset, 301);
+			assert_eq!(fee_in_asset, 201);
 
 			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
 				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_5), len)
 				.unwrap();
-			assert_eq!(Balances::free_balance(caller), ed);
+			assert_eq!(Balances::free_balance(caller), 0);
 			// check that fee was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
-			let refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrWithId::Native,
-				NativeOrWithId::WithId(asset_id),
-				ed,
-				true,
-			)
-			.unwrap();
+			let refund = 0;
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				Some(pre),

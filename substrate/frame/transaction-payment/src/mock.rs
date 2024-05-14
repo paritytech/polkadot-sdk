@@ -25,11 +25,15 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{fungible, ConstU32, ConstU64, Imbalance, OnUnbalanced},
+	traits::{
+		fungible::{self, NativeFromLeft, NativeOrWithId},
+		fungibles, AsEnsureOriginWithArg, ConstU32, ConstU64, Imbalance, OnUnbalanced,
+	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use frame_system as system;
 use pallet_balances::Call as BalancesCall;
+use system::EnsureRoot;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
@@ -38,6 +42,7 @@ frame_support::construct_runtime!(
 	{
 		System: system,
 		Balances: pallet_balances,
+		Assets: pallet_assets,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 	}
 );
@@ -153,12 +158,70 @@ impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId,
 		}
 	}
 }
+pub struct DealWithFungiblesFees;
+impl OnUnbalanced<fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>>
+	for DealWithFungiblesFees
+{
+	fn on_nonzero_unbalanced(
+		credit: fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
+	) {
+		if credit.asset() == Native::get() {
+			FeeUnbalancedAmount::mutate(|a| *a += credit.peek());
+		}
+	}
+}
+
+pub struct DealWithFungiblesTips;
+impl OnUnbalanced<fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>>
+	for DealWithFungiblesTips
+{
+	fn on_nonzero_unbalanced(
+		credit: fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
+	) {
+		if credit.asset() == Native::get() {
+			TipUnbalancedAmount::mutate(|a| *a += credit.peek());
+		}
+	}
+}
+
+type NativeAndAssets =
+	fungible::UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u64>, u64>;
+
+parameter_types! {
+	pub Native: NativeOrWithId::<u64> = NativeOrWithId::<u64>::Native;
+}
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
+	// type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
+	type OnChargeTransaction =
+		FungiblesAdapter<NativeAndAssets, Native, DealWithFungiblesFees, DealWithFungiblesTips>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
+}
+
+impl pallet_assets::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = u64;
+	type AssetId = u64;
+	type AssetIdParameter = codec::Compact<u64>;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
+	type ForceOrigin = EnsureRoot<u64>;
+	type AssetDeposit = ConstU64<2>;
+	type AssetAccountDeposit = ConstU64<2>;
+	type MetadataDepositBase = ConstU64<0>;
+	type MetadataDepositPerByte = ConstU64<0>;
+	type ApprovalDeposit = ConstU64<0>;
+	type StringLimit = ConstU32<20>;
+	type Freezer = ();
+	type Extra = ();
+	type CallbackHandle = ();
+	type WeightInfo = ();
+	type RemoveItemsLimit = ConstU32<1000>;
+	pallet_assets::runtime_benchmarks_enabled! {
+		type BenchmarkHelper = ();
+	}
 }
