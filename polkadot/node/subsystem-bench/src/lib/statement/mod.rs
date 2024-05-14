@@ -28,7 +28,7 @@ use crate::{
 	},
 	network::new_network,
 	usage::BenchmarkUsage,
-	NODE_UNDER_TEST,
+	NODE_UNDER_TEST, PEER_IN_NODE_GROUP,
 };
 use bitvec::{order::Lsb0, vec::BitVec};
 use colored::Colorize;
@@ -237,9 +237,9 @@ pub async fn benchmark_statement_distribution(
 
 	let config = env.config().clone();
 	let groups = state.session_info.validator_groups.clone();
-	let (node_group_index, node_group) = groups
+	let node_group_index = groups
 		.iter()
-		.find_position(|group| group.iter().any(|v| v.0 == NODE_UNDER_TEST))
+		.position(|group| group.iter().any(|v| v.0 == NODE_UNDER_TEST))
 		.expect("Pregenerated");
 
 	env.metrics().set_n_validators(config.n_validators);
@@ -257,8 +257,8 @@ pub async fn benchmark_statement_distribution(
 	}
 
 	let test_start = Instant::now();
-	for (iteration, block_info) in state.block_infos.iter().enumerate() {
-		let iteration = iteration + 1;
+	let mut total_message_count = 0;
+	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
 		gum::info!(target: LOG_TARGET, "Current block {}/{} {}", block_num, config.num_blocks, block_info.hash);
 		env.metrics().set_current_block(block_num);
@@ -271,22 +271,15 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(update).await;
 		}
 
-		let seconding = node_group
-			.iter()
-			.find(|v| {
-				v.0 != NODE_UNDER_TEST && state.connected_validators.contains(&(v.0 as usize))
-			})
-			.expect("Validator group should contain enough connected validators")
-			.to_owned();
-		let seconding_idx = seconding.0 as usize;
-		let seconding_peer_id = *state.test_authorities.peer_ids.get(seconding_idx).unwrap();
+		let seconding_peer_id =
+			*state.test_authorities.peer_ids.get(PEER_IN_NODE_GROUP as usize).unwrap();
 		let candidate = state.candidate_receipts.get(&block_info.hash).unwrap().first().unwrap();
 		let candidate_hash = candidate.hash();
 		let statement = state
 			.statements
 			.get(&candidate_hash)
 			.unwrap()
-			.get(seconding_idx)
+			.get(PEER_IN_NODE_GROUP as usize)
 			.unwrap()
 			.clone();
 		let message = AllMessages::StatementDistribution(
@@ -299,6 +292,8 @@ pub async fn benchmark_statement_distribution(
 			)),
 		);
 		env.send_message(message).await;
+		// Just sent for the node group
+		let mut message_tracker = (0..groups.len()).map(|i| i == node_group_index).collect_vec();
 
 		let neighbors =
 			topology.compute_grid_neighbors_for(ValidatorIndex(NODE_UNDER_TEST)).unwrap();
@@ -317,12 +312,9 @@ pub async fn benchmark_statement_distribution(
 			.cloned()
 			.collect_vec();
 
-		let mut message_tracker = (0..groups.len()).map(|i| i == node_group_index).collect_vec();
-
 		let one_hop_initiators = connected_neighbors_x
 			.iter()
 			.chain(connected_neighbors_y.iter())
-			.filter(|v| !node_group.contains(v))
 			.map(|validator_index| {
 				let peer_id =
 					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
@@ -333,7 +325,6 @@ pub async fn benchmark_statement_distribution(
 			.collect_vec();
 		let two_hop_x_initiators = connected_neighbors_x
 			.iter()
-			.filter(|v| !node_group.contains(v))
 			.flat_map(|validator_index| {
 				let peer_id =
 					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
@@ -354,7 +345,6 @@ pub async fn benchmark_statement_distribution(
 			.collect_vec();
 		let two_hop_y_initiators = connected_neighbors_y
 			.iter()
-			.filter(|v| !node_group.contains(v))
 			.flat_map(|validator_index| {
 				let peer_id =
 					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
@@ -420,8 +410,13 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(message).await;
 		}
 
-		let mut timeout = futures_timer::Delay::new(Duration::from_millis(100)).fuse();
+		let message_count = message_tracker.iter().filter(|&&v| v).collect_vec().len();
+		if message_count < 60 {
+			gum::error!(message_tracker = ?message_tracker.iter().enumerate().collect_vec());
+		}
+		total_message_count += message_count;
 
+		let mut timeout = message_check_delay();
 		loop {
 			futures::select! {
 				msg = to_subsystems.next() => {
@@ -437,12 +432,12 @@ pub async fn benchmark_statement_distribution(
 						.filter(|v| v.load(Ordering::SeqCst))
 						.collect::<Vec<_>>()
 						.len();
-					let message_count = message_tracker.iter().filter(|&&v| v).collect_vec().len();
-					gum::debug!(target: LOG_TARGET, ?message_count, ?manifest_count);
-					if manifest_count < config.n_cores * iteration  {
-						timeout = futures_timer::Delay::new(Duration::from_millis(50)).fuse();
-					} else {
+
+					gum::info!(target: LOG_TARGET, ?total_message_count, ?manifest_count);
+					if manifest_count == total_message_count  {
 						break;
+					} else {
+						timeout = message_check_delay();
 					}
 				}
 			}
@@ -458,4 +453,8 @@ pub async fn benchmark_statement_distribution(
 
 	env.stop().await;
 	env.collect_resource_usage(benchmark_name, &["statement-distribution"])
+}
+
+fn message_check_delay() -> futures::prelude::future::Fuse<futures_timer::Delay> {
+	futures_timer::Delay::new(Duration::from_millis(50)).fuse()
 }

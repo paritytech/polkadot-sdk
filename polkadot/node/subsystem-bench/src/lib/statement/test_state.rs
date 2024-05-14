@@ -18,9 +18,9 @@ use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	mock::runtime_api::session_info_for_peers,
 	network::{HandleNetworkMessage, NetworkMessage},
-	NODE_UNDER_TEST,
+	NODE_UNDER_TEST, PEER_IN_NODE_GROUP,
 };
-use bitvec::order::Lsb0;
+use bitvec::vec::BitVec;
 use itertools::Itertools;
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
@@ -360,12 +360,19 @@ impl HandleNetworkMessage for TestState {
 					.iter()
 					.position(|v| v == &authority_id)
 					.expect("Should exist");
+
 				gum::info!(target: LOG_TARGET, index = ?index, "Received BackedCandidateManifest");
 				let ack = BackedCandidateAcknowledgement {
 					candidate_hash: manifest.candidate_hash,
 					statement_knowledge: StatementFilter {
-						seconded_in_group: bitvec::bitvec![u8, Lsb0; 0,1,0,0,0],
-						validated_in_group: bitvec::bitvec![u8, Lsb0; 0,0,1,0,0],
+						seconded_in_group: BitVec::from_iter(
+							(0..self.config.max_validators_per_core)
+								.map(|v| v == PEER_IN_NODE_GROUP as usize),
+						),
+						validated_in_group: BitVec::from_iter(
+							(0..self.config.max_validators_per_core)
+								.map(|v| v == NODE_UNDER_TEST as usize),
+						),
 					},
 				};
 				node_sender

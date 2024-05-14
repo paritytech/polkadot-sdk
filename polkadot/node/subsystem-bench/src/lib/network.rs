@@ -36,7 +36,7 @@
 use crate::{
 	configuration::{random_latency, TestAuthorities, TestConfiguration},
 	environment::TestEnvironmentDependencies,
-	NODE_UNDER_TEST,
+	NODE_UNDER_TEST, PEER_IN_NODE_GROUP,
 };
 use colored::Colorize;
 use futures::{
@@ -847,8 +847,15 @@ pub fn new_network(
 		peers_indices.partial_shuffle(&mut thread_rng(), connected_count);
 
 	// Node under test is always mark as disconnected.
+	let mut skip = 1;
 	peers[NODE_UNDER_TEST as usize].disconnect();
-	for peer in to_disconnect.iter().skip(1) {
+	if to_disconnect.contains(&(PEER_IN_NODE_GROUP as usize)) {
+		skip -= 1;
+	}
+	for peer in to_disconnect.iter().skip(skip) {
+		if *peer == PEER_IN_NODE_GROUP as usize {
+			continue
+		}
 		peers[*peer].disconnect();
 	}
 

@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-// The validator index that represent the node that is under test.
+// The validator index that represents the node that is under test.
 pub const NODE_UNDER_TEST: u32 = 0;
+// The validator index that represents the peer in same group as the node under test
+// Always connected
+pub const PEER_IN_NODE_GROUP: u32 = 1;
 
 pub mod approval;
 pub mod availability;
