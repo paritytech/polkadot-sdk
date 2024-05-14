@@ -1,4 +1,5 @@
 TestConfiguration:
 - objective: StatementDistribution
   num_blocks: 10
-  n_validators: 300
+  n_cores: 100
+  n_validators: 500

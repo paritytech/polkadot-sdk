@@ -366,12 +366,10 @@ impl HandleNetworkMessage for TestState {
 					candidate_hash: manifest.candidate_hash,
 					statement_knowledge: StatementFilter {
 						seconded_in_group: BitVec::from_iter(
-							(0..self.config.max_validators_per_core)
-								.map(|v| v == PEER_IN_NODE_GROUP as usize),
+							(0..self.node_group.len()).map(|v| v == PEER_IN_NODE_GROUP as usize),
 						),
 						validated_in_group: BitVec::from_iter(
-							(0..self.config.max_validators_per_core)
-								.map(|v| v == NODE_UNDER_TEST as usize),
+							(0..self.node_group.len()).map(|v| v == NODE_UNDER_TEST as usize),
 						),
 					},
 				};
