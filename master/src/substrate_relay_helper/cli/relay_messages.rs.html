@@ -238,6 +238,74 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -266,9 +334,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::Pair;
 <span class="kw">use </span>structopt::StructOpt;
 
+<span class="kw">use </span>bp_messages::MessageNonce;
+<span class="kw">use </span>bp_runtime::HeaderIdProvider;
 <span class="kw">use </span>relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, ChainWithRuntimeVersion, ChainWithTransactions,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion, ChainWithTransactions,
 };
+<span class="kw">use </span>relay_utils::UniqueSaturatedInto;
 
 <span class="doccomment">/// Messages relaying params.
 </span><span class="attr">#[derive(StructOpt)]
@@ -286,6 +357,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>target_sign: TargetSigningParams,
 	<span class="attr">#[structopt(flatten)]
 	</span>prometheus_params: PrometheusParams,
+}
+
+<span class="doccomment">/// Messages range relaying params.
+</span><span class="attr">#[derive(StructOpt)]
+</span><span class="kw">pub struct </span>RelayMessagesRangeParams {
+	<span class="doccomment">/// Number of the source chain header that we will use to prepare a messages proof.
+	/// This header must be previously proved to the target chain.
+	</span><span class="attr">#[structopt(long)]
+	</span>at_source_block: u128,
+	<span class="doccomment">/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
+	</span><span class="attr">#[structopt(long, default_value = <span class="string">"00000000"</span>)]
+	</span>lane: HexLaneId,
+	<span class="doccomment">/// Nonce (inclusive) of the first message to relay.
+	</span><span class="attr">#[structopt(long)]
+	</span>messages_start: MessageNonce,
+	<span class="doccomment">/// Nonce (inclusive) of the last message to relay.
+	</span><span class="attr">#[structopt(long)]
+	</span>messages_end: MessageNonce,
+	<span class="doccomment">/// Whether the outbound lane state proof should be included into transaction.
+	</span><span class="attr">#[structopt(long)]
+	</span>outbound_state_proof_required: bool,
+	<span class="attr">#[structopt(flatten)]
+	</span>source: SourceConnectionParams,
+	<span class="attr">#[structopt(flatten)]
+	</span>source_sign: SourceSigningParams,
+	<span class="attr">#[structopt(flatten)]
+	</span>target: TargetConnectionParams,
+	<span class="attr">#[structopt(flatten)]
+	</span>target_sign: TargetSigningParams,
 }
 
 <span class="doccomment">/// Trait used for relaying messages between 2 chains.
@@ -326,6 +426,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await
 		</span>.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, e))
 	}
+
+	<span class="doccomment">/// Relay a consequitive range of messages.
+	</span><span class="kw">async fn </span>relay_messages_range(data: RelayMessagesRangeParams) -&gt; anyhow::Result&lt;()&gt; {
+		<span class="kw">let </span>source_client = data.source.into_client::&lt;<span class="self">Self</span>::Source&gt;().<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>target_client = data.target.into_client::&lt;<span class="self">Self</span>::Target&gt;().<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>source_sign = data.source_sign.to_keypair::&lt;<span class="self">Self</span>::Source&gt;()<span class="question-mark">?</span>;
+		<span class="kw">let </span>source_transactions_mortality = data.source_sign.transactions_mortality()<span class="question-mark">?</span>;
+		<span class="kw">let </span>target_sign = data.target_sign.to_keypair::&lt;<span class="self">Self</span>::Target&gt;()<span class="question-mark">?</span>;
+		<span class="kw">let </span>target_transactions_mortality = data.target_sign.transactions_mortality()<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>at_source_block = source_client
+			.header_by_number(data.at_source_block.unique_saturated_into())
+			.<span class="kw">await
+			</span>.map_err(|e| {
+				<span class="macro">log::trace!</span>(
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"Failed to read {} header with number {}: {e:?}"</span>,
+					<span class="self">Self</span>::Source::NAME,
+					data.at_source_block,
+				);
+				<span class="macro">anyhow::format_err!</span>(<span class="string">"The command has failed"</span>)
+			})<span class="question-mark">?
+			</span>.id();
+
+		<span class="kw">crate</span>::messages_lane::relay_messages_range::&lt;<span class="self">Self</span>::MessagesLane&gt;(
+			source_client,
+			target_client,
+			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },
+			TransactionParams { signer: target_sign, mortality: target_transactions_mortality },
+			at_source_block,
+			data.lane.into(),
+			data.messages_start..=data.messages_end,
+			data.outbound_state_proof_required,
+		)
+		.<span class="kw">await
+	</span>}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
