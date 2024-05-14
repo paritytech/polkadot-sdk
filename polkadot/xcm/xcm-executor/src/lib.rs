@@ -21,6 +21,7 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{fmt::Debug, marker::PhantomData};
+use std::result;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
@@ -858,7 +859,29 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let deposited = self.holding.saturating_take(assets);
+					let mut all_failed = true;
+					let mut failed_deposits = Vec::new();
 					for asset in deposited.into_assets_iter() {
+						let asset_result = Config::AssetTransactor::deposit_asset(
+							&asset,
+							&beneficiary,
+							Some(&self.context),
+						);
+						match asset_result {
+							Ok(_) => {
+								all_failed = false;
+							}
+							Err(_err) => {
+								// check if is not enough ED
+							}
+						}
+					}
+
+					if all_failed {
+						return Err(XcmError::FailedToTransactAsset(""))
+					}
+
+					for asset in failed_deposits {
 						Config::AssetTransactor::deposit_asset(
 							&asset,
 							&beneficiary,
