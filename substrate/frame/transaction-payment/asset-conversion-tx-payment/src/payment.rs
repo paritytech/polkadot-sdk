@@ -15,14 +15,18 @@
 
 ///! Traits and default implementation for paying transaction fees in assets.
 use super::*;
-use crate::Config;
 
 use frame_support::{
 	ensure,
-	traits::{fungible::Inspect, tokens::Balance},
+	traits::{
+		fungible::Inspect,
+		fungibles,
+		tokens::{Balance, Fortitude, Precision, Preservation},
+		Defensive, SameOrOther,
+	},
 	unsigned::TransactionValidityError,
 };
-use pallet_asset_conversion::Swap;
+use pallet_asset_conversion::{Pallet as AssetConversion, Swap, SwapCredit};
 use sp_runtime::{
 	traits::{DispatchInfoOf, Get, PostDispatchInfoOf, Zero},
 	transaction_validity::InvalidTransaction,
@@ -194,5 +198,179 @@ where
 
 		let actual_paid = initial_asset_consumed.saturating_sub(asset_refund);
 		Ok(actual_paid)
+	}
+}
+
+use frame_support::traits::fungibles::Inspect as FungiblesInspect;
+
+/// TODO: doc
+pub struct SwapCreditAdapter<A, S>(PhantomData<(A, S)>);
+
+impl<A, S, T> OnChargeAssetTransaction<T> for SwapCreditAdapter<A, S>
+where
+	A: Get<S::AssetKind>,
+	S: SwapCredit<
+		T::AccountId,
+		Balance = T::Balance,
+		AssetKind = T::AssetKind,
+		Credit = fungibles::Credit<T::AccountId, T::Assets>,
+	>,
+
+	T: Config,
+	T::AssetKind: From<AssetIdOf<T>>,
+	T::Balance: Into<AssetBalanceOf<T>>,
+	T::OnChargeTransaction:
+		OnChargeTransaction<T, Balance = S::Balance, LiquidityInfo = Option<S::Credit>>,
+{
+	type AssetId = AssetIdOf<T>;
+	type Balance = BalanceOf<T>;
+	type LiquidityInfo = BalanceOf<T>;
+
+	fn withdraw_fee(
+		who: &<T>::AccountId,
+		_call: &<T>::RuntimeCall,
+		_dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
+		asset_id: Self::AssetId,
+		fee: Self::Balance,
+		_tip: Self::Balance,
+	) -> Result<
+		(LiquidityInfoOf<T>, Self::LiquidityInfo, AssetBalanceOf<T>),
+		TransactionValidityError,
+	> {
+		let asset_fee = AssetConversion::<T>::quote_price_tokens_for_exact_tokens(
+			asset_id.clone().into(),
+			A::get(),
+			fee,
+			true,
+		)
+		.ok_or(InvalidTransaction::Payment)?;
+
+		let asset_fee_credit = T::Assets::withdraw(
+			asset_id.clone().into(),
+			who,
+			asset_fee,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
+
+		let (fee_credit, change) = match S::swap_tokens_for_exact_tokens(
+			vec![asset_id.into(), A::get()],
+			asset_fee_credit,
+			fee,
+		) {
+			Ok((fee_credit, change)) => (fee_credit, change),
+			Err((credit_in, _)) => {
+				let _ = T::Assets::resolve(who, credit_in).defensive();
+				return Err(InvalidTransaction::Payment.into())
+			},
+		};
+
+		ensure!(change.peek() == Zero::zero(), InvalidTransaction::Payment);
+
+		Ok((Some(fee_credit), fee, asset_fee.into()))
+	}
+	fn correct_and_deposit_fee(
+		who: &<T>::AccountId,
+		dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<<T>::RuntimeCall>,
+		corrected_fee: Self::Balance,
+		tip: Self::Balance,
+		fee_paid: LiquidityInfoOf<T>,
+		_received_exchanged: Self::LiquidityInfo,
+		asset_id: Self::AssetId,
+		initial_asset_consumed: AssetBalanceOf<T>,
+	) -> Result<AssetBalanceOf<T>, TransactionValidityError> {
+		let fee_paid = if let Some(fee_paid) = fee_paid {
+			fee_paid
+		} else {
+			return Ok(Zero::zero());
+		};
+		let asset_id: T::AssetKind = asset_id.into();
+		// Try to refund if the fee paid is more than the corrected fee and the account was not
+		// removed by the dispatched function.
+		let (fee, fee_in_asset) = if fee_paid.peek() > corrected_fee &&
+			T::Assets::total_balance(asset_id.clone(), who) > Zero::zero()
+		{
+			let refund_amount = fee_paid.peek().saturating_sub(corrected_fee);
+			// Check if the refund amount can be swapped back into the asset used by `who` for fee
+			// payment.
+			let refund_asset_amount = AssetConversion::<T>::quote_price_exact_tokens_for_tokens(
+				A::get(),
+				asset_id.clone(),
+				refund_amount,
+				true,
+			)
+			// No refund given if it cannot be swapped back.
+			.unwrap_or(Zero::zero());
+
+			// Deposit the refund before the swap to ensure it can be processed.
+			let debt = match T::Assets::deposit(
+				asset_id.clone(),
+				&who,
+				refund_asset_amount,
+				Precision::BestEffort,
+			) {
+				Ok(debt) => debt,
+				// No refund given since it cannot be deposited.
+				Err(_) => fungibles::Debt::<T::AccountId, T::Assets>::zero(asset_id.clone()),
+			};
+
+			if debt.peek() == Zero::zero() {
+				// No refund given.
+				(fee_paid, initial_asset_consumed)
+			} else {
+				let (refund, fee_paid) = fee_paid.split(refund_amount);
+				match S::swap_exact_tokens_for_tokens(
+					vec![A::get(), asset_id],
+					refund,
+					Some(refund_asset_amount),
+				) {
+					Ok(refund_asset) => {
+						match refund_asset.offset(debt) {
+							Ok(SameOrOther::None) => {},
+							// This arm should never be reached, as the  amount of `debt` is
+							// expected to be exactly equal to the amount of `refund_asset` credit.
+							_ => return Err(InvalidTransaction::Payment.into()),
+						};
+						(
+							fee_paid,
+							initial_asset_consumed.saturating_sub(refund_asset_amount.into()),
+						)
+					},
+					// The error should not occur since swap was quoted before.
+					Err((refund, _)) => {
+						match T::Assets::settle(who, debt, Preservation::Expendable) {
+							Ok(dust) =>
+								ensure!(dust.peek() == Zero::zero(), InvalidTransaction::Payment),
+							// The error should not occur as the `debt` was just withdrawn above.
+							Err(_) => return Err(InvalidTransaction::Payment.into()),
+						};
+						let fee_paid = fee_paid.merge(refund).map_err(|_| {
+							// The error should never occur since `fee_paid` and `refund` are
+							// credits of the same asset.
+							TransactionValidityError::from(InvalidTransaction::Payment)
+						})?;
+						(fee_paid, initial_asset_consumed)
+					},
+				}
+			}
+		} else {
+			(fee_paid, initial_asset_consumed)
+		};
+
+		// Refund is already processed.
+		let corrected_fee = fee.peek();
+		// Deposit fee.
+		T::OnChargeTransaction::correct_and_deposit_fee(
+			who,
+			dispatch_info,
+			post_info,
+			corrected_fee,
+			tip,
+			fee.into(),
+		)
+		.map(|_| fee_in_asset)
 	}
 }

@@ -176,7 +176,9 @@ impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId,
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
+	// type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
+	type OnChargeTransaction =
+		pallet_transaction_payment::FungiblesAdapter<NativeAndAssets, Native, (), ()>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
@@ -249,12 +251,14 @@ pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
 	(NativeOrWithId<u32>, NativeOrWithId<u32>),
 >;
 
+type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = u128;
 	type AssetKind = NativeOrWithId<u32>;
-	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = Chain<
 		WithFirstAsset<Native, AccountId, NativeOrWithId<u32>, PoolIdToAccountId>,
@@ -279,5 +283,6 @@ impl pallet_asset_conversion::Config for Runtime {
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
-	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion, Native>;
+	// type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion, Native>;
+	type OnChargeAssetTransaction = SwapCreditAdapter<Native, AssetConversion>;
 }
