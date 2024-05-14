@@ -410,11 +410,7 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(message).await;
 		}
 
-		let message_count = message_tracker.iter().filter(|&&v| v).collect_vec().len();
-		if message_count < 60 {
-			gum::error!(message_tracker = ?message_tracker.iter().enumerate().collect_vec());
-		}
-		total_message_count += message_count;
+		total_message_count += message_tracker.iter().filter(|&&v| v).collect_vec().len();
 
 		let mut timeout = message_check_delay();
 		loop {
@@ -443,6 +439,8 @@ pub async fn benchmark_statement_distribution(
 			}
 		}
 	}
+
+	state.reset_trackers();
 
 	let duration: u128 = test_start.elapsed().as_millis();
 	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());

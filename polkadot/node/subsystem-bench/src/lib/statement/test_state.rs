@@ -75,7 +75,7 @@ pub struct TestState {
 	// TODO
 	pub validator_pairs: Vec<ValidatorPair>,
 	// TODO
-	pub statements_tracker: HashMap<CandidateHash, HashMap<u32, Arc<AtomicBool>>>,
+	pub statements_tracker: HashMap<CandidateHash, Vec<Arc<AtomicBool>>>,
 	pub manifests_tracker: HashMap<CandidateHash, Arc<AtomicBool>>,
 	pub session_info: SessionInfo,
 	pub statements: HashMap<CandidateHash, Vec<UncheckedSigned<CompactStatement>>>,
@@ -137,8 +137,8 @@ impl TestState {
 				);
 				state.statements_tracker.entry(receipt.hash()).or_default().extend(
 					(0..config.n_validators)
-						.map(|index| (index as u32, Arc::new(AtomicBool::new(index <= 1))))
-						.collect::<HashMap<_, _>>(),
+						.map(|index| Arc::new(AtomicBool::new(index <= 1)))
+						.collect_vec(),
 				);
 				state.manifests_tracker.insert(receipt.hash(), Arc::new(AtomicBool::new(false)));
 				state
@@ -171,6 +171,17 @@ impl TestState {
 		}
 
 		state
+	}
+
+	pub fn reset_trackers(&self) {
+		self.statements_tracker.values().for_each(|v| {
+			v.iter()
+				.enumerate()
+				.for_each(|(index, v)| v.as_ref().store(index <= 1, Ordering::SeqCst))
+		});
+		self.manifests_tracker
+			.values()
+			.for_each(|v| v.as_ref().store(false, Ordering::SeqCst));
 	}
 }
 
@@ -305,9 +316,9 @@ impl HandleNetworkMessage for TestState {
 				let sent = self
 					.statements_tracker
 					.get(&candidate_hash)
-					.expect("Pregenerated")
-					.get(&(index as u32))
-					.expect("Pregenerated")
+					.unwrap()
+					.get(index)
+					.unwrap()
 					.as_ref();
 
 				if sent.load(Ordering::SeqCst) {
