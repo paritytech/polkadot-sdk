@@ -37,8 +37,8 @@ use sc_client_api::{
 use sc_client_db::{Backend, DatabaseSettings};
 use sc_consensus::import_queue::ImportQueue;
 use sc_executor::{
-	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeElseWasmExecutor,
-	NativeExecutionDispatch, RuntimeVersionOf, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
+	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeExecutionDispatch, RuntimeVersionOf,
+	WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
@@ -262,11 +262,15 @@ where
 	Ok((client, backend, keystore_container, task_manager))
 }
 
-/// Creates a [`NativeElseWasmExecutor`] according to [`Configuration`].
+/// Creates a [`NativeElseWasmExecutor`](sc_executor::NativeElseWasmExecutor) according to
+/// [`Configuration`].
+#[deprecated(note = "Please switch to `new_wasm_executor`. Will be removed at end of 2024.")]
+#[allow(deprecated)]
 pub fn new_native_or_wasm_executor<D: NativeExecutionDispatch>(
 	config: &Configuration,
-) -> NativeElseWasmExecutor<D> {
-	NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(config))
+) -> sc_executor::NativeElseWasmExecutor<D> {
+	#[allow(deprecated)]
+	sc_executor::NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(config))
 }
 
 /// Creates a [`WasmExecutor`] according to [`Configuration`].
@@ -644,10 +648,13 @@ where
 		(chain, state, child_state)
 	};
 
+	const MAX_TRANSACTION_PER_CONNECTION: usize = 16;
+
 	let transaction_broadcast_rpc_v2 = sc_rpc_spec_v2::transaction::TransactionBroadcast::new(
 		client.clone(),
 		transaction_pool.clone(),
 		task_executor.clone(),
+		MAX_TRANSACTION_PER_CONNECTION,
 	)
 	.into_rpc();
 

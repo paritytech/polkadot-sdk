@@ -412,7 +412,7 @@ pub mod pallet {
 		/// validators have reported on the validity of the code, the code will either be enacted
 		/// or the upgrade will be rejected. If the code will be enacted, the current code of the
 		/// parachain will be overwritten directly. This means that any PoV will be checked by this
-		/// new code. The parachain itself will not be informed explictely that the validation code
+		/// new code. The parachain itself will not be informed explicitly that the validation code
 		/// has changed.
 		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is

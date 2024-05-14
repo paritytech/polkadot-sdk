@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 bounded-collections = { version = "0.2.0", default-features = false, features = ["serde"] }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
 impl-trait-for-tuples = "0.2.2"

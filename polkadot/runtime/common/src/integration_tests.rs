@@ -39,7 +39,7 @@ use primitives::{
 	MAX_CODE_SIZE,
 };
 use runtime_parachains::{
-	configuration, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
+	configuration, dmp, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
 use sp_core::H256;
 use sp_io::TestExternalities;
@@ -84,6 +84,7 @@ frame_support::construct_runtime!(
 		Paras: paras,
 		ParasShared: shared,
 		ParachainsOrigin: origin,
+		Dmp: dmp,
 
 		// Para Onboarding Pallets
 		Registrar: paras_registrar,
@@ -200,6 +201,8 @@ impl configuration::Config for Test {
 impl shared::Config for Test {
 	type DisabledValidators = ();
 }
+
+impl dmp::Config for Test {}
 
 impl origin::Config for Test {}
 
