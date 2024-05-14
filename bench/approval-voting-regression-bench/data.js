@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715619090538,
+  "lastUpdate": 1715645091961,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3336,6 +3336,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.495429803080202,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Éloïs",
+            "username": "librelois",
+            "email": "c@elo.tf"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "594c3ed5750bc7ab97f82fb8387f82661eca1cc4",
+          "message": " improve MockValidationDataInherentDataProvider to support async backing (#4442)\n\nSupport async backing in `--dev` mode\n\nThis PR improve the relay mock `MockValidationDataInherentDataProvider`\nto mach expectations of async backing runtimes.\n\n* Add para_head in the mock relay proof\n* Add relay slot in the mock relay proof \n\nfix https://github.com/paritytech/polkadot-sdk/issues/4437",
+          "timestamp": "2024-05-13T22:03:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/594c3ed5750bc7ab97f82fb8387f82661eca1cc4"
+        },
+        "date": 1715645065334,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63543.55,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0999899565601146,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.163690392279949,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.899207171680029,
             "unit": "seconds"
           }
         ]
