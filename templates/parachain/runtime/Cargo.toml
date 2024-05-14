@@ -36,6 +36,7 @@ pallet-parachain-template = { path = "../pallets/template", default-features = f
 # Substrate / FRAME
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
@@ -106,6 +107,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -197,3 +199,5 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+metadata-hash = [ "substrate-wasm-builder/metadata-hash" ]
