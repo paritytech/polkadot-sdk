@@ -96,7 +96,7 @@ pub trait CallInterceptor<T: Config> {
 	/// * `None` - otherwise, i.e. the call should be executed normally.
 	fn intercept_call(
 		contract_address: &T::AccountId,
-		entry_point: &ExportedFunction,
+		entry_point: ExportedFunction,
 		input_data: &[u8],
 	) -> Option<ExecResult>;
 }
@@ -104,7 +104,7 @@ pub trait CallInterceptor<T: Config> {
 impl<T: Config> CallInterceptor<T> for () {
 	fn intercept_call(
 		_contract_address: &T::AccountId,
-		_entry_point: &ExportedFunction,
+		_entry_point: ExportedFunction,
 		_input_data: &[u8],
 	) -> Option<ExecResult> {
 		None

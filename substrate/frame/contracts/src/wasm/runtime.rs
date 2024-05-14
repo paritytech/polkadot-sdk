@@ -49,13 +49,13 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
 
-/// Passed to [`Environment`] to determine whether it should expose deprecated interfaces.
-pub enum AllowDeprecatedInterface {
-	/// No deprecated interfaces are exposed.
-	No,
-	/// Deprecated interfaces are exposed.
-	Yes,
-}
+// /// Passed to [`Environment`] to determine whether it should expose deprecated interfaces.
+// pub enum AllowDeprecatedInterface {
+// 	/// No deprecated interfaces are exposed.
+// 	No,
+// 	/// Deprecated interfaces are exposed.
+// 	Yes,
+// }
 
 /// Passed to [`Environment`] to determine whether it should expose unstable interfaces.
 pub enum AllowUnstableInterface {
@@ -65,14 +65,21 @@ pub enum AllowUnstableInterface {
 	Yes,
 }
 
+impl From<bool> for AllowUnstableInterface {
+	fn from(from: bool) -> Self {
+		if from {
+			Self::Yes
+		} else {
+			Self::No
+		}
+	}
+}
+
 /// Trait implemented by the [`define_env`](pallet_contracts_proc_macro::define_env) macro for the
 /// emitted `Env` struct.
 pub trait Environment<HostState> {
 	/// Returns a [`LinkerBuilder`] initialized with all declared functions.
-	fn define(
-		allow_unstable: AllowUnstableInterface,
-		allow_deprecated: AllowDeprecatedInterface,
-	) -> Result<LinkerBuilder<Ready, HostState>, LinkerError>;
+	fn define() -> Result<LinkerBuilder<Ready, HostState>, LinkerError>;
 }
 
 /// Type of a storage key.
@@ -293,9 +300,10 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Random => T::WeightInfo::seal_random(),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
-			SetStorage { new_bytes, old_bytes } =>
+			SetStorage { new_bytes, old_bytes } => {
 				T::WeightInfo::seal_set_storage_per_new_byte(new_bytes)
-					.saturating_add(T::WeightInfo::seal_set_storage_per_old_byte(old_bytes)),
+					.saturating_add(T::WeightInfo::seal_set_storage_per_old_byte(old_bytes))
+			},
 			ClearStorage(len) => T::WeightInfo::seal_clear_storage(len),
 			ContainsStorage(len) => T::WeightInfo::seal_contains_storage(len),
 			GetStorage(len) => T::WeightInfo::seal_get_storage(len),
@@ -305,8 +313,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0, 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, 1, len),
-			InstantiateBase { input_data_len, salt_len } =>
-				T::WeightInfo::seal_instantiate(0, input_data_len, salt_len),
+			InstantiateBase { input_data_len, salt_len } => {
+				T::WeightInfo::seal_instantiate(0, input_data_len, salt_len)
+			},
 			InstantiateTransferSurcharge => cost_args!(seal_instantiate, 1, 0, 0),
 			HashSha256(len) => T::WeightInfo::seal_hash_sha2_256(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
@@ -360,7 +369,7 @@ fn already_charged(_: u32) -> Option<RuntimeCosts> {
 	None
 }
 
-/// Ensure that the XCM program is executable, by checking that it does not contain any [`Transact`]
+/// Ensure that the XCM program is executable, by checking that it does not contain any `Transact`
 /// instruction with a call that is not allowed by the CallFilter.
 fn ensure_executable<T: Config>(message: &VersionedXcm<CallOf<T>>) -> DispatchResult {
 	use frame_support::traits::Contains;
@@ -374,7 +383,7 @@ fn ensure_executable<T: Config>(message: &VersionedXcm<CallOf<T>>) -> DispatchRe
 		let call = call.ensure_decoded().map_err(|_| Error::<T>::XCMDecodeFailed)?;
 
 		if !<T as Config>::CallFilter::contains(call) {
-			return Err(frame_system::Error::<T>::CallFiltered.into())
+			return Err(frame_system::Error::<T>::CallFiltered.into());
 		}
 
 		Ok(())
@@ -419,22 +428,22 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 
 		let Err(error) = sandbox_result else {
 			// Contract returned from main function -> no data was returned.
-			return Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
+			return Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() });
 		};
 		if let ErrorKind::Fuel(FuelError::OutOfFuel) = error.kind() {
 			// `OutOfGas` when host asks engine to consume more than left in the _store_.
 			// We should never get this case, as gas meter is being charged (and hence raises error)
 			// first.
-			return Err(Error::<E::T>::OutOfGas.into())
+			return Err(Error::<E::T>::OutOfGas.into());
 		}
 		match error.as_trap_code() {
 			Some(TrapCode::OutOfFuel) => {
 				// `OutOfGas` during engine execution.
-				return Err(Error::<E::T>::OutOfGas.into())
+				return Err(Error::<E::T>::OutOfGas.into());
 			},
 			Some(_trap_code) => {
 				// Otherwise the trap came from the contract itself.
-				return Err(Error::<E::T>::ContractTrapped.into())
+				return Err(Error::<E::T>::ContractTrapped.into());
 			},
 			None => {},
 		}
@@ -444,10 +453,11 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 				Return(ReturnData { flags, data }) => {
 					let flags =
 						ReturnFlags::from_bits(*flags).ok_or(Error::<E::T>::InvalidCallFlags)?;
-					return Ok(ExecReturnValue { flags, data: data.to_vec() })
+					return Ok(ExecReturnValue { flags, data: data.to_vec() });
 				},
-				Termination =>
-					return Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }),
+				Termination => {
+					return Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
+				},
 				SupervisorError(error) => return Err((*error).into()),
 			}
 		}
@@ -617,14 +627,14 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
 	) -> Result<(), DispatchError> {
 		if allow_skip && out_ptr == SENTINEL {
-			return Ok(())
+			return Ok(());
 		}
 
 		let buf_len = buf.len() as u32;
 		let len: u32 = self.read_sandbox_memory_as(memory, out_len_ptr)?;
 
 		if len < buf_len {
-			return Err(Error::<E::T>::OutputBufferTooSmall.into())
+			return Err(Error::<E::T>::OutputBufferTooSmall.into());
 		}
 
 		if let Some(costs) = create_token(buf_len) {
@@ -752,7 +762,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		let charged = self
 			.charge_gas(RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes: max_size })?;
 		if value_len > max_size {
-			return Err(Error::<E::T>::ValueTooLarge.into())
+			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 		let key = self.decode_key(memory, key_type, key_ptr)?;
 		let value = Some(self.read_sandbox_memory(memory, value_ptr, value_len)?);
@@ -870,7 +880,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 			},
 			CallType::DelegateCall { code_hash_ptr } => {
 				if flags.contains(CallFlags::ALLOW_REENTRY) {
-					return Err(Error::<E::T>::InvalidCallFlags.into())
+					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
 				let code_hash = self.read_sandbox_memory_as(memory, code_hash_ptr)?;
 				self.ext.delegate_call(code_hash, input_data)
@@ -884,7 +894,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 				return Err(TrapReason::Return(ReturnData {
 					flags: return_value.flags.bits(),
 					data: return_value.data,
-				}))
+				}));
 			}
 		}
 
@@ -1672,7 +1682,7 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::Random)?;
 		if subject_len > ctx.ext.schedule().limits.subject_len {
-			return Err(Error::<E::T>::RandomSubjectTooLong.into())
+			return Err(Error::<E::T>::RandomSubjectTooLong.into());
 		}
 		let subject_buf = ctx.read_sandbox_memory(memory, subject_ptr, subject_len)?;
 		Ok(ctx.write_sandbox_output(
@@ -1719,7 +1729,7 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::Random)?;
 		if subject_len > ctx.ext.schedule().limits.subject_len {
-			return Err(Error::<E::T>::RandomSubjectTooLong.into())
+			return Err(Error::<E::T>::RandomSubjectTooLong.into());
 		}
 		let subject_buf = ctx.read_sandbox_memory(memory, subject_ptr, subject_len)?;
 		Ok(ctx.write_sandbox_output(
@@ -1912,7 +1922,7 @@ pub mod env {
 			.ok_or("Zero sized topics are not allowed")?;
 		ctx.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })?;
 		if data_len > ctx.ext.max_value_size() {
-			return Err(Error::<E::T>::ValueTooLarge.into())
+			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
 		let topics: Vec<TopicOf<<E as Ext>::T>> = match topics_len {
@@ -1922,7 +1932,7 @@ pub mod env {
 
 		// If there are more than `event_topics`, then trap.
 		if topics.len() > ctx.ext.schedule().limits.event_topics as usize {
-			return Err(Error::<E::T>::TooManyTopics.into())
+			return Err(Error::<E::T>::TooManyTopics.into());
 		}
 
 		let event_data = ctx.read_sandbox_memory(memory, data_ptr, data_len)?;
@@ -2025,7 +2035,7 @@ pub mod env {
 	) -> Result<u32, TrapReason> {
 		use crate::chain_extension::{ChainExtension, Environment, RetVal};
 		if !<E::T as Config>::ChainExtension::enabled() {
-			return Err(Error::<E::T>::NoChainExtension.into())
+			return Err(Error::<E::T>::NoChainExtension.into());
 		}
 		let mut chain_extension = ctx.chain_extension.take().expect(
 			"Constructor initializes with `Some`. This is the only place where it is set to `None`.\
@@ -2035,8 +2045,9 @@ pub mod env {
 			Environment::new(ctx, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
+			RetVal::Diverging { flags, data } => {
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
+			},
 		};
 		ctx.chain_extension = Some(chain_extension);
 		ret

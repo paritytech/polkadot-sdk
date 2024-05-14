@@ -192,7 +192,7 @@ pub struct Environment<'a, 'b, E: Ext, S: State> {
 	/// The actual data of this type.
 	inner: Inner<'a, 'b, E>,
 	/// `S` is only used in the type system but never as value.
-	phantom: PhantomData<S>,
+	phantom: PhantomData<fn() -> S>,
 }
 
 /// Functions that are available in every state of this type.

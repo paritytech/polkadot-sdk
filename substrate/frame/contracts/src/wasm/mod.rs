@@ -19,7 +19,8 @@
 //! represented in wasm.
 
 mod prepare;
-mod runtime;
+pub mod runtime;
+pub type LinkerBuilder<H> = wasmi::LinkerBuilder<wasmi::state::Ready, H>;
 
 #[cfg(doc)]
 pub use crate::wasm::runtime::api_doc;
@@ -36,9 +37,7 @@ pub use crate::wasm::runtime::{BenchEnv, ReturnData, TrapReason};
 
 pub use crate::wasm::{
 	prepare::{LoadedModule, LoadingMode},
-	runtime::{
-		AllowDeprecatedInterface, AllowUnstableInterface, Environment, Runtime, RuntimeCosts,
-	},
+	runtime::{Environment, Runtime, RuntimeCosts},
 };
 
 use crate::{
@@ -199,25 +198,16 @@ impl<T: Config> WasmBlob<T> {
 	/// When validating we pass `()` as `host_state`. Please note that such a dummy instance must
 	/// **never** be called/executed, since it will panic the executor.
 	pub fn instantiate<E, H>(
+		builder: LinkerBuilder<H>,
 		contract: LoadedModule,
 		host_state: H,
 		schedule: &Schedule<T>,
-		allow_deprecated: AllowDeprecatedInterface,
+		// allow_deprecated: AllowDeprecatedInterface,
 	) -> Result<(Store<H>, Memory, InstancePre), &'static str>
 	where
 		E: Environment<H>,
 	{
 		let mut store = Store::new(&contract.engine, host_state);
-		let builder = E::define(
-			if T::UnsafeUnstableInterface::get() {
-				AllowUnstableInterface::Yes
-			} else {
-				AllowUnstableInterface::No
-			},
-			allow_deprecated,
-		)
-		.map_err(|_| "can't define host functions to Linker")?;
-
 		let mut linker = builder.create(&contract.engine);
 
 		// Query wasmi for memory limits specified in the module's import entry.
@@ -363,7 +353,7 @@ impl<T: Config> WasmBlob<T> {
 		match Self::prepare_execute(
 			self,
 			Runtime::new(ext, input_data),
-			&ExportedFunction::Call,
+			ExportedFunction::Call,
 			CompilationMode::Eager,
 		)
 		.expect("Benchmark should provide valid module")
@@ -375,8 +365,9 @@ impl<T: Config> WasmBlob<T> {
 
 	fn prepare_execute<'a, E: Ext<T = T>>(
 		self,
+		builder: LinkerBuilder<Runtime<'a, E>>,
 		runtime: Runtime<'a, E>,
-		function: &'a ExportedFunction,
+		function: ExportedFunction,
 		compilation_mode: CompilationMode,
 	) -> PreExecResult<'a, E> {
 		let code = self.code.as_slice();
@@ -396,13 +387,7 @@ impl<T: Config> WasmBlob<T> {
 		})?;
 
 		let (mut store, memory, instance) = Self::instantiate::<crate::wasm::runtime::Env, _>(
-			contract,
-			runtime,
-			&schedule,
-			match function {
-				ExportedFunction::Call => AllowDeprecatedInterface::Yes,
-				ExportedFunction::Constructor => AllowDeprecatedInterface::No,
-			},
+			builder, contract, runtime, &schedule,
 		)
 		.map_err(|msg| {
 			log::debug!(target: LOG_TARGET, "failed to instantiate code to wasmi: {}", msg);
@@ -425,7 +410,7 @@ impl<T: Config> WasmBlob<T> {
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		// Start function should already see the correct refcount in case it will be ever inspected.
-		if let &ExportedFunction::Constructor = function {
+		if let ExportedFunction::Constructor = function {
 			E::increment_refcount(self.code_hash)?;
 		}
 
@@ -460,15 +445,26 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 		Ok(Self { code, code_info, code_hash })
 	}
 
-	fn execute<E: Ext<T = T>>(
+	fn execute<'a, E: Ext<T = T>>(
 		self,
-		ext: &mut E,
-		function: &ExportedFunction,
+		ext: &'a mut E,
+		builder: LinkerBuilder<Runtime<'a, E>>,
+		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		use InstanceOrExecReturn::*;
+
+		// let allow_deprecated = match function {
+		// 	ExportedFunction::Call => AllowDeprecatedInterface::Yes,
+		// 	ExportedFunction::Constructor => AllowDeprecatedInterface::No,
+		// };
+
+		// let builder: LinkerBuilder<Runtime<'_, E>> =
+		// crate::wasm::runtime::Env::define().unwrap(); // TODO fix unwrap
+
 		match Self::prepare_execute(
 			self,
+			builder,
 			Runtime::new(ext, input_data),
 			function,
 			CompilationMode::Lazy,
@@ -681,8 +677,9 @@ mod tests {
 			let entry = self.storage.entry(key.clone());
 			let result = match (entry, take_old) {
 				(Entry::Vacant(_), _) => WriteOutcome::New,
-				(Entry::Occupied(entry), false) =>
-					WriteOutcome::Overwritten(entry.remove().len() as u32),
+				(Entry::Occupied(entry), false) => {
+					WriteOutcome::Overwritten(entry.remove().len() as u32)
+				},
 				(Entry::Occupied(entry), true) => WriteOutcome::Taken(entry.remove()),
 			};
 			if let Some(value) = value {
@@ -822,7 +819,7 @@ mod tests {
 		wat: &str,
 		input_data: Vec<u8>,
 		mut ext: E,
-		entry_point: &ExportedFunction,
+		entry_point: ExportedFunction,
 		unstable_interface: bool,
 		skip_checks: bool,
 	) -> ExecResult {
@@ -844,12 +841,17 @@ mod tests {
 			)
 			.map_err(|err| err.0)?
 		};
-		executable.execute(ext.borrow_mut(), entry_point, input_data)
+		executable.execute(
+			ext.borrow_mut(),
+			wasmi::Linker::build().finish(),
+			entry_point,
+			input_data,
+		)
 	}
 
 	/// Execute the `call` function within the supplied code.
 	fn execute<E: BorrowMut<MockExt>>(wat: &str, input_data: Vec<u8>, ext: E) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Call, true, false)
+		execute_internal(wat, input_data, ext, ExportedFunction::Call, true, false)
 	}
 
 	/// Execute the `deploy` function within the supplied code.
@@ -858,7 +860,7 @@ mod tests {
 		input_data: Vec<u8>,
 		ext: E,
 	) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Constructor, true, false)
+		execute_internal(wat, input_data, ext, ExportedFunction::Constructor, true, false)
 	}
 
 	/// Execute the supplied code with disabled unstable functions.
@@ -872,7 +874,7 @@ mod tests {
 		input_data: Vec<u8>,
 		ext: E,
 	) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Call, false, false)
+		execute_internal(wat, input_data, ext, ExportedFunction::Call, false, false)
 	}
 
 	/// Execute code without validating it first.
@@ -884,7 +886,7 @@ mod tests {
 		input_data: Vec<u8>,
 		ext: E,
 	) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Call, false, true)
+		execute_internal(wat, input_data, ext, ExportedFunction::Call, false, true)
 	}
 
 	/// Execute instantiation entry point of code without validating it first.
@@ -896,7 +898,7 @@ mod tests {
 		input_data: Vec<u8>,
 		ext: E,
 	) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Constructor, false, true)
+		execute_internal(wat, input_data, ext, ExportedFunction::Constructor, false, true)
 	}
 
 	const CODE_TRANSFER: &str = r#"

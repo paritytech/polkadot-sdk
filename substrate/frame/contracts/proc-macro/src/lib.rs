@@ -544,10 +544,7 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 	quote! {
 		impl<'a, E: Ext> crate::wasm::Environment<crate::wasm::runtime::Runtime<'a, E>> for Env
 		{
-			fn define(
-				allow_unstable: AllowUnstableInterface,
-				allow_deprecated: AllowDeprecatedInterface,
-			) -> Result<::wasmi::LinkerBuilder<::wasmi::state::Ready, crate::wasm::Runtime<'a, E>>, ::wasmi::errors::LinkerError> {
+			fn define() -> Result<::wasmi::LinkerBuilder<::wasmi::state::Ready, crate::wasm::Runtime<'a, E>>, ::wasmi::errors::LinkerError> {
 				let mut linker_builder = ::wasmi::Linker::build();
 				#impls
 				Ok(linker_builder.finish())
@@ -564,10 +561,7 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 
 		impl crate::wasm::Environment<()> for Env
 		{
-			fn define(
-				allow_unstable: AllowUnstableInterface,
-				allow_deprecated: AllowDeprecatedInterface,
-			) -> Result<::wasmi::LinkerBuilder<::wasmi::state::Ready, ()>, ::wasmi::errors::LinkerError> {
+			fn define() -> Result<::wasmi::LinkerBuilder<::wasmi::state::Ready, ()>, ::wasmi::errors::LinkerError> {
 				let mut linker_builder = ::wasmi::Linker::build();
 				#dummy_impls
 				Ok(linker_builder.finish())
@@ -608,7 +602,9 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 		let body = &f.item.block;
 		let wasm_output = f.returns.to_wasm_sig();
 		let output = &f.item.sig.output;
+
 		let is_stable = f.is_stable;
+
 		let not_deprecated = f.not_deprecated;
 
 		// wrapped host function body call with host function traces
@@ -748,18 +744,20 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 					// is necessary as the decision whether we allow unstable or deprecated functions
 					// is a decision made at runtime. Generation of the weights happens statically.
 					#cfg
-					if ::core::cfg!(feature = "runtime-benchmarks") ||
-						((#is_stable || __allow_unstable__) && (#not_deprecated || __allow_deprecated__))
-					{
-						#allow_unused
-						linker_builder.func_wrap(#module, #name, |mut __caller__: ::wasmi::Caller<#host_state>, #( #params, )*| -> #wasm_output {
-							#sync_gas_before
-							let mut func = #inner;
-							let result = func().map_err(#into_host).map(::core::convert::Into::into);
-							#sync_gas_after
-							result
-						})?;
-					}
+
+					#allow_unused
+					linker_builder.func_wrap(#module, #name, |mut __caller__: ::wasmi::Caller<#host_state>, #( #params, )*| -> #wasm_output {
+						// TODO handle
+						// if ::core::cfg!(feature = "runtime-benchmarks") ||
+						// ((#is_stable || __allow_unstable__) && (#not_deprecated || __allow_deprecated__))
+						dbg!(#is_stable, #not_deprecated);
+						#sync_gas_before
+						let mut func = #inner;
+						let result = func().map_err(#into_host).map(::core::convert::Into::into);
+						#sync_gas_after
+						result
+					})?;
+
 				}
 			},
 		}
@@ -772,8 +770,8 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 			}
 		},
 		_ => quote! {
-			let __allow_unstable__ = matches!(allow_unstable, AllowUnstableInterface::Yes);
-			let __allow_deprecated__ = matches!(allow_deprecated, AllowDeprecatedInterface::Yes);
+			// let __allow_unstable__ = matches!(allow_unstable, AllowUnstableInterface::Yes);
+			// let __allow_deprecated__ = matches!(allow_deprecated, AllowDeprecatedInterface::Yes);
 			#( #impls )*
 		},
 	}

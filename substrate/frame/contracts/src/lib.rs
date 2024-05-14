@@ -166,7 +166,7 @@ type EventRecordOf<T> =
 
 /// The old weight type.
 ///
-/// This is a copy of the [`frame_support::weights::OldWeight`] type since the contracts pallet
+/// This is a copy of the `frame_support::weights::OldWeight` type since the contracts pallet
 /// needs to support it indefinitely.
 type OldWeight = u64;
 
