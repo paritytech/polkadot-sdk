@@ -15,3 +15,5 @@ crates:
     bump: minor
   - name: pallet-contracts-uapi
     bump: minor
+  - name: pallet-contracts-proc-macro
+    bump: minor
