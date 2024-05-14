@@ -9,7 +9,7 @@ permissions:
   packages: read
 
 jobs:
-  lint-markdown:
+  check-markdown:
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 10
     steps:
