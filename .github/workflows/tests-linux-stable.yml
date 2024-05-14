@@ -1,12 +1,23 @@
-name: test-github-actions
+# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel
+name: tests linux stable
 
 on:
+  push:
+    branches:
+      - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+env:
+  FORKLIFT_storage_s3_bucketName: ${{ secrets.FORKLIFT_storage_s3_bucketName }}
+  FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
+  FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
+  FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
+  FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
 
 jobs:
   set-image:
@@ -38,20 +49,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: WASM_BUILD_NO_COLOR=1 time cargo test -p staging-node-cli --release --locked -- --ignored
-  quick-benchmarks:
+        run: WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
+  # https://github.com/paritytech/ci_cd/issues/864
+  test-linux-stable-runtime-benchmarks:
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
-      RUSTFLAGS: "-C debug-assertions -D warnings"
-      RUST_BACKTRACE: "full"
-      WASM_BUILD_NO_COLOR: 1
-      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
+        run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
