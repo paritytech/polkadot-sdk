@@ -180,7 +180,7 @@ of re-enabling.
   - Reports a peer (either good or bad).
 - `CandidateBackingMessage::Statement`
   - Note a validator's statement about a particular candidate.
-- `ProspectiveParachainsMessage::GetHypotheticalFrontier`
+- `ProspectiveParachainsMessage::GetHypotheticalMembership`
   - Gets the hypothetical frontier membership of candidates under active leaves' fragment trees.
 - `NetworkBridgeTxMessage::SendRequests`
   - Sends requests, initiating the request/response protocol.
