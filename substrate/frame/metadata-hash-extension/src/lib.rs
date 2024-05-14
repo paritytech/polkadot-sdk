@@ -100,7 +100,7 @@ impl MetadataHash {
 	}
 }
 
-/// Extension for optionally checking the metadata hash.
+/// Extension for optionally verifying the metadata hash.
 ///
 /// The metadata hash is cryptographical representation of the runtime metadata. This metadata hash
 /// is build as described in [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html).

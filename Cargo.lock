@@ -13876,6 +13876,7 @@ dependencies = [
  "cumulus-primitives-storage-weight-reclaim",
  "docify",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "kitchensink-runtime",
