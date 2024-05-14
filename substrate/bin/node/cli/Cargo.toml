@@ -58,7 +58,7 @@ node-inspect = { package = "staging-node-inspect", path = "../inspect", optional
 futures = "0.3.30"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
-nix = { version = "0.26.1", features = ["signal"] }
+nix = { version = "0.27.1", features = ["signal"] }
 regex = "1.6.0"
 platforms = "3.0"
 soketto = "0.7.1"
