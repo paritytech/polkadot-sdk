@@ -1,5 +1,11 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+//! Polkadot SDK umbrella crate re-exporting all other published crates.
+//!
+//! This helps to set a single version number for all your dependencies.
 
+// This file is auto-generated and checked by the CI.  You can edit it manually, but it must be
+// exactly the way that the CI expects it.
+
+#![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(feature = "asset-test-utils")]
 pub use asset_test_utils;
 
@@ -221,6 +227,9 @@ pub use frame_system_benchmarking;
 
 #[cfg(feature = "frame-system-rpc-runtime-api")]
 pub use frame_system_rpc_runtime_api;
+
+#[cfg(feature = "frame-try-runtime")]
+pub use frame_try_runtime;
 
 #[cfg(feature = "generate-bags")]
 pub use generate_bags;
