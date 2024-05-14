@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715619390800,
+  "lastUpdate": 1715645397763,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -9671,6 +9671,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009504680233333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Éloïs",
+            "username": "librelois",
+            "email": "c@elo.tf"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "594c3ed5750bc7ab97f82fb8387f82661eca1cc4",
+          "message": " improve MockValidationDataInherentDataProvider to support async backing (#4442)\n\nSupport async backing in `--dev` mode\n\nThis PR improve the relay mock `MockValidationDataInherentDataProvider`\nto mach expectations of async backing runtimes.\n\n* Add para_head in the mock relay proof\n* Add relay slot in the mock relay proof \n\nfix https://github.com/paritytech/polkadot-sdk/issues/4437",
+          "timestamp": "2024-05-13T22:03:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/594c3ed5750bc7ab97f82fb8387f82661eca1cc4"
+        },
+        "date": 1715645370284,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.89333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022642198326666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16518056376,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012860918453333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011019291006666668,
             "unit": "seconds"
           }
         ]
