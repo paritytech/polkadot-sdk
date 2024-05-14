@@ -104,11 +104,6 @@ pub trait ChainExtension<C: Config> {
 	/// chain extensions. It is called whenever a contract calls the `seal_call_chain_extension`
 	/// imported wasm function.
 	///
-	/// Note that `seal_call_chain_extension` can be invoked within a read-only context,
-	/// where any state-changing calls are disallowed. This information can be obtained
-	/// using the call `env.ext().is_read_only()`.
-	/// It's crucial for the implementer to handle this scenario appropriately.
-	///
 	/// # Parameters
 	/// - `env`: Access to the remaining arguments and the execution environment.
 	///
@@ -117,6 +112,12 @@ pub trait ChainExtension<C: Config> {
 	/// In case of `Err` the contract execution is immediately suspended and the passed error
 	/// is returned to the caller. Otherwise the value of [`RetVal`] determines the exit
 	/// behaviour.
+	///
+	/// # Note
+	///
+	/// The [`Self::call`] can be invoked within a read-only context, where any state-changing calls
+	/// are disallowed. This information can be obtained using `env.ext().is_read_only()`. It is
+	/// crucial for the implementer to handle this scenario appropriately.
 	fn call<E: Ext<T = C>>(&mut self, env: Environment<E, InitState>) -> Result<RetVal>;
 
 	/// Determines whether chain extensions are enabled for this chain.
