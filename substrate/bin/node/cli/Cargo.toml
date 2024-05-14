@@ -34,8 +34,8 @@ required-features = ["cli"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# third-party dependencies
-array-bytes = "6.2.2"
+# External dependencies:
+array-bytes = "6.1"
 clap = { version = "4.5.3", features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 serde = { features = ["derive"], workspace = true, default-features = true }
@@ -58,11 +58,11 @@ node-inspect = { package = "staging-node-inspect", path = "../inspect", optional
 futures = "0.3.30"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
-nix = { version = "0.27.1", features = ["signal"] }
+nix = { version = "0.26.1", features = ["signal"] }
 regex = "1.6.0"
 platforms = "3.0"
 soketto = "0.7.1"
-criterion = { version = "0.5.1", features = ["async_tokio"] }
+criterion = { version = "0.4.0", features = ["async_tokio"] }
 tokio = { version = "1.22.0", features = ["macros", "parking_lot", "time"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 wait-timeout = "0.2"
@@ -80,17 +80,9 @@ clap = { version = "4.5.3", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
 
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
-<<<<<<< HEAD
-frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
-substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true }
-sc-cli = { path = "../../../client/cli", optional = true }
-pallet-balances = { path = "../../../frame/balances" }
-sc-storage-monitor = { path = "../../../client/storage-monitor" }
-=======
 
 polkadot-sdk = { path = "../../../../umbrella", features = ["substrate-build-script-utils"], optional = true }
 
->>>>>>> db44df834fb (First umbrella)
 
 [features]
 default = ["cli"]
@@ -98,13 +90,7 @@ cli = [
 	"clap",
 	"clap_complete",
 	"node-inspect",
-<<<<<<< HEAD
-	"sc-cli",
-	"sc-service/rocksdb",
-	"substrate-build-script-utils",
-=======
 	"polkadot-sdk",
->>>>>>> db44df834fb (First umbrella)
 ]
 runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",

@@ -672,6 +672,9 @@ pub use polkadot_runtime_metrics;
 #[cfg(feature = "polkadot-runtime-parachains")]
 pub use polkadot_runtime_parachains;
 
+#[cfg(feature = "polkadot-sdk-frame")]
+pub use polkadot_sdk_frame;
+
 #[cfg(feature = "polkadot-service")]
 pub use polkadot_service;
 
@@ -1082,9 +1085,6 @@ pub use substrate_bip39;
 
 #[cfg(feature = "substrate-build-script-utils")]
 pub use substrate_build_script_utils;
-
-#[cfg(feature = "substrate-frame-cli")]
-pub use substrate_frame_cli;
 
 #[cfg(feature = "substrate-frame-rpc-support")]
 pub use substrate_frame_rpc_support;
