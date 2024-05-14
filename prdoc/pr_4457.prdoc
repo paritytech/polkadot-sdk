@@ -12,4 +12,4 @@ doc:
 
 crates: 
   - name: sc-service
-    bump: patch
+    bump: minor
