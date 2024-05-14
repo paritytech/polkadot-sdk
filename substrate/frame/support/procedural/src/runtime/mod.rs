@@ -218,16 +218,16 @@ pub fn runtime(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 
 	/*use expander::*;
 	let expanded = Expander::new("baz")
-        .add_comment("This is generated code!".to_owned())
-        .fmt(Edition::_2021)
-        .verbose(true)
-        // common way of gating this, by making it part of the default feature set
-        .dry(cfg!(feature="no-file-expansion"))
-        .write_to_out_dir(modified.clone().into()).unwrap_or_else(|e| {
-            eprintln!("Failed to write to file: {:?}", e);
-            modified.into()
-        });
-    expanded.into()*/
+		.add_comment("This is generated code!".to_owned())
+		.fmt(Edition::_2021)
+		.verbose(true)
+		// common way of gating this, by making it part of the default feature set
+		.dry(cfg!(feature="no-file-expansion"))
+		.write_to_out_dir(modified.clone().into()).unwrap_or_else(|e| {
+			eprintln!("Failed to write to file: {:?}", e);
+			modified.into()
+		});
+	expanded.into()*/
 	modified
 }
 

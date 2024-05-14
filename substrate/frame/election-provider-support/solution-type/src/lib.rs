@@ -271,7 +271,7 @@ fn imports() -> Result<TokenStream2> {
 					use _feps::private as _fepsp;
 				))
 			},
-			_ =>  Err(syn::Error::new(Span::call_site(), e)),
+			_ => Err(syn::Error::new(Span::call_site(), e)),
 		},
 	}
 }

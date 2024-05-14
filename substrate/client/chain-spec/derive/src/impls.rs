@@ -19,7 +19,7 @@
 use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{DeriveInput, Error, Path, Ident};
+use syn::{DeriveInput, Error, Ident, Path};
 
 const CRATE_NAME: &str = "sc-chain-spec";
 const ATTRIBUTE_NAME: &str = "forks";
@@ -174,13 +174,11 @@ pub fn derive(
 	let crate_name = match crate_name(CRATE_NAME) {
 		Ok(FoundCrate::Itself) => CRATE_NAME.replace("-", "_"),
 		Ok(FoundCrate::Name(chain_spec_name)) => chain_spec_name,
-		Err(e) => {
-			match crate_name("polkadot-sdk") {
-				Ok(FoundCrate::Name(sdk)) => format!("{sdk}::{CRATE_NAME}").replace("-", "_"),
-				_ => {
-					return Error::new(Span::call_site(), &e).to_compile_error().into();
-				},
-			}
+		Err(e) => match crate_name("polkadot-sdk") {
+			Ok(FoundCrate::Name(sdk)) => format!("{sdk}::{CRATE_NAME}").replace("-", "_"),
+			_ => {
+				return Error::new(Span::call_site(), &e).to_compile_error().into();
+			},
 		},
 	};
 	let crate_path = syn::parse_str::<Path>(&crate_name).unwrap();

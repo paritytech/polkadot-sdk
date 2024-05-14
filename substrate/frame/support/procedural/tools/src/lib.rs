@@ -139,8 +139,7 @@ fn get_frame_crate_path(def_crate: &str) -> Option<syn::Path> {
 
 fn get_sdk_crate_path(def_crate: &str) -> Option<syn::Path> {
 	// This does not work if the frame crate is renamed.
-	if let Ok(FoundCrate::Name(name)) = crate_name(&"polkadot-sdk")
-	{
+	if let Ok(FoundCrate::Name(name)) = crate_name(&"polkadot-sdk") {
 		let path = format!("{}::{}", name, def_crate.to_string()).replace("-", "_");
 		Some(syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed"))
 	} else {

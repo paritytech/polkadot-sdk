@@ -115,15 +115,17 @@ impl ProposalProvider<AccountId, Hash, RuntimeCall> for AllianceProposalProvider
 
 #[cfg(test)]
 mod multiplier_tests {
-	use polkadot_sdk::frame_support::{
-		dispatch::DispatchClass,
-		weights::{Weight, WeightToFee},
-	};
-	use polkadot_sdk::pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
-	use polkadot_sdk::sp_runtime::{
-		assert_eq_error_rate,
-		traits::{Convert, One, Zero},
-		BuildStorage, FixedPointNumber,
+	use polkadot_sdk::{
+		frame_support::{
+			dispatch::DispatchClass,
+			weights::{Weight, WeightToFee},
+		},
+		pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment},
+		sp_runtime::{
+			assert_eq_error_rate,
+			traits::{Convert, One, Zero},
+			BuildStorage, FixedPointNumber,
+		},
 	};
 
 	use crate::{
@@ -200,10 +202,11 @@ mod multiplier_tests {
 	where
 		F: Fn() -> (),
 	{
-		let mut t: polkadot_sdk::sp_io::TestExternalities = polkadot_sdk::frame_system::GenesisConfig::<Runtime>::default()
-			.build_storage()
-			.unwrap()
-			.into();
+		let mut t: polkadot_sdk::sp_io::TestExternalities =
+			polkadot_sdk::frame_system::GenesisConfig::<Runtime>::default()
+				.build_storage()
+				.unwrap()
+				.into();
 		t.execute_with(|| {
 			System::set_block_consumed_resources(w, 0);
 			assertions()

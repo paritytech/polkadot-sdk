@@ -20,8 +20,6 @@
 
 use polkadot_sdk::*;
 
-use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
-use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };
@@ -32,6 +30,8 @@ use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_mixnet::types::AuthorityId as MixnetId;
 use sp_runtime::{

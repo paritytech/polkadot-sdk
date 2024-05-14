@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use polkadot_sdk::*;
 use codec::{Encode, Joiner};
 use frame_support::{
 	dispatch::GetDispatchInfo,
@@ -29,6 +28,7 @@ use kitchensink_runtime::{
 };
 use node_primitives::Balance;
 use node_testing::keyring::*;
+use polkadot_sdk::*;
 use sp_runtime::{traits::One, Perbill};
 
 pub mod common;
