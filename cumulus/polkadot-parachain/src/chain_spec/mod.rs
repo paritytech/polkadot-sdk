@@ -86,7 +86,7 @@ mod tests {
 
 	#[test]
 	fn can_decode_extension_camel_and_snake_case() {
-		let camel_case = r#"{"RelayChain":"relay","ParaId":1}"#;
+		let camel_case = r#"{"relayChain":"relay","paraId":1}"#;
 		let snake_case = r#"{"relay_chain":"relay","para_id":1}"#;
 		let pascal_case = r#"{"RelayChain":"relay","ParaId":1}"#;
 
