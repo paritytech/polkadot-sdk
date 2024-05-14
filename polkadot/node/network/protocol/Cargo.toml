@@ -24,7 +24,7 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 strum = { version = "0.26.2", features = ["derive"] }
 futures = "0.3.30"
 thiserror = { workspace = true }
-fatality = "0.0.6"
+fatality = "0.1.0"
 rand = "0.8"
 derive_more = "0.99"
 gum = { package = "tracing-gum", path = "../../gum" }
