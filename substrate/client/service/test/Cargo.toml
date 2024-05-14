@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 async-channel = "1.8.0"
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 fdlimit = "0.3.0"
 futures = "0.3.30"
 log = { workspace = true, default-features = true }

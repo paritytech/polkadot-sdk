@@ -37,7 +37,6 @@ pallet-nfts = { path = "../../../../../substrate/frame/nfts", default-features =
 pallet-nfts-runtime-api = { path = "../../../../../substrate/frame/nfts/runtime-api", default-features = false }
 pallet-proxy = { path = "../../../../../substrate/frame/proxy", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
-pallet-state-trie-migration = { path = "../../../../../substrate/frame/state-trie-migration", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
@@ -69,6 +68,7 @@ polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", def
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
@@ -123,7 +123,6 @@ runtime-benchmarks = [
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
-	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -137,6 +136,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm-fee-payment-runtime-api/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -161,7 +161,6 @@ try-runtime = [
 	"pallet-nfts/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-state-trie-migration/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-uniques/try-runtime",
@@ -211,7 +210,6 @@ std = [
 	"pallet-nfts/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
-	"pallet-state-trie-migration/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -246,6 +244,7 @@ std = [
 	"testnet-parachains-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm-fee-payment-runtime-api/std",
 	"xcm/std",
 ]
 
