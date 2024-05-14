@@ -717,19 +717,23 @@ pub mod pallet {
 
 		/// Purchase credit for use in the Instantaneous Coretime Pool.
 		///
+		/// WARNING: This call is temporarily disabled and will always return an error.
+		/// (see <https://github.com/paritytech/polkadot-sdk/issues/4454>)
+		///
 		/// - `origin`: Must be a Signed origin able to pay at least `amount`.
 		/// - `amount`: The amount of credit to purchase.
 		/// - `beneficiary`: The account on the Relay-chain which controls the credit (generally
 		///   this will be the collator's hot wallet).
 		#[pallet::call_index(13)]
 		pub fn purchase_credit(
-			origin: OriginFor<T>,
-			amount: BalanceOf<T>,
-			beneficiary: RelayAccountIdOf<T>,
+			_origin: OriginFor<T>,
+			_amount: BalanceOf<T>,
+			_beneficiary: RelayAccountIdOf<T>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			Self::do_purchase_credit(who, amount, beneficiary)?;
-			Ok(())
+			Err(DispatchError::Unavailable)
+			// let who = ensure_signed(origin)?;
+			// Self::do_purchase_credit(who, amount, beneficiary)?;
+			// Ok(())
 		}
 
 		/// Drop an expired Region from the chain.

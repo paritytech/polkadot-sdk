@@ -387,6 +387,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	#[allow(dead_code)]
 	pub(crate) fn do_purchase_credit(
 		who: T::AccountId,
 		amount: BalanceOf<T>,
