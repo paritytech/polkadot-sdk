@@ -60,15 +60,16 @@ RUN RUST_NIGHTLY="-2023-05-23" && \
 	# overcome error `network failure seems to have happened` by using `CARGO_NET_GIT_FETCH_WITH_CLI=true`
 	# as mentioned here https://stackoverflow.com/questions/73738004/how-can-i-fix-unable-to-update-registry-network-failure-seems-to-have-happened
 	CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build --locked --release \
-	-p polkadot \
-	-p polkadot-parachain-bin \
-	-p staging-node-cli \
-	-p staging-chain-spec-builder \
-	-p subkey \
-	-p solochain-template-node \
-	-p parachain-template-node \
-	-p minimal-template-node \
-	-p test-parachain-adder-collator
+	-p polkadot
+	#  \
+	# -p polkadot-parachain-bin \
+	# -p staging-node-cli \
+	# -p staging-chain-spec-builder \
+	# -p subkey \
+	# -p solochain-template-node \
+	# -p parachain-template-node \
+	# -p minimal-template-node \
+	# -p test-parachain-adder-collator
 	# or just build all package binaries in workspace
 	# cargo build --workspace --release && \
 	# ls -al /substrate/substrate/target/release/
@@ -89,14 +90,14 @@ LABEL description="Multistage Docker image for Substrate: a platform for web3" \
 # COPY --from=builder /substrate/target/release/node-template /usr/local/bin
 # COPY --from=builder /substrate/target/release/chain-spec-builder /usr/local/bin
 COPY --from=builder /substrate/target/release/polkadot /usr/local/bin
-COPY --from=builder /substrate/target/release/polkadot-parachain /usr/local/bin
-COPY --from=builder /substrate/target/release/substrate-node /usr/local/bin
-COPY --from=builder /substrate/target/release/chain-spec-builder /usr/local/bin
-COPY --from=builder /substrate/target/release/subkey /usr/local/bin
-COPY --from=builder /substrate/target/release/solochain-template-node /usr/local/bin
-COPY --from=builder /substrate/target/release/parachain-template-node /usr/local/bin
-COPY --from=builder /substrate/target/release/minimal-template-node /usr/local/bin
-COPY --from=builder /substrate/target/release/adder-collator /usr/local/bin
+# COPY --from=builder /substrate/target/release/polkadot-parachain /usr/local/bin
+# COPY --from=builder /substrate/target/release/substrate-node /usr/local/bin
+# COPY --from=builder /substrate/target/release/chain-spec-builder /usr/local/bin
+# COPY --from=builder /substrate/target/release/subkey /usr/local/bin
+# COPY --from=builder /substrate/target/release/solochain-template-node /usr/local/bin
+# COPY --from=builder /substrate/target/release/parachain-template-node /usr/local/bin
+# COPY --from=builder /substrate/target/release/minimal-template-node /usr/local/bin
+# COPY --from=builder /substrate/target/release/adder-collator /usr/local/bin
 
 # polkadot
 # polkadot-parachain-bin
@@ -118,97 +119,98 @@ RUN export PKG=polkadot && \
 	ls -al /data && \
 	# Sanity checks
 	ldd /usr/local/bin/$PKG && \
-	/usr/local/bin/$PKG --version && \
-	# polkadot-parachain-bin
-	RUN export PKG=polkadot-parachain-bin && \
-	echo "linking package name ${PKG}" && \
-	useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
-	mkdir -p /data /$PKG/.local/share/$PKG && \
-	chown -R sdk-user:sdk-user /data && \
-	ln -s /data /$PKG/.local/share/$PKG && \
-	ls -al /data && \
-	# Sanity checks
-	ldd /usr/local/bin/$PKG && \
-	/usr/local/bin/$PKG --version && \
-	# staging-node-cli
-	RUN export PKG=staging-node-cli && \
-	echo "linking package name ${PKG}" && \
-	useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
-	mkdir -p /data /$PKG/.local/share/$PKG && \
-	chown -R sdk-user:sdk-user /data && \
-	ln -s /data /$PKG/.local/share/$PKG && \
-	ls -al /data && \
-	# Sanity checks
-	ldd /usr/local/bin/$PKG && \
-	/usr/local/bin/$PKG --version && \
-	# staging-chain-spec-builder
-	RUN export PKG=staging-chain-spec-builder && \
-	echo "linking package name ${PKG}" && \
-	useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
-	mkdir -p /data /$PKG/.local/share/$PKG && \
-	chown -R sdk-user:sdk-user /data && \
-	ln -s /data /$PKG/.local/share/$PKG && \
-	ls -al /data && \
-	# Sanity checks
-	ldd /usr/local/bin/$PKG && \
-	/usr/local/bin/$PKG --version && \
-	# subkey
-	RUN export PKG=subkey && \
-	echo "linking package name ${PKG}" && \
-	useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
-	mkdir -p /data /$PKG/.local/share/$PKG && \
-	chown -R sdk-user:sdk-user /data && \
-	ln -s /data /$PKG/.local/share/$PKG && \
-	ls -al /data && \
-	# Sanity checks
-	ldd /usr/local/bin/$PKG && \
-	/usr/local/bin/$PKG --version && \
-	# solochain-template-node
-	RUN export PKG=solochain-template-node && \
-	echo "linking package name ${PKG}" && \
-	useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
-	mkdir -p /data /$PKG/.local/share/$PKG && \
-	chown -R sdk-user:sdk-user /data && \
-	ln -s /data /$PKG/.local/share/$PKG && \
-	ls -al /data && \
-	# Sanity checks
-	ldd /usr/local/bin/$PKG && \
-	/usr/local/bin/$PKG --version && \
-	# parachain-template-node
-	RUN export PKG=parachain-template-node && \
-	echo "linking package name ${PKG}" && \
-	useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
-	mkdir -p /data /$PKG/.local/share/$PKG && \
-	chown -R sdk-user:sdk-user /data && \
-	ln -s /data /$PKG/.local/share/$PKG && \
-	ls -al /data && \
-	# Sanity checks
-	ldd /usr/local/bin/$PKG && \
-	/usr/local/bin/$PKG --version && \
-	# minimal-template-node
-	RUN export PKG=minimal-template-node && \
-	echo "linking package name ${PKG}" && \
-	useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
-	mkdir -p /data /$PKG/.local/share/$PKG && \
-	chown -R sdk-user:sdk-user /data && \
-	ln -s /data /$PKG/.local/share/$PKG && \
-	ls -al /data && \
-	# Sanity checks
-	ldd /usr/local/bin/$PKG && \
-	/usr/local/bin/$PKG --version && \
-	# test-parachain-adder-collator
-	RUN export PKG=test-parachain-adder-collator && \
-	echo "linking package name ${PKG}" && \
-	useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
-	mkdir -p /data /$PKG/.local/share/$PKG && \
-	chown -R sdk-user:sdk-user /data && \
-	ln -s /data /$PKG/.local/share/$PKG && \
-	ls -al /data && \
-	# Sanity checks
-	ldd /usr/local/bin/$PKG && \
 	/usr/local/bin/$PKG --version
-	# unclutter and minimize the attack surface
-	# rm -rf /usr/bin /usr/sbin
+
+	# # polkadot-parachain-bin
+	# RUN export PKG=polkadot-parachain-bin && \
+	# echo "linking package name ${PKG}" && \
+	# useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
+	# mkdir -p /data /$PKG/.local/share/$PKG && \
+	# chown -R sdk-user:sdk-user /data && \
+	# ln -s /data /$PKG/.local/share/$PKG && \
+	# ls -al /data && \
+	# # Sanity checks
+	# ldd /usr/local/bin/$PKG && \
+	# /usr/local/bin/$PKG --version && \
+	# # staging-node-cli
+	# RUN export PKG=staging-node-cli && \
+	# echo "linking package name ${PKG}" && \
+	# useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
+	# mkdir -p /data /$PKG/.local/share/$PKG && \
+	# chown -R sdk-user:sdk-user /data && \
+	# ln -s /data /$PKG/.local/share/$PKG && \
+	# ls -al /data && \
+	# # Sanity checks
+	# ldd /usr/local/bin/$PKG && \
+	# /usr/local/bin/$PKG --version && \
+	# # staging-chain-spec-builder
+	# RUN export PKG=staging-chain-spec-builder && \
+	# echo "linking package name ${PKG}" && \
+	# useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
+	# mkdir -p /data /$PKG/.local/share/$PKG && \
+	# chown -R sdk-user:sdk-user /data && \
+	# ln -s /data /$PKG/.local/share/$PKG && \
+	# ls -al /data && \
+	# # Sanity checks
+	# ldd /usr/local/bin/$PKG && \
+	# /usr/local/bin/$PKG --version && \
+	# # subkey
+	# RUN export PKG=subkey && \
+	# echo "linking package name ${PKG}" && \
+	# useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
+	# mkdir -p /data /$PKG/.local/share/$PKG && \
+	# chown -R sdk-user:sdk-user /data && \
+	# ln -s /data /$PKG/.local/share/$PKG && \
+	# ls -al /data && \
+	# # Sanity checks
+	# ldd /usr/local/bin/$PKG && \
+	# /usr/local/bin/$PKG --version && \
+	# # solochain-template-node
+	# RUN export PKG=solochain-template-node && \
+	# echo "linking package name ${PKG}" && \
+	# useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
+	# mkdir -p /data /$PKG/.local/share/$PKG && \
+	# chown -R sdk-user:sdk-user /data && \
+	# ln -s /data /$PKG/.local/share/$PKG && \
+	# ls -al /data && \
+	# # Sanity checks
+	# ldd /usr/local/bin/$PKG && \
+	# /usr/local/bin/$PKG --version && \
+	# # parachain-template-node
+	# RUN export PKG=parachain-template-node && \
+	# echo "linking package name ${PKG}" && \
+	# useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
+	# mkdir -p /data /$PKG/.local/share/$PKG && \
+	# chown -R sdk-user:sdk-user /data && \
+	# ln -s /data /$PKG/.local/share/$PKG && \
+	# ls -al /data && \
+	# # Sanity checks
+	# ldd /usr/local/bin/$PKG && \
+	# /usr/local/bin/$PKG --version && \
+	# # minimal-template-node
+	# RUN export PKG=minimal-template-node && \
+	# echo "linking package name ${PKG}" && \
+	# useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
+	# mkdir -p /data /$PKG/.local/share/$PKG && \
+	# chown -R sdk-user:sdk-user /data && \
+	# ln -s /data /$PKG/.local/share/$PKG && \
+	# ls -al /data && \
+	# # Sanity checks
+	# ldd /usr/local/bin/$PKG && \
+	# /usr/local/bin/$PKG --version && \
+	# # test-parachain-adder-collator
+	# RUN export PKG=test-parachain-adder-collator && \
+	# echo "linking package name ${PKG}" && \
+	# useradd -m -u 1000 -U -s /bin/sh -d /$PKG sdk-user && \
+	# mkdir -p /data /$PKG/.local/share/$PKG && \
+	# chown -R sdk-user:sdk-user /data && \
+	# ln -s /data /$PKG/.local/share/$PKG && \
+	# ls -al /data && \
+	# # Sanity checks
+	# ldd /usr/local/bin/$PKG && \
+	# /usr/local/bin/$PKG --version
+	# # unclutter and minimize the attack surface
+	# # rm -rf /usr/bin /usr/sbin
 
 USER sdk-user
 EXPOSE 30333 9933 9944 9615
