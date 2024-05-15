@@ -185,10 +185,10 @@ impl OnUnbalanced<fungibles::Credit<<Runtime as frame_system::Config>::AccountId
 }
 
 type NativeAndAssets =
-	fungible::UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u64>, u64>;
+	fungible::UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u64>;
 
 parameter_types! {
-	pub Native: NativeOrWithId::<u64> = NativeOrWithId::<u64>::Native;
+	pub Native: NativeOrWithId::<u32> = NativeOrWithId::<u32>::Native;
 }
 
 impl Config for Runtime {
@@ -205,8 +205,8 @@ impl Config for Runtime {
 impl pallet_assets::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = u64;
-	type AssetId = u64;
-	type AssetIdParameter = codec::Compact<u64>;
+	type AssetId = u32;
+	type AssetIdParameter = codec::Compact<u32>;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = EnsureRoot<u64>;
@@ -221,4 +221,7 @@ impl pallet_assets::Config for Runtime {
 	type CallbackHandle = ();
 	type WeightInfo = ();
 	type RemoveItemsLimit = ConstU32<1000>;
+	pallet_assets::runtime_benchmarks_enabled! {
+		type BenchmarkHelper = ();
+	}
 }
