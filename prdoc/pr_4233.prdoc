@@ -8,5 +8,7 @@ doc:
 
 crates:
   - name: pallet-contracts
-    bump: patch
+    bump: minor
+  - name: pallet-contracts-proc-macro
+    bump: minor
 
