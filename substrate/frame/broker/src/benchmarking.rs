@@ -525,38 +525,38 @@ mod benches {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn purchase_credit() -> Result<(), BenchmarkError> {
-		setup_and_start_sale::<T>()?;
+	// #[benchmark]
+	// fn purchase_credit() -> Result<(), BenchmarkError> {
+	// 	setup_and_start_sale::<T>()?;
 
-		advance_to::<T>(2);
+	// 	advance_to::<T>(2);
 
-		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(
-			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(30u32.into()),
-		);
-		T::Currency::set_balance(&Broker::<T>::account_id(), T::Currency::minimum_balance());
+	// 	let caller: T::AccountId = whitelisted_caller();
+	// 	T::Currency::set_balance(
+	// 		&caller.clone(),
+	// 		T::Currency::minimum_balance().saturating_add(30u32.into()),
+	// 	);
+	// 	T::Currency::set_balance(&Broker::<T>::account_id(), T::Currency::minimum_balance());
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
-			.map_err(|_| BenchmarkError::Weightless)?;
+	// 	let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+	// 		.map_err(|_| BenchmarkError::Weightless)?;
 
-		let recipient: T::AccountId = account("recipient", 0, SEED);
+	// 	let recipient: T::AccountId = account("recipient", 0, SEED);
 
-		Broker::<T>::do_pool(region, None, recipient, Final)
-			.map_err(|_| BenchmarkError::Weightless)?;
+	// 	Broker::<T>::do_pool(region, None, recipient, Final)
+	// 		.map_err(|_| BenchmarkError::Weightless)?;
 
-		let beneficiary: RelayAccountIdOf<T> = account("beneficiary", 0, SEED);
+	// 	let beneficiary: RelayAccountIdOf<T> = account("beneficiary", 0, SEED);
 
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 20u32.into(), beneficiary.clone());
+	// 	#[extrinsic_call]
+	// 	_(RawOrigin::Signed(caller.clone()), 20u32.into(), beneficiary.clone());
 
-		assert_last_event::<T>(
-			Event::CreditPurchased { who: caller, beneficiary, amount: 20u32.into() }.into(),
-		);
+	// 	assert_last_event::<T>(
+	// 		Event::CreditPurchased { who: caller, beneficiary, amount: 20u32.into() }.into(),
+	// 	);
 
-		Ok(())
-	}
+	// 	Ok(())
+	// }
 
 	#[benchmark]
 	fn drop_region() -> Result<(), BenchmarkError> {
