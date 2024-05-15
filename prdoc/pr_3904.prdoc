@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Introduce pallet-delegated-staking
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a new pallet `delegated-staking` that allows delegators to delegate their funds to agents who can stake
+      these funds on behalf of them. This would be used by Nomination Pools to migrate into a delegation staking based
+      pool.
+
+crates:
+  - name: pallet-delegated-staking
+    bump: patch
+  - name: pallet-staking
+    bump: patch
+  - name: sp-staking
+    bump: minor
