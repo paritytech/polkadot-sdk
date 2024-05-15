@@ -437,6 +437,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -460,14 +486,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>parking_lot::RwLock;
 <span class="kw">use </span>sp_runtime::{
 	generic::BlockId,
-	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor, Saturating},
+	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor, Zero},
 	Justifications,
 };
-<span class="kw">use </span>std::collections::btree_set::BTreeSet;
+<span class="kw">use </span>std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
 <span class="kw">use </span><span class="kw">crate</span>::header_metadata::HeaderMetadata;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{Error, <span class="prelude-ty">Result</span>};
+<span class="kw">use crate</span>::{
+	error::{Error, <span class="prelude-ty">Result</span>},
+	tree_route, TreeRoute,
+};
 
 <span class="doccomment">/// Blockchain database header backend. Does not perform any validation.
 </span><span class="kw">pub trait </span>HeaderBackend&lt;Block: BlockT&gt;: Send + Sync {
@@ -528,60 +557,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>ForkBackend&lt;Block: BlockT&gt;:
 	HeaderMetadata&lt;Block&gt; + HeaderBackend&lt;Block&gt; + Send + Sync
 {
-	<span class="doccomment">/// Best effort to get all the header hashes that are part of the provided forks
-	/// starting only from the fork heads.
+	<span class="doccomment">/// Returns block hashes for provided fork heads. It skips the fork if when blocks are missing
+	/// (e.g. warp-sync) and internal `tree_route` function fails.
 	///
-	/// The function tries to reconstruct the route from the fork head to the canonical chain.
-	/// If any of the hashes on the route can't be found in the db, the function won't be able
-	/// to reconstruct the route anymore. In this case it will give up expanding the current fork,
-	/// move on to the next ones and at the end it will return an error that also contains
-	/// the partially expanded forks.
+	/// Example:
+	///  G --- A1 --- A2 --- A3 --- A4           ( &lt; fork1 )
+	///                       \-----C4 --- C5    ( &lt; fork2 )
+	/// We finalize A3 and call expand_fork(C5). Result = (C5,C4).
 	</span><span class="kw">fn </span>expand_forks(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		fork_heads: <span class="kw-2">&amp;</span>[Block::Hash],
-	) -&gt; std::result::Result&lt;BTreeSet&lt;Block::Hash&gt;, (BTreeSet&lt;Block::Hash&gt;, Error)&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>missing_blocks = <span class="macro">vec!</span>[];
+	) -&gt; std::result::Result&lt;BTreeSet&lt;Block::Hash&gt;, Error&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>expanded_forks = BTreeSet::new();
 		<span class="kw">for </span>fork_head <span class="kw">in </span>fork_heads {
-			<span class="kw">let </span><span class="kw-2">mut </span>route_head = <span class="kw-2">*</span>fork_head;
-			<span class="comment">// Insert stale blocks hashes until canonical chain is reached.
-			// If we reach a block that is already part of the `expanded_forks` we can stop
-			// processing the fork.
-			</span><span class="kw">while </span>expanded_forks.insert(route_head) {
-				<span class="kw">match </span><span class="self">self</span>.header_metadata(route_head) {
-					<span class="prelude-val">Ok</span>(meta) =&gt; {
-						<span class="comment">// If the parent is part of the canonical chain or there doesn't exist a
-						// block hash for the parent number (bug?!), we can abort adding blocks.
-						</span><span class="kw">let </span>parent_number = meta.number.saturating_sub(<span class="number">1u32</span>.into());
-						<span class="kw">match </span><span class="self">self</span>.hash(parent_number) {
-							<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(parent_hash)) =&gt;
-								<span class="kw">if </span>parent_hash == meta.parent {
-									<span class="kw">break
-								</span>},
-							<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-								missing_blocks.push(BlockId::&lt;Block&gt;::Number(parent_number));
-								<span class="kw">break
-							</span>},
-						}
-
-						route_head = meta.parent;
-					},
-					<span class="prelude-val">Err</span>(_e) =&gt; {
-						missing_blocks.push(BlockId::&lt;Block&gt;::Hash(route_head));
-						<span class="kw">break
-					</span>},
-				}
+			<span class="kw">match </span>tree_route(<span class="self">self</span>, <span class="kw-2">*</span>fork_head, <span class="self">self</span>.info().finalized_hash) {
+				<span class="prelude-val">Ok</span>(tree_route) =&gt; {
+					<span class="kw">for </span>block <span class="kw">in </span>tree_route.retracted() {
+						expanded_forks.insert(block.hash);
+					}
+					<span class="kw">continue
+				</span>},
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+					<span class="comment">// There are cases when blocks are missing (e.g. warp-sync).
+				</span>},
 			}
-		}
-
-		<span class="kw">if </span>!missing_blocks.is_empty() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>((
-				expanded_forks,
-				Error::UnknownBlocks(<span class="macro">format!</span>(
-					<span class="string">"Missing stale headers {:?} while expanding forks {:?}."</span>,
-					fork_heads, missing_blocks
-				)),
-			))
 		}
 
 		<span class="prelude-val">Ok</span>(expanded_forks)
@@ -610,14 +609,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// in other words, that have no children, are chain heads.
 	/// Results must be ordered best (longest, highest) chain first.
 	</span><span class="kw">fn </span>leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Block::Hash&gt;&gt;;
-
-	<span class="doccomment">/// Returns displaced leaves after the given block would be finalized.
-	///
-	/// The returned leaves do not contain the leaves from the same height as `block_number`.
-	</span><span class="kw">fn </span>displaced_leaves_after_finalizing(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		block_number: NumberFor&lt;Block&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Block::Hash&gt;&gt;;
 
 	<span class="doccomment">/// Return hashes of all blocks that are children of the block with `parent_hash`.
 	</span><span class="kw">fn </span>children(<span class="kw-2">&amp;</span><span class="self">self</span>, parent_hash: Block::Hash) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Block::Hash&gt;&gt;;
@@ -694,6 +685,67 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>block_indexed_body(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;&gt;;
+
+	<span class="doccomment">/// Returns all leaves that will be displaced after the block finalization.
+	</span><span class="kw">fn </span>displaced_leaves_after_finalizing(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		finalized_block_hash: Block::Hash,
+		finalized_block_number: NumberFor&lt;Block&gt;,
+	) -&gt; std::result::Result&lt;DisplacedLeavesAfterFinalization&lt;Block&gt;, Error&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>result = DisplacedLeavesAfterFinalization::default();
+
+		<span class="kw">if </span>finalized_block_number == Zero::zero() {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(result)
+		}
+
+		<span class="comment">// For each leaf determine whether it belongs to a non-canonical branch.
+		</span><span class="kw">for </span>leaf_hash <span class="kw">in </span><span class="self">self</span>.leaves()<span class="question-mark">? </span>{
+			<span class="kw">let </span>leaf_block_header = <span class="self">self</span>.expect_header(leaf_hash)<span class="question-mark">?</span>;
+			<span class="kw">let </span>leaf_number = <span class="kw-2">*</span>leaf_block_header.number();
+
+			<span class="kw">let </span>leaf_tree_route = <span class="kw">match </span>tree_route(<span class="self">self</span>, leaf_hash, finalized_block_hash) {
+				<span class="prelude-val">Ok</span>(tree_route) =&gt; tree_route,
+				<span class="prelude-val">Err</span>(Error::UnknownBlock(<span class="kw">_</span>)) =&gt; {
+					<span class="comment">// Sometimes routes can't be calculated. E.g. after warp sync.
+					</span><span class="kw">continue</span>;
+				},
+				<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e)<span class="question-mark">?</span>,
+			};
+
+			<span class="comment">// Is it a stale fork?
+			</span><span class="kw">let </span>needs_pruning = leaf_tree_route.common_block().hash != finalized_block_hash;
+
+			<span class="kw">if </span>needs_pruning {
+				result.displaced_leaves.insert(leaf_hash, leaf_number);
+				result.tree_routes.insert(leaf_hash, leaf_tree_route);
+			}
+		}
+
+		<span class="prelude-val">Ok</span>(result)
+	}
+}
+
+<span class="doccomment">/// Result of  [`Backend::displaced_leaves_after_finalizing`].
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>DisplacedLeavesAfterFinalization&lt;Block: BlockT&gt; {
+	<span class="doccomment">/// A collection of hashes and block numbers for displaced leaves.
+	</span><span class="kw">pub </span>displaced_leaves: BTreeMap&lt;Block::Hash, NumberFor&lt;Block&gt;&gt;,
+
+	<span class="doccomment">/// A collection of tree routes from the leaves to finalized block.
+	</span><span class="kw">pub </span>tree_routes: BTreeMap&lt;Block::Hash, TreeRoute&lt;Block&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;Block: BlockT&gt; Default <span class="kw">for </span>DisplacedLeavesAfterFinalization&lt;Block&gt; {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ displaced_leaves: Default::default(), tree_routes: Default::default() }
+	}
+}
+
+<span class="kw">impl</span>&lt;Block: BlockT&gt; DisplacedLeavesAfterFinalization&lt;Block&gt; {
+	<span class="doccomment">/// Returns a collection of hashes for the displaced leaves.
+	</span><span class="kw">pub fn </span>hashes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Block::Hash&gt; + <span class="lifetime">'_ </span>{
+		<span class="self">self</span>.displaced_leaves.keys().cloned()
+	}
 }
 
 <span class="doccomment">/// Blockchain info

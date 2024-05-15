@@ -548,7 +548,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Compute a tree-route between two blocks. See tree-route docs for more details.
-</span><span class="kw">pub fn </span>tree_route&lt;Block: BlockT, T: HeaderMetadata&lt;Block&gt;&gt;(
+</span><span class="kw">pub fn </span>tree_route&lt;Block: BlockT, T: HeaderMetadata&lt;Block&gt; + <span class="question-mark">?</span>Sized&gt;(
 	backend: <span class="kw-2">&amp;</span>T,
 	from: Block::Hash,
 	to: Block::Hash,

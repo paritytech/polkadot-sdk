@@ -1017,20 +1017,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#866" id="866">866</a>
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1450,20 +1436,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_blockchain::Result&lt;Vec&lt;Block::Hash&gt;&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.storage.read().leaves.hashes())
-	}
-
-	<span class="kw">fn </span>displaced_leaves_after_finalizing(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		block_number: NumberFor&lt;Block&gt;,
-	) -&gt; sp_blockchain::Result&lt;Vec&lt;Block::Hash&gt;&gt; {
-		<span class="prelude-val">Ok</span>(<span class="self">self
-			</span>.storage
-			.read()
-			.leaves
-			.displaced_by_finalize_height(block_number)
-			.leaves()
-			.cloned()
-			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;())
 	}
 
 	<span class="kw">fn </span>children(<span class="kw-2">&amp;</span><span class="self">self</span>, _parent_hash: Block::Hash) -&gt; sp_blockchain::Result&lt;Vec&lt;Block::Hash&gt;&gt; {

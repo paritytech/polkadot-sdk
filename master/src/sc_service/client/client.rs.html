@@ -2276,6 +2276,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2125" id="2125">2125</a>
 <a href="#2126" id="2126">2126</a>
 <a href="#2127" id="2127">2127</a>
+<a href="#2128" id="2128">2128</a>
+<a href="#2129" id="2129">2129</a>
+<a href="#2130" id="2130">2130</a>
+<a href="#2131" id="2131">2131</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3256,8 +3260,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// The stale heads are the leaves that will be displaced after the
 			// block is finalized.
-			</span><span class="kw">let </span>stale_heads =
-				<span class="self">self</span>.backend.blockchain().displaced_leaves_after_finalizing(block_number)<span class="question-mark">?</span>;
+			</span><span class="kw">let </span>stale_heads = <span class="self">self
+				</span>.backend
+				.blockchain()
+				.displaced_leaves_after_finalizing(hash, block_number)<span class="question-mark">?
+				</span>.hashes()
+				.collect();
 
 			<span class="kw">let </span>header = <span class="self">self
 				</span>.backend

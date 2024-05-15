@@ -2085,6 +2085,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1934" id="1934">1934</a>
 <a href="#1935" id="1935">1935</a>
 <a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2649,9 +2650,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Cleans data for stale forks.
 	</span><span class="kw">let </span>stale_forks = <span class="kw">match </span>client.expand_forks(<span class="kw-2">&amp;</span>notification.stale_heads) {
 		<span class="prelude-val">Ok</span>(stale_forks) =&gt; stale_forks,
-		<span class="prelude-val">Err</span>((stale_forks, e)) =&gt; {
+		<span class="prelude-val">Err</span>(e) =&gt; {
 			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"{:?}"</span>, e);
-			stale_forks
+
+			Default::default()
 		},
 	};
 	hashes.extend(stale_forks.iter());

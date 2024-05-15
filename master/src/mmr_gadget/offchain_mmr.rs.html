@@ -606,7 +606,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#455" id="455">455</a>
 <a href="#456" id="456">456</a>
 <a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -642,7 +641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Block, Header, NumberFor, One},
 	Saturating,
 };
-<span class="kw">use </span>std::{collections::VecDeque, sync::Arc};
+<span class="kw">use </span>std::{collections::VecDeque, default::Default, sync::Arc};
 
 <span class="doccomment">/// `OffchainMMR` exposes MMR offchain canonicalization and pruning logic.
 </span><span class="kw">pub struct </span>OffchainMmr&lt;B: Block, BE: Backend&lt;B&gt;, C&gt; {
@@ -882,12 +881,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.write_gadget_state_or_log();
 
 		<span class="comment">// Remove offchain MMR nodes for stale forks.
-		</span><span class="kw">let </span>stale_forks = <span class="self">self</span>.client.expand_forks(<span class="kw-2">&amp;</span>notification.stale_heads).unwrap_or_else(
-			|(stale_forks, e)| {
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"{:?}"</span>, e);
-				stale_forks
-			},
-		);
+		</span><span class="kw">let </span>stale_forks = <span class="self">self</span>.client.expand_forks(<span class="kw-2">&amp;</span>notification.stale_heads).unwrap_or_else(|e| {
+			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"{:?}"</span>, e);
+
+			Default::default()
+		});
 		<span class="kw">for </span>hash <span class="kw">in </span>stale_forks.iter() {
 			<span class="self">self</span>.prune_branch(hash);
 		}
