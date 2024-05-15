@@ -162,13 +162,13 @@ use a multi-block migration.</p>
 <h3 id="pallet-overview"><a class="doc-anchor" href="#pallet-overview">§</a>Pallet Overview</h3>
 <p>This example pallet contains a single storage item <a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a>, which may be set by
 any signed origin by calling the <a href="pallet/enum.Call.html#variant.set_value" title="variant pallet_example_single_block_migrations::pallet::Call::set_value"><code>set_value</code></a> extrinsic.</p>
-<p>For the purposes of this exercise, we imagine that in [<code>StorageVersion</code>] V0 of this pallet
+<p>For the purposes of this exercise, we imagine that in <a href="../frame_support/traits/metadata/struct.StorageVersion.html" title="struct frame_support::traits::metadata::StorageVersion"><code>StorageVersion</code></a> V0 of this pallet
 <a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a> is a <code>u32</code>, and this what is currently stored on-chain.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// (Old) Storage Version V0 representation of `Value`
 </span><span class="attr">#[pallet::storage]
 </span><span class="kw">pub type </span>Value&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;</code></pre></div>
-<p>In [<code>StorageVersion</code>] V1 of the pallet a new struct <a href="struct.CurrentAndPreviousValue.html" title="struct pallet_example_single_block_migrations::CurrentAndPreviousValue"><code>CurrentAndPreviousValue</code></a> is introduced:</p>
+<p>In <a href="../frame_support/traits/metadata/struct.StorageVersion.html" title="struct frame_support::traits::metadata::StorageVersion"><code>StorageVersion</code></a> V1 of the pallet a new struct <a href="struct.CurrentAndPreviousValue.html" title="struct pallet_example_single_block_migrations::CurrentAndPreviousValue"><code>CurrentAndPreviousValue</code></a> is introduced:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(
 	Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
@@ -228,22 +228,22 @@ format.</p>
 <p>This allows reading the old v0 value from storage during the migration.</p>
 <h4 id="innermigratev0tov1"><a class="doc-anchor" href="#innermigratev0tov1">§</a><code>InnerMigrateV0ToV1</code></h4>
 <p>Here we define our raw migration logic,
-<code>InnerMigrateV0ToV1</code> which implements the <a href="frame_support::traits::UncheckedOnRuntimeUpgrade"><code>UncheckedOnRuntimeUpgrade</code></a> trait.</p>
-<h5 id="why-uncheckedonruntimeupgrade"><a class="doc-anchor" href="#why-uncheckedonruntimeupgrade">§</a>Why <a href="frame_support::traits::UncheckedOnRuntimeUpgrade"><code>UncheckedOnRuntimeUpgrade</code></a>?</h5>
-<p>Otherwise, we would have two implementations of <a href="frame_support::traits::OnRuntimeUpgrade"><code>OnRuntimeUpgrade</code></a> which could be confusing,
+<code>InnerMigrateV0ToV1</code> which implements the <a href="../frame_support/traits/hooks/trait.UncheckedOnRuntimeUpgrade.html" title="trait frame_support::traits::hooks::UncheckedOnRuntimeUpgrade"><code>UncheckedOnRuntimeUpgrade</code></a> trait.</p>
+<h5 id="why-uncheckedonruntimeupgrade"><a class="doc-anchor" href="#why-uncheckedonruntimeupgrade">§</a>Why <a href="../frame_support/traits/hooks/trait.UncheckedOnRuntimeUpgrade.html" title="trait frame_support::traits::hooks::UncheckedOnRuntimeUpgrade"><code>UncheckedOnRuntimeUpgrade</code></a>?</h5>
+<p>Otherwise, we would have two implementations of <a href="../frame_support/traits/hooks/trait.OnRuntimeUpgrade.html" title="trait frame_support::traits::hooks::OnRuntimeUpgrade"><code>OnRuntimeUpgrade</code></a> which could be confusing,
 and may lead to accidentally using the wrong one.</p>
 <h5 id="standalone-struct-or-pallet-hook"><a class="doc-anchor" href="#standalone-struct-or-pallet-hook">§</a>Standalone Struct or Pallet Hook?</h5>
 <p>Note that the storage migration logic is attached to a standalone struct implementing
-<a href="frame_support::traits::UncheckedOnRuntimeUpgrade"><code>UncheckedOnRuntimeUpgrade</code></a>, rather than implementing the
-<a href="frame_support::traits::Hooks::on_runtime_upgrade"><code>Hooks::on_runtime_upgrade</code></a> hook directly on
+<a href="../frame_support/traits/hooks/trait.UncheckedOnRuntimeUpgrade.html" title="trait frame_support::traits::hooks::UncheckedOnRuntimeUpgrade"><code>UncheckedOnRuntimeUpgrade</code></a>, rather than implementing the
+<a href="../frame_support/traits/hooks/trait.Hooks.html#method.on_runtime_upgrade" title="associated function frame_support::traits::hooks::Hooks::on_runtime_upgrade"><code>Hooks::on_runtime_upgrade</code></a> hook directly on
 the pallet. The pallet hook is better suited for special types of logic that need to execute on
 every runtime upgrade, but not so much for one-off storage migrations.</p>
 <h4 id="migratev0tov1"><a class="doc-anchor" href="#migratev0tov1">§</a><code>MigrateV0ToV1</code></h4>
 <p>Here, <code>InnerMigrateV0ToV1</code> is wrapped in a
-<a href="frame_support::migrations::VersionedMigration"><code>VersionedMigration</code></a> to define
+<a href="../frame_support/migrations/struct.VersionedMigration.html" title="struct frame_support::migrations::VersionedMigration"><code>VersionedMigration</code></a> to define
 <a href="migrations/v1/type.MigrateV0ToV1.html" title="type pallet_example_single_block_migrations::migrations::v1::MigrateV0ToV1"><code>MigrateV0ToV1</code></a>, which may be used
 in runtimes.</p>
-<p>Using <a href="frame_support::migrations::VersionedMigration"><code>VersionedMigration</code></a> ensures that</p>
+<p>Using <a href="../frame_support/migrations/struct.VersionedMigration.html" title="struct frame_support::migrations::VersionedMigration"><code>VersionedMigration</code></a> ensures that</p>
 <ul>
 <li>The migration only runs once when the on-chain storage version is <code>0</code></li>
 <li>The on-chain storage version is updated to <code>1</code> after the migration executes</li>
