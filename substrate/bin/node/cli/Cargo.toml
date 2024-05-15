@@ -42,7 +42,7 @@ crate-type = ["cdylib", "rlib"]
 # third-party dependencies
 array-bytes = "6.2.2"
 clap = { version = "4.5.3", features = ["derive"], optional = true }
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 serde = { features = ["derive"], workspace = true, default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
 futures = "0.3.30"
@@ -132,7 +132,7 @@ sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 futures = "0.3.30"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
-nix = { version = "0.27.1", features = ["signal"] }
+nix = { version = "0.28.0", features = ["signal"] }
 regex = "1.6.0"
 platforms = "3.0"
 soketto = "0.7.1"

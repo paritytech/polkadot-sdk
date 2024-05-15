@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 scale-info = { version = "2.6.0", default-features = false }
 paste = "1.0.7"
 
