@@ -61,7 +61,7 @@ def main(path, version):
 			manifest = toml.load(f)
 			if 'lib' in manifest and 'proc-macro' in manifest['lib']:
 				if manifest['lib']['proc-macro']:
-					nostd_crates.append((crate.name, path))
+					nostd_crates.append((crate, path))
 					continue
 		
 		# Crates without a lib.rs cannot be no_std
@@ -76,23 +76,24 @@ def main(path, version):
 		with open(lib_path, "r") as f:
 			content = f.read()
 			if "#![no_std]" in content or '#![cfg_attr(not(feature = "std"), no_std)]' in content:
-				nostd_crates.append((crate.name, path))
+				nostd_crates.append((crate, path))
 			elif 'no_std' in content:
 				raise Exception(f"Found 'no_std' in {lib_path} without knowing how to handle it")
 			else:
-				std_crates.append((crate.name, path))
+				std_crates.append((crate, path))
 
-	std_crates.sort()
-	nostd_crates.sort()
+	# Sort by name
+	std_crates.sort(key=lambda x: x[0].name)
+	nostd_crates.sort(key=lambda x: x[0].name)
 	all_crates = std_crates + nostd_crates
-	all_crates.sort()
+	all_crates.sort(key=lambda x: x[0].name)
 	dependencies = {}
 
 	for (crate, path) in nostd_crates:
-		dependencies[crate] = {"path": f"../{path}", "default-features": False, "optional": True}
+		dependencies[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
 	
 	for (crate, path) in std_crates:
-		dependencies[crate] = {"path": f"../{path}", "default-features": False, "optional": True}
+		dependencies[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
 	
 	# The empty features are filled by Zepter
 	features = {
@@ -103,16 +104,16 @@ def main(path, version):
 		"serde": [],
 		"experimental": [],
 		"with-tracing": [],
-		"runtime": list([f"{d}" for d, _ in nostd_crates]),
-		"node": ["std"] + list([f"{d}" for d, _ in std_crates]),
+		"runtime": list([f"{d.name}" for d, _ in nostd_crates]),
+		"node": ["std"] + list([f"{d.name}" for d, _ in std_crates]),
 		"tuples-96": [],
 	}
 
 	# Create one feature to enable each crate selectively
 	for crate, _ in std_crates:
-		if crate in features:
-			raise Exception(f"Feature {crate} already exists")
-		features[crate] = [f"dep:{crate}"]
+		if crate.name in features:
+			raise Exception(f"Feature {crate.name} already exists")
+		features[crate.name] = [f"dep:{crate.name}"]
 
 	manifest = {
 		"package": {
@@ -121,7 +122,11 @@ def main(path, version):
 			"edition": { "workspace": True },
 			"authors": { "workspace": True },
 			"description": "Polkadot SDK umbrella crate.",
-			"license": "Apache-2.0"
+			"license": "Apache-2.0",
+			"metadata": { "docs": { "rs": {
+				"features": ["runtime", "node"],
+				"targets": ["x86_64-unknown-linux-gnu"]
+			}}}
 		},
 		"dependencies": dependencies,
 		"features": features,
@@ -139,19 +144,25 @@ def main(path, version):
 		print(f"Wrote {manifest_path}")
 	# and the lib.rs
 	with open(lib_path, "w") as f:
-		f.write('''
+		f.write('''// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
 //! Polkadot SDK umbrella crate re-exporting all other published crates.
 //!
-//! This helps to set a single version number for all your dependencies.
+//! This helps to set a single version number for all your dependencies. Docs are in the
+//! `polkadot-sdk-docs` crate.
 
 // This file is auto-generated and checked by the CI.  You can edit it manually, but it must be
 // exactly the way that the CI expects it.
-
-#![cfg_attr(not(feature = "std"), no_std)]''')
+''')
 
 		for crate, _ in all_crates:
-			use = crate.replace("-", "_")
-			f.write(f'\n#[cfg(feature = "{crate}")]\n')
+			use = crate.name.replace("-", "_")
+			desc = crate.description if crate.description.endswith(".") else crate.description + "."
+			f.write(f'\n/// {desc}')
+			f.write(f'\n#[cfg(feature = "{crate.name}")]\n')
 			f.write(f"pub use {use};\n")
 		
 		print(f"Wrote {lib_path}")
@@ -163,15 +174,15 @@ Delete the umbrella folder and remove the umbrella crate from the workspace.
 """
 def delete_umbrella(path):
 	umbrella_dir = os.path.join(path, "umbrella")
-	if os.path.exists(umbrella_dir):
-		print(f"Deleting {umbrella_dir}")
-		shutil.rmtree(umbrella_dir)
 	# remove the umbrella crate from the workspace
 	manifest = os.path.join(path, "Cargo.toml")
 	manifest = open(manifest, "r").read()
 	manifest = re.sub(r'\s+"umbrella",\n', "", manifest)
 	with open(os.path.join(path, "Cargo.toml"), "w") as f:
 		f.write(manifest)
+	if os.path.exists(umbrella_dir):
+		print(f"Deleting {umbrella_dir}")
+		shutil.rmtree(umbrella_dir)
 
 """
 Create the umbrella crate and add it to the workspace.
@@ -179,7 +190,7 @@ Create the umbrella crate and add it to the workspace.
 def add_to_workspace(path):
 	manifest = os.path.join(path, "Cargo.toml")
 	manifest = open(manifest, "r").read()
-	manifest = re.sub(r'members = \[', 'members = [\n    "umbrella",', manifest)
+	manifest = re.sub(r'^members = \[', 'members = [\n    "umbrella",', manifest, flags=re.M)
 	with open(os.path.join(path, "Cargo.toml"), "w") as f:
 		f.write(manifest)
 	
