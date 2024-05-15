@@ -219,7 +219,7 @@ impl HostFn {
 
 		if mutable {
 			let stmt = syn::parse_quote! {
-				if ctx.ext.is_read_only() {
+				if ctx.ext().is_read_only() {
 					return Err(Error::<E::T>::StateChangeDenied.into());
 				}
 			};
