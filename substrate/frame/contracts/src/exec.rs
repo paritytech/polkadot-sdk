@@ -435,6 +435,11 @@ pub struct StackContext<T: Config> {
 	pub gas_meter: GasMeter<T>,
 	/// The storage meter makes sure that the storage deposit limit is obeyed.
 	pub storage_meter: storage::meter::Meter<T>,
+	/// A text buffer used to output human readable information.
+	///
+	/// All the bytes added to this field should be valid UTF-8. The buffer has no defined
+	/// structure and is intended to be shown to users as-is for debugging purposes.
+	pub debug_message: Option<DebugBufferVec<T>>,
 }
 
 /// The complete call stack of a contract execution.
@@ -442,7 +447,7 @@ pub struct StackContext<T: Config> {
 /// The call stack is initiated by either a signed origin or one of the contract RPC calls.
 /// This type implements `Ext` and by that exposes the business logic of contract execution to
 /// the runtime module which interfaces with the contract (the wasm blob) itself.
-pub struct Stack<'a, T: Config, E> {
+pub struct Stack<T: Config, E> {
 	/// The origin that initiated the call stack. It could either be a Signed plain account that
 	/// holds an account id or Root.
 	///
@@ -469,11 +474,6 @@ pub struct Stack<'a, T: Config, E> {
 	frames: SmallVec<T::CallStack>,
 	/// Statically guarantee that each call stack has at least one frame.
 	first_frame: Frame<T>,
-	/// A text buffer used to output human readable information.
-	///
-	/// All the bytes added to this field should be valid UTF-8. The buffer has no defined
-	/// structure and is intended to be shown to users as-is for debugging purposes.
-	debug_message: Option<&'a mut DebugBufferVec<T>>,
 	/// The determinism requirement of this call stack.
 	determinism: Determinism,
 	/// No executable is held by the struct but influences its behaviour.
@@ -678,7 +678,7 @@ pub struct ExecErrorWithContext<T: Config> {
 	pub context: StackContext<T>,
 }
 
-impl<'a, T, E> Stack<'a, T, E>
+impl<T, E> Stack<T, E>
 where
 	T: Config,
 	E: Executable<T>,
@@ -700,7 +700,7 @@ where
 		storage_meter: storage::meter::Meter<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		debug_message: Option<&'a mut DebugBufferVec<T>>,
+		debug_message: Option<DebugBufferVec<T>>,
 		determinism: Determinism,
 	) -> Result<ExecReturnValueWithContext<T>, ExecErrorWithContext<T>> {
 		let (mut stack, executable) = Self::new(
@@ -739,7 +739,7 @@ where
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		salt: &[u8],
-		debug_message: Option<&'a mut DebugBufferVec<T>>,
+		debug_message: Option<DebugBufferVec<T>>,
 	) -> Result<(T::AccountId, ExecReturnValueWithContext<T>), ExecErrorWithContext<T>> {
 		let (mut stack, executable) = Self::new(
 			FrameArgs::Instantiate {
@@ -796,7 +796,7 @@ where
 		mut gas_meter: GasMeter<T>,
 		mut storage_meter: storage::meter::Meter<T>,
 		value: BalanceOf<T>,
-		debug_message: Option<&'a mut DebugBufferVec<T>>,
+		debug_message: Option<DebugBufferVec<T>>,
 		determinism: Determinism,
 	) -> Result<(Self, E), ExecErrorWithContext<T>> {
 		let (first_frame, executable, nonce) = match Self::new_frame(
@@ -812,20 +812,19 @@ where
 			Err(error) =>
 				return Err(ExecErrorWithContext {
 					error,
-					context: StackContext { gas_meter, storage_meter },
+					context: StackContext { gas_meter, storage_meter, debug_message },
 				}),
 		};
 
 		let stack = Self {
 			origin,
 			schedule: T::Schedule::get(),
-			context: StackContext { gas_meter, storage_meter },
+			context: StackContext { gas_meter, storage_meter, debug_message },
 			timestamp: T::Time::now(),
 			block_number: <frame_system::Pallet<T>>::block_number(),
 			nonce,
 			first_frame,
 			frames: Default::default(),
-			debug_message,
 			determinism,
 			_phantom: Default::default(),
 		};
@@ -1135,7 +1134,9 @@ where
 				}
 			}
 		} else {
-			if let Some((msg, false)) = self.debug_message.as_ref().map(|m| (m, m.is_empty())) {
+			if let Some((msg, false)) =
+				self.context.debug_message.as_ref().map(|m| (m, m.is_empty()))
+			{
 				log::debug!(
 					target: LOG_TARGET,
 					"Execution finished with debug buffer: {}",
@@ -1241,7 +1242,7 @@ where
 	}
 }
 
-impl<'a, T, E> Ext for Stack<'a, T, E>
+impl<T, E> Ext for Stack<T, E>
 where
 	T: Config,
 	E: Executable<T>,
@@ -1496,11 +1497,11 @@ where
 	}
 
 	fn debug_buffer_enabled(&self) -> bool {
-		self.debug_message.is_some()
+		self.context.debug_message.is_some()
 	}
 
 	fn append_debug_buffer(&mut self, msg: &str) -> bool {
-		if let Some(buffer) = &mut self.debug_message {
+		if let Some(buffer) = &mut self.context.debug_message.as_mut() {
 			buffer
 				.try_extend(&mut msg.bytes())
 				.map_err(|_| {
@@ -1657,7 +1658,7 @@ mod sealing {
 
 	pub trait Sealed {}
 
-	impl<'a, T: Config, E> Sealed for Stack<'a, T, E> {}
+	impl<T: Config, E> Sealed for Stack<T, E> {}
 
 	#[cfg(test)]
 	impl Sealed for crate::wasm::MockExt {}
@@ -1695,7 +1696,7 @@ mod tests {
 
 	type System = frame_system::Pallet<Test>;
 
-	type MockStack<'a> = Stack<'a, Test, MockExecutable>;
+	type MockStack = Stack<Test, MockExecutable>;
 
 	parameter_types! {
 		static Loader: MockLoader = MockLoader::default();
@@ -1712,7 +1713,7 @@ mod tests {
 	}
 
 	struct MockCtx<'a> {
-		ext: &'a mut MockStack<'a>,
+		ext: &'a mut MockStack,
 		input_data: Vec<u8>,
 	}
 
@@ -2892,9 +2893,9 @@ mod tests {
 			exec_success()
 		});
 
-		let mut debug_buffer = DebugBufferVec::<Test>::try_from(Vec::new()).unwrap();
+		let debug_buffer = DebugBufferVec::<Test>::try_from(Vec::new()).unwrap();
 
-		ExtBuilder::default().build().execute_with(|| {
+		let output = ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			let gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 10);
@@ -2908,13 +2909,16 @@ mod tests {
 				storage_meter,
 				0,
 				vec![],
-				Some(&mut debug_buffer),
+				Some(debug_buffer),
 				Determinism::Enforced,
 			)
-			.unwrap();
+			.unwrap()
 		});
 
-		assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
+		assert_eq!(
+			&String::from_utf8(output.context.debug_message.unwrap().to_vec()).unwrap(),
+			"This is a testMore text"
+		);
 	}
 
 	#[test]
@@ -2925,29 +2929,32 @@ mod tests {
 			exec_trapped()
 		});
 
-		let mut debug_buffer = DebugBufferVec::<Test>::try_from(Vec::new()).unwrap();
+		let debug_buffer = DebugBufferVec::<Test>::try_from(Vec::new()).unwrap();
 
-		ExtBuilder::default().build().execute_with(|| {
+		let output = ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			let gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			set_balance(&ALICE, min_balance * 10);
 			place_contract(&BOB, code_hash);
 			let contract_origin = Origin::from_account_id(ALICE);
 			let storage_meter = storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
-			let result = MockStack::run_call(
+			MockStack::run_call(
 				contract_origin,
 				BOB,
 				gas_meter,
 				storage_meter,
 				0,
 				vec![],
-				Some(&mut debug_buffer),
+				Some(debug_buffer),
 				Determinism::Enforced,
-			);
-			assert!(result.is_err());
+			)
+			.unwrap_err()
 		});
 
-		assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
+		assert_eq!(
+			&String::from_utf8(output.context.debug_message.unwrap().to_vec()).unwrap(),
+			"This is a testMore text"
+		);
 	}
 
 	#[test]
@@ -2961,7 +2968,6 @@ mod tests {
 		let debug_buf_before =
 			DebugBufferVec::<Test>::try_from(vec![0u8; DebugBufferVec::<Test>::bound() - 5])
 				.unwrap();
-		let mut debug_buf_after = debug_buf_before.clone();
 
 		ExtBuilder::default().build().execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
@@ -2970,18 +2976,18 @@ mod tests {
 			place_contract(&BOB, code_hash);
 			let contract_origin = Origin::from_account_id(ALICE);
 			let storage_meter = storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
-			MockStack::run_call(
+			let output = MockStack::run_call(
 				contract_origin,
 				BOB,
 				gas_meter,
 				storage_meter,
 				0,
 				vec![],
-				Some(&mut debug_buf_after),
+				Some(debug_buf_before.clone()),
 				Determinism::Enforced,
 			)
 			.unwrap();
-			assert_eq!(debug_buf_before, debug_buf_after);
+			assert_eq!(debug_buf_before, output.context.debug_message.unwrap());
 		});
 	}
 

@@ -1335,13 +1335,13 @@ impl<T: Config> Origin<T> {
 }
 
 /// Context of a contract invocation.
-struct CommonInput<'a, T: Config> {
+struct CommonInput<T: Config> {
 	origin: Origin<T>,
 	value: BalanceOf<T>,
 	data: Vec<u8>,
 	gas_limit: Weight,
 	storage_deposit_limit: Option<BalanceOf<T>>,
-	debug_message: Option<&'a mut DebugBufferVec<T>>,
+	debug_message: Option<DebugBufferVec<T>>,
 }
 
 /// Input specific to a call into contract.
@@ -1399,6 +1399,8 @@ pub enum DebugInfo {
 struct InternalOutput<T: Config, O> {
 	/// The gas meter that was used to execute the call.
 	gas_meter: GasMeter<T>,
+	/// The debug_message that was used to execute the call.
+	debug_message: Option<DebugBufferVec<T>>,
 	/// The storage deposit used by the call.
 	storage_deposit: StorageDeposit<BalanceOf<T>>,
 	/// The result of the call.
@@ -1432,34 +1434,37 @@ trait Invokable<T: Config>: Sized {
 		if let Err(e) = self.ensure_origin(common.origin.clone()) {
 			return InternalOutput {
 				gas_meter: GasMeter::new(gas_limit),
+				debug_message: common.debug_message,
 				storage_deposit: Default::default(),
 				result: Err(ExecError { error: e.into(), origin: ErrorOrigin::Caller }),
 			}
 		}
 
 		executing_contract::using_once(&mut false, || {
-			executing_contract::with(|f| {
+			let is_reentrant = executing_contract::with(|f| {
 				// Fail if already entered contract execution
 				if *f {
-					return Err(())
+					return true
 				}
 				// We are entering contract execution
 				*f = true;
-				Ok(())
+				false
 			})
-			.expect("Returns `Ok` if called within `using_once`. It is syntactically obvious that this is the case; qed")
-			.map_or_else(
-				|_| InternalOutput {
+			.expect("Returns `Ok` if called within `using_once`. It is syntactically obvious that this is the case; qed");
+
+			if is_reentrant {
+				return InternalOutput {
 					gas_meter: GasMeter::new(gas_limit),
+					debug_message: common.debug_message,
 					storage_deposit: Default::default(),
 					result: Err(ExecError {
 						error: <Error<T>>::ReentranceDenied.into(),
 						origin: ErrorOrigin::Caller,
 					}),
-				},
-				// Enter contract call.
-				|_| self.run(common, GasMeter::new(gas_limit)),
-			)
+				}
+			}
+
+			self.run(common, GasMeter::new(gas_limit))
 		})
 	}
 
@@ -1493,6 +1498,7 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 					return InternalOutput {
 						result: Err(err.into()),
 						gas_meter,
+						debug_message,
 						storage_deposit: Default::default(),
 					},
 			};
@@ -1508,15 +1514,17 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 			determinism,
 		);
 
-		let (result, StackContext { gas_meter, storage_meter, .. }) = match result {
+		let (result, StackContext { gas_meter, storage_meter, debug_message, .. }) = match result {
 			Ok(ExecReturnValueWithContext { result, context }) => (Ok(result), context),
 			Err(ExecErrorWithContext { error, context }) => (Err(error), context),
 		};
 
 		match storage_meter.try_into_deposit(&origin) {
-			Ok(storage_deposit) => InternalOutput { gas_meter, storage_deposit, result },
+			Ok(storage_deposit) =>
+				InternalOutput { gas_meter, storage_deposit, debug_message, result },
 			Err(err) => InternalOutput {
 				gas_meter,
+				debug_message,
 				storage_deposit: Default::default(),
 				result: Err(err.into()),
 			},
@@ -1536,8 +1544,8 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 		common: CommonInput<T>,
 		mut gas_meter: GasMeter<T>,
 	) -> InternalOutput<T, Self::Output> {
+		let CommonInput { origin: contract_origin, debug_message, .. } = common;
 		let try_setup = || {
-			let CommonInput { origin: contract_origin, .. } = common;
 			let origin = contract_origin.account_id()?;
 
 			let executable = match self.code {
@@ -1557,12 +1565,13 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 				return InternalOutput {
 					result: Err(err),
 					gas_meter,
+					debug_message,
 					storage_deposit: Default::default(),
 				},
 		};
 
 		let InstantiateInput { salt, .. } = self;
-		let CommonInput { value, data, debug_message, .. } = common;
+		let CommonInput { value, data, .. } = common;
 		let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
 			origin.clone(),
 			executable,
@@ -1574,7 +1583,7 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 			debug_message,
 		);
 
-		let (result, StackContext { gas_meter, storage_meter, .. }) = match result {
+		let (result, StackContext { gas_meter, storage_meter, debug_message, .. }) = match result {
 			Ok((account_id, ExecReturnValueWithContext { result, context })) =>
 				(Ok((account_id, result)), context),
 			Err(ExecErrorWithContext { error, context }) => (Err(error), context),
@@ -1586,11 +1595,12 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 				return InternalOutput {
 					result: Err(err.into()),
 					gas_meter,
+					debug_message,
 					storage_deposit: Default::default(),
 				},
 		};
 
-		InternalOutput { result, gas_meter, storage_deposit }
+		InternalOutput { result, gas_meter, debug_message, storage_deposit }
 	}
 
 	fn ensure_origin(&self, origin: Origin<T>) -> Result<(), DispatchError> {
@@ -1642,20 +1652,14 @@ impl<T: Config> Pallet<T> {
 	) -> ContractExecResult<BalanceOf<T>, EventRecordOf<T>> {
 		ensure_no_migration_in_progress!();
 
-		let mut debug_message = if matches!(debug, DebugInfo::UnsafeDebug) {
+		let debug_message = if matches!(debug, DebugInfo::UnsafeDebug) {
 			Some(DebugBufferVec::<T>::default())
 		} else {
 			None
 		};
 		let origin = Origin::from_account_id(origin);
-		let common = CommonInput {
-			origin,
-			value,
-			data,
-			gas_limit,
-			storage_deposit_limit,
-			debug_message: debug_message.as_mut(),
-		};
+		let common =
+			CommonInput { origin, value, data, gas_limit, storage_deposit_limit, debug_message };
 		let output = CallInput::<T> { dest, determinism }.run_guarded(common);
 		let events = if matches!(collect_events, CollectEvents::UnsafeCollect) {
 			Some(System::<T>::read_events_no_consensus().map(|e| *e).collect())
@@ -1668,7 +1672,7 @@ impl<T: Config> Pallet<T> {
 			gas_consumed: output.gas_meter.gas_consumed(),
 			gas_required: output.gas_meter.gas_required(),
 			storage_deposit: output.storage_deposit,
-			debug_message: debug_message.unwrap_or_default().to_vec(),
+			debug_message: output.debug_message.unwrap_or_default().to_vec(),
 			events,
 		}
 	}
@@ -1750,7 +1754,7 @@ impl<T: Config> Pallet<T> {
 			data,
 			gas_limit,
 			storage_deposit_limit,
-			debug_message: debug_message.as_mut(),
+			debug_message,
 		};
 
 		let output = InstantiateInput::<T> { code, salt }.run_guarded(common);
@@ -1764,7 +1768,7 @@ impl<T: Config> Pallet<T> {
 			storage_deposit: output
 				.storage_deposit
 				.saturating_add(&StorageDeposit::Charge(upload_deposit)),
-			debug_message: debug_message.unwrap_or_default().to_vec(),
+			debug_message: output.debug_message.unwrap_or_default().to_vec(),
 			events: events(),
 		}
 	}
