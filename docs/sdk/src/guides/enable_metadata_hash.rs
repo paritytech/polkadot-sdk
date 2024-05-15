@@ -61,6 +61,14 @@
 //! not set, any transaction that requires the metadata hash is rejected with the error
 //! `CannotLookup`. This is a security measurement to prevent including invalid transactions.
 //!
+//! <div class="warning">
+//!
+//! The extension does not work with the native runtime, because the
+//! `RUNTIME_METADATA_HASH` environment variable is not set when building the
+//! `frame-metadata-hash-extension` crate.
+//!
+//! </div>
+//!
 //! ### Enable metadata hash generation
 //!
 //! The metadata hash generation needs to be enabled when building the wasm binary. The
