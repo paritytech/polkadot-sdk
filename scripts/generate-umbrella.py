@@ -190,7 +190,7 @@ Create the umbrella crate and add it to the workspace.
 def add_to_workspace(path):
 	manifest = os.path.join(path, "Cargo.toml")
 	manifest = open(manifest, "r").read()
-	manifest = re.sub(r'^members = \[', 'members = [\n    "umbrella",', manifest, flags=re.M)
+	manifest = re.sub(r'^members = \[', 'members = [\n        "umbrella",', manifest, flags=re.M)
 	with open(os.path.join(path, "Cargo.toml"), "w") as f:
 		f.write(manifest)
 	

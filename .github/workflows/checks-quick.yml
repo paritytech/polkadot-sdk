@@ -146,5 +146,6 @@ jobs:
           Otherwise feel free to ask in the Merge Request or in Matrix chat.
           EOF
 
+            git diff
             exit 1
           fi
