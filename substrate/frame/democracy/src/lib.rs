@@ -346,12 +346,10 @@ pub mod pallet {
 
 	/// The number of (public) proposals that have been made so far.
 	#[pallet::storage]
-	#[pallet::getter(fn public_prop_count)]
 	pub type PublicPropCount<T> = StorageValue<_, PropIndex, ValueQuery>;
 
 	/// The public proposals. Unsorted. The second item is the proposal.
 	#[pallet::storage]
-	#[pallet::getter(fn public_props)]
 	pub type PublicProps<T: Config> = StorageValue<
 		_,
 		BoundedVec<(PropIndex, BoundedCallOf<T>, T::AccountId), T::MaxProposals>,
@@ -362,7 +360,6 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: Safe, as increasing integer keys are safe.
 	#[pallet::storage]
-	#[pallet::getter(fn deposit_of)]
 	pub type DepositOf<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -372,20 +369,17 @@ pub mod pallet {
 
 	/// The next free referendum index, aka the number of referenda started so far.
 	#[pallet::storage]
-	#[pallet::getter(fn referendum_count)]
 	pub type ReferendumCount<T> = StorageValue<_, ReferendumIndex, ValueQuery>;
 
 	/// The lowest referendum index representing an unbaked referendum. Equal to
 	/// `ReferendumCount` if there isn't a unbaked referendum.
 	#[pallet::storage]
-	#[pallet::getter(fn lowest_unbaked)]
 	pub type LowestUnbaked<T> = StorageValue<_, ReferendumIndex, ValueQuery>;
 
 	/// Information concerning any given referendum.
 	///
 	/// TWOX-NOTE: SAFE as indexes are not under an attacker’s control.
 	#[pallet::storage]
-	#[pallet::getter(fn referendum_info)]
 	pub type ReferendumInfoOf<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -595,7 +589,7 @@ pub mod pallet {
 			let who = T::SubmitOrigin::ensure_origin(origin)?;
 			ensure!(value >= T::MinimumDeposit::get(), Error::<T>::ValueLow);
 
-			let index = Self::public_prop_count();
+			let index = PublicPropCount::<T>::get();
 			let real_prop_count = PublicProps::<T>::decode_len().unwrap_or(0) as u32;
 			let max_proposals = T::MaxProposals::get();
 			ensure!(real_prop_count < max_proposals, Error::<T>::TooMany);
@@ -638,7 +632,7 @@ pub mod pallet {
 
 			let seconds = Self::len_of_deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(seconds < T::MaxDeposits::get(), Error::<T>::TooMany);
-			let mut deposit = Self::deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
+			let mut deposit = DepositOf::<T>::get(proposal).ok_or(Error::<T>::ProposalMissing)?;
 			T::Currency::reserve(&who, deposit.1)?;
 			let ok = deposit.0.try_push(who.clone()).is_ok();
 			debug_assert!(ok, "`seconds` is below static limit; `try_insert` should succeed; qed");
@@ -706,7 +700,7 @@ pub mod pallet {
 			ensure!(!NextExternal::<T>::exists(), Error::<T>::DuplicateProposal);
 			if let Some((until, _)) = Blacklist::<T>::get(proposal.hash()) {
 				ensure!(
-					<frame_system:Pallet::<T>::block_number() >= until,
+					frame_system::Pallet::<T>::block_number() >= until,
 					Error::<T>::ProposalBlacklisted,
 				);
 			}
@@ -1201,7 +1195,7 @@ impl<T: Config> Pallet<T> {
 	/// Get the amount locked in support of `proposal`; `None` if proposal isn't a valid proposal
 	/// index.
 	pub fn backing_for(proposal: PropIndex) -> Option<BalanceOf<T>> {
-		Self::deposit_of(proposal).map(|(l, d)| d.saturating_mul((l.len() as u32).into()))
+		DepositOf::<T>::get(proposal).map(|(l, d)| d.saturating_mul((l.len() as u32).into()))
 	}
 
 	/// Get all referenda ready for tally at block `n`.
@@ -1209,8 +1203,8 @@ impl<T: Config> Pallet<T> {
 		n: BlockNumberFor<T>,
 	) -> Vec<(ReferendumIndex, ReferendumStatus<BlockNumberFor<T>, BoundedCallOf<T>, BalanceOf<T>>)>
 	{
-		let next = Self::lowest_unbaked();
-		let last = Self::referendum_count();
+		let next = LowestUnbaked::<T>::get();
+		let last = ReferendumCount::<T>::get();
 		Self::maturing_referenda_at_inner(n, next..last)
 	}
 
@@ -1221,7 +1215,7 @@ impl<T: Config> Pallet<T> {
 	{
 		range
 			.into_iter()
-			.map(|i| (i, Self::referendum_info(i)))
+			.map(|i| (i, ReferendumInfoOf::<T>::get(i)))
 			.filter_map(|(i, maybe_info)| match maybe_info {
 				Some(ReferendumInfo::Ongoing(status)) => Some((i, status)),
 				_ => None,
@@ -1529,7 +1523,7 @@ impl<T: Config> Pallet<T> {
 		threshold: VoteThreshold,
 		delay: BlockNumberFor<T>,
 	) -> ReferendumIndex {
-		let ref_index = Self::referendum_count();
+		let ref_index = ReferendumCount::<T>::get();
 		ReferendumCount::<T>::put(ref_index + 1);
 		let status =
 			ReferendumStatus { end, proposal, threshold, delay, tally: Default::default() };
@@ -1569,7 +1563,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Table the waiting public proposal with the highest backing for a vote.
 	fn launch_public(now: BlockNumberFor<T>) -> DispatchResult {
-		let mut public_props = Self::public_props();
+		let mut public_props = PublicProps::<T>::get();
 		if let Some((winner_index, _)) = public_props.iter().enumerate().max_by_key(
 			// defensive only: All current public proposals have an amount locked
 			|x| Self::backing_for((x.1).0).defensive_unwrap_or_else(Zero::zero),
@@ -1642,8 +1636,8 @@ impl<T: Config> Pallet<T> {
 		let max_block_weight = T::BlockWeights::get().max_block;
 		let mut weight = Weight::zero();
 
-		let next = Self::lowest_unbaked();
-		let last = Self::referendum_count();
+		let next = LowestUnbaked::<T>::get();
+		let last = ReferendumCount::<T>::get();
 		let r = last.saturating_sub(next);
 
 		// pick out another public referendum if it's time.
@@ -1676,7 +1670,7 @@ impl<T: Config> Pallet<T> {
 		//   runtime upgrade the formula should be adjusted but the bound should still be sensible.
 		LowestUnbaked::<T>::mutate(|ref_index| {
 			while *ref_index < last &&
-				Self::referendum_info(*ref_index)
+				ReferendumInfoOf::<T>::get(*ref_index)
 					.map_or(true, |info| matches!(info, ReferendumInfo::Finished { .. }))
 			{
 				*ref_index += 1
