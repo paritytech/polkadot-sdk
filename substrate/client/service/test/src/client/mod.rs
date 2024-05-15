@@ -1164,7 +1164,7 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 
 	// G -> A1 -> A2
 	//   \
-	//    -> B1 -> B2
+	//    -> B1 -> B2 -> B3
 
 	let mut finality_notifications = client.finality_notification_stream();
 
@@ -1249,8 +1249,8 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 
 	ClientExt::finalize_block(&client, b3.hash(), None).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[]);
-	finality_notification_check(&mut finality_notifications, &[b2.hash(), b3.hash()], &[a2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[a2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[b2.hash(), b3.hash()], &[]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
 
@@ -1371,8 +1371,12 @@ fn finality_notifications_content() {
 	// Import and finalize D4
 	block_on(client.import_as_final(BlockOrigin::Own, d4.clone())).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[c1.hash()]);
-	finality_notification_check(&mut finality_notifications, &[d3.hash(), d4.hash()], &[b2.hash()]);
+	finality_notification_check(
+		&mut finality_notifications,
+		&[a1.hash(), a2.hash()],
+		&[c1.hash(), b2.hash()],
+	);
+	finality_notification_check(&mut finality_notifications, &[d3.hash(), d4.hash()], &[a3.hash()]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
 
@@ -1601,9 +1605,9 @@ fn doesnt_import_blocks_that_revert_finality() {
 	block_on(client.import(BlockOrigin::Own, a3.clone())).unwrap();
 	ClientExt::finalize_block(&client, a3.hash(), None).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[]);
+	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[b2.hash()]);
 
-	finality_notification_check(&mut finality_notifications, &[a3.hash()], &[b2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[a3.hash()], &[]);
 
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
