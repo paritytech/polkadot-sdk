@@ -119,3 +119,27 @@ jobs:
         run: |
           echo "Checking markdown formatting. More info: docs/contributor/markdown_linting.md"
           markdownlint --config "$CONFIG" --ignore target .
+  check-umbrella:
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
+      - name: install python deps
+        run: |
+          sudo apt-get update && sudo apt-get install -y python3-pip python3
+          pip3 install cargo_workspace toml
+      - name: check umbrella correctness
+        run: >
+          python3 polkadot-sdk-umbrella-crate.py --sdk . --version 0.1.0
+          if [ -n "$(git status --porcelain)" ]; then
+            cat <<EOF
+            👋 Hello developer! The umbrella crate was not updated. It is located in `umbrella/Cargo.toml`.
+
+            It is necessary to update this crate if you:
+            - Added/Removed/Renamed crate of the workspace
+            - Changed the no/std compatibility
+
+            Please try to add the new crate to the umbrella in the exact same format.
+            Otherwise feel free to ask in the Merge Request or in Matrix chat.
+            EOF
+          fi

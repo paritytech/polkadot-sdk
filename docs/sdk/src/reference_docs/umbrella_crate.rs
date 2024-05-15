@@ -37,8 +37,7 @@
 // workspace. It is checked in CI by calling its generation script. The generation script is located
 // in `./scripts/generate-umbrella.py` and needs dependency `cargo_workspace`.
 //
-// Example: `python3 scripts/generate-umbrella.py --sdk . --version 1.9.0 --header
-// substrate/HEADER-APACHE2`
+// Example: `python3 scripts/generate-umbrella.py --sdk . --version 1.9.0`
 //
 // ## Usage
 //
