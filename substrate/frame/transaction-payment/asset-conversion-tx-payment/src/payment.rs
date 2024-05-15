@@ -369,7 +369,7 @@ where
 			post_info,
 			corrected_fee,
 			tip,
-			fee.into(),
+			Some(fee),
 		)
 		.map(|_| fee_in_asset)
 	}

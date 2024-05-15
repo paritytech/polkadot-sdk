@@ -37,7 +37,6 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
-use pallet_transaction_payment::FungibleAdapter;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, SaturatedConversion},
