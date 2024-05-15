@@ -80,7 +80,6 @@ pub struct TestState {
 	pub session_info: SessionInfo,
 	pub statements: HashMap<CandidateHash, Vec<UncheckedSigned<CompactStatement>>>,
 	pub node_group: Vec<ValidatorIndex>,
-	pub connected_validators: Vec<usize>,
 }
 
 impl TestState {
@@ -107,7 +106,6 @@ impl TestState {
 			session_info,
 			node_group,
 			statements: Default::default(),
-			connected_validators: Default::default(),
 		};
 
 		state.block_headers = state.block_infos.iter().map(generate_block_header).collect();
@@ -269,13 +267,7 @@ impl HandleNetworkMessage for TestState {
 		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
-			NetworkMessage::RequestFromNode(authority_id, Requests::AttestedCandidateV2(req)) => {
-				let index = self
-					.test_authorities
-					.validator_authority_id
-					.iter()
-					.position(|v| v == &authority_id)
-					.expect("Should exist");
+			NetworkMessage::RequestFromNode(_authority_id, Requests::AttestedCandidateV2(req)) => {
 				let payload = req.payload;
 				let candidate_receipt = self
 					.commited_candidate_receipts
@@ -285,12 +277,7 @@ impl HandleNetworkMessage for TestState {
 					.expect("Pregenerated")
 					.clone();
 				let persisted_validation_data = self.pvd.clone();
-				let mut statements = self.statements.get(&payload.candidate_hash).unwrap().clone();
-				if self.node_group.contains(&ValidatorIndex(index as u32)) &&
-					statements.iter().any(|s| s.unchecked_validator_index().0 == index as u32)
-				{
-					statements.retain(|s| s.unchecked_validator_index().0 == index as u32)
-				}
+				let statements = self.statements.get(&payload.candidate_hash).unwrap().clone();
 				let res = AttestedCandidateResponse {
 					candidate_receipt,
 					persisted_validation_data,
@@ -372,7 +359,6 @@ impl HandleNetworkMessage for TestState {
 					.position(|v| v == &authority_id)
 					.expect("Should exist");
 
-				gum::info!(target: LOG_TARGET, index = ?index, "Received BackedCandidateManifest");
 				let ack = BackedCandidateAcknowledgement {
 					candidate_hash: manifest.candidate_hash,
 					statement_knowledge: StatementFilter {
@@ -402,19 +388,11 @@ impl HandleNetworkMessage for TestState {
 				None
 			},
 			NetworkMessage::MessageFromNode(
-				authority_id,
+				_authority_id,
 				Versioned::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::BackedCandidateKnown(ack),
 				)),
 			) => {
-				let index = self
-					.test_authorities
-					.validator_authority_id
-					.iter()
-					.position(|v| v == &authority_id)
-					.expect("Should exist");
-				gum::info!(target: LOG_TARGET, index = ?index, "Received BackedCandidateKnown");
-
 				self.manifests_tracker
 					.get(&ack.candidate_hash)
 					.expect("Pregenerated")

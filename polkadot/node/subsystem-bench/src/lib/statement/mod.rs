@@ -30,7 +30,7 @@ use crate::{
 	usage::BenchmarkUsage,
 	NODE_UNDER_TEST, PEER_IN_NODE_GROUP,
 };
-use bitvec::{order::Lsb0, vec::BitVec};
+use bitvec::vec::BitVec;
 use colored::Colorize;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use itertools::Itertools;
@@ -226,8 +226,9 @@ pub async fn benchmark_statement_distribution(
 	state: &TestState,
 	mut to_subsystems: mpsc::UnboundedReceiver<AllMessages>,
 ) -> BenchmarkUsage {
-	let mut state = state.clone();
-	state.connected_validators = state
+	state.reset_trackers();
+
+	let connected_validators = state
 		.test_authorities
 		.validator_authority_id
 		.iter()
@@ -301,14 +302,14 @@ pub async fn benchmark_statement_distribution(
 		let connected_neighbors_x = neighbors
 			.validator_indices_x
 			.iter()
-			.filter(|&v| state.connected_validators.contains(&(v.0 as usize)))
+			.filter(|&v| connected_validators.contains(&(v.0 as usize)))
 			.cloned()
 			.collect_vec();
 
 		let connected_neighbors_y = neighbors
 			.validator_indices_y
 			.iter()
-			.filter(|&v| state.connected_validators.contains(&(v.0 as usize)))
+			.filter(|&v| connected_validators.contains(&(v.0 as usize)))
 			.cloned()
 			.collect_vec();
 
@@ -394,9 +395,11 @@ pub async fn benchmark_statement_distribution(
 							.get(GroupIndex(group_index as u32))
 							.unwrap()
 							.iter()
-							.map(|v| state.connected_validators.contains(&(v.0 as usize))),
+							.map(|v| connected_validators.contains(&(v.0 as usize))),
 					),
-					validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0, 0, 0],
+					validated_in_group: BitVec::from_iter(
+						groups.get(GroupIndex(group_index as u32)).unwrap().iter().map(|_| false),
+					),
 				},
 			};
 			let message = AllMessages::StatementDistribution(
@@ -439,8 +442,6 @@ pub async fn benchmark_statement_distribution(
 			}
 		}
 	}
-
-	state.reset_trackers();
 
 	let duration: u128 = test_start.elapsed().as_millis();
 	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
