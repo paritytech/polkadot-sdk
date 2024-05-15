@@ -17,7 +17,7 @@
 //! XCM `Junctions`/`InteriorMultiLocation` datatype.
 
 use super::{Junction, MultiLocation, NetworkId};
-use core::{convert::TryFrom, mem, result};
+use core::{mem, result};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
