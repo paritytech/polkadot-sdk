@@ -495,7 +495,7 @@ impl<T: Config> Pallet<T> {
 		call_fee: BalanceOf<T>,
 	) {
 		// write this ready solution.
-		<QueuedSolution<T>>::put(ready_solution);
+		QueuedSolution::<T>::put(ready_solution);
 
 		let reward = T::SignedRewardBase::get();
 		// emit reward event

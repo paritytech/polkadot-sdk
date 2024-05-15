@@ -1653,7 +1653,7 @@ impl<T: Config> Pallet<T> {
 		let indices = SignedSubmissionIndices::<T>::get();
 
 		for (i, indice) in indices.iter().enumerate() {
-			let submission = <SignedSubmissionsMap<T>>::get(indice.2);
+			let submission = SignedSubmissionsMap::<T>::get(indice.2);
 			if submission.is_none() {
 				return Err(
 					"All signed submissions indices must be part of the submissions map".into()
@@ -1672,16 +1672,16 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		if <SignedSubmissionsMap<T>>::iter().nth(indices.len()).is_some() {
+		if SignedSubmissionsMap::<T>::iter().nth(indices.len()).is_some() {
 			return Err(
 				"Signed submissions map length should be the same as the indices vec length".into()
 			)
 		}
 
-		match <SignedSubmissionNextIndex<T>>::get() {
+		match SignedSubmissionNextIndex::<T>::get() {
 			0 => Ok(()),
 			next =>
-				if <SignedSubmissionsMap<T>>::get(next).is_some() {
+				if SignedSubmissionsMap::<T>::get(next).is_some() {
 					return Err(
 						"The next submissions index should not be in the submissions maps already"
 							.into(),
