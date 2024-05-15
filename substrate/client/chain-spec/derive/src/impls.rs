@@ -171,7 +171,7 @@ pub fn derive(
 	};
 
 	let name = &ast.ident;
-	let crate_name = match crate_name(CRATE_NAME) {
+	let crate_path = match crate_name(CRATE_NAME) {
 		Ok(FoundCrate::Itself) => CRATE_NAME.replace("-", "_"),
 		Ok(FoundCrate::Name(chain_spec_name)) => chain_spec_name,
 		Err(e) => match crate_name("polkadot-sdk") {
@@ -181,7 +181,8 @@ pub fn derive(
 			},
 		},
 	};
-	let crate_path = syn::parse_str::<Path>(&crate_name).unwrap();
+	let crate_path =
+		syn::parse_str::<Path>(&crate_path).expect("crate_name returns valid path; qed");
 	let field_names = fields.named.iter().flat_map(|x| x.ident.as_ref()).collect::<Vec<_>>();
 	let field_types = fields.named.iter().map(|x| &x.ty).collect::<Vec<_>>();
 

@@ -115,17 +115,16 @@ impl ProposalProvider<AccountId, Hash, RuntimeCall> for AllianceProposalProvider
 
 #[cfg(test)]
 mod multiplier_tests {
-	use polkadot_sdk::{
-		frame_support::{
-			dispatch::DispatchClass,
-			weights::{Weight, WeightToFee},
-		},
-		pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment},
-		sp_runtime::{
-			assert_eq_error_rate,
-			traits::{Convert, One, Zero},
-			BuildStorage, FixedPointNumber,
-		},
+	use frame_support::{
+		dispatch::DispatchClass,
+		weights::{Weight, WeightToFee},
+	};
+	use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+	use polkadot_sdk::*;
+	use sp_runtime::{
+		assert_eq_error_rate,
+		traits::{Convert, One, Zero},
+		BuildStorage, FixedPointNumber,
 	};
 
 	use crate::{
@@ -202,11 +201,10 @@ mod multiplier_tests {
 	where
 		F: Fn() -> (),
 	{
-		let mut t: polkadot_sdk::sp_io::TestExternalities =
-			polkadot_sdk::frame_system::GenesisConfig::<Runtime>::default()
-				.build_storage()
-				.unwrap()
-				.into();
+		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
+			.build_storage()
+			.unwrap()
+			.into();
 		t.execute_with(|| {
 			System::set_block_consumed_resources(w, 0);
 			assertions()
@@ -313,7 +311,7 @@ mod multiplier_tests {
 			Weight::from_parts(100, 0);
 
 		// Default substrate weight.
-		let tx_weight = polkadot_sdk::frame_support::weights::constants::ExtrinsicBaseWeight::get();
+		let tx_weight = frame_support::weights::constants::ExtrinsicBaseWeight::get();
 
 		run_with_system_weight(block_weight, || {
 			// initial value configured on module
@@ -330,7 +328,7 @@ mod multiplier_tests {
 				fm = next;
 				iterations += 1;
 				let fee =
-					<Runtime as polkadot_sdk::pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(
+					<Runtime as pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(
 						&tx_weight,
 					);
 				let adjusted_fee = fm.saturating_mul_acc_int(fee);

@@ -2241,9 +2241,7 @@ impl pallet_parameters::Config for Runtime {
 	type WeightInfo = ();
 }
 
-use frame_support::runtime;
-
-#[runtime]
+#[frame_support::runtime]
 mod runtime {
 	use super::*;
 
@@ -2598,7 +2596,7 @@ mod mmr {
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	super::frame_benchmarking::define_benchmarks!(
+	polkadot_sdk::frame_benchmarking::define_benchmarks!(
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_benchmarking_pallet_pov, Pov]
 		[pallet_alliance, Alliance]
