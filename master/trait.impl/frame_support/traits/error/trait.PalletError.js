@@ -34,6 +34,7 @@
 "pallet_contracts":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_contracts/pallet/enum.Error.html\" title=\"enum pallet_contracts::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_conviction_voting":[["impl&lt;T, I&gt; PalletError for <a class=\"enum\" href=\"pallet_conviction_voting/pallet/enum.Error.html\" title=\"enum pallet_conviction_voting::pallet::Error\">Error</a>&lt;T, I&gt;"]],
 "pallet_core_fellowship":[["impl&lt;T, I&gt; PalletError for <a class=\"enum\" href=\"pallet_core_fellowship/pallet/enum.Error.html\" title=\"enum pallet_core_fellowship::pallet::Error\">Error</a>&lt;T, I&gt;"]],
+"pallet_delegated_staking":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_delegated_staking/pallet/enum.Error.html\" title=\"enum pallet_delegated_staking::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_democracy":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_democracy/pallet/enum.Error.html\" title=\"enum pallet_democracy::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_election_provider_multi_phase":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_election_provider_multi_phase/pallet/enum.Error.html\" title=\"enum pallet_election_provider_multi_phase::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_elections_phragmen":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_elections_phragmen/pallet/enum.Error.html\" title=\"enum pallet_elections_phragmen::pallet::Error\">Error</a>&lt;T&gt;"]],

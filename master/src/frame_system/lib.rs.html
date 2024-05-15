@@ -4196,7 +4196,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
 			 {} ({}%) op weight {} ({}%) / mandatory weight {} ({}%)"</span>,
 			<span class="self">Self</span>::block_number(),
-			<span class="self">Self</span>::extrinsic_index().unwrap_or_default(),
+			<span class="self">Self</span>::extrinsic_count(),
 			<span class="self">Self</span>::all_extrinsics_len(),
 			sp_runtime::Percent::from_rational(
 				<span class="self">Self</span>::all_extrinsics_len(),
