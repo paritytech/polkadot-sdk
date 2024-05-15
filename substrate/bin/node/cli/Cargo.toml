@@ -81,7 +81,7 @@ clap_complete = { version = "4.0.2", optional = true }
 
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
 
-polkadot-sdk = { path = "../../../../umbrella", features = ["substrate-build-script-utils", "sc-cli", "sc-storage-monitor", "frame-benchmarking-cli"], optional = true }
+polkadot-sdk = { path = "../../../../umbrella", features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true }
 
 [features]
 default = ["cli"]
