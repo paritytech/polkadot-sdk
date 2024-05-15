@@ -70,7 +70,7 @@ bitflags! {
 		/// [`Error::InvalidCallFlags`] is returned.
 		const ALLOW_REENTRY = 0b0000_1000;
 		/// Indicates that the callee is restricted from modifying the state during call execution,
-		/// equivalent to Ethereum's STATICCALL
+		/// equivalent to Ethereum's STATICCALL.
 		///
 		/// # Note
 		///
