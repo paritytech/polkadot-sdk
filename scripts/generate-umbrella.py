@@ -109,12 +109,6 @@ def main(path, version):
 		"tuples-96": [],
 	}
 
-	# Create one feature to enable each crate selectively
-	for crate, _ in std_crates:
-		if crate.name in features:
-			raise Exception(f"Feature {crate.name} already exists")
-		features[crate.name] = [f"dep:{crate.name}"]
-
 	manifest = {
 		"package": {
 			"name": "polkadot-sdk",
