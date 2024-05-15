@@ -993,13 +993,12 @@ where
 						Event::Instantiated { deployer: caller, contract: account_id.clone() },
 					);
 				},
-				(ExportedFunction::Call, Some(code_hash)) =>
-					if !self.is_read_only() {
-						Contracts::<T>::deposit_event(
-							vec![T::Hashing::hash_of(account_id), T::Hashing::hash_of(&code_hash)],
-							Event::DelegateCalled { contract: account_id.clone(), code_hash },
-						);
-					},
+				(ExportedFunction::Call, Some(code_hash)) => {
+					Contracts::<T>::deposit_event(
+						vec![T::Hashing::hash_of(account_id), T::Hashing::hash_of(&code_hash)],
+						Event::DelegateCalled { contract: account_id.clone(), code_hash },
+					);
+				},
 				(ExportedFunction::Call, None) => {
 					// If a special limit was set for the sub-call, we enforce it here.
 					// The sub-call will be rolled back in case the limit is exhausted.
@@ -1007,13 +1006,11 @@ where
 					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
-					if !self.is_read_only() {
-						let caller = self.caller();
-						Contracts::<T>::deposit_event(
-							vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(&account_id)],
-							Event::Called { caller: caller.clone(), contract: account_id.clone() },
-						);
-					}
+					let caller = self.caller();
+					Contracts::<T>::deposit_event(
+						vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(&account_id)],
+						Event::Called { caller: caller.clone(), contract: account_id.clone() },
+					);
 				},
 			}
 
@@ -1241,7 +1238,7 @@ where
 			}
 
 			// If the call value is non-zero and state change is not allowed, issue an error.
-			if !value.is_zero() && frame_read_only {
+			if !value.is_zero() && read_only {
 				return Err(<Error<T>>::StateChangeDenied.into());
 			}
 			// We ignore instantiate frames in our search for a cached contract.
@@ -1259,7 +1256,7 @@ where
 				value,
 				gas_limit,
 				deposit_limit,
-				frame_read_only,
+				read_only,
 			)?;
 			self.run(executable, input_data)
 		};

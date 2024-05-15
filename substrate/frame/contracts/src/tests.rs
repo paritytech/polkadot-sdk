@@ -4342,20 +4342,6 @@ fn read_only_call_works() {
 		let addr_callee =
 			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_account_id();
 
-		// Drop previous events.
-		initialize_block(2);
 		assert_ok!(builder::call(addr_caller.clone()).data(addr_callee.encode()).build());
-
-		assert_eq!(
-			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: RuntimeEvent::Contracts(crate::Event::Called {
-					caller: Origin::from_account_id(ALICE),
-					contract: addr_caller.clone(),
-				}),
-				topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr_caller)],
-			},]
-		);
 	});
 }
