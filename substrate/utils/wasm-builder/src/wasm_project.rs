@@ -185,7 +185,8 @@ pub(crate) fn create_and_compile(
 		)
 	};
 
-	let blob_name = blob_out_name_override.unwrap_or_else(|| get_crate_name(project_cargo_toml));
+	let blob_name = blob_out_name_override
+		.unwrap_or_else(|| get_blob_name(target, &project.join("Cargo.toml")));
 
 	let (final_blob_binary, bloaty_blob_binary) = match target {
 		RuntimeTarget::Wasm => {
