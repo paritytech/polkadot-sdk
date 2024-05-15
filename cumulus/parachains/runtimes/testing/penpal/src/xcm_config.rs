@@ -399,6 +399,7 @@ impl xcm_executor::Config for XcmConfig {
 		ForeignSufficientAssetsConverter,
 		PoolAssetsConverter,
 	);
+	type XcmRecorder = PolkadotXcm;
 }
 
 /// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.

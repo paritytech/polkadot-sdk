@@ -49,7 +49,9 @@ mod hrmp;
 pub use hrmp::{
 	HandleHrmpChannelAccepted, HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest,
 };
+mod record_xcm;
 mod weight;
+pub use record_xcm::RecordXcm;
 #[deprecated = "Use `sp_runtime::traits::` instead"]
 pub use sp_runtime::traits::{Identity, TryConvertInto as JustTry};
 pub use weight::{WeightBounds, WeightTrader};

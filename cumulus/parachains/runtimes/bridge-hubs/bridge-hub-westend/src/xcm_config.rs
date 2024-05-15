@@ -207,6 +207,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type AssetConverter = ();
+	type XcmRecorder = PolkadotXcm;
 }
 
 pub type PriceForParentDelivery =

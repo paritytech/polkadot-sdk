@@ -17,8 +17,8 @@
 use crate::traits::{
 	AssetExchange, AssetConversion, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
 	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
-	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
-	VersionChangeNotifier, WeightBounds, WeightTrader,
+	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, RecordXcm, ShouldExecute,
+	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 use frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
@@ -125,4 +125,6 @@ pub trait Config {
 
 	/// Allows converting a balance of one asset into another.
 	type AssetConverter: AssetConversion;
+	/// Allows recording the last executed XCM (used by dry-run runtime APIs).
+	type XcmRecorder: RecordXcm;
 }
