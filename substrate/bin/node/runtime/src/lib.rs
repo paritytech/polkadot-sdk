@@ -73,6 +73,7 @@ use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
+use pallet_broker::{TaskAccountInterface, TaskId};
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
@@ -91,8 +92,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor,
-		OpaqueKeys, SaturatedConversion, StaticLookup,
+		self, AccountIdConversion, BadOrigin, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
+		NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
@@ -2126,6 +2127,21 @@ impl CoretimeInterface for CoretimeProvider {
 	}
 }
 
+pub struct TaskSovereignAccount;
+// Dummy implementation which converts `TaskId` to `AccountId`.
+impl TaskAccountInterface for TaskSovereignAccount {
+	type AccountId = AccountId;
+	type OuterOrigin = RuntimeOrigin;
+	type TaskOrigin = frame_system::RawOrigin<AccountId>;
+
+	fn ensure_task_sovereign_account(_o: RuntimeOrigin) -> Result<TaskId, BadOrigin> {
+		Err(BadOrigin)
+	}
+
+	fn sovereign_account(_task: TaskId) -> Option<AccountId> {
+		None
+	}
+}
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -2139,6 +2155,8 @@ impl pallet_broker::Config for Runtime {
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type PriceAdapter = pallet_broker::Linear;
+	type SovereignAccountOf = TaskSovereignAccount;
+	type MaxAutoRenewals = ConstU32<5>;
 }
 
 parameter_types! {

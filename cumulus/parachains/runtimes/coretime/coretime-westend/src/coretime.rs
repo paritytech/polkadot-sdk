@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
+use crate::{xcm_config::LocationToAccountId, *};
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::relay_chain;
@@ -25,9 +25,15 @@ use frame_support::{
 		OnUnbalanced,
 	},
 };
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf};
+use pallet_broker::{
+	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf,
+	TaskAccountInterface, TaskId,
+};
 use parachains_common::{AccountId, Balance, BlockNumber};
+use polkadot_runtime_parachains::{ensure_parachain, origin, Origin as ParaOrigin};
+use sp_runtime::traits::BadOrigin;
 use xcm::latest::prelude::*;
+use xcm_executor::traits::ConvertLocation;
 
 pub struct CreditToCollatorPot;
 impl OnUnbalanced<Credit<AccountId, Balances>> for CreditToCollatorPot {
@@ -229,6 +235,28 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 }
 
+impl origin::Config for Runtime {}
+
+pub struct TaskSovereignAccount;
+impl TaskAccountInterface for TaskSovereignAccount {
+	type AccountId = AccountId;
+	type OuterOrigin = RuntimeOrigin;
+	type TaskOrigin = ParaOrigin;
+
+	fn ensure_task_sovereign_account(o: RuntimeOrigin) -> Result<TaskId, BadOrigin> {
+		match ensure_parachain(o) {
+			Ok(para_id) => Ok(para_id.into()),
+			Err(e) => Err(e),
+		}
+	}
+
+	fn sovereign_account(id: TaskId) -> Option<AccountId> {
+		// Currently all tasks are parachains.
+		let location = Location::new(1, [Parachain(id)]);
+		LocationToAccountId::convert_location(&location)
+	}
+}
+
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -246,4 +274,6 @@ impl pallet_broker::Config for Runtime {
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type PriceAdapter = pallet_broker::Linear;
+	type SovereignAccountOf = TaskSovereignAccount;
+	type MaxAutoRenewals = ConstU32<10>;
 }
