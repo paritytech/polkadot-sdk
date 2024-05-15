@@ -10126,7 +10126,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-delegated-staking"
-version = "4.0.0-dev"
+version = "1.0.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
