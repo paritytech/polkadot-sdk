@@ -32,7 +32,7 @@
 //! actual hash does not appear in the transaction. On chain the same procedure is repeated with the
 //! metadata hash that is known by the runtime and if the metadata hash doesn't match the signature
 //! verification will fail. As the metadata hash is actually the root of a merkle tree, the offline
-//! wallet can get proofs of inidivdual types to decode an transaction. This means that the offline
+//! wallet can get proofs of individual types to decode a transaction. This means that the offline
 //! wallet does not require the entire metadata to be present on the device.
 //!
 //! ## Integrating metadata hash verification into your runtime
