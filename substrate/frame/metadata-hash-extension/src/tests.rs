@@ -56,8 +56,7 @@ fn rejects_when_no_metadata_hash_was_passed() {
 
 #[test]
 fn rejects_unknown_mode() {
-	let ext = CheckMetadataHash::<Test>::decode(&mut &50u8.encode()[..]).unwrap();
-	assert_eq!(Err(UnknownTransaction::CannotLookup.into()), ext.additional_signed());
+	assert!(CheckMetadataHash::<Test>::decode(&mut &50u8.encode()[..]).is_err());
 }
 
 #[test]
