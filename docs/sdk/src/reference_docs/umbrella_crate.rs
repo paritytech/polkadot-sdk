@@ -24,6 +24,9 @@
 // - `try-runtime`, `runtime-benchmarks` and `std`: These follow the standard conventions.
 // - `runtime`: As described above, enable all `no-std` crates.
 // - `node`: As described above, enable all `std` crates.
+// - There does *not* exist a dedicated docs feature. To generate docs, enable the `runtime` and
+//   `node` feature. For docs.rs the manifest contains specific configuration to make it show up all
+//   re-exports.
 //
 // There is a specific `zepter` check in place to ensure that the features of the umbrella are
 // correctly configured. This check is run in CI and locally when running `zepter`.
@@ -34,7 +37,8 @@
 // workspace. It is checked in CI by calling its generation script. The generation script is located
 // in `./scripts/generate-umbrella.py` and needs dependency `cargo_workspace`.
 //
-// Example: `python3 scripts/generate-umbrella.py --sdk . --version 1.9.0`
+// Example: `python3 scripts/generate-umbrella.py --sdk . --version 1.9.0 --header
+// substrate/HEADER-APACHE2`
 //
 // ## Usage
 //

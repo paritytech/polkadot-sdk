@@ -527,7 +527,6 @@ members = [
 default-members = [
 	"polkadot",
 	"substrate/bin/node/cli",
-	"umbrella",
 ]
 
 [workspace.lints.rust]

@@ -2568,3 +2568,7 @@ optional = true
 path = "../polkadot/xcm/xcm-simulator"
 default-features = false
 optional = true
+
+[package.metadata.docs.rs]
+features = [ "runtime", "node",]
+targets = [ "x86_64-unknown-linux-gnu",]
