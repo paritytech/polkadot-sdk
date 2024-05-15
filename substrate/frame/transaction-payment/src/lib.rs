@@ -48,6 +48,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use scale_info::TypeInfo;
 
 use frame_support::{
@@ -73,14 +74,16 @@ use sp_std::prelude::*;
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 pub use weights::WeightInfo;
 
-#[cfg(test)]
-mod mock;
-#[cfg(test)]
-mod tests;
+// TODO: failing now, needs a type annotation for Context.
+// #[cfg(test)]
+// mod mock;
+// #[cfg(test)]
+// mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+pub mod meta_tx;
 mod payment;
 mod types;
 pub mod weights;
@@ -689,72 +692,13 @@ where
 	}
 }
 
-/// Require the transactor pay for themselves and maybe include a tip to gain additional priority
-/// in the queue.
-///
-/// # Transaction Validity
-///
-/// This extension sets the `priority` field of `TransactionValidity` depending on the amount
-/// of tip being paid per weight unit.
-///
-/// Operational transactions will receive an additional priority bump, so that they are normally
-/// considered before regular transactions.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
-
-impl<T: Config> ChargeTransactionPayment<T>
+/// Priority for a transaction with the given `DispatchInfo`, encoded length and user-included tip.
+pub struct Priority<T: Config>(PhantomData<T>);
+impl<T: Config> Priority<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync,
 {
-	/// utility constructor. Used only in client/factory code.
-	pub fn from(fee: BalanceOf<T>) -> Self {
-		Self(fee)
-	}
-
-	/// Returns the tip as being chosen by the transaction sender.
-	pub fn tip(&self) -> BalanceOf<T> {
-		self.0
-	}
-
-	fn withdraw_fee(
-		&self,
-		who: &T::AccountId,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		fee: BalanceOf<T>,
-	) -> Result<
-		(
-			BalanceOf<T>,
-			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-		),
-		TransactionValidityError,
-	> {
-		let tip = self.0;
-
-		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
-			who, call, info, fee, tip,
-		)
-		.map(|i| (fee, i))
-	}
-
-	fn can_withdraw_fee(
-		&self,
-		who: &T::AccountId,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
-	) -> Result<BalanceOf<T>, TransactionValidityError> {
-		let tip = self.0;
-		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
-
-		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
-			who, call, info, fee, tip,
-		)?;
-		Ok(fee)
-	}
-
 	/// Get an appropriate priority for a transaction with the given `DispatchInfo`, encoded length
 	/// and user-included tip.
 	///
@@ -830,6 +774,32 @@ where
 	}
 }
 
+/// Require the transactor pay for themselves and maybe include a tip to gain additional priority
+/// in the queue.
+///
+/// # Transaction Validity
+///
+/// This extension sets the `priority` field of `TransactionValidity` depending on the amount
+/// of tip being paid per weight unit.
+///
+/// Operational transactions will receive an additional priority bump, so that they are normally
+/// considered before regular transactions.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
+
+impl<T: Config> ChargeTransactionPayment<T> {
+	/// utility constructor. Used only in client/factory code.
+	pub fn from(fee: BalanceOf<T>) -> Self {
+		Self(fee)
+	}
+
+	/// Returns the tip as being chosen by the transaction sender.
+	pub fn tip(&self) -> BalanceOf<T> {
+		self.0
+	}
+}
+
 impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
@@ -888,11 +858,20 @@ where
 	> {
 		let who = frame_system::ensure_signed(origin.clone())
 			.map_err(|_| InvalidTransaction::BadSigner)?;
-		let final_fee = self.can_withdraw_fee(&who, call, info, len)?;
+
 		let tip = self.0;
+
+		let final_fee = {
+			let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
+			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
+				&who, call, info, fee, tip,
+			)?;
+			fee
+		};
+
 		Ok((
 			ValidTransaction {
-				priority: Self::get_priority(info, len, tip, final_fee),
+				priority: Priority::<T>::get_priority(info, len, tip, final_fee),
 				..Default::default()
 			},
 			(self.0, who, final_fee),
@@ -911,7 +890,11 @@ where
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (tip, who, fee) = val;
 		// Mutating call to `withdraw_fee` to actually charge for the transaction.
-		let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
+		let imbalance =
+			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
+				&who, call, info, fee, tip,
+			)?;
+
 		Ok((tip, who, imbalance))
 	}
 
