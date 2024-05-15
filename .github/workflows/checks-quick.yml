@@ -130,7 +130,7 @@ jobs:
           pip3 install cargo_workspace toml
       - name: check umbrella correctness
         run: >
-          python3 polkadot-sdk-umbrella-crate.py --sdk . --version 0.1.0
+          python3 scripts/generate-umbrella.py --sdk . --version 0.1.0
           if [ -n "$(git status --porcelain)" ]; then
             cat <<EOF
             👋 Hello developer! The umbrella crate was not updated. It is located in `umbrella/Cargo.toml`.

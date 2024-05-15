@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk"
-version = "1.9.0"
+version = "0.1.0"
 description = "Polkadot SDK umbrella crate."
 license = "Apache-2.0"
 
