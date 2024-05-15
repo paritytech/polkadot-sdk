@@ -107,5 +107,5 @@ pub mod frame_offchain_workers;
 /// together.
 pub mod frame_pallet_coupling;
 
-/// Lean about the Polkadot Umbrella crate that re-exports all other crates.
+/// Learn about the Polkadot Umbrella crate that re-exports all other crates.
 pub mod umbrella_crate;

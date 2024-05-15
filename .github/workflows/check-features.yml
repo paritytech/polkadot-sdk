@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Check
         uses: hack-ink/cargo-featalign-action@bea88a864d6ca7d0c53c26f1391ce1d431dc7f34 # v0.1.1
-        with: 
+        with:
           crate: templates/minimal/node/runtime
           features: std,runtime-benchmarks,try-runtime
           ignore: sc-executor
