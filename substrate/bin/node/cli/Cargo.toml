@@ -15,6 +15,8 @@ publish = false
 workspace = true
 
 [package.metadata.wasm-pack.profile.release]
+# `wasm-opt` has some problems on linux, see
+# https://github.com/rustwasm/wasm-pack/issues/781 etc.
 wasm-opt = false
 
 [package.metadata.docs.rs]
@@ -34,7 +36,7 @@ required-features = ["cli"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# External dependencies:
+# third-party dependencies
 array-bytes = "6.1"
 clap = { version = "4.5.3", features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
@@ -48,7 +50,7 @@ serde_json = { workspace = true, default-features = true }
 # The Polkadot-SDK:
 polkadot-sdk = { path = "../../../../umbrella", features = ["node"] }
 
-# Shared code of the staging-node:
+# Shared code between the staging node and kitchensink runtime:
 kitchensink-runtime = { path = "../runtime" }
 node-rpc = { path = "../rpc" }
 node-primitives = { path = "../primitives" }
@@ -62,7 +64,7 @@ nix = { version = "0.28.0", features = ["signal"] }
 regex = "1.6.0"
 platforms = "3.0"
 soketto = "0.7.1"
-criterion = { version = "0.4.0", features = ["async_tokio"] }
+criterion = { version = "0.5.1", features = ["async_tokio"] }
 tokio = { version = "1.22.0", features = ["macros", "parking_lot", "time"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 wait-timeout = "0.2"
@@ -70,8 +72,8 @@ wat = "1.0"
 serde_json = { workspace = true, default-features = true }
 scale-info = { version = "2.11.1", features = ["derive", "serde"] }
 
+# These testing-only dependencies are not exported by the Polkadot-SDK crate:
 node-testing = { path = "../testing" }
-
 substrate-cli-test-utils = { path = "../../../test-utils/cli" }
 sc-service-test = { path = "../../../client/service/test" }
 
