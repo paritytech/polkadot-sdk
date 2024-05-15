@@ -17,7 +17,10 @@ use crate::imports::*;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
-	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocationV3::get());
+	let asset_native = Box::new(
+		v3::Location::try_from(asset_hub_westend_runtime::xcm_config::WestendLocation::get())
+			.expect("conversion works"),
+	);
 	let asset_one = Box::new(v3::Location {
 		parents: 0,
 		interior: [
@@ -111,8 +114,7 @@ fn swap_locally_on_chain_using_local_assets() {
 
 #[test]
 fn swap_locally_on_chain_using_foreign_assets() {
-	let asset_native =
-		Box::new(v3::Location::try_from(RelayLocation::get()).expect("conversion works"));
+	let asset_native = Box::new(v3::Location::try_from(RelayLocation::get()).unwrap());
 	let asset_location_on_penpal =
 		v3::Location::try_from(PenpalLocalTeleportableToAssetHub::get()).expect("conversion_works");
 	let foreign_asset_at_asset_hub_westend =
@@ -227,11 +229,9 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 #[test]
 fn cannot_create_pool_from_pool_assets() {
-	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocationV3::get());
-	let mut asset_one = asset_hub_westend_runtime::xcm_config::PoolAssetsPalletLocationV3::get();
-	asset_one
-		.append_with(v3::Junction::GeneralIndex(ASSET_ID.into()))
-		.expect("pool assets");
+	let asset_native = asset_hub_westend_runtime::xcm_config::WestendLocation::get();
+	let mut asset_one = asset_hub_westend_runtime::xcm_config::PoolAssetsPalletLocation::get();
+	asset_one.append_with(GeneralIndex(ASSET_ID.into())).expect("pool assets");
 
 	AssetHubWestend::execute_with(|| {
 		let pool_owner_account_id = asset_hub_westend_runtime::AssetConversionOrigin::get();
@@ -254,8 +254,8 @@ fn cannot_create_pool_from_pool_assets() {
 		assert_matches::assert_matches!(
 			<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 				<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-				asset_native,
-				Box::new(asset_one),
+				Box::new(v3::Location::try_from(asset_native).expect("conversion works")),
+				Box::new(v3::Location::try_from(asset_one).expect("conversion works")),
 			),
 			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))
 		);
@@ -264,7 +264,9 @@ fn cannot_create_pool_from_pool_assets() {
 
 #[test]
 fn pay_xcm_fee_with_some_asset_swapped_for_native() {
-	let asset_native = asset_hub_westend_runtime::xcm_config::WestendLocationV3::get();
+	let asset_native =
+		v3::Location::try_from(asset_hub_westend_runtime::xcm_config::WestendLocation::get())
+			.expect("conversion works");
 	let asset_one = xcm::v3::Location {
 		parents: 0,
 		interior: [
@@ -369,10 +371,10 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 			penpal.clone(),
 		);
 
-		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send_blob(
+		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
 			penpal_root,
 			bx!(asset_hub_location),
-			xcm.encode().try_into().unwrap(),
+			bx!(xcm),
 		));
 
 		PenpalA::assert_xcm_pallet_sent();

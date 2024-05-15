@@ -17,7 +17,7 @@ workspace = true
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-frame = { path = "../../substrate/frame", features = [
+frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = [
 	"experimental",
 	"runtime",
 ] }
@@ -51,6 +51,8 @@ sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa" }
 sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }
 sc-consensus-manual-seal = { path = "../../substrate/client/consensus/manual-seal" }
 sc-consensus-pow = { path = "../../substrate/client/consensus/pow" }
+sc-executor = { path = "../../substrate/client/executor" }
+sc-service = { path = "../../substrate/client/service" }
 
 substrate-wasm-builder = { path = "../../substrate/utils/wasm-builder" }
 
@@ -60,9 +62,12 @@ cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-syst
 	"parameterized-consensus-hook",
 ] }
 parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info" }
-pallet-aura = { path = "../../substrate/frame/aura", default-features = false }
+cumulus-primitives-proof-size-hostfunction = { path = "../../cumulus/primitives/proof-size-hostfunction" }
+cumulus-client-service = { path = "../../cumulus/client/service" }
+cumulus-primitives-storage-weight-reclaim = { path = "../../cumulus/primitives/storage-weight-reclaim" }
 
 # Pallets and FRAME internals
+pallet-aura = { path = "../../substrate/frame/aura" }
 pallet-timestamp = { path = "../../substrate/frame/timestamp" }
 pallet-balances = { path = "../../substrate/frame/balances" }
 pallet-assets = { path = "../../substrate/frame/assets" }

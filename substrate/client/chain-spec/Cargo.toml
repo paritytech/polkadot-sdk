@@ -1,6 +1,6 @@
 [package]
 name = "sc-chain-spec"
-version = "27.0.0"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -33,7 +33,8 @@ sp-genesis-builder = { path = "../../primitives/genesis-builder" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
 log = { workspace = true }
-array-bytes = { version = "6.1" }
+sp-tracing = { path = "../../primitives/tracing" }
+array-bytes = "6.2.2"
 docify = "0.2.8"
 
 [dev-dependencies]

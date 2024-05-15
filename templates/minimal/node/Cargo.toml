@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 clap = { version = "4.5.3", features = ["derive"] }
-futures = { version = "0.3.21", features = ["thread-pool"] }
+futures = { version = "0.3.30", features = ["thread-pool"] }
 futures-timer = "3.0.1"
 jsonrpsee = { version = "0.22", features = ["server"] }
 serde_json = { workspace = true, default-features = true }
@@ -49,7 +49,7 @@ substrate-frame-rpc-system = { path = "../../../substrate/utils/frame/rpc/system
 
 # Once the native runtime is gone, there should be little to no dependency on FRAME here, and
 # certainly no dependency on the runtime.
-frame = { path = "../../../substrate/frame", features = [
+frame = { package = "polkadot-sdk-frame", path = "../../../substrate/frame", features = [
 	"experimental",
 	"runtime",
 ] }

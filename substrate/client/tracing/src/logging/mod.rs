@@ -104,7 +104,7 @@ fn prepare_subscriber<N, E, F, W>(
 where
 	N: for<'writer> FormatFields<'writer> + 'static,
 	E: FormatEvent<Registry, N> + 'static,
-	W: MakeWriter + 'static,
+	W: for<'writer> MakeWriter<'writer> + 'static,
 	F: layer::Layer<Formatter<N, E, W>> + Send + Sync + 'static,
 	FmtLayer<Registry, N, E, W>: layer::Layer<Registry> + Send + Sync + 'static,
 {
@@ -140,6 +140,10 @@ where
 		)
 		.add_directive(
 			parse_default_directive("libp2p_mdns::behaviour::iface=off")
+				.expect("provided directive is valid"),
+		)
+		.add_directive(
+			parse_default_directive("rustls::common_state=off")
 				.expect("provided directive is valid"),
 		);
 

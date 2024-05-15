@@ -23,6 +23,10 @@ use std::str::FromStr;
 /// Collects all supported People configurations.
 #[derive(Debug, PartialEq)]
 pub enum PeopleRuntimeType {
+	Kusama,
+	KusamaLocal,
+	Polkadot,
+	PolkadotLocal,
 	Rococo,
 	RococoLocal,
 	RococoDevelopment,
@@ -36,6 +40,10 @@ impl FromStr for PeopleRuntimeType {
 
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
+			kusama::PEOPLE_KUSAMA => Ok(PeopleRuntimeType::Kusama),
+			kusama::PEOPLE_KUSAMA_LOCAL => Ok(PeopleRuntimeType::KusamaLocal),
+			polkadot::PEOPLE_POLKADOT => Ok(PeopleRuntimeType::Polkadot),
+			polkadot::PEOPLE_POLKADOT_LOCAL => Ok(PeopleRuntimeType::PolkadotLocal),
 			rococo::PEOPLE_ROCOCO => Ok(PeopleRuntimeType::Rococo),
 			rococo::PEOPLE_ROCOCO_LOCAL => Ok(PeopleRuntimeType::RococoLocal),
 			rococo::PEOPLE_ROCOCO_DEVELOPMENT => Ok(PeopleRuntimeType::RococoDevelopment),
@@ -52,6 +60,11 @@ impl PeopleRuntimeType {
 
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
+			PeopleRuntimeType::Kusama => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/people-kusama.json")[..],
+			)?)),
+			PeopleRuntimeType::Polkadot =>
+				todo!("Generate chain-spec: ../../chain-specs/people-polkadot.json"),
 			PeopleRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-rococo.json")[..],
 			)?)),
@@ -82,6 +95,10 @@ impl PeopleRuntimeType {
 				"westend-development",
 				ParaId::new(1004),
 			))),
+			other => Err(std::format!(
+				"No default config present for {:?}, you should provide a chain-spec as json file!",
+				other
+			)),
 		}
 	}
 }
@@ -317,4 +334,14 @@ pub mod westend {
 			}
 		})
 	}
+}
+
+pub mod kusama {
+	pub(crate) const PEOPLE_KUSAMA: &str = "people-kusama";
+	pub(crate) const PEOPLE_KUSAMA_LOCAL: &str = "people-kusama-local";
+}
+
+pub mod polkadot {
+	pub(crate) const PEOPLE_POLKADOT: &str = "people-polkadot";
+	pub(crate) const PEOPLE_POLKADOT_LOCAL: &str = "people-polkadot-local";
 }
