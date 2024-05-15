@@ -475,6 +475,9 @@ impl<T: Config> Pallet<T> {
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		let Some(sovereign_account) = T::SovereignAccountOf::sovereign_account(task) else {
+			return Err(Error::<T>::SovereignAccountNotFound.into());
+		};
 
 		let record = if let Some(workload_end) = workload_end_hint {
 			AllowedRenewals::<T>::get(AllowedRenewalId { core, when: workload_end })
@@ -484,7 +487,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(record) =
 				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_begin })
 			{
-				Self::do_renew(T::SovereignAccountOf::sovereign_account(task), core)?;
+				Self::do_renew(sovereign_account, core)?;
 				record
 			} else {
 				// If we couldn't find the renewal record for the current bulk period we should
@@ -513,6 +516,7 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::NonTaskAutoRenewal.into())
 		};
 
+		// We are keeping the auto-renewals sorted by `CoreIndex`.
 		AutoRenewals::<T>::try_mutate(|renewals| {
 			let pos = renewals
 				.binary_search_by(|r: &(CoreIndex, TaskId)| r.0.cmp(&core))

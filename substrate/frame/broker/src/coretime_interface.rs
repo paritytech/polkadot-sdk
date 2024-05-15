@@ -147,9 +147,9 @@ impl CoretimeInterface for () {
 	fn ensure_notify_revenue_info(_when: RCBlockNumberOf<Self>, _revenue: Self::Balance) {}
 }
 
-/// Trait for retrieving the associated account and origin of a task.
+/// Trait for getting the associated account and origin of a task.
 ///
-/// For parachains, this refers to the sovereign account, which is controlled by the parachain
+/// For parachains, this is the sovereign account, which is controlled by the parachain
 /// itself.
 pub trait TaskAccountInterface {
 	/// The type for representing accounts.
@@ -166,5 +166,5 @@ pub trait TaskAccountInterface {
 	fn ensure_task_sovereign_account(o: Self::OuterOrigin) -> Result<TaskId, BadOrigin>;
 
 	/// Returns the associated account of a task.
-	fn sovereign_account(task: TaskId) -> Self::AccountId;
+	fn sovereign_account(task: TaskId) -> Option<Self::AccountId>;
 }

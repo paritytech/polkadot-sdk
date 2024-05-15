@@ -183,6 +183,8 @@ pub mod pallet {
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
 	/// Keeping track of cores which have auto-renewal enabled.
+	///
+	/// Sorted by `CoreIndex` to make the removal of cores from auto-renewal more efficient.
 	#[pallet::storage]
 	pub type AutoRenewals<T: Config> =
 		StorageValue<_, BoundedVec<(CoreIndex, TaskId), T::MaxAutoRenewals>, ValueQuery>;
@@ -522,6 +524,8 @@ pub mod pallet {
 		TooManyAutoRenewals,
 		/// Only cores which are assigned to a task can be auto-renewed.
 		NonTaskAutoRenewal,
+		/// Failed to get the sovereign account of a task.
+		SovereignAccountNotFound,
 	}
 
 	#[pallet::hooks]

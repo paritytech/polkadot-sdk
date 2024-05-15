@@ -338,9 +338,13 @@ impl<T: Config> Pallet<T> {
 		let renewals = AutoRenewals::<T>::get();
 		renewals.into_iter().for_each(|(core, task)| {
 			let payer = T::SovereignAccountOf::sovereign_account(task);
-			if let Err(_e) = Self::do_renew(payer.clone(), core) {
-				println!("{:?}", _e);
-				Self::deposit_event(Event::<T>::AutoRenewalFailed { core, task, payer });
+			if let Err(_) = Self::do_renew(payer.clone().unwrap().clone(), core) {
+				// TODO: no unwrap
+				Self::deposit_event(Event::<T>::AutoRenewalFailed {
+					core,
+					task,
+					payer: payer.unwrap(),
+				});
 			}
 		});
 	}

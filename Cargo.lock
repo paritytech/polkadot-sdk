@@ -3207,6 +3207,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
  "rococo-runtime-constants",
  "scale-info",
  "serde",

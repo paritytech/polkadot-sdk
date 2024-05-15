@@ -202,7 +202,7 @@ impl TaskAccountInterface for TaskSovereignAccount {
 	}
 
 	fn sovereign_account(task: TaskId) -> u64 {
-		task.into()
+		Some(task.into())
 	}
 }
 
