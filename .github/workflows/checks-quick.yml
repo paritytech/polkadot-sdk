@@ -126,20 +126,22 @@ jobs:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
       - name: install python deps
         run: |
-          sudo apt-get update && sudo apt-get install -y python3-pip python3
+          sudo apt-get install -y python3-pip python3
           pip3 install cargo_workspace toml
       - name: check umbrella correctness
-        run: >
+        run: |
           python3 scripts/generate-umbrella.py --sdk . --version 0.1.0
+          cargo +nightly fmt --all
           if [ -n "$(git status --porcelain)" ]; then
             cat <<EOF
-            👋 Hello developer! The umbrella crate was not updated. It is located in `umbrella/Cargo.toml`.
+          👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 
-            It is necessary to update this crate if you:
-            - Added/Removed/Renamed crate of the workspace
-            - Changed the no/std compatibility
+          Please check the output above and see the following links for more help:
+          - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
+          - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
 
-            Please try to add the new crate to the umbrella in the exact same format.
-            Otherwise feel free to ask in the Merge Request or in Matrix chat.
-            EOF
+          Otherwise feel free to ask in the Merge Request or in Matrix chat.
+          EOF
+
+            exit 1
           fi
