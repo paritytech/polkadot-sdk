@@ -286,15 +286,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	// fn purchase_credit() -> Weight {
-	// 	// Proof Size summary in bytes:
-	// 	//  Measured:  `103`
-	// 	//  Estimated: `3593`
-	// 	// Minimum execution time: 43_945_000 picoseconds.
-	// 	Weight::from_parts(45_249_000, 3593)
-	// 		.saturating_add(T::DbWeight::get().reads(1_u64))
-	// 		.saturating_add(T::DbWeight::get().writes(1_u64))
-	// }
+	fn purchase_credit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 43_945_000 picoseconds.
+		Weight::from_parts(45_249_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Broker::Status` (r:1 w:0)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Regions` (r:1 w:1)
