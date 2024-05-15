@@ -1522,6 +1522,68 @@ fn enable_auto_renew_renews() {
 }
 
 #[test]
+fn auto_renewal_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 3));
+		advance_to(2);
+		let region_1 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_2 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_3 = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+		// Eligible for renewal after final assignment:
+		assert_ok!(Broker::do_assign(region_1, Some(1), 1001, Final));
+		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
+		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, None));
+		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, None));
+		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, None));
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001), (1, 1002), (2, 1003)]);
+
+		// We have to fund the sovereign account:
+		endow(1001, 1000);
+		// We skip funding the sovereign account of task 1002 on purpose.
+		endow(1003, 1000);
+
+		// Next cycle starting at timeslice 7.
+		advance_to(7);
+		System::assert_has_event(
+			Event::<Test>::Renewed {
+				who: 1001, // sovereign account
+				old_core: 0,
+				core: 0,
+				price: 100,
+				begin: 7,
+				duration: 3,
+				workload: Schedule::truncate_from(vec![ScheduleItem {
+					assignment: Task(1001),
+					mask: CoreMask::complete(),
+				}]),
+			}
+			.into(),
+		);
+		// Sovereign account wasn't funded so it fails:
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalFailed { core: 1, task: 1002, payer: 1002 }.into(),
+		);
+		System::assert_has_event(
+			Event::<Test>::Renewed {
+				who: 1003, // sovereign account
+				old_core: 2,
+				core: 1, // Core #1 didn't get renewed, so core #2 will take its place.
+				price: 100,
+				begin: 7,
+				duration: 3,
+				workload: Schedule::truncate_from(vec![ScheduleItem {
+					assignment: Task(1003),
+					mask: CoreMask::complete(),
+				}]),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
 fn start_sales_sets_correct_core_count() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		advance_to(1);

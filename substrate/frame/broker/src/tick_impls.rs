@@ -238,8 +238,6 @@ impl<T: Config> Pallet<T> {
 		});
 		Leases::<T>::put(&leases);
 
-		Self::renew_cores();
-
 		let max_possible_sales = status.core_count.saturating_sub(first_core);
 		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::max_value());
 		let cores_offered = limit_cores_offered.min(max_possible_sales);
@@ -260,6 +258,9 @@ impl<T: Config> Pallet<T> {
 			cores_sold: 0,
 		};
 		SaleInfo::<T>::put(&new_sale);
+
+		Self::renew_cores();
+
 		Self::deposit_event(Event::SaleInitialized {
 			sale_start,
 			leadin_length,
@@ -337,7 +338,8 @@ impl<T: Config> Pallet<T> {
 		let renewals = AutoRenewals::<T>::get();
 		renewals.into_iter().for_each(|(core, task)| {
 			let payer = T::SovereignAccountOf::sovereign_account(task);
-			if let Err(_) = Self::do_renew(payer.clone(), core) {
+			if let Err(_e) = Self::do_renew(payer.clone(), core) {
+				println!("{:?}", _e);
 				Self::deposit_event(Event::<T>::AutoRenewalFailed { core, task, payer });
 			}
 		});
