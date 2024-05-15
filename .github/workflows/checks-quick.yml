@@ -2,12 +2,17 @@
 name: quick-checks
 
 on:
+  push:
+    branches:
+      - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+permissions: {}
 
 jobs:
   set-image:
@@ -36,9 +41,9 @@ jobs:
   check-dependency-rules:
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 10
-    needs: [set-image]
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+    # needs: [set-image]
+    # container:
+    #   image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: check dependency rules
@@ -77,3 +82,40 @@ jobs:
         run: |
           taplo format --check --config .config/taplo.toml
           echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
+  check-workspace:
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
+      - name: install python deps
+        run: |
+          sudo apt-get update && sudo apt-get install -y python3-pip python3
+          pip3 install toml
+      - name: check integrity
+        run: >
+          python3 .github/scripts/check-workspace.py .
+          --exclude
+          "substrate/frame/contracts/fixtures/build"
+          "substrate/frame/contracts/fixtures/contracts/common"
+  check-markdown:
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 10
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.0.1
+        with:
+          node-version: "18.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paritytech"
+      - name: Install tooling
+        run: |
+          npm install -g markdownlint-cli
+          markdownlint --version
+      - name: Check Markdown
+        env:
+          CONFIG: .github/.markdownlint.yaml
+        run: |
+          echo "Checking markdown formatting. More info: docs/contributor/markdown_linting.md"
+          markdownlint --config "$CONFIG" --ignore target .

@@ -8876,12 +8876,13 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.27.1"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
+checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
 dependencies = [
  "bitflags 2.4.0",
  "cfg-if",
+ "cfg_aliases",
  "libc",
 ]
 
@@ -12557,7 +12558,7 @@ version = "6.0.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
- "nix 0.27.1",
+ "nix 0.28.0",
  "polkadot-cli",
  "polkadot-core-primitives",
  "polkadot-node-core-pvf",
@@ -13241,7 +13242,7 @@ dependencies = [
  "futures",
  "landlock",
  "libc",
- "nix 0.27.1",
+ "nix 0.28.0",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
@@ -13266,7 +13267,7 @@ dependencies = [
  "cfg-if",
  "cpu-time",
  "libc",
- "nix 0.27.1",
+ "nix 0.28.0",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-parachain-primitives",
@@ -13282,7 +13283,7 @@ dependencies = [
  "cfg-if",
  "criterion",
  "libc",
- "nix 0.27.1",
+ "nix 0.28.0",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-primitives",
@@ -13575,7 +13576,7 @@ dependencies = [
  "hex-literal",
  "jsonrpsee",
  "log",
- "nix 0.27.1",
+ "nix 0.28.0",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -20142,7 +20143,7 @@ dependencies = [
  "kitchensink-runtime",
  "log",
  "mmr-gadget",
- "nix 0.27.1",
+ "nix 0.28.0",
  "node-primitives",
  "node-rpc",
  "node-testing",
@@ -20542,7 +20543,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "futures",
- "nix 0.27.1",
+ "nix 0.28.0",
  "node-primitives",
  "regex",
  "sc-cli",
