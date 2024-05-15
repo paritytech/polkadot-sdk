@@ -61,14 +61,14 @@ async fn update_view(
 
 		let min_number = leaf_number.saturating_sub(ASYNC_BACKING_PARAMETERS.allowed_ancestry_len);
 
-		// assert_matches!(
-		// 	overseer_recv(virtual_overseer).await,
-		// 	AllMessages::ProspectiveParachains(
-		// 		ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx),
-		// 	) if parent == leaf_hash => {
-		// 		tx.send(vec![(test_state.para_id, min_number)]).unwrap();
-		// 	}
-		// );
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx),
+			) if parent == leaf_hash => {
+				tx.send(vec![(test_state.para_id, min_number)]).unwrap();
+			}
+		);
 
 		let ancestry_len = leaf_number + 1 - min_number;
 		let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
