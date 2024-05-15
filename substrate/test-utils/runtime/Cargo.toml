@@ -68,7 +68,7 @@ serde = { features = ["alloc", "derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true, features = [ "metadata-hash" ] }
+substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true, features = ["metadata-hash"] }
 
 [features]
 default = ["std"]

@@ -208,8 +208,8 @@ try-runtime = [
 # generate the metadata hash and then a second time with the
 # `RUNTIME_METADATA_HASH` environment variable set for the `CheckMetadataHash`
 # extension.
-metadata-hash = [ "substrate-wasm-builder/metadata-hash" ]
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
 
 # A convenience feature for enabling things when doing a build
 # for an on-chain release.
-on-chain-release-build = [ "metadata-hash" ]
+on-chain-release-build = ["metadata-hash"]
