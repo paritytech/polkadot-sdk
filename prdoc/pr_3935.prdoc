@@ -24,3 +24,5 @@ crates:
     bump: patch
   - name: sp-api-proc-macro
     bump: patch
+  - name: polkadot-runtime-parachains
+    bump: patch
