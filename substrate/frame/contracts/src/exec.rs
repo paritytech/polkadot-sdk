@@ -1233,7 +1233,7 @@ where
 		self.top_frame_mut().allows_reentry = allows_reentry;
 
 		// Enable read-only access if requested; cannot disable it if already set.
-		let frame_read_only = read_only || self.top_frame().read_only;
+		let read_only = read_only || self.top_frame().read_only;
 
 		let try_call = || {
 			if !self.allows_reentry(&to) {
