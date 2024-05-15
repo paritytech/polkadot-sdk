@@ -44,7 +44,7 @@ pub use barriers::{
 
 mod controller;
 pub use controller::{
-	Controller, ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, QueryController,
+	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
 	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
 };
 
@@ -120,7 +120,9 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod routing;
-pub use routing::{EnsureDecodableXcm, EnsureDelivery, WithTopicSource, WithUniqueTopic};
+pub use routing::{
+	EnsureDecodableXcm, EnsureDelivery, InspectMessageQueues, WithTopicSource, WithUniqueTopic,
+};
 
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;

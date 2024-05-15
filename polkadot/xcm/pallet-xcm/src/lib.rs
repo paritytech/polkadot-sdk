@@ -50,8 +50,8 @@ use sp_runtime::{
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
-	ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, QueryController,
-	QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
+	ExecuteController, ExecuteControllerWeightInfo, QueryController, QueryControllerWeightInfo,
+	SendController, SendControllerWeightInfo,
 };
 use xcm_executor::{
 	traits::{
@@ -61,7 +61,7 @@ use xcm_executor::{
 	},
 	AssetsInHolding,
 };
-use xcm_fee_payment_runtime_api::Error as FeePaymentError;
+use xcm_fee_payment_runtime_api::fees::Error as XcmPaymentApiError;
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -87,8 +87,6 @@ pub trait WeightInfo {
 	fn new_query() -> Weight;
 	fn take_response() -> Weight;
 	fn claim_assets() -> Weight;
-	fn execute_blob() -> Weight;
-	fn send_blob() -> Weight;
 }
 
 /// fallback implementation
@@ -171,14 +169,6 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn claim_assets() -> Weight {
-		Weight::from_parts(100_000_000, 0)
-	}
-
-	fn execute_blob() -> Weight {
-		Weight::from_parts(100_000_000, 0)
-	}
-
-	fn send_blob() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
 }
@@ -296,49 +286,76 @@ pub mod pallet {
 	}
 
 	impl<T: Config> ExecuteControllerWeightInfo for Pallet<T> {
-		fn execute_blob() -> Weight {
-			T::WeightInfo::execute_blob()
+		fn execute() -> Weight {
+			T::WeightInfo::execute()
 		}
 	}
 
 	impl<T: Config> ExecuteController<OriginFor<T>, <T as Config>::RuntimeCall> for Pallet<T> {
 		type WeightInfo = Self;
-		fn execute_blob(
+		fn execute(
 			origin: OriginFor<T>,
-			encoded_message: BoundedVec<u8, MaxXcmEncodedSize>,
+			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> Result<Weight, DispatchErrorWithPostInfo> {
-			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let message =
-				VersionedXcm::<<T as Config>::RuntimeCall>::decode(&mut &encoded_message[..])
-					.map_err(|error| {
-						log::error!(target: "xcm::execute_blob", "Unable to decode XCM, error: {:?}", error);
-						Error::<T>::UnableToDecode
-					})?;
-			Self::execute_base(origin_location, Box::new(message), max_weight)
+			log::trace!(target: "xcm::pallet_xcm::execute", "message {:?}, max_weight {:?}", message, max_weight);
+			let outcome = (|| {
+				let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+				let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
+				let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+				let value = (origin_location, message);
+				ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
+				let (origin_location, message) = value;
+				Ok(T::XcmExecutor::prepare_and_execute(
+					origin_location,
+					message,
+					&mut hash,
+					max_weight,
+					max_weight,
+				))
+			})()
+			.map_err(|e: DispatchError| {
+				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
+			})?;
+
+			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
+			let weight_used = outcome.weight_used();
+			outcome.ensure_complete().map_err(|error| {
+				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
+				Error::<T>::LocalExecutionIncomplete.with_weight(
+					weight_used.saturating_add(
+						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
+					),
+				)
+			})?;
+			Ok(weight_used)
 		}
 	}
 
 	impl<T: Config> SendControllerWeightInfo for Pallet<T> {
-		fn send_blob() -> Weight {
-			T::WeightInfo::send_blob()
+		fn send() -> Weight {
+			T::WeightInfo::send()
 		}
 	}
 
 	impl<T: Config> SendController<OriginFor<T>> for Pallet<T> {
 		type WeightInfo = Self;
-		fn send_blob(
+		fn send(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
-			encoded_message: BoundedVec<u8, MaxXcmEncodedSize>,
+			message: Box<VersionedXcm<()>>,
 		) -> Result<XcmHash, DispatchError> {
 			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
-			let message =
-				VersionedXcm::<()>::decode(&mut &encoded_message[..]).map_err(|error| {
-					log::error!(target: "xcm::send_blob", "Unable to decode XCM, error: {:?}", error);
-					Error::<T>::UnableToDecode
-				})?;
-			Self::send_base(origin_location, dest, Box::new(message))
+			let interior: Junctions =
+				origin_location.clone().try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
+			let dest = Location::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
+			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+
+			let message_id = Self::send_xcm(interior, dest.clone(), message.clone())
+				.map_err(Error::<T>::from)?;
+			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
+			Self::deposit_event(e);
+			Ok(message_id)
 		}
 	}
 
@@ -547,13 +564,6 @@ pub mod pallet {
 		/// Local XCM execution incomplete.
 		#[codec(index = 24)]
 		LocalExecutionIncomplete,
-		/// Could not decode XCM.
-		#[codec(index = 25)]
-		UnableToDecode,
-		/// XCM encoded length is too large.
-		/// Returned when an XCM encoded length is larger than `MaxXcmEncodedSize`.
-		#[codec(index = 26)]
-		XcmTooLarge,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -754,6 +764,25 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type XcmExecutionSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	/// Whether or not incoming XCMs (both executed locally and received) should be recorded.
+	/// Only one XCM program will be recorded at a time.
+	/// This is meant to be used in runtime APIs, and it's advised it stays false
+	/// for all other use cases, so as to not degrade regular performance.
+	///
+	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
+	/// implementation in the XCM executor configuration.
+	#[pallet::storage]
+	pub(crate) type ShouldRecordXcm<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// If [`ShouldRecordXcm`] is set to true, then the last XCM program executed locally
+	/// will be stored here.
+	/// Runtime APIs can fetch the XCM that was executed by accessing this value.
+	///
+	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
+	/// implementation in the XCM executor configuration.
+	#[pallet::storage]
+	pub(crate) type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
@@ -890,72 +919,15 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
-		/// Underlying logic for both [`execute_blob`] and [`execute`].
-		fn execute_base(
-			origin_location: Location,
-			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
-			max_weight: Weight,
-		) -> Result<Weight, DispatchErrorWithPostInfo> {
-			log::trace!(target: "xcm::pallet_xcm::execute", "message {:?}, max_weight {:?}", message, max_weight);
-			let outcome = (|| {
-				let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
-				let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
-				let value = (origin_location, message);
-				ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
-				let (origin_location, message) = value;
-				Ok(T::XcmExecutor::prepare_and_execute(
-					origin_location,
-					message,
-					&mut hash,
-					max_weight,
-					max_weight,
-				))
-			})()
-			.map_err(|e: DispatchError| e.with_weight(T::WeightInfo::execute()))?;
-
-			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
-			let weight_used = outcome.weight_used();
-			outcome.ensure_complete().map_err(|error| {
-				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
-				Error::<T>::LocalExecutionIncomplete
-					.with_weight(weight_used.saturating_add(T::WeightInfo::execute()))
-			})?;
-			Ok(weight_used)
-		}
-
-		/// Underlying logic for both [`send_blob`] and [`send`].
-		fn send_base(
-			origin_location: Location,
-			dest: Box<VersionedLocation>,
-			message: Box<VersionedXcm<()>>,
-		) -> Result<XcmHash, DispatchError> {
-			let interior: Junctions =
-				origin_location.clone().try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
-			let dest = Location::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
-			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
-
-			let message_id = Self::send_xcm(interior, dest.clone(), message.clone())
-				.map_err(Error::<T>::from)?;
-			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
-			Self::deposit_event(e);
-			Ok(message_id)
-		}
-	}
-
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
-		/// WARNING: DEPRECATED. `send` will be removed after June 2024. Use `send_blob` instead.
-		#[allow(deprecated)]
-		#[deprecated(note = "`send` will be removed after June 2024. Use `send_blob` instead.")]
 		#[pallet::call_index(0)]
 		pub fn send(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
 			message: Box<VersionedXcm<()>>,
 		) -> DispatchResult {
-			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
-			Self::send_base(origin_location, dest, message)?;
+			<Self as SendController<_>>::send(origin, dest, message)?;
 			Ok(())
 		}
 
@@ -1052,13 +1024,6 @@ pub mod pallet {
 		/// No more than `max_weight` will be used in its attempted execution. If this is less than
 		/// the maximum amount of weight that the message could take to be executed, then no
 		/// execution attempt will be made.
-		///
-		/// WARNING: DEPRECATED. `execute` will be removed after June 2024. Use `execute_blob`
-		/// instead.
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`execute` will be removed after June 2024. Use `execute_blob` instead."
-		)]
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
@@ -1066,8 +1031,8 @@ pub mod pallet {
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let weight_used = Self::execute_base(origin_location, message, max_weight)?;
+			let weight_used =
+				<Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
@@ -1362,47 +1327,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Execute an XCM from a local, signed, origin.
-		///
-		/// An event is deposited indicating whether the message could be executed completely
-		/// or only partially.
-		///
-		/// No more than `max_weight` will be used in its attempted execution. If this is less than
-		/// the maximum amount of weight that the message could take to be executed, then no
-		/// execution attempt will be made.
-		///
-		/// The message is passed in encoded. It needs to be decodable as a [`VersionedXcm`].
-		#[pallet::call_index(13)]
-		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute_blob()))]
-		pub fn execute_blob(
-			origin: OriginFor<T>,
-			encoded_message: BoundedVec<u8, MaxXcmEncodedSize>,
-			max_weight: Weight,
-		) -> DispatchResultWithPostInfo {
-			let weight_used = <Self as ExecuteController<_, _>>::execute_blob(
-				origin,
-				encoded_message,
-				max_weight,
-			)?;
-			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute_blob())).into())
-		}
-
-		/// Send an XCM from a local, signed, origin.
-		///
-		/// The destination, `dest`, will receive this message with a `DescendOrigin` instruction
-		/// that makes the origin of the message be the origin on this system.
-		///
-		/// The message is passed in encoded. It needs to be decodable as a [`VersionedXcm`].
-		#[pallet::call_index(14)]
-		pub fn send_blob(
-			origin: OriginFor<T>,
-			dest: Box<VersionedLocation>,
-			encoded_message: BoundedVec<u8, MaxXcmEncodedSize>,
-		) -> DispatchResult {
-			<Self as SendController<_>>::send_blob(origin, dest, encoded_message)?;
-			Ok(())
-		}
-
 		/// Transfer assets from the local chain to the destination chain using explicit transfer
 		/// types for assets and fees.
 		///
@@ -1451,7 +1375,7 @@ pub mod pallet {
 		/// - `custom_xcm_on_dest`: The XCM to be executed on `dest` chain as the last step of the
 		///   transfer, which also determines what happens to the assets on the destination chain.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
-		#[pallet::call_index(15)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::transfer_assets())]
 		pub fn transfer_assets_using_type_and_then(
 			origin: OriginFor<T>,
@@ -2508,35 +2432,37 @@ impl<T: Config> Pallet<T> {
 		AccountIdConversion::<T::AccountId>::into_account_truncating(&ID)
 	}
 
-	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, FeePaymentError> {
-		let message =
-			Xcm::<()>::try_from(message).map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
+		let message = Xcm::<()>::try_from(message)
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
 		T::Weigher::weight(&mut message.into()).map_err(|()| {
 			log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
-			FeePaymentError::WeightNotComputable
+			XcmPaymentApiError::WeightNotComputable
 		})
 	}
 
 	pub fn query_delivery_fees(
 		destination: VersionedLocation,
 		message: VersionedXcm<()>,
-	) -> Result<VersionedAssets, FeePaymentError> {
+	) -> Result<VersionedAssets, XcmPaymentApiError> {
 		let result_version = destination.identify_version().max(message.identify_version());
 
-		let destination =
-			destination.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+		let destination = destination
+			.try_into()
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
-		let message = message.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+		let message =
+			message.try_into().map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
 		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
 			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Error when querying delivery fees: {:?}", error);
-			FeePaymentError::Unroutable
+			XcmPaymentApiError::Unroutable
 		})?;
 
 		VersionedAssets::from(fees)
 			.into_version(result_version)
-			.map_err(|_| FeePaymentError::VersionedConversionFailed)
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)
 	}
 
 	/// Create a new expectation of a query response with the querier being here.
@@ -3197,6 +3123,24 @@ impl<T: Config> CheckSuspension for Pallet<T> {
 		_properties: &mut Properties,
 	) -> bool {
 		XcmExecutionSuspended::<T>::get()
+	}
+}
+
+impl<T: Config> xcm_executor::traits::RecordXcm for Pallet<T> {
+	fn should_record() -> bool {
+		ShouldRecordXcm::<T>::get()
+	}
+
+	fn set_record_xcm(enabled: bool) {
+		ShouldRecordXcm::<T>::put(enabled);
+	}
+
+	fn recorded_xcm() -> Option<Xcm<()>> {
+		RecordedXcm::<T>::get()
+	}
+
+	fn record(xcm: Xcm<()>) {
+		RecordedXcm::<T>::put(xcm);
 	}
 }
 
