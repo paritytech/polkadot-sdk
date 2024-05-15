@@ -20,15 +20,17 @@
 //! are reusing Polkadot Bulletin chain primitives everywhere here.
 
 use crate::{
-	bridge_common_config::{BridgeGrandpaRococoBulletinInstance, BridgeHubRococo},
-	weights,
-	xcm_config::UniversalLocation,
-	AccountId, BridgeRococoBulletinGrandpa, BridgeRococoBulletinMessages, PolkadotXcm, Runtime,
-	RuntimeEvent, XcmOverRococoBulletin, XcmRouter,
+	bridge_common_config::BridgeHubRococo, weights, xcm_config::UniversalLocation, AccountId,
+	BridgeRococoBulletinGrandpa, BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent,
+	XcmOverRococoBulletin, XcmRouter,
 };
 use bp_messages::LaneId;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
+	extensions::refund_relayer_extension::{
+		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane,
+	},
 	messages,
 	messages::{
 		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
@@ -38,10 +40,6 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
-	},
-	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundSignedExtensionAdapter,
-		RefundableMessagesLane,
 	},
 };
 
@@ -82,6 +80,9 @@ parameter_types! {
 	/// Lane identifier, used to connect Rococo People and Rococo Bulletin chain.
 	pub const RococoPeopleToRococoBulletinMessagesLane: bp_messages::LaneId
 		= XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN;
+
+	// see the `FEE_BOOST_PER_RELAY_HEADER` constant get the meaning of this value
+	pub PriorityBoostPerRelayHeader: u64 = 58_014_163_614_163;
 
 	/// Priority boost that the registered relayer receives for every additional message in the message
 	/// delivery transaction.
@@ -169,9 +170,8 @@ impl messages::BridgedChainWithMessages for RococoBulletin {}
 /// Signed extension that refunds relayers that are delivering messages from the Rococo Bulletin
 /// chain.
 pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAdapter<
-	RefundBridgedGrandpaMessages<
+	RefundBridgedMessages<
 		Runtime,
-		BridgeGrandpaRococoBulletinInstance,
 		RefundableMessagesLane<
 			WithRococoBulletinMessagesInstance,
 			RococoPeopleToRococoBulletinMessagesLane,
@@ -244,6 +244,9 @@ mod tests {
 	/// operational costs and a faster bridge), so this value should be significant.
 	const FEE_BOOST_PER_MESSAGE: Balance = 2 * rococo::currency::UNITS;
 
+	// see `FEE_BOOST_PER_MESSAGE` comment
+	const FEE_BOOST_PER_RELAY_HEADER: Balance = 2 * rococo::currency::UNITS;
+
 	#[test]
 	fn ensure_bridge_hub_rococo_message_lane_weights_are_correct() {
 		check_message_lane_weights::<
@@ -273,7 +276,13 @@ mod tests {
 		// Bulletin chain - it has the same (almost) runtime for Polkadot Bulletin and Rococo
 		// Bulletin, so we have to adhere Polkadot names here
 
-		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+		bridge_runtime_common::extensions::priority_calculator::per_relay_header::ensure_priority_boost_is_sane::<
+			Runtime,
+			BridgeGrandpaRococoBulletinInstance,
+			PriorityBoostPerRelayHeader,
+		>(FEE_BOOST_PER_RELAY_HEADER);
+
+		bridge_runtime_common::extensions::priority_calculator::per_message::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithRococoBulletinMessagesInstance,
 			PriorityBoostPerMessage,

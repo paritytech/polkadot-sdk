@@ -36,6 +36,7 @@ mod tick_impls;
 mod types;
 mod utility_impls;
 
+pub mod migration;
 pub mod runtime_api;
 
 pub mod weights;
@@ -45,6 +46,9 @@ pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
 pub use types::*;
+
+/// The log target for this pallet.
+const LOG_TARGET: &str = "runtime::broker";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -61,7 +65,10 @@ pub mod pallet {
 	use sp_runtime::traits::{Convert, ConvertBack};
 	use sp_std::vec::Vec;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -216,9 +223,9 @@ pub mod pallet {
 			/// The duration of the Region.
 			duration: Timeslice,
 			/// The old owner of the Region.
-			old_owner: T::AccountId,
+			old_owner: Option<T::AccountId>,
 			/// The new owner of the Region.
-			owner: T::AccountId,
+			owner: Option<T::AccountId>,
 		},
 		/// A Region has been split into two non-overlapping Regions.
 		Partitioned {
@@ -552,16 +559,22 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `initial_price`: The price of Bulk Coretime in the first sale.
-		/// - `core_count`: The number of cores which can be allocated.
+		/// - `extra_cores`: Number of extra cores that should be requested on top of the cores
+		///   required for `Reservations` and `Leases`.
+		///
+		/// This will call [`Self::request_core_count`] internally to set the correct core count on
+		/// the relay chain.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::start_sales((*core_count).into()))]
+		#[pallet::weight(T::WeightInfo::start_sales(
+			T::MaxLeasedCores::get() + T::MaxReservedCores::get() + *extra_cores as u32
+		))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
 			initial_price: BalanceOf<T>,
-			core_count: CoreIndex,
+			extra_cores: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_start_sales(initial_price, core_count)?;
+			Self::do_start_sales(initial_price, extra_cores)?;
 			Ok(Pays::No.into())
 		}
 

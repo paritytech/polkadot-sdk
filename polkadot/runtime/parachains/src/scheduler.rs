@@ -86,8 +86,7 @@ pub mod pallet {
 	/// multiplexers. Reasonably, 100-1000. The dominant factor is the number of validators: safe
 	/// upper bound at 10k.
 	#[pallet::storage]
-	#[pallet::getter(fn validator_groups)]
-	pub(crate) type ValidatorGroups<T> = StorageValue<_, Vec<Vec<ValidatorIndex>>, ValueQuery>;
+	pub type ValidatorGroups<T> = StorageValue<_, Vec<Vec<ValidatorIndex>>, ValueQuery>;
 
 	/// One entry for each availability core. The i'th parachain belongs to the i'th core, with the
 	/// remaining cores all being on demand parachain multiplexers.
@@ -96,9 +95,7 @@ pub mod pallet {
 	///   * The number of parachains and parathread multiplexers
 	///   * The number of validators divided by `configuration.max_validators_per_core`.
 	#[pallet::storage]
-	#[pallet::getter(fn availability_cores)]
-	pub(crate) type AvailabilityCores<T: Config> =
-		StorageValue<_, Vec<CoreOccupiedType<T>>, ValueQuery>;
+	pub type AvailabilityCores<T: Config> = StorageValue<_, Vec<CoreOccupiedType<T>>, ValueQuery>;
 
 	/// Representation of a core in `AvailabilityCores`.
 	///
@@ -140,15 +137,13 @@ pub mod pallet {
 	/// Thus for all intents and purposes the effect of the session change is observed at the
 	/// block following the session change, block number of which we save in this storage value.
 	#[pallet::storage]
-	#[pallet::getter(fn session_start_block)]
-	pub(crate) type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// One entry for each availability core. The `VecDeque` represents the assignments to be
 	/// scheduled on that core. The value contained here will not be valid after the end of
 	/// a block. Runtime APIs should be used to determine scheduled cores for the upcoming block.
 	#[pallet::storage]
-	#[pallet::getter(fn claimqueue)]
-	pub(crate) type ClaimQueue<T: Config> =
+	pub type ClaimQueue<T: Config> =
 		StorageValue<_, BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>, ValueQuery>;
 
 	/// Assignments as tracked in the claim queue.
@@ -273,8 +268,8 @@ impl<T: Config> Pallet<T> {
 			ValidatorGroups::<T>::set(groups);
 		}
 
-		let now = <frame_system::Pallet<T>>::block_number() + One::one();
-		<SessionStartBlock<T>>::set(now);
+		let now = frame_system::Pallet::<T>::block_number() + One::one();
+		SessionStartBlock::<T>::set(now);
 	}
 
 	/// Free unassigned cores. Provide a list of cores that should be considered newly-freed along
@@ -355,9 +350,9 @@ impl<T: Config> Pallet<T> {
 	/// `AssignmentProvider`. A claim is considered expired if it's `ttl` field is lower than the
 	/// current block height.
 	fn drop_expired_claims_from_claimqueue() {
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		let availability_cores = AvailabilityCores::<T>::get();
-		let ttl = <configuration::Pallet<T>>::config().scheduler_params.ttl;
+		let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
 
 		ClaimQueue::<T>::mutate(|cq| {
 			for (idx, _) in (0u32..).zip(availability_cores) {
@@ -410,8 +405,8 @@ impl<T: Config> Pallet<T> {
 		core: CoreIndex,
 		at: BlockNumberFor<T>,
 	) -> Option<GroupIndex> {
-		let config = <configuration::Pallet<T>>::config();
-		let session_start_block = <SessionStartBlock<T>>::get();
+		let config = configuration::ActiveConfig::<T>::get();
+		let session_start_block = SessionStartBlock::<T>::get();
 
 		if at < session_start_block {
 			return None
@@ -442,8 +437,8 @@ impl<T: Config> Pallet<T> {
 	/// This only ever times out cores that have been occupied across a group rotation boundary.
 	pub(crate) fn availability_timeout_predicate(
 	) -> impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>> {
-		let config = <configuration::Pallet<T>>::config();
-		let now = <frame_system::Pallet<T>>::block_number();
+		let config = configuration::ActiveConfig::<T>::get();
+		let now = frame_system::Pallet::<T>::block_number();
 		let rotation_info = Self::group_rotation_info(now);
 
 		let next_rotation = rotation_info.next_rotation_at();
@@ -470,8 +465,8 @@ impl<T: Config> Pallet<T> {
 	/// This can be used to avoid calling `availability_timeout_predicate` for each core in case
 	/// this function returns false.
 	pub(crate) fn availability_timeout_check_required() -> bool {
-		let config = <configuration::Pallet<T>>::config();
-		let now = <frame_system::Pallet<T>>::block_number() + One::one();
+		let config = configuration::ActiveConfig::<T>::get();
+		let now = frame_system::Pallet::<T>::block_number() + One::one();
 		let rotation_info = Self::group_rotation_info(now);
 
 		let current_window =
@@ -483,9 +478,10 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn group_rotation_info(
 		now: BlockNumberFor<T>,
 	) -> GroupRotationInfo<BlockNumberFor<T>> {
-		let session_start_block = Self::session_start_block();
-		let group_rotation_frequency =
-			<configuration::Pallet<T>>::config().scheduler_params.group_rotation_frequency;
+		let session_start_block = SessionStartBlock::<T>::get();
+		let group_rotation_frequency = configuration::ActiveConfig::<T>::get()
+			.scheduler_params
+			.group_rotation_frequency;
 
 		GroupRotationInfo { session_start_block, now, group_rotation_frequency }
 	}
@@ -505,8 +501,9 @@ impl<T: Config> Pallet<T> {
 	/// Return the next thing that will be scheduled on this core assuming it is currently
 	/// occupied and the candidate occupying it times out.
 	pub(crate) fn next_up_on_time_out(core: CoreIndex) -> Option<ScheduledCore> {
-		let max_availability_timeouts =
-			<configuration::Pallet<T>>::config().scheduler_params.max_availability_timeouts;
+		let max_availability_timeouts = configuration::ActiveConfig::<T>::get()
+			.scheduler_params
+			.max_availability_timeouts;
 		Self::next_up_on_available(core).or_else(|| {
 			// Or, if none, the claim currently occupying the core,
 			// as it would be put back on the queue after timing out if number of retries is not at
@@ -561,7 +558,7 @@ impl<T: Config> Pallet<T> {
 	//  ClaimQueue related functions
 	//
 	fn claimqueue_lookahead() -> u32 {
-		<configuration::Pallet<T>>::config().scheduler_params.lookahead
+		configuration::ActiveConfig::<T>::get().scheduler_params.lookahead
 	}
 
 	/// Frees cores and fills the free claimqueue spots by popping from the `AssignmentProvider`.
@@ -580,7 +577,7 @@ impl<T: Config> Pallet<T> {
 		let n_lookahead = Self::claimqueue_lookahead().max(1);
 		let n_session_cores = T::AssignmentProvider::session_core_count();
 		let cq = ClaimQueue::<T>::get();
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let max_availability_timeouts = config.scheduler_params.max_availability_timeouts;
 		let ttl = config.scheduler_params.ttl;
 

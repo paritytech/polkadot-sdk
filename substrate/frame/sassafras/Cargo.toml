@@ -2,7 +2,7 @@
 name = "pallet-sassafras"
 version = "0.3.5-dev"
 authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository = "https://github.com/paritytech/substrate/"
@@ -29,7 +29,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 sp-core = { path = "../../primitives/core" }
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 

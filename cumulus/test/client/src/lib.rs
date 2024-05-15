@@ -45,33 +45,18 @@ pub use substrate_test_client::*;
 
 pub type ParachainBlockData = cumulus_primitives_core::ParachainBlockData<Block>;
 
-mod local_executor {
-	/// Native executor instance.
-	pub struct LocalExecutor;
-
-	impl sc_executor::NativeExecutionDispatch for LocalExecutor {
-		type ExtendHostFunctions =
-			cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions;
-
-		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-			cumulus_test_runtime::api::dispatch(method, data)
-		}
-
-		fn native_version() -> sc_executor::NativeVersion {
-			cumulus_test_runtime::native_version()
-		}
-	}
-}
-
-/// Native executor used for tests.
-pub use local_executor::LocalExecutor;
-
 /// Test client database backend.
 pub type Backend = substrate_test_client::Backend<Block>;
 
 /// Test client executor.
-pub type Executor =
-	client::LocalCallExecutor<Block, Backend, sc_executor::NativeElseWasmExecutor<LocalExecutor>>;
+pub type Executor = client::LocalCallExecutor<
+	Block,
+	Backend,
+	WasmExecutor<(
+		sp_io::SubstrateHostFunctions,
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	)>,
+>;
 
 /// Test client builder for Cumulus
 pub type TestClientBuilder =
@@ -100,7 +85,7 @@ impl substrate_test_client::GenesisInit for GenesisParameters {
 	}
 }
 
-/// A `test-runtime` extensions to `TestClientBuilder`.
+/// A `test-runtime` extensions to [`TestClientBuilder`].
 pub trait TestClientBuilderExt: Sized {
 	/// Build the test client.
 	fn build(self) -> Client {
