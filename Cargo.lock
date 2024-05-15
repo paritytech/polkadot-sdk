@@ -5362,20 +5362,19 @@ dependencies = [
 
 [[package]]
 name = "fatality"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61ecdc33d04db74fc23db9f54f6f314c61d29f810d58ba423d0c204888365458"
+checksum = "ec6f82451ff7f0568c6181287189126d492b5654e30a788add08027b6363d019"
 dependencies = [
  "fatality-proc-macro",
- "syn 2.0.61",
  "thiserror",
 ]
 
 [[package]]
 name = "fatality-proc-macro"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac67b350787fd4a934752e30ddb45569da000e14bf3e499224302778b7a918ab"
+checksum = "eb42427514b063d97ce21d5199f36c0c307d981434a6be32582bc79fe5bd2303"
 dependencies = [
  "expander",
  "indexmap 2.2.3",
@@ -5383,7 +5382,6 @@ dependencies = [
  "proc-macro2 1.0.82",
  "quote 1.0.35",
  "syn 2.0.61",
- "thiserror",
 ]
 
 [[package]]
@@ -8876,12 +8874,13 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.27.1"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
+checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
 dependencies = [
  "bitflags 2.4.0",
  "cfg-if",
+ "cfg_aliases",
  "libc",
 ]
 
@@ -12535,7 +12534,7 @@ version = "6.0.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
- "nix 0.27.1",
+ "nix 0.28.0",
  "polkadot-cli",
  "polkadot-core-primitives",
  "polkadot-node-core-pvf",
@@ -13219,7 +13218,7 @@ dependencies = [
  "futures",
  "landlock",
  "libc",
- "nix 0.27.1",
+ "nix 0.28.0",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
@@ -13244,7 +13243,7 @@ dependencies = [
  "cfg-if",
  "cpu-time",
  "libc",
- "nix 0.27.1",
+ "nix 0.28.0",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-parachain-primitives",
@@ -13260,7 +13259,7 @@ dependencies = [
  "cfg-if",
  "criterion",
  "libc",
- "nix 0.27.1",
+ "nix 0.28.0",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-primitives",
@@ -13553,7 +13552,7 @@ dependencies = [
  "hex-literal",
  "jsonrpsee",
  "log",
- "nix 0.27.1",
+ "nix 0.28.0",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -20120,7 +20119,7 @@ dependencies = [
  "kitchensink-runtime",
  "log",
  "mmr-gadget",
- "nix 0.27.1",
+ "nix 0.28.0",
  "node-primitives",
  "node-rpc",
  "node-testing",
@@ -20520,7 +20519,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "futures",
- "nix 0.27.1",
+ "nix 0.28.0",
  "node-primitives",
  "regex",
  "sc-cli",
