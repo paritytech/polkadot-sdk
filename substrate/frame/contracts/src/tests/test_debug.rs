@@ -72,7 +72,7 @@ impl Tracing<Test> for TestDebug {
 impl CallInterceptor<Test> for TestDebug {
 	fn intercept_call(
 		contract_address: &<Test as frame_system::Config>::AccountId,
-		_entry_point: &ExportedFunction,
+		_entry_point: ExportedFunction,
 		_input_data: &[u8],
 	) -> Option<ExecResult> {
 		INTERCEPTED_ADDRESS.with(|i| {

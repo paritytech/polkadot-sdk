@@ -363,7 +363,7 @@ impl<T: Config> WasmBlob<T> {
 		match Self::prepare_execute(
 			self,
 			Runtime::new(ext, input_data),
-			&ExportedFunction::Call,
+			ExportedFunction::Call,
 			CompilationMode::Eager,
 		)
 		.expect("Benchmark should provide valid module")
@@ -376,7 +376,7 @@ impl<T: Config> WasmBlob<T> {
 	fn prepare_execute<'a, E: Ext<T = T>>(
 		self,
 		runtime: Runtime<'a, E>,
-		function: &'a ExportedFunction,
+		function: ExportedFunction,
 		compilation_mode: CompilationMode,
 	) -> PreExecResult<'a, E> {
 		let code = self.code.as_slice();
@@ -425,7 +425,7 @@ impl<T: Config> WasmBlob<T> {
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		// Start function should already see the correct refcount in case it will be ever inspected.
-		if let &ExportedFunction::Constructor = function {
+		if let ExportedFunction::Constructor = function {
 			E::increment_refcount(self.code_hash)?;
 		}
 
@@ -463,7 +463,7 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 	fn execute<E: Ext<T = T>>(
 		self,
 		ext: &mut E,
-		function: &ExportedFunction,
+		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		use InstanceOrExecReturn::*;
@@ -822,7 +822,7 @@ mod tests {
 		wat: &str,
 		input_data: Vec<u8>,
 		mut ext: E,
-		entry_point: &ExportedFunction,
+		entry_point: ExportedFunction,
 		unstable_interface: bool,
 		skip_checks: bool,
 	) -> ExecResult {
@@ -849,7 +849,7 @@ mod tests {
 
 	/// Execute the `call` function within the supplied code.
 	fn execute<E: BorrowMut<MockExt>>(wat: &str, input_data: Vec<u8>, ext: E) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Call, true, false)
+		execute_internal(wat, input_data, ext, ExportedFunction::Call, true, false)
 	}
 
 	/// Execute the `deploy` function within the supplied code.
@@ -858,7 +858,7 @@ mod tests {
 		input_data: Vec<u8>,
 		ext: E,
 	) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Constructor, true, false)
+		execute_internal(wat, input_data, ext, ExportedFunction::Constructor, true, false)
 	}
 
 	/// Execute the supplied code with disabled unstable functions.
@@ -872,7 +872,7 @@ mod tests {
 		input_data: Vec<u8>,
 		ext: E,
 	) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Call, false, false)
+		execute_internal(wat, input_data, ext, ExportedFunction::Call, false, false)
 	}
 
 	/// Execute code without validating it first.
@@ -884,7 +884,7 @@ mod tests {
 		input_data: Vec<u8>,
 		ext: E,
 	) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Call, false, true)
+		execute_internal(wat, input_data, ext, ExportedFunction::Call, false, true)
 	}
 
 	/// Execute instantiation entry point of code without validating it first.
@@ -896,7 +896,7 @@ mod tests {
 		input_data: Vec<u8>,
 		ext: E,
 	) -> ExecResult {
-		execute_internal(wat, input_data, ext, &ExportedFunction::Constructor, false, true)
+		execute_internal(wat, input_data, ext, ExportedFunction::Constructor, false, true)
 	}
 
 	const CODE_TRANSFER: &str = r#"

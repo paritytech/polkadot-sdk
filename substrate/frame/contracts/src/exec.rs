@@ -412,7 +412,7 @@ pub trait Executable<T: Config>: Sized {
 	fn execute<E: Ext<T = T>>(
 		self,
 		ext: &mut E,
-		function: &ExportedFunction,
+		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult;
 
@@ -975,10 +975,10 @@ where
 
 			let call_span = T::Debug::new_call_span(contract_address, entry_point, &input_data);
 
-			let output = T::Debug::intercept_call(contract_address, &entry_point, &input_data)
+			let output = T::Debug::intercept_call(contract_address, entry_point, &input_data)
 				.unwrap_or_else(|| {
 					executable
-						.execute(self, &entry_point, input_data)
+						.execute(self, entry_point, input_data)
 						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
 				})?;
 
@@ -1771,10 +1771,10 @@ mod tests {
 		fn execute<E: Ext<T = Test>>(
 			self,
 			ext: &mut E,
-			function: &ExportedFunction,
+			function: ExportedFunction,
 			input_data: Vec<u8>,
 		) -> ExecResult {
-			if let &Constructor = function {
+			if let Constructor = function {
 				E::increment_refcount(self.code_hash).unwrap();
 			}
 			// # Safety
@@ -1787,7 +1787,7 @@ mod tests {
 			// `E: Ext`. However, `MockExecutable` can't be generic over `E` as it would
 			// constitute a cycle.
 			let ext = unsafe { mem::transmute(ext) };
-			if function == &self.func_type {
+			if function == self.func_type {
 				(self.func)(MockCtx { ext, input_data }, &self)
 			} else {
 				exec_success()
