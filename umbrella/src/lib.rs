@@ -459,6 +459,10 @@ pub use pallet_conviction_voting;
 #[cfg(feature = "pallet-core-fellowship")]
 pub use pallet_core_fellowship;
 
+/// FRAME delegated staking pallet.
+#[cfg(feature = "pallet-delegated-staking")]
+pub use pallet_delegated_staking;
+
 /// FRAME pallet for democracy.
 #[cfg(feature = "pallet-democracy")]
 pub use pallet_democracy;

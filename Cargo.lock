@@ -13854,6 +13854,7 @@ dependencies = [
  "pallet-contracts-uapi",
  "pallet-conviction-voting",
  "pallet-core-fellowship",
+ "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-dev-mode",
  "pallet-election-provider-multi-phase",
