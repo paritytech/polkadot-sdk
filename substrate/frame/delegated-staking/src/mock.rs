@@ -35,6 +35,7 @@ use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
 use sp_core::U256;
 use sp_runtime::traits::Convert;
 use sp_staking::{Stake, StakingInterface};
+
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 pub type AccountId = u128;

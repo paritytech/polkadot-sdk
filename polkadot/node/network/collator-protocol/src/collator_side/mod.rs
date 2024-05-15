@@ -261,7 +261,7 @@ struct State {
 	/// `active_leaves`, the opposite doesn't hold true.
 	///
 	/// Relay-chain blocks which don't support prospective parachains are
-	/// never included in the fragment trees of active leaves which do. In
+	/// never included in the fragment chains of active leaves which do. In
 	/// particular, this means that if a given relay parent belongs to implicit
 	/// ancestry of some active leaf, then it does support prospective parachains.
 	implicit_view: ImplicitView,
@@ -531,7 +531,7 @@ async fn distribute_collation<Context>(
 	// Otherwise, it should be present in allowed ancestry of some leaf.
 	//
 	// It's collation-producer responsibility to verify that there exists
-	// a hypothetical membership in a fragment tree for candidate.
+	// a hypothetical membership in a fragment chain for the candidate.
 	let interested =
 		state
 			.peer_data
@@ -894,7 +894,7 @@ async fn process_msg<Context>(
 				);
 			}
 		},
-		msg @ (ReportCollator(..) | Invalid(..) | Seconded(..) | Backed { .. }) => {
+		msg @ (ReportCollator(..) | Invalid(..) | Seconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				"{:?} message is not expected on the collator side of the protocol",
