@@ -54,8 +54,6 @@ use std::{
 	},
 };
 
-const LOG_TARGET: &str = "subsystem-bench::test-state";
-
 #[derive(Clone)]
 pub struct TestState {
 	// Full test config
