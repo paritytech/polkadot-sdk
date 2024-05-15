@@ -808,7 +808,7 @@ pub mod pallet {
 			ensure!(proposal_hash == ext_proposal.hash(), Error::<T>::InvalidHash);
 
 			NextExternal::<T>::kill();
-			let now = <frame_system:Pallet::<T>::block_number();
+			let now = frame_system::Pallet::<T>::block_number();
 			let ref_index = Self::inject_referendum(
 				now.saturating_add(voting_period),
 				ext_proposal,
@@ -848,7 +848,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::TooMany)?;
 
 			let until =
-				<frame_system:Pallet::<T>::block_number().saturating_add(T::CooloffPeriod::get());
+				frame_system::Pallet::<T>::block_number().saturating_add(T::CooloffPeriod::get());
 			Blacklist::<T>::insert(&proposal_hash, (until, existing_vetoers));
 
 			Self::deposit_event(Event::<T>::Vetoed { who, proposal_hash, until });
@@ -1239,7 +1239,7 @@ impl<T: Config> Pallet<T> {
 		delay: BlockNumberFor<T>,
 	) -> ReferendumIndex {
 		Pallet::<T>::inject_referendum(
-			<frame_system:Pallet::<T>::block_number().saturating_add(T::VotingPeriod::get()),
+			frame_system::Pallet::<T>::block_number().saturating_add(T::VotingPeriod::get()),
 			proposal,
 			threshold,
 			delay,
