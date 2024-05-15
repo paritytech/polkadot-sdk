@@ -13,3 +13,7 @@ doc:
 crates:
   - name: pallet-delegated-staking
     bump: patch
+  - name: pallet-staking
+    bump: patch
+  - name: sp-staking
+    bump: minor
