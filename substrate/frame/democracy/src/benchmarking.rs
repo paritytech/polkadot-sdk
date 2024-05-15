@@ -261,7 +261,7 @@ benchmarks! {
 	}: _<T::RuntimeOrigin>(origin, proposal)
 	verify {
 		// External proposal created
-		ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
+		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
 	}
 
 	external_propose_majority {
@@ -271,7 +271,7 @@ benchmarks! {
 	}: _<T::RuntimeOrigin>(origin, proposal)
 	verify {
 		// External proposal created
-		ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
+		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
 	}
 
 	external_propose_default {
@@ -281,7 +281,7 @@ benchmarks! {
 	}: _<T::RuntimeOrigin>(origin, proposal)
 	verify {
 		// External proposal created
-		ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
+		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
 	}
 
 	fast_track {
@@ -338,7 +338,7 @@ benchmarks! {
 	}: _<T::RuntimeOrigin>(origin, proposal_hash)
 	verify {
 		assert!(NextExternal::<T>::get().is_none());
-		let (_, new_vetoers) = <Blacklist<T>>::get(&proposal_hash).ok_or("no blacklist")?;
+		let (_, new_vetoers) = Blacklist::<T>::get(&proposal_hash).ok_or("no blacklist")?;
 		assert_eq!(new_vetoers.len(), T::MaxBlacklisted::get() as usize, "vetoers not added");
 	}
 
@@ -393,7 +393,7 @@ benchmarks! {
 		let call = Call::<T>::external_propose_majority { proposal };
 		call.dispatch_bypass_filter(origin)?;
 		// External proposal created
-		ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
+		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
 
 		let block_number = T::LaunchPeriod::get();
 
@@ -401,7 +401,7 @@ benchmarks! {
 	verify {
 		// One extra because of next external
 		assert_eq!(Democracy::<T>::referendum_count(), r + 1, "referenda not created");
-		ensure!(!<NextExternal<T>>::exists(), "External wasn't taken");
+		ensure!(!NextExternal::<T>::exists(), "External wasn't taken");
 
 		// All but the new next external should be finished
 		for i in 0 .. r {

@@ -33,7 +33,7 @@ fn set_external_metadata_works() {
 		);
 		// create an external proposal.
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
-		assert!(<NextExternal<Test>>::exists());
+		assert!(NextExternal::<Test>::exists());
 		// fails to set metadata with non external origin.
 		assert_noop!(
 			Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), Some(invalid_hash)),
@@ -61,7 +61,7 @@ fn clear_metadata_works() {
 		let owner = MetadataOwner::External;
 		// create an external proposal.
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
-		assert!(<NextExternal<Test>>::exists());
+		assert!(NextExternal::<Test>::exists());
 		// set metadata.
 		let hash = note_preimage(1);
 		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(2), owner.clone(), Some(hash)));
