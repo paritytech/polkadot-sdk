@@ -851,7 +851,7 @@ pub mod pallet {
 			let maximum_chain_accuracy: Vec<UpperOf<SolutionAccuracyOf<T>>> = (0..max_vote)
 				.map(|_| {
 					<UpperOf<SolutionAccuracyOf<T>>>::from(
-						<SolutionAccuracyOf<T>>::one().deconstruct(),
+						SolutionAccuracyOf::<T>::one().deconstruct(),
 					)
 				})
 				.collect();
@@ -932,8 +932,8 @@ pub mod pallet {
 
 			// Store the newly received solution.
 			log!(debug, "queued unsigned solution with score {:?}", ready.score);
-			let ejected_a_solution = <QueuedSolution<T>>::exists();
-			<QueuedSolution<T>>::put(ready);
+			let ejected_a_solution = QueuedSolution::<T>::exists();
+			QueuedSolution::<T>::put(ready);
 			Self::deposit_event(Event::SolutionStored {
 				compute: ElectionCompute::Unsigned,
 				origin: None,
@@ -955,7 +955,7 @@ pub mod pallet {
 			maybe_next_score: Option<ElectionScore>,
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
-			<MinimumUntrustedScore<T>>::set(maybe_next_score);
+			MinimumUntrustedScore::<T>::set(maybe_next_score);
 			Ok(())
 		}
 
@@ -974,7 +974,7 @@ pub mod pallet {
 			supports: Supports<T::AccountId>,
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
-			ensure!(Self::current_phase().is_emergency(), <Error<T>>::CallNotAllowed);
+			ensure!(Self::current_phase().is_emergency(), Error::<T>::CallNotAllowed);
 
 			// bound supports with T::MaxWinners
 			let supports = supports.try_into().map_err(|_| Error::<T>::TooManyWinners)?;
@@ -993,7 +993,7 @@ pub mod pallet {
 				prev_ejected: QueuedSolution::<T>::exists(),
 			});
 
-			<QueuedSolution<T>>::put(solution);
+			QueuedSolution::<T>::put(solution);
 			Ok(())
 		}
 
@@ -1086,7 +1086,7 @@ pub mod pallet {
 			maybe_max_targets: Option<u32>,
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
-			ensure!(Self::current_phase().is_emergency(), <Error<T>>::CallNotAllowed);
+			ensure!(Self::current_phase().is_emergency(), Error::<T>::CallNotAllowed);
 
 			let election_bounds = ElectionBoundsBuilder::default()
 				.voters_count(maybe_max_voters.unwrap_or(u32::MAX).into())
@@ -1121,7 +1121,7 @@ pub mod pallet {
 				prev_ejected: QueuedSolution::<T>::exists(),
 			});
 
-			<QueuedSolution<T>>::put(solution);
+			QueuedSolution::<T>::put(solution);
 			Ok(())
 		}
 	}
@@ -1359,15 +1359,15 @@ pub struct SnapshotWrapper<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> SnapshotWrapper<T> {
 	/// Kill all snapshot related storage items at the same time.
 	pub fn kill() {
-		<Snapshot<T>>::kill();
-		<SnapshotMetadata<T>>::kill();
-		<DesiredTargets<T>>::kill();
+		Snapshot::<T>::kill();
+		SnapshotMetadata::<T>::kill();
+		DesiredTargets::<T>::kill();
 	}
 	/// Set all snapshot related storage items at the same time.
 	pub fn set(metadata: SolutionOrSnapshotSize, desired_targets: u32, buffer: &[u8]) {
-		<SnapshotMetadata<T>>::put(metadata);
-		<DesiredTargets<T>>::put(desired_targets);
-		sp_io::storage::set(&<Snapshot<T>>::hashed_key(), &buffer);
+		SnapshotMetadata::<T>::put(metadata);
+		DesiredTargets::<T>::put(desired_targets);
+		sp_io::storage::set(&Snapshot::<T>::hashed_key(), &buffer);
 	}
 
 	/// Check if all of the storage items exist at the same time or all of the storage items do not
@@ -1375,9 +1375,9 @@ impl<T: Config> SnapshotWrapper<T> {
 	#[cfg(feature = "try-runtime")]
 	pub fn is_consistent() -> bool {
 		let snapshots = [
-			<Snapshot<T>>::exists(),
-			<SnapshotMetadata<T>>::exists(),
-			<DesiredTargets<T>>::exists(),
+			Snapshot::<T>::exists(),
+			SnapshotMetadata::<T>::exists(),
+			DesiredTargets::<T>::exists(),
 		];
 
 		// All should either exist or not exist
@@ -1417,11 +1417,11 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn phase_transition(to: Phase<BlockNumberFor<T>>) {
 		log!(info, "Starting phase {:?}, round {}.", to, Self::round());
 		Self::deposit_event(Event::PhaseTransitioned {
-			from: <CurrentPhase<T>>::get(),
+			from: CurrentPhase::<T>::get(),
 			to,
 			round: Self::round(),
 		});
-		<CurrentPhase<T>>::put(to);
+		CurrentPhase::<T>::put(to);
 	}
 
 	/// Parts of [`create_snapshot`] that happen inside of this pallet.
@@ -1525,7 +1525,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This is always mandatory weight.
 	fn register_weight(weight: Weight) {
-		<frame_system::Pallet<T>>::register_extra_weight_unchecked(
+		frame_system::Pallet::<T>::register_extra_weight_unchecked(
 			weight,
 			DispatchClass::Mandatory,
 		);
@@ -1560,7 +1560,7 @@ impl<T: Config> Pallet<T> {
 	/// 3. Clear all snapshot data.
 	fn rotate_round() {
 		// Inc round.
-		<Round<T>>::mutate(|r| *r += 1);
+		Round::<T>::mutate(|r| *r += 1);
 
 		// Phase is off now.
 		Self::phase_transition(Phase::Off);
@@ -1579,7 +1579,7 @@ impl<T: Config> Pallet<T> {
 		//   inexpensive (1 read of an empty vector).
 		let _ = Self::finalize_signed_phase();
 
-		<QueuedSolution<T>>::take()
+		QueuedSolution::<T>::take()
 			.ok_or(ElectionError::<T>::NothingQueued)
 			.or_else(|_| {
 				// default data provider bounds are unbounded. calling `instant_elect` with
@@ -1650,7 +1650,7 @@ impl<T: Config> Pallet<T> {
 	// - [`SignedSubmissionIndices`] is sorted by election score.
 	fn try_state_signed_submissions_map() -> Result<(), TryRuntimeError> {
 		let mut last_score: ElectionScore = Default::default();
-		let indices = <SignedSubmissionIndices<T>>::get();
+		let indices = SignedSubmissionIndices::<T>::get();
 
 		for (i, indice) in indices.iter().enumerate() {
 			let submission = <SignedSubmissionsMap<T>>::get(indice.2);
@@ -1698,7 +1698,7 @@ impl<T: Config> Pallet<T> {
 		match Self::current_phase().is_off() {
 			false => Ok(()),
 			true =>
-				if <Snapshot<T>>::get().is_some() {
+				if Snapshot::<T>::get().is_some() {
 					Err("Snapshot must be none when in Phase::Off".into())
 				} else {
 					Ok(())
