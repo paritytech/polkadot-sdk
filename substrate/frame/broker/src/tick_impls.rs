@@ -336,15 +336,10 @@ impl<T: Config> Pallet<T> {
 	/// Renews all the cores which have auto-renewal enabled.
 	pub(crate) fn renew_cores() {
 		let renewals = AutoRenewals::<T>::get();
-		renewals.into_iter().for_each(|(core, task)| {
-			let payer = T::SovereignAccountOf::sovereign_account(task);
-			if let Err(_) = Self::do_renew(payer.clone().unwrap().clone(), core) {
+		renewals.into_iter().for_each(|(core, payer)| {
+			if let Err(_) = Self::do_renew(payer.clone(), core) {
 				// TODO: no unwrap
-				Self::deposit_event(Event::<T>::AutoRenewalFailed {
-					core,
-					task,
-					payer: payer.unwrap(),
-				});
+				Self::deposit_event(Event::<T>::AutoRenewalFailed { core, payer });
 			}
 		});
 	}

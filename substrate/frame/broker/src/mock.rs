@@ -201,7 +201,7 @@ impl TaskAccountInterface for TaskSovereignAccount {
 		}
 	}
 
-	fn sovereign_account(task: TaskId) -> u64 {
+	fn sovereign_account(task: TaskId) -> Option<u64> {
 		Some(task.into())
 	}
 }

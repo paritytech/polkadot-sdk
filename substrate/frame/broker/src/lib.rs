@@ -187,7 +187,7 @@ pub mod pallet {
 	/// Sorted by `CoreIndex` to make the removal of cores from auto-renewal more efficient.
 	#[pallet::storage]
 	pub type AutoRenewals<T: Config> =
-		StorageValue<_, BoundedVec<(CoreIndex, TaskId), T::MaxAutoRenewals>, ValueQuery>;
+		StorageValue<_, BoundedVec<(CoreIndex, T::AccountId), T::MaxAutoRenewals>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -447,8 +447,6 @@ pub mod pallet {
 		AutoRenewalFailed {
 			/// The core for which the renewal failed.
 			core: CoreIndex,
-			/// The task for which the renewal failed.
-			task: TaskId,
 			/// The account which was supposed to pay for renewal.
 			payer: T::AccountId,
 		},

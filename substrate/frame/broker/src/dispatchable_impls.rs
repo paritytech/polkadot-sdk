@@ -487,7 +487,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(record) =
 				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_begin })
 			{
-				Self::do_renew(sovereign_account, core)?;
+				Self::do_renew(sovereign_account.clone(), core)?;
 				record
 			} else {
 				// If we couldn't find the renewal record for the current bulk period we should
@@ -519,9 +519,9 @@ impl<T: Config> Pallet<T> {
 		// We are keeping the auto-renewals sorted by `CoreIndex`.
 		AutoRenewals::<T>::try_mutate(|renewals| {
 			let pos = renewals
-				.binary_search_by(|r: &(CoreIndex, TaskId)| r.0.cmp(&core))
+				.binary_search_by(|r: &(CoreIndex, T::AccountId)| r.0.cmp(&core))
 				.unwrap_or_else(|e| e);
-			renewals.try_insert(pos, (core, task))
+			renewals.try_insert(pos, (core, sovereign_account))
 		})
 		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
 
