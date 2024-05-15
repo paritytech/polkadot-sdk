@@ -260,7 +260,7 @@ pub trait Backend<Block: BlockT>:
 	}
 }
 
-/// Result of  [`HeaderBackend::displaced_leaves_after_finalizing`].
+/// Result of  [`Backend::displaced_leaves_after_finalizing`].
 #[derive(Clone, Debug)]
 pub struct DisplacedLeavesAfterFinalization<Block: BlockT> {
 	/// A collection of hashes and block numbers for displaced leaves.
