@@ -11,7 +11,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { workspace = true }
