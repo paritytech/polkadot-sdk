@@ -27,7 +27,7 @@ use std::path::Path;
 ///
 /// Any other host function will return an error.
 type HostFunctions = (
-	// The allocator
+	// The allocator functions.
 	sp_io::allocator::HostFunctions,
 	// Logging is good to have for debugging issues.
 	sp_io::logging::HostFunctions,
@@ -35,6 +35,8 @@ type HostFunctions = (
 	// into the state and this would panic at metadata generation. Thus, we give them an empty
 	// state to not panic.
 	sp_io::storage::HostFunctions,
+	// The hashing functions.
+	sp_io::hashing::HostFunctions,
 );
 
 /// Generate the metadata hash.
@@ -102,7 +104,9 @@ pub fn generate_metadata_hash(wasm: &Path, extra_info: MetadataExtraInfo) -> [u8
 		token_symbol: extra_info.token_symbol,
 	};
 
-	generate_metadata_digest(&metadata, extra_info).unwrap().hash()
+	generate_metadata_digest(&metadata, extra_info)
+		.expect("Failed to generate the metadata digest")
+		.hash()
 }
 
 /// Extract the `SS58` from the constants in the given `metadata`.
