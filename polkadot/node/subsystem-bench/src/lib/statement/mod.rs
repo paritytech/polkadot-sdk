@@ -28,7 +28,7 @@ use crate::{
 	},
 	network::{new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver},
 	usage::BenchmarkUsage,
-	NODE_UNDER_TEST, PEER_IN_NODE_GROUP,
+	NODE_UNDER_TEST,
 };
 use bitvec::vec::BitVec;
 use colored::Colorize;
@@ -239,6 +239,13 @@ pub async fn benchmark_statement_distribution(
 		.filter_map(|(i, id)| if env.network().is_peer_connected(id) { Some(i) } else { None })
 		.collect_vec();
 
+	let seconding_validator_in_own_backing_group = state
+		.own_backing_group
+		.iter()
+		.find(|v| connected_validators.contains(&(v.0 as usize)))
+		.unwrap()
+		.to_owned();
+
 	let config = env.config().clone();
 	let groups = state.session_info.validator_groups.clone();
 	let node_group_index = groups
@@ -275,15 +282,18 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(update).await;
 		}
 
-		let seconding_peer_id =
-			*state.test_authorities.peer_ids.get(PEER_IN_NODE_GROUP as usize).unwrap();
+		let seconding_peer_id = *state
+			.test_authorities
+			.peer_ids
+			.get(seconding_validator_in_own_backing_group.0 as usize)
+			.unwrap();
 		let candidate = state.candidate_receipts.get(&block_info.hash).unwrap().first().unwrap();
 		let candidate_hash = candidate.hash();
 		let statement = state
 			.statements
 			.get(&candidate_hash)
 			.unwrap()
-			.get(PEER_IN_NODE_GROUP as usize)
+			.get(seconding_validator_in_own_backing_group.0 as usize)
 			.unwrap()
 			.clone();
 		let message = AllMessages::StatementDistribution(
