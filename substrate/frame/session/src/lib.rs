@@ -627,7 +627,7 @@ impl<T: Config> Pallet<T> {
 		Validators::<T>::put(&validators);
 
 		if changed {
-			// reset disabled validators
+			// reset disabled validators if active set was changed
 			<DisabledValidators<T>>::take();
 		}
 

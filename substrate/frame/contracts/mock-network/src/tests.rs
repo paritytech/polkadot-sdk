@@ -81,7 +81,7 @@ fn test_xcm_execute() {
 			.build();
 
 		let result = bare_call(contract_addr.clone())
-			.data(VersionedXcm::V4(message).encode().encode())
+			.data(VersionedXcm::V4(message).encode())
 			.build();
 
 		assert_eq!(result.gas_consumed, result.gas_required);
@@ -118,7 +118,7 @@ fn test_xcm_execute_incomplete() {
 			.build();
 
 		let result = bare_call(contract_addr.clone())
-			.data(VersionedXcm::V4(message).encode().encode())
+			.data(VersionedXcm::V4(message).encode())
 			.build();
 
 		assert_eq!(result.gas_consumed, result.gas_required);
@@ -151,7 +151,7 @@ fn test_xcm_execute_reentrant_call() {
 			.build();
 
 		let result = bare_call(contract_addr.clone())
-			.data(VersionedXcm::V4(message).encode().encode())
+			.data(VersionedXcm::V4(message).encode())
 			.build_and_unwrap_result();
 
 		assert_return_code!(&result, ReturnErrorCode::XcmExecutionFailed);
@@ -182,7 +182,7 @@ fn test_xcm_send() {
 			.build();
 
 		let result = bare_call(contract_addr.clone())
-			.data((dest, VersionedXcm::V4(message).encode()).encode())
+			.data((dest, VersionedXcm::V4(message)).encode())
 			.build_and_unwrap_result();
 
 		let mut data = &result.data[..];

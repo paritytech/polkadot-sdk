@@ -844,3 +844,43 @@ fn verify_fee_factor_increase_and_decrease() {
 		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) < FixedU128::from_float(1.63));
 	});
 }
+
+#[test]
+fn get_messages_works() {
+	new_test_ext().execute_with(|| {
+		use xcm_builder::InspectMessageQueues;
+		let sibling_para_id = ParaId::from(2001);
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling_para_id);
+		let destination: Location = (Parent, Parachain(sibling_para_id.into())).into();
+		let other_sibling_para_id = ParaId::from(2002);
+		let other_destination: Location = (Parent, Parachain(other_sibling_para_id.into())).into();
+		let message = Xcm(vec![ClearOrigin]);
+		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), message.clone()));
+		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), message.clone()));
+		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), message.clone()));
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(other_sibling_para_id);
+		assert_ok!(send_xcm::<XcmpQueue>(other_destination.clone(), message.clone()));
+		assert_ok!(send_xcm::<XcmpQueue>(other_destination.clone(), message));
+		let queued_messages = XcmpQueue::get_messages();
+		assert_eq!(
+			queued_messages,
+			vec![
+				(
+					VersionedLocation::V4(other_destination),
+					vec![
+						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+					],
+				),
+				(
+					VersionedLocation::V4(destination),
+					vec![
+						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+					],
+				),
+			],
+		);
+	});
+}

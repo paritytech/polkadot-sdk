@@ -70,7 +70,8 @@ use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{FixedU128, RuntimeDebug, Saturating, WeakBoundedVec};
 use sp_std::prelude::*;
-use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm_builder::InspectMessageQueues;
 use xcm_executor::traits::ConvertOrigin;
 
 pub use pallet::*;
@@ -972,7 +973,8 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
-				validate_xcm_nesting(&versioned_xcm)
+				versioned_xcm
+					.validate_xcm_nesting()
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 
 				Ok(((id, versioned_xcm), price))
@@ -988,10 +990,6 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		defensive_assert!(
-			validate_xcm_nesting(&xcm).is_ok(),
-			"Tickets are valid prior to delivery by trait XCM; qed"
-		);
 
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
@@ -1006,14 +1004,36 @@ impl<T: Config> SendXcm for Pallet<T> {
 	}
 }
 
-/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`.
-///
-/// Note that this uses the limit of the sender - not the receiver. It it best effort.
-pub(crate) fn validate_xcm_nesting(xcm: &VersionedXcm<()>) -> Result<(), ()> {
-	xcm.using_encoded(|mut enc| {
-		VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
-	})
-	.map_err(|_| ())
+impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		use xcm::prelude::*;
+
+		OutboundXcmpMessages::<T>::iter()
+			.map(|(para_id, _, messages)| {
+				let mut data = &messages[..];
+				let decoded_format =
+					XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut data)
+						.unwrap();
+				if decoded_format != XcmpMessageFormat::ConcatenatedVersionedXcm {
+					panic!("Unexpected format.")
+				}
+				let mut decoded_messages = Vec::new();
+				while !data.is_empty() {
+					let decoded_message = VersionedXcm::<()>::decode_with_depth_limit(
+						MAX_XCM_DECODE_DEPTH,
+						&mut data,
+					)
+					.unwrap();
+					decoded_messages.push(decoded_message);
+				}
+
+				(
+					VersionedLocation::V4((Parent, Parachain(para_id.into())).into()),
+					decoded_messages,
+				)
+			})
+			.collect()
+	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
