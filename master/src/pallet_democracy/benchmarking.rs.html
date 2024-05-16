@@ -1113,7 +1113,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">whitelist_account!</span>(caller);
 	}: <span class="kw">_</span>(RawOrigin::Signed(caller), proposal, value)
 	verify {
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::public_props().len(), p <span class="kw">as </span>usize, <span class="string">"Proposals not created."</span>);
+		<span class="macro">assert_eq!</span>(PublicProps::&lt;T&gt;::get().len(), p <span class="kw">as </span>usize, <span class="string">"Proposals not created."</span>);
 	}
 
 	second {
@@ -1127,12 +1127,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Democracy::&lt;T&gt;::second(RawOrigin::Signed(seconder).into(), <span class="number">0</span>)<span class="question-mark">?</span>;
 		}
 
-		<span class="kw">let </span>deposits = Democracy::&lt;T&gt;::deposit_of(<span class="number">0</span>).ok_or(<span class="string">"Proposal not created"</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>deposits = DepositOf::&lt;T&gt;::get(<span class="number">0</span>).ok_or(<span class="string">"Proposal not created"</span>)<span class="question-mark">?</span>;
 		<span class="macro">assert_eq!</span>(deposits.<span class="number">0</span>.len(), (T::MaxDeposits::get() - <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">"Seconds not recorded"</span>);
 		<span class="macro">whitelist_account!</span>(caller);
 	}: <span class="kw">_</span>(RawOrigin::Signed(caller), <span class="number">0</span>)
 	verify {
-		<span class="kw">let </span>deposits = Democracy::&lt;T&gt;::deposit_of(<span class="number">0</span>).ok_or(<span class="string">"Proposal not created"</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>deposits = DepositOf::&lt;T&gt;::get(<span class="number">0</span>).ok_or(<span class="string">"Proposal not created"</span>)<span class="question-mark">?</span>;
 		<span class="macro">assert_eq!</span>(deposits.<span class="number">0</span>.len(), (T::MaxDeposits::get()) <span class="kw">as </span>usize, <span class="string">"`second` benchmark did not work"</span>);
 	}
 
@@ -1180,7 +1180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Change vote from aye to nay
 		</span><span class="kw">let </span>nay = Vote { aye: <span class="bool-val">false</span>, conviction: Conviction::Locked1x };
 		<span class="kw">let </span>new_vote = AccountVote::Standard { vote: nay, balance: <span class="number">1000u32</span>.into() };
-		<span class="kw">let </span>ref_index = Democracy::&lt;T&gt;::referendum_count() - <span class="number">1</span>;
+		<span class="kw">let </span>ref_index = ReferendumCount::&lt;T&gt;::get() - <span class="number">1</span>;
 
 		<span class="comment">// This tests when a user changes a vote
 		</span><span class="macro">whitelist_account!</span>(caller);
@@ -1191,7 +1191,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
 		<span class="macro">assert_eq!</span>(votes.len(), T::MaxVotes::get() <span class="kw">as </span>usize, <span class="string">"Vote was incorrectly added"</span>);
-		<span class="kw">let </span>referendum_info = Democracy::&lt;T&gt;::referendum_info(ref_index)
+		<span class="kw">let </span>referendum_info = ReferendumInfoOf::&lt;T&gt;::get(ref_index)
 			.ok_or(<span class="string">"referendum doesn't exist"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>tally =  <span class="kw">match </span>referendum_info {
 			ReferendumInfo::Ongoing(r) =&gt; r.tally,
@@ -1266,7 +1266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, proposal)
 	verify {
 		<span class="comment">// External proposal created
-		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
+		</span><span class="macro">ensure!</span>(NextExternal::&lt;T&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
 	}
 
 	external_propose_majority {
@@ -1276,7 +1276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, proposal)
 	verify {
 		<span class="comment">// External proposal created
-		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
+		</span><span class="macro">ensure!</span>(NextExternal::&lt;T&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
 	}
 
 	external_propose_default {
@@ -1286,7 +1286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, proposal)
 	verify {
 		<span class="comment">// External proposal created
-		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
+		</span><span class="macro">ensure!</span>(NextExternal::&lt;T&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
 	}
 
 	fast_track {
@@ -1308,7 +1308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>delay = <span class="number">0u32</span>;
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin_fast_track, proposal_hash, voting_period, delay.into())
 	verify {
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), <span class="number">1</span>, <span class="string">"referendum not created"</span>);
+		<span class="macro">assert_eq!</span>(ReferendumCount::&lt;T&gt;::get(), <span class="number">1</span>, <span class="string">"referendum not created"</span>);
 		assert_last_event::&lt;T&gt;(<span class="kw">crate</span>::Event::MetadataTransferred {
 			prev_owner: MetadataOwner::External,
 			owner: MetadataOwner::Referendum(<span class="number">0</span>),
@@ -1343,7 +1343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, proposal_hash)
 	verify {
 		<span class="macro">assert!</span>(NextExternal::&lt;T&gt;::get().is_none());
-		<span class="kw">let </span>(<span class="kw">_</span>, new_vetoers) = &lt;Blacklist&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>proposal_hash).ok_or(<span class="string">"no blacklist"</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>(<span class="kw">_</span>, new_vetoers) = Blacklist::&lt;T&gt;::get(<span class="kw-2">&amp;</span>proposal_hash).ok_or(<span class="string">"no blacklist"</span>)<span class="question-mark">?</span>;
 		<span class="macro">assert_eq!</span>(new_vetoers.len(), T::MaxBlacklisted::get() <span class="kw">as </span>usize, <span class="string">"vetoers not added"</span>);
 	}
 
@@ -1387,7 +1387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			add_referendum::&lt;T&gt;(i);
 		}
 
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">"referenda not created"</span>);
+		<span class="macro">assert_eq!</span>(ReferendumCount::&lt;T&gt;::get(), r, <span class="string">"referenda not created"</span>);
 
 		<span class="comment">// Launch external
 		</span>LastTabledWasExternal::&lt;T&gt;::put(<span class="bool-val">false</span>);
@@ -1398,15 +1398,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>call = Call::&lt;T&gt;::external_propose_majority { proposal };
 		call.dispatch_bypass_filter(origin)<span class="question-mark">?</span>;
 		<span class="comment">// External proposal created
-		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
+		</span><span class="macro">ensure!</span>(NextExternal::&lt;T&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
 
 		<span class="kw">let </span>block_number = T::LaunchPeriod::get();
 
 	}: { Democracy::&lt;T&gt;::on_initialize(block_number) }
 	verify {
 		<span class="comment">// One extra because of next external
-		</span><span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r + <span class="number">1</span>, <span class="string">"referenda not created"</span>);
-		<span class="macro">ensure!</span>(!&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External wasn't taken"</span>);
+		</span><span class="macro">assert_eq!</span>(ReferendumCount::&lt;T&gt;::get(), r + <span class="number">1</span>, <span class="string">"referenda not created"</span>);
+		<span class="macro">ensure!</span>(!NextExternal::&lt;T&gt;::exists(), <span class="string">"External wasn't taken"</span>);
 
 		<span class="comment">// All but the new next external should be finished
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. r {
@@ -1427,7 +1427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			add_referendum::&lt;T&gt;(i);
 		}
 
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">"referenda not created"</span>);
+		<span class="macro">assert_eq!</span>(ReferendumCount::&lt;T&gt;::get(), r, <span class="string">"referenda not created"</span>);
 
 		<span class="comment">// Launch public
 		</span><span class="macro">assert!</span>(add_proposal::&lt;T&gt;(r).is_ok(), <span class="string">"proposal not created"</span>);
@@ -1438,7 +1438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: { Democracy::&lt;T&gt;::on_initialize(block_number) }
 	verify {
 		<span class="comment">// One extra because of next public
-		</span><span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r + <span class="number">1</span>, <span class="string">"proposal not accepted"</span>);
+		</span><span class="macro">assert_eq!</span>(ReferendumCount::&lt;T&gt;::get(), r + <span class="number">1</span>, <span class="string">"proposal not accepted"</span>);
 
 		<span class="comment">// All should be finished
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. r {
@@ -1466,8 +1466,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ReferendumInfoOf::&lt;T&gt;::insert(key, info);
 		}
 
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">"referenda not created"</span>);
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::lowest_unbaked(), <span class="number">0</span>, <span class="string">"invalid referenda init"</span>);
+		<span class="macro">assert_eq!</span>(ReferendumCount::&lt;T&gt;::get(), r, <span class="string">"referenda not created"</span>);
+		<span class="macro">assert_eq!</span>(LowestUnbaked::&lt;T&gt;::get(), <span class="number">0</span>, <span class="string">"invalid referenda init"</span>);
 
 	}: { Democracy::&lt;T&gt;::on_initialize(<span class="number">1u32</span>.into()) }
 	verify {
@@ -1496,8 +1496,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ReferendumInfoOf::&lt;T&gt;::insert(key, info);
 		}
 
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">"referenda not created"</span>);
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::lowest_unbaked(), <span class="number">0</span>, <span class="string">"invalid referenda init"</span>);
+		<span class="macro">assert_eq!</span>(ReferendumCount::&lt;T&gt;::get(), r, <span class="string">"referenda not created"</span>);
+		<span class="macro">assert_eq!</span>(LowestUnbaked::&lt;T&gt;::get(), <span class="number">0</span>, <span class="string">"invalid referenda init"</span>);
 
 		<span class="kw">let </span>block_number = T::LaunchPeriod::get();
 

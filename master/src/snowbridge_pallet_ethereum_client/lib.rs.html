@@ -788,6 +788,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#637" id="637">637</a>
 <a href="#638" id="638">638</a>
 <a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Ethereum Beacon Client
@@ -894,6 +901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::error]
 	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
 		SkippedSyncCommitteePeriod,
+		SyncCommitteeUpdateRequired,
 		<span class="doccomment">/// Attested header is older than latest finalized header.
 		</span>IrrelevantUpdate,
 		NotBootstrapped,
@@ -1110,6 +1118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Verify update is relevant.
 			</span><span class="kw">let </span>update_attested_period = compute_period(update.attested_header.slot);
+			<span class="kw">let </span>update_finalized_period = compute_period(update.finalized_header.slot);
 			<span class="kw">let </span>update_has_next_sync_committee = !&lt;NextSyncCommittee&lt;T&gt;&gt;::exists() &amp;&amp;
 				(update.next_sync_committee_update.is_some() &amp;&amp;
 					update_attested_period == store_period);
@@ -1184,6 +1193,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						update.attested_header.state_root
 					),
 					Error::&lt;T&gt;::InvalidSyncCommitteeMerkleProof
+				);
+			} <span class="kw">else </span>{
+				<span class="macro">ensure!</span>(
+					update_finalized_period == store_period,
+					Error::&lt;T&gt;::SyncCommitteeUpdateRequired
 				);
 			}
 

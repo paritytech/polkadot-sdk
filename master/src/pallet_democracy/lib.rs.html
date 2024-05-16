@@ -1903,12 +1903,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1752" id="1752">1752</a>
 <a href="#1753" id="1753">1753</a>
 <a href="#1754" id="1754">1754</a>
-<a href="#1755" id="1755">1755</a>
-<a href="#1756" id="1756">1756</a>
-<a href="#1757" id="1757">1757</a>
-<a href="#1758" id="1758">1758</a>
-<a href="#1759" id="1759">1759</a>
-<a href="#1760" id="1760">1760</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2257,12 +2251,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The number of (public) proposals that have been made so far.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>public_prop_count)]
 	</span><span class="kw">pub type </span>PublicPropCount&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, PropIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// The public proposals. Unsorted. The second item is the proposal.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>public_props)]
 	</span><span class="kw">pub type </span>PublicProps&lt;T: Config&gt; = StorageValue&lt;
 		<span class="kw">_</span>,
 		BoundedVec&lt;(PropIndex, BoundedCallOf&lt;T&gt;, T::AccountId), T::MaxProposals&gt;,
@@ -2273,7 +2265,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// TWOX-NOTE: Safe, as increasing integer keys are safe.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>deposit_of)]
 	</span><span class="kw">pub type </span>DepositOf&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -2283,20 +2274,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The next free referendum index, aka the number of referenda started so far.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>referendum_count)]
 	</span><span class="kw">pub type </span>ReferendumCount&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, ReferendumIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// The lowest referendum index representing an unbaked referendum. Equal to
 	/// `ReferendumCount` if there isn't a unbaked referendum.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>lowest_unbaked)]
 	</span><span class="kw">pub type </span>LowestUnbaked&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, ReferendumIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// Information concerning any given referendum.
 	///
 	/// TWOX-NOTE: SAFE as indexes are not under an attacker’s control.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>referendum_info)]
 	</span><span class="kw">pub type </span>ReferendumInfoOf&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -2506,15 +2494,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>who = T::SubmitOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(value &gt;= T::MinimumDeposit::get(), Error::&lt;T&gt;::ValueLow);
 
-			<span class="kw">let </span>index = <span class="self">Self</span>::public_prop_count();
+			<span class="kw">let </span>index = PublicPropCount::&lt;T&gt;::get();
 			<span class="kw">let </span>real_prop_count = PublicProps::&lt;T&gt;::decode_len().unwrap_or(<span class="number">0</span>) <span class="kw">as </span>u32;
 			<span class="kw">let </span>max_proposals = T::MaxProposals::get();
 			<span class="macro">ensure!</span>(real_prop_count &lt; max_proposals, Error::&lt;T&gt;::TooMany);
 			<span class="kw">let </span>proposal_hash = proposal.hash();
 
-			<span class="kw">if let </span><span class="prelude-val">Some</span>((until, <span class="kw">_</span>)) = &lt;Blacklist&lt;T&gt;&gt;::get(proposal_hash) {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>((until, <span class="kw">_</span>)) = Blacklist::&lt;T&gt;::get(proposal_hash) {
 				<span class="macro">ensure!</span>(
-					&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() &gt;= until,
+					frame_system::Pallet::&lt;T&gt;::block_number() &gt;= until,
 					Error::&lt;T&gt;::ProposalBlacklisted,
 				);
 			}
@@ -2549,11 +2537,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>seconds = <span class="self">Self</span>::len_of_deposit_of(proposal).ok_or(Error::&lt;T&gt;::ProposalMissing)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(seconds &lt; T::MaxDeposits::get(), Error::&lt;T&gt;::TooMany);
-			<span class="kw">let </span><span class="kw-2">mut </span>deposit = <span class="self">Self</span>::deposit_of(proposal).ok_or(Error::&lt;T&gt;::ProposalMissing)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>deposit = DepositOf::&lt;T&gt;::get(proposal).ok_or(Error::&lt;T&gt;::ProposalMissing)<span class="question-mark">?</span>;
 			T::Currency::reserve(<span class="kw-2">&amp;</span>who, deposit.<span class="number">1</span>)<span class="question-mark">?</span>;
 			<span class="kw">let </span>ok = deposit.<span class="number">0</span>.try_push(who.clone()).is_ok();
 			<span class="macro">debug_assert!</span>(ok, <span class="string">"`seconds` is below static limit; `try_insert` should succeed; qed"</span>);
-			&lt;DepositOf&lt;T&gt;&gt;::insert(proposal, deposit);
+			DepositOf::&lt;T&gt;::insert(proposal, deposit);
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Seconded { seconder: who, prop_index: proposal });
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -2594,9 +2582,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>status = <span class="self">Self</span>::referendum_status(ref_index)<span class="question-mark">?</span>;
 			<span class="kw">let </span>h = status.proposal.hash();
-			<span class="macro">ensure!</span>(!&lt;Cancellations&lt;T&gt;&gt;::contains_key(h), Error::&lt;T&gt;::AlreadyCanceled);
+			<span class="macro">ensure!</span>(!Cancellations::&lt;T&gt;::contains_key(h), Error::&lt;T&gt;::AlreadyCanceled);
 
-			&lt;Cancellations&lt;T&gt;&gt;::insert(h, <span class="bool-val">true</span>);
+			Cancellations::&lt;T&gt;::insert(h, <span class="bool-val">true</span>);
 			<span class="self">Self</span>::internal_cancel_referendum(ref_index);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -2614,14 +2602,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			proposal: BoundedCallOf&lt;T&gt;,
 		) -&gt; DispatchResult {
 			T::ExternalOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(!&lt;NextExternal&lt;T&gt;&gt;::exists(), Error::&lt;T&gt;::DuplicateProposal);
-			<span class="kw">if let </span><span class="prelude-val">Some</span>((until, <span class="kw">_</span>)) = &lt;Blacklist&lt;T&gt;&gt;::get(proposal.hash()) {
+			<span class="macro">ensure!</span>(!NextExternal::&lt;T&gt;::exists(), Error::&lt;T&gt;::DuplicateProposal);
+			<span class="kw">if let </span><span class="prelude-val">Some</span>((until, <span class="kw">_</span>)) = Blacklist::&lt;T&gt;::get(proposal.hash()) {
 				<span class="macro">ensure!</span>(
-					&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() &gt;= until,
+					frame_system::Pallet::&lt;T&gt;::block_number() &gt;= until,
 					Error::&lt;T&gt;::ProposalBlacklisted,
 				);
 			}
-			&lt;NextExternal&lt;T&gt;&gt;::put((proposal, VoteThreshold::SuperMajorityApprove));
+			NextExternal::&lt;T&gt;::put((proposal, VoteThreshold::SuperMajorityApprove));
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -2643,7 +2631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			proposal: BoundedCallOf&lt;T&gt;,
 		) -&gt; DispatchResult {
 			T::ExternalMajorityOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			&lt;NextExternal&lt;T&gt;&gt;::put((proposal, VoteThreshold::SimpleMajority));
+			NextExternal::&lt;T&gt;::put((proposal, VoteThreshold::SimpleMajority));
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -2665,7 +2653,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			proposal: BoundedCallOf&lt;T&gt;,
 		) -&gt; DispatchResult {
 			T::ExternalDefaultOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			&lt;NextExternal&lt;T&gt;&gt;::put((proposal, VoteThreshold::SuperMajorityAgainst));
+			NextExternal::&lt;T&gt;::put((proposal, VoteThreshold::SuperMajorityAgainst));
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -2711,15 +2699,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">ensure!</span>(voting_period &gt; Zero::zero(), Error::&lt;T&gt;::VotingPeriodLow);
 			<span class="kw">let </span>(ext_proposal, threshold) =
-				&lt;NextExternal&lt;T&gt;&gt;::get().ok_or(Error::&lt;T&gt;::ProposalMissing)<span class="question-mark">?</span>;
+				NextExternal::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::ProposalMissing)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(
 				threshold != VoteThreshold::SuperMajorityApprove,
 				Error::&lt;T&gt;::NotSimpleMajority,
 			);
 			<span class="macro">ensure!</span>(proposal_hash == ext_proposal.hash(), Error::&lt;T&gt;::InvalidHash);
 
-			&lt;NextExternal&lt;T&gt;&gt;::kill();
-			<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+			NextExternal::&lt;T&gt;::kill();
+			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 			<span class="kw">let </span>ref_index = <span class="self">Self</span>::inject_referendum(
 				now.saturating_add(voting_period),
 				ext_proposal,
@@ -2751,7 +2739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="kw">let </span><span class="kw-2">mut </span>existing_vetoers =
-				&lt;Blacklist&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>proposal_hash).map(|pair| pair.<span class="number">1</span>).unwrap_or_default();
+				Blacklist::&lt;T&gt;::get(<span class="kw-2">&amp;</span>proposal_hash).map(|pair| pair.<span class="number">1</span>).unwrap_or_default();
 			<span class="kw">let </span>insert_position =
 				existing_vetoers.binary_search(<span class="kw-2">&amp;</span>who).err().ok_or(Error::&lt;T&gt;::AlreadyVetoed)<span class="question-mark">?</span>;
 			existing_vetoers
@@ -2759,11 +2747,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::TooMany)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>until =
-				&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number().saturating_add(T::CooloffPeriod::get());
-			&lt;Blacklist&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>proposal_hash, (until, existing_vetoers));
+				frame_system::Pallet::&lt;T&gt;::block_number().saturating_add(T::CooloffPeriod::get());
+			Blacklist::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>proposal_hash, (until, existing_vetoers));
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Vetoed { who, proposal_hash, until });
-			&lt;NextExternal&lt;T&gt;&gt;::kill();
+			NextExternal::&lt;T&gt;::kill();
 			<span class="self">Self</span>::clear_metadata(MetadataOwner::External);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -2854,7 +2842,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight(T::WeightInfo::clear_public_proposals())]
 		</span><span class="kw">pub fn </span>clear_public_proposals(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			&lt;PublicProps&lt;T&gt;&gt;::kill();
+			PublicProps::&lt;T&gt;::kill();
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -3057,7 +3045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			<span class="kw">match </span>owner {
 				MetadataOwner::External =&gt; {
-					<span class="kw">let </span>(<span class="kw">_</span>, threshold) = &lt;NextExternal&lt;T&gt;&gt;::get().ok_or(Error::&lt;T&gt;::NoProposal)<span class="question-mark">?</span>;
+					<span class="kw">let </span>(<span class="kw">_</span>, threshold) = NextExternal::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::NoProposal)<span class="question-mark">?</span>;
 					<span class="self">Self</span>::ensure_external_origin(threshold, origin)<span class="question-mark">?</span>;
 				},
 				MetadataOwner::Proposal(index) =&gt; {
@@ -3112,7 +3100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="doccomment">/// Get the amount locked in support of `proposal`; `None` if proposal isn't a valid proposal
 	/// index.
 	</span><span class="kw">pub fn </span>backing_for(proposal: PropIndex) -&gt; <span class="prelude-ty">Option</span>&lt;BalanceOf&lt;T&gt;&gt; {
-		<span class="self">Self</span>::deposit_of(proposal).map(|(l, d)| d.saturating_mul((l.len() <span class="kw">as </span>u32).into()))
+		DepositOf::&lt;T&gt;::get(proposal).map(|(l, d)| d.saturating_mul((l.len() <span class="kw">as </span>u32).into()))
 	}
 
 	<span class="doccomment">/// Get all referenda ready for tally at block `n`.
@@ -3120,8 +3108,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		n: BlockNumberFor&lt;T&gt;,
 	) -&gt; Vec&lt;(ReferendumIndex, ReferendumStatus&lt;BlockNumberFor&lt;T&gt;, BoundedCallOf&lt;T&gt;, BalanceOf&lt;T&gt;&gt;)&gt;
 	{
-		<span class="kw">let </span>next = <span class="self">Self</span>::lowest_unbaked();
-		<span class="kw">let </span>last = <span class="self">Self</span>::referendum_count();
+		<span class="kw">let </span>next = LowestUnbaked::&lt;T&gt;::get();
+		<span class="kw">let </span>last = ReferendumCount::&lt;T&gt;::get();
 		<span class="self">Self</span>::maturing_referenda_at_inner(n, next..last)
 	}
 
@@ -3132,7 +3120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		range
 			.into_iter()
-			.map(|i| (i, <span class="self">Self</span>::referendum_info(i)))
+			.map(|i| (i, ReferendumInfoOf::&lt;T&gt;::get(i)))
 			.filter_map(|(i, maybe_info)| <span class="kw">match </span>maybe_info {
 				<span class="prelude-val">Some</span>(ReferendumInfo::Ongoing(status)) =&gt; <span class="prelude-val">Some</span>((i, status)),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -3149,8 +3137,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		threshold: VoteThreshold,
 		delay: BlockNumberFor&lt;T&gt;,
 	) -&gt; ReferendumIndex {
-		&lt;Pallet&lt;T&gt;&gt;::inject_referendum(
-			&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number().saturating_add(T::VotingPeriod::get()),
+		Pallet::&lt;T&gt;::inject_referendum(
+			frame_system::Pallet::&lt;T&gt;::block_number().saturating_add(T::VotingPeriod::get()),
 			proposal,
 			threshold,
 			delay,
@@ -3440,12 +3428,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		threshold: VoteThreshold,
 		delay: BlockNumberFor&lt;T&gt;,
 	) -&gt; ReferendumIndex {
-		<span class="kw">let </span>ref_index = <span class="self">Self</span>::referendum_count();
+		<span class="kw">let </span>ref_index = ReferendumCount::&lt;T&gt;::get();
 		ReferendumCount::&lt;T&gt;::put(ref_index + <span class="number">1</span>);
 		<span class="kw">let </span>status =
 			ReferendumStatus { end, proposal, threshold, delay, tally: Default::default() };
 		<span class="kw">let </span>item = ReferendumInfo::Ongoing(status);
-		&lt;ReferendumInfoOf&lt;T&gt;&gt;::insert(ref_index, item);
+		ReferendumInfoOf::&lt;T&gt;::insert(ref_index, item);
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Started { ref_index, threshold });
 		ref_index
 	}
@@ -3462,7 +3450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Table the waiting external proposal for a vote, if there is one.
 	</span><span class="kw">fn </span>launch_external(now: BlockNumberFor&lt;T&gt;) -&gt; DispatchResult {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((proposal, threshold)) = &lt;NextExternal&lt;T&gt;&gt;::take() {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>((proposal, threshold)) = NextExternal::&lt;T&gt;::take() {
 			LastTabledWasExternal::&lt;T&gt;::put(<span class="bool-val">true</span>);
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::ExternalTabled);
 			<span class="kw">let </span>ref_index = <span class="self">Self</span>::inject_referendum(
@@ -3480,15 +3468,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Table the waiting public proposal with the highest backing for a vote.
 	</span><span class="kw">fn </span>launch_public(now: BlockNumberFor&lt;T&gt;) -&gt; DispatchResult {
-		<span class="kw">let </span><span class="kw-2">mut </span>public_props = <span class="self">Self</span>::public_props();
+		<span class="kw">let </span><span class="kw-2">mut </span>public_props = PublicProps::&lt;T&gt;::get();
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((winner_index, <span class="kw">_</span>)) = public_props.iter().enumerate().max_by_key(
 			<span class="comment">// defensive only: All current public proposals have an amount locked
 			</span>|x| <span class="self">Self</span>::backing_for((x.<span class="number">1</span>).<span class="number">0</span>).defensive_unwrap_or_else(Zero::zero),
 		) {
 			<span class="kw">let </span>(prop_index, proposal, <span class="kw">_</span>) = public_props.swap_remove(winner_index);
-			&lt;PublicProps&lt;T&gt;&gt;::put(public_props);
+			PublicProps::&lt;T&gt;::put(public_props);
 
-			<span class="kw">if let </span><span class="prelude-val">Some</span>((depositors, deposit)) = &lt;DepositOf&lt;T&gt;&gt;::take(prop_index) {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>((depositors, deposit)) = DepositOf::&lt;T&gt;::take(prop_index) {
 				<span class="comment">// refund depositors
 				</span><span class="kw">for </span>d <span class="kw">in </span>depositors.iter() {
 					T::Currency::unreserve(d, deposit);
@@ -3553,8 +3541,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>max_block_weight = T::BlockWeights::get().max_block;
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
 
-		<span class="kw">let </span>next = <span class="self">Self</span>::lowest_unbaked();
-		<span class="kw">let </span>last = <span class="self">Self</span>::referendum_count();
+		<span class="kw">let </span>next = LowestUnbaked::&lt;T&gt;::get();
+		<span class="kw">let </span>last = ReferendumCount::&lt;T&gt;::get();
 		<span class="kw">let </span>r = last.saturating_sub(next);
 
 		<span class="comment">// pick out another public referendum if it's time.
@@ -3585,9 +3573,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// * We shouldn't iterate more than `LaunchPeriod/VotingPeriod + 1` times because the number
 		//   of unbaked referendum is bounded by this number. In case those number have changed in a
 		//   runtime upgrade the formula should be adjusted but the bound should still be sensible.
-		</span>&lt;LowestUnbaked&lt;T&gt;&gt;::mutate(|ref_index| {
+		</span>LowestUnbaked::&lt;T&gt;::mutate(|ref_index| {
 			<span class="kw">while </span><span class="kw-2">*</span>ref_index &lt; last &amp;&amp;
-				<span class="self">Self</span>::referendum_info(<span class="kw-2">*</span>ref_index)
+				ReferendumInfoOf::&lt;T&gt;::get(<span class="kw-2">*</span>ref_index)
 					.map_or(<span class="bool-val">true</span>, |info| <span class="macro">matches!</span>(info, ReferendumInfo::Finished { .. }))
 			{
 				<span class="kw-2">*</span>ref_index += <span class="number">1
@@ -3603,7 +3591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>len_of_deposit_of(proposal: PropIndex) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 		<span class="comment">// DepositOf first tuple element is a vec, decoding its len is equivalent to decode a
 		// `Compact&lt;u32&gt;`.
-		</span>decode_compact_u32_at(<span class="kw-2">&amp;</span>&lt;DepositOf&lt;T&gt;&gt;::hashed_key_for(proposal))
+		</span>decode_compact_u32_at(<span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::hashed_key_for(proposal))
 	}
 
 	<span class="doccomment">/// Return a proposal of an index.
