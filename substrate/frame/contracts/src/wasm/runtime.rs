@@ -292,8 +292,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } =>
-				T::WeightInfo::seal_set_storage_per_new_byte(new_bytes)
-					.saturating_add(T::WeightInfo::seal_set_storage_per_old_byte(old_bytes)),
+				T::WeightInfo::seal_set_storage(new_bytes, old_bytes),
 			ClearStorage(len) => T::WeightInfo::seal_clear_storage(len),
 			ContainsStorage(len) => T::WeightInfo::seal_contains_storage(len),
 			GetStorage(len) => T::WeightInfo::seal_get_storage(len),

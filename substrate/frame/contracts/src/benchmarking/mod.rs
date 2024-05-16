@@ -1013,9 +1013,12 @@ mod benchmarks {
 		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 	}
 
+	// n: new byte size
+	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_set_storage_per_new_byte(
+	fn seal_set_storage(
 		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
+		o: Linear<0, { T::Schedule::get().limits.payload_len }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
@@ -1024,7 +1027,8 @@ mod benchmarks {
 
 		build_runtime!(runtime, instance, memory: [ key.to_vec(), value.clone(), ]);
 		let info = instance.info()?;
-		info.write(&key, Some(vec![]), None, false)
+
+		info.write(&key, Some(vec![42u8; o as usize]), None, false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1042,39 +1046,6 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(info.read(&key).unwrap(), value);
-		Ok(())
-	}
-
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_set_storage_per_old_byte(
-		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
-	) -> Result<(), BenchmarkError> {
-		let max_key_len = T::MaxStorageKeyLen::get();
-		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-		let value = vec![1u8; n as usize];
-
-		build_runtime!(runtime, instance, memory: [ key.to_vec(), value.clone(), ]);
-		let info = instance.info()?;
-
-		info.write(&key, Some(vec![42u8; n as usize]), None, false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
-
-		let result;
-		#[block]
-		{
-			result = BenchEnv::seal2_set_storage(
-				&mut runtime,
-				&mut memory,
-				0,           // key_ptr
-				max_key_len, // key_len
-				max_key_len, // value_ptr
-				0,           // value_len is 0 as testing vs pre-existing value len
-			);
-		}
-
-		assert_ok!(result);
-		assert!(info.read(&key).unwrap().is_empty());
 		Ok(())
 	}
 

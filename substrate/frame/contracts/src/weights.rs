@@ -93,8 +93,7 @@ pub trait WeightInfo {
 	fn seal_random() -> Weight;
 	fn seal_deposit_event(t: u32, n: u32, ) -> Weight;
 	fn seal_debug_message(i: u32, ) -> Weight;
-	fn seal_set_storage_per_new_byte(n: u32, ) -> Weight;
-	fn seal_set_storage_per_old_byte(n: u32, ) -> Weight;
+	fn seal_set_storage(n: u32, o: u32) -> Weight;
 	fn seal_clear_storage(n: u32, ) -> Weight;
 	fn seal_get_storage(n: u32, ) -> Weight;
 	fn seal_contains_storage(n: u32, ) -> Weight;
@@ -738,7 +737,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 16384]`.
-	fn seal_set_storage_per_new_byte(n: u32, ) -> Weight {
+	fn seal_set_storage(n: u32, _o: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `245`
 		//  Estimated: `245`
@@ -748,21 +747,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(351, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `n` is `[0, 16384]`.
-	fn seal_set_storage_per_old_byte(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `248 + n * (1 ±0)`
-		//  Estimated: `248 + n * (1 ±0)`
-		// Minimum execution time: 8_016_000 picoseconds.
-		Weight::from_parts(9_309_029, 248)
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(78, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1676,7 +1660,7 @@ impl WeightInfo for () {
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 16384]`.
-	fn seal_set_storage_per_new_byte(n: u32, ) -> Weight {
+	fn seal_set_storage(n: u32, _o: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `245`
 		//  Estimated: `245`
@@ -1686,21 +1670,6 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(351, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Skipped::Metadata` (r:0 w:0)
-	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `n` is `[0, 16384]`.
-	fn seal_set_storage_per_old_byte(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `248 + n * (1 ±0)`
-		//  Estimated: `248 + n * (1 ±0)`
-		// Minimum execution time: 8_016_000 picoseconds.
-		Weight::from_parts(9_309_029, 248)
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(78, 0).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
