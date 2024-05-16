@@ -36,8 +36,10 @@ use polkadot_node_subsystem_types::{
 use sc_network::{request_responses::ProtocolConfig, RequestFailure};
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
-const CHUNK_REQ_PROTOCOL_NAME_V1: &str =
-	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_chunk/1";
+const ALLOWED_PROTOCOLS: &[&str] = &[
+	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_chunk/1",
+	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_attested_candidate/2",
+];
 
 /// A mock of the network bridge tx subsystem.
 pub struct MockNetworkBridgeTx {
@@ -214,7 +216,7 @@ impl MockNetworkBridgeRx {
 							},
 							NetworkMessage::RequestFromPeer(request) => {
 								if let Some(protocol) = self.chunk_request_sender.as_mut() {
-									assert_eq!(&*protocol.name, CHUNK_REQ_PROTOCOL_NAME_V1);
+									assert!(ALLOWED_PROTOCOLS.contains(&&*protocol.name));
 									if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
 										inbound_queue
 											.send(request)

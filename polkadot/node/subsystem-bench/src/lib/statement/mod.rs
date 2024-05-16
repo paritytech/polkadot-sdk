@@ -26,7 +26,7 @@ use crate::{
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
-	network::new_network,
+	network::{new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver},
 	usage::BenchmarkUsage,
 	NODE_UNDER_TEST, PEER_IN_NODE_GROUP,
 };
@@ -80,7 +80,9 @@ pub fn make_keystore() -> KeystorePtr {
 
 fn build_overseer(
 	state: &TestState,
-	network_bridge: (MockNetworkBridgeTx, MockNetworkBridgeRx),
+	network: NetworkEmulatorHandle,
+	network_interface: NetworkInterface,
+	network_receiver: NetworkInterfaceReceiver,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
@@ -113,7 +115,7 @@ fn build_overseer(
 			.unwrap()
 			.clone(),
 		state.pvd.clone(),
-		state.node_group.clone(),
+		state.own_backing_group.clone(),
 	);
 	let (statement_req_receiver, statement_req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
@@ -131,19 +133,26 @@ fn build_overseer(
 		Metrics::try_register(&dependencies.registry).unwrap(),
 		rand::rngs::StdRng::from_entropy(),
 	);
+	let network_bridge_tx = MockNetworkBridgeTx::new(
+		network,
+		network_interface.subsystem_sender(),
+		state.test_authorities.clone(),
+	);
+	let network_bridge_rx = MockNetworkBridgeRx::new(network_receiver, Some(candidate_req_cfg));
+
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_runtime_api(|_| mock_runtime_api)
 		.replace_chain_api(|_| mock_chain_api)
 		.replace_prospective_parachains(|_| mock_prospective_parachains)
 		.replace_candidate_backing(|_| mock_candidate_backing)
 		.replace_statement_distribution(|_| subsystem)
-		.replace_network_bridge_tx(|_| network_bridge.0)
-		.replace_network_bridge_rx(|_| network_bridge.1);
+		.replace_network_bridge_tx(|_| network_bridge_tx)
+		.replace_network_bridge_rx(|_| network_bridge_rx);
 	let (overseer, raw_handle) =
 		dummy.build_with_connector(overseer_connector).expect("Should not fail");
 	let overseer_handle = OverseerHandle::new(raw_handle);
 
-	(overseer, overseer_handle, vec![statement_req_cfg, candidate_req_cfg], rx)
+	(overseer, overseer_handle, vec![statement_req_cfg], rx)
 }
 
 pub fn prepare_test(
@@ -157,14 +166,8 @@ pub fn prepare_test(
 		&state.test_authorities,
 		vec![Arc::new(state.clone())],
 	);
-	let network_bridge_tx = MockNetworkBridgeTx::new(
-		network.clone(),
-		network_interface.subsystem_sender(),
-		state.test_authorities.clone(),
-	);
-	let network_bridge_rx = MockNetworkBridgeRx::new(network_receiver, None);
 	let (overseer, overseer_handle, cfg, to_subsystems) =
-		build_overseer(state, (network_bridge_tx, network_bridge_rx), &dependencies);
+		build_overseer(state, network.clone(), network_interface, network_receiver, &dependencies);
 
 	(
 		TestEnvironment::new(

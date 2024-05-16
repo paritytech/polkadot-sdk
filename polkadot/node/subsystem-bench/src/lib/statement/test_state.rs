@@ -18,13 +18,17 @@ use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	mock::runtime_api::session_info_for_peers,
 	network::{HandleNetworkMessage, NetworkMessage},
-	NODE_UNDER_TEST, PEER_IN_NODE_GROUP,
+	NODE_UNDER_TEST,
 };
 use bitvec::vec::BitVec;
+use futures::channel::oneshot;
 use itertools::Itertools;
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
-	request_response::{v2::AttestedCandidateResponse, Requests},
+	request_response::{
+		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
+		Requests,
+	},
 	v3::{
 		BackedCandidateAcknowledgement, StatementDistributionMessage, StatementFilter,
 		ValidationProtocol,
@@ -44,7 +48,7 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, dummy_head_data, dummy_pvd,
 };
-use sc_network::ProtocolName;
+use sc_network::{config::IncomingRequest, ProtocolName};
 use sp_core::{Pair, H256};
 use std::{
 	collections::HashMap,
@@ -75,14 +79,14 @@ pub struct TestState {
 	pub manifests_tracker: HashMap<CandidateHash, Arc<AtomicBool>>,
 	pub session_info: SessionInfo,
 	pub statements: HashMap<CandidateHash, Vec<UncheckedSigned<CompactStatement>>>,
-	pub node_group: Vec<ValidatorIndex>,
+	pub own_backing_group: Vec<ValidatorIndex>,
 }
 
 impl TestState {
 	pub fn new(config: &TestConfiguration) -> Self {
 		let test_authorities = config.generate_authorities();
 		let session_info = session_info_for_peers(config, &test_authorities);
-		let node_group = session_info
+		let own_backing_group = session_info
 			.validator_groups
 			.iter()
 			.find(|g| g.contains(&ValidatorIndex(NODE_UNDER_TEST)))
@@ -99,7 +103,7 @@ impl TestState {
 			statements_tracker: Default::default(),
 			manifests_tracker: Default::default(),
 			session_info,
-			node_group,
+			own_backing_group,
 			statements: Default::default(),
 		};
 
@@ -348,16 +352,50 @@ impl HandleNetworkMessage for TestState {
 					.position(|v| v == &authority_id)
 					.expect("Should exist");
 
+				let backing_group =
+					self.session_info.validator_groups.get(manifest.group_index).unwrap();
+				let group_size = backing_group.len();
+				let is_own_backing_group = backing_group.contains(&ValidatorIndex(NODE_UNDER_TEST));
+				let mut seconded_in_group =
+					BitVec::from_iter((0..group_size).map(|_| !is_own_backing_group));
+				let mut validated_in_group = BitVec::from_iter((0..group_size).map(|_| false));
+
+				if is_own_backing_group {
+					let (pending_response, response_receiver) = oneshot::channel();
+					let peer_id = self.test_authorities.peer_ids.get(index).unwrap().to_owned();
+					node_sender
+						.start_send(NetworkMessage::RequestFromPeer(IncomingRequest {
+							peer: peer_id,
+							payload: AttestedCandidateRequest {
+								candidate_hash: manifest.candidate_hash,
+								mask: StatementFilter::blank(self.own_backing_group.len()),
+							}
+							.encode(),
+							pending_response,
+						}))
+						.unwrap();
+
+					let response = response_receiver.await.unwrap();
+					let response =
+						AttestedCandidateResponse::decode(&mut response.result.unwrap().as_ref())
+							.unwrap();
+
+					for statement in response.statements {
+						let validator_index = statement.unchecked_validator_index();
+						let position_in_group =
+							backing_group.iter().position(|v| *v == validator_index).unwrap();
+						match statement.unchecked_payload() {
+							CompactStatement::Seconded(_) =>
+								seconded_in_group.set(position_in_group, true),
+							CompactStatement::Valid(_) =>
+								validated_in_group.set(position_in_group, true),
+						}
+					}
+				}
+
 				let ack = BackedCandidateAcknowledgement {
 					candidate_hash: manifest.candidate_hash,
-					statement_knowledge: StatementFilter {
-						seconded_in_group: BitVec::from_iter(
-							(0..self.node_group.len()).map(|v| v == PEER_IN_NODE_GROUP as usize),
-						),
-						validated_in_group: BitVec::from_iter(
-							(0..self.node_group.len()).map(|v| v == NODE_UNDER_TEST as usize),
-						),
-					},
+					statement_knowledge: StatementFilter { seconded_in_group, validated_in_group },
 				};
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
