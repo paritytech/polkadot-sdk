@@ -18,6 +18,7 @@
 
 use litep2p::types::multiaddr::{
 	Error as LiteP2pError, Iter as LiteP2pIter, Multiaddr as LiteP2pMultiaddr,
+	Protocol as LiteP2pProtocol,
 };
 use std::{
 	fmt::{self, Debug, Display},
@@ -161,6 +162,22 @@ impl FromStr for Multiaddr {
 	}
 }
 
+impl TryFrom<String> for Multiaddr {
+	type Error = ParseError;
+
+	fn try_from(s: String) -> Result<Multiaddr, Self::Error> {
+		Self::from_str(&s)
+	}
+}
+
+impl<'a> TryFrom<&'a str> for Multiaddr {
+	type Error = ParseError;
+
+	fn try_from(s: &'a str) -> Result<Multiaddr, Self::Error> {
+		Self::from_str(s)
+	}
+}
+
 /// Iterator over `Multiaddr` [`Protocol`]s.
 pub struct Iter<'a>(LiteP2pIter<'a>);
 
@@ -193,6 +210,14 @@ impl<'a> FromIterator<Protocol<'a>> for Multiaddr {
 		T: IntoIterator<Item = Protocol<'a>>,
 	{
 		LiteP2pMultiaddr::from_iter(iter.into_iter().map(Into::into)).into()
+	}
+}
+
+impl<'a> From<Protocol<'a>> for Multiaddr {
+	fn from(p: Protocol<'a>) -> Multiaddr {
+		let protocol: LiteP2pProtocol = p.into();
+		let multiaddr: LiteP2pMultiaddr = protocol.into();
+		multiaddr.into()
 	}
 }
 

@@ -945,14 +945,8 @@ mod tests {
 		tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
 	}
 
-	fn secret_bytes(kp: Keypair) -> Vec<u8> {
-		kp.try_into_ed25519()
-			.expect("ed25519 keypair")
-			.secret()
-			.as_ref()
-			.iter()
-			.cloned()
-			.collect()
+	fn secret_bytes(kp: ed25519::Keypair) -> Vec<u8> {
+		kp.secret().to_bytes().into()
 	}
 
 	#[test]

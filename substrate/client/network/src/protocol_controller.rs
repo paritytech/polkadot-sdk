@@ -858,8 +858,9 @@ mod tests {
 	use super::*;
 	use crate::{
 		peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT},
-		PeerId, ReputationChange,
+		ReputationChange,
 	};
+	use libp2p::PeerId;
 	use sc_network_common::role::ObservedRole;
 	use sc_utils::mpsc::{tracing_unbounded, TryRecvError};
 	use std::collections::HashSet;
