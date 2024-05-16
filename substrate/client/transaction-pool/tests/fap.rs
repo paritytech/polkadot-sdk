@@ -778,23 +778,36 @@ fn fap_fork_no_xts_ready_switch_to_future() {
 	let (pool, _) = create_basic_pool(api.clone());
 
 	let f03 = forks[0][3].hash();
+	let f12 = forks[1][2].hash();
 	let f13 = forks[1][3].hash();
 
 	let event = new_best_block_event(&pool, None, f03);
 	block_on(pool.maintain(event));
 
+	// xt0 is ready on f03, but future on f12, f13
 	let xt0 = uxt(Alice, 203);
 	let submissions = vec![pool.submit_one(invalid_hash(), SOURCE, xt0.clone())];
 	block_on(futures::future::join_all(submissions));
 
-	let event = new_best_block_event(&pool, Some(f03), f13);
+	let event = new_best_block_event(&pool, Some(f03), f12);
 	block_on(pool.maintain(event));
 
 	assert_pool_status!(f03, &pool, 1, 0);
+	assert_pool_status!(f12, &pool, 1, 0);
 
-	//xt0 becomes future, and this may only happen after view revalidation
-	//todo: should it work at all? (it requires better revalidation: mempool keeping validated txs)
-	// assert_pool_status!(f13, &pool, 0, 1);
+	//xt0 becomes future, and this may only happen after view revalidation (which happens on
+	//finalization). So trigger it.
+	let event = finalized_block_event(&pool, api.genesis_hash(), f12);
+	block_on(pool.maintain(event));
+
+	//xt0 becomes future, for newly create view:
+	//finalization). So trigger it.
+	let event = new_best_block_event(&pool, Some(f12), f13);
+	block_on(pool.maintain(event));
+
+	assert_pool_status!(f13, &pool, 0, 1);
+	// f03 still dangling
+	assert_eq!(pool.views_len(), 2);
 }
 
 #[test]
