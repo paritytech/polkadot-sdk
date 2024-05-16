@@ -63,7 +63,7 @@ Then try running the following command to start a single node development chain 
   --rpc-cors all \
   --prometheus-external \
   # FIXME: why doesn't this work
-  --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
+  # --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
   -lsync=debug
 ```
 
