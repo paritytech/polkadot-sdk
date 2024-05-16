@@ -99,10 +99,10 @@ fn ensure_check_metadata_works_on_real_extrinsics() {
 	// Ensure that the transaction is signed.
 	assert!(valid_transaction.is_signed().unwrap());
 
-	assert!(runtime_api
+	runtime_api
 		.validate_transaction(best_hash, TransactionSource::External, valid_transaction, best_hash)
 		.unwrap()
-		.is_ok());
+		.unwrap();
 
 	// Including some random metadata hash should make the transaction invalid.
 	let invalid_transaction = ExtrinsicBuilder::new_include_data(vec![1, 2, 3])
