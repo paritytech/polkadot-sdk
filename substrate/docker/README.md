@@ -82,3 +82,9 @@ Note: It is recommended to provide a custom `--base-path` to store the chain dat
 ```
 
 > IMPORTANT: The run.sh script is configured to default to `linux/amd64` platform architecture. If you are using Apple Silicon then it will use `linux/x86_64`. If you are using a different platform architecture then please specify it for the value of `DOCKER_DEFAULT_PLATFORM` and run `export DOCKER_DEFAULT_PLATFORM=xxx` prior to the above commands, replacig `xxx` with the value of your platform architecture.
+
+> NOTE: If you run a chain with the run.sh script within the Docker container, chain syncing will utilize all available memory and CPU power as mentioned in /substrate/primitives/runtime/docs/contributor/docker.md, so it may be important to provide options to `docker run` to configure `--memory`, `--memory-reservation`, `--memory-swap`, and `--cpus` values to limit resources used. To run the commands within the Docker container itself instead of from the host machine, run the Docker container in the background in detached mode with `-d` (e.g. `docker run --platform $PLATFORM -it -d parity/substrate`) and then enter that Docker container with `docker exec -it parity-substrate /bin/bash` (where the Docker container name is `parity-substrate`, whereas the Docker image name is `parity/substrate`).
+
+> NOTE: If you want the Docker container to restart on failure then provide to `docker run` the option `--restart "on-failure"` instead of `--rm`.
+
+> NOTE: In the [.Dockerfile](./substrate_builder.Dockerfile), the exposed ports are for running a Substrate-based node. In addition, ports 80 and 443 have been included incase you wishes to run a frontend from within the Docker container.

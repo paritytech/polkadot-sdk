@@ -26,14 +26,11 @@ VERSION=`grep "^version" $PROJECT_ROOT/substrate/bin/node/cli/Cargo.toml | egrep
 GITUSER=parity
 GITREPO=substrate
 
-# https://stackoverflow.com/a/25554904/3208553
 # note: the option `--platform linux/x86_64` is required on Apple Silicon architectures otherwise get error
 # `qemu-x86_64: Could not open '/lib64/ld-linux-x86-64.so.2': No such file or directory` or
 # `rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2`
 # since the requested images platform (linux/amd64) may not match the detected host platform
-# that uses (linux/arm64/v8)
-#
-# see https://stackoverflow.com/questions/68630526/lib64-ld-linux-x86-64-so-2-no-such-file-or-directory-error
+# that uses (linux/arm64/v8). see https://stackoverflow.com/questions/68630526/lib64-ld-linux-x86-64-so-2-no-such-file-or-directory-error
 
 # Build the image
 echo "Building ${GITUSER}/${GITREPO}:latest docker image, hang on!"
@@ -41,10 +38,11 @@ echo "Building ${GITUSER}/${GITREPO}:latest docker image, hang on!"
 export BUILDKIT_PROGRESS=plain
 export DOCKER_BUILDKIT=1
 
+# note: optionally use `docker build --no-cache ...`
 try_build() {
   echo "Building for $1 architecture"
   PLATFORM=$1
-# heredoc cannot be indented
+# heredoc for try/catch syntax cannot be indented. https://stackoverflow.com/a/25554904/3208553
 bash -e << TRY
   time docker build \
     --platform $PLATFORM \
@@ -53,7 +51,6 @@ bash -e << TRY
 TRY
   if [ $? -ne 0 ]; then
     printf "\n*** Detected error running 'docker build'. Trying 'docker buildx' instead...\n"
-
 # heredoc cannot be indented
 bash -e << TRY
   time docker buildx build \
@@ -65,11 +62,9 @@ TRY
       printf "\n*** Detected unknown error running 'docker buildx'.\n"
       exit 1
     fi
-
   fi
 }
 
-# optionally use `docker build --no-cache ...`
 # reference: https://github.com/paritytech/scripts/blob/master/get-substrate.sh
 if [[ "$OSTYPE" == "darwin"* ]]; then
   set -e
