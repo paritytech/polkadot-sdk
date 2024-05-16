@@ -54,12 +54,12 @@ impl MockProspectiveParachains {
 					ProspectiveParachainsMessage::GetMinimumRelayParents(_relay_parent, tx) => {
 						tx.send(vec![]).unwrap();
 					},
-					ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx) => {
+					ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx) => {
 						tx.send(
 							req.candidates
 								.iter()
 								.cloned()
-								.map(|candidate| (candidate, vec![(Hash::repeat_byte(0), vec![0])]))
+								.map(|candidate| (candidate, vec![Hash::repeat_byte(0)]))
 								.collect(),
 						)
 						.unwrap();
