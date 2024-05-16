@@ -20,14 +20,14 @@
 //! sorted list of targets with a bags-list.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{log, weights, Config, Nominators, Pallet};
+use crate::{log, weights, Config, Nominators, Pallet, StakerStatus};
 use core::marker::PhantomData;
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
+	ensure,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	traits::Defensive,
 };
-use pallet_stake_tracker::{Config as STConfig, Pallet as STPallet};
 use sp_staking::StakingInterface;
 use sp_std::prelude::*;
 
@@ -46,9 +46,11 @@ mod tests;
 /// stake.
 /// - Ensure the new targets in the list are sorted per total stake (as per the underlying
 ///   [`SortedListProvider`]).
-pub struct MigrationV13<T: Config + STConfig, W: weights::WeightInfo>(PhantomData<(T, W)>);
-impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weights::WeightInfo>
-	SteppedMigration for MigrationV13<T, W>
+pub struct MigrationV13<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
+
+// TODO: check bonds again.
+impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
+	for MigrationV13<T, W>
 {
 	type Cursor = T::AccountId;
 	type Identifier = MigrationId<18>;
@@ -69,15 +71,11 @@ impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weight
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		log::info!("remaining step weight: {:?}", meter.remaining());
-
-		/*
 		// TODO(remove): configs and state for partial checks.
 		#[cfg(any(test, feature = "try-runtime"))]
-		const TRY_STATE_INTERVAL: usize = 15;
+		const TRY_STATE_INTERVAL: usize = 10;
 		#[cfg(any(test, feature = "try-runtime"))]
-		let mut voters_processed: Vec<T::AccountId> = vec![];
-		*/
+		let mut counter = 0;
 
 		// Do as much progress as possible per step.
 		while meter.try_consume(required).is_ok() {
@@ -89,52 +87,32 @@ impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weight
 			};
 
 			if let Some((nominator, _)) = iter.next() {
-				let nominator_stake = STPallet::<T>::vote_of(&nominator);
+				// try chill nominator. If chilled, skip migration of this nominator.
+				if Self::try_chill_nominator(&nominator) {
+					log!(info, "nominator {:?} chilled, skip it.", nominator);
+					continue;
+				}
+				// clean the nominations before migrating. This will ensure that the voter is not
+				// nominating duplicate and/or dangling targets.
+				let nominations = Self::clean_nominations(&nominator)?;
 
-				// TODO: clean up.
-				let nominations = Nominators::<T>::get(&nominator)
-					.map(|n| n.targets.into_inner())
-					.unwrap_or_default();
-				let original_noms_len = nominations.len();
-
-				let nominations = pallet_stake_tracker::Pallet::<T>::ensure_dedup(nominations);
-				// try to remove dangling and bad targets.
-				let nominations = Pallet::<T>::do_drop_dangling_nominations(&nominator, None)
-					.map(|n| n.into_inner())
-					.unwrap_or(nominations);
-				// ---
+				let nominator_stake = Pallet::<T>::weight_of(&nominator);
 
 				log!(
 					info,
-					"mmb: processing nominator {:?} with {} nominations ({} after dedup). remaining {} nominators to migrate.",
+					"mmb: processing nominator {:?} with {} nominations. remaining {} nominators to migrate.",
 					nominator,
-					original_noms_len,
                     nominations.len(),
 					iter.count()
 				);
 
-				// `Nominators` may have unbonded stashes -- chill them.
-				if Pallet::<T>::active_stake(&nominator).unwrap_or_default() <
-					Pallet::<T>::minimum_nominator_bond()
-				{
-					let res = <Pallet<T> as StakingInterface>::chill(&nominator);
-					log!(
-						info,
-						"mmb: nominator {:?} with low bond, chilling (result: {:?})",
-						nominator,
-						res,
-					);
-
-					continue;
-				}
-
 				// iter over up to `MaxNominationsOf<T>` targets of `nominator`.
 				for target in nominations.into_iter() {
-					if let Ok(current_stake) = <T as STConfig>::TargetList::get_score(&target) {
+					if let Ok(current_stake) = <T as Config>::TargetList::get_score(&target) {
 						// target is in the target list. update with nominator's stake.
 						if let Some(total_stake) = current_stake.checked_add(nominator_stake.into())
 						{
-							let _ = <T as STConfig>::TargetList::on_update(&target, total_stake)
+							let _ = <T as Config>::TargetList::on_update(&target, total_stake)
 								.defensive();
 						} else {
 							log!(error, "target stake overflow. exit.");
@@ -143,10 +121,10 @@ impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weight
 					} else {
 						// target is not in the target list, insert new node and consider self
 						// stake.
-						let self_stake = STPallet::<T>::vote_of(&target);
+						let self_stake = Pallet::<T>::weight_of(&target);
 						if let Some(total_stake) = self_stake.checked_add(nominator_stake) {
 							let _ =
-								<T as STConfig>::TargetList::on_insert(target, total_stake.into())
+								<T as Config>::TargetList::on_insert(target, total_stake.into())
 									.defensive();
 						} else {
 							log!(error, "target stake overflow. exit.");
@@ -155,17 +133,14 @@ impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weight
 					}
 				}
 
-				/*
 				// TODO(remove): performs partial checks.
 				#[cfg(any(test, feature = "try-runtime"))]
 				{
-					voters_processed.push(nominator.clone());
-					if voters_processed.len() % TRY_STATE_INTERVAL == 0 {
-						STPallet::<T>::do_try_state_approvals(Some(voters_processed.clone()))
-							.unwrap();
+					counter += 1;
+					if counter % TRY_STATE_INTERVAL == 0 {
+						Pallet::<T>::do_try_state_approvals(Some(nominator.clone())).unwrap();
 					}
 				}
-				*/
 
 				// progress cursor.
 				cursor = Some(nominator)
@@ -176,5 +151,65 @@ impl<T: Config<CurrencyBalance = u128> + pallet_stake_tracker::Config, W: weight
 		}
 
 		Ok(cursor)
+	}
+}
+
+impl<T: Config, W: weights::WeightInfo> MigrationV13<T, W> {
+	/// Chills a nominator if their active stake is below the minimum bond.
+	pub(crate) fn try_chill_nominator(who: &T::AccountId) -> bool {
+		if Pallet::<T>::active_stake(&who).unwrap_or_default() <
+			Pallet::<T>::minimum_nominator_bond()
+		{
+			let _ = <Pallet<T> as StakingInterface>::chill(&who).defensive();
+			return true;
+		}
+		false
+	}
+
+	/// Cleans up the nominations of `who`.
+	///
+	/// After calling this method, the following invariants are respected:
+	/// - `stash` has no duplicate nominations;
+	/// - `stash` has no dangling nominations (i.e. nomination of non-active validator stashes).
+	///
+	/// When successful, the final nominations of the stash are returned.
+	pub(crate) fn clean_nominations(
+		who: &T::AccountId,
+	) -> Result<Vec<T::AccountId>, SteppedMigrationError> {
+		use sp_std::collections::btree_set::BTreeSet;
+
+		ensure!(
+			Pallet::<T>::status(who).map(|x| x.is_nominator()).unwrap_or(false),
+			SteppedMigrationError::Failed
+		);
+
+		let mut raw_nominations = Nominators::<T>::get(who)
+			.map(|n| n.targets.into_inner())
+			.expect("who is nominator as per the check above; qed.");
+
+		let count_before = raw_nominations.len();
+
+		// remove duplicate nominations.
+		let dedup_noms: Vec<T::AccountId> = raw_nominations
+			.drain(..)
+			.collect::<BTreeSet<_>>()
+			.into_iter()
+			.collect::<Vec<_>>();
+
+		// remove all non-validator nominations.
+		let nominations = dedup_noms
+			.into_iter()
+			.filter(|n| Pallet::<T>::status(n) == Ok(StakerStatus::Validator))
+			.collect::<Vec<_>>();
+
+		// update `who`'s nominations in staking, if necessary.
+		if count_before > nominations.len() {
+			<Pallet<T> as StakingInterface>::nominate(who, nominations.clone()).map_err(|e| {
+				log!(error, "failed to migrate nominations {:?}.", e);
+				SteppedMigrationError::Failed
+			})?;
+		}
+
+		Ok(nominations)
 	}
 }

@@ -41,7 +41,7 @@ use sp_staking::{
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
-use sp_std::prelude::*;
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 mod impls;
 
@@ -51,7 +51,7 @@ use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
 	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
 	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	RewardDestination, SessionInterface, StakerStatus, StakingLedger, UnappliedSlash, UnlockChunk,
 	ValidatorPrefs,
 };
 
@@ -1231,9 +1231,15 @@ pub mod pallet {
 				.map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
 				.map(|n| {
 					n.and_then(|n| {
-						// a good target nomination must be a valiator (active or idle). The
-						// validator must not be blocked.
-						if Self::status(&n).is_ok() &&
+						// a good target nomination must be an active validator or a Idle staker.
+						// The validator must not be blocked.
+						let validator_or_idle = Self::status(&n)
+							.map(|status| {
+								status == StakerStatus::Validator || status == StakerStatus::Idle
+							})
+							.unwrap_or(false);
+
+						if validator_or_idle &&
 							(old.contains(&n) || !Validators::<T>::get(&n).blocked)
 						{
 							Ok(n)
@@ -1243,6 +1249,11 @@ pub mod pallet {
 					})
 				})
 				.collect::<Result<Vec<_>, _>>()?
+				// remove duplicate nominations.
+				.drain(..)
+				.collect::<BTreeSet<_>>()
+				.into_iter()
+				.collect::<Vec<_>>()
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
 
@@ -2096,7 +2107,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Removes nomination of a non-active validator from a nomination.
+		/// Removes nomination of a non-active validator.
 		///
 		/// In the case that an unboded target still has nominations lingering, the approvals stake
 		/// for the "dangling" target needs to remain in the target list. This extrinsic allows
@@ -2122,10 +2133,10 @@ pub mod pallet {
 			);
 
 			Self::do_drop_dangling_nominations(&nominator, Some(&target))
-				.map(|nominations| {
+				.map(|_| {
 					Self::deposit_event(Event::<T>::DanglingNominationsDropped {
 						nominator,
-						count: 0, // TODO
+						count: 1,
 					});
 
 					Pays::No.into()
