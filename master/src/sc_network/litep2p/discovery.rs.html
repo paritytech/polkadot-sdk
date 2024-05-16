@@ -680,6 +680,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -950,10 +955,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
 				public_addresses: config.public_addresses.iter().cloned().collect(),
 				next_kad_query: <span class="prelude-val">Some</span>(Delay::new(KADEMLIA_QUERY_INTERVAL)),
-				local_protocols: HashSet::from_iter([
-					kademlia_protocol_name(genesis_hash, fork_id),
-					legacy_kademlia_protocol_name(protocol_id),
-				]),
+				local_protocols: HashSet::from_iter([kademlia_protocol_name(
+					genesis_hash,
+					fork_id,
+				)]),
 			},
 			ping_config,
 			identify_config,
@@ -977,6 +982,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		addresses: Vec&lt;Multiaddr&gt;,
 	) {
 		<span class="kw">if </span><span class="self">self</span>.local_protocols.is_disjoint(<span class="kw-2">&amp;</span>supported_protocols) {
+			<span class="macro">log::trace!</span>(
+				target: <span class="string">"sub-libp2p"</span>,
+				<span class="string">"Ignoring self-reported address of peer {peer} as remote node is not part of the \
+				 Kademlia DHT supported by the local node."</span>,
+			);
 			<span class="kw">return
 		</span>}
 
