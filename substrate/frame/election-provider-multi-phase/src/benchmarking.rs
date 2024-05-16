@@ -280,8 +280,8 @@ frame_benchmarking::benchmarks! {
 		MultiPhase::<T>::create_snapshot_internal(targets, voters, desired_targets)
 	} verify {
 		assert!(Snapshot::<T>::get().is_some());
-		assert_eq!(MultiPhase::<T>::snapshot_metadata().ok_or("metadata missing")?.voters, v);
-		assert_eq!(MultiPhase::<T>::snapshot_metadata().ok_or("metadata missing")?.targets, t);
+		assert_eq!(SnapshotMetadata::<T>::get().ok_or("metadata missing")?.voters, v);
+		assert_eq!(SnapshotMetadata::<T>::get().ok_or("metadata missing")?.targets, t);
 	}
 
 	// a call to `<Pallet as ElectionProvider>::elect` where we only return the queued solution.
@@ -353,7 +353,7 @@ frame_benchmarking::benchmarks! {
 		let caller = frame_benchmarking::whitelisted_caller();
 		let deposit = MultiPhase::<T>::deposit_for(
 			&solution,
-			MultiPhase::<T>::snapshot_metadata().unwrap_or_default(),
+			SnapshotMetadata::<T>::get().unwrap_or_default(),
 		);
 		T::Currency::make_free_balance_be(&caller,  T::Currency::minimum_balance() * 1000u32.into() + deposit);
 
@@ -454,8 +454,8 @@ frame_benchmarking::benchmarks! {
 		MultiPhase::<T>::create_snapshot().map_err(|_| "could not create snapshot")?;
 	} verify {
 		assert!(Snapshot::<T>::get().is_some());
-		assert_eq!(MultiPhase::<T>::snapshot_metadata().ok_or("snapshot missing")?.voters, v);
-		assert_eq!(MultiPhase::<T>::snapshot_metadata().ok_or("snapshot missing")?.targets, t);
+		assert_eq!(SnapshotMetadata::<T>::get().ok_or("snapshot missing")?.voters, v);
+		assert_eq!(SnapshotMetadata::<T>::get().ok_or("snapshot missing")?.targets, t);
 	}
 
 	#[extra]

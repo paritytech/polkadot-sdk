@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
-	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo, DesiredTargets,
+	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo, DesiredTargets, SnapshotMetadata,
 };
 use codec::{Decode, Encode, HasCompact};
 use frame_election_provider_support::NposSolution;
@@ -405,7 +405,7 @@ impl<T: Config> Pallet<T> {
 		let mut weight = T::DbWeight::get().reads(1);
 
 		let SolutionOrSnapshotSize { voters, targets } =
-			Self::snapshot_metadata().unwrap_or_default();
+			SnapshotMetadata::<T>::get().unwrap_or_default();
 
 		while let Some(best) = all_submissions.pop_last() {
 			log!(

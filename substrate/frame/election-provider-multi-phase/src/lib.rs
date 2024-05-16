@@ -751,7 +751,7 @@ pub mod pallet {
 				"current phase {:?}, next election {:?}, metadata: {:?}",
 				current_phase,
 				next_election,
-				Self::snapshot_metadata()
+				SnapshotMetadata::<T>::get()
 			);
 			match current_phase {
 				Phase::Off if remaining <= signed_deadline && remaining > unsigned_deadline => {
@@ -921,7 +921,7 @@ pub mod pallet {
 
 			// Ensure witness was correct.
 			let SolutionOrSnapshotSize { voters, targets } =
-				Self::snapshot_metadata().expect(error_message);
+				SnapshotMetadata::<T>::get().expect(error_message);
 
 			// NOTE: we are asserting, not `ensure`ing -- we want to panic here.
 			assert!(voters as u32 == witness.voters, "{}", error_message);
@@ -1023,7 +1023,7 @@ pub mod pallet {
 
 			// build size. Note: this is not needed for weight calc, thus not input.
 			// unlikely to ever return an error: if phase is signed, snapshot will exist.
-			let size = Self::snapshot_metadata().ok_or(Error::<T>::MissingSnapshotMetadata)?;
+			let size = SnapshotMetadata::<T>::get().ok_or(Error::<T>::MissingSnapshotMetadata)?;
 
 			ensure!(
 				Self::solution_weight_of(&raw_solution, size).all_lt(T::SignedMaxWeight::get()),
@@ -1286,7 +1286,6 @@ pub mod pallet {
 	/// Only exists when [`Snapshot`] is present.
 	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
-	#[pallet::getter(fn snapshot_metadata)]
 	pub type SnapshotMetadata<T: Config> = StorageValue<_, SolutionOrSnapshotSize>;
 
 	// The following storage items collectively comprise `SignedSubmissions<T>`, and should never be
@@ -2218,7 +2217,7 @@ mod tests {
 			// All storage items must be cleared.
 			assert_eq!(Round::<Runtime>::get(), 2);
 			assert!(Snapshot::<Runtime>::get().is_none());
-			assert!(MultiPhase::snapshot_metadata().is_none());
+			assert!(SnapshotMetadata::<Runtime>::get().is_none());
 			assert!(DesiredTargets::<Runtime>::get().is_none());
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert!(MultiPhase::signed_submissions().is_empty());
@@ -2257,7 +2256,7 @@ mod tests {
 			// all storage items must be cleared.
 			assert_eq!(Round::<Runtime>::get(), 2);
 			assert!(Snapshot::<Runtime>::get().is_none());
-			assert!(MultiPhase::snapshot_metadata().is_none());
+			assert!(SnapshotMetadata::<Runtime>::get().is_none());
 			assert!(DesiredTargets::<Runtime>::get().is_none());
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert!(MultiPhase::signed_submissions().is_empty());
@@ -2636,7 +2635,7 @@ mod tests {
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 
 			assert_eq!(
-				MultiPhase::snapshot_metadata().unwrap(),
+				SnapshotMetadata::<Runtime>::get().unwrap(),
 				SolutionOrSnapshotSize { voters: 2, targets: 4 }
 			);
 		})
