@@ -433,6 +433,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -456,6 +460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! from the runtime once `Completed` was emitted.
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
+#![allow(deprecated)] </span><span class="comment">// The pallet itself is deprecated.
 
 </span><span class="kw">use </span>migration::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -473,6 +478,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::DmpSink <span class="kw">as </span>frame_support::traits::HandleMessage&gt;::MaxMessageLen;
 
 <span class="attr">#[frame_support::pallet]
+#[deprecated(
+	note = <span class="string">"`cumulus-pallet-dmp-queue` will be removed after November 2024. It can be removed once its lazy migration completed. See &lt;https://github.com/paritytech/polkadot-sdk/pull/1246&gt;."
+</span>)]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::HandleMessage, weights::WeightMeter};

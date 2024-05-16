@@ -576,7 +576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		child_bounty_setup.reason.clone(),
 	)<span class="question-mark">?</span>;
 
-	child_bounty_setup.bounty_id = Bounties::&lt;T&gt;::bounty_count() - <span class="number">1</span>;
+	child_bounty_setup.bounty_id = pallet_bounties::BountyCount::&lt;T&gt;::get() - <span class="number">1</span>;
 
 	<span class="kw">let </span>approve_origin =
 		T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;

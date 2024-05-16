@@ -1080,10 +1080,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#929" id="929">929</a>
 <a href="#930" id="930">930</a>
 <a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1389,12 +1385,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Number of bounty proposals that have been made.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>bounty_count)]
 	</span><span class="kw">pub type </span>BountyCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, BountyIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// Bounties that have been made.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>bounties)]
 	</span><span class="kw">pub type </span>Bounties&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -1404,13 +1398,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The description of each bounty.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>bounty_descriptions)]
 	</span><span class="kw">pub type </span>BountyDescriptions&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, BountyIndex, BoundedVec&lt;u8, T::MaximumReasonLength&gt;&gt;;
 
 	<span class="doccomment">/// Bounty indices that have been approved but not yet funded.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>bounty_approvals)]
 	</span><span class="kw">pub type </span>BountyApprovals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;BountyIndex, T::MaxApprovals&gt;, ValueQuery&gt;;
 
@@ -1935,7 +1927,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			description.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::ReasonTooBig)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(value &gt;= T::BountyValueMinimum::get(), Error::&lt;T, I&gt;::InvalidValue);
 
-		<span class="kw">let </span>index = <span class="self">Self</span>::bounty_count();
+		<span class="kw">let </span>index = BountyCount::&lt;T, I&gt;::get();
 
 		<span class="comment">// reserve deposit for new bounty
 		</span><span class="kw">let </span>bond = T::BountyDepositBase::get() +

@@ -1058,11 +1058,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#907" id="907">907</a>
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1246,19 +1241,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Number of total child bounties.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>child_bounty_count)]
 	</span><span class="kw">pub type </span>ChildBountyCount&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, BountyIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// Number of child bounties per parent bounty.
 	/// Map of parent bounty index to number of child bounties.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>parent_child_bounties)]
 	</span><span class="kw">pub type </span>ParentChildBounties&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, BountyIndex, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// Child bounties that have been added.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>child_bounties)]
 	</span><span class="kw">pub type </span>ChildBounties&lt;T: Config&gt; = StorageDoubleMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -1270,13 +1262,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The description of each child-bounty.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>child_bounty_descriptions)]
 	</span><span class="kw">pub type </span>ChildBountyDescriptions&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, BountyIndex, BoundedVec&lt;u8, T::MaximumReasonLength&gt;&gt;;
 
 	<span class="doccomment">/// The cumulative child-bounty curator fee for each parent bounty.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>children_curator_fees)]
 	</span><span class="kw">pub type </span>ChildrenCuratorFees&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, BountyIndex, BalanceOf&lt;T&gt;, ValueQuery&gt;;
 
@@ -1316,7 +1306,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				description.try_into().map_err(|<span class="kw">_</span>| BountiesError::&lt;T&gt;::ReasonTooBig)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(value &gt;= T::ChildBountyValueMinimum::get(), BountiesError::&lt;T&gt;::InvalidValue);
 			<span class="macro">ensure!</span>(
-				<span class="self">Self</span>::parent_child_bounties(parent_bounty_id) &lt;=
+				ParentChildBounties::&lt;T&gt;::get(parent_bounty_id) &lt;=
 					T::MaxActiveChildBountyCount::get() <span class="kw">as </span>u32,
 				Error::&lt;T&gt;::TooManyChildBounties,
 			);
@@ -1341,15 +1331,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)<span class="question-mark">?</span>;
 
 			<span class="comment">// Get child-bounty ID.
-			</span><span class="kw">let </span>child_bounty_id = <span class="self">Self</span>::child_bounty_count();
+			</span><span class="kw">let </span>child_bounty_id = ChildBountyCount::&lt;T&gt;::get();
 			<span class="kw">let </span>child_bounty_account = <span class="self">Self</span>::child_bounty_account_id(child_bounty_id);
 
 			<span class="comment">// Transfer funds from parent bounty to child-bounty.
 			</span>T::Currency::transfer(<span class="kw-2">&amp;</span>parent_bounty_account, <span class="kw-2">&amp;</span>child_bounty_account, value, KeepAlive)<span class="question-mark">?</span>;
 
 			<span class="comment">// Increment the active child-bounty count.
-			</span>&lt;ParentChildBounties&lt;T&gt;&gt;::mutate(parent_bounty_id, |count| count.saturating_inc());
-			&lt;ChildBountyCount&lt;T&gt;&gt;::put(child_bounty_id.saturating_add(<span class="number">1</span>));
+			</span>ParentChildBounties::&lt;T&gt;::mutate(parent_bounty_id, |count| count.saturating_inc());
+			ChildBountyCount::&lt;T&gt;::put(child_bounty_id.saturating_add(<span class="number">1</span>));
 
 			<span class="comment">// Create child-bounty instance.
 			</span><span class="self">Self</span>::create_child_bounty(
@@ -1775,12 +1765,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						});
 
 						<span class="comment">// Update the active child-bounty tracking count.
-						</span>&lt;ParentChildBounties&lt;T&gt;&gt;::mutate(parent_bounty_id, |count| {
+						</span>ParentChildBounties::&lt;T&gt;::mutate(parent_bounty_id, |count| {
 							count.saturating_dec()
 						});
 
 						<span class="comment">// Remove the child-bounty description.
-						</span>&lt;ChildBountyDescriptions&lt;T&gt;&gt;::remove(child_bounty_id);
+						</span>ChildBountyDescriptions::&lt;T&gt;::remove(child_bounty_id);
 
 						<span class="comment">// Remove the child-bounty instance from the state.
 						</span><span class="kw-2">*</span>maybe_child_bounty = <span class="prelude-val">None</span>;
@@ -1882,7 +1872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>ensure_bounty_active(
 		bounty_id: BountyIndex,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(T::AccountId, BlockNumberFor&lt;T&gt;), DispatchError&gt; {
-		<span class="kw">let </span>parent_bounty = pallet_bounties::Pallet::&lt;T&gt;::bounties(bounty_id)
+		<span class="kw">let </span>parent_bounty = pallet_bounties::Bounties::&lt;T&gt;::get(bounty_id)
 			.ok_or(BountiesError::&lt;T&gt;::InvalidIndex)<span class="question-mark">?</span>;
 		<span class="kw">if let </span>BountyStatus::Active { curator, update_due } = parent_bounty.get_status() {
 			<span class="prelude-val">Ok</span>((curator, update_due))
@@ -1927,7 +1917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>ChildrenCuratorFees::&lt;T&gt;::mutate(parent_bounty_id, |value| {
 					<span class="kw-2">*</span>value = value.saturating_sub(child_bounty.fee)
 				});
-				&lt;ParentChildBounties&lt;T&gt;&gt;::mutate(parent_bounty_id, |count| {
+				ParentChildBounties::&lt;T&gt;::mutate(parent_bounty_id, |count| {
 					<span class="kw-2">*</span>count = count.saturating_sub(<span class="number">1</span>)
 				});
 
@@ -1945,7 +1935,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="macro">debug_assert!</span>(transfer_result.is_ok());
 
 				<span class="comment">// Remove the child-bounty description.
-				</span>&lt;ChildBountyDescriptions&lt;T&gt;&gt;::remove(child_bounty_id);
+				</span>ChildBountyDescriptions::&lt;T&gt;::remove(child_bounty_id);
 
 				<span class="kw-2">*</span>maybe_child_bounty = <span class="prelude-val">None</span>;
 
@@ -1966,14 +1956,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>child_bounties_count(
 		bounty_id: pallet_bounties::BountyIndex,
 	) -&gt; pallet_bounties::BountyIndex {
-		<span class="self">Self</span>::parent_child_bounties(bounty_id)
+		ParentChildBounties::&lt;T&gt;::get(bounty_id)
 	}
 
 	<span class="kw">fn </span>children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -&gt; BalanceOf&lt;T&gt; {
 		<span class="comment">// This is asked for when the parent bounty is being claimed. No use of
 		// keeping it in state after that. Hence removing.
-		</span><span class="kw">let </span>children_fee_total = <span class="self">Self</span>::children_curator_fees(bounty_id);
-		&lt;ChildrenCuratorFees&lt;T&gt;&gt;::remove(bounty_id);
+		</span><span class="kw">let </span>children_fee_total = ChildrenCuratorFees::&lt;T&gt;::get(bounty_id);
+		ChildrenCuratorFees::&lt;T&gt;::remove(bounty_id);
 		children_fee_total
 	}
 }
