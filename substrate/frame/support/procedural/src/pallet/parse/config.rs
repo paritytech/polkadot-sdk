@@ -94,30 +94,32 @@ impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
 		let bound = trait_ty
 			.bounds
 			.iter()
-			.find_map(|b| {
-				if let syn::TypeParamBound::Trait(tb) = b {
-					tb.path
-						.segments
-						.last()
-						.and_then(|s| if s.ident == "Get" { Some(s) } else { None })
-				} else {
-					None
-				}
+			.find_map(|param_bound| {
+				let syn::TypeParamBound::Trait(trait_bound) = param_bound else { return None };
+
+				trait_bound.path.segments.last().and_then(|s| {
+					if s.ident == "Get" {
+						Some(s)
+					} else {
+						None
+					}
+				})
 			})
 			.ok_or_else(|| err(trait_ty.span(), "`Get<T>` trait bound not found"))?;
-		let type_arg = if let syn::PathArguments::AngleBracketed(ref ab) = bound.arguments {
-			if ab.args.len() == 1 {
-				if let syn::GenericArgument::Type(ref ty) = ab.args[0] {
-					Ok(ty)
-				} else {
-					Err(err(ab.args[0].span(), "Expected a type argument"))
-				}
-			} else {
-				Err(err(bound.span(), "Expected a single type argument"))
-			}
-		} else {
-			Err(err(bound.span(), "Expected trait generic args"))
-		}?;
+
+		let syn::PathArguments::AngleBracketed(ref ab) = bound.arguments else {
+			return Err(err(bound.span(), "Expected trait generic args"))
+		};
+
+		// Only one type argument is expected.
+		if ab.args.len() != 1 {
+			return Err(err(bound.span(), "Expected a single type argument"))
+		}
+
+		let syn::GenericArgument::Type(ref type_arg) = ab.args[0] else {
+			return Err(err(ab.args[0].span(), "Expected a type argument"))
+		};
+
 		let type_ = syn::parse2::<syn::Type>(replace_self_by_t(type_arg.to_token_stream()))
 			.expect("Internal error: replacing `Self` by `T` should result in valid type");
 
