@@ -1,4 +1,4 @@
-// Copyright (C) Parity Technologies (UK) Ltd.
+// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -14,18 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::parachain::Runtime;
-use frame_support::parameter_types;
-use xcm::latest::prelude::*;
-use xcm_simulator::mock_message_queue::ParachainId;
-
-parameter_types! {
-	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(Parent.into()), 1, 1);
-	pub const MaxAssetsIntoHolding: u32 = 64;
-}
-
-parameter_types! {
-	pub const KsmLocation: Location = Location::parent();
-	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(ParachainId::<Runtime>::get().into())].into();
-}
+//! # XCM Guides
+//!
+//! These guides aim to get you up and running with XCM.
+//!
+//! Coming soon.
+//!
+//! ## Next steps
+//!
+//! Jump to the [cookbook](crate::cookbook) for different examples.
