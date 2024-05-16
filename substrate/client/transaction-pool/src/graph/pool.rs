@@ -280,6 +280,7 @@ impl<B: ChainApi> Pool<B> {
 		// Zip the ones from the pool with the full list (we get pairs `(Extrinsic,
 		// Option<Vec<Tag>>)`)
 		let all = extrinsics.iter().zip(in_pool_tags.into_iter());
+		let mut validated_counter: usize = 0;
 
 		let mut future_tags = Vec::new();
 		for (extrinsic, in_pool_tags) in all {
@@ -291,6 +292,7 @@ impl<B: ChainApi> Pool<B> {
 				None => {
 					// Avoid validating block txs if the pool is empty
 					if !self.validated_pool.status().is_empty() {
+						validated_counter = validated_counter + 1;
 						let validity = self
 							.validated_pool
 							.api()
@@ -300,6 +302,8 @@ impl<B: ChainApi> Pool<B> {
 								extrinsic.clone(),
 							)
 							.await;
+
+						log::debug!(target: LOG_TARGET,"[{:?}] prune::revalidated", self.validated_pool.api().hash_and_length(&extrinsic.clone()).0);
 
 						if let Ok(Ok(validity)) = validity {
 							future_tags.extend(validity.provides);
@@ -313,6 +317,8 @@ impl<B: ChainApi> Pool<B> {
 				},
 			}
 		}
+
+		log::info!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}");
 
 		self.prune_tags(at, future_tags, in_pool_hashes).await
 	}
