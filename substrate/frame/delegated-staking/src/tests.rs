@@ -711,7 +711,7 @@ mod pool_integration {
 			// correct amount is locked in depositor's account.
 			assert_eq!(DelegatedStaking::held_balance_of(&creator), delegate_amount);
 
-			let pool_account = Pools::create_bonded_account(1);
+			let pool_account = Pools::generate_bonded_account(1);
 			let agent = get_agent(&pool_account);
 
 			// verify state
@@ -745,7 +745,7 @@ mod pool_integration {
 			// delegator is not actively exposed to core staking.
 			assert_eq!(Staking::status(&delegator), Err(StakingError::<T>::NotStash.into()));
 
-			let pool_agent = get_agent(&Pools::create_bonded_account(1));
+			let pool_agent = get_agent(&Pools::generate_bonded_account(1));
 			// verify state
 			assert_eq!(pool_agent.ledger.effective_balance(), staked_amount);
 			assert_eq!(pool_agent.bonded_stake(), staked_amount);
@@ -805,7 +805,7 @@ mod pool_integration {
 			let total_staked = creator_stake + 100 * 10 + 200 * 10;
 
 			// give some rewards
-			let reward_acc = Pools::create_reward_account(pool_id);
+			let reward_acc = Pools::generate_reward_account(pool_id);
 			let reward_amount = 1000;
 			fund(&reward_acc, reward_amount);
 
@@ -842,7 +842,7 @@ mod pool_integration {
 			let bond_amount = 200;
 			add_delegators_to_pool(pool_id, (300..310).collect(), bond_amount);
 			let total_staked = 1000 + bond_amount * 10;
-			let pool_acc = Pools::create_bonded_account(pool_id);
+			let pool_acc = Pools::generate_bonded_account(pool_id);
 
 			start_era(2);
 			// nothing to release yet.
@@ -969,7 +969,7 @@ mod pool_integration {
 			);
 
 			let pool_id = create_pool(100, 1000);
-			let pool_acc = Pools::create_bonded_account(pool_id);
+			let pool_acc = Pools::generate_bonded_account(pool_id);
 			assert_ok!(Pools::nominate(RawOrigin::Signed(100).into(), 1, vec![20, 21, 22]));
 			assert!(Staking::status(&pool_acc) == Ok(StakerStatus::Nominator(vec![20, 21, 22])));
 
@@ -1030,8 +1030,8 @@ mod pool_integration {
 			);
 
 			// Make sure all data is cleaned up.
-			assert!(!Agents::<T>::contains_key(Pools::create_bonded_account(pool_id)));
-			assert!(!System::account_exists(&Pools::create_bonded_account(pool_id)));
+			assert!(!Agents::<T>::contains_key(Pools::generate_bonded_account(pool_id)));
+			assert!(!System::account_exists(&Pools::generate_bonded_account(pool_id)));
 			assert!(!Delegators::<T>::contains_key(creator));
 			for i in 300..310 {
 				assert!(!Delegators::<T>::contains_key(i));
@@ -1048,7 +1048,7 @@ mod pool_integration {
 			let pool_id = create_pool(creator, creator_stake);
 			let delegator_stake = 100;
 			add_delegators_to_pool(pool_id, (300..306).collect(), delegator_stake);
-			let pool_acc = Pools::create_bonded_account(pool_id);
+			let pool_acc = Pools::generate_bonded_account(pool_id);
 
 			let total_staked = creator_stake + delegator_stake * 6;
 			assert_eq!(Staking::stake(&pool_acc).unwrap().total, total_staked);
@@ -1179,6 +1179,6 @@ mod pool_integration {
 	}
 
 	fn get_pool_agent(pool_id: u32) -> Agent<T> {
-		get_agent(&Pools::create_bonded_account(pool_id))
+		get_agent(&Pools::generate_bonded_account(pool_id))
 	}
 }

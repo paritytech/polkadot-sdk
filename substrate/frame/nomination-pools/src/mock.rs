@@ -36,12 +36,12 @@ pub type Currency = <T as Config>::Currency;
 
 // Ext builder creates a pool with id 1.
 pub fn default_bonded_account() -> AccountId {
-	Pools::create_bonded_account(1)
+	Pools::generate_bonded_account(1)
 }
 
 // Ext builder creates a pool with id 1.
 pub fn default_reward_account() -> AccountId {
-	Pools::create_reward_account(1)
+	Pools::generate_reward_account(1)
 }
 
 parameter_types! {
@@ -71,7 +71,7 @@ impl StakingMock {
 	/// Does not modify any [`SubPools`] of the pool as [`Default::default`] is passed for
 	/// `slashed_unlocking`.
 	pub fn slash_by(pool_id: PoolId, amount: Balance) {
-		let acc = Pools::create_bonded_account(pool_id);
+		let acc = Pools::generate_bonded_account(pool_id);
 		let bonded = BondedBalanceMap::get();
 		let pre_total = bonded.get(&acc).unwrap();
 		Self::set_bonded_balance(acc, pre_total - amount);

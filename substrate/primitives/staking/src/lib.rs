@@ -576,7 +576,7 @@ pub trait DelegationMigrator {
 
 	/// Drop the `Agent` account and its associated delegators.
 	///
-	/// Also removed from CoreStaking as a Virtual Staker. Useful for testing.
+	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn drop_agent(agent: &Self::AccountId);
 }

@@ -162,7 +162,7 @@ pub mod unversioned {
 			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
 
 			BondedPools::<T>::iter_keys().for_each(|id| {
-				let pool_account = Pallet::<T>::create_bonded_account(id);
+				let pool_account = Pallet::<T>::generate_bonded_account(id);
 				let pool_balance = if current_strategy == adapter::StakeStrategyType::Transfer {
 					T::Currency::total_balance(&pool_account)
 				} else {
@@ -185,7 +185,7 @@ pub mod unversioned {
 
 			for (index, id) in BondedPools::<T>::iter_keys().enumerate() {
 				let actual_balance =
-					T::StakeAdapter::total_balance(&Pallet::<T>::create_bonded_account(id));
+					T::StakeAdapter::total_balance(&Pallet::<T>::generate_bonded_account(id));
 				let expected_balance = expected_pool_balances.get(index).unwrap();
 
 				if actual_balance != *expected_balance {
@@ -201,7 +201,7 @@ pub mod unversioned {
 
 				// account balance should be zero.
 				let pool_account_balance =
-					T::Currency::total_balance(&Pallet::<T>::create_bonded_account(id));
+					T::Currency::total_balance(&Pallet::<T>::generate_bonded_account(id));
 				if pool_account_balance != Zero::zero() {
 					log!(
 						error,
@@ -310,7 +310,7 @@ pub(crate) mod v7 {
 	impl<T: Config> V7BondedPool<T> {
 		#[allow(dead_code)]
 		fn bonded_account(&self) -> T::AccountId {
-			Pallet::<T>::create_bonded_account(self.id)
+			Pallet::<T>::generate_bonded_account(self.id)
 		}
 	}
 
@@ -384,7 +384,7 @@ mod v6 {
 
 	impl<T: Config> MigrateToV6<T> {
 		fn freeze_ed(pool_id: PoolId) -> Result<(), ()> {
-			let reward_acc = Pallet::<T>::create_reward_account(pool_id);
+			let reward_acc = Pallet::<T>::generate_reward_account(pool_id);
 			Pallet::<T>::freeze_pool_deposit(&reward_acc).map_err(|e| {
 				log!(error, "Failed to freeze ED for pool {} with error: {:?}", pool_id, e);
 				()
@@ -869,7 +869,7 @@ pub mod v2 {
 					};
 
 					let accumulated_reward = RewardPool::<T>::current_balance(id);
-					let reward_account = Pallet::<T>::create_reward_account(id);
+					let reward_account = Pallet::<T>::generate_reward_account(id);
 					let mut sum_paid_out = BalanceOf::<T>::zero();
 
 					members
@@ -991,7 +991,7 @@ pub mod v2 {
 			// all reward accounts must have more than ED.
 			RewardPools::<T>::iter().try_for_each(|(id, _)| -> Result<(), TryRuntimeError> {
 				ensure!(
-					<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(&Pallet::<T>::create_reward_account(id)) >=
+					<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(&Pallet::<T>::generate_reward_account(id)) >=
 						T::Currency::minimum_balance(),
 					"Reward accounts must have greater balance than ED."
 				);
@@ -1132,7 +1132,7 @@ mod helpers {
 
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
 		BondedPools::<T>::iter_keys()
-			.map(|id| T::StakeAdapter::total_stake(&Pallet::<T>::create_bonded_account(id)))
+			.map(|id| T::StakeAdapter::total_stake(&Pallet::<T>::generate_bonded_account(id)))
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()
 	}

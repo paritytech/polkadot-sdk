@@ -95,8 +95,8 @@ fn test_setup_works() {
 			PoolMember::<Runtime> { pool_id: last_pool, points: 10, ..Default::default() }
 		);
 
-		let bonded_account = Pools::create_bonded_account(last_pool);
-		let reward_account = Pools::create_reward_account(last_pool);
+		let bonded_account = Pools::generate_bonded_account(last_pool);
+		let reward_account = Pools::generate_reward_account(last_pool);
 
 		// the bonded_account should be bonded by the depositor's funds.
 		assert_eq!(StakingMock::active_stake(&bonded_account).unwrap(), 10);
@@ -728,7 +728,7 @@ mod join {
 			);
 
 			// Force the pools bonded balance to 0, simulating a 100% slash
-			StakingMock::set_bonded_balance(Pools::create_bonded_account(1), 0);
+			StakingMock::set_bonded_balance(Pools::generate_bonded_account(1), 0);
 			assert_noop!(
 				Pools::join(RuntimeOrigin::signed(11), 420, 1),
 				Error::<Runtime>::OverflowRisk
@@ -755,7 +755,7 @@ mod join {
 				<<Runtime as Config>::MaxPointsToBalance as Get<u8>>::get().into();
 
 			StakingMock::set_bonded_balance(
-				Pools::create_bonded_account(123),
+				Pools::generate_bonded_account(123),
 				max_points_to_balance,
 			);
 			assert_noop!(
@@ -764,7 +764,7 @@ mod join {
 			);
 
 			StakingMock::set_bonded_balance(
-				Pools::create_bonded_account(123),
+				Pools::generate_bonded_account(123),
 				Balance::MAX / max_points_to_balance,
 			);
 			// Balance needs to be gt Balance::MAX / `MaxPointsToBalance`
@@ -773,7 +773,7 @@ mod join {
 				TokenError::FundsUnavailable,
 			);
 
-			StakingMock::set_bonded_balance(Pools::create_bonded_account(1), max_points_to_balance);
+			StakingMock::set_bonded_balance(Pools::generate_bonded_account(1), max_points_to_balance);
 
 			// Cannot join a pool that isn't open
 			unsafe_set_state(123, PoolState::Blocked);
@@ -804,7 +804,7 @@ mod join {
 	#[cfg_attr(not(debug_assertions), should_panic)]
 	fn join_panics_when_reward_pool_not_found() {
 		ExtBuilder::default().build_and_execute(|| {
-			StakingMock::set_bonded_balance(Pools::create_bonded_account(123), 100);
+			StakingMock::set_bonded_balance(Pools::generate_bonded_account(123), 100);
 			BondedPool::<Runtime> {
 				id: 123,
 				inner: BondedPoolInner {
@@ -1979,7 +1979,7 @@ mod claim_payout {
 			assert_eq!(member_20.last_recorded_reward_counter, 0.into());
 
 			// pre-fund the reward account of pool id 3 with some funds.
-			Currency::set_balance(&Pools::create_reward_account(3), 10);
+			Currency::set_balance(&Pools::generate_reward_account(3), 10);
 
 			// create pool 3
 			Currency::set_balance(&30, 100);
@@ -1988,7 +1988,7 @@ mod claim_payout {
 			// reward counter is still the same.
 			let (member_30, _, reward_pool_30) = Pools::get_member_with_pools(&30).unwrap();
 			assert_eq!(
-				Currency::free_balance(&Pools::create_reward_account(3)),
+				Currency::free_balance(&Pools::generate_reward_account(3)),
 				10 + Currency::minimum_balance()
 			);
 
@@ -4604,7 +4604,7 @@ mod create {
 	fn create_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// next pool id is 2.
-			let next_pool_stash = Pools::create_bonded_account(2);
+			let next_pool_stash = Pools::generate_bonded_account(2);
 			let ed = Currency::minimum_balance();
 
 			assert_eq!(TotalValueLocked::<T>::get(), 10);

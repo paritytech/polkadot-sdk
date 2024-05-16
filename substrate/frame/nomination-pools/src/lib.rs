@@ -431,7 +431,7 @@ pub enum BondType {
 	/// Someone is bonding into the pool upon creation.
 	Create,
 	/// Someone is adding more funds later to this pool.
-	Later,
+	Extra,
 }
 
 /// How to increase the bond of a member.
@@ -985,12 +985,12 @@ impl<T: Config> BondedPool<T> {
 
 	/// Get the bonded account id of this pool.
 	fn bonded_account(&self) -> T::AccountId {
-		Pallet::<T>::create_bonded_account(self.id)
+		Pallet::<T>::generate_bonded_account(self.id)
 	}
 
 	/// Get the reward account id of this pool.
 	fn reward_account(&self) -> T::AccountId {
-		Pallet::<T>::create_reward_account(self.id)
+		Pallet::<T>::generate_reward_account(self.id)
 	}
 
 	/// Consume self and put into storage.
@@ -1442,7 +1442,7 @@ impl<T: Config> RewardPool<T> {
 	/// This is sum of all the rewards that are claimable by pool members.
 	fn current_balance(id: PoolId) -> BalanceOf<T> {
 		T::Currency::reducible_balance(
-			&Pallet::<T>::create_reward_account(id),
+			&Pallet::<T>::generate_reward_account(id),
 			Preservation::Expendable,
 			Fortitude::Polite,
 		)
@@ -1633,7 +1633,7 @@ pub mod pallet {
 
 		/// The interface for nominating.
 		///
-		/// Note: Switching to a new StakeStrategy might require a migration of the storage.
+		/// Note: Switching to a new [`StakeStrategy`] might require a migration of the storage.
 		type StakeAdapter: StakeStrategy<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// The amount of eras a `SubPools::with_era` pool can exist before it gets merged into the
@@ -2022,7 +2022,7 @@ pub mod pallet {
 			)?;
 
 			bonded_pool.try_inc_members()?;
-			let points_issued = bonded_pool.try_bond_funds(&who, amount, BondType::Later)?;
+			let points_issued = bonded_pool.try_bond_funds(&who, amount, BondType::Extra)?;
 
 			PoolMembers::insert(
 				who.clone(),
@@ -2237,9 +2237,8 @@ pub mod pallet {
 		///
 		/// - If the target is the depositor, the pool will be destroyed.
 		/// - If the pool has any pending slash, we also try to slash the member before letting them
-		/// withdraw. This calculation can be expensive and is only defensive. In the ideal
-		/// scenario, pool slashes must have been already applied via permissionless
-		/// [`Call::apply_slash`].
+		/// withdraw. This calculation adds some weight overhead and is only defensive. In reality,
+		/// pool slashes must have been already applied via permissionless [`Call::apply_slash`].
 		#[pallet::call_index(5)]
 		#[pallet::weight(
 			T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)
@@ -2869,7 +2868,7 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Allows a pool member to migrate their delegation from pool account in their own account.
+		/// Migrates delegated funds from the pool account to the `member_account`.
 		///
 		/// This is a permission-less call and refunds any fee if claim is successful.
 		///
@@ -2894,7 +2893,7 @@ pub mod pallet {
 
 			let diff = pool_contribution.defensive_saturating_sub(delegation);
 			T::StakeAdapter::migrate_delegation(
-				&Pallet::<T>::create_bonded_account(member.pool_id),
+				&Pallet::<T>::generate_bonded_account(member.pool_id),
 				&member_account,
 				diff,
 			)?;
@@ -3010,19 +3009,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Create the main, bonded account of a pool with the given id.
-	pub fn create_bonded_account(id: PoolId) -> T::AccountId {
+	pub fn generate_bonded_account(id: PoolId) -> T::AccountId {
 		T::PalletId::get().into_sub_account_truncating((AccountType::Bonded, id))
 	}
 
 	pub fn migrate_to_delegate_stake(id: PoolId) -> DispatchResult {
 		T::StakeAdapter::migrate_nominator_to_agent(
-			&Self::create_bonded_account(id),
-			&Self::create_reward_account(id),
+			&Self::generate_bonded_account(id),
+			&Self::generate_reward_account(id),
 		)
 	}
 
 	/// Create the reward account of a pool with the given id.
-	pub fn create_reward_account(id: PoolId) -> T::AccountId {
+	pub fn generate_reward_account(id: PoolId) -> T::AccountId {
 		// NOTE: in order to have a distinction in the test account id type (u128), we put
 		// account_type first so it does not get truncated out.
 		T::PalletId::get().into_sub_account_truncating((AccountType::Reward, id))
@@ -3266,9 +3265,9 @@ impl<T: Config> Pallet<T> {
 
 		let (points_issued, bonded) = match extra {
 			BondExtra::FreeBalance(amount) =>
-				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Later)?, amount),
+				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Extra)?, amount),
 			BondExtra::Rewards =>
-				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Later)?, claimed),
+				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Extra)?, claimed),
 		};
 
 		bonded_pool.ok_to_be_open()?;
@@ -3398,7 +3397,7 @@ impl<T: Config> Pallet<T> {
 		let member =
 			PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
-		let pool_account = Pallet::<T>::create_bonded_account(member.pool_id);
+		let pool_account = Pallet::<T>::generate_bonded_account(member.pool_id);
 		ensure!(T::StakeAdapter::has_pending_slash(&pool_account), Error::<T>::NothingToSlash);
 
 		let unslashed_balance = T::StakeAdapter::member_delegation_balance(&member_account);
@@ -3497,7 +3496,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		for id in reward_pools {
-			let account = Self::create_reward_account(id);
+			let account = Self::generate_reward_account(id);
 			if T::Currency::reducible_balance(&account, Preservation::Expendable, Fortitude::Polite) <
 				T::Currency::minimum_balance()
 			{
@@ -3607,7 +3606,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		for (pool_id, _pool) in BondedPools::<T>::iter() {
-			let pool_account = Pallet::<T>::create_bonded_account(pool_id);
+			let pool_account = Pallet::<T>::generate_bonded_account(pool_id);
 			let subs = SubPoolsStorage::<T>::get(pool_id).unwrap_or_default();
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
@@ -3645,7 +3644,7 @@ impl<T: Config> Pallet<T> {
 	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
 		let mut failed: u32 = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
-			let reward_acc = Self::create_reward_account(id);
+			let reward_acc = Self::generate_reward_account(id);
 			let frozen_balance =
 				T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), &reward_acc);
 
@@ -3716,7 +3715,7 @@ impl<T: Config> Pallet<T> {
 	pub fn api_balance_to_points(pool_id: PoolId, new_funds: BalanceOf<T>) -> BalanceOf<T> {
 		if let Some(pool) = BondedPool::<T>::get(pool_id) {
 			let bonded_balance =
-				T::StakeAdapter::active_stake(&Self::create_bonded_account(pool_id));
+				T::StakeAdapter::active_stake(&Self::generate_bonded_account(pool_id));
 			Pallet::<T>::balance_to_point(bonded_balance, pool.points, new_funds)
 		} else {
 			Zero::zero()

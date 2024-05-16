@@ -104,7 +104,7 @@ fn create_pool_account<T: pallet_nomination_pools::Config>(
 
 	let pool_account = pallet_nomination_pools::BondedPools::<T>::iter()
 		.find(|(_, bonded_pool)| bonded_pool.roles.depositor == pool_creator)
-		.map(|(pool_id, _)| Pools::<T>::create_bonded_account(pool_id))
+		.map(|(pool_id, _)| Pools::<T>::generate_bonded_account(pool_id))
 		.expect("pool_creator created a pool above");
 
 	(pool_creator, pool_account)
@@ -115,7 +115,7 @@ fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
 		// should already be in the correct strategy
 		return;
 	}
-	let pool_acc = Pools::<T>::create_bonded_account(pool_id);
+	let pool_acc = Pools::<T>::generate_bonded_account(pool_id);
 	// drop the agent and its associated delegators .
 	T::StakeAdapter::remove_as_agent(&pool_acc);
 
@@ -322,7 +322,7 @@ frame_benchmarking::benchmarks! {
 		let _ = Pools::<T>::set_claim_permission(RuntimeOrigin::Signed(scenario.creator1.clone()).into(), ClaimPermission::PermissionlessAll);
 
 		// transfer exactly `extra` to the depositor of the src pool (1),
-		let reward_account1 = Pools::<T>::create_reward_account(1);
+		let reward_account1 = Pools::<T>::generate_reward_account(1);
 		assert!(extra >= CurrencyOf::<T>::minimum_balance());
 		let _ = CurrencyOf::<T>::mint_into(&reward_account1, extra);
 
@@ -341,7 +341,7 @@ frame_benchmarking::benchmarks! {
 		let origin_weight = Pools::<T>::depositor_min_bond() * 2u32.into();
 		let ed = CurrencyOf::<T>::minimum_balance();
 		let (depositor, pool_account) = create_pool_account::<T>(0, origin_weight, Some(commission));
-		let reward_account = Pools::<T>::create_reward_account(1);
+		let reward_account = Pools::<T>::generate_reward_account(1);
 
 		// Send funds to the reward account of the pool
 		CurrencyOf::<T>::set_balance(&reward_account, ed + origin_weight);
@@ -509,7 +509,7 @@ frame_benchmarking::benchmarks! {
 		// here to ensure the complete flow for destroying a pool works - the reward pool account
 		// should never exist by time the depositor withdraws so we test that it gets cleaned
 		// up when unbonding.
-		let reward_account = Pools::<T>::create_reward_account(1);
+		let reward_account = Pools::<T>::generate_reward_account(1);
 		assert!(frame_system::Account::<T>::contains_key(&reward_account));
 		Pools::<T>::fully_unbond(RuntimeOrigin::Signed(depositor.clone()).into(), depositor.clone()).unwrap();
 
@@ -595,7 +595,7 @@ frame_benchmarking::benchmarks! {
 			}
 		);
 		assert_eq!(
-			T::StakeAdapter::active_stake(&Pools::<T>::create_bonded_account(1)),
+			T::StakeAdapter::active_stake(&Pools::<T>::generate_bonded_account(1)),
 			min_create_bond
 		);
 	}
@@ -635,7 +635,7 @@ frame_benchmarking::benchmarks! {
 			}
 		);
 		assert_eq!(
-			T::StakeAdapter::active_stake(&Pools::<T>::create_bonded_account(1)),
+			T::StakeAdapter::active_stake(&Pools::<T>::generate_bonded_account(1)),
 			min_create_bond
 		);
 	}
@@ -721,12 +721,12 @@ frame_benchmarking::benchmarks! {
 			.collect();
 
 		assert_ok!(T::StakeAdapter::nominate(&pool_account, validators));
-		assert!(T::StakeAdapter::nominations(&Pools::<T>::create_bonded_account(1)).is_some());
+		assert!(T::StakeAdapter::nominations(&Pools::<T>::generate_bonded_account(1)).is_some());
 
 		whitelist_account!(depositor);
 	}:_(RuntimeOrigin::Signed(depositor.clone()), 1)
 	verify {
-		assert!(T::StakeAdapter::nominations(&Pools::<T>::create_bonded_account(1)).is_none());
+		assert!(T::StakeAdapter::nominations(&Pools::<T>::generate_bonded_account(1)).is_none());
 	}
 
 	set_commission {
@@ -839,7 +839,7 @@ frame_benchmarking::benchmarks! {
 		let origin_weight = Pools::<T>::depositor_min_bond() * 2u32.into();
 		let ed = CurrencyOf::<T>::minimum_balance();
 		let (depositor, pool_account) = create_pool_account::<T>(0, origin_weight, Some(commission));
-		let reward_account = Pools::<T>::create_reward_account(1);
+		let reward_account = Pools::<T>::generate_reward_account(1);
 		CurrencyOf::<T>::set_balance(&reward_account, ed + origin_weight);
 
 		// member claims a payout to make some commission available.
@@ -868,7 +868,7 @@ frame_benchmarking::benchmarks! {
 		let (depositor, _) = create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 
 		// Remove ed freeze to create a scenario where the ed deposit needs to be adjusted.
-		let _ = Pools::<T>::unfreeze_pool_deposit(&Pools::<T>::create_reward_account(1));
+		let _ = Pools::<T>::unfreeze_pool_deposit(&Pools::<T>::generate_reward_account(1));
 		assert!(&Pools::<T>::check_ed_imbalance().is_err());
 
 		whitelist_account!(depositor);

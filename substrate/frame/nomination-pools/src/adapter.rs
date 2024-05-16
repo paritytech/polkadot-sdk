@@ -220,7 +220,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 				T::Currency::transfer(who, pool_account, amount, Preservation::Expendable)?;
 				Staking::bond(pool_account, amount, &reward_account)
 			},
-			BondType::Later => {
+			BondType::Extra => {
 				// additional bond
 				T::Currency::transfer(who, pool_account, amount, Preservation::Preserve)?;
 				Staking::bond_extra(pool_account, amount)
@@ -279,7 +279,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 /// the `TransferStake` strategy should not be used. Or a separate migration would be required for
 /// it which is not provided by this pallet.
 ///
-/// Use [`migration::unversioned::DelegationStakeMigration`] to switch to DelegationStake strategy.
+/// Use [`migration::unversioned::DelegationStakeMigration`] to migrate to this strategy.
 pub struct DelegateStake<T: Config, Staking: StakingInterface, Delegation: DelegationInterface>(
 	PhantomData<(T, Staking, Delegation)>,
 );
@@ -323,7 +323,7 @@ impl<
 				// first delegation
 				Delegation::delegate(who, pool_account, reward_account, amount)
 			},
-			BondType::Later => {
+			BondType::Extra => {
 				// additional delegation
 				Delegation::delegate_extra(who, pool_account, amount)
 			},
