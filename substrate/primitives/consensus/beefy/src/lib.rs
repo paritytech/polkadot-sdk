@@ -408,8 +408,9 @@ impl<Id: RuntimeAppPublic, Header: HeaderT, Hash: HashOutput>
 	/// Validates [ForkEquivocationProof] with the following checks:
 	/// - if the commitment is to a block in our history, then at least a header or an ancestry
 	///   proof is provided:
-	///   - the proof is correct if the provided `canonical_header` is at height
-	/// `commitment.block_number` and `commitment.payload` != `canonical_payload(canonical_header)`
+	///   - the proof is correct if `self.canonical_header` hashes to `canonical_header_hash`, is at
+	///     height `commitment.block_number`, and `commitment.payload` !=
+	///     `canonical_payload(canonical_header)`
 	///   - the proof is correct if the provided `ancestry_proof` proves
 	///   `mmr_root(commitment.block_number) != mmr_root(commitment.payload)`
 	/// - `commitment` is signed by all claimed signatories
@@ -423,10 +424,15 @@ impl<Id: RuntimeAppPublic, Header: HeaderT, Hash: HashOutput>
 	/// be finalized by GRANDPA.
 	pub fn check<MsgHash: HashT, NodeHash: HashT<Output = Hash>>(
 		&self,
+		// The MMR root of the best block of the chain where this proof is submitted.
 		best_root: Hash,
+		// The size of the MMR at the best block.
 		mmr_size: u64,
+		// The hash of the canonical header at the height of `commitment.block_number`.
 		canonical_header_hash: &Header::Hash,
+		// The block number at which the mmr pallet was added to the runtime.
 		first_mmr_block_num: Header::Number,
+		// The best block number of the chain where this proof is submitted.
 		best_block_num: Header::Number,
 	) -> bool
 	where
