@@ -1,0 +1,77 @@
+{
+  "settings": {
+    "timeout": 1000
+  },
+  "relaychain": {
+    "default_image": "docker.io/parity/polkadot:latest",
+    "chain": "rococo-local",
+    "default_command": "polkadot",
+    "nodes": [
+      {
+        "name": "alice",
+        "validator": true,
+          "ws_port": 9944,
+          "args": [
+            "--alice",
+            "-lparachain=debug",
+            "--pool-limit=1000000000",
+            "--pool-kbytes=10000000000"
+          ]
+      },
+      {
+        "name": "bob",
+        "validator": true,
+        "ws_port": 9945,
+        "args": [
+          "--bob",
+          "-lparachain=debug",
+          "--pool-limit=1000000000",
+          "--pool-kbytes=10000000000"
+        ]
+      }
+    ]
+  },
+  "parachains": [
+    {
+      "id": 1000,
+      "cumulus_based": true,
+      "genesis": {
+        "runtimeGenesis": {
+          "patch": {
+            "balances": {
+              "balances": {% include "./funded-accounts.json" %}
+            }
+          }
+        }
+      },
+      "collator": {
+        "name": "collator01",
+        "ws_port": "9999",
+        "image": "docker.io/parity/polkadot-parachain",
+        "command": "polkadot-parachain",
+        "args": [
+          "-lcumulus-consensus=debug",
+          "-lparachain=debug",
+          "--pool-limit=1000000000",
+          "--pool-kbytes=10000000000",
+          "-lbasicauthorship=debug",
+          "-ltxpool=debug",
+          "-ldebug",
+          "--rpc-max-subscriptions-per-connection=128000"
+        ]
+      },
+      "collator_groups": [
+        {
+          "name": "stps",
+          "command": "polkadot-parachain",
+          "args": [
+            "-lparachain=debug",
+            "--pool-limit=1000000000",
+            "--pool-kbytes=10000000000"
+          ],
+          "count": "{{SENDERS}}"
+        }
+      ]
+    }
+  ]
+}
