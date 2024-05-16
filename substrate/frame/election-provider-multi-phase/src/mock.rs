@@ -150,7 +150,7 @@ pub fn trim_helpers() -> TrimHelpers {
 	let voter_index = helpers::voter_index_fn_owned::<Runtime>(cache);
 	let target_index = helpers::target_index_fn::<Runtime>(&targets);
 
-	let desired_targets = DesiredTargets::<Runtime>::get().unwrap();
+	let desired_targets = crate::DesiredTargets::<Runtime>::get().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { mut assignments, .. } =
 		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
@@ -177,7 +177,7 @@ pub fn trim_helpers() -> TrimHelpers {
 /// This is a good example of what an offchain miner would do.
 pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
 	let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
-	let desired_targets = DesiredTargets::<Runtime>::get().unwrap();
+	let desired_targets = crate::DesiredTargets::<Runtime>::get().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { winners: _, assignments } =
 		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
