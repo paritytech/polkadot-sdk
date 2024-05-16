@@ -1139,6 +1139,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#988" id="988">988</a>
 <a href="#989" id="989">989</a>
 <a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1218,7 +1260,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Opaque justifications subscription type.
-</span><span class="kw">pub struct </span>Subscription&lt;T&gt;(<span class="kw">pub</span>(<span class="kw">crate</span>) Mutex&lt;futures::channel::mpsc::Receiver&lt;<span class="prelude-ty">Option</span>&lt;T&gt;&gt;&gt;);
+</span><span class="kw">pub struct </span>Subscription&lt;T&gt;(
+	<span class="kw">pub</span>(<span class="kw">crate</span>) Mutex&lt;futures::channel::mpsc::Receiver&lt;<span class="prelude-ty">Option</span>&lt;T&gt;&gt;&gt;,
+	<span class="comment">// The following field is not explicitly used by the code. But when it is dropped,
+	// the bakground task receives a shutdown signal.
+	</span><span class="attr">#[allow(dead_code)] </span><span class="kw">pub</span>(<span class="kw">crate</span>) futures::channel::oneshot::Sender&lt;()&gt;,
+);
 
 <span class="doccomment">/// Opaque GRANDPA authorities set.
 </span><span class="kw">pub type </span>OpaqueGrandpaAuthoritiesSet = Vec&lt;u8&gt;;
@@ -1762,6 +1809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				e
 			})<span class="question-mark">??</span>;
 
+		<span class="kw">let </span>(cancel_sender, cancel_receiver) = futures::channel::oneshot::channel();
 		<span class="kw">let </span>(sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
 		<span class="kw">let </span>(tracker, subscription) = <span class="self">self
 			</span>.jsonrpsee_execute(<span class="kw">move </span>|client| <span class="kw">async move </span>{
@@ -1780,7 +1828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					self_clone,
 					stall_timeout,
 					tx_hash,
-					Subscription(Mutex::new(receiver)),
+					Subscription(Mutex::new(receiver), cancel_sender),
 				);
 				<span class="prelude-val">Ok</span>((tracker, subscription))
 			})
@@ -1790,6 +1838,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"extrinsic"</span>.into(),
 			subscription,
 			sender,
+			cancel_receiver,
 		));
 		<span class="prelude-val">Ok</span>(tracker)
 	}
@@ -1931,14 +1980,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(FC::subscribe_justifications(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>)
 			})
 			.<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>(cancel_sender, cancel_receiver) = futures::channel::oneshot::channel();
 		<span class="kw">let </span>(sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
 		<span class="self">self</span>.data.read().<span class="kw">await</span>.tokio.spawn(Subscription::background_worker(
 			C::NAME.into(),
 			<span class="string">"justification"</span>.into(),
 			subscription,
 			sender,
+			cancel_receiver,
 		));
-		<span class="prelude-val">Ok</span>(Subscription(Mutex::new(receiver)))
+		<span class="prelude-val">Ok</span>(Subscription(Mutex::new(receiver), cancel_sender))
 	}
 
 	<span class="doccomment">/// Generates a proof of key ownership for the given authority in the given set.
@@ -1984,9 +2035,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: DeserializeOwned&gt; Subscription&lt;T&gt; {
 	<span class="doccomment">/// Consumes subscription and returns future statuses stream.
 	</span><span class="kw">pub fn </span>into_stream(<span class="self">self</span>) -&gt; <span class="kw">impl </span>futures::Stream&lt;Item = T&gt; {
-		futures::stream::unfold(<span class="self">self</span>, |this| <span class="kw">async </span>{
+		futures::stream::unfold(<span class="prelude-val">Some</span>(<span class="self">self</span>), |<span class="kw-2">mut </span>this| <span class="kw">async move </span>{
+			<span class="kw">let </span><span class="prelude-val">Some</span>(this) = this.take() <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
 			<span class="kw">let </span>item = this.<span class="number">0</span>.lock().<span class="kw">await</span>.next().<span class="kw">await</span>.unwrap_or(<span class="prelude-val">None</span>);
-			item.map(|i| (i, this))
+			<span class="kw">match </span>item {
+				<span class="prelude-val">Some</span>(item) =&gt; <span class="prelude-val">Some</span>((item, <span class="prelude-val">Some</span>(this))),
+				<span class="prelude-val">None </span>=&gt; {
+					<span class="comment">// let's make it explicit here
+					</span><span class="kw">let _ </span>= this.<span class="number">1</span>.send(());
+					<span class="prelude-val">None
+				</span>},
+			}
 		})
 	}
 
@@ -2001,19 +2060,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>background_worker(
 		chain_name: String,
 		item_type: String,
-		<span class="kw-2">mut </span>subscription: jsonrpsee::core::client::Subscription&lt;T&gt;,
+		subscription: jsonrpsee::core::client::Subscription&lt;T&gt;,
 		<span class="kw-2">mut </span>sender: futures::channel::mpsc::Sender&lt;<span class="prelude-ty">Option</span>&lt;T&gt;&gt;,
+		cancel_receiver: futures::channel::oneshot::Receiver&lt;()&gt;,
 	) {
+		<span class="macro">log::trace!</span>(
+			target: <span class="string">"bridge"</span>,
+			<span class="string">"Starting background worker for {} {} subscription stream."</span>,
+			chain_name,
+			item_type,
+		);
+
+		<span class="macro">futures::pin_mut!</span>(subscription, cancel_receiver);
 		<span class="kw">loop </span>{
-			<span class="kw">match </span>subscription.next().<span class="kw">await </span>{
-				<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(item)) =&gt;
+			<span class="kw">match </span>futures::future::select(subscription.next(), <span class="kw-2">&amp;mut </span>cancel_receiver).<span class="kw">await </span>{
+				futures::future::Either::Left((<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(item)), <span class="kw">_</span>)) =&gt;
 					<span class="kw">if </span>sender.send(<span class="prelude-val">Some</span>(item)).<span class="kw">await</span>.is_err() {
+						<span class="macro">log::trace!</span>(
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"{} {} subscription stream: no listener. Stopping background worker."</span>,
+							chain_name,
+							item_type,
+						);
+
 						<span class="kw">break
 					</span>},
-				<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
+				futures::future::Either::Left((<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(e)), <span class="kw">_</span>)) =&gt; {
 					<span class="macro">log::trace!</span>(
 						target: <span class="string">"bridge"</span>,
-						<span class="string">"{} {} subscription stream has returned '{:?}'. Stream needs to be restarted."</span>,
+						<span class="string">"{} {} subscription stream has returned '{:?}'. Stream needs to be restarted. Stopping background worker."</span>,
 						chain_name,
 						item_type,
 						e,
@@ -2021,16 +2096,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let _ </span>= sender.send(<span class="prelude-val">None</span>).<span class="kw">await</span>;
 					<span class="kw">break
 				</span>},
-				<span class="prelude-val">None </span>=&gt; {
+				futures::future::Either::Left((<span class="prelude-val">None</span>, <span class="kw">_</span>)) =&gt; {
 					<span class="macro">log::trace!</span>(
 						target: <span class="string">"bridge"</span>,
-						<span class="string">"{} {} subscription stream has returned None. Stream needs to be restarted."</span>,
+						<span class="string">"{} {} subscription stream has returned None. Stream needs to be restarted. Stopping background worker."</span>,
 						chain_name,
 						item_type,
 					);
 					<span class="kw">let _ </span>= sender.send(<span class="prelude-val">None</span>).<span class="kw">await</span>;
 					<span class="kw">break
 				</span>},
+				futures::future::Either::Right((<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; {
+					<span class="macro">log::trace!</span>(
+						target: <span class="string">"bridge"</span>,
+						<span class="string">"{} {} subscription stream: listener has been dropped. Stopping background worker."</span>,
+						chain_name,
+						item_type,
+					);
+					<span class="kw">break</span>;
+				},
 			}
 		}
 	}
