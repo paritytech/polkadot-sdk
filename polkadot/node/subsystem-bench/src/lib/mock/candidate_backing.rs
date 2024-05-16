@@ -16,7 +16,7 @@
 
 //! A generic candidate backing subsystem mockup suitable to be used in benchmarks.
 
-use crate::NODE_UNDER_TEST;
+use crate::{configuration::TestConfiguration, NODE_UNDER_TEST};
 use futures::FutureExt;
 use polkadot_node_primitives::{SignedFullStatementWithPVD, Statement, StatementWithPVD};
 use polkadot_node_subsystem::{
@@ -32,6 +32,7 @@ use std::collections::HashMap;
 const LOG_TARGET: &str = "subsystem-bench::candidate-backing-mock";
 
 pub struct MockCandidateBacking {
+	config: TestConfiguration,
 	pair: ValidatorPair,
 	pvd: PersistedValidationData,
 	node_group: Vec<ValidatorIndex>,
@@ -39,11 +40,12 @@ pub struct MockCandidateBacking {
 
 impl MockCandidateBacking {
 	pub fn new(
+		config: TestConfiguration,
 		pair: ValidatorPair,
 		pvd: PersistedValidationData,
 		node_group: Vec<ValidatorIndex>,
 	) -> Self {
-		Self { pair, pvd, node_group }
+		Self { config, pair, pvd, node_group }
 	}
 }
 
@@ -90,7 +92,9 @@ impl MockCandidateBacking {
 
 									let statements_received_count =
 										*statements_tracker.get(&candidate_hash).unwrap();
-									if statements_received_count == 1 && is_from_node_group {
+									if statements_received_count ==
+										(self.config.minimum_backing_votes - 1) && is_from_node_group
+									{
 										let statement = Statement::Valid(candidate_hash);
 										let context = SigningContext {
 											parent_hash: relay_parent,
@@ -114,7 +118,9 @@ impl MockCandidateBacking {
 										ctx.send_message(message).await;
 									}
 
-									if statements_received_count == 2 {
+									if statements_received_count ==
+										self.config.minimum_backing_votes
+									{
 										let message =
 											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(candidate_hash
 										);
@@ -131,7 +137,9 @@ impl MockCandidateBacking {
 
 									let statements_received_count =
 										*statements_tracker.get(candidate_hash).unwrap();
-									if statements_received_count == 2 {
+									if statements_received_count ==
+										self.config.minimum_backing_votes
+									{
 										let message =
 											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(*candidate_hash
 										);

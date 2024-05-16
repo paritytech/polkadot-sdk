@@ -268,7 +268,7 @@ impl MockRuntimeApi {
 							_parent,
 							RuntimeApiRequest::MinimumBackingVotes(_session_index, tx),
 						) => {
-							tx.send(Ok(2)).unwrap();
+							tx.send(Ok(self.config.minimum_backing_votes)).unwrap();
 						},
 						RuntimeApiMessage::Request(
 							_parent,

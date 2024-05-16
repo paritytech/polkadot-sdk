@@ -90,6 +90,9 @@ fn default_n_delay_tranches() -> usize {
 fn default_no_show_slots() -> usize {
 	3
 }
+fn default_minimum_backing_votes() -> u32 {
+	2
+}
 
 /// The test input parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -138,6 +141,9 @@ pub struct TestConfiguration {
 	pub connectivity: usize,
 	/// Number of blocks to run the test for
 	pub num_blocks: usize,
+	/// Number of minimum backing votes
+	#[serde(default = "default_minimum_backing_votes")]
+	pub minimum_backing_votes: u32,
 }
 
 impl Default for TestConfiguration {
@@ -159,6 +165,7 @@ impl Default for TestConfiguration {
 			latency: default_peer_latency(),
 			connectivity: default_connectivity(),
 			num_blocks: Default::default(),
+			minimum_backing_votes: default_minimum_backing_votes(),
 		}
 	}
 }

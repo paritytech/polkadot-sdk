@@ -104,6 +104,7 @@ fn build_overseer(
 	let mock_chain_api = MockChainApi::new(chain_api_state);
 	let mock_prospective_parachains = MockProspectiveParachains::new();
 	let mock_candidate_backing = MockCandidateBacking::new(
+		state.config.clone(),
 		state
 			.test_authorities
 			.validator_pairs
