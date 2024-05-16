@@ -24,7 +24,7 @@ polkadot-node-network-protocol = { path = "../protocol" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-subsystem = { path = "../../subsystem" }
-fatality = "0.1.0"
+fatality = "0.1.1"
 thiserror = { workspace = true }
 tokio-util = "0.7.1"
 
@@ -38,7 +38,7 @@ sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sc-keystore = { path = "../../../../substrate/client/keystore" }
 sc-network = { path = "../../../../substrate/client/network" }
-parity-scale-codec = { version = "3.6.1", features = ["std"] }
+parity-scale-codec = { version = "3.6.12", features = ["std"] }
 
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

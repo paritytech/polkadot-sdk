@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
-parity-scale-codec = { version = "3.6.1", features = ["std"] }
+parity-scale-codec = { version = "3.6.12", features = ["std"] }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-erasure-coding = { path = "../../../erasure-coding" }
 polkadot-node-network-protocol = { path = "../protocol" }
@@ -25,7 +25,7 @@ thiserror = { workspace = true }
 rand = "0.8.5"
 derive_more = "0.99.17"
 schnellru = "0.2.1"
-fatality = "0.1.0"
+fatality = "0.1.1"
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
