@@ -1332,7 +1332,6 @@ pub mod pallet {
 	///
 	/// Can be set via `set_minimum_untrusted_score`.
 	#[pallet::storage]
-	#[pallet::getter(fn minimum_untrusted_score)]
 	pub type MinimumUntrustedScore<T: Config> = StorageValue<_, ElectionScore>;
 
 	/// The in-code storage version.
@@ -1535,7 +1534,7 @@ impl<T: Config> Pallet<T> {
 
 		let snapshot = Snapshot::<T>::get().ok_or(FeasibilityError::SnapshotUnavailable)?;
 		let round = Round::<T>::get();
-		let minimum_untrusted_score = Self::minimum_untrusted_score();
+		let minimum_untrusted_score = MinimumUntrustedScore::<T>::get();
 
 		Miner::<T::MinerConfig>::feasibility_check(
 			raw_solution,
