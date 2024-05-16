@@ -387,6 +387,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -443,11 +449,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>set_benchmark_params&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+		<span class="kw">let </span>max_rank = T::MaxRank::get().try_into().unwrap();
 		<span class="kw">let </span>params = ParamsType {
-			active_salary: [<span class="number">100u32</span>.into(); <span class="number">9</span>],
-			passive_salary: [<span class="number">10u32</span>.into(); <span class="number">9</span>],
-			demotion_period: [<span class="number">100u32</span>.into(); <span class="number">9</span>],
-			min_promotion_period: [<span class="number">100u32</span>.into(); <span class="number">9</span>],
+			active_salary: BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">100u32</span>.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">10u32</span>.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">100u32</span>.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">100u32</span>.into(); max_rank]).unwrap(),
 			offboard_timeout: <span class="number">1u32</span>.into(),
 		};
 
@@ -457,11 +464,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>set_params() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+		<span class="kw">let </span>max_rank = T::MaxRank::get().try_into().unwrap();
 		<span class="kw">let </span>params = ParamsType {
-			active_salary: [<span class="number">100u32</span>.into(); <span class="number">9</span>],
-			passive_salary: [<span class="number">10u32</span>.into(); <span class="number">9</span>],
-			demotion_period: [<span class="number">100u32</span>.into(); <span class="number">9</span>],
-			min_promotion_period: [<span class="number">100u32</span>.into(); <span class="number">9</span>],
+			active_salary: BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">100u32</span>.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">10u32</span>.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">100u32</span>.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(<span class="macro">vec!</span>[<span class="number">100u32</span>.into(); max_rank]).unwrap(),
 			offboard_timeout: <span class="number">1u32</span>.into(),
 		};
 
@@ -540,10 +548,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>promote() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="comment">// Ensure that the `min_promotion_period` wont get in our way.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>params = Params::&lt;T, I&gt;::get();
-		params.min_promotion_period = [Zero::zero(); RANK_COUNT];
+		<span class="kw">let </span>max_rank = T::MaxRank::get().try_into().unwrap();
+		params.min_promotion_period = BoundedVec::try_from(<span class="macro">vec!</span>[Zero::zero(); max_rank]).unwrap();
 		Params::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>params);
 
 		<span class="kw">let </span>member = make_member::&lt;T, I&gt;(<span class="number">1</span>)<span class="question-mark">?</span>;
+
+		<span class="comment">// Set it to the max value to ensure that any possible auto-demotion period has passed.
+		</span>frame_system::Pallet::&lt;T&gt;::set_block_number(BlockNumberFor::&lt;T&gt;::max_value());
 		ensure_evidence::&lt;T, I&gt;(<span class="kw-2">&amp;</span>member)<span class="question-mark">?</span>;
 
 		<span class="attr">#[extrinsic_call]

@@ -1284,6 +1284,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1133" id="1133">1133</a>
 <a href="#1134" id="1134">1134</a>
 <a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1330,8 +1335,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>fellowship;
 <span class="kw">pub use </span>ambassador::pallet_ambassador_origins;
 
+<span class="kw">use </span>ambassador::AmbassadorCoreInstance;
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-<span class="kw">use </span>fellowship::{pallet_fellowship_origins, Fellows};
+<span class="kw">use </span>fellowship::{pallet_fellowship_origins, Fellows, FellowshipCoreInstance};
 <span class="kw">use </span>impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -2025,6 +2031,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5&lt;Runtime&gt;,
 	<span class="comment">// permanent
 	</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
+	<span class="comment">// unreleased
+	</span>pallet_core_fellowship::migration::MigrateV0ToV1&lt;Runtime, FellowshipCoreInstance&gt;,
+	<span class="comment">// unreleased
+	</span>pallet_core_fellowship::migration::MigrateV0ToV1&lt;Runtime, AmbassadorCoreInstance&gt;,
 );
 
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
