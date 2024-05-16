@@ -214,6 +214,7 @@ pub mod pallet {
 		type EvidenceSize: Get<u32>;
 
 		/// Represents the highest possible rank in this pallet.
+		///
 		/// Increasing this value is supported, but decreasing it may lead to a broken state.
 		#[pallet::constant]
 		type MaxRank: Get<u32>;
