@@ -773,7 +773,10 @@ mod join {
 				TokenError::FundsUnavailable,
 			);
 
-			StakingMock::set_bonded_balance(Pools::generate_bonded_account(1), max_points_to_balance);
+			StakingMock::set_bonded_balance(
+				Pools::generate_bonded_account(1),
+				max_points_to_balance,
+			);
 
 			// Cannot join a pool that isn't open
 			unsafe_set_state(123, PoolState::Blocked);
