@@ -1245,7 +1245,6 @@ where
 		};
 
 		if let Some(view) = new_view {
-			// self.revalidation_queue.revalidate_later(view).await;
 			if let Some(pending_revalidation_result) =
 				self.mempool.pending_revalidation_result.write().take()
 			{

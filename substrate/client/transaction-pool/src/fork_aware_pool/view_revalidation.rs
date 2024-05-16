@@ -26,6 +26,7 @@ use std::{
 
 use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, SaturatedConversion},
@@ -48,8 +49,7 @@ where
 	Block: BlockT,
 	Api: ChainApi<Block = Block> + 'static,
 {
-	RevalidateView(Arc<View<Api>>),
-	RevalidateMempool(Arc<TxMemPool<Api, Block>>, Block::Hash),
+	RevalidateMempool(Arc<TxMemPool<Api, Block>>, HashAndNumber<Block>),
 }
 
 /// Async revalidation worker.
@@ -62,88 +62,6 @@ struct RevalidationWorker<Block: BlockT> {
 
 // todo: ??? (remove?)
 // impl<Block: BlockT> Unpin for RevalidationWorker<Block> {}
-
-/// todo: doc
-///
-/// Each transaction is validated  against chain, and invalid are
-/// removed from the `view`, while valid are resubmitted.
-/// todo: move to view
-impl<PoolApi> View<PoolApi>
-where
-	PoolApi: ChainApi,
-{
-	async fn revalidate_later(&self) {
-		let batch: Vec<_> = self.pool.validated_pool().ready().map(|tx| tx.hash).collect();
-
-		let mut invalid_hashes = Vec::new();
-		let mut revalidated = HashMap::new();
-
-		let validated_pool = self.pool.validated_pool();
-		let api = validated_pool.api();
-
-		let validation_results =
-			futures::future::join_all(batch.into_iter().filter_map(|ext_hash| {
-				validated_pool.ready_by_hash(&ext_hash).map(|ext| {
-					api.validate_transaction(self.at.hash, ext.source, ext.data.clone())
-						.map(move |validation_result| (validation_result, ext_hash, ext))
-				})
-			}))
-			.await;
-
-		log::trace!("revalidate: {:#?}", validation_results);
-
-		for (validation_result, ext_hash, ext) in validation_results {
-			match validation_result {
-				Ok(Err(TransactionValidityError::Invalid(err))) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"[{:?}]: Revalidation: invalid {:?}",
-						ext_hash,
-						err,
-					);
-					invalid_hashes.push(ext_hash);
-				},
-				Ok(Err(TransactionValidityError::Unknown(err))) => {
-					// skipping unknown, they might be pushed by valid or invalid transaction
-					// when latter resubmitted.
-					log::trace!(
-						target: LOG_TARGET,
-						"[{:?}]: Unknown during revalidation: {:?}",
-						ext_hash,
-						err,
-					);
-				},
-				Ok(Ok(validity)) => {
-					revalidated.insert(
-						ext_hash,
-						ValidatedTransaction::valid_at(
-							self.at.number.saturated_into::<u64>(),
-							ext_hash,
-							ext.source,
-							ext.data.clone(),
-							api.hash_and_length(&ext.data).1,
-							validity,
-						),
-					);
-				},
-				Err(validation_err) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"[{:?}]: Removing due to error during revalidation: {}",
-						ext_hash,
-						validation_err
-					);
-					invalid_hashes.push(ext_hash);
-				},
-			}
-		}
-
-		validated_pool.remove_invalid(&invalid_hashes);
-		if revalidated.len() > 0 {
-			self.pool.resubmit(revalidated);
-		}
-	}
-}
 
 impl<Block> RevalidationWorker<Block>
 where
@@ -172,9 +90,8 @@ where
 				break;
 			};
 			match payload {
-				WorkerPayload::RevalidateView(view) => (*view).revalidate_later().await,
-				WorkerPayload::RevalidateMempool(mempool, finalized_hash) =>
-					(*mempool).purge_transactions(finalized_hash).await,
+				WorkerPayload::RevalidateMempool(mempool, finalized_hash_and_number) =>
+					(*mempool).purge_transactions(finalized_hash_and_number).await,
 			};
 		}
 	}
@@ -209,35 +126,10 @@ where
 		(Self { background: Some(to_worker) }, RevalidationWorker::new().run(from_queue).boxed())
 	}
 
-	/// Queue the view transaction for later revalidation.
-	///
-	/// If queue configured with background worker, this will return immediately.
-	/// If queue configured without background worker, this will resolve after
-	/// revalidation is actually done.
-	pub async fn revalidate_later(&self, view: Arc<View<Api>>) {
-		log::info!(
-			target: LOG_TARGET,
-			"Sent view to revalidation queue {:?}",
-			view.at
-		);
-
-		if let Some(ref to_worker) = self.background {
-			log::info!(
-				target: LOG_TARGET,
-				"revlidation send",
-			);
-			if let Err(e) = to_worker.unbounded_send(WorkerPayload::RevalidateView(view)) {
-				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
-			}
-		} else {
-			view.revalidate_later().await
-		}
-	}
-
 	pub async fn purge_transactions_later(
 		&self,
 		mempool: Arc<TxMemPool<Api, Block>>,
-		finalized_hash: Block::Hash,
+		finalized_hash: HashAndNumber<Block>,
 	) {
 		log::info!(
 			target: LOG_TARGET,
@@ -274,31 +166,31 @@ mod tests {
 	use substrate_test_runtime::{AccountId, Transfer, H256};
 	use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
 
-	#[test]
-	fn revalidation_queue_works() {
-		let api = Arc::new(TestApi::default());
-		let block0 = api.expect_hash_and_number(0);
-
-		let view = Arc::new(View::new(api.clone(), block0));
-		let queue = Arc::new(RevalidationQueue::new());
-
-		let uxt = uxt(Transfer {
-			from: Alice.into(),
-			to: AccountId::from_h256(H256::from_low_u64_be(2)),
-			amount: 5,
-			nonce: 0,
-		});
-
-		let uxt_hash = block_on(view.submit_one(TransactionSource::External, uxt.clone()))
-			.expect("Should be valid");
-		assert_eq!(api.validation_requests().len(), 1);
-
-		block_on(queue.revalidate_later(view.clone()));
-
-		assert_eq!(api.validation_requests().len(), 2);
-		// number of ready
-		assert_eq!(view.status().ready, 1);
-	}
+	// #[test]
+	// fn revalidation_queue_works() {
+	// 	let api = Arc::new(TestApi::default());
+	// 	let block0 = api.expect_hash_and_number(0);
+	//
+	// 	let view = Arc::new(View::new(api.clone(), block0));
+	// 	let queue = Arc::new(RevalidationQueue::new());
+	//
+	// 	let uxt = uxt(Transfer {
+	// 		from: Alice.into(),
+	// 		to: AccountId::from_h256(H256::from_low_u64_be(2)),
+	// 		amount: 5,
+	// 		nonce: 0,
+	// 	});
+	//
+	// 	let uxt_hash = block_on(view.submit_one(TransactionSource::External, uxt.clone()))
+	// 		.expect("Should be valid");
+	// 	assert_eq!(api.validation_requests().len(), 1);
+	//
+	// 	block_on(queue.revalidate_later(view.clone()));
+	//
+	// 	assert_eq!(api.validation_requests().len(), 2);
+	// 	// number of ready
+	// 	assert_eq!(view.status().ready, 1);
+	// }
 
 	// #[test]
 	// fn revalidation_queue_skips_revalidation_for_unknown_block_hash() {
