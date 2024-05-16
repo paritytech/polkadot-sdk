@@ -1229,18 +1229,11 @@ where
 		// is caught by it.
 		self.top_frame_mut().allows_reentry = allows_reentry;
 
-		// Enable read-only access if requested; cannot disable it if already set.
-		let read_only = read_only || self.top_frame().read_only;
-
 		let try_call = || {
 			if !self.allows_reentry(&to) {
 				return Err(<Error<T>>::ReentranceDenied.into())
 			}
 
-			// If the call value is non-zero and state change is not allowed, issue an error.
-			if !value.is_zero() && read_only {
-				return Err(<Error<T>>::StateChangeDenied.into());
-			}
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
 			// constructor: We disallow calling not fully constructed contracts.
@@ -1256,7 +1249,8 @@ where
 				value,
 				gas_limit,
 				deposit_limit,
-				read_only,
+				// Enable read-only access if requested; cannot disable it if already set.
+				read_only || self.is_read_only(),
 			)?;
 			self.run(executable, input_data)
 		};
@@ -3156,62 +3150,6 @@ mod tests {
 				)
 				.map_err(|e| e.error),
 				<Error<Test>>::ReentranceDenied,
-			);
-		});
-	}
-
-	#[test]
-	fn read_only_call_with_non_zero_value_fails() {
-		let code_bob = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(
-				Weight::zero(),
-				BalanceOf::<Test>::zero(),
-				CHARLIE,
-				ctx.input_data[0] as u64,
-				vec![],
-				true,
-				true,
-			)
-		});
-
-		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
-
-		ExtBuilder::default().build().execute_with(|| {
-			let schedule = <Test as Config>::Schedule::get();
-			place_contract(&BOB, code_bob);
-			place_contract(&CHARLIE, code_charlie);
-			let contract_origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
-
-			// BOB calls CHARLIE with read-only flag and zero value
-			assert_ok!(MockStack::run_call(
-				contract_origin.clone(),
-				BOB,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
-				&mut storage_meter,
-				&schedule,
-				0,
-				vec![0],
-				None,
-				Determinism::Enforced
-			));
-
-			// BOB calls CHARLIE with read-only flag and non zero value
-			assert_err!(
-				MockStack::run_call(
-					contract_origin,
-					BOB,
-					&mut GasMeter::<Test>::new(GAS_LIMIT),
-					&mut storage_meter,
-					&schedule,
-					0,
-					vec![1],
-					None,
-					Determinism::Enforced
-				)
-				.map_err(|e| e.error),
-				<Error<Test>>::StateChangeDenied,
 			);
 		});
 	}

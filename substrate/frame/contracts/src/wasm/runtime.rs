@@ -839,9 +839,15 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 				} else {
 					self.read_sandbox_memory_as(memory, deposit_ptr)?
 				};
+				let read_only = flags.contains(CallFlags::READ_ONLY);
 				let value: BalanceOf<<E as Ext>::T> =
 					self.read_sandbox_memory_as(memory, value_ptr)?;
 				if value > 0u32.into() {
+					// If the call value is non-zero and state change is not allowed, issue an
+					// error.
+					if read_only || self.ext.is_read_only() {
+						return Err(Error::<E::T>::StateChangeDenied.into());
+					}
 					self.charge_gas(RuntimeCosts::CallSurchargeTransfer)?;
 				}
 				self.ext.call(
@@ -851,7 +857,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 					value,
 					input_data,
 					flags.contains(CallFlags::ALLOW_REENTRY),
-					flags.contains(CallFlags::READ_ONLY),
+					read_only,
 				)
 			},
 			CallType::DelegateCall { code_hash_ptr } => {
