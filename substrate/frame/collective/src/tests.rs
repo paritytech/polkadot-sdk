@@ -25,7 +25,7 @@ use frame_support::{
 	Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
-use sp_core::H256;
+use sp_core::{bounded_vec, H256};
 use sp_runtime::{testing::Header, traits::BlakeTwo256, BuildStorage};
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
@@ -39,7 +39,8 @@ frame_support::construct_runtime!(
 		CollectiveMajority: pallet_collective::<Instance2>,
 		DefaultCollective: pallet_collective,
 		Democracy: mock_democracy,
-	}
+		Preimage: pallet_preimage,
+}
 );
 
 mod mock_democracy {
@@ -102,6 +103,7 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type Preimages = Preimage;
 }
 impl Config<Instance2> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
@@ -114,6 +116,7 @@ impl Config<Instance2> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type Preimages = Preimage;
 }
 impl mock_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -130,6 +133,14 @@ impl Config for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type Preimages = Preimage;
+}
+impl pallet_preimage::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = ();
+	type ManagerOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 pub struct ExtBuilder {
@@ -194,7 +205,7 @@ fn default_max_proposal_weight() -> Weight {
 fn motions_basic_environment_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Members::<Test, Instance1>::get(), vec![1, 2, 3]);
-		assert_eq!(*Proposals::<Test, Instance1>::get(), Vec::<H256>::new());
+		assert_eq!(Voting::<Test, Instance1>::count(), 0);
 	});
 }
 
@@ -212,7 +223,10 @@ fn initialize_members_sorts_members() {
 #[test]
 fn set_members_with_prime_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		let members = vec![1, 2, 3];
+		let members: BoundedVec<
+			<Test as frame_system::Config>::AccountId,
+			<Test as Config>::MaxMembers,
+		> = bounded_vec![1, 2, 3];
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
 			members.clone(),
@@ -291,7 +305,11 @@ fn close_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -330,7 +348,7 @@ fn close_works() {
 fn proposal_weight_limit_works_on_approve() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = RuntimeCall::Collective(crate::Call::set_members {
-			new_members: vec![1, 2, 3],
+			new_members: bounded_vec![1, 2, 3],
 			prime: None,
 			old_count: MaxMembers::get(),
 		});
@@ -372,7 +390,7 @@ fn proposal_weight_limit_works_on_approve() {
 fn proposal_weight_limit_ignored_on_disapprove() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = RuntimeCall::Collective(crate::Call::set_members {
-			new_members: vec![1, 2, 3],
+			new_members: bounded_vec![1, 2, 3],
 			prime: None,
 			old_count: MaxMembers::get(),
 		});
@@ -407,7 +425,7 @@ fn close_with_prime_works() {
 		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
-			vec![1, 2, 3],
+			bounded_vec![1, 2, 3],
 			Some(3),
 			MaxMembers::get()
 		));
@@ -431,7 +449,11 @@ fn close_with_prime_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -475,7 +497,7 @@ fn close_with_voting_prime_works() {
 		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
-			vec![1, 2, 3],
+			bounded_vec![1, 2, 3],
 			Some(1),
 			MaxMembers::get()
 		));
@@ -499,7 +521,11 @@ fn close_with_voting_prime_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -545,7 +571,7 @@ fn close_with_no_prime_but_majority_works() {
 		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(CollectiveMajority::set_members(
 			RuntimeOrigin::root(),
-			vec![1, 2, 3, 4, 5],
+			bounded_vec![1, 2, 3, 4, 5],
 			Some(5),
 			MaxMembers::get()
 		));
@@ -570,7 +596,11 @@ fn close_with_no_prime_but_majority_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::CollectiveMajority(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Proposed {
 					account: 1,
@@ -633,12 +663,24 @@ fn removal_of_old_voters_votes_works() {
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 0, threshold: 3, ayes: vec![1, 2], nays: vec![], end })
+			Some(Votes {
+				index: 0,
+				threshold: 3,
+				ayes: bounded_vec![1, 2],
+				nays: bounded_vec![],
+				end
+			})
 		);
 		Collective::change_members_sorted(&[4], &[1], &[2, 3, 4]);
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 0, threshold: 3, ayes: vec![2], nays: vec![], end })
+			Some(Votes {
+				index: 0,
+				threshold: 3,
+				ayes: bounded_vec![2],
+				nays: bounded_vec![],
+				end
+			})
 		);
 
 		let proposal = make_proposal(69);
@@ -654,12 +696,24 @@ fn removal_of_old_voters_votes_works() {
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(3), hash, 1, false));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 1, threshold: 2, ayes: vec![2], nays: vec![3], end })
+			Some(Votes {
+				index: 1,
+				threshold: 2,
+				ayes: bounded_vec![2],
+				nays: bounded_vec![3],
+				end
+			})
 		);
 		Collective::change_members_sorted(&[], &[3], &[2, 4]);
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 1, threshold: 2, ayes: vec![2], nays: vec![], end })
+			Some(Votes {
+				index: 1,
+				threshold: 2,
+				ayes: bounded_vec![2],
+				nays: bounded_vec![],
+				end
+			})
 		);
 	});
 }
@@ -681,17 +735,29 @@ fn removal_of_old_voters_votes_works_with_set_members() {
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 0, threshold: 3, ayes: vec![1, 2], nays: vec![], end })
+			Some(Votes {
+				index: 0,
+				threshold: 3,
+				ayes: bounded_vec![1, 2],
+				nays: bounded_vec![],
+				end
+			})
 		);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
-			vec![2, 3, 4],
+			bounded_vec![2, 3, 4],
 			None,
 			MaxMembers::get()
 		));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 0, threshold: 3, ayes: vec![2], nays: vec![], end })
+			Some(Votes {
+				index: 0,
+				threshold: 3,
+				ayes: bounded_vec![2],
+				nays: bounded_vec![],
+				end
+			})
 		);
 
 		let proposal = make_proposal(69);
@@ -707,17 +773,29 @@ fn removal_of_old_voters_votes_works_with_set_members() {
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(3), hash, 1, false));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 1, threshold: 2, ayes: vec![2], nays: vec![3], end })
+			Some(Votes {
+				index: 1,
+				threshold: 2,
+				ayes: bounded_vec![2],
+				nays: bounded_vec![3],
+				end
+			})
 		);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
-			vec![2, 4],
+			bounded_vec![2, 4],
 			None,
 			MaxMembers::get()
 		));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 1, threshold: 2, ayes: vec![2], nays: vec![], end })
+			Some(Votes {
+				index: 1,
+				threshold: 2,
+				ayes: bounded_vec![2],
+				nays: bounded_vec![],
+				end
+			})
 		);
 	});
 }
@@ -735,22 +813,19 @@ fn propose_works() {
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![hash]);
-		assert_eq!(ProposalOf::<Test, Instance1>::get(&hash), Some(proposal));
+		assert!(Voting::<Test, Instance1>::contains_key(&hash));
+		assert_eq!(Collective::proposal_of(&hash), Some(proposal));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 0, threshold: 3, ayes: vec![], nays: vec![], end })
+			Some(Votes { index: 0, threshold: 3, ayes: bounded_vec![], nays: bounded_vec![], end })
 		);
 
-		assert_eq!(
-			System::events(),
-			vec![record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
-				account: 1,
-				proposal_index: 0,
-				proposal_hash: hash,
-				threshold: 3
-			}))]
-		);
+		System::assert_has_event(RuntimeEvent::Collective(CollectiveEvent::Proposed {
+			account: 1,
+			proposal_index: 0,
+			proposal_hash: hash,
+			threshold: 3,
+		}));
 	});
 }
 
@@ -785,7 +860,7 @@ fn limit_active_proposals() {
 fn correct_validate_and_get_proposal() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = RuntimeCall::Collective(crate::Call::set_members {
-			new_members: vec![1, 2, 3],
+			new_members: bounded_vec![1, 2, 3],
 			prime: None,
 			old_count: MaxMembers::get(),
 		});
@@ -822,7 +897,7 @@ fn correct_validate_and_get_proposal() {
 		let res = Collective::validate_and_get_proposal(&hash, length, weight);
 		assert_ok!(res.clone());
 		let (retrieved_proposal, len) = res.unwrap();
-		assert_eq!(length as usize, len);
+		assert_eq!(length, len);
 		assert_eq!(proposal, retrieved_proposal);
 	})
 }
@@ -899,13 +974,19 @@ fn motions_vote_after_works() {
 		// Initially there a no votes when the motion is proposed.
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 0, threshold: 2, ayes: vec![], nays: vec![], end })
+			Some(Votes { index: 0, threshold: 2, ayes: bounded_vec![], nays: bounded_vec![], end })
 		);
 		// Cast first aye vote.
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 0, threshold: 2, ayes: vec![1], nays: vec![], end })
+			Some(Votes {
+				index: 0,
+				threshold: 2,
+				ayes: bounded_vec![1],
+				nays: bounded_vec![],
+				end
+			})
 		);
 		// Try to cast a duplicate aye vote.
 		assert_noop!(
@@ -916,7 +997,13 @@ fn motions_vote_after_works() {
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, false));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 0, threshold: 2, ayes: vec![], nays: vec![1], end })
+			Some(Votes {
+				index: 0,
+				threshold: 2,
+				ayes: bounded_vec![],
+				nays: bounded_vec![1],
+				end
+			})
 		);
 		// Try to cast a duplicate nay vote.
 		assert_noop!(
@@ -925,7 +1012,11 @@ fn motions_vote_after_works() {
 		);
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -967,7 +1058,7 @@ fn motions_all_first_vote_free_works() {
 		));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
-			Some(Votes { index: 0, threshold: 2, ayes: vec![], nays: vec![], end })
+			Some(Votes { index: 0, threshold: 2, ayes: bounded_vec![], nays: bounded_vec![], end })
 		);
 
 		// For the motion, acc 2's first vote, expecting Ok with Pays::No.
@@ -1031,14 +1122,14 @@ fn motions_reproposing_disapproved_works() {
 			proposal_weight,
 			proposal_len
 		));
-		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![]);
+		assert_eq!(Voting::<Test, Instance1>::count(), 0);
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			2,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![hash]);
+		assert!(Voting::<Test, Instance1>::contains_key(hash));
 	});
 }
 
@@ -1070,7 +1161,11 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 			proposal_len
 		));
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1125,7 +1220,14 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 			proposal_len
 		));
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(
+					e.event,
+					RuntimeEvent::Collective(_) | RuntimeEvent::Democracy(_)
+				))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1196,7 +1298,11 @@ fn motions_disapproval_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1255,7 +1361,11 @@ fn motions_approval_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1305,15 +1415,13 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_eq!(
-			System::events()[0],
-			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
-				account: 1,
-				proposal_index: 0,
-				proposal_hash: hash,
-				threshold: 3
-			}))
-		);
+
+		System::assert_has_event(RuntimeEvent::Collective(CollectiveEvent::Proposed {
+			account: 1,
+			proposal_index: 0,
+			proposal_hash: hash,
+			threshold: 3,
+		}));
 
 		// Closing the motion too early is not possible because it has neither
 		// an approving or disapproving simple majority due to the lack of votes.
@@ -1334,9 +1442,20 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			proposal_len
 		));
 
+		let events = System::events()
+			.iter()
+			.filter(|e| {
+				// We filter out Preimage events because introducing them would be a long manual
+				// process, and since we are testing the Collective events, they can be
+				// considered superfluous.
+				!matches!(e.event, RuntimeEvent::Preimage(_))
+			})
+			.cloned()
+			.collect::<Vec<_>>();
+
 		// Events show that the close ended in a disapproval.
 		assert_eq!(
-			System::events()[1],
+			events[1],
 			record(RuntimeEvent::Collective(CollectiveEvent::Closed {
 				proposal_hash: hash,
 				yes: 0,
@@ -1344,7 +1463,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			}))
 		);
 		assert_eq!(
-			System::events()[2],
+			events[2],
 			record(RuntimeEvent::Collective(CollectiveEvent::Disapproved { proposal_hash: hash }))
 		);
 	})
@@ -1403,7 +1522,11 @@ fn disapprove_proposal_works() {
 		// But Root can disapprove and remove it anyway
 		assert_ok!(Collective::disapprove_proposal(RuntimeOrigin::root(), hash));
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1497,5 +1620,52 @@ fn migration_v4() {
 		crate::migrations::v4::pre_migrate::<DefaultCollective, _>(old_pallet);
 		crate::migrations::v4::migrate::<Test, DefaultCollective, _>(old_pallet);
 		crate::migrations::v4::post_migrate::<DefaultCollective, _>(old_pallet);
+	});
+}
+
+#[cfg(all(feature = "try-runtime", test))]
+#[test]
+fn migration_v5() {
+	use crate::migrations::v5;
+	use frame_support::traits::OnRuntimeUpgrade;
+	ExtBuilder::default().build_and_execute(|| {
+		StorageVersion::new(4).put::<Pallet<Test, ()>>();
+
+		// Setup the members.
+		let members: Vec<<Test as frame_system::Config>::AccountId> =
+			(1..<Test as Config>::MaxMembers::get()).map(|i| i.into()).collect();
+
+		v5::old::Members::<Test, ()>::put(members.clone());
+
+		// Create a proposal.
+		let proposal = make_proposal(59);
+		let proposal_hash = <Test as frame_system::Config>::Hashing::hash_of(&proposal);
+		v5::old::Proposals::<Test, ()>::put::<BoundedVec<_, _>>(bounded_vec![proposal_hash]);
+		v5::old::ProposalOf::<Test, ()>::insert(proposal_hash, proposal);
+		ProposalCount::<Test, ()>::put(1);
+
+		let vote = v5::old::Votes {
+			index: 0,
+			threshold: 1,
+			ayes: members.clone(),
+			nays: bounded_vec![],
+			end: 100,
+		};
+
+		// Insert the vote
+		v5::old::Voting::<Test, ()>::insert(proposal_hash, vote.clone());
+
+		// Run migration.
+		assert_ok!(v5::MigrateToV5::<Test, ()>::try_on_runtime_upgrade(true));
+
+		// Check that the vote is present and bounded
+		assert_eq!(
+			Voting::<Test, ()>::get(proposal_hash).unwrap().ayes,
+			BoundedVec::<
+				<Test as frame_system::Config>::AccountId,
+				<Test as Config>::MaxMembers
+			>::try_from(members)
+			.unwrap()
+		);
 	});
 }

@@ -27,13 +27,8 @@
 // ./target/production/substrate-node
 // benchmark
 // pallet
-// --chain=dev
 // --steps=50
 // --repeat=20
-// --pallet=pallet_collective
-// --no-storage-info
-// --no-median-slopes
-// --no-min-squares
 // --extrinsic=*
 // --wasm-execution=compiled
 // --heap-pages=4096
@@ -91,8 +86,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(p.into())))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
-			.saturating_add(Weight::from_parts(0, 1967).saturating_mul(m.into()))
-			.saturating_add(Weight::from_parts(0, 4332).saturating_mul(p.into()))
+			.saturating_add(Weight::from_parts(0, 330).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(0, 8730).saturating_mul(p.into()))
 	}
 	/// Storage: `Council::Members` (r:1 w:0)
 	/// Proof: `Council::Members` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -183,7 +178,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(57_721, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
-			.saturating_add(Weight::from_parts(0, 64).saturating_mul(m.into()))
 	}
 	/// Storage: `Council::Voting` (r:1 w:1)
 	/// Proof: `Council::Voting` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -353,8 +347,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(p.into())))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p.into())))
-			.saturating_add(Weight::from_parts(0, 1967).saturating_mul(m.into()))
-			.saturating_add(Weight::from_parts(0, 4332).saturating_mul(p.into()))
+			.saturating_add(Weight::from_parts(0, 330).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(0, 8730).saturating_mul(p.into()))
 	}
 	/// Storage: `Council::Members` (r:1 w:0)
 	/// Proof: `Council::Members` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -445,7 +439,6 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(57_721, 0).saturating_mul(m.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
-			.saturating_add(Weight::from_parts(0, 64).saturating_mul(m.into()))
 	}
 	/// Storage: `Council::Voting` (r:1 w:1)
 	/// Proof: `Council::Voting` (`max_values`: None, `max_size`: None, mode: `Measured`)
