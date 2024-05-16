@@ -69,7 +69,7 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
-use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
+use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::PalletFeatures;
 use parachains_common::{
 	impls::DealWithFees,
@@ -766,11 +766,19 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub StakingPot: AccountId = CollatorSelection::account_id();
+}
+
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = LocalAndForeignAssets;
-	type OnChargeAssetTransaction =
-		AssetConversionAdapter<Balances, AssetConversion, TokenLocationV3>;
+	type OnChargeAssetTransaction = SwapAssetAdapter<
+		TokenLocationV3,
+		NativeAndAssets,
+		AssetConversion,
+		ResolveAssetTo<StakingPot, NativeAndAssets>,
+		ResolveAssetTo<StakingPot, NativeAndAssets>,
+	>;
 }
 
 parameter_types! {
