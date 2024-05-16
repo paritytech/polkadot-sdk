@@ -47,8 +47,8 @@ use frame_election_provider_support::{
 	SequentialPhragmen, Weight,
 };
 use pallet_election_provider_multi_phase::{
-	unsigned::MinerConfig, Call, ElectionCompute, GeometricDepositBase, QueuedSolution,
-	SolutionAccuracyOf, CurrentPhase,
+	unsigned::MinerConfig, Call, CurrentPhase, ElectionCompute, GeometricDepositBase,
+	QueuedSolution, SolutionAccuracyOf,
 };
 use pallet_staking::StakerStatus;
 use parking_lot::RwLock;

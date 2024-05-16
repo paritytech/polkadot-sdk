@@ -18,9 +18,9 @@
 //! The unsigned phase, and its miner.
 
 use crate::{
-	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
-	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
-	Round, CurrentPhase, QueuedSolution, Snapshot, DesiredTargets,
+	helpers, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
+	Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot, Snapshot,
+	SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
@@ -371,7 +371,10 @@ impl<T: Config> Pallet<T> {
 		raw_solution: &RawSolution<SolutionOf<T::MinerConfig>>,
 	) -> DispatchResult {
 		// ensure solution is timely. Don't panic yet. This is a cheap check.
-		ensure!(CurrentPhase::<T>::get().is_unsigned_open(), Error::<T>::PreDispatchEarlySubmission);
+		ensure!(
+			CurrentPhase::<T>::get().is_unsigned_open(),
+			Error::<T>::PreDispatchEarlySubmission
+		);
 
 		// ensure round is current
 		ensure!(Round::<T>::get() == raw_solution.round, Error::<T>::OcwCallWrongEra);

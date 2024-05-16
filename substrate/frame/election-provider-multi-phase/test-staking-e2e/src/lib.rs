@@ -27,9 +27,7 @@ use sp_runtime::Perbill;
 
 use crate::mock::RuntimeOrigin;
 
-use pallet_election_provider_multi_phase::{
-	CurrentPhase,
-};
+use pallet_election_provider_multi_phase::CurrentPhase;
 
 // syntactic sugar for logging.
 #[macro_export]

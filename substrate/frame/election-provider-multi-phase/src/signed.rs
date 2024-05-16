@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
-	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo, SnapshotMetadata,
+	SnapshotMetadata, SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
 use codec::{Decode, Encode, HasCompact};
 use frame_election_provider_support::NposSolution;
@@ -418,7 +418,8 @@ impl<T: Config> Pallet<T> {
 			let active_voters = raw_solution.solution.voter_count() as u32;
 			let feasibility_weight = {
 				// defensive only: at the end of signed phase, snapshot will exits.
-				let desired_targets = crate::DesiredTargets::<T>::get().defensive_unwrap_or_default();
+				let desired_targets =
+					crate::DesiredTargets::<T>::get().defensive_unwrap_or_default();
 				T::WeightInfo::feasibility_check(voters, targets, active_voters, desired_targets)
 			};
 
@@ -565,8 +566,8 @@ impl<T: Config> Pallet<T> {
 mod tests {
 	use super::*;
 	use crate::{
-		mock::*, ElectionBoundsBuilder, ElectionCompute, ElectionError, Error, Event, Perbill,
-		Phase, Round, CurrentPhase,
+		mock::*, CurrentPhase, ElectionBoundsBuilder, ElectionCompute, ElectionError, Error, Event,
+		Perbill, Phase, Round,
 	};
 	use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 	use sp_runtime::Percent;
