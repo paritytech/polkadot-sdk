@@ -349,8 +349,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Parachain runtime mock.
 
-</span><span class="kw">mod </span>mock_msg_queue;
-<span class="kw">mod </span>xcm_config;
+</span><span class="kw">mod </span>xcm_config;
 <span class="kw">pub use </span>xcm_config::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>core::marker::PhantomData;
@@ -369,6 +368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{EnsureXcmOrigin, SignedToAccountId32};
 <span class="kw">use </span>xcm_executor::{traits::ConvertLocation, XcmExecutor};
+<span class="kw">use </span>xcm_simulator::mock_message_queue;
 
 <span class="kw">pub type </span>AccountId = AccountId32;
 <span class="kw">pub type </span>Balance = u128;
@@ -454,7 +454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>ReservedDmpWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_div(<span class="number">4</span>), <span class="number">0</span>);
 }
 
-<span class="kw">impl </span>mock_msg_queue::Config <span class="kw">for </span>Runtime {
+<span class="kw">impl </span>mock_message_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 }
@@ -508,7 +508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub struct </span>Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
-		MsgQueue: mock_msg_queue,
+		MsgQueue: mock_message_queue,
 		PolkadotXcm: pallet_xcm,
 		ForeignUniques: pallet_uniques,
 	}

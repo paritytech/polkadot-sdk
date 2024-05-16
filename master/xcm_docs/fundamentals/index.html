@@ -1,0 +1,305 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Fundamentals of the XCM language. The virtual machine, instructions, locations and assets."><title>xcm_docs::fundamentals - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../xcm_docs/index.html">xcm_docs</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Module fundamentals</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In crate xcm_docs</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../xcm_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">xcm_docs</a>::<wbr><a class="mod" href="#">fundamentals</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/xcm_docs/fundamentals.rs.html#17-177">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Fundamentals of the XCM language. The virtual machine, instructions, locations and assets.</p>
+<h2 id="xcm-fundamentals"><a class="doc-anchor" href="#xcm-fundamentals">§</a>XCM Fundamentals</h2>
+<p>XCM standardizes usual actions users take in consensus systems, for example
+dealing with assets locally, on other chains, and locking them.
+XCM programs can both be executed locally or sent to a different consensus system.
+Examples of consensus systems are blockchains and smart contracts.</p>
+<p>The goal of XCM is to allow multi-chain ecosystems to thrive via specialization.
+Very specific functionalities can be abstracted away and standardized in this common language.
+Then, every member of the ecosystem can implement the subset of the language that makes sense
+for them.</p>
+<p>The language evolves over time to accomodate the needs of the community
+via the <a href="https://github.com/paritytech/xcm-format/blob/master/proposals/0032-process.md">RFC process</a>.</p>
+<p>XCM is the language, it deals with interpreting and executing programs.
+It does not deal with actually <strong>sending</strong> these programs from one consensus system to another.
+This responsibility falls to a transport protocol.
+XCM can even be interpreted on the local system, with no need of a transport protocol.
+However, automatic and composable workflows can be achieved via the use of one.</p>
+<p>At the core of XCM lies the XCVM, the Cross-Consensus Virtual Machine.
+It’s the virtual machine that executes XCM programs.
+It is a specification that comes with the language.</p>
+<p>For these docs, we’ll use a Rust implementation of XCM and the XCVM, consisting of the following
+parts:</p>
+<ul>
+<li><a href="../../staging_xcm/index.html" title="mod staging_xcm"><code>XCM</code></a>: Holds the definition of an XCM program, the instructions and main concepts.</li>
+<li><a href="xcm_executor"><code>Executor</code></a>: Implements the XCVM, capable of executing XCMs. Highly
+configurable.</li>
+<li><a href="xcm_builder"><code>Builder</code></a>: A collection of types used to configure the executor.</li>
+<li><a href="pallet_xcm"><code>XCM Pallet</code></a>: A FRAME pallet for interacting with the executor.</li>
+<li><a href="xcm_simulator"><code>Simulator</code></a>: A playground to tinker with different XCM programs and executor
+configurations.</li>
+</ul>
+<p>XCM programs are composed of Instructions, which reference Locations and Assets.</p>
+<h3 id="locations"><a class="doc-anchor" href="#locations">§</a>Locations</h3>
+<p>Locations are XCM’s vocabulary of places we want to talk about in our XCM programs.
+They are used to reference things like 32-byte accounts, governance bodies, smart contracts,
+blockchains and more.</p>
+<p>Locations are hierarchical.
+This means some places in consensus are wholly encapsulated in other places.
+Say we have two systems A and B.
+If any change in A’s state implies a change in B’s state, then we say A is interior to B.</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart
+	relay[Relaychain] --> paraA["Parachain(1000)"]
+	relay --> paraB["Parachain(2000)"]
+
+	paraA --> pallet[Pallet]
+	pallet --> indexA[Index 1]
+	pallet --> indexB[Index 2]
+
+	paraA --> account[Account]
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>Parachains are interior to their Relay Chain, since a change in their state implies a change in
+the Relay Chain’s state.</p>
+<p>Because of this hierarchy, the way we represent locations is with both a number of <strong>parents</strong>,
+times we move <strong>up</strong> the hierarchy, and a sequence of <strong>junctions</strong>, the steps we take <strong>down</strong>
+the hierarchy after going up the specified number of parents.</p>
+<p>In Rust, this is specified with the following datatype:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub struct </span>Location {
+  parents: u8,
+  interior: Junctions,
+}</code></pre></div>
+<p>Many junctions are available; parachains, pallets, 32 and 20 byte accounts, governance bodies,
+and arbitrary indices are the most common.
+A full list of available junctions can be found in the <a href="https://github.com/paritytech/xcm-format#interior-locations--junctions">format</a>
+and <a href="../../staging_xcm/v4/junction/enum.Junction.html" title="enum staging_xcm::v4::junction::Junction">Junction enum</a>.</p>
+<p>We’ll use a file system notation to represent locations, and start with relative locations.
+In the diagram, the location of parachain 1000 as seen from all other locations is as follows:</p>
+<ul>
+<li>From the relaychain: <code>Parachain(1000)</code></li>
+<li>From parachain 1000 itself: <code>Here</code></li>
+<li>From parachain 2000: <code>../Parachain(1000)</code></li>
+</ul>
+<p>Relative locations are interpreted by the system that is executing an XCM program, which is the
+receiver of a message in the case where it’s sent.</p>
+<p>Locations can also be absolute.
+Keeping in line with our filesystem analogy, we can imagine the root of our filesystem to exist.
+This would be a location with no parents, that is also the parent of all systems that derive
+their own consensus, say Polkadot or Ethereum or Bitcoin.
+Such a location does not exist concretely, but we can still use this definition for it.
+This is the <strong>universal location</strong>.
+We need the universal location to be able to describe locations in an absolute way.</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart
+	universe[Universal Location] --> polkadot[Polkadot]
+	universe --> ethereum[Ethereum]
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>Here, the absolute location of parachain 1000 would be
+<code>GlobalConsensus(Polkadot)/Parachain(1000)</code>.</p>
+<h3 id="assets"><a class="doc-anchor" href="#assets">§</a>Assets</h3>
+<p>We want to be able to reference assets in our XCM programs, if only to be able to pay for fees.
+Assets are represented using locations.</p>
+<p>The native asset of a chain is represented by the location of that chain.
+For example, DOT is represented by the location of the Polkadot relaychain.
+If the interpreting chain has its own asset, it would be represented by <code>Here</code>.</p>
+<p>How do we represent other assets?
+The asset hub system parachain in Polkadot, for example, holds a lot of assets.
+To represent each of them, it uses the indices we mentioned, and it makes them interior to the
+assets pallet instance it uses.
+USDT, an example asset that lives on asset hub, is identified by the location
+<code>Parachain(1000)/PalletInstance(53)/GeneralIndex(1984)</code>, when seen from the Polkadot relaychain.</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart
+	relay[Polkadot] --> assetHub["Asset Hub"]
+	relay --> anotherPara["Another parachain"]
+
+	assetHub --> assetsPallet["Assets Pallet"]
+	assetsPallet --> usdt[1984]
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>Asset Hub also has another type of assets called <code>ForeignAssets</code>.
+These assets are identified by the XCM Location to their origin.
+Two such assets are a Parachain asset, like Moonbeam’s GLMR, and KSM, from the cousin Kusama
+network. These are represented as <code>../Parachain(2004)/PalletInstance(10)</code> and
+<code>../../GlobalConsensus(Kusama)</code> respectively.</p>
+<p>The whole type can be seen in the <a href="https://github.com/paritytech/xcm-format#6-universal-asset-identifiers">format</a>
+and <a href="../../staging_xcm/v4/asset/struct.Asset.html" title="struct staging_xcm::v4::asset::Asset">rust docs</a>.</p>
+<h3 id="instructions"><a class="doc-anchor" href="#instructions">§</a>Instructions</h3>
+<p>Given the vocabulary to talk about both locations – chains and accounts – and assets, we now
+need a way to express what we want the consensus system to do when executing our programs.
+We need a way of writing our programs.</p>
+<p>XCM programs are composed of a sequence of instructions.</p>
+<p>All available instructions can be seen in the <a href="https://github.com/paritytech/xcm-format#5-the-xcvm-instruction-set">format</a>
+and the <a href="../../staging_xcm/v4/enum.Instruction.html" title="enum staging_xcm::v4::Instruction">Instruction enum</a>.</p>
+<p>A very simple example is the following:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
+  TransferAsset { assets, beneficiary },
+]);</code></pre></div>
+<p>This instruction is enough to transfer <code>assets</code> from the account of the <strong>origin</strong> of a message
+to the <code>beneficiary</code> account. However, because of XCM’s generality, fees need to be paid
+explicitly. This next example sheds more light on this:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
+  WithdrawAsset(assets),
+  BuyExecution { fees: assets, weight_limit },
+  DepositAsset { assets: AssetFilter(Wild(All)), beneficiary },
+]);</code></pre></div>
+<p>Here we see the process of transferring assets was broken down into smaller instructions, and we
+add the explicit fee payment step in the middle.
+<code>WithdrawAsset</code> withdraws assets from the account of the <strong>origin</strong> of the message for usage
+inside this message’s execution. <code>BuyExecution</code> explicitly buys execution for this program using
+the assets specified in <code>fees</code>, with a sanity check of <code>weight_limit</code>. <code>DepositAsset</code> uses a
+wildcard, specifying all remaining <code>assets</code> after subtracting the fees and a <code>beneficiary</code>
+account.</p>
+<h3 id="next-steps"><a class="doc-anchor" href="#next-steps">§</a>Next steps</h3>
+<p>Continue with the <a href="../guides/index.html" title="mod xcm_docs::guides">guides</a> for step-by-step tutorials on XCM,
+or jump to the <a href="../cookbook/index.html" title="mod xcm_docs::cookbook">cookbook</a> to see examples.</p>
+<p>The <a href="../glossary/index.html" title="mod xcm_docs::glossary">glossary</a> can be useful if some of the terms are confusing.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

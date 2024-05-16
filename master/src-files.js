@@ -518,13 +518,14 @@ var srcIndex = new Map(JSON.parse('[\
 ["westend_runtime",["",[["governance",[],["mod.rs","origins.rs","tracks.rs"]],["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["frame_election_provider_support.rs","frame_system.rs","mod.rs","pallet_asset_rate.rs","pallet_bags_list.rs","pallet_balances.rs","pallet_conviction_voting.rs","pallet_election_provider_multi_phase.rs","pallet_fast_unstake.rs","pallet_identity.rs","pallet_indices.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_nomination_pools.rs","pallet_preimage.rs","pallet_proxy.rs","pallet_referenda_fellowship_referenda.rs","pallet_referenda_referenda.rs","pallet_scheduler.rs","pallet_session.rs","pallet_staking.rs","pallet_sudo.rs","pallet_timestamp.rs","pallet_treasury.rs","pallet_utility.rs","pallet_vesting.rs","pallet_whitelist.rs","pallet_xcm.rs","runtime_common_assigned_slots.rs","runtime_common_auctions.rs","runtime_common_crowdloan.rs","runtime_common_identity_migrator.rs","runtime_common_paras_registrar.rs","runtime_common_slots.rs","runtime_parachains_assigner_on_demand.rs","runtime_parachains_configuration.rs","runtime_parachains_coretime.rs","runtime_parachains_disputes.rs","runtime_parachains_disputes_slashing.rs","runtime_parachains_hrmp.rs","runtime_parachains_inclusion.rs","runtime_parachains_initializer.rs","runtime_parachains_paras.rs","runtime_parachains_paras_inherent.rs"]]],["bag_thresholds.rs","impls.rs","lib.rs","xcm_config.rs"]]],\
 ["westend_runtime_constants",["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs"]]],\
 ["westend_system_emulated_network",["",[],["lib.rs"]]],\
+["xcm_docs",["",[["cookbook",[["relay_token_transactor",[["parachain",[],["mod.rs","xcm_config.rs"]],["relay_chain",[],["mod.rs","xcm_config.rs"]]],["mod.rs","network.rs"]]],["mod.rs"]],["guides",[],["mod.rs"]]],["fundamentals.rs","glossary.rs","lib.rs"]]],\
 ["xcm_emulator",["",[],["lib.rs"]]],\
 ["xcm_executor_integration_tests",["",[],["lib.rs"]]],\
 ["xcm_fee_payment_runtime_api",["",[],["dry_run.rs","fees.rs","lib.rs"]]],\
 ["xcm_fuzzer",["",[],["fuzz.rs","parachain.rs","relay_chain.rs"]]],\
 ["xcm_procedural",["",[],["builder_pattern.rs","lib.rs","v2.rs","v3.rs","v4.rs","weight_info.rs"]]],\
-["xcm_simulator",["",[],["lib.rs"]]],\
-["xcm_simulator_example",["",[["parachain",[["xcm_config",[],["asset_transactor.rs","barrier.rs","constants.rs","location_converter.rs","mod.rs","origin_converter.rs","reserve.rs","teleporter.rs","weigher.rs"]]],["mock_msg_queue.rs","mod.rs"]],["relay_chain",[["xcm_config",[],["asset_transactor.rs","barrier.rs","constants.rs","location_converter.rs","mod.rs","origin_converter.rs","weigher.rs"]]],["mod.rs"]]],["lib.rs"]]],\
+["xcm_simulator",["",[],["lib.rs","mock_message_queue.rs"]]],\
+["xcm_simulator_example",["",[["parachain",[["xcm_config",[],["asset_transactor.rs","barrier.rs","constants.rs","location_converter.rs","mod.rs","origin_converter.rs","reserve.rs","teleporter.rs","weigher.rs"]]],["mod.rs"]],["relay_chain",[["xcm_config",[],["asset_transactor.rs","barrier.rs","constants.rs","location_converter.rs","mod.rs","origin_converter.rs","weigher.rs"]]],["mod.rs"]]],["lib.rs"]]],\
 ["zombienet_backchannel",["",[],["errors.rs","lib.rs"]]]\
 ]'));
 createSrcSidebar();

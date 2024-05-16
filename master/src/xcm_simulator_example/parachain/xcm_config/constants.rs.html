@@ -179,6 +179,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -195,9 +196,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::parachain::MsgQueue;
+</span><span class="kw">use </span><span class="kw">crate</span>::parachain::Runtime;
 <span class="kw">use </span>frame_support::parameter_types;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>xcm_simulator::mock_message_queue::ParachainId;
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub </span>KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(Parent.into()), <span class="number">1</span>, <span class="number">1</span>);
@@ -207,7 +209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>KsmLocation: Location = Location::parent();
 	<span class="kw">pub const </span>RelayNetwork: NetworkId = NetworkId::Kusama;
-	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(MsgQueue::parachain_id().into())].into();
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(ParachainId::&lt;Runtime&gt;::get().into())].into();
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
