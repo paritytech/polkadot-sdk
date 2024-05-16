@@ -391,11 +391,7 @@ pub async fn benchmark_statement_distribution(
 				parent_head_data_hash: state.pvd.parent_head.hash(),
 				statement_knowledge: StatementFilter {
 					seconded_in_group: BitVec::from_iter(
-						groups
-							.get(GroupIndex(group_index as u32))
-							.unwrap()
-							.iter()
-							.map(|v| connected_validators.contains(&(v.0 as usize))),
+						groups.get(GroupIndex(group_index as u32)).unwrap().iter().map(|_| true),
 					),
 					validated_in_group: BitVec::from_iter(
 						groups.get(GroupIndex(group_index as u32)).unwrap().iter().map(|_| false),
@@ -420,7 +416,6 @@ pub async fn benchmark_statement_distribution(
 			futures::select! {
 				msg = to_subsystems.next() => {
 					if let Some(msg) = msg {
-						gum::info!(msg = ?msg);
 						env.send_message(msg).await;
 					}
 				},
@@ -431,8 +426,7 @@ pub async fn benchmark_statement_distribution(
 						.filter(|v| v.load(Ordering::SeqCst))
 						.collect::<Vec<_>>()
 						.len();
-
-					gum::info!(target: LOG_TARGET, ?total_message_count, ?manifest_count);
+					gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifest_count, total_message_count);
 					if manifest_count == total_message_count  {
 						break;
 					} else {
