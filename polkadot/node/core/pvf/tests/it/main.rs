@@ -26,7 +26,7 @@ use polkadot_node_core_pvf::{
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
-use polkadot_primitives::{ExecutorParam, ExecutorParams};
+use polkadot_primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
 
 use std::{io::Write, time::Duration};
 use tokio::sync::Mutex;
@@ -63,6 +63,9 @@ impl TestHost {
 			false,
 			prepare_worker_path,
 			execute_worker_path,
+			2,
+			1,
+			2,
 		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default()).await.unwrap();
@@ -555,4 +558,74 @@ async fn nonexistent_cache_dir() {
 		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
 		.await
 		.unwrap();
+}
+
+// Checks the the artifact is not re-prepared when the executor environment parameters change
+// in a way not affecting the preparation
+#[tokio::test]
+async fn artifact_does_not_reprepare_on_non_meaningful_exec_parameter_change() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.prepare_workers_hard_max_num = 1;
+	})
+	.await;
+	let cache_dir = host.cache_dir.path();
+
+	let set1 = ExecutorParams::default();
+	let set2 =
+		ExecutorParams::from(&[ExecutorParam::PvfExecTimeout(PvfExecKind::Backing, 2500)][..]);
+
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set1).await.unwrap();
+
+	let md1 = {
+		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+		assert_eq!(cache_dir.len(), 2);
+		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
+		if artifact_path.path().is_dir() {
+			artifact_path = cache_dir.pop().unwrap().unwrap();
+		}
+		std::fs::metadata(artifact_path.path()).unwrap()
+	};
+
+	// FS times are not monotonical so we wait 2 secs here to be sure that the creation time of the
+	// second attifact will be different
+	tokio::time::sleep(Duration::from_secs(2)).await;
+
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set2).await.unwrap();
+
+	let md2 = {
+		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+		assert_eq!(cache_dir.len(), 2);
+		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
+		if artifact_path.path().is_dir() {
+			artifact_path = cache_dir.pop().unwrap().unwrap();
+		}
+		std::fs::metadata(artifact_path.path()).unwrap()
+	};
+
+	assert_eq!(md1.created().unwrap(), md2.created().unwrap());
+}
+
+// Checks if the artifact is re-prepared if the re-preparation is needed by the nature of
+// the execution environment parameters change
+#[tokio::test]
+async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.prepare_workers_hard_max_num = 1;
+	})
+	.await;
+	let cache_dir = host.cache_dir.path();
+
+	let set1 = ExecutorParams::default();
+	let set2 =
+		ExecutorParams::from(&[ExecutorParam::PvfPrepTimeout(PvfPrepKind::Prepare, 60000)][..]);
+
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set1).await.unwrap();
+	let cache_dir_contents: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+
+	assert_eq!(cache_dir_contents.len(), 2);
+
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set2).await.unwrap();
+	let cache_dir_contents: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+
+	assert_eq!(cache_dir_contents.len(), 3); // new artifact has been added
 }

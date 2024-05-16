@@ -26,7 +26,6 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
-use libc;
 use nix::{
 	errno::Errno,
 	sys::{
@@ -48,7 +47,8 @@ use polkadot_node_core_pvf_common::{
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker::{
-		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
+		cpu_time_monitor_loop, get_total_cpu_usage, recv_child_response, run_worker, send_result,
+		stringify_errno, stringify_panic_payload,
 		thread::{self, spawn_worker_thread, WaitOutcome},
 		WorkerKind,
 	},
@@ -117,11 +117,6 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 	Ok(pvf)
 }
 
-/// Send a worker response.
-fn send_response(stream: &mut UnixStream, result: PrepareWorkerResult) -> io::Result<()> {
-	framed_send_blocking(stream, &result.encode())
-}
-
 fn start_memory_tracking(fd: RawFd, limit: Option<isize>) {
 	unsafe {
 		// SAFETY: Inside the failure handler, the allocator is locked and no allocations or
@@ -178,8 +173,6 @@ fn end_memory_tracking() -> isize {
 ///
 /// - `worker_version`: see above
 ///
-/// - `security_status`: contains the detected status of security features.
-///
 /// # Flow
 ///
 /// This runs the following in a loop:
@@ -233,8 +226,9 @@ pub fn worker_entrypoint(
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
 					Err(errno) => {
-						let result = Err(error_from_errno("getrusage before", errno));
-						send_response(&mut stream, result)?;
+						let result: PrepareWorkerResult =
+							Err(error_from_errno("getrusage before", errno));
+						send_result(&mut stream, result, worker_info)?;
 						continue
 					},
 				};
@@ -294,7 +288,7 @@ pub fn worker_entrypoint(
 					"worker: sending result to host: {:?}",
 					result
 				);
-				send_response(&mut stream, result)?;
+				send_result(&mut stream, result, worker_info)?;
 			}
 		},
 	);
@@ -666,7 +660,7 @@ fn handle_parent_process(
 	match status {
 		Ok(WaitStatus::Exited(_pid, exit_status)) => {
 			let mut reader = io::BufReader::new(received_data.as_slice());
-			let result = recv_child_response(&mut reader)
+			let result = recv_child_response(&mut reader, "prepare")
 				.map_err(|err| PrepareError::JobError(err.to_string()))?;
 
 			match result {
@@ -726,35 +720,6 @@ fn handle_parent_process(
 	}
 }
 
-/// Calculate the total CPU time from the given `usage` structure, returned from
-/// [`nix::sys::resource::getrusage`], and calculates the total CPU time spent, including both user
-/// and system time.
-///
-/// # Arguments
-///
-/// - `rusage`: Contains resource usage information.
-///
-/// # Returns
-///
-/// Returns a `Duration` representing the total CPU time.
-fn get_total_cpu_usage(rusage: Usage) -> Duration {
-	let micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * 1_000_000) +
-		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64) as u64;
-
-	return Duration::from_micros(micros)
-}
-
-/// Get a job response.
-fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<JobResult> {
-	let response_bytes = framed_recv_blocking(received_data)?;
-	JobResult::decode(&mut response_bytes.as_slice()).map_err(|e| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			format!("prepare pvf recv_child_response: decode error: {:?}", e),
-		)
-	})
-}
-
 /// Write a job response to the pipe and exit process after.
 ///
 /// # Arguments
@@ -774,7 +739,7 @@ fn send_child_response(pipe_write: &mut PipeFd, response: JobResult) -> ! {
 }
 
 fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
-	PrepareError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error()))
+	PrepareError::Kernel(stringify_errno(context, errno))
 }
 
 type JobResult = Result<JobResponse, PrepareError>;

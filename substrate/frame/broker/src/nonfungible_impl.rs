@@ -25,12 +25,13 @@ use sp_std::vec::Vec;
 impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 	type ItemId = u128;
 
-	fn owner(index: &Self::ItemId) -> Option<T::AccountId> {
-		Regions::<T>::get(RegionId::from(*index)).map(|r| r.owner)
+	fn owner(item: &Self::ItemId) -> Option<T::AccountId> {
+		let record = Regions::<T>::get(RegionId::from(*item))?;
+		record.owner
 	}
 
-	fn attribute(index: &Self::ItemId, key: &[u8]) -> Option<Vec<u8>> {
-		let id = RegionId::from(*index);
+	fn attribute(item: &Self::ItemId, key: &[u8]) -> Option<Vec<u8>> {
+		let id = RegionId::from(*item);
 		let item = Regions::<T>::get(id)?;
 		match key {
 			b"begin" => Some(id.begin.encode()),
@@ -46,11 +47,49 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 }
 
 impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
-	fn transfer(index: &Self::ItemId, dest: &T::AccountId) -> DispatchResult {
-		Self::do_transfer((*index).into(), None, dest.clone()).map_err(Into::into)
+	fn transfer(item: &Self::ItemId, dest: &T::AccountId) -> DispatchResult {
+		Self::do_transfer((*item).into(), None, dest.clone()).map_err(Into::into)
 	}
 }
 
-// We don't allow any of the mutate operations, so the default implementation is used, which will
-// return `TokenError::Unsupported` in case any of the operations is called.
-impl<T: Config> Mutate<T::AccountId> for Pallet<T> {}
+/// We don't really support burning and minting.
+///
+/// We only need this to allow the region to be reserve transferable.
+///
+/// For reserve transfers that are not 'local', the asset must first be withdrawn to the holding
+/// register and then deposited into the designated account. This process necessitates that the
+/// asset is capable of being 'burned' and 'minted'.
+///
+/// Since each region is associated with specific record data, we will not actually burn the asset.
+/// If we did, we wouldn't know what record to assign to the newly minted region. Therefore, instead
+/// of burning, we set the asset's owner to `None`. In essence, 'burning' a region involves setting
+/// its owner to `None`, whereas 'minting' the region assigns its owner to an actual account. This
+/// way we never lose track of the associated record data.
+impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
+	/// Deposit a region into an account.
+	fn mint_into(item: &Self::ItemId, who: &T::AccountId) -> DispatchResult {
+		let region_id: RegionId = (*item).into();
+		let record = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
+
+		// 'Minting' can only occur if the asset has previously been burned (i.e. moved to the
+		// holding register)
+		ensure!(record.owner.is_none(), Error::<T>::NotAllowed);
+		Self::issue(region_id.core, region_id.begin, record.end, Some(who.clone()), record.paid);
+
+		Ok(())
+	}
+
+	/// Withdraw a region from account.
+	fn burn(item: &Self::ItemId, maybe_check_owner: Option<&T::AccountId>) -> DispatchResult {
+		let region_id: RegionId = (*item).into();
+		let mut record = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
+		if let Some(owner) = maybe_check_owner {
+			ensure!(Some(owner.clone()) == record.owner, Error::<T>::NotOwner);
+		}
+
+		record.owner = None;
+		Regions::<T>::insert(region_id, record);
+
+		Ok(())
+	}
+}

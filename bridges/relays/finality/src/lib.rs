@@ -21,7 +21,9 @@
 
 pub use crate::{
 	base::{FinalityPipeline, SourceClientBase},
-	finality_loop::{metrics_prefix, run, FinalitySyncParams, SourceClient, TargetClient},
+	finality_loop::{
+		metrics_prefix, run, FinalitySyncParams, HeadersToRelay, SourceClient, TargetClient,
+	},
 	finality_proofs::{FinalityProofsBuf, FinalityProofsStream},
 	sync_loop_metrics::SyncLoopMetrics,
 };
