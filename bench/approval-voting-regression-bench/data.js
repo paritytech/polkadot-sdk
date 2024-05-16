@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715861480565,
+  "lastUpdate": 1715869191687,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3524,6 +3524,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.534753632750014,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "polka.dom",
+            "username": "PolkadotDom",
+            "email": "polkadotdom@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "04f88f5b03038acbdeb7475f543baf6b06d64f74",
+          "message": "Remove pallet::getter usage from the democracy pallet (#4472)\n\nAs per #3326, removes usage of the pallet::getter macro from the\ndemocracy pallet. The syntax `StorageItem::<T, I>::get()` should be used\ninstead.\n\ncc @muraca",
+          "timestamp": "2024-05-16T13:53:36Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/04f88f5b03038acbdeb7475f543baf6b06d64f74"
+        },
+        "date": 1715869162783,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63545.380000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9512555055800798,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.679352646599984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.015975438669988,
             "unit": "seconds"
           }
         ]
