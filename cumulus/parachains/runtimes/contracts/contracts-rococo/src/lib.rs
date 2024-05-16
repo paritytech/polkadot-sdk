@@ -106,6 +106,7 @@ pub type Migrations = (
 	pallet_contracts::Migration<Runtime>,
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -318,7 +319,7 @@ impl pallet_message_queue::Config for Runtime {
 	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
 	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
 	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
-	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type HeapSize = sp_core::ConstU32<{ 103 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
 	type IdleMaxServiceWeight = MessageQueueServiceWeight;
