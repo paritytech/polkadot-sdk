@@ -2725,9 +2725,9 @@ mod remote_tests {
 
 				if cursor.is_none() {
 					// run the try-state at the end.
-					StakeTracker::do_try_state()
+					Staking::do_try_state()
 						.map_err(|err| {
-							log::error!(" 🕵️‍♂️  StakeTracker try_state failure: {:?}", err);
+							log::error!(" 🕵️‍♂️ try_state failure: {:?}", err);
 							err
 						})
 						.unwrap();
