@@ -12,4 +12,14 @@ doc:
 
 crates:
     - name: pallet-nomination-pools
-
+      bump: major
+    - name: pallet-nomination-pools-benchmarking
+      bump: major
+    - name: sp-staking
+      bump: patch
+    - name: pallet-staking
+      bump: patch
+    - name: pallet-delegated-staking
+      bump: patch
+    - name: westend-runtime
+      bump: major
