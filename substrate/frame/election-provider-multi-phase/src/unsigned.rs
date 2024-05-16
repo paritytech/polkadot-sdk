@@ -20,6 +20,7 @@
 use crate::{
 	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
 	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
+	Round,
 };
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
@@ -196,7 +197,7 @@ impl<T: Config> Pallet<T> {
 				targets,
 				desired_targets,
 			)?;
-		let round = Self::round();
+		let round = Round::<T>::get();
 		Ok((RawSolution { solution, score, round }, size, is_trimmed))
 	}
 
@@ -373,7 +374,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(Self::current_phase().is_unsigned_open(), Error::<T>::PreDispatchEarlySubmission);
 
 		// ensure round is current
-		ensure!(Self::round() == raw_solution.round, Error::<T>::OcwCallWrongEra);
+		ensure!(Round::<T>::get() == raw_solution.round, Error::<T>::OcwCallWrongEra);
 
 		// ensure correct number of winners.
 		ensure!(
@@ -1389,7 +1390,7 @@ mod tests {
 						desired_targets,
 					)
 					.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
 				assert_ok!(MultiPhase::submit_unsigned(
 					RuntimeOrigin::none(),
@@ -1414,7 +1415,7 @@ mod tests {
 					desired_targets,
 				)
 				.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				// 10 is not better than 12
 				assert_eq!(solution.score.minimal_stake, 10);
 				// submitting this will actually panic.
@@ -1444,7 +1445,7 @@ mod tests {
 					desired_targets,
 				)
 				.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				// 12 is not better than 12. We need score of at least 13 to be accepted.
 				assert_eq!(solution.score.minimal_stake, 12);
 				// submitting this will panic.
@@ -1471,7 +1472,7 @@ mod tests {
 						desired_targets,
 					)
 					.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				assert_eq!(solution.score.minimal_stake, 13);
 
 				// this should work
@@ -1504,7 +1505,7 @@ mod tests {
 						desired_targets,
 					)
 					.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				assert_eq!(solution.score.minimal_stake, 17);
 
 				// and it is fine

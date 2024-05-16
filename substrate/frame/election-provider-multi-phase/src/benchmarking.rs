@@ -147,7 +147,7 @@ fn solution_with_size<T: Config>(
 		<SolutionOf<T::MinerConfig>>::from_assignment(&assignments, &voter_index, &target_index)
 			.unwrap();
 	let score = solution.clone().score(stake_of, voter_at, target_at).unwrap();
-	let round = MultiPhase::<T>::round();
+	let round = Round::<T>::get();
 
 	assert!(
 		score.minimal_stake > 0,

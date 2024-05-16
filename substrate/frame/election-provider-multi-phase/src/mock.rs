@@ -112,9 +112,9 @@ pub fn roll_to_with_ocw(n: BlockNumber) {
 }
 
 pub fn roll_to_round(n: u32) {
-	assert!(MultiPhase::round() <= n);
+	assert!(Round::<Runtime>::get() <= n);
 
-	while MultiPhase::round() != n {
+	while Round::<Runtime>::get() != n {
 		roll_to_signed();
 		frame_support::assert_ok!(MultiPhase::elect());
 	}
@@ -195,7 +195,7 @@ pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
 	let solution =
 		<SolutionOf<Runtime>>::from_assignment(&assignments, &voter_index, &target_index).unwrap();
 
-	let round = MultiPhase::round();
+	let round = Round::<Runtime>::get();
 	RawSolution { solution, score, round }
 }
 

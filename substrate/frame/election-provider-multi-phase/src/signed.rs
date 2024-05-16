@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
-	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
+	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo, Round,
 };
 use codec::{Decode, Encode, HasCompact};
 use frame_election_provider_support::NposSolution;
@@ -576,7 +576,7 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			// roll to a few rounds ahead.
 			roll_to_round(5);
-			assert_eq!(MultiPhase::round(), 5);
+			assert_eq!(Round::<Runtime>::get(), 5);
 
 			roll_to_signed();
 			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
@@ -586,7 +586,7 @@ mod tests {
 			let mut solution = raw_solution();
 
 			// try a solution prepared in a previous round.
-			solution.round = MultiPhase::round() - 1;
+			solution.round = Round::<Runtime>::get() - 1;
 
 			assert_noop!(
 				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
@@ -596,7 +596,7 @@ mod tests {
 			// try a solution prepared in a later round (not expected to happen, but in any case).
 			MultiPhase::create_snapshot().unwrap();
 			let mut solution = raw_solution();
-			solution.round = MultiPhase::round() + 1;
+			solution.round = Round::<Runtime>::get() + 1;
 
 			assert_noop!(
 				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),

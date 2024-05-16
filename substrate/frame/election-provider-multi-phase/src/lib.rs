@@ -1016,7 +1016,7 @@ pub mod pallet {
 
 			// ensure solution is timely.
 			ensure!(Self::current_phase().is_signed(), Error::<T>::PreDispatchEarlySubmission);
-			ensure!(raw_solution.round == Self::round(), Error::<T>::PreDispatchDifferentRound);
+			ensure!(raw_solution.round == Round::<T>::get(), Error::<T>::PreDispatchDifferentRound);
 
 			// NOTE: this is the only case where having separate snapshot would have been better
 			// because could do just decode_len. But we can create abstractions to do this.
@@ -1415,11 +1415,11 @@ impl<T: Config> Pallet<T> {
 
 	/// Phase transition helper.
 	pub(crate) fn phase_transition(to: Phase<BlockNumberFor<T>>) {
-		log!(info, "Starting phase {:?}, round {}.", to, Self::round());
+		log!(info, "Starting phase {:?}, round {}.", to, Round::<T>::get());
 		Self::deposit_event(Event::PhaseTransitioned {
 			from: CurrentPhase::<T>::get(),
 			to,
-			round: Self::round(),
+			round: Round::<T>::get(),
 		});
 		CurrentPhase::<T>::put(to);
 	}
@@ -1540,7 +1540,7 @@ impl<T: Config> Pallet<T> {
 			Self::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
 
 		let snapshot = Self::snapshot().ok_or(FeasibilityError::SnapshotUnavailable)?;
-		let round = Self::round();
+		let round = Round::<T>::get();
 		let minimum_untrusted_score = Self::minimum_untrusted_score();
 
 		Miner::<T::MinerConfig>::feasibility_check(
@@ -1600,14 +1600,14 @@ impl<T: Config> Pallet<T> {
 			})
 			.map(|ReadySolution { compute, score, supports }| {
 				Self::deposit_event(Event::ElectionFinalized { compute, score });
-				if Self::round() != 1 {
+				if Round::<T>::get() != 1 {
 					log!(info, "Finalized election round with compute {:?}.", compute);
 				}
 				supports
 			})
 			.map_err(|err| {
 				Self::deposit_event(Event::ElectionFailed);
-				if Self::round() != 1 {
+				if Round::<T>::get() != 1 {
 					log!(warn, "Failed to finalize election round. reason {:?}", err);
 				}
 				err
@@ -1971,12 +1971,12 @@ mod tests {
 
 			assert_eq!(System::block_number(), 0);
 			assert_eq!(MultiPhase::current_phase(), Phase::Off);
-			assert_eq!(MultiPhase::round(), 1);
+			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to(4);
 			assert_eq!(MultiPhase::current_phase(), Phase::Off);
 			assert!(MultiPhase::snapshot().is_none());
-			assert_eq!(MultiPhase::round(), 1);
+			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to_signed();
 			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
@@ -1985,12 +1985,12 @@ mod tests {
 				vec![Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: 1 }]
 			);
 			assert!(MultiPhase::snapshot().is_some());
-			assert_eq!(MultiPhase::round(), 1);
+			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to(24);
 			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
 			assert!(MultiPhase::snapshot().is_some());
-			assert_eq!(MultiPhase::round(), 1);
+			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to_unsigned();
 			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
@@ -2024,7 +2024,7 @@ mod tests {
 
 			assert!(MultiPhase::current_phase().is_off());
 			assert!(MultiPhase::snapshot().is_none());
-			assert_eq!(MultiPhase::round(), 2);
+			assert_eq!(Round::<Runtime>::get(), 2);
 
 			roll_to(44);
 			assert!(MultiPhase::current_phase().is_off());
@@ -2203,7 +2203,7 @@ mod tests {
 				vec![Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: 1 }]
 			);
 			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
-			assert_eq!(MultiPhase::round(), 1);
+			assert_eq!(Round::<Runtime>::get(), 1);
 
 			// An unexpected call to elect.
 			assert_ok!(MultiPhase::elect());
@@ -2221,7 +2221,7 @@ mod tests {
 				],
 			);
 			// All storage items must be cleared.
-			assert_eq!(MultiPhase::round(), 2);
+			assert_eq!(Round::<Runtime>::get(), 2);
 			assert!(MultiPhase::snapshot().is_none());
 			assert!(MultiPhase::snapshot_metadata().is_none());
 			assert!(MultiPhase::desired_targets().is_none());
@@ -2242,7 +2242,7 @@ mod tests {
 				vec![Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: 1 }]
 			);
 			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
-			assert_eq!(MultiPhase::round(), 1);
+			assert_eq!(Round::<Runtime>::get(), 1);
 
 			// fill the queue with signed submissions
 			for s in 0..SignedMaxSubmissions::get() {
@@ -2260,7 +2260,7 @@ mod tests {
 			assert_ok!(MultiPhase::elect());
 
 			// all storage items must be cleared.
-			assert_eq!(MultiPhase::round(), 2);
+			assert_eq!(Round::<Runtime>::get(), 2);
 			assert!(MultiPhase::snapshot().is_none());
 			assert!(MultiPhase::snapshot_metadata().is_none());
 			assert!(MultiPhase::desired_targets().is_none());
