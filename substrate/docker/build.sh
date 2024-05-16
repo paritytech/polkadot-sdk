@@ -17,7 +17,10 @@ echo "Building ${GITUSER}/${GITREPO}:latest docker image, hang on!"
 # improve the docker logs to actually allow debugging with BuildKit enabled since build time may take an hour
 export BUILDKIT_PROGRESS=plain
 export DOCKER_BUILDKIT=1
-# alternatively use `docker build --no-cache ...``
+# alternatively use `docker build --no-cache ...`
+# note: it may be necessary to detect if Apple Silicon is being used and if so
+# run `--platform linux/x86_64` otherwise get error `rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2`
+# TODO: add conditional to check if using Apple Silicon and if so use `--platform linux/x86_64`
 time docker build -f $PROJECT_ROOT/substrate/docker/substrate_builder.Dockerfile -t ${GITUSER}/${GITREPO}:latest .
 docker tag ${GITUSER}/${GITREPO}:latest ${GITUSER}/${GITREPO}:v${VERSION}
 
