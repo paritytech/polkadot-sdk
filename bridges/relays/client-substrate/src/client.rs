@@ -847,16 +847,19 @@ impl<C: Chain> Client<C> {
 	}
 }
 
-impl<T> Drop for Subscription<T> {
-	fn drop(&mut self) {}
-}
-
 impl<T: DeserializeOwned> Subscription<T> {
 	/// Consumes subscription and returns future statuses stream.
 	pub fn into_stream(self) -> impl futures::Stream<Item = T> {
-		futures::stream::unfold(self, |this| async {
+		futures::stream::unfold(Some(self), |mut this| async move {
+			let Some(this) = this.take() else { return None };
 			let item = this.0.lock().await.next().await.unwrap_or(None);
-			item.map(|i| (i, this))
+			match item {
+				Some(item) => Some((item, Some(this))),
+				None => {
+					let _ = this.1.send(());
+					None
+				},
+			}
 		})
 	}
 
@@ -882,7 +885,6 @@ impl<T: DeserializeOwned> Subscription<T> {
 			item_type,
 		);
 
-let (cancel_sender, cancel_receiver) = futures::channel::oneshot::channel::<()>(); // TODO: remove me
 		futures::pin_mut!(subscription, cancel_receiver);
 		loop {
 			match futures::future::select(subscription.next(), &mut cancel_receiver).await {
@@ -925,7 +927,7 @@ let (cancel_sender, cancel_receiver) = futures::channel::oneshot::channel::<()>(
 						chain_name,
 						item_type,
 					);
-					//TODO: uncomment me break;
+					break;
 				},
 			}
 		}
