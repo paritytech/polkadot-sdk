@@ -192,32 +192,32 @@ fn set_up_data_provider<T: Config>(v: u32, t: u32) {
 
 frame_benchmarking::benchmarks! {
 	on_initialize_nothing {
-		assert!(MultiPhase::<T>::current_phase().is_off());
+		assert!(CurrentPhase::<T>::get().is_off());
 	}: {
 		MultiPhase::<T>::on_initialize(1u32.into());
 	} verify {
-		assert!(MultiPhase::<T>::current_phase().is_off());
+		assert!(CurrentPhase::<T>::get().is_off());
 	}
 
 	on_initialize_open_signed {
 		assert!(MultiPhase::<T>::snapshot().is_none());
-		assert!(MultiPhase::<T>::current_phase().is_off());
+		assert!(CurrentPhase::<T>::get().is_off());
 	}: {
 		MultiPhase::<T>::phase_transition(Phase::Signed);
 	} verify {
 		assert!(MultiPhase::<T>::snapshot().is_none());
-		assert!(MultiPhase::<T>::current_phase().is_signed());
+		assert!(CurrentPhase::<T>::get().is_signed());
 	}
 
 	on_initialize_open_unsigned {
 		assert!(MultiPhase::<T>::snapshot().is_none());
-		assert!(MultiPhase::<T>::current_phase().is_off());
+		assert!(CurrentPhase::<T>::get().is_off());
 	}: {
 		let now = frame_system::Pallet::<T>::block_number();
 		MultiPhase::<T>::phase_transition(Phase::Unsigned((true, now)));
 	} verify {
 		assert!(MultiPhase::<T>::snapshot().is_none());
-		assert!(MultiPhase::<T>::current_phase().is_unsigned());
+		assert!(CurrentPhase::<T>::get().is_unsigned());
 	}
 
 	finalize_signed_phase_accept_solution {

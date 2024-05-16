@@ -744,7 +744,7 @@ pub mod pallet {
 			let unsigned_deadline = T::UnsignedPhase::get();
 
 			let remaining = next_election - now;
-			let current_phase = Self::current_phase();
+			let current_phase = CurrentPhase::<T>::get();
 
 			log!(
 				trace,
@@ -974,7 +974,7 @@ pub mod pallet {
 			supports: Supports<T::AccountId>,
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
-			ensure!(Self::current_phase().is_emergency(), Error::<T>::CallNotAllowed);
+			ensure!(CurrentPhase::<T>::get().is_emergency(), Error::<T>::CallNotAllowed);
 
 			// bound supports with T::MaxWinners
 			let supports = supports.try_into().map_err(|_| Error::<T>::TooManyWinners)?;
@@ -1015,7 +1015,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// ensure solution is timely.
-			ensure!(Self::current_phase().is_signed(), Error::<T>::PreDispatchEarlySubmission);
+			ensure!(CurrentPhase::<T>::get().is_signed(), Error::<T>::PreDispatchEarlySubmission);
 			ensure!(raw_solution.round == Round::<T>::get(), Error::<T>::PreDispatchDifferentRound);
 
 			// NOTE: this is the only case where having separate snapshot would have been better
@@ -1086,7 +1086,7 @@ pub mod pallet {
 			maybe_max_targets: Option<u32>,
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
-			ensure!(Self::current_phase().is_emergency(), Error::<T>::CallNotAllowed);
+			ensure!(CurrentPhase::<T>::get().is_emergency(), Error::<T>::CallNotAllowed);
 
 			let election_bounds = ElectionBoundsBuilder::default()
 				.voters_count(maybe_max_voters.unwrap_or(u32::MAX).into())
@@ -1254,12 +1254,10 @@ pub mod pallet {
 	///
 	/// This is merely incremented once per every time that an upstream `elect` is called.
 	#[pallet::storage]
-	#[pallet::getter(fn round)]
 	pub type Round<T: Config> = StorageValue<_, u32, ValueQuery, DefaultForRound>;
 
 	/// Current phase.
 	#[pallet::storage]
-	#[pallet::getter(fn current_phase)]
 	pub type CurrentPhase<T: Config> = StorageValue<_, Phase<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Current best solution, signed or unsigned, queued to be returned upon `elect`.
@@ -1389,7 +1387,7 @@ impl<T: Config> Pallet<T> {
 	/// Internal logic of the offchain worker, to be executed only when the offchain lock is
 	/// acquired with success.
 	fn do_synchronized_offchain_worker(now: BlockNumberFor<T>) {
-		let current_phase = Self::current_phase();
+		let current_phase = CurrentPhase::<T>::get();
 		log!(trace, "lock for offchain worker acquired. Phase = {:?}", current_phase);
 		match current_phase {
 			Phase::Unsigned((true, opened)) if opened == now => {
@@ -1695,7 +1693,7 @@ impl<T: Config> Pallet<T> {
 	// [`Phase::Off`] state check. Invariants:
 	// - If phase is `Phase::Off`, [`Snapshot`] must be none.
 	fn try_state_phase_off() -> Result<(), TryRuntimeError> {
-		match Self::current_phase().is_off() {
+		match CurrentPhase::<T>::get().is_off() {
 			false => Ok(()),
 			true =>
 				if Snapshot::<T>::get().is_some() {
@@ -1717,7 +1715,7 @@ impl<T: Config> ElectionProviderBase for Pallet<T> {
 
 impl<T: Config> ElectionProvider for Pallet<T> {
 	fn ongoing() -> bool {
-		match Self::current_phase() {
+		match CurrentPhase::<T>::get() {
 			Phase::Off => false,
 			_ => true,
 		}
@@ -1769,7 +1767,7 @@ mod feasibility_check {
 	fn snapshot_is_there() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to(<EpochLength>::get() - <SignedPhase>::get() - <UnsignedPhase>::get());
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 			let solution = raw_solution();
 
 			// kill `Snapshot`, `SnapshotMetadata` and `DesiredTargets` for the storage state to
@@ -1787,7 +1785,7 @@ mod feasibility_check {
 	fn round() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to(<EpochLength>::get() - <SignedPhase>::get() - <UnsignedPhase>::get());
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut solution = raw_solution();
 			solution.round += 1;
@@ -1802,7 +1800,7 @@ mod feasibility_check {
 	fn desired_targets_gets_capped() {
 		ExtBuilder::default().desired_targets(8).build_and_execute(|| {
 			roll_to(<EpochLength>::get() - <SignedPhase>::get() - <UnsignedPhase>::get());
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let raw = raw_solution();
 
@@ -1819,7 +1817,7 @@ mod feasibility_check {
 	fn less_than_desired_targets_fails() {
 		ExtBuilder::default().desired_targets(8).build_and_execute(|| {
 			roll_to(<EpochLength>::get() - <SignedPhase>::get() - <UnsignedPhase>::get());
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut raw = raw_solution();
 
@@ -1842,7 +1840,7 @@ mod feasibility_check {
 	fn winner_indices() {
 		ExtBuilder::default().desired_targets(2).build_and_execute(|| {
 			roll_to(<EpochLength>::get() - <SignedPhase>::get() - <UnsignedPhase>::get());
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut raw = raw_solution();
 			assert_eq!(MultiPhase::snapshot().unwrap().targets.len(), 4);
@@ -1876,7 +1874,7 @@ mod feasibility_check {
 		// Should be caught in `solution.into_assignment`.
 		ExtBuilder::default().desired_targets(2).build_and_execute(|| {
 			roll_to(<EpochLength>::get() - <SignedPhase>::get() - <UnsignedPhase>::get());
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut solution = raw_solution();
 			assert_eq!(MultiPhase::snapshot().unwrap().voters.len(), 8);
@@ -1903,7 +1901,7 @@ mod feasibility_check {
 	fn voter_votes() {
 		ExtBuilder::default().desired_targets(2).build_and_execute(|| {
 			roll_to(<EpochLength>::get() - <SignedPhase>::get() - <UnsignedPhase>::get());
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut solution = raw_solution();
 			assert_eq!(MultiPhase::snapshot().unwrap().voters.len(), 8);
@@ -1932,7 +1930,7 @@ mod feasibility_check {
 	fn score() {
 		ExtBuilder::default().desired_targets(2).build_and_execute(|| {
 			roll_to(<EpochLength>::get() - <SignedPhase>::get() - <UnsignedPhase>::get());
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut solution = raw_solution();
 			assert_eq!(MultiPhase::snapshot().unwrap().voters.len(), 8);
@@ -1970,16 +1968,16 @@ mod tests {
 			//         Signed      Unsigned   Elect             Signed     Unsigned    Elect
 
 			assert_eq!(System::block_number(), 0);
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to(4);
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 			assert!(MultiPhase::snapshot().is_none());
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to_signed();
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 			assert_eq!(
 				multi_phase_events(),
 				vec![Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: 1 }]
@@ -1988,12 +1986,12 @@ mod tests {
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to(24);
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 			assert!(MultiPhase::snapshot().is_some());
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to_unsigned();
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			assert_eq!(
 				multi_phase_events(),
 				vec![
@@ -2008,32 +2006,32 @@ mod tests {
 			assert!(MultiPhase::snapshot().is_some());
 
 			roll_to(29);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			assert!(MultiPhase::snapshot().is_some());
 
 			roll_to(30);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			assert!(MultiPhase::snapshot().is_some());
 
 			// We close when upstream tells us to elect.
 			roll_to(32);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			assert!(MultiPhase::snapshot().is_some());
 
 			assert_ok!(MultiPhase::elect());
 
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 			assert!(MultiPhase::snapshot().is_none());
 			assert_eq!(Round::<Runtime>::get(), 2);
 
 			roll_to(44);
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			roll_to(55);
-			assert!(MultiPhase::current_phase().is_unsigned_open_at(55));
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned_open_at(55));
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2072,21 +2070,21 @@ mod tests {
 	fn signed_phase_void() {
 		ExtBuilder::default().phases(0, 10).build_and_execute(|| {
 			roll_to(15);
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			roll_to(19);
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			roll_to(20);
-			assert!(MultiPhase::current_phase().is_unsigned_open_at(20));
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned_open_at(20));
 			assert!(MultiPhase::snapshot().is_some());
 
 			roll_to(30);
-			assert!(MultiPhase::current_phase().is_unsigned_open_at(20));
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned_open_at(20));
 
 			assert_ok!(MultiPhase::elect());
 
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 			assert!(MultiPhase::snapshot().is_none());
 
 			assert_eq!(
@@ -2119,21 +2117,21 @@ mod tests {
 	fn unsigned_phase_void() {
 		ExtBuilder::default().phases(10, 0).build_and_execute(|| {
 			roll_to(15);
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			roll_to(19);
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 			assert!(MultiPhase::snapshot().is_some());
 
 			roll_to(30);
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			assert_ok!(MultiPhase::elect());
 
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 			assert!(MultiPhase::snapshot().is_none());
 
 			assert_eq!(
@@ -2158,21 +2156,21 @@ mod tests {
 	fn both_phases_void() {
 		ExtBuilder::default().phases(0, 0).build_and_execute(|| {
 			roll_to(15);
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			roll_to(19);
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			roll_to(20);
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			roll_to(30);
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			// This module is now only capable of doing on-chain backup.
 			assert_ok!(MultiPhase::elect());
 
-			assert!(MultiPhase::current_phase().is_off());
+			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2202,7 +2200,7 @@ mod tests {
 				multi_phase_events(),
 				vec![Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: 1 }]
 			);
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			// An unexpected call to elect.
@@ -2241,7 +2239,7 @@ mod tests {
 				multi_phase_events(),
 				vec![Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: 1 }]
 			);
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			// fill the queue with signed submissions
@@ -2319,7 +2317,7 @@ mod tests {
 	fn check_events_with_compute_signed() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let solution = raw_solution();
 			assert_ok!(MultiPhase::submit(
@@ -2367,7 +2365,7 @@ mod tests {
 	fn check_events_with_compute_unsigned() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// ensure we have snapshots in place.
 			assert!(MultiPhase::snapshot().is_some());
@@ -2423,7 +2421,7 @@ mod tests {
 	fn fallback_strategy_works() {
 		ExtBuilder::default().onchain_fallback(true).build_and_execute(|| {
 			roll_to_unsigned();
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 
 			// Zilch solutions thus far, but we get a result.
 			assert!(MultiPhase::queued_solution().is_none());
@@ -2465,13 +2463,13 @@ mod tests {
 
 		ExtBuilder::default().onchain_fallback(false).build_and_execute(|| {
 			roll_to_unsigned();
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 
 			// Zilch solutions thus far.
 			assert!(MultiPhase::queued_solution().is_none());
 			assert_eq!(MultiPhase::elect().unwrap_err(), ElectionError::Fallback("NoFallback."));
 			// phase is now emergency.
-			assert_eq!(MultiPhase::current_phase(), Phase::Emergency);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Emergency);
 			// snapshot is still there until election finalizes.
 			assert!(MultiPhase::snapshot().is_some());
 
@@ -2499,14 +2497,14 @@ mod tests {
 	fn governance_fallback_works() {
 		ExtBuilder::default().onchain_fallback(false).build_and_execute(|| {
 			roll_to_unsigned();
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 
 			// Zilch solutions thus far.
 			assert!(MultiPhase::queued_solution().is_none());
 			assert_eq!(MultiPhase::elect().unwrap_err(), ElectionError::Fallback("NoFallback."));
 
 			// phase is now emergency.
-			assert_eq!(MultiPhase::current_phase(), Phase::Emergency);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Emergency);
 			assert!(MultiPhase::queued_solution().is_none());
 			assert!(MultiPhase::snapshot().is_some());
 
@@ -2522,7 +2520,7 @@ mod tests {
 			assert!(MultiPhase::queued_solution().is_some());
 			// next election call with fix everything.;
 			assert!(MultiPhase::elect().is_ok());
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2566,11 +2564,11 @@ mod tests {
 
 			// Signed phase failed to open.
 			roll_to(15);
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
 			// Unsigned phase failed to open.
 			roll_to(25);
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
 			// On-chain backup works though.
 			let supports = MultiPhase::elect().unwrap();
@@ -2605,16 +2603,16 @@ mod tests {
 
 			// Signed phase failed to open.
 			roll_to(15);
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
 			// Unsigned phase failed to open.
 			roll_to(25);
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
 			roll_to(29);
 			let err = MultiPhase::elect().unwrap_err();
 			assert_eq!(err, ElectionError::Fallback("NoFallback."));
-			assert_eq!(MultiPhase::current_phase(), Phase::Emergency);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Emergency);
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2638,7 +2636,7 @@ mod tests {
 
 			// Signed phase opens just fine.
 			roll_to_signed();
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 
 			assert_eq!(
 				MultiPhase::snapshot_metadata().unwrap(),
@@ -2651,7 +2649,7 @@ mod tests {
 	fn untrusted_score_verification_is_respected() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 
 			// set the solution balancing to get the desired score.
 			crate::mock::Balancing::set(Some(BalancingConfig { iterations: 2, tolerance: 0 }));

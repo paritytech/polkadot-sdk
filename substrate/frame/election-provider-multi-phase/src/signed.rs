@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
-	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo, Round,
+	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
 use codec::{Decode, Encode, HasCompact};
 use frame_election_provider_support::NposSolution;
@@ -566,7 +566,7 @@ mod tests {
 	use super::*;
 	use crate::{
 		mock::*, ElectionBoundsBuilder, ElectionCompute, ElectionError, Error, Event, Perbill,
-		Phase,
+		Phase, Round, CurrentPhase,
 	};
 	use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 	use sp_runtime::Percent;
@@ -579,7 +579,7 @@ mod tests {
 			assert_eq!(Round::<Runtime>::get(), 5);
 
 			roll_to_signed();
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 
 			// create a temp snapshot only for this test.
 			MultiPhase::create_snapshot().unwrap();
@@ -609,7 +609,7 @@ mod tests {
 	fn cannot_submit_too_early() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to(2);
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
 			// create a temp snapshot only for this test.
 			MultiPhase::create_snapshot().unwrap();
@@ -679,7 +679,7 @@ mod tests {
 	fn should_pay_deposit() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let solution = raw_solution();
 			assert_eq!(balances(&99), (100, 0));
@@ -707,7 +707,7 @@ mod tests {
 	fn good_solution_is_rewarded() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let solution = raw_solution();
 			assert_eq!(balances(&99), (100, 0));
@@ -737,7 +737,7 @@ mod tests {
 	fn bad_solution_is_slashed() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut solution = raw_solution();
 			assert_eq!(balances(&99), (100, 0));
@@ -772,7 +772,7 @@ mod tests {
 	fn suppressed_solution_gets_bond_back() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut solution = raw_solution();
 			assert_eq!(balances(&99), (100, 0));
@@ -818,7 +818,7 @@ mod tests {
 	fn cannot_submit_worse_with_full_queue() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			for s in 0..SignedMaxSubmissions::get() {
 				// score is always getting better
@@ -866,7 +866,7 @@ mod tests {
 			.signed_base_deposit(1000, true, Percent::from_percent(0))
 			.build_and_execute(|| {
 				roll_to_signed();
-				assert!(MultiPhase::current_phase().is_signed());
+				assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 				check_progressive_base_fee(&constant);
 			});
@@ -876,7 +876,7 @@ mod tests {
 			.signed_base_deposit(1000, true, Percent::from_percent(10))
 			.build_and_execute(|| {
 				roll_to_signed();
-				assert!(MultiPhase::current_phase().is_signed());
+				assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 				check_progressive_base_fee(&progression_10);
 			});
@@ -886,7 +886,7 @@ mod tests {
 			.signed_base_deposit(1000, true, Percent::from_percent(40))
 			.build_and_execute(|| {
 				roll_to_signed();
-				assert!(MultiPhase::current_phase().is_signed());
+				assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 				check_progressive_base_fee(&progression_40);
 			});
@@ -896,7 +896,7 @@ mod tests {
 	fn call_fee_refund_is_limited_by_signed_max_refunds() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 			assert_eq!(SignedMaxRefunds::get(), 1);
 			assert!(SignedMaxSubmissions::get() > 2);
 
@@ -977,7 +977,7 @@ mod tests {
 			.better_signed_threshold(Perbill::from_percent(20))
 			.build_and_execute(|| {
 				roll_to_signed();
-				assert!(MultiPhase::current_phase().is_signed());
+				assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 				let mut solution = RawSolution {
 					score: ElectionScore {
@@ -1038,7 +1038,7 @@ mod tests {
 	fn weakest_is_removed_if_better_provided() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			for s in 0..SignedMaxSubmissions::get() {
 				let account = 99 + s as u64;
@@ -1085,7 +1085,7 @@ mod tests {
 	fn replace_weakest_by_score_works() {
 		ExtBuilder::default().signed_max_submission(3).build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			for s in 1..SignedMaxSubmissions::get() {
 				// score is always getting better
@@ -1132,7 +1132,7 @@ mod tests {
 	fn early_ejected_solution_gets_bond_back() {
 		ExtBuilder::default().signed_deposit(2, 0, 0).build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			for s in 0..SignedMaxSubmissions::get() {
 				// score is always getting better
@@ -1164,7 +1164,7 @@ mod tests {
 		// because in ordering of solutions, an older solution has higher priority and should stay.
 		ExtBuilder::default().signed_max_submission(3).build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			for i in 0..SignedMaxSubmissions::get() {
 				let solution = RawSolution {
@@ -1199,7 +1199,7 @@ mod tests {
 		// because in ordering of solutions, an older solution has higher priority and should stay.
 		ExtBuilder::default().signed_max_submission(3).build_and_execute(|| {
 			roll_to(15);
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let solution = RawSolution {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1251,7 +1251,7 @@ mod tests {
 		// because in ordering of solutions, an older solution has higher priority and should stay.
 		ExtBuilder::default().signed_max_submission(3).build_and_execute(|| {
 			roll_to(15);
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			for i in 0..SignedMaxSubmissions::get() {
 				roll_to((15 + i).into());
@@ -1311,7 +1311,7 @@ mod tests {
 		// - suppressed_solution_gets_bond_back
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			assert_eq!(balances(&99), (100, 0));
 			assert_eq!(balances(&999), (100, 0));
@@ -1380,7 +1380,7 @@ mod tests {
 			.mock_weight_info(MockedWeightInfo::Basic)
 			.build_and_execute(|| {
 				roll_to_signed();
-				assert!(MultiPhase::current_phase().is_signed());
+				assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 				let (raw, witness, _) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
@@ -1414,7 +1414,7 @@ mod tests {
 	fn insufficient_deposit_does_not_store_submission() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let solution = raw_solution();
 
@@ -1434,7 +1434,7 @@ mod tests {
 	fn insufficient_deposit_with_full_queue_works_properly() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			for s in 0..SignedMaxSubmissions::get() {
 				// score is always getting better
@@ -1480,7 +1480,7 @@ mod tests {
 	fn finalize_signed_phase_is_idempotent_given_submissions() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
+			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let solution = raw_solution();
 

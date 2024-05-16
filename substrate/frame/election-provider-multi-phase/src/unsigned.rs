@@ -20,7 +20,7 @@
 use crate::{
 	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
 	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
-	Round,
+	Round, CurrentPhase,
 };
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
@@ -371,7 +371,7 @@ impl<T: Config> Pallet<T> {
 		raw_solution: &RawSolution<SolutionOf<T::MinerConfig>>,
 	) -> DispatchResult {
 		// ensure solution is timely. Don't panic yet. This is a cheap check.
-		ensure!(Self::current_phase().is_unsigned_open(), Error::<T>::PreDispatchEarlySubmission);
+		ensure!(CurrentPhase::<T>::get().is_unsigned_open(), Error::<T>::PreDispatchEarlySubmission);
 
 		// ensure round is current
 		ensure!(Round::<T>::get() == raw_solution.round, Error::<T>::OcwCallWrongEra);
@@ -1043,7 +1043,7 @@ mod tests {
 			};
 
 			// initial
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 			assert!(matches!(
 				<MultiPhase as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -1059,7 +1059,7 @@ mod tests {
 
 			// signed
 			roll_to_signed();
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 			assert!(matches!(
 				<MultiPhase as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -1075,7 +1075,7 @@ mod tests {
 
 			// unsigned
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			assert!(<MultiPhase as ValidateUnsigned>::validate_unsigned(
 				TransactionSource::Local,
@@ -1086,7 +1086,7 @@ mod tests {
 
 			// unsigned -- but not enabled.
 			MultiPhase::phase_transition(Phase::Unsigned((false, 25)));
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 			assert!(matches!(
 				<MultiPhase as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -1106,7 +1106,7 @@ mod tests {
 	fn validate_unsigned_retracts_low_score() {
 		ExtBuilder::default().desired_targets(0).build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			let solution = RawSolution::<TestNposSolution> {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1152,7 +1152,7 @@ mod tests {
 	fn validate_unsigned_retracts_incorrect_winner_count() {
 		ExtBuilder::default().desired_targets(1).build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			let raw = RawSolution::<TestNposSolution> {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1181,7 +1181,7 @@ mod tests {
 			.desired_targets(0)
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				assert!(MultiPhase::current_phase().is_unsigned());
+				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 				let solution = RawSolution::<TestNposSolution> {
 					score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1212,7 +1212,7 @@ mod tests {
 	fn unfeasible_solution_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// This is in itself an invalid BS solution.
 			let solution = RawSolution::<TestNposSolution> {
@@ -1234,7 +1234,7 @@ mod tests {
 	fn wrong_witness_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// This solution is unfeasible as well, but we won't even get there.
 			let solution = RawSolution::<TestNposSolution> {
@@ -1258,7 +1258,7 @@ mod tests {
 	fn miner_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// ensure we have snapshots in place.
 			assert!(MultiPhase::snapshot().is_some());
@@ -1301,7 +1301,7 @@ mod tests {
 			.mock_weight_info(crate::mock::MockedWeightInfo::Basic)
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				assert!(MultiPhase::current_phase().is_unsigned());
+				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 				let (raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
@@ -1337,7 +1337,7 @@ mod tests {
 		let (mut ext, _) = ExtBuilder::default().desired_targets(8).build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// Force the number of winners to be bigger to fail
 			let (mut solution, _, _) = MultiPhase::mine_solution().unwrap();
@@ -1363,7 +1363,7 @@ mod tests {
 			.add_voter(9, 1, bounded_vec![10])
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				assert!(MultiPhase::current_phase().is_unsigned());
+				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 				assert_eq!(MultiPhase::desired_targets().unwrap(), 1);
 
 				// an initial solution
@@ -1525,7 +1525,7 @@ mod tests {
 			let offchain_repeat = <Runtime as Config>::OffchainRepeat::get();
 
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// first execution -- okay.
 			assert!(MultiPhase::ensure_offchain_repeat_frequency(25).is_ok());
@@ -1566,7 +1566,7 @@ mod tests {
 			let last_block = StorageValueRef::persistent(OFFCHAIN_LAST_BLOCK);
 
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// initially, the lock is not set.
 			assert!(guard.get::<bool>().unwrap().is_none());
@@ -1587,7 +1587,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// artificially set the value, as if another thread is mid-way.
 			let mut lock = StorageLock::<BlockAndTime<System>>::with_block_deadline(
@@ -1615,7 +1615,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -1647,7 +1647,7 @@ mod tests {
 
 			roll_to(BLOCK);
 			// we are on the first block of the unsigned phase
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, BLOCK)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, BLOCK)));
 
 			assert!(
 				!ocw_solution_exists::<Runtime>(),
@@ -1730,7 +1730,7 @@ mod tests {
 			let offchain_repeat = <Runtime as Config>::OffchainRepeat::get();
 
 			roll_to(BLOCK);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, BLOCK)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, BLOCK)));
 
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -1768,7 +1768,7 @@ mod tests {
 			let offchain_repeat = <Runtime as Config>::OffchainRepeat::get();
 
 			roll_to(BLOCK);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, BLOCK)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, BLOCK)));
 
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -1809,7 +1809,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_with_ocw(25);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			// OCW must have submitted now
 
 			let encoded = pool.read().transactions[0].clone();
@@ -1824,7 +1824,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_with_ocw(25);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			// OCW must have submitted now
 			// now, before we check the call, update the round
 			<crate::Round<Runtime>>::mutate(|round| *round += 1);

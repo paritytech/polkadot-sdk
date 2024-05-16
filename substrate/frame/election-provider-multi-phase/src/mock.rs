@@ -92,12 +92,12 @@ pub fn roll_to(n: BlockNumber) {
 }
 
 pub fn roll_to_unsigned() {
-	while !matches!(MultiPhase::current_phase(), Phase::Unsigned(_)) {
+	while !matches!(CurrentPhase::<Runtime>::get(), Phase::Unsigned(_)) {
 		roll_to(System::block_number() + 1);
 	}
 }
 pub fn roll_to_signed() {
-	while !matches!(MultiPhase::current_phase(), Phase::Signed) {
+	while !matches!(CurrentPhase::<Runtime>::get(), Phase::Signed) {
 		roll_to(System::block_number() + 1);
 	}
 }
