@@ -79,6 +79,8 @@ pub fn is_ancient_block<N: From<u32> + PartialOrd + Saturating>(block: N, best: 
 /// Opaque justifications subscription type.
 pub struct Subscription<T>(
 	pub(crate) Mutex<futures::channel::mpsc::Receiver<Option<T>>>,
+	// The following field is not explicitly used by the code. But when it is dropped,
+	// the bakground task receives a shutdown signal.
 	#[allow(dead_code)] pub(crate) futures::channel::oneshot::Sender<()>,
 );
 
@@ -856,6 +858,7 @@ impl<T: DeserializeOwned> Subscription<T> {
 			match item {
 				Some(item) => Some((item, Some(this))),
 				None => {
+					// let's make it explicit here
 					let _ = this.1.send(());
 					None
 				},
