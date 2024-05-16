@@ -35,7 +35,7 @@ try_run() {
   # to run the commands within the Docker container itself instead of from the host machine
   # run the Docker container in the background in detached mode with
   # `-d` (e.g. `docker run --platform $PLATFORM -it -d parity/substrate`) and then enter that
-  # docker container with `docker exec -it parity/substrate /bin/bash`
+  # docker container with `docker exec -it parity-substrate /bin/bash`
   #
   # in addition to exposing ports in the Dockerfile using `EXPOSE` to open ports on the container side,
   # it is also necessary to publish the ports to open them to the outside world on the Docker host side.
@@ -45,13 +45,13 @@ try_run() {
   # if you want to restart on failure use `--restart "on-failure"` with `--rm`
   docker run \
     --platform $PLATFORM \
-    --hostname substrate \
-    --name substrate \
+    --hostname parity-substrate \
+    --name parity-substrate \
     --memory 750M \
     --memory-reservation 125M \
     --memory-swap 15G \
     --cpus 1 \
-    --rm -it parity/substrate $ARGS
+    --rm -it -d parity/substrate $ARGS
 }
 
 # handle when arguments not provided. run arguments provided to script.
