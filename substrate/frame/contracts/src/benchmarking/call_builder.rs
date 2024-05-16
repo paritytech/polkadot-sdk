@@ -25,6 +25,7 @@ use crate::{
 };
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
+use frame_benchmarking::benchmarking;
 use sp_core::Get;
 use sp_std::prelude::*;
 
@@ -79,6 +80,17 @@ where
 		let origin = Origin::from_account_id(contract.caller.clone());
 
 		let storage_meter = Meter::new(&origin, None, 0u32.into()).unwrap();
+
+		// Whitelist contract account, as it is already accounted for in the call benchmark
+		benchmarking::add_to_whitelist(
+			frame_system::Account::<T>::hashed_key_for(&contract.account_id).into(),
+		);
+
+		// Whitelist the contract's contractInfo as it is already accounted for in the call
+		// benchmark
+		benchmarking::add_to_whitelist(
+			crate::ContractInfoOf::<T>::hashed_key_for(&contract.account_id).into(),
+		);
 
 		Self {
 			contract,
