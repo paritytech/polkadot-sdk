@@ -18,12 +18,13 @@
 
 use crate::keyring::Keyring;
 use itertools::Itertools;
-use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
+use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId, ValidatorPair};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId;
+use sp_core::Pair;
 use std::collections::HashMap;
 
 /// Peer networking latency configuration.
@@ -208,6 +209,11 @@ impl TestConfiguration {
 			.map(|(peer_id, authority_id)| (*peer_id, authority_id.clone()))
 			.collect();
 
+		let validator_pairs = key_seeds
+			.iter()
+			.map(|seed| ValidatorPair::from_string_with_seed(seed, None).unwrap().0)
+			.collect();
+
 		TestAuthorities {
 			keyring,
 			validator_public,
@@ -217,6 +223,7 @@ impl TestConfiguration {
 			validator_assignment_id,
 			key_seeds,
 			peer_id_to_authority,
+			validator_pairs,
 		}
 	}
 }
@@ -246,6 +253,7 @@ pub struct TestAuthorities {
 	pub key_seeds: Vec<String>,
 	pub peer_ids: Vec<PeerId>,
 	pub peer_id_to_authority: HashMap<PeerId, AuthorityDiscoveryId>,
+	pub validator_pairs: Vec<ValidatorPair>,
 }
 
 /// Sample latency (in milliseconds) from a normal distribution with parameters

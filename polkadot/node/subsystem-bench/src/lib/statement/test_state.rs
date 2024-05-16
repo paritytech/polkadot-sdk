@@ -71,8 +71,6 @@ pub struct TestState {
 	// Relay chain block headers
 	pub block_headers: HashMap<H256, Header>,
 	// TODO
-	pub validator_pairs: Vec<ValidatorPair>,
-	// TODO
 	pub statements_tracker: HashMap<CandidateHash, Vec<Arc<AtomicBool>>>,
 	pub manifests_tracker: HashMap<CandidateHash, Arc<AtomicBool>>,
 	pub session_info: SessionInfo,
@@ -98,7 +96,6 @@ impl TestState {
 			commited_candidate_receipts: Default::default(),
 			pvd: dummy_pvd(dummy_head_data(), 0),
 			block_headers: Default::default(),
-			validator_pairs: Default::default(),
 			statements_tracker: Default::default(),
 			manifests_tracker: Default::default(),
 			session_info,
@@ -107,8 +104,6 @@ impl TestState {
 		};
 
 		state.block_headers = state.block_infos.iter().map(generate_block_header).collect();
-		state.validator_pairs =
-			state.test_authorities.key_seeds.iter().map(generate_pair).collect();
 
 		// For each unique pov we create a candidate receipt.
 		let pov_sizes = Vec::from(config.pov_sizes()); // For n_cores
@@ -158,7 +153,7 @@ impl TestState {
 							CompactStatement::Seconded(candidate.hash()),
 							block_info.hash,
 							v,
-							state.validator_pairs.get(v.0 as usize).unwrap(),
+							state.test_authorities.validator_pairs.get(v.0 as usize).unwrap(),
 						)
 					})
 					.collect_vec();
@@ -253,11 +248,6 @@ fn generate_receipt_templates(
 		.collect()
 }
 
-#[allow(clippy::ptr_arg)]
-fn generate_pair(seed: &String) -> ValidatorPair {
-	ValidatorPair::from_string_with_seed(seed, None).unwrap().0
-}
-
 impl HandleNetworkMessage for TestState {
 	fn handle(
 		&self,
@@ -321,7 +311,7 @@ impl HandleNetworkMessage for TestState {
 				let statement = CompactStatement::Valid(candidate_hash);
 				let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
 				let payload = statement.signing_payload(&context);
-				let pair = self.validator_pairs.get(index).unwrap();
+				let pair = self.test_authorities.validator_pairs.get(index).unwrap();
 				let signature = pair.sign(&payload[..]);
 				let statement = SignedStatement::new(
 					statement,

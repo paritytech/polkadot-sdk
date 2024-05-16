@@ -106,7 +106,12 @@ fn build_overseer(
 	let (tx, rx) = mpsc::unbounded();
 	let mock_candidate_backing = MockCandidateBacking::new(
 		tx,
-		state.validator_pairs.get(NODE_UNDER_TEST as usize).unwrap().clone(),
+		state
+			.test_authorities
+			.validator_pairs
+			.get(NODE_UNDER_TEST as usize)
+			.unwrap()
+			.clone(),
 		state.pvd.clone(),
 		state.node_group.clone(),
 	);
