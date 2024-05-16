@@ -319,7 +319,7 @@ pub struct DiscoveryBehaviour {
 	/// The chain based kademlia protocol name (including genesis hash and fork id).
 	///
 	/// Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
-	/// https://github.com/paritytech/polkadot-sdk/issues/504.
+	/// <https://github.com/paritytech/polkadot-sdk/issues/504>.
 	kademlia_protocol: Vec<u8>,
 }
 
