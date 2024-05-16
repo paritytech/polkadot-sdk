@@ -875,6 +875,13 @@ impl<T: DeserializeOwned> Subscription<T> {
 		mut sender: futures::channel::mpsc::Sender<Option<T>>,
 		cancel_receiver: futures::channel::oneshot::Receiver<()>,
 	) {
+		log::trace!(
+			target: "bridge",
+			"Starting background worker for {} {} subscription stream.",
+			chain_name,
+			item_type,
+		);
+
 		futures::pin_mut!(subscription, cancel_receiver);
 		loop {
 			match futures::future::select(subscription.next(), &mut cancel_receiver).await {
@@ -882,7 +889,7 @@ impl<T: DeserializeOwned> Subscription<T> {
 					if sender.send(Some(item)).await.is_err() {
 						log::trace!(
 							target: "bridge",
-							"{} {} subscription stream: no listener. Closing.",
+							"{} {} subscription stream: no listener. Stopping background worker.",
 							chain_name,
 							item_type,
 						);
@@ -892,7 +899,7 @@ impl<T: DeserializeOwned> Subscription<T> {
 				futures::future::Either::Left((Some(Err(e)), _)) => {
 					log::trace!(
 						target: "bridge",
-						"{} {} subscription stream has returned '{:?}'. Stream needs to be restarted.",
+						"{} {} subscription stream has returned '{:?}'. Stream needs to be restarted. Stopping background worker.",
 						chain_name,
 						item_type,
 						e,
@@ -903,7 +910,7 @@ impl<T: DeserializeOwned> Subscription<T> {
 				futures::future::Either::Left((None, _)) => {
 					log::trace!(
 						target: "bridge",
-						"{} {} subscription stream has returned None. Stream needs to be restarted.",
+						"{} {} subscription stream has returned None. Stream needs to be restarted. Stopping background worker.",
 						chain_name,
 						item_type,
 					);
@@ -913,7 +920,7 @@ impl<T: DeserializeOwned> Subscription<T> {
 				futures::future::Either::Right((_, _)) => {
 					log::trace!(
 						target: "bridge",
-						"{} {} subscription stream: listener has been dropped. Closing.",
+						"{} {} subscription stream: listener has been dropped. Stopping background worker.",
 						chain_name,
 						item_type,
 					);
