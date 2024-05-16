@@ -20,7 +20,7 @@
 use crate::{
 	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
 	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
-	Round, CurrentPhase,
+	Round, CurrentPhase, QueuedSolution,
 };
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
@@ -385,7 +385,7 @@ impl<T: Config> Pallet<T> {
 
 		// ensure score is being improved. Panic henceforth.
 		ensure!(
-			Self::queued_solution()
+			QueuedSolution::<T>::get()
 				.map_or(true, |q: ReadySolution<_, _>| raw_solution.score > q.score),
 			Error::<T>::PreDispatchWeakSubmission,
 		);
@@ -1268,13 +1268,13 @@ mod tests {
 			let (solution, witness, _) = MultiPhase::mine_solution().unwrap();
 
 			// ensure this solution is valid.
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_ok!(MultiPhase::submit_unsigned(
 				RuntimeOrigin::none(),
 				Box::new(solution),
 				witness
 			));
-			assert!(MultiPhase::queued_solution().is_some());
+			assert!(QueuedSolution::<Runtime>::get().is_some());
 			assert_eq!(
 				multi_phase_events(),
 				vec![
@@ -1397,7 +1397,7 @@ mod tests {
 					Box::new(solution),
 					witness
 				));
-				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 12);
+				assert_eq!(QueuedSolution::<Runtime>::get().unwrap().score.minimal_stake, 12);
 
 				// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution
 				// of 12.

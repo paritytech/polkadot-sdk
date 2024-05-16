@@ -1264,7 +1264,6 @@ pub mod pallet {
 	///
 	/// Always sorted by score.
 	#[pallet::storage]
-	#[pallet::getter(fn queued_solution)]
 	pub type QueuedSolution<T: Config> =
 		StorageValue<_, ReadySolution<T::AccountId, T::MaxWinners>>;
 
@@ -2223,7 +2222,7 @@ mod tests {
 			assert!(MultiPhase::snapshot().is_none());
 			assert!(MultiPhase::snapshot_metadata().is_none());
 			assert!(MultiPhase::desired_targets().is_none());
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert!(MultiPhase::signed_submissions().is_empty());
 		})
 	}
@@ -2262,7 +2261,7 @@ mod tests {
 			assert!(MultiPhase::snapshot().is_none());
 			assert!(MultiPhase::snapshot_metadata().is_none());
 			assert!(MultiPhase::desired_targets().is_none());
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert!(MultiPhase::signed_submissions().is_empty());
 
 			assert_eq!(
@@ -2375,13 +2374,13 @@ mod tests {
 			let (solution, witness, _) = MultiPhase::mine_solution().unwrap();
 
 			// ensure this solution is valid.
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_ok!(MultiPhase::submit_unsigned(
 				crate::mock::RuntimeOrigin::none(),
 				Box::new(solution),
 				witness
 			));
-			assert!(MultiPhase::queued_solution().is_some());
+			assert!(QueuedSolution::<Runtime>::get().is_some());
 
 			assert_ok!(MultiPhase::elect());
 
@@ -2424,7 +2423,7 @@ mod tests {
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 
 			// Zilch solutions thus far, but we get a result.
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			let supports = MultiPhase::elect().unwrap();
 
 			assert_eq!(
@@ -2466,7 +2465,7 @@ mod tests {
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 
 			// Zilch solutions thus far.
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_eq!(MultiPhase::elect().unwrap_err(), ElectionError::Fallback("NoFallback."));
 			// phase is now emergency.
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Emergency);
@@ -2500,12 +2499,12 @@ mod tests {
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 
 			// Zilch solutions thus far.
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_eq!(MultiPhase::elect().unwrap_err(), ElectionError::Fallback("NoFallback."));
 
 			// phase is now emergency.
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Emergency);
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert!(MultiPhase::snapshot().is_some());
 
 			// no single account can trigger this
@@ -2517,7 +2516,7 @@ mod tests {
 			// only root can
 			assert_ok!(MultiPhase::governance_fallback(RuntimeOrigin::root(), None, None));
 			// something is queued now
-			assert!(MultiPhase::queued_solution().is_some());
+			assert!(QueuedSolution::<Runtime>::get().is_some());
 			// next election call with fix everything.;
 			assert!(MultiPhase::elect().is_ok());
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);

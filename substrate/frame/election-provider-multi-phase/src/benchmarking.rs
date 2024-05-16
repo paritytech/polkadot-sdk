@@ -313,7 +313,7 @@ frame_benchmarking::benchmarks! {
 	}: {
 		assert_ok!(<MultiPhase<T> as ElectionProvider>::elect());
 	} verify {
-		assert!(MultiPhase::<T>::queued_solution().is_none());
+		assert!(QueuedSolution::<T>::get().is_none());
 		assert!(DesiredTargets::<T>::get().is_none());
 		assert!(Snapshot::<T>::get().is_none());
 		assert!(SnapshotMetadata::<T>::get().is_none());
@@ -379,11 +379,11 @@ frame_benchmarking::benchmarks! {
 		let witness = SolutionOrSnapshotSize { voters: v, targets: t };
 		let raw_solution = solution_with_size::<T>(witness, a, d)?;
 
-		assert!(MultiPhase::<T>::queued_solution().is_none());
+		assert!(QueuedSolution::<T>::get().is_none());
 		CurrentPhase::<T>::put(Phase::Unsigned((true, 1u32.into())));
 	}: _(RawOrigin::None, Box::new(raw_solution), witness)
 	verify {
-		assert!(MultiPhase::<T>::queued_solution().is_some());
+		assert!(QueuedSolution::<T>::get().is_some());
 	}
 
 	// This is checking a valid solution. The worse case is indeed a valid solution.
