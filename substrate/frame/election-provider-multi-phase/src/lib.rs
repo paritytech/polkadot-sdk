@@ -1272,7 +1272,6 @@ pub mod pallet {
 	/// This is created at the beginning of the signed phase and cleared upon calling `elect`.
 	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
-	#[pallet::getter(fn snapshot)]
 	pub type Snapshot<T: Config> = StorageValue<_, RoundSnapshot<T::AccountId, VoterOf<T>>>;
 
 	/// Desired number of targets to elect for this round.
@@ -1280,7 +1279,6 @@ pub mod pallet {
 	/// Only exists when [`Snapshot`] is present.
 	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
-	#[pallet::getter(fn desired_targets)]
 	pub type DesiredTargets<T> = StorageValue<_, u32>;
 
 	/// The metadata of the [`RoundSnapshot`]
@@ -1534,9 +1532,9 @@ impl<T: Config> Pallet<T> {
 		compute: ElectionCompute,
 	) -> Result<ReadySolution<T::AccountId, T::MaxWinners>, FeasibilityError> {
 		let desired_targets =
-			Self::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
+			DesiredTargets::<T>::get().ok_or(FeasibilityError::SnapshotUnavailable)?;
 
-		let snapshot = Self::snapshot().ok_or(FeasibilityError::SnapshotUnavailable)?;
+		let snapshot = Snapshot::<T>::get().ok_or(FeasibilityError::SnapshotUnavailable)?;
 		let round = Round::<T>::get();
 		let minimum_untrusted_score = Self::minimum_untrusted_score();
 
@@ -1805,7 +1803,7 @@ mod feasibility_check {
 
 			assert_eq!(raw.solution.unique_targets().len(), 4);
 			// desired_targets is capped to the number of targets which is 4
-			assert_eq!(MultiPhase::desired_targets().unwrap(), 4);
+			assert_eq!(DesiredTargets::<Runtime>::get().unwrap(), 4);
 
 			// It should succeed
 			assert_ok!(MultiPhase::feasibility_check(raw, COMPUTE));
@@ -1822,7 +1820,7 @@ mod feasibility_check {
 
 			assert_eq!(raw.solution.unique_targets().len(), 4);
 			// desired_targets is capped to the number of targets which is 4
-			assert_eq!(MultiPhase::desired_targets().unwrap(), 4);
+			assert_eq!(DesiredTargets::<Runtime>::get().unwrap(), 4);
 
 			// Force the number of winners to be bigger to fail
 			raw.solution.votes1[0].1 = 4;
@@ -1842,7 +1840,7 @@ mod feasibility_check {
 			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut raw = raw_solution();
-			assert_eq!(MultiPhase::snapshot().unwrap().targets.len(), 4);
+			assert_eq!(Snapshot::<Runtime>::get().unwrap().targets.len(), 4);
 			// ----------------------------------------------------^^ valid range is [0..3].
 
 			// Swap all votes from 3 to 4. This will ensure that the number of unique winners will
@@ -1876,7 +1874,7 @@ mod feasibility_check {
 			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut solution = raw_solution();
-			assert_eq!(MultiPhase::snapshot().unwrap().voters.len(), 8);
+			assert_eq!(Snapshot::<Runtime>::get().unwrap().voters.len(), 8);
 			// ----------------------------------------------------^^ valid range is [0..7].
 
 			// Check that there is an index 7 in votes1, and flip to 8.
@@ -1903,7 +1901,7 @@ mod feasibility_check {
 			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut solution = raw_solution();
-			assert_eq!(MultiPhase::snapshot().unwrap().voters.len(), 8);
+			assert_eq!(Snapshot::<Runtime>::get().unwrap().voters.len(), 8);
 			// ----------------------------------------------------^^ valid range is [0..7].
 
 			// First, check that voter at index 7 (40) actually voted for 3 (40) -- this is self
@@ -1932,7 +1930,7 @@ mod feasibility_check {
 			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
 			let mut solution = raw_solution();
-			assert_eq!(MultiPhase::snapshot().unwrap().voters.len(), 8);
+			assert_eq!(Snapshot::<Runtime>::get().unwrap().voters.len(), 8);
 
 			// Simply faff with the score.
 			solution.score.minimal_stake += 1;
@@ -1972,7 +1970,7 @@ mod tests {
 
 			roll_to(4);
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
-			assert!(MultiPhase::snapshot().is_none());
+			assert!(Snapshot::<Runtime>::get().is_none());
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to_signed();
@@ -1981,12 +1979,12 @@ mod tests {
 				multi_phase_events(),
 				vec![Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: 1 }]
 			);
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to(24);
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			roll_to_unsigned();
@@ -2002,25 +2000,25 @@ mod tests {
 					},
 				],
 			);
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 
 			roll_to(29);
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 
 			roll_to(30);
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 
 			// We close when upstream tells us to elect.
 			roll_to(32);
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 
 			assert_ok!(MultiPhase::elect());
 
 			assert!(CurrentPhase::<Runtime>::get().is_off());
-			assert!(MultiPhase::snapshot().is_none());
+			assert!(Snapshot::<Runtime>::get().is_none());
 			assert_eq!(Round::<Runtime>::get(), 2);
 
 			roll_to(44);
@@ -2076,7 +2074,7 @@ mod tests {
 
 			roll_to(20);
 			assert!(CurrentPhase::<Runtime>::get().is_unsigned_open_at(20));
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 
 			roll_to(30);
 			assert!(CurrentPhase::<Runtime>::get().is_unsigned_open_at(20));
@@ -2084,7 +2082,7 @@ mod tests {
 			assert_ok!(MultiPhase::elect());
 
 			assert!(CurrentPhase::<Runtime>::get().is_off());
-			assert!(MultiPhase::snapshot().is_none());
+			assert!(Snapshot::<Runtime>::get().is_none());
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2123,7 +2121,7 @@ mod tests {
 
 			roll_to_signed();
 			assert!(CurrentPhase::<Runtime>::get().is_signed());
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 
 			roll_to(30);
 			assert!(CurrentPhase::<Runtime>::get().is_signed());
@@ -2131,7 +2129,7 @@ mod tests {
 			assert_ok!(MultiPhase::elect());
 
 			assert!(CurrentPhase::<Runtime>::get().is_off());
-			assert!(MultiPhase::snapshot().is_none());
+			assert!(Snapshot::<Runtime>::get().is_none());
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2219,9 +2217,9 @@ mod tests {
 			);
 			// All storage items must be cleared.
 			assert_eq!(Round::<Runtime>::get(), 2);
-			assert!(MultiPhase::snapshot().is_none());
+			assert!(Snapshot::<Runtime>::get().is_none());
 			assert!(MultiPhase::snapshot_metadata().is_none());
-			assert!(MultiPhase::desired_targets().is_none());
+			assert!(DesiredTargets::<Runtime>::get().is_none());
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert!(MultiPhase::signed_submissions().is_empty());
 		})
@@ -2258,9 +2256,9 @@ mod tests {
 
 			// all storage items must be cleared.
 			assert_eq!(Round::<Runtime>::get(), 2);
-			assert!(MultiPhase::snapshot().is_none());
+			assert!(Snapshot::<Runtime>::get().is_none());
 			assert!(MultiPhase::snapshot_metadata().is_none());
-			assert!(MultiPhase::desired_targets().is_none());
+			assert!(DesiredTargets::<Runtime>::get().is_none());
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert!(MultiPhase::signed_submissions().is_empty());
 
@@ -2367,8 +2365,8 @@ mod tests {
 			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// ensure we have snapshots in place.
-			assert!(MultiPhase::snapshot().is_some());
-			assert_eq!(MultiPhase::desired_targets().unwrap(), 2);
+			assert!(Snapshot::<Runtime>::get().is_some());
+			assert_eq!(DesiredTargets::<Runtime>::get().unwrap(), 2);
 
 			// mine seq_phragmen solution with 2 iters.
 			let (solution, witness, _) = MultiPhase::mine_solution().unwrap();
@@ -2470,7 +2468,7 @@ mod tests {
 			// phase is now emergency.
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Emergency);
 			// snapshot is still there until election finalizes.
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2505,7 +2503,7 @@ mod tests {
 			// phase is now emergency.
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Emergency);
 			assert!(QueuedSolution::<Runtime>::get().is_none());
-			assert!(MultiPhase::snapshot().is_some());
+			assert!(Snapshot::<Runtime>::get().is_some());
 
 			// no single account can trigger this
 			assert_noop!(

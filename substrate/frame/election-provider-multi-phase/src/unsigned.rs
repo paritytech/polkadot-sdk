@@ -20,7 +20,7 @@
 use crate::{
 	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
 	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
-	Round, CurrentPhase, QueuedSolution,
+	Round, CurrentPhase, QueuedSolution, Snapshot, DesiredTargets,
 };
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
@@ -189,8 +189,8 @@ impl<T: Config> Pallet<T> {
 		MinerError,
 	> {
 		let RoundSnapshot { voters, targets } =
-			Self::snapshot().ok_or(MinerError::SnapshotUnAvailable)?;
-		let desired_targets = Self::desired_targets().ok_or(MinerError::SnapshotUnAvailable)?;
+			Snapshot::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
+		let desired_targets = DesiredTargets::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
 		let (solution, score, size, is_trimmed) =
 			Miner::<T::MinerConfig>::mine_solution_with_snapshot::<T::Solver>(
 				voters,
@@ -378,7 +378,7 @@ impl<T: Config> Pallet<T> {
 
 		// ensure correct number of winners.
 		ensure!(
-			Self::desired_targets().unwrap_or_default() ==
+			DesiredTargets::<T>::get().unwrap_or_default() ==
 				raw_solution.solution.unique_targets().len() as u32,
 			Error::<T>::PreDispatchWrongWinnerCount,
 		);
@@ -1261,8 +1261,8 @@ mod tests {
 			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// ensure we have snapshots in place.
-			assert!(MultiPhase::snapshot().is_some());
-			assert_eq!(MultiPhase::desired_targets().unwrap(), 2);
+			assert!(Snapshot::<Runtime>::get().is_some());
+			assert_eq!(DesiredTargets::<Runtime>::get().unwrap(), 2);
 
 			// mine seq_phragmen solution with 2 iters.
 			let (solution, witness, _) = MultiPhase::mine_solution().unwrap();
@@ -1364,7 +1364,7 @@ mod tests {
 			.build_and_execute(|| {
 				roll_to_unsigned();
 				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
-				assert_eq!(MultiPhase::desired_targets().unwrap(), 1);
+				assert_eq!(DesiredTargets::<Runtime>::get().unwrap(), 1);
 
 				// an initial solution
 				let result = ElectionResult {
@@ -1379,8 +1379,8 @@ mod tests {
 					],
 				};
 
-				let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
-				let desired_targets = MultiPhase::desired_targets().unwrap();
+				let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
+				let desired_targets = DesiredTargets::<Runtime>::get().unwrap();
 
 				let (raw, score, witness, _) =
 					Miner::<Runtime>::prepare_election_result_with_snapshot(

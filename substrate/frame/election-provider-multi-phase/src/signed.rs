@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
-	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
+	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo, DesiredTargets,
 };
 use codec::{Decode, Encode, HasCompact};
 use frame_election_provider_support::NposSolution;
@@ -418,7 +418,7 @@ impl<T: Config> Pallet<T> {
 			let active_voters = raw_solution.solution.voter_count() as u32;
 			let feasibility_weight = {
 				// defensive only: at the end of signed phase, snapshot will exits.
-				let desired_targets = Self::desired_targets().defensive_unwrap_or_default();
+				let desired_targets = DesiredTargets::<T>::get().defensive_unwrap_or_default();
 				T::WeightInfo::feasibility_check(voters, targets, active_voters, desired_targets)
 			};
 

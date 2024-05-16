@@ -136,7 +136,7 @@ pub struct TrimHelpers {
 ///
 /// Assignments are pre-sorted in reverse order of stake.
 pub fn trim_helpers() -> TrimHelpers {
-	let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
+	let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
 	let stakes: std::collections::HashMap<_, _> =
 		voters.iter().map(|(id, stake, _)| (*id, *stake)).collect();
 
@@ -150,7 +150,7 @@ pub fn trim_helpers() -> TrimHelpers {
 	let voter_index = helpers::voter_index_fn_owned::<Runtime>(cache);
 	let target_index = helpers::target_index_fn::<Runtime>(&targets);
 
-	let desired_targets = MultiPhase::desired_targets().unwrap();
+	let desired_targets = DesiredTargets::<Runtime>::get().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { mut assignments, .. } =
 		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
@@ -176,8 +176,8 @@ pub fn trim_helpers() -> TrimHelpers {
 ///
 /// This is a good example of what an offchain miner would do.
 pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
-	let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
-	let desired_targets = MultiPhase::desired_targets().unwrap();
+	let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
+	let desired_targets = DesiredTargets::<Runtime>::get().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { winners: _, assignments } =
 		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
@@ -200,7 +200,7 @@ pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
 }
 
 pub fn witness() -> SolutionOrSnapshotSize {
-	MultiPhase::snapshot()
+	Snapshot::<Runtime>::get()
 		.map(|snap| SolutionOrSnapshotSize {
 			voters: snap.voters.len() as u32,
 			targets: snap.targets.len() as u32,
