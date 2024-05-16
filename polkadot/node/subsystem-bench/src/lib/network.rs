@@ -149,7 +149,6 @@ impl RateLimit {
 
 /// A wrapper for both gossip and request/response protocols along with the destination
 /// peer(`AuthorityDiscoveryId``).
-#[derive(Debug)]
 pub enum NetworkMessage {
 	/// A gossip message from peer to node.
 	MessageFromPeer(PeerId, VersionedValidationProtocol),
@@ -432,7 +431,7 @@ impl NetworkInterface {
 }
 
 /// A handle for controlling an emulated peer.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct EmulatedPeerHandle {
 	/// Send messages to be processed by the peer.
 	messages_tx: UnboundedSender<NetworkMessage>,
@@ -696,7 +695,7 @@ impl PeerEmulatorStats {
 }
 
 /// The state of a peer on the emulated network.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 enum Peer {
 	Connected(EmulatedPeerHandle),
 	Disconnected(EmulatedPeerHandle),
