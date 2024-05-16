@@ -23,7 +23,7 @@ use frame_support::{
 	pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
-use sp_api::ProvideRuntimeApi;
+use sp_api::{Metadata, ProvideRuntimeApi};
 use sp_runtime::{
 	traits::{Extrinsic as _, SignedExtension},
 	transaction_validity::{TransactionSource, UnknownTransaction},
@@ -66,13 +66,7 @@ fn when_metadata_check_is_disabled_it_encodes_to_nothing() {
 }
 
 /// Generate the metadata hash for the `test-runtime`.
-fn generate_metadata_hash() -> [u8; 32] {
-	let metadata = runtime::Runtime::metadata_at_version(15).unwrap();
-
-	let metadata = RuntimeMetadataPrefixed::decode(&mut &metadata[..])
-		.expect("Invalid encoded metadata?")
-		.1;
-
+fn generate_metadata_hash(metadata: RuntimeMetadataPrefixed) -> [u8; 32] {
 	let runtime_version = runtime::VERSION;
 	let base58_prefix = 0;
 
@@ -84,7 +78,7 @@ fn generate_metadata_hash() -> [u8; 32] {
 		token_symbol: "TOKEN".into(),
 	};
 
-	generate_metadata_digest(&metadata, extra_info).unwrap().hash()
+	generate_metadata_digest(&metadata.1, extra_info).unwrap().hash()
 }
 
 #[test]
@@ -95,10 +89,13 @@ fn ensure_check_metadata_works_on_real_extrinsics() {
 	let runtime_api = client.runtime_api();
 	let best_hash = client.chain_info().best_hash;
 
-	log::error!("METADATA HASH: {}", array_bytes::bytes2hex("0x", generate_metadata_hash()));
+	let metadata = RuntimeMetadataPrefixed::decode(
+		&mut &runtime_api.metadata_at_version(best_hash, 15).unwrap().unwrap()[..],
+	)
+	.unwrap();
 
 	let valid_transaction = ExtrinsicBuilder::new_include_data(vec![1, 2, 3])
-		.metadata_hash(generate_metadata_hash())
+		.metadata_hash(generate_metadata_hash(metadata))
 		.build();
 	// Ensure that the transaction is signed.
 	assert!(valid_transaction.is_signed().unwrap());

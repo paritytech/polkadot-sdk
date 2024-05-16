@@ -168,7 +168,7 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
 			},
 		};
 
-		log::error!(
+		log::debug!(
 			target: "runtime::metadata-hash",
 			"CheckMetadataHash::additional_signed => {:?}",
 			signed.0.as_ref().map(|h| array_bytes::bytes2hex("0x", h)),
