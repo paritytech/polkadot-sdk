@@ -336,9 +336,7 @@ impl ConfigDef {
 		item: &mut syn::Item,
 		enable_default: bool,
 	) -> syn::Result<Self> {
-		let item = if let syn::Item::Trait(item) = item {
-			item
-		} else {
+		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
 			return Err(syn::Error::new(item.span(), msg))
 		};
