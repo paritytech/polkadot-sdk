@@ -30,7 +30,7 @@ sp-version = { path = "../../primitives/version" }
 sc-client-api = { path = "../api" }
 sc-utils = { path = "../utils" }
 sc-rpc = { path = "../rpc" }
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = true }
 hex = "0.4"
@@ -38,7 +38,7 @@ futures = "0.3.30"
 parking_lot = "0.12.1"
 tokio-stream = { version = "0.1.14", features = ["sync"] }
 tokio = { version = "1.22.0", features = ["sync"] }
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 log = { workspace = true, default-features = true }
 futures-util = { version = "0.3.30", default-features = false }
 rand = "0.8.5"
