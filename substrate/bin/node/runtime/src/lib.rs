@@ -1341,6 +1341,9 @@ impl pallet_tips::Config for Runtime {
 }
 
 parameter_types! {
+	pub const DepositPerItem: Balance = deposit(1, 0);
+	pub const DepositPerByte: Balance = deposit(0, 1);
+	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
@@ -1358,9 +1361,9 @@ impl pallet_contracts::Config for Runtime {
 	/// change because that would break already deployed contracts. The `Call` structure itself
 	/// is not allowed to change the indices of existing pallets, too.
 	type CallFilter = Nothing;
-	type DepositPerItem = dynamic_params::contracts::DepositPerItem;
-	type DepositPerByte = dynamic_params::contracts::DepositPerByte;
-	type DefaultDepositLimit = dynamic_params::contracts::DefaultDepositLimit;
+	type DepositPerItem = DepositPerItem;
+	type DepositPerByte = DepositPerByte;
+	type DefaultDepositLimit = DefaultDepositLimit;
 	type CallStack = [pallet_contracts::Frame<Self>; 5];
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
@@ -2181,19 +2184,6 @@ pub mod dynamic_params {
 		#[codec(index = 1)]
 		pub static ByteDeposit: Balance = 1 * CENTS;
 	}
-
-	#[dynamic_pallet_params]
-	#[codec(index = 1)]
-	pub mod contracts {
-		#[codec(index = 0)]
-		pub static DepositPerItem: Balance = deposit(1, 0);
-
-		#[codec(index = 1)]
-		pub static DepositPerByte: Balance = deposit(0, 1);
-
-		#[codec(index = 2)]
-		pub static DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
-	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -2216,10 +2206,6 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 	) -> Result<Self::Success, RuntimeOrigin> {
 		match key {
 			RuntimeParametersKey::Storage(_) => {
-				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(())
-			},
-			RuntimeParametersKey::Contracts(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
 				return Ok(())
 			},
