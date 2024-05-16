@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715873208756,
+  "lastUpdate": 1715882162912,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3618,6 +3618,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.693810640819994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jesse Chejieh",
+            "username": "Doordashcon",
+            "email": "jesse.chejieh@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d5fe478e4fe2d62b0800888ae77b00ff0ba28b28",
+          "message": "Adds `MaxRank` Config in `pallet-core-fellowship` (#3393)\n\nresolves #3315\n\n---------\n\nCo-authored-by: doordashcon <jessechejieh@doordashcon.local>\nCo-authored-by: command-bot <>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-05-16T16:22:29Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d5fe478e4fe2d62b0800888ae77b00ff0ba28b28"
+        },
+        "date": 1715882135216,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63548.619999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.693737322719967,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.5704612115601386,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.102180436060063,
             "unit": "seconds"
           }
         ]
