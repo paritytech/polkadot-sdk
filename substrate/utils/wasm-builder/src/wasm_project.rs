@@ -115,7 +115,7 @@ fn crate_metadata(cargo_manifest: &Path) -> Metadata {
 /// The path to the compact runtime binary and the bloaty runtime binary.
 pub(crate) fn create_and_compile(
 	target: RuntimeTarget,
-	project_cargo_toml: &Path,
+	orig_project_cargo_toml: &Path,
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
 	features_to_enable: Vec<String>,
@@ -126,16 +126,17 @@ pub(crate) fn create_and_compile(
 	let runtime_workspace_root = get_wasm_workspace_root();
 	let runtime_workspace = runtime_workspace_root.join(target.build_subdirectory());
 
-	let crate_metadata = crate_metadata(project_cargo_toml);
+	let crate_metadata = crate_metadata(orig_project_cargo_toml);
 
 	let project = create_project(
 		target,
-		project_cargo_toml,
+		orig_project_cargo_toml,
 		&runtime_workspace,
 		&crate_metadata,
 		crate_metadata.workspace_root.as_ref(),
 		features_to_enable,
 	);
+	let wasm_project_cargo_toml = project.join("Cargo.toml");
 
 	let build_config = BuildConfiguration::detect(target, &project);
 
@@ -185,8 +186,8 @@ pub(crate) fn create_and_compile(
 		)
 	};
 
-	let blob_name = blob_out_name_override
-		.unwrap_or_else(|| get_blob_name(target, &project.join("Cargo.toml")));
+	let blob_name =
+		blob_out_name_override.unwrap_or_else(|| get_blob_name(target, &wasm_project_cargo_toml));
 
 	let (final_blob_binary, bloaty_blob_binary) = match target {
 		RuntimeTarget::Wasm => {
@@ -194,7 +195,7 @@ pub(crate) fn create_and_compile(
 			fs::copy(raw_blob_path, &out_path).expect("copying the runtime blob should never fail");
 
 			maybe_compact_and_compress_wasm(
-				project_cargo_toml,
+				&wasm_project_cargo_toml,
 				&project,
 				WasmBinaryBloaty(out_path),
 				&blob_name,
@@ -210,7 +211,7 @@ pub(crate) fn create_and_compile(
 	};
 
 	generate_rerun_if_changed_instructions(
-		project_cargo_toml,
+		orig_project_cargo_toml,
 		&project,
 		&runtime_workspace,
 		final_blob_binary.as_ref(),
@@ -225,7 +226,7 @@ pub(crate) fn create_and_compile(
 }
 
 fn maybe_compact_and_compress_wasm(
-	project_cargo_toml: &Path,
+	wasm_project_cargo_toml: &Path,
 	project: &Path,
 	bloaty_blob_binary: WasmBinaryBloaty,
 	blob_name: &str,
@@ -251,15 +252,12 @@ fn maybe_compact_and_compress_wasm(
 		ensure_runtime_version_wasm_section_exists(bloaty_blob_binary.bloaty_path());
 	}
 
-	compact_blob_path
-		.as_ref()
-		.map(|wasm_binary| copy_blob_to_target_directory(project_cargo_toml, wasm_binary));
-
-	compact_compressed_blob_path.as_ref().map(|wasm_binary_compressed| {
-		copy_blob_to_target_directory(project_cargo_toml, wasm_binary_compressed)
-	});
-
 	let final_blob_binary = compact_compressed_blob_path.or(compact_blob_path);
+
+	final_blob_binary
+		.as_ref()
+		.map(|binary| copy_blob_to_target_directory(wasm_project_cargo_toml, binary));
+
 	(final_blob_binary, bloaty_blob_binary)
 }
 
