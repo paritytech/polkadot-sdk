@@ -499,29 +499,31 @@ impl EmulatedPeer {
 }
 
 /// Interceptor pattern for handling messages.
+#[async_trait::async_trait]
 pub trait HandleNetworkMessage {
 	/// Returns `None` if the message was handled, or the `message`
 	/// otherwise.
 	///
 	/// `node_sender` allows sending of messages to the node in response
 	/// to the handled message.
-	fn handle(
+	async fn handle(
 		&self,
 		message: NetworkMessage,
 		node_sender: &mut UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage>;
 }
 
+#[async_trait::async_trait]
 impl<T> HandleNetworkMessage for Arc<T>
 where
-	T: HandleNetworkMessage,
+	T: HandleNetworkMessage + Sync + Send,
 {
-	fn handle(
+	async fn handle(
 		&self,
 		message: NetworkMessage,
 		node_sender: &mut UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
-		self.as_ref().handle(message, node_sender)
+		T::handle(self, message, node_sender).await
 	}
 }
 
@@ -554,7 +556,7 @@ async fn emulated_peer_loop(
 					for handler in handlers.iter() {
 						// The check below guarantees that message is always `Some`: we are still
 						// inside the loop.
-						message = handler.handle(message.unwrap(), &mut to_network_interface);
+						message = handler.handle(message.unwrap(), &mut to_network_interface).await;
 						if message.is_none() {
 							break
 						}

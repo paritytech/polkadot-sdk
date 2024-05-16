@@ -465,8 +465,9 @@ impl ApprovalTestState {
 	}
 }
 
+#[async_trait::async_trait]
 impl HandleNetworkMessage for ApprovalTestState {
-	fn handle(
+	async fn handle(
 		&self,
 		_message: crate::network::NetworkMessage,
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<crate::network::NetworkMessage>,

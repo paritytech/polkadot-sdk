@@ -248,8 +248,9 @@ fn generate_receipt_templates(
 		.collect()
 }
 
+#[async_trait::async_trait]
 impl HandleNetworkMessage for TestState {
-	fn handle(
+	async fn handle(
 		&self,
 		message: NetworkMessage,
 		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
