@@ -40,7 +40,7 @@ pub enum TestObjective {
 	DataAvailabilityWrite,
 	/// Benchmark the approval-voting and approval-distribution subsystems.
 	ApprovalVoting(approval::ApprovalsOptions),
-	// TODO
+	// Benchmark the statement-distribution subsystem
 	StatementDistribution,
 }
 

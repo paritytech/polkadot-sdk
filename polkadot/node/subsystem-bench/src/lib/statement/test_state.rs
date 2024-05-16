@@ -70,16 +70,20 @@ pub struct TestState {
 	pub candidate_receipts: HashMap<H256, Vec<CandidateReceipt>>,
 	// Map from generated commited candidate receipts
 	pub commited_candidate_receipts: HashMap<H256, Vec<CommittedCandidateReceipt>>,
-	// TODO
+	// PersistedValidationData, we use one for all candidates
 	pub pvd: PersistedValidationData,
 	// Relay chain block headers
 	pub block_headers: HashMap<H256, Header>,
-	// TODO
-	pub statements_tracker: HashMap<CandidateHash, Vec<Arc<AtomicBool>>>,
-	pub manifests_tracker: HashMap<CandidateHash, Arc<AtomicBool>>,
+	// Session info
 	pub session_info: SessionInfo,
+	// Pregenerated statements
 	pub statements: HashMap<CandidateHash, Vec<UncheckedSigned<CompactStatement>>>,
+	// Indices in the backing group where the node under test is
 	pub own_backing_group: Vec<ValidatorIndex>,
+	// Tracks how many statements we received for a candidates
+	pub statements_tracker: HashMap<CandidateHash, Vec<Arc<AtomicBool>>>,
+	// Tracks if manifest exchange happened
+	pub manifests_tracker: HashMap<CandidateHash, Arc<AtomicBool>>,
 }
 
 impl TestState {
