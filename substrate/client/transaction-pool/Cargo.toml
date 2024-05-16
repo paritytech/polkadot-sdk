@@ -38,6 +38,7 @@ sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-tracing = { path = "../../primitives/tracing" }
 sp-transaction-pool = { path = "../../primitives/transaction-pool" }
+itertools = "0.10.3"
 
 [dev-dependencies]
 array-bytes = "6.2.2"
