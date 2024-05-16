@@ -22,6 +22,7 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 
 [dev-dependencies]
 pallet-balances = { path = "../balances", features = ["std"] }
+pallet-account-sponsorship = { path = "../account-sponsorship", features = ["std"] }
 sp-io = { path = "../../primitives/io", features = ["std"] }
 keyring = { package = "sp-keyring", path = "../../primitives/keyring" }
 pallet-transaction-payment = { path = "../../frame/transaction-payment" }

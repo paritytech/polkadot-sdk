@@ -24,7 +24,7 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	weights::{FixedFee, NoFee},
 };
-use sp_core::ConstU8;
+use sp_core::{ConstU64, ConstU8};
 use sp_runtime::{traits::IdentityLookup, MultiSignature};
 
 pub type Balance = u64;
@@ -62,6 +62,7 @@ impl Config for Runtime {
 	type PublicKey = <Signature as Verify>::Signer;
 	type Context = ();
 	type Extension = MetaTxExtension;
+	type ExistenceProvider = AccountSponsorship;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -90,12 +91,22 @@ impl pallet_transaction_payment::Config for Runtime {
 	type FeeMultiplierUpdate = ();
 }
 
+impl pallet_account_sponsorship::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type BaseDeposit = ConstU64<5>;
+	type BeneficiaryDeposit = ConstU64<1>;
+	type GracePeriod = ConstU64<10>;
+}
+
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
 		MetaTx: pallet_meta_tx,
 		TxPayment: pallet_transaction_payment,
+		AccountSponsorship: pallet_account_sponsorship,
 	}
 );
 

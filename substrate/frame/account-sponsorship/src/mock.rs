@@ -51,6 +51,7 @@ impl pallet_meta_tx::Config for Runtime {
 	type PublicKey = <Signature as Verify>::Signer;
 	type Context = ();
 	type Extension = MetaTxExtension;
+	type ExistenceProvider = AccountSponsorship;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
