@@ -77,7 +77,10 @@ pub fn is_ancient_block<N: From<u32> + PartialOrd + Saturating>(block: N, best: 
 }
 
 /// Opaque justifications subscription type.
-pub struct Subscription<T>(pub(crate) Mutex<futures::channel::mpsc::Receiver<Option<T>>>);
+pub struct Subscription<T>(
+	pub(crate) Mutex<futures::channel::mpsc::Receiver<Option<T>>>,
+	#[allow(dead_code)] pub(crate) futures::channel::oneshot::Sender<()>,
+);
 
 /// Opaque GRANDPA authorities set.
 pub type OpaqueGrandpaAuthoritiesSet = Vec<u8>;
@@ -621,6 +624,7 @@ impl<C: Chain> Client<C> {
 				e
 			})??;
 
+		let (cancel_sender, cancel_receiver) = futures::channel::oneshot::channel();
 		let (sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
 		let (tracker, subscription) = self
 			.jsonrpsee_execute(move |client| async move {
@@ -639,7 +643,7 @@ impl<C: Chain> Client<C> {
 					self_clone,
 					stall_timeout,
 					tx_hash,
-					Subscription(Mutex::new(receiver)),
+					Subscription(Mutex::new(receiver), cancel_sender),
 				);
 				Ok((tracker, subscription))
 			})
@@ -649,6 +653,7 @@ impl<C: Chain> Client<C> {
 			"extrinsic".into(),
 			subscription,
 			sender,
+			cancel_receiver,
 		));
 		Ok(tracker)
 	}
@@ -790,14 +795,16 @@ impl<C: Chain> Client<C> {
 				Ok(FC::subscribe_justifications(&client).await?)
 			})
 			.await?;
+		let (cancel_sender, cancel_receiver) = futures::channel::oneshot::channel();
 		let (sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
 		self.data.read().await.tokio.spawn(Subscription::background_worker(
 			C::NAME.into(),
 			"justification".into(),
 			subscription,
 			sender,
+			cancel_receiver,
 		));
-		Ok(Subscription(Mutex::new(receiver)))
+		Ok(Subscription(Mutex::new(receiver), cancel_sender))
 	}
 
 	/// Generates a proof of key ownership for the given authority in the given set.
@@ -840,6 +847,10 @@ impl<C: Chain> Client<C> {
 	}
 }
 
+impl<T> Drop for Subscription<T> {
+	fn drop(&mut self) {}
+}
+
 impl<T: DeserializeOwned> Subscription<T> {
 	/// Consumes subscription and returns future statuses stream.
 	pub fn into_stream(self) -> impl futures::Stream<Item = T> {
@@ -860,16 +871,25 @@ impl<T: DeserializeOwned> Subscription<T> {
 	async fn background_worker(
 		chain_name: String,
 		item_type: String,
-		mut subscription: jsonrpsee::core::client::Subscription<T>,
+		subscription: jsonrpsee::core::client::Subscription<T>,
 		mut sender: futures::channel::mpsc::Sender<Option<T>>,
+		cancel_receiver: futures::channel::oneshot::Receiver<()>,
 	) {
+		futures::pin_mut!(subscription, cancel_receiver);
 		loop {
-			match subscription.next().await {
-				Some(Ok(item)) =>
+			match futures::future::select(subscription.next(), &mut cancel_receiver).await {
+				futures::future::Either::Left((Some(Ok(item)), _)) =>
 					if sender.send(Some(item)).await.is_err() {
+						log::trace!(
+							target: "bridge",
+							"{} {} subscription stream: no listener. Closing.",
+							chain_name,
+							item_type,
+						);
+
 						break
 					},
-				Some(Err(e)) => {
+				futures::future::Either::Left((Some(Err(e)), _)) => {
 					log::trace!(
 						target: "bridge",
 						"{} {} subscription stream has returned '{:?}'. Stream needs to be restarted.",
@@ -880,7 +900,7 @@ impl<T: DeserializeOwned> Subscription<T> {
 					let _ = sender.send(None).await;
 					break
 				},
-				None => {
+				futures::future::Either::Left((None, _)) => {
 					log::trace!(
 						target: "bridge",
 						"{} {} subscription stream has returned None. Stream needs to be restarted.",
@@ -889,6 +909,15 @@ impl<T: DeserializeOwned> Subscription<T> {
 					);
 					let _ = sender.send(None).await;
 					break
+				},
+				futures::future::Either::Right((_, _)) => {
+					log::trace!(
+						target: "bridge",
+						"{} {} subscription stream: listener has been dropped. Closing.",
+						chain_name,
+						item_type,
+					);
+					//TODO: uncomment me break;
 				},
 			}
 		}
