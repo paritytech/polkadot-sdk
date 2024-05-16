@@ -225,55 +225,55 @@ fn check_event_type(
 	trait_item: &syn::TraitItem,
 	trait_has_instance: bool,
 ) -> syn::Result<bool> {
-	if let syn::TraitItem::Type(type_) = trait_item {
-		if type_.ident == "RuntimeEvent" {
-			// Check event has no generics
-			if !type_.generics.params.is_empty() || type_.generics.where_clause.is_some() {
-				let msg = "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
+	let syn::TraitItem::Type(type_) = trait_item else { return Ok(false) };
+
+	if type_.ident != "RuntimeEvent" {
+		return Ok(false)
+	}
+
+	// Check event has no generics
+	if !type_.generics.params.is_empty() || type_.generics.where_clause.is_some() {
+		let msg =
+			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
 					no generics nor where_clause";
-				return Err(syn::Error::new(trait_item.span(), msg))
-			}
+		return Err(syn::Error::new(trait_item.span(), msg))
+	}
 
-			// Check bound contains IsType and From
-			let has_is_type_bound = type_.bounds.iter().any(|s| {
-				syn::parse2::<IsTypeBoundEventParse>(s.to_token_stream())
-					.map_or(false, |b| has_expected_system_config(b.0, frame_system))
-			});
+	// Check bound contains IsType and From
+	let has_is_type_bound = type_.bounds.iter().any(|s| {
+		syn::parse2::<IsTypeBoundEventParse>(s.to_token_stream())
+			.map_or(false, |b| has_expected_system_config(b.0, frame_system))
+	});
 
-			if !has_is_type_bound {
-				let msg = "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
-					bound: `IsType<<Self as frame_system::Config>::RuntimeEvent>`".to_string();
-				return Err(syn::Error::new(type_.span(), msg))
-			}
+	if !has_is_type_bound {
+		let msg =
+			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
+					bound: `IsType<<Self as frame_system::Config>::RuntimeEvent>`"
+				.to_string();
+		return Err(syn::Error::new(type_.span(), msg))
+	}
 
-			let from_event_bound = type_
-				.bounds
-				.iter()
-				.find_map(|s| syn::parse2::<FromEventParse>(s.to_token_stream()).ok());
+	let from_event_bound = type_
+		.bounds
+		.iter()
+		.find_map(|s| syn::parse2::<FromEventParse>(s.to_token_stream()).ok());
 
-			let from_event_bound = if let Some(b) = from_event_bound {
-				b
-			} else {
-				let msg = "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
-					bound: `From<Event>` or `From<Event<Self>>` or `From<Event<Self, I>>`";
-				return Err(syn::Error::new(type_.span(), msg))
-			};
+	let Some(from_event_bound) = from_event_bound else {
+		let msg =
+			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
+				bound: `From<Event>` or `From<Event<Self>>` or `From<Event<Self, I>>`";
+		return Err(syn::Error::new(type_.span(), msg))
+	};
 
-			if from_event_bound.is_generic && (from_event_bound.has_instance != trait_has_instance)
-			{
-				let msg = "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
+	if from_event_bound.is_generic && (from_event_bound.has_instance != trait_has_instance) {
+		let msg =
+			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
 					`From<Event..>`. Config and generic Event must be both with instance or \
 					without instance";
-				return Err(syn::Error::new(type_.span(), msg))
-			}
-
-			Ok(true)
-		} else {
-			Ok(false)
-		}
-	} else {
-		Ok(false)
+		return Err(syn::Error::new(type_.span(), msg))
 	}
+
+	Ok(true)
 }
 
 /// Check that the path to `frame_system::Config` is valid, this is that the path is just
