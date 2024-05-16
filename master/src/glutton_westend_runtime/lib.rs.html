@@ -643,6 +643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -853,8 +854,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 	<span class="kw">type </span>Size = u32;
 	<span class="kw">type </span>QueueChangeHandler = ();
-	<span class="kw">type </span>QueuePausedQuery = (); <span class="comment">// No XCMP queue pallet deployed.
-	</span><span class="kw">type </span>HeapSize = sp_core::ConstU32&lt;{ <span class="number">64 </span>* <span class="number">1024 </span>}&gt;;
+	<span class="comment">// No XCMP queue pallet deployed.
+	</span><span class="kw">type </span>QueuePausedQuery = ();
+	<span class="kw">type </span>HeapSize = sp_core::ConstU32&lt;{ <span class="number">103 </span>* <span class="number">1024 </span>}&gt;;
 	<span class="kw">type </span>MaxStale = sp_core::ConstU32&lt;<span class="number">8</span>&gt;;
 	<span class="kw">type </span>ServiceWeight = MessageQueueServiceWeight;
 	<span class="kw">type </span>IdleMaxServiceWeight = MessageQueueServiceWeight;

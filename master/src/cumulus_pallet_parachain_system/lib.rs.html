@@ -1924,6 +1924,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1773" id="1773">1773</a>
 <a href="#1774" id="1774">1774</a>
 <a href="#1775" id="1775">1775</a>
+<a href="#1776" id="1776">1776</a>
+<a href="#1777" id="1777">1777</a>
+<a href="#1778" id="1778">1778</a>
+<a href="#1779" id="1779">1779</a>
+<a href="#1780" id="1780">1780</a>
+<a href="#1781" id="1781">1781</a>
+<a href="#1782" id="1782">1782</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1956,7 +1963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
@@ -2945,6 +2952,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				UpwardInitialDeliveryFeeFactor::get().max(<span class="kw-2">*</span>f / ump_constants::EXPONENTIAL_FEE_BASE);
 			<span class="kw-2">*</span>f
 		})
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; ListChannelInfos <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>outgoing_channels() -&gt; Vec&lt;ParaId&gt; {
+		<span class="kw">let </span><span class="prelude-val">Some</span>(state) = RelevantMessagingState::&lt;T&gt;::get() <span class="kw">else </span>{ <span class="kw">return </span>Vec::new() };
+		state.egress_channels.into_iter().map(|(id, <span class="kw">_</span>)| id).collect()
 	}
 }
 
