@@ -89,9 +89,13 @@ fn generate_metadata_hash() -> [u8; 32] {
 
 #[test]
 fn ensure_check_metadata_works_on_real_extrinsics() {
+	sp_tracing::try_init_simple();
+
 	let client = TestClientBuilder::new().build();
 	let runtime_api = client.runtime_api();
 	let best_hash = client.chain_info().best_hash;
+
+	log::error!("METADATA HASH: {}", array_bytes::bytes2hex("0x", generate_metadata_hash()));
 
 	let valid_transaction = ExtrinsicBuilder::new_include_data(vec![1, 2, 3])
 		.metadata_hash(generate_metadata_hash())

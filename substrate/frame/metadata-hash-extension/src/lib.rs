@@ -160,13 +160,21 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
 	const IDENTIFIER: &'static str = "CheckMetadataHash";
 
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		match self.mode {
-			Mode::Disabled => Ok(EncodeNoneToEmpty(None)),
+		let signed = match self.mode {
+			Mode::Disabled => EncodeNoneToEmpty(None),
 			Mode::Enabled => match self.metadata_hash.hash() {
-				Some(hash) => Ok(EncodeNoneToEmpty(Some(hash))),
-				None => Err(UnknownTransaction::CannotLookup.into()),
+				Some(hash) => EncodeNoneToEmpty(Some(hash)),
+				None => return Err(UnknownTransaction::CannotLookup.into()),
 			},
-		}
+		};
+
+		log::error!(
+			target: "runtime::metadata-hash",
+			"CheckMetadataHash::additional_signed => {:?}",
+			signed.0.as_ref().map(|h| array_bytes::bytes2hex("0x", h)),
+		);
+
+		Ok(signed)
 	}
 
 	fn pre_dispatch(
