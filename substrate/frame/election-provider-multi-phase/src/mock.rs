@@ -193,7 +193,7 @@ pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
 		to_supports(&staked).evaluate()
 	};
 	let solution =
-		<SolutionOf<Runtime>>::from_assignment(&assignments, &voter_index, &target_index).unwrap();
+		SolutionOf::<Runtime>::from_assignment(&assignments, &voter_index, &target_index).unwrap();
 
 	let round = Round::<Runtime>::get();
 	RawSolution { solution, score, round }

@@ -621,9 +621,9 @@ mod tests {
 			);
 
 			// make sure invariants hold true and post-test try state checks to pass.
-			<crate::Snapshot<Runtime>>::kill();
-			<crate::SnapshotMetadata<Runtime>>::kill();
-			<crate::DesiredTargets<Runtime>>::kill();
+			crate::Snapshot::<Runtime>::kill();
+			crate::SnapshotMetadata::<Runtime>::kill();
+			crate::DesiredTargets::<Runtime>::kill();
 		})
 	}
 

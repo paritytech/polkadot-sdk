@@ -1130,7 +1130,7 @@ mod tests {
 				score: ElectionScore { minimal_stake: 10, ..Default::default() },
 				..Default::default()
 			};
-			<QueuedSolution<Runtime>>::put(ready);
+			QueuedSolution::<Runtime>::put(ready);
 
 			// won't work anymore.
 			assert!(matches!(
@@ -1827,7 +1827,7 @@ mod tests {
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			// OCW must have submitted now
 			// now, before we check the call, update the round
-			<crate::Round<Runtime>>::mutate(|round| *round += 1);
+			crate::Round::<Runtime>::mutate(|round| *round += 1);
 
 			let encoded = pool.read().transactions[0].clone();
 			let extrinsic = Extrinsic::decode(&mut &*encoded).unwrap();

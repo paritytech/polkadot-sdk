@@ -1767,7 +1767,7 @@ mod feasibility_check {
 
 			// kill `Snapshot`, `SnapshotMetadata` and `DesiredTargets` for the storage state to
 			// be consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
-			<SnapshotWrapper<Runtime>>::kill();
+			SnapshotWrapper::<Runtime>::kill();
 
 			assert_noop!(
 				MultiPhase::feasibility_check(solution, COMPUTE),
@@ -2653,13 +2653,13 @@ mod tests {
 			// Default solution's score.
 			assert!(matches!(solution.score, ElectionScore { minimal_stake: 50, .. }));
 
-			<MinimumUntrustedScore<Runtime>>::put(ElectionScore {
+			MinimumUntrustedScore::<Runtime>::put(ElectionScore {
 				minimal_stake: 49,
 				..Default::default()
 			});
 			assert_ok!(MultiPhase::feasibility_check(solution.clone(), ElectionCompute::Signed));
 
-			<MinimumUntrustedScore<Runtime>>::put(ElectionScore {
+			MinimumUntrustedScore::<Runtime>::put(ElectionScore {
 				minimal_stake: 51,
 				..Default::default()
 			});
