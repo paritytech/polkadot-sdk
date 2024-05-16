@@ -15,7 +15,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { version = "3.1.5", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+codec = { version = "3.6.12", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 scale-info = { version = "2.7.0", default-features = false, features = ["derive"] }
 
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
@@ -25,7 +25,7 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 hex-literal = { version = "0.4.1" }
 env_logger = "0.11"
 hex = "0.4"
-array-bytes = "4.1"
+array-bytes = "6.2.2"
 sp-crypto-hashing = { path = "../../../../../substrate/primitives/crypto/hashing" }
 
 [features]
