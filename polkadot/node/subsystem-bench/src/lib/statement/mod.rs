@@ -378,11 +378,11 @@ pub async fn benchmark_statement_distribution(
 			.chain(two_hop_x_initiators)
 			.chain(two_hop_y_initiators)
 		{
-			let sent = message_tracker.get_mut(group_index).unwrap();
-			if *sent {
+			let messages_sent_count = message_tracker.get_mut(group_index).unwrap();
+			if *messages_sent_count {
 				continue
 			}
-			*sent = true;
+			*messages_sent_count = true;
 
 			let candidate_hash = state
 				.candidate_receipts

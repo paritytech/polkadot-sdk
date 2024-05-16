@@ -293,7 +293,7 @@ impl HandleNetworkMessage for TestState {
 					.expect("Should exist");
 				let candidate_hash = *statement.unchecked_payload().candidate_hash();
 
-				let sent = self
+				let statements_sent_count = self
 					.statements_tracker
 					.get(&candidate_hash)
 					.unwrap()
@@ -301,10 +301,10 @@ impl HandleNetworkMessage for TestState {
 					.unwrap()
 					.as_ref();
 
-				if sent.load(Ordering::SeqCst) {
+				if statements_sent_count.load(Ordering::SeqCst) {
 					return None
 				} else {
-					sent.store(true, Ordering::SeqCst);
+					statements_sent_count.store(true, Ordering::SeqCst);
 				}
 
 				let group_statements = self.statements.get(&candidate_hash).unwrap();

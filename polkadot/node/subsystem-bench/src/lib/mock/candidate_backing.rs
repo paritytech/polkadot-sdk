@@ -62,7 +62,7 @@ impl<Context> MockCandidateBacking {
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 impl MockCandidateBacking {
 	async fn run<Context>(mut self, mut ctx: Context) {
-		let mut tracker: HashMap<CandidateHash, u32> = Default::default();
+		let mut statements_tracker: HashMap<CandidateHash, u32> = Default::default();
 
 		loop {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
@@ -84,15 +84,16 @@ impl MockCandidateBacking {
 							match statement.payload() {
 								StatementWithPVD::Seconded(receipt, _pvd) => {
 									let candidate_hash = receipt.hash();
-									tracker
+									statements_tracker
 										.entry(candidate_hash)
 										.and_modify(|v| {
 											*v += 1;
 										})
 										.or_insert(1);
 
-									let received = *tracker.get(&candidate_hash).unwrap();
-									if received == 1 && is_from_node_group {
+									let statements_received_count =
+										*statements_tracker.get(&candidate_hash).unwrap();
+									if statements_received_count == 1 && is_from_node_group {
 										let statement = Statement::Valid(candidate_hash);
 										let context = SigningContext {
 											parent_hash: relay_parent,
@@ -117,7 +118,7 @@ impl MockCandidateBacking {
 										let _ = self.to_subsystems.send(message).await;
 									}
 
-									if received == 2 {
+									if statements_received_count == 2 {
 										let message = AllMessages::StatementDistribution(
 											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(candidate_hash),
 										);
@@ -125,15 +126,16 @@ impl MockCandidateBacking {
 									}
 								},
 								StatementWithPVD::Valid(candidate_hash) => {
-									tracker
+									statements_tracker
 										.entry(*candidate_hash)
 										.and_modify(|v| {
 											*v += 1;
 										})
 										.or_insert(1);
 
-									let received = *tracker.get(candidate_hash).unwrap();
-									if received == 2 {
+									let statements_received_count =
+										*statements_tracker.get(candidate_hash).unwrap();
+									if statements_received_count == 2 {
 										let message = AllMessages::StatementDistribution(
 											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(*candidate_hash),
 										);
