@@ -23,9 +23,8 @@
 	"args": [
 	  "--pool-limit=1000000000",
 	  "--pool-kbytes=10000000000",
-	  "-lbasic-authorship=info",
-	  "-ltxpool=info",
-	  "-ldebug",
+	  "-lbasic-authorship=debug",
+	  "-ltxpool=debug",
 	  "--rpc-max-subscriptions-per-connection=128000"
 	]
       },
@@ -36,9 +35,8 @@
 	"args": [
 	  "--pool-limit=1000000000",
 	  "--pool-kbytes=10000000000",
-	  "-lbasic-authorship=info",
-	  "-ltxpool=info",
-	  "-ldebug",
+	  "-lbasic-authorship=debug",
+	  "-ltxpool=debug",
 	  "--rpc-max-subscriptions-per-connection=128000"
 	]
       }
