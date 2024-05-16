@@ -235,10 +235,18 @@ impl<
 	fn burn_from(
 		who: &AccountId,
 		amount: Self::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		<F as fungibles::Mutate<AccountId>>::burn_from(A::get(), who, amount, precision, force)
+		<F as fungibles::Mutate<AccountId>>::burn_from(
+			A::get(),
+			who,
+			amount,
+			preservation,
+			precision,
+			force,
+		)
 	}
 	fn shelve(who: &AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError> {
 		<F as fungibles::Mutate<AccountId>>::shelve(A::get(), who, amount)
