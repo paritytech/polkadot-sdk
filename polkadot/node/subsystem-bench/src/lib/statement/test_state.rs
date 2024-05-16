@@ -136,7 +136,7 @@ impl TestState {
 				);
 				state.statements_tracker.entry(receipt.hash()).or_default().extend(
 					(0..config.n_validators)
-						.map(|index| Arc::new(AtomicBool::new(index <= 1)))
+						.map(|_| Arc::new(AtomicBool::new(false)))
 						.collect_vec(),
 				);
 				state.manifests_tracker.insert(receipt.hash(), Arc::new(AtomicBool::new(false)));
@@ -271,7 +271,7 @@ impl HandleNetworkMessage for TestState {
 					.values()
 					.flatten()
 					.find(|v| v.hash() == payload.candidate_hash)
-					.expect("Pregenerated")
+					.unwrap()
 					.clone();
 				let persisted_validation_data = self.pvd.clone();
 				let statements = self.statements.get(&payload.candidate_hash).unwrap().clone();
@@ -294,7 +294,7 @@ impl HandleNetworkMessage for TestState {
 					.validator_authority_id
 					.iter()
 					.position(|v| v == &authority_id)
-					.expect("Should exist");
+					.unwrap();
 				let candidate_hash = *statement.unchecked_payload().candidate_hash();
 
 				let statements_sent_count = self
@@ -304,7 +304,6 @@ impl HandleNetworkMessage for TestState {
 					.get(index)
 					.unwrap()
 					.as_ref();
-
 				if statements_sent_count.load(Ordering::SeqCst) {
 					return None
 				} else {
@@ -335,7 +334,7 @@ impl HandleNetworkMessage for TestState {
 
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
-						*self.test_authorities.peer_ids.get(index).expect("Must exist"),
+						*self.test_authorities.peer_ids.get(index).unwrap(),
 						Versioned::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::Statement(relay_parent, statement),
 						)),
@@ -354,8 +353,7 @@ impl HandleNetworkMessage for TestState {
 					.validator_authority_id
 					.iter()
 					.position(|v| v == &authority_id)
-					.expect("Should exist");
-
+					.unwrap();
 				let backing_group =
 					self.session_info.validator_groups.get(manifest.group_index).unwrap();
 				let group_size = backing_group.len();
@@ -403,7 +401,7 @@ impl HandleNetworkMessage for TestState {
 				};
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
-						*self.test_authorities.peer_ids.get(index).expect("Must exist"),
+						*self.test_authorities.peer_ids.get(index).unwrap(),
 						Versioned::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::BackedCandidateKnown(ack),
 						)),
@@ -412,7 +410,7 @@ impl HandleNetworkMessage for TestState {
 
 				self.manifests_tracker
 					.get(&manifest.candidate_hash)
-					.expect("Pregenerated")
+					.unwrap()
 					.as_ref()
 					.store(true, Ordering::SeqCst);
 
@@ -426,7 +424,7 @@ impl HandleNetworkMessage for TestState {
 			) => {
 				self.manifests_tracker
 					.get(&ack.candidate_hash)
-					.expect("Pregenerated")
+					.unwrap()
 					.as_ref()
 					.store(true, Ordering::SeqCst);
 

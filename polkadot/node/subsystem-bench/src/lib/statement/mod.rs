@@ -145,8 +145,7 @@ fn build_overseer(
 		.replace_statement_distribution(|_| subsystem)
 		.replace_network_bridge_tx(|_| network_bridge_tx)
 		.replace_network_bridge_rx(|_| network_bridge_rx);
-	let (overseer, raw_handle) =
-		dummy.build_with_connector(overseer_connector).expect("Should not fail");
+	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
 	let overseer_handle = OverseerHandle::new(raw_handle);
 
 	(overseer, overseer_handle, vec![statement_req_cfg])
@@ -238,7 +237,6 @@ pub async fn benchmark_statement_distribution(
 		.enumerate()
 		.filter_map(|(i, id)| if env.network().is_peer_connected(id) { Some(i) } else { None })
 		.collect_vec();
-
 	let seconding_validator_in_own_backing_group = state
 		.own_backing_group
 		.iter()
@@ -248,38 +246,35 @@ pub async fn benchmark_statement_distribution(
 
 	let config = env.config().clone();
 	let groups = state.session_info.validator_groups.clone();
-	let node_group_index = groups
+	let own_backing_group_index = groups
 		.iter()
 		.position(|group| group.iter().any(|v| v.0 == NODE_UNDER_TEST))
-		.expect("Pregenerated");
+		.unwrap();
 
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
-	// First create the initialization messages that make sure that then node under
-	// tests receives notifications about the topology used and the connected peers.
 	let topology = generate_topology(&state.test_authorities);
-	let mut initialization_messages =
-		env.network().generate_statement_distribution_peer_connected();
-	initialization_messages
-		.extend(generate_new_session_topology(&topology, ValidatorIndex(NODE_UNDER_TEST)));
-	for message in initialization_messages {
+	let peer_connected_messages = env.network().generate_statement_distribution_peer_connected();
+	let new_session_topology_messages =
+		generate_new_session_topology(&topology, ValidatorIndex(NODE_UNDER_TEST));
+	for message in peer_connected_messages.into_iter().chain(new_session_topology_messages) {
 		env.send_message(message).await;
 	}
 
 	let test_start = Instant::now();
-	let mut total_message_count = 0;
+	let mut total_messages_count = 0;
 	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
-		gum::info!(target: LOG_TARGET, "Current block {}/{} {}", block_num, config.num_blocks, block_info.hash);
+		gum::info!(target: LOG_TARGET, "Current block {}/{} {:?}", block_num, config.num_blocks, block_info.hash);
 		env.metrics().set_current_block(block_num);
 		env.import_block(block_info.clone()).await;
 
-		for update in env
+		for peer_view_change in env
 			.network()
 			.generate_statement_distribution_peer_view_change(view![block_info.hash])
 		{
-			env.send_message(update).await;
+			env.send_message(peer_view_change).await;
 		}
 
 		let seconding_peer_id = *state
@@ -306,27 +301,25 @@ pub async fn benchmark_statement_distribution(
 			)),
 		);
 		env.send_message(message).await;
-		// Just sent for the node group
-		let mut message_tracker = (0..groups.len()).map(|i| i == node_group_index).collect_vec();
+		// One was just sent for the own backing group
+		let mut messages_tracker =
+			(0..groups.len()).map(|i| i == own_backing_group_index).collect_vec();
 
 		let neighbors =
 			topology.compute_grid_neighbors_for(ValidatorIndex(NODE_UNDER_TEST)).unwrap();
-
 		let connected_neighbors_x = neighbors
 			.validator_indices_x
 			.iter()
 			.filter(|&v| connected_validators.contains(&(v.0 as usize)))
 			.cloned()
 			.collect_vec();
-
 		let connected_neighbors_y = neighbors
 			.validator_indices_y
 			.iter()
 			.filter(|&v| connected_validators.contains(&(v.0 as usize)))
 			.cloned()
 			.collect_vec();
-
-		let one_hop_initiators = connected_neighbors_x
+		let one_hop_peers_and_groups = connected_neighbors_x
 			.iter()
 			.chain(connected_neighbors_y.iter())
 			.map(|validator_index| {
@@ -337,7 +330,7 @@ pub async fn benchmark_statement_distribution(
 				(peer_id, group_index)
 			})
 			.collect_vec();
-		let two_hop_x_initiators = connected_neighbors_x
+		let two_hop_x_peers_and_groups = connected_neighbors_x
 			.iter()
 			.flat_map(|validator_index| {
 				let peer_id =
@@ -357,7 +350,7 @@ pub async fn benchmark_statement_distribution(
 					.collect_vec()
 			})
 			.collect_vec();
-		let two_hop_y_initiators = connected_neighbors_y
+		let two_hop_y_peers_and_groups = connected_neighbors_y
 			.iter()
 			.flat_map(|validator_index| {
 				let peer_id =
@@ -378,12 +371,12 @@ pub async fn benchmark_statement_distribution(
 			})
 			.collect_vec();
 
-		for (seconding_peer_id, group_index) in one_hop_initiators
+		for (seconding_peer_id, group_index) in one_hop_peers_and_groups
 			.into_iter()
-			.chain(two_hop_x_initiators)
-			.chain(two_hop_y_initiators)
+			.chain(two_hop_x_peers_and_groups)
+			.chain(two_hop_y_peers_and_groups)
 		{
-			let messages_sent_count = message_tracker.get_mut(group_index).unwrap();
+			let messages_sent_count = messages_tracker.get_mut(group_index).unwrap();
 			if *messages_sent_count {
 				continue
 			}
@@ -422,18 +415,18 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(message).await;
 		}
 
-		total_message_count += message_tracker.iter().filter(|&&v| v).collect_vec().len();
+		total_messages_count += messages_tracker.iter().filter(|&&v| v).collect_vec().len();
 
 		loop {
-			let manifest_count = state
+			let manifests_count = state
 				.manifests_tracker
 				.values()
 				.filter(|v| v.load(Ordering::SeqCst))
 				.collect::<Vec<_>>()
 				.len();
-			gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifest_count, total_message_count);
+			gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifests_count, total_messages_count);
 
-			if manifest_count == total_message_count {
+			if manifests_count == total_messages_count {
 				break;
 			}
 			tokio::time::sleep(Duration::from_millis(50)).await;

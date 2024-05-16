@@ -35,7 +35,7 @@ pub struct MockCandidateBacking {
 	config: TestConfiguration,
 	pair: ValidatorPair,
 	pvd: PersistedValidationData,
-	node_group: Vec<ValidatorIndex>,
+	own_backing_group: Vec<ValidatorIndex>,
 }
 
 impl MockCandidateBacking {
@@ -43,9 +43,9 @@ impl MockCandidateBacking {
 		config: TestConfiguration,
 		pair: ValidatorPair,
 		pvd: PersistedValidationData,
-		node_group: Vec<ValidatorIndex>,
+		own_backing_group: Vec<ValidatorIndex>,
 	) -> Self {
-		Self { config, pair, pvd, node_group }
+		Self { config, pair, pvd, own_backing_group }
 	}
 }
 
@@ -74,12 +74,10 @@ impl MockCandidateBacking {
 					gum::trace!(target: LOG_TARGET, msg=?msg, "recv message");
 
 					match msg {
-						// If a statement is not from a node group - ignore it.
-						// For the first seconded send Share
-						// For the seconde statement send Backed
 						CandidateBackingMessage::Statement(relay_parent, statement) => {
 							let validator_id = statement.validator_index();
-							let is_from_node_group = self.node_group.contains(&validator_id);
+							let is_own_backing_group =
+								self.own_backing_group.contains(&validator_id);
 							match statement.payload() {
 								StatementWithPVD::Seconded(receipt, _pvd) => {
 									let candidate_hash = receipt.hash();
@@ -93,7 +91,8 @@ impl MockCandidateBacking {
 									let statements_received_count =
 										*statements_tracker.get(&candidate_hash).unwrap();
 									if statements_received_count ==
-										(self.config.minimum_backing_votes - 1) && is_from_node_group
+										(self.config.minimum_backing_votes - 1) &&
+										is_own_backing_group
 									{
 										let statement = Statement::Valid(candidate_hash);
 										let context = SigningContext {
@@ -102,14 +101,13 @@ impl MockCandidateBacking {
 										};
 										let payload =
 											statement.to_compact().signing_payload(&context);
-										let signature = self.pair.sign(&payload[..]);
 										let message =
     										polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
     											relay_parent,
     											SignedFullStatementWithPVD::new(
     												statement.supply_pvd(self.pvd.clone()),
     												ValidatorIndex(NODE_UNDER_TEST),
-    												signature,
+    												self.pair.sign(&payload[..]),
     												&context,
     												&self.pair.public(),
     											)
