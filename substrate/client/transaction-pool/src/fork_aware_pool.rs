@@ -113,7 +113,7 @@ where
 	}
 
 	async fn finalize(&self, finalized: graph::BlockHash<PoolApi>) {
-		log::debug!("View::finalize: {:?} {:?}", self.at, finalized);
+		log::debug!(target: LOG_TARGET, "View::finalize: {:?} {:?}", self.at, finalized);
 		let _ = self.pool.validated_pool().on_block_finalized(finalized).await;
 	}
 
@@ -185,7 +185,7 @@ where
 		let results = {
 			let s = Instant::now();
 			let views = self.views.read();
-			log::debug!("submit_one: read: took:{:?}", s.elapsed());
+			log::debug!(target: LOG_TARGET, "submit_one: read: took:{:?}", s.elapsed());
 			let futs = views
 				.iter()
 				.map(|(hash, view)| {
@@ -195,7 +195,7 @@ where
 					async move {
 						let s = Instant::now();
 						let r = (view.at.hash, view.submit_many(source, xts.clone()).await);
-						log::debug!("submit_one: submit_at: took:{:?}", s.elapsed());
+						log::debug!(target: LOG_TARGET, "submit_one: submit_at: took:{:?}", s.elapsed());
 						r
 					}
 				})
@@ -263,7 +263,7 @@ where
 			futs
 		};
 		let maybe_watchers = futures::future::join_all(results).await;
-		log::trace!("[{:?}] submit_and_watch: maybe_watchers: {}", tx_hash, maybe_watchers.len());
+		log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: maybe_watchers: {}", tx_hash, maybe_watchers.len());
 
 		//todo: maybe try_fold + ControlFlow ?
 		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
@@ -273,7 +273,7 @@ where
 			r
 		});
 		if let Some(Err(err)) = maybe_error {
-			log::debug!("[{:?}] submit_and_watch: err: {}", tx_hash, err);
+			log::debug!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
 			return Err(err);
 		};
 
@@ -353,7 +353,7 @@ where
 				.block_body(*block)
 				.await
 				.unwrap_or_else(|e| {
-					log::warn!("Finalize route: error request: {}", e);
+					log::warn!(target: LOG_TARGET, "Finalize route: error request: {}", e);
 					None
 				})
 				.unwrap_or_default()
@@ -413,7 +413,7 @@ where
 	fn trigger(&mut self, at: <Block as BlockT>::Hash, ready_iterator: impl Fn() -> T) {
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
-			log::debug!(target: LOG_TARGET, "Sending ready signal at block {}", at);
+			log::debug!(target: LOG_TARGET, "trigger ready signal at block {}", at);
 			let _ = p.send(ready_iterator());
 		});
 	}
@@ -987,7 +987,7 @@ where
 
 			let duration = start.elapsed();
 
-			log::debug!("[{tx_hash:?}] submit_one: views:{view_count} took {duration:?} {d:?}");
+			log::debug!(target: LOG_TARGET, "[{tx_hash:?}] submit_one: views:{view_count} took {duration:?} {d:?}");
 
 			results
 		}
@@ -1000,6 +1000,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
+		log::info!(target: LOG_TARGET, "[{:?}] submit_and_watch", self.api.hash_and_length(&xt).0);
 		let view_store = self.view_store.clone();
 		self.mempool.push_watched(xt.clone());
 
@@ -1068,6 +1069,7 @@ where
 			.map(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash))
 			.flatten();
 		log::debug!(
+			target: LOG_TARGET,
 			"{tx_hash:?} ready_transaction: {} {:?}",
 			result.is_some(),
 			self.most_recent_view.read()
@@ -1088,7 +1090,7 @@ where
 			.add(at)
 			.map(|received| {
 				received.unwrap_or_else(|e| {
-					log::warn!("Error receiving pending set: {:?}", e);
+					log::warn!(target: LOG_TARGET, "Error receiving ready-set iterator: {:?}", e);
 					Box::new(std::iter::empty())
 				})
 			})
@@ -1181,7 +1183,7 @@ where
 			return None;
 		}
 
-		log::info!("create_new_view_at: {at:?}");
+		log::info!(target: LOG_TARGET, "create_new_view_at: {at:?}");
 
 		let mut view = View::new(self.api.clone(), at.clone());
 
@@ -1194,12 +1196,12 @@ where
 		let start = Instant::now();
 		self.update_view(&mut view).await;
 		let duration = start.elapsed();
-		log::info!("update_view_pool: at {at:?} took {duration:?}");
+		log::info!(target: LOG_TARGET, "update_view_pool: at {at:?} took {duration:?}");
 
 		let start = Instant::now();
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
 		let duration = start.elapsed();
-		log::info!("update_view_fork: at {at:?} took {duration:?}");
+		log::info!(target: LOG_TARGET, "update_view_fork: at {at:?} took {duration:?}");
 
 		//todo: refactor this: maybe single object with one mutex?
 		let view = {
@@ -1220,6 +1222,7 @@ where
 		Some(view)
 	}
 
+	//todo: unify with create_new_view_at
 	async fn build_cloned_view(
 		&self,
 		origin_view: Arc<View<PoolApi>>,
@@ -1227,6 +1230,7 @@ where
 		tree_route: &TreeRoute<Block>,
 	) -> Option<Arc<View<PoolApi>>> {
 		log::info!(
+			target: LOG_TARGET,
 			"build_cloned_view: for: {:?} from: {:?} tree_route: {:?}",
 			at.hash,
 			origin_view.at.hash,
@@ -1243,12 +1247,12 @@ where
 		let start = Instant::now();
 		self.update_view(&mut view).await;
 		let duration = start.elapsed();
-		log::info!("update_view_pool: at {at:?} took {duration:?}");
+		log::info!(target: LOG_TARGET, "update_view_pool: at {at:?} took {duration:?}");
 
 		let start = Instant::now();
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
 		let duration = start.elapsed();
-		log::info!("update_view_fork: at {at:?} took {duration:?}");
+		log::info!(target: LOG_TARGET, "update_view_fork: at {at:?} took {duration:?}");
 
 		//todo: refactor this: maybe single object with one mutex?
 		// shall be property of views_store + insert/remove/get wrappers?
@@ -1281,6 +1285,7 @@ where
 
 	async fn update_view(&self, view: &mut View<PoolApi>) {
 		log::debug!(
+			target: LOG_TARGET,
 			"update_view: {:?} xts:{:?} v:{}",
 			view.at,
 			self.mempool.len(),
@@ -1297,7 +1302,7 @@ where
 		let view = Arc::from(view);
 
 		//todo: some filtering can be applied - do not submit all txs, only those which are not in
-		//the pool (meaning: future + ready)
+		//the pool (meaning: future + ready). Also add some stats and review them.
 		let results = self
 			.mempool
 			.watched_xts()
@@ -1310,6 +1315,7 @@ where
 						|error| {
 							let error = error.into_pool_error();
 							log::trace!(
+								target: LOG_TARGET,
 								"[{:?}] update_view: submit_and_watch result: {:?} {:?}",
 								tx_hash,
 								view.at.hash,
@@ -1339,7 +1345,7 @@ where
 									// already discarded for
 									// 0x881b8b0e32780e99c1dfb353f6850cdd8271e05b551f0f29d3e12dd09520efda"
 									// ))',
-									log::error!("[{:?}] txpool: update_view: somehing went wrong: {error:?}", tx_hash);
+									log::error!(target: LOG_TARGET, "[{:?}] txpool: update_view: somehing went wrong: {error:?}", tx_hash);
 									Err((
 										Error::UnknownTransaction(UnknownTransaction::CannotLookup),
 										tx_hash,
@@ -1355,7 +1361,7 @@ where
 					);
 
 					if let Ok(watcher) = result {
-						log::trace!("[{:?}] adding watcher {:?}", tx_hash, view.at.hash);
+						log::trace!(target: LOG_TARGET, "[{:?}] adding watcher {:?}", tx_hash, view.at.hash);
 						self.view_store
 							.listener
 							.add_view_watcher_for_tx(
@@ -1434,7 +1440,7 @@ where
 					.block_body(hash)
 					.await
 					.unwrap_or_else(|e| {
-						log::warn!("Failed to fetch block body: {}", e);
+						log::warn!(target: LOG_TARGET, "Failed to fetch block body: {}", e);
 						None
 					})
 					.unwrap_or_default()
@@ -1477,7 +1483,7 @@ where
 					resubmit_transactions,
 				)
 				.await;
-			log::trace!("retracted resubmit: {:#?}", x);
+			log::trace!(target: LOG_TARGET, "retracted resubmit: {:#?}", x);
 		}
 	}
 
@@ -1516,6 +1522,7 @@ where
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
 		let start = Instant::now();
 		// log::info!(
+		//  target: LOG_TARGET,
 		// 	"maintain: txs:{:?} views:[{};{:?}] event:{event:?}",
 		// 	self.mempool_len(),
 		// 	self.views_len(),
@@ -1574,6 +1581,7 @@ where
 		}
 
 		log::info!(
+			target: LOG_TARGET,
 			"maintain: txs:{:?} views:[{};{:?}] event:{event:?}  took:{:?}",
 			self.mempool_len(),
 			self.views_len(),
