@@ -32,7 +32,6 @@ use crate::{
 };
 use bitvec::vec::BitVec;
 use colored::Colorize;
-use futures::{channel::mpsc, FutureExt, StreamExt};
 use itertools::Itertools;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
@@ -88,7 +87,6 @@ fn build_overseer(
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 	OverseerHandle,
 	Vec<ProtocolConfig>,
-	mpsc::UnboundedReceiver<AllMessages>,
 ) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
@@ -105,9 +103,7 @@ fn build_overseer(
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
 	let mock_prospective_parachains = MockProspectiveParachains::new();
-	let (tx, rx) = mpsc::unbounded();
 	let mock_candidate_backing = MockCandidateBacking::new(
-		tx,
 		state
 			.test_authorities
 			.validator_pairs
@@ -152,13 +148,13 @@ fn build_overseer(
 		dummy.build_with_connector(overseer_connector).expect("Should not fail");
 	let overseer_handle = OverseerHandle::new(raw_handle);
 
-	(overseer, overseer_handle, vec![statement_req_cfg], rx)
+	(overseer, overseer_handle, vec![statement_req_cfg])
 }
 
 pub fn prepare_test(
 	state: &TestState,
 	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, Vec<ProtocolConfig>, mpsc::UnboundedReceiver<AllMessages>) {
+) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	let dependencies = TestEnvironmentDependencies::default();
 	let (network, network_interface, network_receiver) = new_network(
 		&state.config,
@@ -166,7 +162,7 @@ pub fn prepare_test(
 		&state.test_authorities,
 		vec![Arc::new(state.clone())],
 	);
-	let (overseer, overseer_handle, cfg, to_subsystems) =
+	let (overseer, overseer_handle, cfg) =
 		build_overseer(state, network.clone(), network_interface, network_receiver, &dependencies);
 
 	(
@@ -180,7 +176,6 @@ pub fn prepare_test(
 			with_prometheus_endpoint,
 		),
 		cfg,
-		to_subsystems,
 	)
 }
 
@@ -232,7 +227,6 @@ pub async fn benchmark_statement_distribution(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	state: &TestState,
-	mut to_subsystems: mpsc::UnboundedReceiver<AllMessages>,
 ) -> BenchmarkUsage {
 	state.reset_trackers();
 
@@ -419,29 +413,19 @@ pub async fn benchmark_statement_distribution(
 
 		total_message_count += message_tracker.iter().filter(|&&v| v).collect_vec().len();
 
-		let mut timeout = message_check_delay();
 		loop {
-			futures::select! {
-				msg = to_subsystems.next() => {
-					if let Some(msg) = msg {
-						env.send_message(msg).await;
-					}
-				},
-				_ = timeout => {
-					let manifest_count = state
-						.manifests_tracker
-						.values()
-						.filter(|v| v.load(Ordering::SeqCst))
-						.collect::<Vec<_>>()
-						.len();
-					gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifest_count, total_message_count);
-					if manifest_count == total_message_count  {
-						break;
-					} else {
-						timeout = message_check_delay();
-					}
-				}
+			let manifest_count = state
+				.manifests_tracker
+				.values()
+				.filter(|v| v.load(Ordering::SeqCst))
+				.collect::<Vec<_>>()
+				.len();
+			gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifest_count, total_message_count);
+
+			if manifest_count == total_message_count {
+				break;
 			}
+			tokio::time::sleep(Duration::from_millis(50)).await;
 		}
 	}
 
@@ -454,8 +438,4 @@ pub async fn benchmark_statement_distribution(
 
 	env.stop().await;
 	env.collect_resource_usage(benchmark_name, &["statement-distribution"])
-}
-
-fn message_check_delay() -> futures::prelude::future::Fuse<futures_timer::Delay> {
-	futures_timer::Delay::new(Duration::from_millis(50)).fuse()
 }

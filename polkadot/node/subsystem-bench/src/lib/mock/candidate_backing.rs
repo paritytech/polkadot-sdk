@@ -17,8 +17,7 @@
 //! A generic candidate backing subsystem mockup suitable to be used in benchmarks.
 
 use crate::NODE_UNDER_TEST;
-use futures::{channel::mpsc::UnboundedSender, FutureExt, SinkExt};
-use overseer::AllMessages;
+use futures::FutureExt;
 use polkadot_node_primitives::{SignedFullStatementWithPVD, Statement, StatementWithPVD};
 use polkadot_node_subsystem::{
 	messages::CandidateBackingMessage, overseer, SpawnedSubsystem, SubsystemError,
@@ -33,7 +32,6 @@ use std::collections::HashMap;
 const LOG_TARGET: &str = "subsystem-bench::candidate-backing-mock";
 
 pub struct MockCandidateBacking {
-	to_subsystems: UnboundedSender<AllMessages>,
 	pair: ValidatorPair,
 	pvd: PersistedValidationData,
 	node_group: Vec<ValidatorIndex>,
@@ -41,12 +39,11 @@ pub struct MockCandidateBacking {
 
 impl MockCandidateBacking {
 	pub fn new(
-		to_subsystems: UnboundedSender<AllMessages>,
 		pair: ValidatorPair,
 		pvd: PersistedValidationData,
 		node_group: Vec<ValidatorIndex>,
 	) -> Self {
-		Self { to_subsystems, pair, pvd, node_group }
+		Self { pair, pvd, node_group }
 	}
 }
 
@@ -61,7 +58,7 @@ impl<Context> MockCandidateBacking {
 
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 impl MockCandidateBacking {
-	async fn run<Context>(mut self, mut ctx: Context) {
+	async fn run<Context>(self, mut ctx: Context) {
 		let mut statements_tracker: HashMap<CandidateHash, u32> = Default::default();
 
 		loop {
@@ -102,7 +99,7 @@ impl MockCandidateBacking {
 										let payload =
 											statement.to_compact().signing_payload(&context);
 										let signature = self.pair.sign(&payload[..]);
-										let message = AllMessages::StatementDistribution(
+										let message =
     										polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
     											relay_parent,
     											SignedFullStatementWithPVD::new(
@@ -112,17 +109,16 @@ impl MockCandidateBacking {
     												&context,
     												&self.pair.public(),
     											)
-    											.unwrap(),
-    										)
+    											.unwrap()
 										);
-										let _ = self.to_subsystems.send(message).await;
+										ctx.send_message(message).await;
 									}
 
 									if statements_received_count == 2 {
-										let message = AllMessages::StatementDistribution(
-											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(candidate_hash),
+										let message =
+											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(candidate_hash
 										);
-										let _ = self.to_subsystems.send(message).await;
+										ctx.send_message(message).await;
 									}
 								},
 								StatementWithPVD::Valid(candidate_hash) => {
@@ -136,10 +132,10 @@ impl MockCandidateBacking {
 									let statements_received_count =
 										*statements_tracker.get(candidate_hash).unwrap();
 									if statements_received_count == 2 {
-										let message = AllMessages::StatementDistribution(
-											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(*candidate_hash),
+										let message =
+											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(*candidate_hash
 										);
-										let _ = self.to_subsystems.send(message).await;
+										ctx.send_message(message).await;
 									}
 								},
 							}
