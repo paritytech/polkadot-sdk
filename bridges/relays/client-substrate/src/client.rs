@@ -882,6 +882,7 @@ impl<T: DeserializeOwned> Subscription<T> {
 			item_type,
 		);
 
+let (cancel_sender, cancel_receiver) = futures::channel::oneshot::channel::<()>(); // TODO: remove me
 		futures::pin_mut!(subscription, cancel_receiver);
 		loop {
 			match futures::future::select(subscription.next(), &mut cancel_receiver).await {
