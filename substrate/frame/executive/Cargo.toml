@@ -16,8 +16,8 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-aquamarine = "0.3.2"
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+aquamarine = "0.5.0"
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
 log = { workspace = true }
@@ -32,7 +32,7 @@ sp-std = { path = "../../primitives/std", default-features = false }
 sp-tracing = { path = "../../primitives/tracing", default-features = false }
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 pallet-balances = { path = "../balances" }
 pallet-transaction-payment = { path = "../transaction-payment" }
 sp-core = { path = "../../primitives/core" }

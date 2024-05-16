@@ -16,11 +16,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 async-channel = "1.8.0"
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 fdlimit = "0.3.0"
 futures = "0.3.30"
 log = { workspace = true, default-features = true }
-parity-scale-codec = "3.6.1"
+parity-scale-codec = "3.6.12"
 parking_lot = "0.12.1"
 tempfile = "3.1.0"
 tokio = { version = "1.22.0", features = ["time"] }

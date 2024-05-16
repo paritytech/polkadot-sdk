@@ -55,7 +55,7 @@ rand_distr = "0.4.3"
 bitvec = "1.0.1"
 kvdb-memorydb = "0.13.0"
 
-parity-scale-codec = { version = "3.6.1", features = ["derive", "std"] }
+parity-scale-codec = { version = "3.6.12", features = ["derive", "std"] }
 tokio = { version = "1.24.2", features = ["parking_lot", "rt-multi-thread"] }
 clap-num = "1.0.2"
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
@@ -66,7 +66,7 @@ sc-network-types = { path = "../../../substrate/client/network/types" }
 sc-service = { path = "../../../substrate/client/service" }
 sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 polkadot-node-metrics = { path = "../metrics" }
-itertools = "0.11.0"
+itertools = "0.11"
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 prometheus = { version = "0.13.0", default-features = false }

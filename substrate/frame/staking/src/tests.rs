@@ -1932,6 +1932,44 @@ fn reap_stash_works() {
 }
 
 #[test]
+fn reap_stash_works_with_existential_deposit_zero() {
+	ExtBuilder::default()
+		.existential_deposit(0)
+		.balance_factor(10)
+		.build_and_execute(|| {
+			// given
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 10 * 1000);
+			assert_eq!(Staking::bonded(&11), Some(11));
+
+			assert!(<Ledger<Test>>::contains_key(&11));
+			assert!(<Bonded<Test>>::contains_key(&11));
+			assert!(<Validators<Test>>::contains_key(&11));
+			assert!(<Payee<Test>>::contains_key(&11));
+
+			// stash is not reapable
+			assert_noop!(
+				Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+				Error::<Test>::FundedTarget
+			);
+
+			// no easy way to cause an account to go below ED, we tweak their staking ledger
+			// instead.
+			Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 0));
+
+			// reap-able
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+
+			// then
+			assert!(!<Ledger<Test>>::contains_key(&11));
+			assert!(!<Bonded<Test>>::contains_key(&11));
+			assert!(!<Validators<Test>>::contains_key(&11));
+			assert!(!<Payee<Test>>::contains_key(&11));
+			// lock is removed.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
+		});
+}
+
+#[test]
 fn switching_roles() {
 	// Test that it should be possible to switch between roles (nominator, validator, idle) with
 	// minimal overhead.
@@ -6954,6 +6992,59 @@ mod staking_interface {
 	}
 
 	#[test]
+	fn do_withdraw_unbonded_can_kill_stash_with_existential_deposit_zero() {
+		ExtBuilder::default()
+			.existential_deposit(0)
+			.nominate(false)
+			.build_and_execute(|| {
+				// Initial state of 11
+				assert_eq!(Staking::bonded(&11), Some(11));
+				assert_eq!(
+					Staking::ledger(11.into()).unwrap(),
+					StakingLedgerInspect {
+						stash: 11,
+						total: 1000,
+						active: 1000,
+						unlocking: Default::default(),
+						legacy_claimed_rewards: bounded_vec![],
+					}
+				);
+				assert_eq!(
+					Staking::eras_stakers(active_era(), &11),
+					Exposure { total: 1000, own: 1000, others: vec![] }
+				);
+
+				// Unbond all of the funds in stash.
+				Staking::chill(RuntimeOrigin::signed(11)).unwrap();
+				Staking::unbond(RuntimeOrigin::signed(11), 1000).unwrap();
+				assert_eq!(
+					Staking::ledger(11.into()).unwrap(),
+					StakingLedgerInspect {
+						stash: 11,
+						total: 1000,
+						active: 0,
+						unlocking: bounded_vec![UnlockChunk { value: 1000, era: 3 }],
+						legacy_claimed_rewards: bounded_vec![],
+					},
+				);
+
+				// trigger future era.
+				mock::start_active_era(3);
+
+				// withdraw unbonded
+				assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+
+				// empty stash has been reaped
+				assert!(!<Ledger<Test>>::contains_key(&11));
+				assert!(!<Bonded<Test>>::contains_key(&11));
+				assert!(!<Validators<Test>>::contains_key(&11));
+				assert!(!<Payee<Test>>::contains_key(&11));
+				// lock is removed.
+				assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
+			});
+	}
+
+	#[test]
 	fn status() {
 		ExtBuilder::default().build_and_execute(|| {
 			// stash of a validator is identified as a validator
@@ -7204,6 +7295,99 @@ mod staking_unchecked {
 				// but slash is broadcasted to slash observers.
 				assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_share);
 			})
+	}
+
+	#[test]
+	fn virtual_stakers_cannot_be_reaped() {
+		ExtBuilder::default()
+			// we need enough validators such that disables are allowed.
+			.validator_count(7)
+			.set_status(41, StakerStatus::Validator)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(201, StakerStatus::Validator)
+			.set_status(202, StakerStatus::Validator)
+			.build_and_execute(|| {
+				// make 101 only nominate 11.
+				assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
+
+				mock::start_active_era(1);
+
+				// slash all stake.
+				let slash_percent = Perbill::from_percent(100);
+				let initial_exposure = Staking::eras_stakers(active_era(), &11);
+				// 101 is a nominator for 11
+				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
+				// make 101 a virtual nominator
+				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+				// set payee different to self.
+				assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+
+				// cache values
+				let validator_balance = Balances::free_balance(&11);
+				let validator_stake = Staking::ledger(11.into()).unwrap().total;
+				let nominator_balance = Balances::free_balance(&101);
+				let nominator_stake = Staking::ledger(101.into()).unwrap().total;
+
+				// 11 goes offline
+				on_offence_now(
+					&[OffenceDetails {
+						offender: (11, initial_exposure.clone()),
+						reporters: vec![],
+					}],
+					&[slash_percent],
+				);
+
+				// both stakes must have been decreased to 0.
+				assert_eq!(Staking::ledger(101.into()).unwrap().active, 0);
+				assert_eq!(Staking::ledger(11.into()).unwrap().active, 0);
+
+				// all validator stake is slashed
+				assert_eq_error_rate!(
+					validator_balance - validator_stake,
+					Balances::free_balance(&11),
+					1
+				);
+				// Because slashing happened.
+				assert!(is_disabled(11));
+
+				// Virtual nominator's balance is not slashed.
+				assert_eq!(Balances::free_balance(&101), nominator_balance);
+				// Slash is broadcasted to slash observers.
+				assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_stake);
+
+				// validator can be reaped.
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, u32::MAX));
+				// nominator is a virtual staker and cannot be reaped.
+				assert_noop!(
+					Staking::reap_stash(RuntimeOrigin::signed(10), 101, u32::MAX),
+					Error::<Test>::VirtualStakerNotAllowed
+				);
+			})
+	}
+
+	#[test]
+	fn restore_ledger_not_allowed_for_virtual_stakers() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+			// 333 is corrupted
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// migrate to virtual staker.
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&333);
+
+			// recover the ledger won't work for virtual staker
+			assert_noop!(
+				Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None),
+				Error::<Test>::VirtualStakerNotAllowed
+			);
+
+			// migrate 333 back to normal staker
+			<VirtualStakers<Test>>::remove(333);
+
+			// try restore again
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+		})
 	}
 }
 mod ledger {
