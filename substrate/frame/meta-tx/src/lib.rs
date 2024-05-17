@@ -69,7 +69,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::traits::{
-	Dispatchable, IdentifyAccount, TransactionExtension, TransactionExtensionBase, Verify,
+	AccountExistenceProvider, Dispatchable, IdentifyAccount, TransactionExtension,
+	TransactionExtensionBase, Verify,
 };
 use sp_std::prelude::*;
 
@@ -150,6 +151,8 @@ pub mod pallet {
 		/// [frame_system::CheckTxVersion], [frame_system::CheckGenesis],
 		/// [frame_system::CheckMortality], [frame_system::CheckNonce], etc.
 		type Extension: TransactionExtension<<Self as Config>::RuntimeCall, Self::Context>;
+		/// Type to provide for new, nonexistent accounts.
+		type ExistenceProvider: AccountExistenceProvider<Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -206,6 +209,74 @@ pub mod pallet {
 
 			if !signed_payload.using_encoded(|payload| signature.verify(payload, &signer)) {
 				return Err(Error::<T>::BadProof.into());
+			}
+
+			let origin = T::RuntimeOrigin::signed(signer);
+			let (call, extension, _) = signed_payload.deconstruct();
+			let info = call.get_dispatch_info();
+			let mut ctx = T::Context::default();
+
+			let (_, val, origin) = T::Extension::validate(
+				&extension,
+				origin,
+				&call,
+				&info,
+				meta_tx_size,
+				&mut ctx,
+				extension.implicit().map_err(|_| Error::<T>::Invalid)?,
+				&call,
+			)
+			.map_err(Error::<T>::from)?;
+
+			let pre =
+				T::Extension::prepare(extension, val, &origin, &call, &info, meta_tx_size, &ctx)
+					.map_err(Error::<T>::from)?;
+
+			let res = call.dispatch(origin);
+			let post_info = res.unwrap_or_else(|err| err.post_info);
+			let pd_res = res.map(|_| ()).map_err(|e| e.error);
+
+			T::Extension::post_dispatch(pre, &info, &post_info, meta_tx_size, &pd_res, &ctx)
+				.map_err(Error::<T>::from)?;
+
+			Self::deposit_event(Event::Dispatched { result: res });
+
+			res
+		}
+
+		/// Dispatch a given meta transaction.
+		///
+		/// - `origin`: Can be any kind of origin.
+		/// - `meta_tx`: Meta Transaction with a target call to be dispatched.
+		#[pallet::call_index(1)]
+		#[pallet::weight({
+			let dispatch_info = meta_tx.call.get_dispatch_info();
+			// TODO: plus T::WeightInfo::dispatch() which must include the weight of T::Extension
+			(
+				dispatch_info.weight,
+				dispatch_info.class,
+			)
+		})]
+		pub fn dispatch_creating(
+			origin: OriginFor<T>,
+			meta_tx: MetaTxFor<T>,
+		) -> DispatchResultWithPostInfo {
+			let sponsor = ensure_signed(origin)?;
+			let meta_tx_size = meta_tx.encoded_size();
+
+			let (signer, signature) = match meta_tx.proof {
+				Proof::Signed(signer, signature) => (signer, signature),
+			};
+
+			let signed_payload = SignedPayloadFor::<T>::new(*meta_tx.call, meta_tx.extension)
+				.map_err(|_| Error::<T>::Invalid)?;
+
+			if !signed_payload.using_encoded(|payload| signature.verify(payload, &signer)) {
+				return Err(Error::<T>::BadProof.into());
+			}
+
+			if !<frame_system::Pallet<T>>::account_exists(&signer) {
+				T::ExistenceProvider::provide(&sponsor, &signer)?;
 			}
 
 			let origin = T::RuntimeOrigin::signed(signer);
