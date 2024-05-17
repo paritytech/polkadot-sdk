@@ -226,7 +226,7 @@ impl<'a> From<Protocol<'a>> for Multiaddr {
 /// Example:
 ///
 /// ```rust
-/// # use multiaddr::multiaddr;
+/// use sc_network_types::build_multiaddr;
 /// let addr = build_multiaddr!(Ip4([127, 0, 0, 1]), Tcp(10500u16));
 /// ```
 ///
