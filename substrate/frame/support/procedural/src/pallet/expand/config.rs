@@ -125,16 +125,17 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 		let no_docs = vec![];
 		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &metadata.doc };
 
-		quote::quote!({
-			#( #cfgs ) *
-			#frame_support::__private::metadata_ir::PalletAssociatedTypesMetadataIR {
-				name: #ident_str,
-				ty: #frame_support::__private::scale_info::meta_type::<
-						<T as Config #trait_use_gen>::#ident
-					>(),
-				docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
-			}
-		})
+		quote::quote!(
+			#( #cfgs ) * {
+				#frame_support::__private::metadata_ir::PalletAssociatedTypesMetadataIR {
+					name: #ident_str,
+					ty: #frame_support::__private::scale_info::meta_type::<
+							<T as Config #trait_use_gen>::#ident
+						>(),
+					docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
+				}
+			},
+		)
 	});
 
 	quote::quote!(
@@ -144,7 +145,7 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 			pub fn pallet_associated_types_metadata()
 				-> #frame_support::__private::sp_std::vec::Vec<#frame_support::__private::metadata_ir::PalletAssociatedTypesMetadataIR>
 			{
-				#frame_support::__private::sp_std::vec![ #( #types ),* ]
+				#frame_support::__private::sp_std::vec![ #( #types )* ]
 			}
 		}
 	)

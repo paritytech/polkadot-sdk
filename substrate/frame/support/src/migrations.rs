@@ -476,6 +476,7 @@ pub trait FailedMigrationHandler {
 /// Do now allow any transactions to be processed after a runtime upgrade failed.
 ///
 /// This is **not a sane default**, since it prevents governance intervention.
+#[derive(scale_info::TypeInfo)]
 pub struct FreezeChainOnFailedMigration;
 
 impl FailedMigrationHandler for FreezeChainOnFailedMigration {
