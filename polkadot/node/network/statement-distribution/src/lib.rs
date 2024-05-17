@@ -22,6 +22,10 @@
 #![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
+// clippy consider polkadot_subsystem_bench as unused_crate_dependencies
+#[cfg(bench)]
+use polkadot_subsystem_bench as _;
+
 use error::{log_error, FatalResult};
 use std::time::Duration;
 
