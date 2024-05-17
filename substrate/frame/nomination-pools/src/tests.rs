@@ -4634,7 +4634,7 @@ mod withdraw_unbonded {
 			// pool is destroyed.
 			assert!(!Metadata::<T>::contains_key(1));
 			// ensure the pool account is reaped.
-			assert!(!frame_system::Account::<T>::contains_key(&Pools::create_bonded_account(1)));
+			assert!(!frame_system::Account::<T>::contains_key(&Pools::generate_bonded_account(1)));
 		})
 	}
 
@@ -4642,7 +4642,7 @@ mod withdraw_unbonded {
 	fn destroy_works_with_erroneous_extra_consumer() {
 		ExtBuilder::default().ed(1).build_and_execute(|| {
 			// 10 is the depositor for pool 1, with min join bond 10.
-			let pool_one = Pools::create_bonded_account(1);
+			let pool_one = Pools::generate_bonded_account(1);
 
 			// set pool to destroying.
 			unsafe_set_state(1, PoolState::Destroying);
