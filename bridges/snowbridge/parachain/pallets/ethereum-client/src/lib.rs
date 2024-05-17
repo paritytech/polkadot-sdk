@@ -184,19 +184,16 @@ pub mod pallet {
 
 	/// Sync committee for current period
 	#[pallet::storage]
-	pub type CurrentSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+	pub type CurrentSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
 	/// Sync committee for next period
 	#[pallet::storage]
-	pub type NextSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+	pub type NextSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
 	/// Latest imported execution header
 	#[pallet::storage]
 	#[pallet::getter(fn latest_execution_state)]
-	pub type LatestExecutionState<T: Config> =
-		StorageValue<_, ExecutionHeaderState, ValueQuery>;
+	pub type LatestExecutionState<T: Config> = StorageValue<_, ExecutionHeaderState, ValueQuery>;
 
 	/// Execution Headers
 	#[pallet::storage]
