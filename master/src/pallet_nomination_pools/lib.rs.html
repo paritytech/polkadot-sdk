@@ -3809,6 +3809,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3658" id="3658">3658</a>
 <a href="#3659" id="3659">3659</a>
 <a href="#3660" id="3660">3660</a>
+<a href="#3661" id="3661">3661</a>
+<a href="#3662" id="3662">3662</a>
+<a href="#3663" id="3663">3663</a>
+<a href="#3664" id="3664">3664</a>
+<a href="#3665" id="3665">3665</a>
+<a href="#3666" id="3666">3666</a>
+<a href="#3667" id="3667">3667</a>
+<a href="#3668" id="3668">3668</a>
+<a href="#3669" id="3669">3669</a>
+<a href="#3670" id="3670">3670</a>
+<a href="#3671" id="3671">3671</a>
+<a href="#3672" id="3672">3672</a>
+<a href="#3673" id="3673">3673</a>
+<a href="#3674" id="3674">3674</a>
+<a href="#3675" id="3675">3675</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -6065,6 +6080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				SubPoolsStorage::&lt;T&gt;::get(member.pool_id).ok_or(Error::&lt;T&gt;::SubPoolsNotFound)<span class="question-mark">?</span>;
 
 			bonded_pool.ok_to_withdraw_unbonded_with(<span class="kw-2">&amp;</span>caller, <span class="kw-2">&amp;</span>member_account)<span class="question-mark">?</span>;
+			<span class="kw">let </span>pool_account = bonded_pool.bonded_account();
 
 			<span class="comment">// NOTE: must do this after we have done the `ok_to_withdraw_unbonded_other_with` check.
 			</span><span class="kw">let </span>withdrawn_points = member.withdraw_unlocked(current_era);
@@ -6073,7 +6089,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
 			// `transferrable_balance` is correct.
 			</span><span class="kw">let </span>stash_killed =
-				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)<span class="question-mark">?</span>;
+				T::Staking::withdraw_unbonded(pool_account.clone(), num_slashing_spans)<span class="question-mark">?</span>;
 
 			<span class="comment">// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
@@ -6081,6 +6097,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				!stash_killed || caller == bonded_pool.roles.depositor,
 				Error::&lt;T&gt;::Defensive(DefensiveError::BondedStashKilledPrematurely)
 			);
+
+			<span class="kw">if </span>stash_killed {
+				<span class="comment">// Maybe an extra consumer left on the pool account, if so, remove it.
+				</span><span class="kw">if </span>frame_system::Pallet::&lt;T&gt;::consumers(<span class="kw-2">&amp;</span>pool_account) == <span class="number">1 </span>{
+					frame_system::Pallet::&lt;T&gt;::dec_consumers(<span class="kw-2">&amp;</span>pool_account);
+				}
+
+				<span class="comment">// Note: This is not pretty, but we have to do this because of a bug where old pool
+				// accounts might have had an extra consumer increment. We know at this point no
+				// other pallet should depend on pool account so safe to do this.
+				// Refer to following issues:
+				// - https://github.com/paritytech/polkadot-sdk/issues/4440
+				// - https://github.com/paritytech/polkadot-sdk/issues/2037
+			</span>}
 
 			<span class="kw">let </span><span class="kw-2">mut </span>sum_unlocked_points: BalanceOf&lt;T&gt; = Zero::zero();
 			<span class="kw">let </span>balance_to_unbond = withdrawn_points
