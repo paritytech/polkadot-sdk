@@ -26,12 +26,8 @@ use crate::{
 };
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::DispatchInfo,
-	ensure,
-	pallet_prelude::{DispatchResult, DispatchResultWithPostInfo},
-	parameter_types,
-	traits::Get,
-	weights::Weight,
+	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
+	traits::Get, weights::Weight,
 };
 use pallet_contracts_proc_macro::define_env;
 use pallet_contracts_uapi::{CallFlags, ReturnFlags};
@@ -42,7 +38,6 @@ use sp_runtime::{
 };
 use sp_std::{fmt, prelude::*};
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
-use xcm::VersionedXcm;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
@@ -185,8 +180,8 @@ pub enum RuntimeCosts {
 	Now,
 	/// Weight of calling `seal_weight_to_fee`.
 	WeightToFee,
-	/// Weight of calling `seal_terminate`.
-	Terminate,
+	/// Weight of calling `seal_terminate`, passing the number of locked dependencies.
+	Terminate(u32),
 	/// Weight of calling `seal_random`. It includes the weight for copying the subject.
 	Random,
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
@@ -292,13 +287,12 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			Now => T::WeightInfo::seal_now(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
-			Terminate => T::WeightInfo::seal_terminate(),
+			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			Random => T::WeightInfo::seal_random(),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } =>
-				T::WeightInfo::seal_set_storage_per_new_byte(new_bytes)
-					.saturating_add(T::WeightInfo::seal_set_storage_per_old_byte(old_bytes)),
+				T::WeightInfo::seal_set_storage(new_bytes, old_bytes),
 			ClearStorage(len) => T::WeightInfo::seal_clear_storage(len),
 			ContainsStorage(len) => T::WeightInfo::seal_contains_storage(len),
 			GetStorage(len) => T::WeightInfo::seal_get_storage(len),
@@ -361,29 +355,6 @@ impl CallType {
 /// the beginning of the API entry point.
 fn already_charged(_: u32) -> Option<RuntimeCosts> {
 	None
-}
-
-/// Ensure that the XCM program is executable, by checking that it does not contain any [`Transact`]
-/// instruction with a call that is not allowed by the CallFilter.
-fn ensure_executable<T: Config>(message: &VersionedXcm<CallOf<T>>) -> DispatchResult {
-	use frame_support::traits::Contains;
-	use xcm::prelude::{Transact, Xcm};
-
-	let mut message: Xcm<CallOf<T>> =
-		message.clone().try_into().map_err(|_| Error::<T>::XCMDecodeFailed)?;
-
-	message.iter_mut().try_for_each(|inst| -> DispatchResult {
-		let Transact { ref mut call, .. } = inst else { return Ok(()) };
-		let call = call.ensure_decoded().map_err(|_| Error::<T>::XCMDecodeFailed)?;
-
-		if !<T as Config>::CallFilter::contains(call) {
-			return Err(frame_system::Error::<T>::CallFiltered.into())
-		}
-
-		Ok(())
-	})?;
-
-	Ok(())
 }
 
 /// Can only be used for one call.
@@ -960,7 +931,9 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	}
 
 	fn terminate(&mut self, memory: &[u8], beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::Terminate)?;
+		let count = self.ext.locked_delegate_dependencies_count() as _;
+		self.charge_gas(RuntimeCosts::Terminate(count))?;
+
 		let beneficiary: <<E as Ext>::T as frame_system::Config>::AccountId =
 			self.read_sandbox_memory_as(memory, beneficiary_ptr)?;
 		self.ext.terminate(&beneficiary)?;
@@ -2114,7 +2087,6 @@ pub mod env {
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let message: VersionedXcm<CallOf<E::T>> =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
-		ensure_executable::<E::T>(&message)?;
 
 		let execute_weight =
 			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
