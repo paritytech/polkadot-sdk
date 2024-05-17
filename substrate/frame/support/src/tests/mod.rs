@@ -68,7 +68,7 @@ pub mod frame_system {
 		type Block: Parameter + sp_runtime::traits::Block;
 		type AccountId;
 		#[pallet::no_default_bounds]
-		type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
+		type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall> + scale_info::TypeInfo;
 		#[pallet::no_default_bounds]
 		type RuntimeOrigin;
 		#[pallet::no_default_bounds]

@@ -398,6 +398,7 @@ parameter_types! {
 	pub static SystemCallbacksCalled: u32 = 0;
 }
 
+#[derive(scale_info::TypeInfo)]
 pub struct MockedSystemCallbacks;
 impl PreInherents for MockedSystemCallbacks {
 	fn pre_inherents() {

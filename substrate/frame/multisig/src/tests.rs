@@ -53,6 +53,7 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+#[derive(scale_info::TypeInfo)]
 pub struct TestBaseCallFilter;
 impl Contains<RuntimeCall> for TestBaseCallFilter {
 	fn contains(c: &RuntimeCall) -> bool {

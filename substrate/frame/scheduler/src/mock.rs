@@ -123,6 +123,7 @@ frame_support::construct_runtime!(
 );
 
 // Scheduler must dispatch with root and no filter, this tests base filter is indeed not used.
+#[derive(scale_info::TypeInfo)]
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {

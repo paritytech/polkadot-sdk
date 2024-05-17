@@ -137,8 +137,8 @@ pub struct AssociatedTypeMetadataDef {
 	pub doc: Vec<syn::Expr>,
 }
 
-impl From<&syn::TraitItemType> for AssociatedTypeMetadataDef {
-	fn from(trait_ty: &syn::TraitItemType) -> Self {
+impl From<&mut syn::TraitItemType> for AssociatedTypeMetadataDef {
+	fn from(trait_ty: &mut syn::TraitItemType) -> Self {
 		let ident = trait_ty.ident.clone();
 		let doc = get_doc_literals(&trait_ty.attrs);
 
@@ -354,6 +354,7 @@ impl ConfigDef {
 		index: usize,
 		item: &mut syn::Item,
 		enable_default: bool,
+		scrate: &syn::Path,
 	) -> syn::Result<Self> {
 		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
@@ -467,7 +468,25 @@ impl ConfigDef {
 			}
 
 			if !is_event && !already_constant {
-				if let syn::TraitItem::Type(ref ty) = trait_item {
+				if let syn::TraitItem::Type(ty) = trait_item {
+					let has_type_info_bound = ty.bounds.iter().any(|b| {
+						syn::parse2::<syn::Path>(b.to_token_stream()).map_or(false, |path| {
+							path.segments.iter().any(|s| s.ident == "TypeInfo")
+						})
+					});
+
+					if !has_type_info_bound {
+						// Error here is one way to reason about type bounds:
+						// let msg = "Invalid pallet::config, expected associated type to have
+						// `TypeInfo` bound"; return Err(syn::Error::new(ty.span(), msg))
+
+						let extra_bound = syn::parse2::<syn::TypeParamBound>(quote::quote! {
+							#scrate::__private::scale_info::TypeInfo
+						})
+						.expect("Valid TypeInfo path");
+						ty.bounds.push(extra_bound);
+					}
+
 					associated_types_metadata.push(AssociatedTypeMetadataDef::from(ty));
 				}
 			}

@@ -44,7 +44,8 @@ pub mod pallet {
 		/// The account type.
 		type AccountId: Parameter + Member + MaxEncodedLen;
 		/// The basic call filter to use in Origin.
-		type BaseCallFilter: frame_support::traits::Contains<Self::RuntimeCall>;
+		type BaseCallFilter: frame_support::traits::Contains<Self::RuntimeCall>
+			+ scale_info::TypeInfo;
 		/// The runtime origin type.
 		type RuntimeOrigin: Into<Result<RawOrigin<Self::AccountId>, Self::RuntimeOrigin>>
 			+ From<RawOrigin<Self::AccountId>>;

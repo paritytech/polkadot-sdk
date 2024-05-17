@@ -20,7 +20,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 log = { workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
-bounded-collections = { version = "0.2.0", default-features = false }
+bounded-collections = { path = "/home/lexnv/workspace/parity-common/bounded-collections", default-features = false }
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "scale-info"] }
 impl-serde = { version = "0.4.0", default-features = false, optional = true }
 hash-db = { version = "0.16.0", default-features = false }

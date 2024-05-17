@@ -76,6 +76,7 @@ impl<A, B, CA: Contains<A>, CB: Contains<B>> ContainsPair<A, B> for FromContains
 }
 
 /// A [`Contains`] implementation that contains every value.
+#[derive(scale_info::TypeInfo)]
 pub enum Everything {}
 impl<T> Contains<T> for Everything {
 	fn contains(_: &T) -> bool {
@@ -102,6 +103,7 @@ impl<A, B> ContainsPair<A, B> for Nothing {
 }
 
 /// A [`Contains`] implementation that contains everything except the values in `Exclude`.
+#[derive(scale_info::TypeInfo)]
 pub struct EverythingBut<Exclude>(PhantomData<Exclude>);
 impl<T, Exclude: Contains<T>> Contains<T> for EverythingBut<Exclude> {
 	fn contains(t: &T) -> bool {
@@ -132,6 +134,7 @@ impl<A, B, These: ContainsPair<A, B>, Except: ContainsPair<A, B>> ContainsPair<A
 
 /// A [`Contains`] implementation which contains all members of `These` which are also members of
 /// `Those`.
+#[derive(scale_info::TypeInfo)]
 pub struct InsideBoth<These, Those>(PhantomData<(These, Those)>);
 impl<T, These: Contains<T>, Those: Contains<T>> Contains<T> for InsideBoth<These, Those> {
 	fn contains(t: &T) -> bool {

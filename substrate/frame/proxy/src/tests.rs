@@ -102,6 +102,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 		self == &ProxyType::Any || self == o
 	}
 }
+
+#[derive(scale_info::TypeInfo)]
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(c: &RuntimeCall) -> bool {

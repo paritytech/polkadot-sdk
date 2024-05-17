@@ -226,7 +226,7 @@ pub trait StaticLookup {
 }
 
 /// A lookup implementation returning the input value.
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, scale_info::TypeInfo)]
 pub struct IdentityLookup<T>(PhantomData<T>);
 impl<T: Codec + Clone + PartialEq + Debug + TypeInfo> StaticLookup for IdentityLookup<T> {
 	type Source = T;
@@ -248,6 +248,7 @@ impl<T> Lookup for IdentityLookup<T> {
 }
 
 /// A lookup implementation returning the `AccountId` from a `MultiAddress`.
+#[derive(scale_info::TypeInfo)]
 pub struct AccountIdLookup<AccountId, AccountIndex>(PhantomData<(AccountId, AccountIndex)>);
 impl<AccountId, AccountIndex> StaticLookup for AccountIdLookup<AccountId, AccountIndex>
 where

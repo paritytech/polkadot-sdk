@@ -116,6 +116,7 @@ impl Def {
 						index,
 						item,
 						with_default,
+						&frame_support,
 					)?),
 				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
 					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;

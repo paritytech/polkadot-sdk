@@ -145,6 +145,7 @@ pub mod module {
 	}
 }
 
+#[derive(scale_info::TypeInfo)]
 pub struct BaseCallFilter;
 impl Contains<RuntimeCall> for BaseCallFilter {
 	fn contains(c: &RuntimeCall) -> bool {

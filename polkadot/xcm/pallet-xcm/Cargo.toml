@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-bounded-collections = { version = "0.2.0", default-features = false }
+bounded-collections = { path = "/home/lexnv/workspace/parity-common/bounded-collections", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }

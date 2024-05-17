@@ -692,7 +692,7 @@ mod weight_tests {
 			type Block: Parameter + sp_runtime::traits::Block;
 			type AccountId;
 			type Balance;
-			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
+			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall> + scale_info::TypeInfo;
 			type RuntimeOrigin;
 			type RuntimeCall;
 			type RuntimeTask;

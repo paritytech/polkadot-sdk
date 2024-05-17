@@ -205,6 +205,7 @@ impl pallet_collective::Config<CouncilCollective> for Test {
 
 impl example::Config for Test {}
 
+#[derive(scale_info::TypeInfo)]
 pub struct TestBaseCallFilter;
 impl Contains<RuntimeCall> for TestBaseCallFilter {
 	fn contains(c: &RuntimeCall) -> bool {

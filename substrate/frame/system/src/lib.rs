@@ -448,7 +448,7 @@ pub mod pallet {
 		/// [`frame_support::traits::EverythingBut`] et al. The default would be
 		/// [`frame_support::traits::Everything`].
 		#[pallet::no_default_bounds]
-		type BaseCallFilter: Contains<Self::RuntimeCall>;
+		type BaseCallFilter: Contains<Self::RuntimeCall> + scale_info::TypeInfo;
 
 		/// Block & extrinsics weights: base values and limits.
 		#[pallet::constant]

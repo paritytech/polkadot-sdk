@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 array-bytes = "6.1"
-bounded-collections = { version = "0.2.0", default-features = false, features = ["serde"] }
+bounded-collections = { path = "/home/lexnv/workspace/parity-common/bounded-collections", default-features = false, features = ["serde"] }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
