@@ -95,7 +95,7 @@ test-linux-stable-codecov:
         --locked \
         --release \
         --no-fail-fast \
-        -E 'package($TEST_PACKAGE) & !test(/.*benchmark.*/)'
+        -E "package($TEST_PACKAGE) & !test(/.*benchmark.*/)"
     # generate and upload reports
     - >
       grcov \
