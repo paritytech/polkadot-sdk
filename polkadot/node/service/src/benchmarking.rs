@@ -216,7 +216,7 @@ fn westend_sign_call(
 			(),
 			(),
 			(),
-			frame_metadata_hash_extension::EncodeNoneToEmpty(None),
+			None,
 		),
 	);
 
@@ -270,7 +270,7 @@ fn rococo_sign_call(
 			(),
 			(),
 			(),
-			frame_metadata_hash_extension::EncodeNoneToEmpty(None),
+			None,
 		),
 	);
 

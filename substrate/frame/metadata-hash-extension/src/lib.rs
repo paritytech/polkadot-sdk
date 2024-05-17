@@ -38,7 +38,6 @@ extern crate alloc;
 /// For our tests
 extern crate self as frame_metadata_hash_extension;
 
-use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::DebugNoBound;
 use frame_system::Config;
@@ -50,27 +49,6 @@ use sp_runtime::{
 
 #[cfg(test)]
 mod tests;
-
-/// Type that encodes `None` to an empty vec.
-#[derive(Debug, PartialEq)]
-pub struct EncodeNoneToEmpty(pub Option<[u8; 32]>);
-
-impl Encode for EncodeNoneToEmpty {
-	fn encode(&self) -> Vec<u8> {
-		match self.0 {
-			Some(hash) => hash.encode(),
-			None => Vec::new(),
-		}
-	}
-}
-
-impl TypeInfo for EncodeNoneToEmpty {
-	type Identity = <[u8; 32] as TypeInfo>::Identity;
-
-	fn type_info() -> scale_info::Type {
-		<[u8; 32]>::type_info()
-	}
-}
 
 /// The mode of [`CheckMetadataHash`].
 #[derive(Decode, Encode, PartialEq, Debug, TypeInfo, Clone, Copy, Eq)]
@@ -114,8 +92,9 @@ impl MetadataHash {
 ///
 /// The extension adds one byte (the `mode`) to the size of the extrinsic. This one byte is
 /// controlling if the metadata hash should be added to the signed data or not. Mode `0` means that
-/// the metadata hash is not added and `1` means that it is added. Further values of `mode` are
-/// reserved for future changes.
+/// the metadata hash is not added and thus, `None` is added to the signed data. Mode `1` means that
+/// the metadata hash is added and thus, `Some(metadata_hash)` is added to the signed data. Further
+/// values of `mode` are reserved for future changes.
 ///
 /// The metadata hash is read from the environment variable `RUNTIME_METADATA_HASH`. This
 /// environment variable is for example set by the `substrate-wasm-builder` when the feature for
@@ -155,15 +134,15 @@ impl<T> CheckMetadataHash<T> {
 impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
 	type AccountId = T::AccountId;
 	type Call = <T as Config>::RuntimeCall;
-	type AdditionalSigned = EncodeNoneToEmpty;
+	type AdditionalSigned = Option<[u8; 32]>;
 	type Pre = ();
 	const IDENTIFIER: &'static str = "CheckMetadataHash";
 
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		let signed = match self.mode {
-			Mode::Disabled => EncodeNoneToEmpty(None),
+			Mode::Disabled => None,
 			Mode::Enabled => match self.metadata_hash.hash() {
-				Some(hash) => EncodeNoneToEmpty(Some(hash)),
+				Some(hash) => Some(hash),
 				None => return Err(UnknownTransaction::CannotLookup.into()),
 			},
 		};
@@ -171,7 +150,7 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
 		log::debug!(
 			target: "runtime::metadata-hash",
 			"CheckMetadataHash::additional_signed => {:?}",
-			signed.0.as_ref().map(|h| array_bytes::bytes2hex("0x", h)),
+			signed.as_ref().map(|h| array_bytes::bytes2hex("0x", h)),
 		);
 
 		Ok(signed)
