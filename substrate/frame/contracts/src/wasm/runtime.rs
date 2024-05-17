@@ -180,8 +180,8 @@ pub enum RuntimeCosts {
 	Now,
 	/// Weight of calling `seal_weight_to_fee`.
 	WeightToFee,
-	/// Weight of calling `seal_terminate`.
-	Terminate,
+	/// Weight of calling `seal_terminate`, passing the number of locked dependencies.
+	Terminate(u32),
 	/// Weight of calling `seal_random`. It includes the weight for copying the subject.
 	Random,
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
@@ -287,7 +287,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			Now => T::WeightInfo::seal_now(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
-			Terminate => T::WeightInfo::seal_terminate(),
+			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			Random => T::WeightInfo::seal_random(),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
@@ -927,7 +927,9 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	}
 
 	fn terminate(&mut self, memory: &[u8], beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::Terminate)?;
+		let count = self.ext.locked_delegate_dependencies_count() as _;
+		self.charge_gas(RuntimeCosts::Terminate(count))?;
+
 		let beneficiary: <<E as Ext>::T as frame_system::Config>::AccountId =
 			self.read_sandbox_memory_as(memory, beneficiary_ptr)?;
 		self.ext.terminate(&beneficiary)?;

@@ -365,6 +365,11 @@ pub trait Ext: sealing::Sealed {
 		&mut self,
 		code_hash: &CodeHash<Self::T>,
 	) -> Result<(), DispatchError>;
+
+	/// Returns the number of locked delegate dependencies.
+	///
+	/// Note: Requires &mut self to access the contract info.
+	fn locked_delegate_dependencies_count(&mut self) -> usize;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1610,6 +1615,10 @@ where
 			.nested_storage
 			.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(deposit));
 		Ok(())
+	}
+
+	fn locked_delegate_dependencies_count(&mut self) -> usize {
+		self.top_frame_mut().contract_info().delegate_dependencies_count()
 	}
 }
 

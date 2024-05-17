@@ -886,9 +886,10 @@ mod benchmarks {
 		));
 	}
 
-	// The same argument as for `seal_return` is true here.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate() -> Result<(), BenchmarkError> {
+	fn seal_terminate(
+		n: Linear<0, { T::MaxDelegateDependencies::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 		let caller = whitelisted_caller();
 
@@ -896,8 +897,7 @@ mod benchmarks {
 
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 
-		// Maximize the delegate_dependencies to account for the worst-case scenario.
-		(0..T::MaxDelegateDependencies::get()).for_each(|i| {
+		(0..n).for_each(|i| {
 			let new_code = WasmModule::<T>::dummy_with_bytes(65 + i);
 			Contracts::<T>::store_code_raw(new_code.code, caller.clone()).unwrap();
 			runtime.ext().lock_delegate_dependency(new_code.hash).unwrap();

@@ -807,6 +807,9 @@ mod tests {
 			self.delegate_dependencies.borrow_mut().remove(code);
 			Ok(())
 		}
+		fn locked_delegate_dependencies_count(&mut self) -> usize {
+			self.delegate_dependencies.borrow().len()
+		}
 	}
 
 	/// Execute the supplied code.
