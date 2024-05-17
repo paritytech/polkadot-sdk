@@ -261,11 +261,13 @@ where
 		) {
 			Ok((fee_credit, change)) => (fee_credit, change),
 			Err((credit_in, _)) => {
+				// The swap should not error since the price quote was successful.
 				let _ = T::Assets::resolve(who, credit_in).defensive();
 				return Err(InvalidTransaction::Payment.into())
 			},
 		};
 
+		// Should be always zero since the exact price was quoted before.
 		ensure!(change.peek().is_zero(), InvalidTransaction::Payment);
 
 		Ok((Some(fee_credit), fee, asset_fee))
