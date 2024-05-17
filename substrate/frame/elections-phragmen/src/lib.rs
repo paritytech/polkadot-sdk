@@ -710,7 +710,6 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: SAFE as `AccountId` is a crypto hash.
 	#[pallet::storage]
-	#[pallet::getter(fn voting)]
 	pub type Voting<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, Voter<T::AccountId, BalanceOf<T>>, ValueQuery>;
 
@@ -1518,7 +1517,7 @@ mod tests {
 	}
 
 	fn voter_deposit(who: &u64) -> u64 {
-		Elections::voting(who).deposit
+		Voting::<Test>::get(who).deposit
 	}
 
 	fn runners_up_ids() -> Vec<u64> {
@@ -1622,11 +1621,11 @@ mod tests {
 				);
 
 				assert_eq!(
-					Elections::voting(1),
+					Voting::<Test>::get(1),
 					Voter { stake: 10u64, votes: vec![1], deposit: 0 }
 				);
 				assert_eq!(
-					Elections::voting(2),
+					Voting::<Test>::get(2),
 					Voter { stake: 20u64, votes: vec![2], deposit: 0 }
 				);
 
@@ -1646,19 +1645,19 @@ mod tests {
 				System::set_block_number(1);
 
 				assert_eq!(
-					Elections::voting(1),
+					Voting::<Test>::get(1),
 					Voter { stake: 10u64, votes: vec![1], deposit: 0 }
 				);
 				assert_eq!(
-					Elections::voting(2),
+					Voting::<Test>::get(2),
 					Voter { stake: 20u64, votes: vec![2], deposit: 0 }
 				);
 
 				assert_ok!(Elections::remove_voter(RuntimeOrigin::signed(1)));
 				assert_ok!(Elections::remove_voter(RuntimeOrigin::signed(2)));
 
-				assert_eq!(Elections::voting(1), Default::default());
-				assert_eq!(Elections::voting(2), Default::default());
+				assert_eq!(Voting::<Test>::get(1), Default::default());
+				assert_eq!(Voting::<Test>::get(2), Default::default());
 			})
 	}
 
@@ -1677,11 +1676,11 @@ mod tests {
 				);
 
 				assert_eq!(
-					Elections::voting(1),
+					Voting::<Test>::get(1),
 					Voter { stake: 10u64, votes: vec![1], deposit: 0 }
 				);
 				assert_eq!(
-					Elections::voting(2),
+					Voting::<Test>::get(2),
 					Voter { stake: 20u64, votes: vec![2], deposit: 0 }
 				);
 
@@ -1967,7 +1966,7 @@ mod tests {
 
 			// 2 + 1
 			assert_eq!(balances(&2), (17, 3));
-			assert_eq!(Elections::voting(&2).deposit, 3);
+			assert_eq!(Voting::<Test>::get(&2).deposit, 3);
 			assert_eq!(has_lock(&2), 10);
 			assert_eq!(locked_stake_of(&2), 10);
 
@@ -1975,7 +1974,7 @@ mod tests {
 			assert_ok!(vote(RuntimeOrigin::signed(2), vec![5, 4], 15));
 			// 2 + 2
 			assert_eq!(balances(&2), (16, 4));
-			assert_eq!(Elections::voting(&2).deposit, 4);
+			assert_eq!(Voting::<Test>::get(&2).deposit, 4);
 			assert_eq!(has_lock(&2), 15);
 			assert_eq!(locked_stake_of(&2), 15);
 
@@ -1983,7 +1982,7 @@ mod tests {
 			assert_ok!(vote(RuntimeOrigin::signed(2), vec![5, 3], 18));
 			// 2 + 2
 			assert_eq!(balances(&2), (16, 4));
-			assert_eq!(Elections::voting(&2).deposit, 4);
+			assert_eq!(Voting::<Test>::get(&2).deposit, 4);
 			assert_eq!(has_lock(&2), 16);
 			assert_eq!(locked_stake_of(&2), 16);
 
@@ -1991,7 +1990,7 @@ mod tests {
 			assert_ok!(vote(RuntimeOrigin::signed(2), vec![4], 12));
 			// 2 + 1
 			assert_eq!(balances(&2), (17, 3));
-			assert_eq!(Elections::voting(&2).deposit, 3);
+			assert_eq!(Voting::<Test>::get(&2).deposit, 3);
 			assert_eq!(has_lock(&2), 12);
 			assert_eq!(locked_stake_of(&2), 12);
 		});
