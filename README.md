@@ -9,14 +9,12 @@
 </picture>
 
 
-![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk) | ![GitHub
+![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub
 forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
-[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)
-| ![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk) |
-![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)
+[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)
 
-![GitHub lines of code](https://tokei.rs/b1/github/paritytech/polkadot-sdk) |
+![GitHub lines of code](https://tokei.rs/b1/github/paritytech/polkadot-sdk)&nbsp;&nbsp;
 ![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
 
 > The Polkadot SDK repository provides all the components needed to start building on the
