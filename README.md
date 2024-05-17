@@ -4,8 +4,8 @@
 # Polkadot SDK
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/Polkadot_Logo_Horizontal_Pink_White.png">
-  <source media="(prefers-color-scheme: light)" srcset="./docs/images/Polkadot_Logo_Horizontal_Pink_Black.png">
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/username/repository/blob/master/docs/imags/Polkadot_Logo_Horizontal_Pink_White.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/username/repository/blob/master/docs/imags/Polkadot_Logo_Horizontal_Pink_Black.png">
 </picture>
 
 
