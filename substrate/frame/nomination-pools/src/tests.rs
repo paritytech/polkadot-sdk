@@ -4633,7 +4633,6 @@ mod withdraw_unbonded {
 			// ensure the pool account is reaped.
 			assert!(!frame_system::Account::<T>::contains_key(&Pools::create_bonded_account(1)));
 		})
-
 	}
 
 	#[test]
@@ -4680,9 +4679,7 @@ mod withdraw_unbonded {
 			// ensure the pool account is reaped.
 			assert!(!frame_system::Account::<T>::contains_key(&pool_one));
 		})
-
 	}
-
 }
 
 mod create {
