@@ -1219,8 +1219,9 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		setup.set_storage_deposit_limit(deposit);
-
 		setup.set_data(vec![42; i as usize]);
+		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
@@ -1252,7 +1253,13 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
 		let hash = Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
-		build_runtime!(runtime, memory: [hash.encode(), ]);
+
+		let mut setup = CallSetup::<T>::default();
+		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut memory = memory!(hash.encode(),);
 
 		let result;
 		#[block]
@@ -1295,7 +1302,9 @@ mod benchmarks {
 		let deposit_len = deposit_bytes.len() as u32;
 
 		let mut setup = CallSetup::<T>::default();
+		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(value + (Pallet::<T>::min_balance() * 2u32.into()));
+
 		let account_id = &setup.contract().account_id.clone();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
