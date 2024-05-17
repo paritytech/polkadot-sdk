@@ -377,9 +377,9 @@ pub mod pallet {
 			);
 			ensure!(!votes.is_empty(), Error::<T>::NoVotes);
 
-			let candidates_count = <Candidates<T>>::decode_len().unwrap_or(0);
-			let members_count = <Members<T>>::decode_len().unwrap_or(0);
-			let runners_up_count = <RunnersUp<T>>::decode_len().unwrap_or(0);
+			let candidates_count = Candidates::<T>::decode_len().unwrap_or(0);
+			let members_count = Members::<T>::decode_len().unwrap_or(0);
+			let runners_up_count = RunnersUp::<T>::decode_len().unwrap_or(0);
 
 			// can never submit a vote of there are no members, and cannot submit more votes than
 			// all potential vote targets.
@@ -393,7 +393,7 @@ pub mod pallet {
 
 			// Reserve bond.
 			let new_deposit = Self::deposit_of(votes.len());
-			let Voter { deposit: old_deposit, .. } = <Voting<T>>::get(&who);
+			let Voter { deposit: old_deposit, .. } = Voting::<T>::get(&who);
 			match new_deposit.cmp(&old_deposit) {
 				Ordering::Greater => {
 					// Must reserve a bit more.
@@ -455,7 +455,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let actual_count = <Candidates<T>>::decode_len().unwrap_or(0) as u32;
+			let actual_count = Candidates::<T>::decode_len().unwrap_or(0) as u32;
 			ensure!(actual_count <= candidate_count, Error::<T>::InvalidWitnessData);
 			ensure!(
 				actual_count <= <T as Config>::MaxCandidates::get(),
@@ -470,7 +470,7 @@ pub mod pallet {
 			T::Currency::reserve(&who, T::CandidacyBond::get())
 				.map_err(|_| Error::<T>::InsufficientCandidateFunds)?;
 
-			<Candidates<T>>::mutate(|c| c.insert(index, (who, T::CandidacyBond::get())));
+			Candidates::<T>::mutate(|c| c.insert(index, (who, T::CandidacyBond::get())));
 			Ok(())
 		}
 
@@ -509,7 +509,7 @@ pub mod pallet {
 					Self::deposit_event(Event::Renounced { candidate: who });
 				},
 				Renouncing::RunnerUp => {
-					<RunnersUp<T>>::try_mutate::<_, Error<T>, _>(|runners_up| {
+					RunnersUp::<T>::try_mutate::<_, Error<T>, _>(|runners_up| {
 						let index = runners_up
 							.iter()
 							.position(|SeatHolder { who: r, .. }| r == &who)
@@ -523,7 +523,7 @@ pub mod pallet {
 					})?;
 				},
 				Renouncing::Candidate(count) => {
-					<Candidates<T>>::try_mutate::<_, Error<T>, _>(|candidates| {
+					Candidates::<T>::try_mutate::<_, Error<T>, _>(|candidates| {
 						ensure!(count >= candidates.len() as u32, Error::<T>::InvalidWitnessData);
 						let index = candidates
 							.binary_search_by(|(c, _)| c.cmp(&who))
@@ -599,7 +599,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = ensure_root(origin)?;
 
-			<Voting<T>>::iter()
+			Voting::<T>::iter()
 				.take(num_voters as usize)
 				.filter(|(_, x)| Self::is_defunct_voter(&x.votes))
 				.take(num_defunct as usize)
@@ -768,7 +768,7 @@ pub mod pallet {
 					// they have any lock. NOTE: this means that we will still try to remove a lock
 					// once this genesis voter is removed, and for now it is okay because
 					// remove_lock is noop if lock is not there.
-					<Voting<T>>::insert(
+					Voting::<T>::insert(
 						&member,
 						Voter { votes: vec![member.clone()], stake: *stake, deposit: Zero::zero() },
 					);
@@ -811,7 +811,7 @@ impl<T: Config> Pallet<T> {
 		// - `Ok(Option(replacement))` if member was removed and replacement was replaced.
 		// - `Ok(None)` if member was removed but no replacement was found
 		// - `Err(_)` if who is not a member.
-		let maybe_replacement = <Members<T>>::try_mutate::<_, Error<T>, _>(|members| {
+		let maybe_replacement = Members::<T>::try_mutate::<_, Error<T>, _>(|members| {
 			let remove_index = members
 				.binary_search_by(|m| m.who.cmp(who))
 				.map_err(|_| Error::<T>::NotMember)?;
@@ -831,7 +831,7 @@ impl<T: Config> Pallet<T> {
 				T::Currency::unreserve(who, removed.deposit);
 			}
 
-			let maybe_next_best = <RunnersUp<T>>::mutate(|r| r.pop()).map(|next_best| {
+			let maybe_next_best = RunnersUp::<T>::mutate(|r| r.pop()).map(|next_best| {
 				// defensive-only: Members and runners-up are disjoint. This will always be err and
 				// give us an index to insert.
 				if let Err(index) = members.binary_search_by(|m| m.who.cmp(&next_best.who)) {
@@ -932,7 +932,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Remove a certain someone as a voter.
 	fn do_remove_voter(who: &T::AccountId) {
-		let Voter { deposit, .. } = <Voting<T>>::take(who);
+		let Voter { deposit, .. } = Voting::<T>::take(who);
 
 		// remove storage, lock and unreserve.
 		T::Currency::remove_lock(T::PalletId::get(), who);
@@ -1011,12 +1011,12 @@ impl<T: Config> Pallet<T> {
 			sp_npos_elections::seq_phragmen(num_to_elect, candidate_ids, voters_and_votes, None)
 				.map(|ElectionResult::<T::AccountId, Perbill> { winners, assignments: _ }| {
 					// this is already sorted by id.
-					let old_members_ids_sorted = <Members<T>>::take()
+					let old_members_ids_sorted = Members::<T>::take()
 						.into_iter()
 						.map(|m| m.who)
 						.collect::<Vec<T::AccountId>>();
 					// this one needs a sort by id.
-					let mut old_runners_up_ids_sorted = <RunnersUp<T>>::take()
+					let mut old_runners_up_ids_sorted = RunnersUp::<T>::take()
 						.into_iter()
 						.map(|r| r.who)
 						.collect::<Vec<T::AccountId>>();
@@ -1122,7 +1122,7 @@ impl<T: Config> Pallet<T> {
 					// fetch deposits from the one recorded one. This will make sure that a
 					// candidate who submitted candidacy before a change to candidacy deposit will
 					// have the correct amount recorded.
-					<Members<T>>::put(
+					Members::<T>::put(
 						new_members_sorted_by_id
 							.iter()
 							.map(|(who, stake)| SeatHolder {
@@ -1132,7 +1132,7 @@ impl<T: Config> Pallet<T> {
 							})
 							.collect::<Vec<_>>(),
 					);
-					<RunnersUp<T>>::put(
+					RunnersUp::<T>::put(
 						new_runners_up_sorted_by_rank
 							.into_iter()
 							.map(|(who, stake)| SeatHolder {
@@ -1144,10 +1144,10 @@ impl<T: Config> Pallet<T> {
 					);
 
 					// clean candidates.
-					<Candidates<T>>::kill();
+					Candidates::<T>::kill();
 
 					Self::deposit_event(Event::NewTerm { new_members: new_members_sorted_by_id });
-					<ElectionRounds<T>>::mutate(|v| *v += 1);
+					ElectionRounds::<T>::mutate(|v| *v += 1);
 				})
 				.map_err(|e| {
 					log::error!(target: LOG_TARGET, "Failed to run election [{:?}].", e,);
@@ -1503,7 +1503,7 @@ mod tests {
 
 			#[cfg(feature = "try-runtime")]
 			ext.execute_with(|| {
-				assert_ok!(<Elections as frame_support::traits::Hooks<u64>>::try_state(
+				assert_ok!(<Elections as frame_support::traits::Hooks::<u64>::try_state(
 					System::block_number()
 				));
 			});
@@ -1603,7 +1603,7 @@ mod tests {
 			assert!(Elections::runners_up().is_empty());
 
 			assert!(candidate_ids().is_empty());
-			assert_eq!(<Candidates<Test>>::decode_len(), None);
+			assert_eq!(Candidates::<Test>::decode_len(), None);
 			assert!(Elections::is_candidate(&1).is_err());
 
 			assert!(all_voters().is_empty());
@@ -2273,7 +2273,7 @@ mod tests {
 			assert_eq!(votes_of(&4), vec![4]);
 
 			assert_eq!(candidate_ids(), vec![3, 4, 5]);
-			assert_eq!(<Candidates<Test>>::decode_len().unwrap(), 3);
+			assert_eq!(Candidates::<Test>::decode_len().unwrap(), 3);
 
 			assert_eq!(Elections::election_rounds(), 0);
 
@@ -2288,7 +2288,7 @@ mod tests {
 
 			assert_eq_uvec!(all_voters(), vec![2, 3, 4]);
 			assert!(candidate_ids().is_empty());
-			assert_eq!(<Candidates<Test>>::decode_len(), None);
+			assert_eq!(Candidates::<Test>::decode_len(), None);
 
 			assert_eq!(Elections::election_rounds(), 1);
 		});
@@ -2647,7 +2647,7 @@ mod tests {
 			assert_ok!(vote(RuntimeOrigin::signed(4), vec![4], 40));
 			assert_ok!(vote(RuntimeOrigin::signed(5), vec![5], 50));
 
-			assert_eq!(<Candidates<Test>>::decode_len().unwrap(), 3);
+			assert_eq!(Candidates::<Test>::decode_len().unwrap(), 3);
 
 			assert_eq!(Elections::election_rounds(), 0);
 
