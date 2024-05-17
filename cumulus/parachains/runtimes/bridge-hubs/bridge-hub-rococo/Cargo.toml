@@ -106,7 +106,7 @@ snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/parac
 snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false, version = "0.1.1" }
 snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/parachain/pallets/system/runtime-api", default-features = false, version = "0.1.0" }
 snowbridge-core = { path = "../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false, version = "0.1.1" }
-snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/parachain/pallets/ethereum-client", default-features = false, version = "0.1.1" }
+snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/parachain/pallets/ethereum-client", default-features = false, version = "0.1.2" }
 snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false, version = "0.1.1" }
 snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false, version = "0.1.1" }
 snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/parachain/pallets/outbound-queue/runtime-api", default-features = false, version = "0.1.1" }

@@ -80,7 +80,7 @@ assets-common = { path = "../../../../../cumulus/parachains/runtimes/assets/comm
 snowbridge-core = { path = "../../primitives/core", default-features = false, version = "0.1.1" }
 snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false, version = "0.1.0" }
 snowbridge-router-primitives = { path = "../../primitives/router", default-features = false, version = "0.1.0" }
-snowbridge-pallet-ethereum-client = { path = "../../pallets/ethereum-client", default-features = false, version = "0.1.1" }
+snowbridge-pallet-ethereum-client = { path = "../../pallets/ethereum-client", default-features = false, version = "0.1.2" }
 snowbridge-pallet-ethereum-client-fixtures = { path = "../../pallets/ethereum-client/fixtures", default-features = false, version = "0.9.0" }
 snowbridge-pallet-inbound-queue = { path = "../../pallets/inbound-queue", default-features = false, version = "0.1.1" }
 snowbridge-pallet-outbound-queue = { path = "../../pallets/outbound-queue", default-features = false, version = "0.1.1" }
