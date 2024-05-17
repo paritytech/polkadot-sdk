@@ -438,8 +438,8 @@ mod tests {
 		let pk_bytes = pk.to_bytes();
 		let pk1: libp2p_ed25519::PublicKey = pk.clone().into();
 		let pk2: litep2p_ed25519::PublicKey = pk.clone().into();
-		let pk3 = libp2p_ed25519::PublicKey::try_from_bytes(&mut pk_bytes.clone()).unwrap();
-		let pk4 = litep2p_ed25519::PublicKey::decode(&mut pk_bytes.clone()).unwrap();
+		let pk3 = libp2p_ed25519::PublicKey::try_from_bytes(&pk_bytes).unwrap();
+		let pk4 = litep2p_ed25519::PublicKey::decode(&pk_bytes).unwrap();
 
 		assert_eq!(pk_bytes, pk1.to_bytes());
 		assert_eq!(pk_bytes, pk2.encode());
