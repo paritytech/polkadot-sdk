@@ -690,7 +690,6 @@ pub mod pallet {
 	/// Invariant: Always sorted based on rank (worse to best). Upon removal of a member, the
 	/// last (i.e. _best_) runner-up will be replaced.
 	#[pallet::storage]
-	#[pallet::getter(fn runners_up)]
 	pub type RunnersUp<T: Config> =
 		StorageValue<_, Vec<SeatHolder<T::AccountId, BalanceOf<T>>>, ValueQuery>;
 
@@ -898,7 +897,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Check if `who` is currently an active runner-up.
 	fn is_runner_up(who: &T::AccountId) -> bool {
-		Self::runners_up().iter().any(|r| &r.who == who)
+		RunnersUp::<T>::get().iter().any(|r| &r.who == who)
 	}
 
 	/// Get the members' account ids.
@@ -914,7 +913,7 @@ impl<T: Config> Pallet<T> {
 		Members::<T>::get()
 			.into_iter()
 			.map(|m| (m.who, m.deposit))
-			.chain(Self::runners_up().into_iter().map(|r| (r.who, r.deposit)))
+			.chain(RunnersUp::<T>::get().into_iter().map(|r| (r.who, r.deposit)))
 			.collect::<Vec<_>>()
 	}
 
@@ -1297,7 +1296,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn runners_up_ids() -> Vec<T::AccountId> {
-		Pallet::<T>::runners_up().into_iter().map(|r| r.who).collect::<Vec<_>>()
+		RunnersUp::<T>::get().into_iter().map(|r| r.who).collect::<Vec<_>>()
 	}
 }
 
@@ -1525,7 +1524,7 @@ mod tests {
 	}
 
 	fn runners_up_ids() -> Vec<u64> {
-		Elections::runners_up().into_iter().map(|r| r.who).collect::<Vec<_>>()
+		RunnersUp::<Test>::get().into_iter().map(|r| r.who).collect::<Vec<_>>()
 	}
 
 	fn members_ids() -> Vec<u64> {
@@ -1537,7 +1536,7 @@ mod tests {
 	}
 
 	fn runners_up_and_stake() -> Vec<(u64, u64)> {
-		Elections::runners_up()
+		RunnersUp::<Test>::get()
 			.into_iter()
 			.map(|r| (r.who, r.stake))
 			.collect::<Vec<_>>()
@@ -1599,7 +1598,7 @@ mod tests {
 			assert_eq!(Elections::election_rounds(), 0);
 
 			assert!(elections_phragmen::Members::<Test>::get().is_empty());
-			assert!(Elections::runners_up().is_empty());
+			assert!(RunnersUp::<Test>::get().is_empty());
 
 			assert!(candidate_ids().is_empty());
 			assert_eq!(Candidates::<Test>::decode_len(), None);
@@ -1731,14 +1730,14 @@ mod tests {
 			assert_eq!(Elections::election_rounds(), 0);
 
 			assert!(members_ids().is_empty());
-			assert!(Elections::runners_up().is_empty());
+			assert!(RunnersUp::<Test>::get().is_empty());
 			assert!(candidate_ids().is_empty());
 
 			System::set_block_number(5);
 			Elections::on_initialize(System::block_number());
 
 			assert!(members_ids().is_empty());
-			assert!(Elections::runners_up().is_empty());
+			assert!(RunnersUp::<Test>::get().is_empty());
 			assert!(candidate_ids().is_empty());
 		});
 	}
@@ -1844,7 +1843,7 @@ mod tests {
 			Elections::on_initialize(System::block_number());
 
 			assert_eq!(members_ids(), vec![5]);
-			assert!(Elections::runners_up().is_empty());
+			assert!(RunnersUp::<Test>::get().is_empty());
 			assert!(candidate_ids().is_empty());
 
 			assert_noop!(submit_candidacy(RuntimeOrigin::signed(5)), Error::<Test>::MemberSubmit);
@@ -2283,7 +2282,7 @@ mod tests {
 			// votes for 5
 			assert_eq!(balances(&2), (18, 2));
 			assert_eq!(members_and_stake(), vec![(3, 25), (5, 18)]);
-			assert!(Elections::runners_up().is_empty());
+			assert!(RunnersUp::<Test>::get().is_empty());
 
 			assert_eq_uvec!(all_voters(), vec![2, 3, 4]);
 			assert!(candidate_ids().is_empty());

@@ -125,14 +125,14 @@ fn fill_seats_up_to<T: Config>(m: u32) -> Result<Vec<T::AccountId>, &'static str
 	Elections::<T>::do_phragmen();
 	assert_eq!(Elections::<T>::candidates().len(), 0, "some candidates remaining.");
 	assert_eq!(
-		Members::<T>::get().len() + Elections::<T>::runners_up().len(),
+		Members::<T>::get().len() + RunnersUp::<T>::get().len(),
 		m as usize,
 		"wrong number of members and runners-up",
 	);
 	Ok(Members::<T>::get()
 		.into_iter()
 		.map(|m| m.who)
-		.chain(Elections::<T>::runners_up().into_iter().map(|r| r.who))
+		.chain(RunnersUp::<T>::get().into_iter().map(|r| r.who))
 		.collect())
 }
 
@@ -409,7 +409,7 @@ benchmarks! {
 	verify {
 		assert_eq!(Members::<T>::get().len() as u32, T::DesiredMembers::get().min(c));
 		assert_eq!(
-			Elections::<T>::runners_up().len() as u32,
+			RunnersUp::<T>::get().len() as u32,
 			T::DesiredRunnersUp::get().min(c.saturating_sub(T::DesiredMembers::get())),
 		);
 
