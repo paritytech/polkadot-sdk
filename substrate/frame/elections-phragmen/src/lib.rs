@@ -1498,7 +1498,7 @@ mod tests {
 
 			#[cfg(feature = "try-runtime")]
 			ext.execute_with(|| {
-				assert_ok!(<Elections as frame_support::traits::Hooks::<u64>::try_state(
+				assert_ok!(<Elections as frame_support::traits::Hooks<u64>>::try_state(
 					System::block_number()
 				));
 			});
