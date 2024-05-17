@@ -82,6 +82,7 @@ pub fn signed_extra(nonce: Nonce, extra_fee: Balance) -> SignedExtra {
 		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
 		),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 	)
 }
 
