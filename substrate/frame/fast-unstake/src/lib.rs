@@ -227,7 +227,6 @@ pub mod pallet {
 	/// checked. The checking is represented by updating [`UnstakeRequest::checked`], which is
 	/// stored in [`Head`].
 	#[pallet::storage]
-	#[pallet::getter(fn eras_to_check_per_block)]
 	pub type ErasToCheckPerBlock<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::event]
