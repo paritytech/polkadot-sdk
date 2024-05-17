@@ -854,7 +854,7 @@ pub mod pallet {
 
 		/// Extrinsic for enabling auto renewal.
 		///
-		/// Callable by the account associated with the task on the specified core. This account
+		/// Callable by the sovereign account of the task on the specified core. This account
 		/// will be charged at the start of every bulk period for renewing core time.
 		///
 		/// - `origin`: Must be the sovereign account of the task
@@ -874,6 +874,12 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Extrinsic for disabling auto renewal.
+		///
+		/// Callable by the sovereign account of the task on the specified core.
+		///
+		/// - `origin`: Must be the sovereign account of the task.
+		/// - `core`: The core for which we want to enable auto renewal.
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::notify_core_count())]
 		pub fn disable_auto_renew(origin: OriginFor<T>, core: CoreIndex) -> DispatchResult {

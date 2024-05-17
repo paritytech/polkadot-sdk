@@ -1589,7 +1589,6 @@ fn disable_auto_renew_works() {
 		assert_ok!(Broker::do_start_sales(100, 3));
 		advance_to(2);
 		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
-		let record = Regions::<Test>::get(region_id).unwrap();
 
 		// Eligible for renewal after final assignment:
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
