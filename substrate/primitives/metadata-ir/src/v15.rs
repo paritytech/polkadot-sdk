@@ -17,17 +17,16 @@
 
 //! Convert the IR to V15 metadata.
 
-use crate::OuterEnumsIR;
-
 use super::types::{
-	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
-	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, SignedExtensionMetadataIR,
+	CustomMetadataIR, ExtrinsicMetadataIR, MetadataIR, OuterEnumsIR, PalletMetadataIR,
+	RuntimeApiMetadataIR, RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR,
+	SignedExtensionMetadataIR,
 };
 
 use frame_metadata::v15::{
-	CustomMetadata, ExtrinsicMetadata, OuterEnums, PalletMetadata, RuntimeApiMetadata,
-	RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata, RuntimeMetadataV15,
-	SignedExtensionMetadata,
+	CustomMetadata, CustomValueMetadata, ExtrinsicMetadata, OuterEnums, PalletMetadata,
+	RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata,
+	RuntimeMetadataV15, SignedExtensionMetadata,
 };
 
 impl From<MetadataIR> for RuntimeMetadataV15 {
@@ -38,9 +37,8 @@ impl From<MetadataIR> for RuntimeMetadataV15 {
 			ir.ty,
 			ir.apis.into_iter().map(Into::into).collect(),
 			ir.outer_enums.into(),
-			// Substrate does not collect yet the custom metadata fields.
 			// This allows us to extend the V15 easily.
-			CustomMetadata { map: Default::default() },
+			ir.custom_types.into(),
 		)
 	}
 }
@@ -116,6 +114,18 @@ impl From<OuterEnumsIR> for OuterEnums {
 			call_enum_ty: ir.call_enum_ty,
 			event_enum_ty: ir.event_enum_ty,
 			error_enum_ty: ir.error_enum_ty,
+		}
+	}
+}
+
+impl From<CustomMetadataIR> for CustomMetadata {
+	fn from(ir: CustomMetadataIR) -> Self {
+		CustomMetadata {
+			map: ir
+				.map
+				.into_iter()
+				.map(|(name, ty)| (name, CustomValueMetadata { ty, value: Default::default() }))
+				.collect(),
 		}
 	}
 }

@@ -27,6 +27,8 @@ pub fn expand_runtime_metadata(
 	scrate: &TokenStream,
 	extrinsic: &TokenStream,
 	system_path: &PalletPath,
+	assets_pallet: Option<&Pallet>,
+	header: &TokenStream,
 ) -> TokenStream {
 	let pallets = pallet_declarations
 		.iter()
@@ -74,6 +76,23 @@ pub fn expand_runtime_metadata(
 			}
 		})
 		.collect::<Vec<_>>();
+
+	let maybe_asset_id = assets_pallet
+		.map(|pallet| {
+			let path = &pallet.path;
+			let instance = &pallet.instance;
+			let maybe_instance = instance.as_ref().map(|inst| quote! { <#inst> });
+
+			quote! {
+				(
+					"AssetId".into(),
+					#scrate::__private::scale_info::meta_type::<
+							<#runtime as #path::Config #maybe_instance>::AssetId
+						>(),
+				),
+			}
+		})
+		.unwrap_or_default();
 
 	quote! {
 		impl #runtime {
@@ -140,6 +159,43 @@ pub fn expand_runtime_metadata(
 							>(),
 						event_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeEvent>(),
 						error_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeError>(),
+					},
+					custom_types: #scrate::__private::metadata_ir::CustomMetadataIR {
+						map: [
+							(
+								"AccountId".into(),
+								#scrate::__private::scale_info::meta_type::<
+										<#runtime as #system_path::Config>::AccountId
+									>(),
+							),
+							(
+								"Address".into(),
+								address_ty,
+							),
+							(
+								"Signature".into(),
+								signature_ty,
+							),
+							(
+								"Hash".into(),
+								#scrate::__private::scale_info::meta_type::<
+										<#runtime as #system_path::Config>::Hash
+									>(),
+							),
+							(
+								"Hashing".into(),
+								#scrate::__private::scale_info::meta_type::<
+										<#runtime as #system_path::Config>::Hashing
+									>(),
+							),
+							(
+								"Header".into(),
+								#scrate::__private::scale_info::meta_type::<#header>(),
+							),
+							#maybe_asset_id
+						]
+						.into_iter()
+						.collect(),
 					}
 				}
 			}

@@ -226,6 +226,10 @@ use syn::{spanned::Spanned, Ident, Result};
 
 /// The fixed name of the system pallet.
 const SYSTEM_PALLET_NAME: &str = "System";
+/// The fixed name of the ForeignAssets pallet.
+const FOREIGN_ASSETS_PALLET_NAME: &str = "ForeignAssets";
+/// The fixed name of the Assets pallet.
+const ASSETS_PALLET_NAME: &str = "Assets";
 
 /// Implementation of `construct_runtime` macro. Either expand to some code which will call
 /// `construct_runtime` again, or expand to the final runtime definition.
@@ -365,6 +369,12 @@ fn construct_runtime_final_expansion(
 		))
 	}
 
+	// Find either the foreign assets pallet or the local assets pallet in this order.
+	let assets_pallet = pallets
+		.iter()
+		.find(|decl| decl.name == FOREIGN_ASSETS_PALLET_NAME)
+		.or_else(|| pallets.iter().find(|decl| decl.name == ASSETS_PALLET_NAME));
+
 	let features = pallets
 		.iter()
 		.filter_map(|decl| {
@@ -388,6 +398,7 @@ fn construct_runtime_final_expansion(
 	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 	let block = quote!(<#name as #frame_system::Config>::Block);
 	let unchecked_extrinsic = quote!(<#block as #scrate::sp_runtime::traits::Block>::Extrinsic);
+	let header = quote!(<#block as #scrate::sp_runtime::traits::Block>::Header);
 
 	let outer_event =
 		expand::expand_outer_enum(&name, &pallets, &scrate, expand::OuterEnumType::Event)?;
@@ -406,6 +417,8 @@ fn construct_runtime_final_expansion(
 		&scrate,
 		&unchecked_extrinsic,
 		&system_pallet.path,
+		assets_pallet,
+		&header,
 	);
 	let outer_config = expand::expand_outer_config(&name, &pallets, &scrate);
 	let inherent =
