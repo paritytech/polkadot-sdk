@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715953587689,
+  "lastUpdate": 1715961161193,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -8147,6 +8147,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.9194908425,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a90d324d5b3252033e00a96d9f9f4890b1cfc982",
+          "message": "Contracts: Remove topics for internal events (#4510)",
+          "timestamp": "2024-05-17T13:47:01Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a90d324d5b3252033e00a96d9f9f4890b1cfc982"
+        },
+        "date": 1715961133321,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1803669195,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.837346158899999,
             "unit": "seconds"
           }
         ]
