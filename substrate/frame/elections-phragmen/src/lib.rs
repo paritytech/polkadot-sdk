@@ -682,7 +682,6 @@ pub mod pallet {
 	///
 	/// Invariant: Always sorted based on account id.
 	#[pallet::storage]
-	#[pallet::getter(fn members)]
 	pub type Members<T: Config> =
 		StorageValue<_, Vec<SeatHolder<T::AccountId, BalanceOf<T>>>, ValueQuery>;
 
