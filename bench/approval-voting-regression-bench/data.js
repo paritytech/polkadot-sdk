@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715952992514,
+  "lastUpdate": 1715960562330,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3806,6 +3806,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.0088377940700957,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a90d324d5b3252033e00a96d9f9f4890b1cfc982",
+          "message": "Contracts: Remove topics for internal events (#4510)",
+          "timestamp": "2024-05-17T13:47:01Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a90d324d5b3252033e00a96d9f9f4890b1cfc982"
+        },
+        "date": 1715960534836,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63542.579999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.046118530730043,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.597563301780033,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9756738932400904,
             "unit": "seconds"
           }
         ]
