@@ -148,7 +148,7 @@ impl From<LiteP2pError> for ParseError {
 			LiteP2pError::UnknownProtocolId(n) => ParseError::UnknownProtocolId(n),
 			LiteP2pError::InvalidUvar(e) => ParseError::InvalidUvar(Box::new(e)),
 			LiteP2pError::ParsingError(e) => ParseError::ParsingError(e),
-			error @ _ => ParseError::ParsingError(Box::new(error)),
+			error => ParseError::ParsingError(Box::new(error)),
 		}
 	}
 }

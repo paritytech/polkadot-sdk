@@ -60,7 +60,7 @@ impl From<LiteP2pError> for Error {
 		match error {
 			LiteP2pError::InvalidSize(s) => Self::InvalidSize(s),
 			LiteP2pError::UnsupportedCode(c) => Self::UnsupportedCode(c),
-			e @ _ => Self::Other(Box::new(e)),
+			e => Self::Other(Box::new(e)),
 		}
 	}
 }

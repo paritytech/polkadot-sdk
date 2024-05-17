@@ -80,7 +80,7 @@ impl<'a> From<LiteP2pProtocol<'a>> for Protocol<'a> {
 			LiteP2pProtocol::Memory(port) => Protocol::Memory(port),
 			LiteP2pProtocol::Onion(str, port) => Protocol::Onion(str, port),
 			LiteP2pProtocol::Onion3(addr) =>
-				Protocol::Onion3(Cow::Owned(addr.hash().clone()), addr.port()),
+				Protocol::Onion3(Cow::Owned(*addr.hash()), addr.port()),
 			LiteP2pProtocol::P2p(multihash) => Protocol::P2p(multihash.into()),
 			LiteP2pProtocol::P2pCircuit => Protocol::P2pCircuit,
 			LiteP2pProtocol::Quic => Protocol::Quic,
