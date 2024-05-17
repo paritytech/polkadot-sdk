@@ -239,7 +239,7 @@ fn transaction_payment_in_asset_possible() {
 			let fee_in_asset = input_quote.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_5), len)
 				.unwrap();
 			// assert that native balance is not used
@@ -263,7 +263,6 @@ fn transaction_payment_in_asset_possible() {
 			));
 
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
-			assert_eq!(TipUnbalancedAmount::get(), 0);
 			assert_eq!(FeeUnbalancedAmount::get(), fee_in_native);
 		});
 }
@@ -297,7 +296,7 @@ fn transaction_payment_in_asset_fails_if_no_pool_for_that_asset() {
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 
 			let len = 10;
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id)).pre_dispatch(
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into())).pre_dispatch(
 				&caller,
 				CALL,
 				&info_from_weight(WEIGHT_5),
@@ -352,7 +351,7 @@ fn transaction_payment_without_fee() {
 			assert_eq!(input_quote, Some(201));
 
 			let fee_in_asset = input_quote.unwrap();
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_5), len)
 				.unwrap();
 
@@ -429,7 +428,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			assert_eq!(input_quote, Some(1206));
 
 			let fee_in_asset = input_quote.unwrap();
-			let pre = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_100), len)
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -458,8 +457,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				&Ok(())
 			));
 
-			assert_eq!(TipUnbalancedAmount::get(), tip);
-			assert_eq!(FeeUnbalancedAmount::get(), expected_fee);
+			assert_eq!(FeeUnbalancedAmount::get(), expected_fee + tip);
 
 			// caller should get refunded
 			assert_eq!(
@@ -521,7 +519,7 @@ fn payment_from_account_with_only_assets() {
 			.unwrap();
 			assert_eq!(fee_in_asset, 201);
 
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_5), len)
 				.unwrap();
 			assert_eq!(Balances::free_balance(caller), 0);
@@ -540,7 +538,6 @@ fn payment_from_account_with_only_assets() {
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset + refund);
 			assert_eq!(Balances::free_balance(caller), 0);
 
-			assert_eq!(TipUnbalancedAmount::get(), 0);
 			assert_eq!(FeeUnbalancedAmount::get(), fee_in_native);
 		});
 }
@@ -580,7 +577,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 
 			// there will be no conversion when the fee is zero
 			{
-				let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+				let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 					.pre_dispatch(&caller, CALL, &info_from_pays(Pays::No), len)
 					.unwrap();
 				// `Pays::No` implies there are no fees
@@ -606,7 +603,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			)
 			.unwrap();
 
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(Weight::from_parts(weight, 0)), len)
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -656,7 +653,7 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 			// calculated fee is greater than 0
 			assert!(fee > 0);
 
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_pays(Pays::No), len)
 				.unwrap();
 			// `Pays::No` implies no pre-dispatch fees

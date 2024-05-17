@@ -21,6 +21,7 @@ use frame_support::{
 	traits::{
 		fungible::Inspect,
 		fungibles,
+		fungibles::Inspect as FungiblesInspect,
 		tokens::{Balance, Fortitude, Precision, Preservation},
 		Defensive, SameOrOther,
 	},
@@ -201,11 +202,13 @@ where
 	}
 }
 
-use frame_support::traits::fungibles::Inspect as FungiblesInspect;
+use super::pallet as pallet_asset_conversion_tx_payment;
 
-/// TODO: doc
+/// Implements [`OnChargeAssetTransaction`] for [`pallet_asset_conversion_tx_payment`], where
+/// the asset class used to pay the fee is defined with the `A` type parameter (eg. DOT
+/// location) and accessed via the type implementing the [`frame_support::traits::fungibles`]
+/// trait.
 pub struct SwapCreditAdapter<A, S>(PhantomData<(A, S)>);
-
 impl<A, S, T> OnChargeAssetTransaction<T> for SwapCreditAdapter<A, S>
 where
 	A: Get<S::AssetKind>,
@@ -216,15 +219,14 @@ where
 		Credit = fungibles::Credit<T::AccountId, T::Assets>,
 	>,
 
-	T: Config,
-	T::AssetKind: From<AssetIdOf<T>>,
-	T::Balance: Into<AssetBalanceOf<T>>,
+	T: pallet_asset_conversion_tx_payment::Config,
+	T::Fungibles: fungibles::Inspect<T::AccountId, Balance = T::Balance, AssetId = T::AssetKind>,
 	T::OnChargeTransaction:
-		OnChargeTransaction<T, Balance = S::Balance, LiquidityInfo = Option<S::Credit>>,
+		OnChargeTransaction<T, Balance = T::Balance, LiquidityInfo = Option<S::Credit>>,
 {
-	type AssetId = AssetIdOf<T>;
-	type Balance = BalanceOf<T>;
-	type LiquidityInfo = BalanceOf<T>;
+	type AssetId = T::AssetKind;
+	type Balance = T::Balance;
+	type LiquidityInfo = T::Balance;
 
 	fn withdraw_fee(
 		who: &<T>::AccountId,
@@ -233,12 +235,9 @@ where
 		asset_id: Self::AssetId,
 		fee: Self::Balance,
 		_tip: Self::Balance,
-	) -> Result<
-		(LiquidityInfoOf<T>, Self::LiquidityInfo, AssetBalanceOf<T>),
-		TransactionValidityError,
-	> {
+	) -> Result<(LiquidityInfoOf<T>, Self::LiquidityInfo, T::Balance), TransactionValidityError> {
 		let asset_fee = AssetConversion::<T>::quote_price_tokens_for_exact_tokens(
-			asset_id.clone().into(),
+			asset_id.clone(),
 			A::get(),
 			fee,
 			true,
@@ -246,7 +245,7 @@ where
 		.ok_or(InvalidTransaction::Payment)?;
 
 		let asset_fee_credit = T::Assets::withdraw(
-			asset_id.clone().into(),
+			asset_id.clone(),
 			who,
 			asset_fee,
 			Precision::Exact,
@@ -256,7 +255,7 @@ where
 		.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
 
 		let (fee_credit, change) = match S::swap_tokens_for_exact_tokens(
-			vec![asset_id.into(), A::get()],
+			vec![asset_id, A::get()],
 			asset_fee_credit,
 			fee,
 		) {
@@ -267,9 +266,9 @@ where
 			},
 		};
 
-		ensure!(change.peek() == Zero::zero(), InvalidTransaction::Payment);
+		ensure!(change.peek().is_zero(), InvalidTransaction::Payment);
 
-		Ok((Some(fee_credit), fee, asset_fee.into()))
+		Ok((Some(fee_credit), fee, asset_fee))
 	}
 	fn correct_and_deposit_fee(
 		who: &<T>::AccountId,
@@ -280,22 +279,19 @@ where
 		fee_paid: LiquidityInfoOf<T>,
 		_received_exchanged: Self::LiquidityInfo,
 		asset_id: Self::AssetId,
-		initial_asset_consumed: AssetBalanceOf<T>,
-	) -> Result<AssetBalanceOf<T>, TransactionValidityError> {
-		let fee_paid = if let Some(fee_paid) = fee_paid {
-			fee_paid
-		} else {
+		initial_asset_consumed: T::Balance,
+	) -> Result<T::Balance, TransactionValidityError> {
+		let Some(fee_paid) = fee_paid else {
 			return Ok(Zero::zero());
 		};
-		let asset_id: T::AssetKind = asset_id.into();
 		// Try to refund if the fee paid is more than the corrected fee and the account was not
 		// removed by the dispatched function.
 		let (fee, fee_in_asset) = if fee_paid.peek() > corrected_fee &&
-			T::Assets::total_balance(asset_id.clone(), who) > Zero::zero()
+			!T::Assets::total_balance(asset_id.clone(), who).is_zero()
 		{
 			let refund_amount = fee_paid.peek().saturating_sub(corrected_fee);
-			// Check if the refund amount can be swapped back into the asset used by `who` for fee
-			// payment.
+			// Check if the refund amount can be swapped back into the asset used by `who` for
+			// fee payment.
 			let refund_asset_amount = AssetConversion::<T>::quote_price_exact_tokens_for_tokens(
 				A::get(),
 				asset_id.clone(),
@@ -317,7 +313,7 @@ where
 				Err(_) => fungibles::Debt::<T::AccountId, T::Assets>::zero(asset_id.clone()),
 			};
 
-			if debt.peek() == Zero::zero() {
+			if debt.peek().is_zero() {
 				// No refund given.
 				(fee_paid, initial_asset_consumed)
 			} else {
@@ -331,7 +327,8 @@ where
 						match refund_asset.offset(debt) {
 							Ok(SameOrOther::None) => {},
 							// This arm should never be reached, as the  amount of `debt` is
-							// expected to be exactly equal to the amount of `refund_asset` credit.
+							// expected to be exactly equal to the amount of `refund_asset`
+							// credit.
 							_ => return Err(InvalidTransaction::Payment.into()),
 						};
 						(
@@ -342,9 +339,9 @@ where
 					// The error should not occur since swap was quoted before.
 					Err((refund, _)) => {
 						match T::Assets::settle(who, debt, Preservation::Expendable) {
-							Ok(dust) =>
-								ensure!(dust.peek() == Zero::zero(), InvalidTransaction::Payment),
-							// The error should not occur as the `debt` was just withdrawn above.
+							Ok(dust) => ensure!(dust.peek().is_zero(), InvalidTransaction::Payment),
+							// The error should not occur as the `debt` was just withdrawn
+							// above.
 							Err(_) => return Err(InvalidTransaction::Payment.into()),
 						};
 						let fee_paid = fee_paid.merge(refund).map_err(|_| {

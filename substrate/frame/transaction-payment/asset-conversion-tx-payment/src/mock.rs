@@ -24,12 +24,12 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{
-		fungible, fungibles,
+		fungibles,
 		tokens::{
 			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
 			imbalance::ResolveAssetTo,
 		},
-		AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced,
+		AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, OnUnbalanced,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 	PalletId,
@@ -150,26 +150,7 @@ impl WeightToFeeT for TransactionByteFee {
 }
 
 parameter_types! {
-	pub(crate) static TipUnbalancedAmount: u64 = 0;
 	pub(crate) static FeeUnbalancedAmount: u64 = 0;
-}
-
-pub struct DealWithFees;
-impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
-	for DealWithFees
-{
-	fn on_unbalanceds<B>(
-		mut fees_then_tips: impl Iterator<
-			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
-		>,
-	) {
-		if let Some(fees) = fees_then_tips.next() {
-			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
-			if let Some(tips) = fees_then_tips.next() {
-				TipUnbalancedAmount::mutate(|a| *a += tips.peek());
-			}
-		}
-	}
 }
 
 pub struct DealWithFungiblesFees;
@@ -177,17 +158,6 @@ impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFun
 	fn on_nonzero_unbalanced(credit: fungibles::Credit<AccountId, NativeAndAssets>) {
 		if credit.asset() == Native::get() {
 			FeeUnbalancedAmount::mutate(|a| *a += credit.peek());
-		}
-	}
-}
-
-pub struct DealWithFungiblesTips;
-impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFungiblesTips {
-	fn on_nonzero_unbalanced(
-		credit: fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
-	) {
-		if credit.asset() == Native::get() {
-			TipUnbalancedAmount::mutate(|a| *a += credit.peek());
 		}
 	}
 }
@@ -200,7 +170,6 @@ impl pallet_transaction_payment::Config for Runtime {
 		NativeAndAssets,
 		Native,
 		DealWithFungiblesFees,
-		DealWithFungiblesTips,
 	>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
@@ -305,7 +274,7 @@ impl pallet_asset_conversion::Config for Runtime {
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
+	type Fungibles = NativeAndAssets;
 	// type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion, Native>;
 	type OnChargeAssetTransaction = SwapCreditAdapter<Native, AssetConversion>;
 }

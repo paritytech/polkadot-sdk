@@ -27,7 +27,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::{self, NativeFromLeft, NativeOrWithId},
-		fungibles, AsEnsureOriginWithArg, ConstU32, ConstU64, Imbalance, OnUnbalanced,
+		fungibles, AsEnsureOriginWithArg, ConstU32, ConstU64, OnUnbalanced,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
@@ -141,23 +141,6 @@ parameter_types! {
 	pub(crate) static FeeUnbalancedAmount: u64 = 0;
 }
 
-pub struct DealWithFees;
-impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
-	for DealWithFees
-{
-	fn on_unbalanceds<B>(
-		mut fees_then_tips: impl Iterator<
-			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
-		>,
-	) {
-		if let Some(fees) = fees_then_tips.next() {
-			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
-			if let Some(tips) = fees_then_tips.next() {
-				TipUnbalancedAmount::mutate(|a| *a += tips.peek());
-			}
-		}
-	}
-}
 pub struct DealWithFungiblesFees;
 impl OnUnbalanced<fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>>
 	for DealWithFungiblesFees
@@ -167,19 +150,6 @@ impl OnUnbalanced<fungibles::Credit<<Runtime as frame_system::Config>::AccountId
 	) {
 		if credit.asset() == Native::get() {
 			FeeUnbalancedAmount::mutate(|a| *a += credit.peek());
-		}
-	}
-}
-
-pub struct DealWithFungiblesTips;
-impl OnUnbalanced<fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>>
-	for DealWithFungiblesTips
-{
-	fn on_nonzero_unbalanced(
-		credit: fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
-	) {
-		if credit.asset() == Native::get() {
-			TipUnbalancedAmount::mutate(|a| *a += credit.peek());
 		}
 	}
 }
@@ -194,8 +164,7 @@ parameter_types! {
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
-	type OnChargeTransaction =
-		FungiblesAdapter<NativeAndAssets, Native, DealWithFungiblesFees, DealWithFungiblesTips>;
+	type OnChargeTransaction = FungiblesAdapter<NativeAndAssets, Native, DealWithFungiblesFees>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;

@@ -30,8 +30,9 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit, Debt, Inspect},
 		fungibles,
-		tokens::Precision,
-		Currency, ExistenceRequirement, Imbalance, OnUnbalanced, SameOrOther, WithdrawReasons,
+		tokens::{Fortitude, Precision, Preservation},
+		Currency, Defensive, ExistenceRequirement, Imbalance, OnUnbalanced, SameOrOther,
+		WithdrawReasons,
 	},
 	unsigned::TransactionValidityError,
 };
@@ -146,18 +147,19 @@ where
 	}
 }
 
-/// Implements transaction payment for a pallet implementing the
-/// [`frame_support::traits::fungibles`] trait (eg. pallet_balances in union with pallet_assets)
-/// using an unbalance handler (implementing [`OnUnbalanced`]).
-pub struct FungiblesAdapter<F, A, OUF, OUT>(PhantomData<(F, A, OUF, OUT)>);
+use super::pallet as pallet_transaction_payment;
 
-impl<T, F, A, OUF, OUT> OnChargeTransaction<T> for FungiblesAdapter<F, A, OUF, OUT>
+/// Implements [`OnChargeTransaction`] for [`pallet_transaction_payment`], where the asset class
+/// used to pay the fee is defined with the `A` type parameter (eg. KSM location) and accessed
+/// via the type implementing the [`frame_support::traits::fungibles`] trait.
+pub struct FungiblesAdapter<F, A, OU>(PhantomData<(F, A, OU)>);
+
+impl<T, F, A, OU> OnChargeTransaction<T> for FungiblesAdapter<F, A, OU>
 where
-	T: Config,
+	T: pallet_transaction_payment::Config,
 	F: fungibles::Balanced<T::AccountId>,
 	A: Get<F::AssetId>,
-	OUF: OnUnbalanced<fungibles::Credit<T::AccountId, F>>,
-	OUT: OnUnbalanced<fungibles::Credit<T::AccountId, F>>,
+	OU: OnUnbalanced<fungibles::Credit<T::AccountId, F>>,
 {
 	type LiquidityInfo = Option<fungibles::Credit<T::AccountId, F>>;
 	type Balance = F::Balance;
@@ -178,8 +180,8 @@ where
 			who,
 			fee,
 			Precision::Exact,
-			frame_support::traits::tokens::Preservation::Preserve,
-			frame_support::traits::tokens::Fortitude::Polite,
+			Preservation::Preserve,
+			Fortitude::Polite,
 		) {
 			Ok(imbalance) => Ok(Some(imbalance)),
 			Err(_) => Err(InvalidTransaction::Payment.into()),
@@ -191,38 +193,40 @@ where
 		_dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
 		_post_info: &PostDispatchInfoOf<<T>::RuntimeCall>,
 		corrected_fee: Self::Balance,
-		tip: Self::Balance,
+		_tip: Self::Balance,
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
-		if let Some(paid) = already_withdrawn {
-			// Make sure the credit is in desired asset id.
-			ensure!(paid.asset() == A::get(), InvalidTransaction::Payment);
-			// Calculate how much refund we should return.
-			let refund_amount = paid.peek().saturating_sub(corrected_fee);
-			// Refund to the the account that paid the fees if it was not removed by the dispatched
-			// function. If fails for any reason (eg. ED requirement is not met) no refund given.
-			let refund_debt = if F::total_balance(A::get(), who) > F::Balance::zero() &&
-				refund_amount > F::Balance::zero()
-			{
-				F::deposit(A::get(), who, refund_amount, Precision::BestEffort)
-					.unwrap_or_else(|_| fungibles::Debt::<T::AccountId, F>::zero(A::get()))
-			} else {
-				fungibles::Debt::<T::AccountId, F>::zero(A::get())
-			};
-			// Merge the imbalance caused by paying the fees and refunding parts of it again.
-			let adjusted_paid: fungibles::Credit<T::AccountId, F> = match paid.offset(refund_debt) {
+		let Some(paid) = already_withdrawn else {
+			return Ok(());
+		};
+		// Make sure the credit is in desired asset id.
+		ensure!(paid.asset() == A::get(), InvalidTransaction::Payment);
+		// Calculate how much refund we should return.
+		let refund_amount = paid.peek().saturating_sub(corrected_fee);
+		// Refund to the the account that paid the fees if it was not removed by the
+		// dispatched function. If fails for any reason (eg. ED requirement is not met) no
+		// refund given.
+		let refund_debt = if F::total_balance(A::get(), who).is_zero() || refund_amount.is_zero() {
+			fungibles::Debt::<T::AccountId, F>::zero(A::get())
+		} else {
+			F::deposit(A::get(), who, refund_amount, Precision::BestEffort)
+				.unwrap_or_else(|_| fungibles::Debt::<T::AccountId, F>::zero(A::get()))
+		};
+		// Merge the imbalance caused by paying the fees and refunding parts of it again.
+		let adjusted_paid: fungibles::Credit<T::AccountId, F> =
+			match paid.offset(refund_debt).defensive_proof("credits should be identical") {
 				Ok(SameOrOther::Same(credit)) => credit,
 				// Paid amount is fully refunded.
 				Ok(SameOrOther::None) => fungibles::Credit::<T::AccountId, F>::zero(A::get()),
-				// Should never fail as at this point the asset id is always valid and the refund
-				// amount is not greater than paid amount.
+				// Should never fail as at this point the asset id is always valid and the
+				// refund amount is not greater than paid amount.
 				_ => return Err(InvalidTransaction::Payment.into()),
 			};
-			// Call someone else to handle the imbalance (fee and tip separately).
-			let (tip, fee) = adjusted_paid.split(tip);
-			OUF::on_unbalanced(fee);
-			OUT::on_unbalanced(tip);
-		}
+		// No separation for simplicity.
+		// In our case the fees and the tips are deposited to the same pot.
+		// We cannot call [`OnUnbalanced::on_unbalanceds`] since fungibles credit does not
+		// implement `Imbalanced` trait.
+		OU::on_unbalanced(adjusted_paid);
 		Ok(())
 	}
 }

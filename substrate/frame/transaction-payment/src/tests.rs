@@ -150,7 +150,6 @@ fn signed_extension_transaction_payment_work() {
 			));
 			assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 			assert_eq!(FeeUnbalancedAmount::get(), 5 + 5 + 10);
-			assert_eq!(TipUnbalancedAmount::get(), 0);
 
 			FeeUnbalancedAmount::mutate(|a| *a = 0);
 
@@ -167,8 +166,7 @@ fn signed_extension_transaction_payment_work() {
 				&Ok(())
 			));
 			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 50 - 5);
-			assert_eq!(FeeUnbalancedAmount::get(), 5 + 10 + 50);
-			assert_eq!(TipUnbalancedAmount::get(), 5);
+			assert_eq!(FeeUnbalancedAmount::get(), 5 + 10 + 50 + 5);
 		});
 }
 
