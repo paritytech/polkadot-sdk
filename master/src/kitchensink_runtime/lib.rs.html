@@ -3440,20 +3440,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3289" id="3289">3289</a>
 <a href="#3290" id="3290">3290</a>
 <a href="#3291" id="3291">3291</a>
-<a href="#3292" id="3292">3292</a>
-<a href="#3293" id="3293">3293</a>
-<a href="#3294" id="3294">3294</a>
-<a href="#3295" id="3295">3295</a>
-<a href="#3296" id="3296">3296</a>
-<a href="#3297" id="3297">3297</a>
-<a href="#3298" id="3298">3298</a>
-<a href="#3299" id="3299">3299</a>
-<a href="#3300" id="3300">3300</a>
-<a href="#3301" id="3301">3301</a>
-<a href="#3302" id="3302">3302</a>
-<a href="#3303" id="3303">3303</a>
-<a href="#3304" id="3304">3304</a>
-<a href="#3305" id="3305">3305</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4797,6 +4783,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>DepositPerItem: Balance = deposit(<span class="number">1</span>, <span class="number">0</span>);
+	<span class="kw">pub const </span>DepositPerByte: Balance = deposit(<span class="number">0</span>, <span class="number">1</span>);
+	<span class="kw">pub const </span>DefaultDepositLimit: Balance = deposit(<span class="number">1024</span>, <span class="number">1024 </span>* <span class="number">1024</span>);
 	<span class="kw">pub </span>Schedule: pallet_contracts::Schedule&lt;Runtime&gt; = Default::default();
 	<span class="kw">pub </span>CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(<span class="number">30</span>);
 }
@@ -4814,9 +4803,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// change because that would break already deployed contracts. The `Call` structure itself
 	/// is not allowed to change the indices of existing pallets, too.
 	</span><span class="kw">type </span>CallFilter = Nothing;
-	<span class="kw">type </span>DepositPerItem = dynamic_params::contracts::DepositPerItem;
-	<span class="kw">type </span>DepositPerByte = dynamic_params::contracts::DepositPerByte;
-	<span class="kw">type </span>DefaultDepositLimit = dynamic_params::contracts::DefaultDepositLimit;
+	<span class="kw">type </span>DepositPerItem = DepositPerItem;
+	<span class="kw">type </span>DepositPerByte = DepositPerByte;
+	<span class="kw">type </span>DefaultDepositLimit = DefaultDepositLimit;
 	<span class="kw">type </span>CallStack = [pallet_contracts::Frame&lt;<span class="self">Self</span>&gt;; <span class="number">5</span>];
 	<span class="kw">type </span>WeightPrice = pallet_transaction_payment::Pallet&lt;<span class="self">Self</span>&gt;;
 	<span class="kw">type </span>WeightInfo = pallet_contracts::weights::SubstrateWeight&lt;<span class="self">Self</span>&gt;;
@@ -5638,19 +5627,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[codec(index = <span class="number">1</span>)]
 		</span><span class="kw">pub static </span>ByteDeposit: Balance = <span class="number">1 </span>* CENTS;
 	}
-
-	<span class="attr">#[dynamic_pallet_params]
-	#[codec(index = <span class="number">1</span>)]
-	</span><span class="kw">pub mod </span>contracts {
-		<span class="attr">#[codec(index = <span class="number">0</span>)]
-		</span><span class="kw">pub static </span>DepositPerItem: Balance = deposit(<span class="number">1</span>, <span class="number">0</span>);
-
-		<span class="attr">#[codec(index = <span class="number">1</span>)]
-		</span><span class="kw">pub static </span>DepositPerByte: Balance = deposit(<span class="number">0</span>, <span class="number">1</span>);
-
-		<span class="attr">#[codec(index = <span class="number">2</span>)]
-		</span><span class="kw">pub static </span>DefaultDepositLimit: Balance = deposit(<span class="number">1024</span>, <span class="number">1024 </span>* <span class="number">1024</span>);
-	}
 }
 
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
@@ -5673,10 +5649,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
 		<span class="kw">match </span>key {
 			RuntimeParametersKey::Storage(<span class="kw">_</span>) =&gt; {
-				frame_system::ensure_root(origin.clone()).map_err(|<span class="kw">_</span>| origin)<span class="question-mark">?</span>;
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-			},
-			RuntimeParametersKey::Contracts(<span class="kw">_</span>) =&gt; {
 				frame_system::ensure_root(origin.clone()).map_err(|<span class="kw">_</span>| origin)<span class="question-mark">?</span>;
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			},
