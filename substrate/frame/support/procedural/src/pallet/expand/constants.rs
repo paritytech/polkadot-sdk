@@ -30,8 +30,7 @@ struct ConstDef {
 	pub metadata_name: Option<syn::Ident>,
 }
 
-///
-/// * Impl fn module_constant_metadata for pallet.
+/// Implement the `pallet_constants_metadata` function for the pallet.
 pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 	let frame_support = &def.frame_support;
 	let type_impl_gen = &def.type_impl_generics(proc_macro2::Span::call_site());
