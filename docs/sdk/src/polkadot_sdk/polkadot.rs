@@ -11,9 +11,11 @@
 //!     - [Manifesto](https://github.com/polkadot-fellows/manifesto)
 //!     - [Runtimes](https://github.com/polkadot-fellows/runtimes)
 //!     - [RFCs](https://github.com/polkadot-fellows/rfcs)
+//! 	- [Dashboard](https://polkadot-fellows.github.io/dashboard/)
 //! - [Polkadot Specs](spec.polkadot.network)
 //! - [The Polkadot Parachain Host Implementers' Guide](https://paritytech.github.io/polkadot-sdk/book/)
 //! - [Whitepaper](https://www.polkadot.network/whitepaper/)
+//! - [JAM Graypaper](https://graypaper.com)
 //!
 //! ## Alternative Node Implementations 🌈
 //!
