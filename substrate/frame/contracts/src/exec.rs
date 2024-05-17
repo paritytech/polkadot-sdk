@@ -1642,7 +1642,7 @@ mod tests {
 		exec::ExportedFunction::*,
 		gas::GasMeter,
 		tests::{
-			test_utils::{get_balance, hash, place_contract, set_balance},
+			test_utils::{get_balance, place_contract, set_balance},
 			ExtBuilder, RuntimeCall, RuntimeEvent as MetaEvent, Test, TestFilter, ALICE, BOB,
 			CHARLIE, GAS_LIMIT,
 		},
@@ -3167,7 +3167,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![],
 					},
 				]
 			);
@@ -3267,7 +3267,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![],
 					},
 				]
 			);
