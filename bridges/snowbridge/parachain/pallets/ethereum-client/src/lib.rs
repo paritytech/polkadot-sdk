@@ -195,7 +195,7 @@ pub mod pallet {
 	/// Latest imported execution header
 	#[pallet::storage]
 	#[pallet::getter(fn latest_execution_state)]
-	pub(super) type LatestExecutionState<T: Config> =
+	pub type LatestExecutionState<T: Config> =
 		StorageValue<_, ExecutionHeaderState, ValueQuery>;
 
 	/// Execution Headers
