@@ -187,7 +187,7 @@ pub mod pallet {
 	/// Sorted by `CoreIndex` to make the removal of cores from auto-renewal more efficient.
 	#[pallet::storage]
 	pub type AutoRenewals<T: Config> =
-		StorageValue<_, BoundedVec<(CoreIndex, T::AccountId), T::MaxAutoRenewals>, ValueQuery>;
+		StorageValue<_, BoundedVec<(CoreIndex, TaskId), T::MaxAutoRenewals>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -442,13 +442,21 @@ pub mod pallet {
 			/// The task for which the renewal was enabled.
 			task: TaskId,
 		},
+		AutoRenewalDisabled {
+			/// The core for which the renewal was disabled.
+			core: CoreIndex,
+			/// The task for which the renewal was disabled.
+			task: TaskId,
+		},
 		/// Failed to auto-renew a core, likely due to the payer account not being sufficiently
 		/// funded.
 		AutoRenewalFailed {
 			/// The core for which the renewal failed.
 			core: CoreIndex,
 			/// The account which was supposed to pay for renewal.
-			payer: T::AccountId,
+			///
+			/// If `None` it indicates that we failed to get the sovereign account of a task.
+			payer: Option<T::AccountId>,
 		},
 	}
 
@@ -524,6 +532,8 @@ pub mod pallet {
 		NonTaskAutoRenewal,
 		/// Failed to get the sovereign account of a task.
 		SovereignAccountNotFound,
+		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
+		AutoRenewalNotEnabled,
 	}
 
 	#[pallet::hooks]
@@ -861,9 +871,15 @@ pub mod pallet {
 			// Only the sovereign account of the task can enable auto-renewal.
 			let task = T::SovereignAccountOf::ensure_task_sovereign_account(origin)?;
 			Self::do_enable_auto_renew(task, core, workload_end_hint)?;
+			Ok(())
+		}
 
-			// The caller must pay for the transaction otherwise spamming would be possible by
-			// turning auto-renewal on and off.
+		#[pallet::call_index(21)]
+		#[pallet::weight(T::WeightInfo::notify_core_count())]
+		pub fn disable_auto_renew(origin: OriginFor<T>, core: CoreIndex) -> DispatchResult {
+			// Only the sovereign account of the task can disable auto-renewal.
+			let task = T::SovereignAccountOf::ensure_task_sovereign_account(origin)?;
+			Self::do_disable_auto_renew(task, core)?;
 			Ok(())
 		}
 

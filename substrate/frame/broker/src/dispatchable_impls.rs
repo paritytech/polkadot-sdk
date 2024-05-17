@@ -519,13 +519,28 @@ impl<T: Config> Pallet<T> {
 		// We are keeping the auto-renewals sorted by `CoreIndex`.
 		AutoRenewals::<T>::try_mutate(|renewals| {
 			let pos = renewals
-				.binary_search_by(|r: &(CoreIndex, T::AccountId)| r.0.cmp(&core))
+				.binary_search_by(|r: &(CoreIndex, TaskId)| r.0.cmp(&core))
 				.unwrap_or_else(|e| e);
-			renewals.try_insert(pos, (core, sovereign_account))
+			renewals.try_insert(pos, (core, task))
 		})
 		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
 
 		Self::deposit_event(Event::AutoRenewalEnabled { core, task });
+		Ok(())
+	}
+
+	pub(crate) fn do_disable_auto_renew(task: TaskId, core: CoreIndex) -> DispatchResult {
+		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
+			let pos = renewals
+				.binary_search_by(|r: &(CoreIndex, TaskId)| r.0.cmp(&core))
+				.map_err(|_| Error::<T>::AutoRenewalNotEnabled)?;
+
+			ensure!(Some(&(core, task)) == renewals.get(pos), Error::<T>::NoPermission);
+			renewals.remove(pos);
+			Ok(())
+		})?;
+
+		Self::deposit_event(Event::AutoRenewalDisabled { core, task });
 		Ok(())
 	}
 

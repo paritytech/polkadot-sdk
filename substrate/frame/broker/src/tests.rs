@@ -1562,7 +1562,9 @@ fn auto_renewal_works() {
 			.into(),
 		);
 		// Sovereign account wasn't funded so it fails:
-		System::assert_has_event(Event::<Test>::AutoRenewalFailed { core: 1, payer: 1002 }.into());
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalFailed { core: 1, payer: Some(1002) }.into(),
+		);
 		System::assert_has_event(
 			Event::<Test>::Renewed {
 				who: 1003, // sovereign account
