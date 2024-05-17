@@ -81,6 +81,7 @@ impl From<PalletMetadataIR> for PalletMetadata {
 			error: ir.error.map(Into::into),
 			index: ir.index,
 			docs: ir.docs,
+			// Note: ir.associated_types are not part of v15.
 		}
 	}
 }

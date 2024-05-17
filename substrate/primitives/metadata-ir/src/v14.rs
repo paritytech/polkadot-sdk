@@ -51,7 +51,7 @@ impl From<PalletMetadataIR> for PalletMetadata {
 			constants: ir.constants.into_iter().map(Into::into).collect(),
 			error: ir.error.map(Into::into),
 			index: ir.index,
-			// Note: ir.docs not part of v14.
+			// Note: ir.docs and ir.associated_types are not part of v14.
 		}
 	}
 }

@@ -134,6 +134,8 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	pub index: u8,
 	/// Pallet documentation.
 	pub docs: Vec<T::String>,
+	/// Pallet associated types metadata.
+	pub associated_types: Vec<PalletAssociatedTypesMetadataIR<T>>,
 }
 
 impl IntoPortable for PalletMetadataIR {
@@ -149,6 +151,7 @@ impl IntoPortable for PalletMetadataIR {
 			error: self.error.map(|error| error.into_portable(registry)),
 			index: self.index,
 			docs: registry.map_into_portable(self.docs),
+			associated_types: registry.map_into_portable(self.associated_types),
 		}
 	}
 }

@@ -99,7 +99,7 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 /// Generate the metadata for the associated types of the config trait.
 ///
 /// Implements the `pallet_associated_types_metadata` function for the pallet.
-pub fn expand_config_metadata(def: &mut Def) -> proc_macro2::TokenStream {
+pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 	let frame_support = &def.frame_support;
 	let type_impl_gen = &def.type_impl_generics(proc_macro2::Span::call_site());
 	let type_use_gen = &def.type_use_generics(proc_macro2::Span::call_site());
@@ -121,7 +121,7 @@ pub fn expand_config_metadata(def: &mut Def) -> proc_macro2::TokenStream {
 			#frame_support::__private::metadata_ir::PalletAssociatedTypesMetadataIR {
 				name: #ident_str,
 				ty: #frame_support::__private::scale_info::meta_type::<
-						<<T as Config #trait_use_gen>::#ident
+						<T as Config #trait_use_gen>::#ident
 					>(),
 				docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
 			}
