@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["initialize_logger","initialize_relay"]};
+window.SIDEBAR_ITEMS = {"fn":["initialize_logger","initialize_relay"],"static":["RELAYER_VERSION"]};

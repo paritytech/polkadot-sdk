@@ -285,6 +285,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -303,7 +308,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Relayer initialization functions.
 
-</span><span class="kw">use </span>std::{cell::RefCell, fmt::Display, io::Write};
+</span><span class="kw">use </span>parking_lot::Mutex;
+<span class="kw">use </span>std::{cell::RefCell, fmt::Display, io::Write};
+
+<span class="doccomment">/// Relayer version that is provided as metric. Must be set by a binary
+/// (get it with `option_env!("CARGO_PKG_VERSION")` from a binary package code).
+</span><span class="kw">pub static </span>RELAYER_VERSION: Mutex&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; = Mutex::new(<span class="prelude-val">None</span>);
 
 <span class="macro">async_std::task_local! </span>{
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>LOOP_NAME: RefCell&lt;String&gt; = RefCell::new(String::default());

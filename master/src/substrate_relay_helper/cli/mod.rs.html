@@ -340,7 +340,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -468,14 +467,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None
 		</span>};
 
-		<span class="kw">let </span>relay_version = <span class="macro">option_env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>).unwrap_or(<span class="string">"unknown"</span>);
+		<span class="kw">let </span>relay_version = relay_utils::initialize::RELAYER_VERSION
+			.lock()
+			.clone()
+			.unwrap_or_else(|| <span class="string">"unknown"</span>.to_string());
 		<span class="kw">let </span>relay_commit = SubstrateRelayBuildInfo::get_git_commit();
-		relay_utils::metrics::MetricsParams::new(
-			metrics_address,
-			relay_version.into(),
-			relay_commit,
-		)
-		.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{:?}"</span>, e))
+		relay_utils::metrics::MetricsParams::new(metrics_address, relay_version, relay_commit)
+			.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{:?}"</span>, e))
 	}
 }
 
