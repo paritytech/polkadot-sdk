@@ -304,7 +304,7 @@ where
 			// Deposit the refund before the swap to ensure it can be processed.
 			let debt = match T::Assets::deposit(
 				asset_id.clone(),
-				&who,
+				who,
 				refund_asset_amount,
 				Precision::BestEffort,
 			) {
@@ -331,10 +331,7 @@ where
 							// credit.
 							_ => return Err(InvalidTransaction::Payment.into()),
 						};
-						(
-							fee_paid,
-							initial_asset_consumed.saturating_sub(refund_asset_amount.into()),
-						)
+						(fee_paid, initial_asset_consumed.saturating_sub(refund_asset_amount))
 					},
 					// The error should not occur since swap was quoted before.
 					Err((refund, _)) => {
