@@ -1056,12 +1056,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#905" id="905">905</a>
 <a href="#906" id="906">906</a>
 <a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1098,10 +1092,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DefaultNoBound, RuntimeDebugNoBound,
 };
 <span class="kw">use </span>sp_runtime::{
-	traits::{Hash <span class="kw">as </span>HashT, Saturating, Zero},
+	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
 };
-<span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData, vec, vec::Vec};
+<span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData, vec::Vec};
 
 <span class="doccomment">/// Deposit that uses the native fungible's balance type.
 </span><span class="kw">pub type </span>DepositOf&lt;T&gt; = Deposit&lt;BalanceOf&lt;T&gt;&gt;;
@@ -1615,14 +1609,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Fortitude::Polite,
 				)<span class="question-mark">?</span>;
 
-				Pallet::&lt;T&gt;::deposit_event(
-					<span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>origin), T::Hashing::hash_of(<span class="kw-2">&amp;</span>contract)],
-					Event::StorageDepositTransferredAndHeld {
-						from: origin.clone(),
-						to: contract.clone(),
-						amount: <span class="kw-2">*</span>amount,
-					},
-				);
+				Pallet::&lt;T&gt;::deposit_event(Event::StorageDepositTransferredAndHeld {
+					from: origin.clone(),
+					to: contract.clone(),
+					amount: <span class="kw-2">*</span>amount,
+				});
 			},
 			Deposit::Refund(amount) =&gt; {
 				<span class="kw">let </span>transferred = T::Currency::transfer_on_hold(
@@ -1635,14 +1626,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Fortitude::Polite,
 				)<span class="question-mark">?</span>;
 
-				Pallet::&lt;T&gt;::deposit_event(
-					<span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>contract), T::Hashing::hash_of(<span class="kw-2">&amp;</span>origin)],
-					Event::StorageDepositTransferredAndReleased {
-						from: contract.clone(),
-						to: origin.clone(),
-						amount: transferred,
-					},
-				);
+				Pallet::&lt;T&gt;::deposit_event(Event::StorageDepositTransferredAndReleased {
+					from: contract.clone(),
+					to: origin.clone(),
+					amount: transferred,
+				});
 
 				<span class="kw">if </span>transferred &lt; <span class="kw-2">*</span>amount {
 					<span class="comment">// This should never happen, if it does it means that there is a bug in the

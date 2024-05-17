@@ -4055,12 +4055,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3904" id="3904">3904</a>
 <a href="#3905" id="3905">3905</a>
 <a href="#3906" id="3906">3906</a>
-<a href="#3907" id="3907">3907</a>
-<a href="#3908" id="3908">3908</a>
-<a href="#3909" id="3909">3909</a>
-<a href="#3910" id="3910">3910</a>
-<a href="#3911" id="3911">3911</a>
-<a href="#3912" id="3912">3912</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4109,7 +4103,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 <span class="kw">use </span>sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Zero},
+	traits::{Convert, Dispatchable, Zero},
 	DispatchError,
 };
 <span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::<span class="kw-2">*</span>, vec::Vec};
@@ -5046,16 +5040,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>caller = <span class="self">self</span>.caller().account_id()<span class="question-mark">?</span>.clone();
 
 					<span class="comment">// Deposit an instantiation event.
-					</span>Contracts::&lt;T&gt;::deposit_event(
-						<span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>caller), T::Hashing::hash_of(account_id)],
-						Event::Instantiated { deployer: caller, contract: account_id.clone() },
-					);
+					</span>Contracts::&lt;T&gt;::deposit_event(Event::Instantiated {
+						deployer: caller,
+						contract: account_id.clone(),
+					});
 				},
 				(ExportedFunction::Call, <span class="prelude-val">Some</span>(code_hash)) =&gt; {
-					Contracts::&lt;T&gt;::deposit_event(
-						<span class="macro">vec!</span>[T::Hashing::hash_of(account_id), T::Hashing::hash_of(<span class="kw-2">&amp;</span>code_hash)],
-						Event::DelegateCalled { contract: account_id.clone(), code_hash },
-					);
+					Contracts::&lt;T&gt;::deposit_event(Event::DelegateCalled {
+						contract: account_id.clone(),
+						code_hash,
+					});
 				},
 				(ExportedFunction::Call, <span class="prelude-val">None</span>) =&gt; {
 					<span class="comment">// If a special limit was set for the sub-call, we enforce it here.
@@ -5065,10 +5059,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					frame.nested_storage.enforce_subcall_limit(contract)<span class="question-mark">?</span>;
 
 					<span class="kw">let </span>caller = <span class="self">self</span>.caller();
-					Contracts::&lt;T&gt;::deposit_event(
-						<span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>caller), T::Hashing::hash_of(<span class="kw-2">&amp;</span>account_id)],
-						Event::Called { caller: caller.clone(), contract: account_id.clone() },
-					);
+					Contracts::&lt;T&gt;::deposit_event(Event::Called {
+						caller: caller.clone(),
+						contract: account_id.clone(),
+					});
 				},
 			}
 
@@ -5387,13 +5381,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(<span class="kw-2">*</span>deposit));
 		}
 
-		Contracts::&lt;T&gt;::deposit_event(
-			<span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>frame.account_id), T::Hashing::hash_of(<span class="kw-2">&amp;</span>beneficiary)],
-			Event::Terminated {
-				contract: frame.account_id.clone(),
-				beneficiary: beneficiary.clone(),
-			},
-		);
+		Contracts::&lt;T&gt;::deposit_event(Event::Terminated {
+			contract: frame.account_id.clone(),
+			beneficiary: beneficiary.clone(),
+		});
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -5485,7 +5476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>deposit_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topics: Vec&lt;T::Hash&gt;, data: Vec&lt;u8&gt;) {
-		Contracts::&lt;<span class="self">Self</span>::T&gt;::deposit_event(
+		Contracts::&lt;<span class="self">Self</span>::T&gt;::deposit_indexed_event(
 			topics,
 			Event::ContractEmitted { contract: <span class="self">self</span>.top_frame().account_id.clone(), data },
 		);
@@ -5590,14 +5581,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="self">Self</span>::increment_refcount(hash)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::decrement_refcount(prev_hash);
-		Contracts::&lt;<span class="self">Self</span>::T&gt;::deposit_event(
-			<span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>frame.account_id), hash, prev_hash],
-			Event::ContractCodeUpdated {
-				contract: frame.account_id.clone(),
-				new_code_hash: hash,
-				old_code_hash: prev_hash,
-			},
-		);
+		Contracts::&lt;<span class="self">Self</span>::T&gt;::deposit_event(Event::ContractCodeUpdated {
+			contract: frame.account_id.clone(),
+			new_code_hash: hash,
+			old_code_hash: prev_hash,
+		});
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -5702,7 +5690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		exec::ExportedFunction::<span class="kw-2">*</span>,
 		gas::GasMeter,
 		tests::{
-			test_utils::{get_balance, hash, place_contract, set_balance},
+			test_utils::{get_balance, place_contract, set_balance},
 			ExtBuilder, RuntimeCall, RuntimeEvent <span class="kw">as </span>MetaEvent, Test, TestFilter, ALICE, BOB,
 			CHARLIE, GAS_LIMIT,
 		},
@@ -7227,7 +7215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: <span class="macro">vec!</span>[hash(<span class="kw-2">&amp;</span>Origin::&lt;Test&gt;::from_account_id(ALICE)), hash(<span class="kw-2">&amp;</span>BOB)],
+						topics: <span class="macro">vec!</span>[],
 					},
 				]
 			);
@@ -7327,7 +7315,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: <span class="macro">vec!</span>[hash(<span class="kw-2">&amp;</span>Origin::&lt;Test&gt;::from_account_id(ALICE)), hash(<span class="kw-2">&amp;</span>BOB)],
+						topics: <span class="macro">vec!</span>[],
 					},
 				]
 			);

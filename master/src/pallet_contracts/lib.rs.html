@@ -2056,6 +2056,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1905" id="1905">1905</a>
 <a href="#1906" id="1906">1906</a>
 <a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2193,7 +2195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>smallvec::Array;
 <span class="kw">use </span>sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Saturating, StaticLookup, Zero},
+	traits::{Convert, Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
 <span class="kw">use </span>sp_std::{fmt::Debug, prelude::<span class="kw-2">*</span>};
@@ -2891,14 +2893,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 				&lt;ExecStack&lt;T, WasmBlob&lt;T&gt;&gt;&gt;::increment_refcount(code_hash)<span class="question-mark">?</span>;
 				&lt;ExecStack&lt;T, WasmBlob&lt;T&gt;&gt;&gt;::decrement_refcount(contract.code_hash);
-				<span class="self">Self</span>::deposit_event(
-					<span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>dest), code_hash, contract.code_hash],
-					Event::ContractCodeUpdated {
-						contract: dest.clone(),
-						new_code_hash: code_hash,
-						old_code_hash: contract.code_hash,
-					},
-				);
+				<span class="self">Self</span>::deposit_event(Event::ContractCodeUpdated {
+					contract: dest.clone(),
+					new_code_hash: code_hash,
+					old_code_hash: contract.code_hash,
+				});
 				contract.code_hash = code_hash;
 				<span class="prelude-val">Ok</span>(())
 			})
@@ -3885,8 +3884,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Deposit a pallet contracts event. Handles the conversion to the overarching event type.
-	</span><span class="kw">fn </span>deposit_event(topics: Vec&lt;T::Hash&gt;, event: Event&lt;T&gt;) {
+	<span class="doccomment">/// Deposit a pallet contracts event.
+	</span><span class="kw">fn </span>deposit_event(event: Event&lt;T&gt;) {
+		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_event(&lt;T <span class="kw">as </span>Config&gt;::RuntimeEvent::from(event))
+	}
+
+	<span class="doccomment">/// Deposit a pallet contracts indexed event.
+	</span><span class="kw">fn </span>deposit_indexed_event(topics: Vec&lt;T::Hash&gt;, event: Event&lt;T&gt;) {
 		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_event_indexed(
 			<span class="kw-2">&amp;</span>topics,
 			&lt;T <span class="kw">as </span>Config&gt;::RuntimeEvent::from(event).into(),

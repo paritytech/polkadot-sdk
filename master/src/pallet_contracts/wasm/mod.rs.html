@@ -3669,8 +3669,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3518" id="3518">3518</a>
 <a href="#3519" id="3519">3519</a>
 <a href="#3520" id="3520">3520</a>
-<a href="#3521" id="3521">3521</a>
-<a href="#3522" id="3522">3522</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3857,10 +3855,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw-2">*</span>existing = <span class="prelude-val">None</span>;
 				&lt;PristineCode&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>code_hash);
-				&lt;Pallet&lt;T&gt;&gt;::deposit_event(
-					<span class="macro">vec!</span>[code_hash],
-					Event::CodeRemoved { code_hash, deposit_released, remover },
-				);
+				&lt;Pallet&lt;T&gt;&gt;::deposit_event(Event::CodeRemoved {
+					code_hash,
+					deposit_released,
+					remover,
+				});
 				<span class="prelude-val">Ok</span>(())
 			} <span class="kw">else </span>{
 				<span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::CodeNotFound.into())
@@ -3944,14 +3943,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.code_info.refcount = <span class="number">0</span>;
 					&lt;PristineCode&lt;T&gt;&gt;::insert(code_hash, <span class="kw-2">&amp;</span><span class="self">self</span>.code);
 					<span class="kw-2">*</span>stored_code_info = <span class="prelude-val">Some</span>(<span class="self">self</span>.code_info.clone());
-					&lt;Pallet&lt;T&gt;&gt;::deposit_event(
-						<span class="macro">vec!</span>[code_hash],
-						Event::CodeStored {
-							code_hash,
-							deposit_held: deposit,
-							uploader: <span class="self">self</span>.code_info.owner.clone(),
-						},
-					);
+					&lt;Pallet&lt;T&gt;&gt;::deposit_event(Event::CodeStored {
+						code_hash,
+						deposit_held: deposit,
+						uploader: <span class="self">self</span>.code_info.owner.clone(),
+					});
 					<span class="prelude-val">Ok</span>(deposit)
 				},
 			}
