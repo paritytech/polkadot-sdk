@@ -28,7 +28,7 @@ pub type ExecutionHeaderBuffer<T> = RingBufferMapImpl<
 >;
 
 /// FinalizedState ring buffer implementation
-pub(crate) type FinalizedBeaconStateBuffer<T> = RingBufferMapImpl<
+pub type FinalizedBeaconStateBuffer<T> = RingBufferMapImpl<
 	u32,
 	crate::MaxFinalizedHeadersToKeep<T>,
 	crate::FinalizedBeaconStateIndex<T>,
