@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715953281356,
+  "lastUpdate": 1715960863728,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -10191,6 +10191,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009911813840000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a90d324d5b3252033e00a96d9f9f4890b1cfc982",
+          "message": "Contracts: Remove topics for internal events (#4510)",
+          "timestamp": "2024-05-17T13:47:01Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a90d324d5b3252033e00a96d9f9f4890b1cfc982"
+        },
+        "date": 1715960835414,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.93333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010471098560000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022200026986666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16333374604,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012481351900000002,
             "unit": "seconds"
           }
         ]
