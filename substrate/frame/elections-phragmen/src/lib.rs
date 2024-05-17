@@ -700,7 +700,6 @@ pub mod pallet {
 	///
 	/// Invariant: Always sorted based on account id.
 	#[pallet::storage]
-	#[pallet::getter(fn candidates)]
 	pub type Candidates<T: Config> = StorageValue<_, Vec<(T::AccountId, BalanceOf<T>)>, ValueQuery>;
 
 	/// The total number of vote rounds that have happened, excluding the upcoming one.
@@ -882,7 +881,7 @@ impl<T: Config> Pallet<T> {
 	/// Check if `who` is a candidate. It returns the insert index if the element does not exists as
 	/// an error.
 	fn is_candidate(who: &T::AccountId) -> Result<(), usize> {
-		Self::candidates().binary_search_by(|c| c.0.cmp(who)).map(|_| ())
+		Candidates::<T>::get().binary_search_by(|c| c.0.cmp(who)).map(|_| ())
 	}
 
 	/// Check if `who` is a voter. It may or may not be a _current_ one.
@@ -950,7 +949,7 @@ impl<T: Config> Pallet<T> {
 		let desired_runners_up = T::DesiredRunnersUp::get() as usize;
 		let num_to_elect = desired_runners_up + desired_seats;
 
-		let mut candidates_and_deposit = Self::candidates();
+		let mut candidates_and_deposit = Candidates::<T>::get();
 		// add all the previous members and runners-up as candidates as well.
 		candidates_and_deposit.append(&mut Self::implicit_candidates_with_deposit());
 
@@ -1292,7 +1291,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn candidates_ids() -> Vec<T::AccountId> {
-		Pallet::<T>::candidates().iter().map(|(x, _)| x).cloned().collect::<Vec<_>>()
+		Candidates::<T>::get().iter().map(|(x, _)| x).cloned().collect::<Vec<_>>()
 	}
 
 	fn runners_up_ids() -> Vec<T::AccountId> {
@@ -1509,11 +1508,11 @@ mod tests {
 	}
 
 	fn candidate_ids() -> Vec<u64> {
-		Elections::candidates().into_iter().map(|(c, _)| c).collect::<Vec<_>>()
+		Candidates::<Test>::get().into_iter().map(|(c, _)| c).collect::<Vec<_>>()
 	}
 
 	fn candidate_deposit(who: &u64) -> u64 {
-		Elections::candidates()
+		Candidates::<Test>::get()
 			.into_iter()
 			.find_map(|(c, d)| if c == *who { Some(d) } else { None })
 			.unwrap_or_default()
@@ -1571,7 +1570,7 @@ mod tests {
 	}
 
 	fn submit_candidacy(origin: RuntimeOrigin) -> sp_runtime::DispatchResult {
-		Elections::submit_candidacy(origin, Elections::candidates().len() as u32)
+		Elections::submit_candidacy(origin, Candidates::<Test>::get().len() as u32)
 	}
 
 	fn vote(origin: RuntimeOrigin, votes: Vec<u64>, stake: u64) -> DispatchResultWithPostInfo {
@@ -1778,14 +1777,14 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			assert_ok!(submit_candidacy(RuntimeOrigin::signed(5)));
 			assert_ok!(vote(RuntimeOrigin::signed(5), vec![5], 50));
-			assert_eq!(Elections::candidates(), vec![(5, 3)]);
+			assert_eq!(Candidates::<Test>::get(), vec![(5, 3)]);
 
 			// a runtime upgrade changes the bond.
 			CANDIDACY_BOND.with(|v| *v.borrow_mut() = 4);
 
 			assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
 			assert_ok!(vote(RuntimeOrigin::signed(4), vec![4], 40));
-			assert_eq!(Elections::candidates(), vec![(4, 4), (5, 3)]);
+			assert_eq!(Candidates::<Test>::get(), vec![(4, 4), (5, 3)]);
 
 			// once elected, they each hold their candidacy bond, no more.
 			System::set_block_number(5);
@@ -3173,13 +3172,13 @@ mod tests {
 			.desired_members(0)
 			.desired_runners_up(0)
 			.build_and_execute(|| {
-				assert_eq!(Elections::candidates().len(), 0);
+				assert_eq!(Candidates::<Test>::get().len(), 0);
 
 				assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
 				assert_ok!(submit_candidacy(RuntimeOrigin::signed(3)));
 				assert_ok!(submit_candidacy(RuntimeOrigin::signed(2)));
 
-				assert_eq!(Elections::candidates().len(), 3);
+				assert_eq!(Candidates::<Test>::get().len(), 3);
 
 				assert_ok!(vote(RuntimeOrigin::signed(4), vec![4], 40));
 				assert_ok!(vote(RuntimeOrigin::signed(3), vec![3], 30));
@@ -3191,7 +3190,7 @@ mod tests {
 				assert_eq!(members_ids().len(), 0);
 				assert_eq!(runners_up_ids().len(), 0);
 				assert_eq!(all_voters().len(), 3);
-				assert_eq!(Elections::candidates().len(), 0);
+				assert_eq!(Candidates::<Test>::get().len(), 0);
 			});
 
 		// not interested in members
@@ -3199,13 +3198,13 @@ mod tests {
 			.desired_members(0)
 			.desired_runners_up(2)
 			.build_and_execute(|| {
-				assert_eq!(Elections::candidates().len(), 0);
+				assert_eq!(Candidates::<Test>::get().len(), 0);
 
 				assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
 				assert_ok!(submit_candidacy(RuntimeOrigin::signed(3)));
 				assert_ok!(submit_candidacy(RuntimeOrigin::signed(2)));
 
-				assert_eq!(Elections::candidates().len(), 3);
+				assert_eq!(Candidates::<Test>::get().len(), 3);
 
 				assert_ok!(vote(RuntimeOrigin::signed(4), vec![4], 40));
 				assert_ok!(vote(RuntimeOrigin::signed(3), vec![3], 30));
@@ -3217,7 +3216,7 @@ mod tests {
 				assert_eq!(members_ids().len(), 0);
 				assert_eq!(runners_up_ids(), vec![3, 4]);
 				assert_eq!(all_voters().len(), 3);
-				assert_eq!(Elections::candidates().len(), 0);
+				assert_eq!(Candidates::<Test>::get().len(), 0);
 			});
 
 		// not interested in runners-up
@@ -3225,13 +3224,13 @@ mod tests {
 			.desired_members(2)
 			.desired_runners_up(0)
 			.build_and_execute(|| {
-				assert_eq!(Elections::candidates().len(), 0);
+				assert_eq!(Candidates::<Test>::get().len(), 0);
 
 				assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
 				assert_ok!(submit_candidacy(RuntimeOrigin::signed(3)));
 				assert_ok!(submit_candidacy(RuntimeOrigin::signed(2)));
 
-				assert_eq!(Elections::candidates().len(), 3);
+				assert_eq!(Candidates::<Test>::get().len(), 3);
 
 				assert_ok!(vote(RuntimeOrigin::signed(4), vec![4], 40));
 				assert_ok!(vote(RuntimeOrigin::signed(3), vec![3], 30));
@@ -3243,7 +3242,7 @@ mod tests {
 				assert_eq!(members_ids(), vec![3, 4]);
 				assert_eq!(runners_up_ids().len(), 0);
 				assert_eq!(all_voters().len(), 3);
-				assert_eq!(Elections::candidates().len(), 0);
+				assert_eq!(Candidates::<Test>::get().len(), 0);
 			});
 	}
 

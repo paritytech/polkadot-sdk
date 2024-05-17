@@ -121,9 +121,9 @@ fn distribute_voters<T: Config>(
 /// members, or members and runners-up.
 fn fill_seats_up_to<T: Config>(m: u32) -> Result<Vec<T::AccountId>, &'static str> {
 	let _ = submit_candidates_with_self_vote::<T>(m, "fill_seats_up_to")?;
-	assert_eq!(Elections::<T>::candidates().len() as u32, m, "wrong number of candidates.");
+	assert_eq!(Candidates::<T>::get().len() as u32, m, "wrong number of candidates.");
 	Elections::<T>::do_phragmen();
-	assert_eq!(Elections::<T>::candidates().len(), 0, "some candidates remaining.");
+	assert_eq!(Candidates::<T>::get().len(), 0, "some candidates remaining.");
 	assert_eq!(
 		Members::<T>::get().len() + RunnersUp::<T>::get().len(),
 		m as usize,
