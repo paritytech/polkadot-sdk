@@ -166,13 +166,11 @@ pub mod pallet {
 
 	/// Sync committee for current period
 	#[pallet::storage]
-	pub type CurrentSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+	pub type CurrentSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
 	/// Sync committee for next period
 	#[pallet::storage]
-	pub type NextSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+	pub type NextSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
