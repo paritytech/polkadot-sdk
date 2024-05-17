@@ -149,7 +149,7 @@ where
 		for ProvedValidator { key_owner_proof, .. } in key_owner_proofs {
 			self.runtime
 				.runtime_api()
-				.submit_report_equivocation_unsigned_extrinsic(
+				.submit_report_double_voting_unsigned_extrinsic(
 					best_block_hash,
 					proof.clone(),
 					key_owner_proof,

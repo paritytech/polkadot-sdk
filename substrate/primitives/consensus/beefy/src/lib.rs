@@ -427,7 +427,7 @@ impl OpaqueKeyOwnershipProof {
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for BEEFY voters.
-	#[api_version(3)]
+	#[api_version(4)]
 	pub trait BeefyApi<AuthorityId> where
 		AuthorityId : Codec + RuntimeAppPublic,
 	{
@@ -445,7 +445,7 @@ sp_api::decl_runtime_apis! {
 		/// `None` when creation of the extrinsic fails, e.g. if equivocation
 		/// reporting is disabled for the given runtime (i.e. this method is
 		/// hardcoded to return `None`). Only useful in an offchain context.
-		fn submit_report_equivocation_unsigned_extrinsic(
+		fn submit_report_double_voting_unsigned_extrinsic(
 			equivocation_proof:
 				DoubleVotingProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 			key_owner_proof: OpaqueKeyOwnershipProof,
