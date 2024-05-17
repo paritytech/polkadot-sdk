@@ -41,6 +41,7 @@ try_run() {
     --publish 0.0.0.0:9615:9615 \
     --publish 0.0.0.0:443:443 \
     --publish 0.0.0.0:80:80 \
+    --volume ${PROJECT_ROOT}:/polkadot-sdk:rw \
     --rm -it parity/substrate $ARGS
 }
 
