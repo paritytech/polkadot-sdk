@@ -302,8 +302,10 @@ pub struct VoteMessage<Number, Id, Signature> {
 	pub signature: Signature,
 }
 
-/// Proof of voter misbehavior on a given set id. Misbehavior/equivocation in
-/// BEEFY happens when a voter votes on the same round/block for different payloads.
+/// Proof showing that an authority voted twice in the same round.
+///
+/// One type of misbehavior in BEEFY happens when an authority votes in the same round/block
+/// for different payloads.
 /// Proving is achieved by collecting the signed commitments of conflicting votes.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct DoubleVotingProof<Number, Id, Signature> {
@@ -326,6 +328,18 @@ impl<Number, Id, Signature> DoubleVotingProof<Number, Id, Signature> {
 	pub fn set_id(&self) -> ValidatorSetId {
 		self.first.commitment.validator_set_id
 	}
+}
+
+/// Proof showing that an authority voted for a non-canonical chain.
+///
+/// Proving is achieved by providing a proof that contains relevant info about the canonical chain
+/// at `commitment.block_number`. The `commitment` can be checked against this info.
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct ForkVotingProof<Number, Id: RuntimeAppPublic, AncestryProof> {
+	/// The equivocated vote.
+	pub vote: VoteMessage<Number, Id, Id::Signature>,
+	/// Proof containing info about the canonical chain at `commitment.block_number`.
+	pub ancestry_proof: AncestryProof,
 }
 
 /// Check a commitment signature by encoding the commitment and
@@ -396,7 +410,7 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 /// Hook containing helper methods for proving/checking commitment canonicity.
 pub trait AncestryHelper<BlockNumber> {
 	/// Type containing proved info about the canonical chain at a certain height.
-	type Proof;
+	type Proof: Clone + Debug + Decode + Encode + PartialEq + TypeInfo;
 
 	/// Check if a commitment is pointing to a header on a non-canonical chain
 	/// against a canonicity proof generated at the same header height.
@@ -437,8 +451,8 @@ sp_api::decl_runtime_apis! {
 		/// Return the current active BEEFY validator set
 		fn validator_set() -> Option<ValidatorSet<AuthorityId>>;
 
-		/// Submits an unsigned extrinsic to report an equivocation. The caller
-		/// must provide the equivocation proof and a key ownership proof
+		/// Submits an unsigned extrinsic to report a double voting equivocation. The caller
+		/// must provide the double voting proof and a key ownership proof
 		/// (should be obtained using `generate_key_ownership_proof`). The
 		/// extrinsic will be unsigned and should only be accepted for local
 		/// authorship (not to be broadcast to the network). This method returns

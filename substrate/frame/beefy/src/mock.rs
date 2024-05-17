@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use std::vec;
 
 use frame_election_provider_support::{
@@ -81,17 +83,20 @@ parameter_types! {
 	pub const ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * Period::get();
 	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+}
 
-	pub storage CommitmentIsTargetingFork: bool = true;
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct MockAncestryProof {
+	pub is_non_canonical: bool,
 }
 
 pub struct MockAncestryHelper;
 
 impl<BlockNumber> AncestryHelper<BlockNumber> for MockAncestryHelper {
-	type Proof = ();
+	type Proof = MockAncestryProof;
 
-	fn is_non_canonical(_commitment: &Commitment<BlockNumber>, _proof: Self::Proof) -> bool {
-		CommitmentIsTargetingFork::get()
+	fn is_non_canonical(_commitment: &Commitment<BlockNumber>, proof: Self::Proof) -> bool {
+		proof.is_non_canonical
 	}
 }
 
