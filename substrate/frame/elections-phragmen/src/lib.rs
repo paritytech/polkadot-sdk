@@ -847,7 +847,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		let remaining_member_ids_sorted =
-			Self::members().into_iter().map(|x| x.who).collect::<Vec<_>>();
+			Members::<T>::get().into_iter().map(|x| x.who).collect::<Vec<_>>();
 		let outgoing = &[who.clone()];
 		let maybe_current_prime = T::ChangeMembers::get_prime();
 		let return_value = match maybe_replacement {
@@ -894,7 +894,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Check if `who` is currently an active member.
 	fn is_member(who: &T::AccountId) -> bool {
-		Self::members().binary_search_by(|m| m.who.cmp(who)).is_ok()
+		Members::<T>::get().binary_search_by(|m| m.who.cmp(who)).is_ok()
 	}
 
 	/// Check if `who` is currently an active runner-up.
@@ -904,7 +904,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the members' account ids.
 	pub(crate) fn members_ids() -> Vec<T::AccountId> {
-		Self::members().into_iter().map(|m| m.who).collect::<Vec<T::AccountId>>()
+		Members::<T>::get().into_iter().map(|m| m.who).collect::<Vec<T::AccountId>>()
 	}
 
 	/// Get a concatenation of previous members and runners-up and their deposits.
@@ -912,7 +912,7 @@ impl<T: Config> Pallet<T> {
 	/// These accounts are essentially treated as candidates.
 	fn implicit_candidates_with_deposit() -> Vec<(T::AccountId, BalanceOf<T>)> {
 		// invariant: these two are always without duplicates.
-		Self::members()
+		Members::<T>::get()
 			.into_iter()
 			.map(|m| (m.who, m.deposit))
 			.chain(Self::runners_up().into_iter().map(|r| (r.who, r.deposit)))
@@ -1534,7 +1534,7 @@ mod tests {
 	}
 
 	fn members_and_stake() -> Vec<(u64, u64)> {
-		Elections::members().into_iter().map(|m| (m.who, m.stake)).collect::<Vec<_>>()
+		elections_phragmen::Members::<Test>::get().into_iter().map(|m| (m.who, m.stake)).collect::<Vec<_>>()
 	}
 
 	fn runners_up_and_stake() -> Vec<(u64, u64)> {
@@ -1599,7 +1599,7 @@ mod tests {
 			assert_eq!(<Test as Config>::TermDuration::get(), 5);
 			assert_eq!(Elections::election_rounds(), 0);
 
-			assert!(Elections::members().is_empty());
+			assert!(elections_phragmen::Members::<Test>::get().is_empty());
 			assert!(Elections::runners_up().is_empty());
 
 			assert!(candidate_ids().is_empty());
@@ -1618,7 +1618,7 @@ mod tests {
 			.build_and_execute(|| {
 				System::set_block_number(1);
 				assert_eq!(
-					Elections::members(),
+					elections_phragmen::Members::<Test>::get(),
 					vec![
 						SeatHolder { who: 1, stake: 10, deposit: 0 },
 						SeatHolder { who: 2, stake: 20, deposit: 0 }
@@ -1673,7 +1673,7 @@ mod tests {
 			.build_and_execute(|| {
 				System::set_block_number(1);
 				assert_eq!(
-					Elections::members(),
+					elections_phragmen::Members::<Test>::get(),
 					vec![
 						SeatHolder { who: 1, stake: 10, deposit: 0 },
 						SeatHolder { who: 2, stake: 20, deposit: 0 },
@@ -1796,7 +1796,7 @@ mod tests {
 			assert_eq!(balances(&4), (34, 6));
 			assert_eq!(balances(&5), (45, 5));
 			assert_eq!(
-				Elections::members(),
+				elections_phragmen::Members::<Test>::get(),
 				vec![
 					SeatHolder { who: 4, stake: 34, deposit: 4 },
 					SeatHolder { who: 5, stake: 45, deposit: 3 },
