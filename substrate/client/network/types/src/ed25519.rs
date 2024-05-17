@@ -349,4 +349,203 @@ mod tests {
 		let invalid_msg = "h3ll0 w0rld".as_bytes();
 		assert!(!pk.verify(invalid_msg, &sig));
 	}
+
+	#[test]
+	fn substrate_kp_to_libs() {
+		let kp = Keypair::generate();
+		let kp_bytes = kp.to_bytes();
+		let kp1: libp2p_ed25519::Keypair = kp.clone().into();
+		let kp2: litep2p_ed25519::Keypair = kp.clone().into();
+		let kp3 = libp2p_ed25519::Keypair::try_from_bytes(&mut kp_bytes.clone()).unwrap();
+		let kp4 = litep2p_ed25519::Keypair::decode(&mut kp_bytes.clone()).unwrap();
+
+		assert_eq!(kp_bytes, kp1.to_bytes());
+		assert_eq!(kp_bytes, kp2.encode());
+
+		let msg = "hello world".as_bytes();
+		let sig = kp.sign(msg);
+		let sig1 = kp1.sign(msg);
+		let sig2 = kp2.sign(msg);
+		let sig3 = kp3.sign(msg);
+		let sig4 = kp4.sign(msg);
+
+		assert_eq!(sig, sig1);
+		assert_eq!(sig, sig2);
+		assert_eq!(sig, sig3);
+		assert_eq!(sig, sig4);
+
+		let pk1 = kp1.public();
+		let pk2 = kp2.public();
+		let pk3 = kp3.public();
+		let pk4 = kp4.public();
+
+		assert!(pk1.verify(msg, &sig));
+		assert!(pk2.verify(msg, &sig));
+		assert!(pk3.verify(msg, &sig));
+		assert!(pk4.verify(msg, &sig));
+	}
+
+	#[test]
+	fn litep2p_kp_to_substrate_kp() {
+		let kp = litep2p_ed25519::Keypair::generate();
+		let kp1: Keypair = kp.clone().into();
+		let kp2 = Keypair::try_from_bytes(&mut kp.encode()).unwrap();
+
+		assert_eq!(kp.encode(), kp1.to_bytes());
+
+		let msg = "hello world".as_bytes();
+		let sig = kp.sign(msg);
+		let sig1 = kp1.sign(msg);
+		let sig2 = kp2.sign(msg);
+
+		assert_eq!(sig, sig1);
+		assert_eq!(sig, sig2);
+
+		let pk1 = kp1.public();
+		let pk2 = kp2.public();
+
+		assert!(pk1.verify(msg, &sig));
+		assert!(pk2.verify(msg, &sig));
+	}
+
+	#[test]
+	fn libp2p_kp_to_substrate_kp() {
+		let kp = libp2p_ed25519::Keypair::generate();
+		let kp1: Keypair = kp.clone().into();
+		let kp2 = Keypair::try_from_bytes(&mut kp.to_bytes()).unwrap();
+
+		assert_eq!(kp.to_bytes(), kp1.to_bytes());
+
+		let msg = "hello world".as_bytes();
+		let sig = kp.sign(msg);
+		let sig1 = kp1.sign(msg);
+		let sig2 = kp2.sign(msg);
+
+		assert_eq!(sig, sig1);
+		assert_eq!(sig, sig2);
+
+		let pk1 = kp1.public();
+		let pk2 = kp2.public();
+
+		assert!(pk1.verify(msg, &sig));
+		assert!(pk2.verify(msg, &sig));
+	}
+
+	#[test]
+	fn substrate_pk_to_libs() {
+		let kp = Keypair::generate();
+		let pk = kp.public();
+		let pk_bytes = pk.to_bytes();
+		let pk1: libp2p_ed25519::PublicKey = pk.clone().into();
+		let pk2: litep2p_ed25519::PublicKey = pk.clone().into();
+		let pk3 = libp2p_ed25519::PublicKey::try_from_bytes(&mut pk_bytes.clone()).unwrap();
+		let pk4 = litep2p_ed25519::PublicKey::decode(&mut pk_bytes.clone()).unwrap();
+
+		assert_eq!(pk_bytes, pk1.to_bytes());
+		assert_eq!(pk_bytes, pk2.encode());
+
+		let msg = "hello world".as_bytes();
+		let sig = kp.sign(msg);
+
+		assert!(pk.verify(msg, &sig));
+		assert!(pk1.verify(msg, &sig));
+		assert!(pk2.verify(msg, &sig));
+		assert!(pk3.verify(msg, &sig));
+		assert!(pk4.verify(msg, &sig));
+	}
+
+	#[test]
+	fn litep2p_pk_to_substrate_pk() {
+		let kp = litep2p_ed25519::Keypair::generate();
+		let pk = kp.public();
+		let pk_bytes = pk.clone().encode();
+		let pk1: PublicKey = pk.clone().into();
+		let pk2 = PublicKey::try_from_bytes(&pk_bytes).unwrap();
+
+		assert_eq!(pk_bytes, pk1.to_bytes());
+
+		let msg = "hello world".as_bytes();
+		let sig = kp.sign(msg);
+
+		assert!(pk.verify(msg, &sig));
+		assert!(pk1.verify(msg, &sig));
+		assert!(pk2.verify(msg, &sig));
+	}
+
+	#[test]
+	fn libp2p_pk_to_substrate_pk() {
+		let kp = libp2p_ed25519::Keypair::generate();
+		let pk = kp.public();
+		let pk_bytes = pk.clone().to_bytes();
+		let pk1: PublicKey = pk.clone().into();
+		let pk2 = PublicKey::try_from_bytes(&pk_bytes).unwrap();
+
+		assert_eq!(pk_bytes, pk1.to_bytes());
+
+		let msg = "hello world".as_bytes();
+		let sig = kp.sign(msg);
+
+		assert!(pk.verify(msg, &sig));
+		assert!(pk1.verify(msg, &sig));
+		assert!(pk2.verify(msg, &sig));
+	}
+
+	#[test]
+	fn substrate_sk_to_libs() {
+		let sk = SecretKey::generate();
+		let sk_bytes = sk.to_bytes();
+		let sk1: libp2p_ed25519::SecretKey = sk.clone().into();
+		let sk2: litep2p_ed25519::SecretKey = sk.clone().into();
+		let sk3 = libp2p_ed25519::SecretKey::try_from_bytes(&mut sk_bytes.clone()).unwrap();
+		let sk4 = litep2p_ed25519::SecretKey::from_bytes(&mut sk_bytes.clone()).unwrap();
+
+		let kp: Keypair = sk.into();
+		let kp1: libp2p_ed25519::Keypair = sk1.into();
+		let kp2: litep2p_ed25519::Keypair = sk2.into();
+		let kp3: libp2p_ed25519::Keypair = sk3.into();
+		let kp4: litep2p_ed25519::Keypair = sk4.into();
+
+		let msg = "hello world".as_bytes();
+		let sig = kp.sign(msg);
+
+		assert_eq!(sig, kp1.sign(msg));
+		assert_eq!(sig, kp2.sign(msg));
+		assert_eq!(sig, kp3.sign(msg));
+		assert_eq!(sig, kp4.sign(msg));
+	}
+
+	#[test]
+	fn litep2p_sk_to_substrate_sk() {
+		let sk = litep2p_ed25519::SecretKey::generate();
+		let sk1: SecretKey = sk.clone().into();
+		let sk2 = SecretKey::try_from_bytes(&mut sk.to_bytes()).unwrap();
+
+		let kp: litep2p_ed25519::Keypair = sk.into();
+		let kp1: Keypair = sk1.into();
+		let kp2: Keypair = sk2.into();
+
+		let msg = "hello world".as_bytes();
+		let sig = kp.sign(msg);
+
+		assert_eq!(sig, kp1.sign(msg));
+		assert_eq!(sig, kp2.sign(msg));
+	}
+
+	#[test]
+	fn libp2p_sk_to_substrate_sk() {
+		let sk = libp2p_ed25519::SecretKey::generate();
+		let sk_bytes = sk.as_ref().to_owned();
+		let sk1: SecretKey = sk.clone().into();
+		let sk2 = SecretKey::try_from_bytes(sk_bytes).unwrap();
+
+		let kp: libp2p_ed25519::Keypair = sk.into();
+		let kp1: Keypair = sk1.into();
+		let kp2: Keypair = sk2.into();
+
+		let msg = "hello world".as_bytes();
+		let sig = kp.sign(msg);
+
+		assert_eq!(sig, kp1.sign(msg));
+		assert_eq!(sig, kp2.sign(msg));
+	}
 }
