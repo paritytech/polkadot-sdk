@@ -2268,6 +2268,7 @@ pub mod pallet {
 				SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::SubPoolsNotFound)?;
 
 			bonded_pool.ok_to_withdraw_unbonded_with(&caller, &member_account)?;
+			let pool_account = bonded_pool.bonded_account();
 
 			// NOTE: must do this after we have done the `ok_to_withdraw_unbonded_other_with` check.
 			let withdrawn_points = member.withdraw_unlocked(current_era);
@@ -2283,6 +2284,20 @@ pub mod pallet {
 				!stash_killed || caller == bonded_pool.roles.depositor,
 				Error::<T>::Defensive(DefensiveError::BondedStashKilledPrematurely)
 			);
+
+			if stash_killed {
+				// Maybe an extra consumer left on the pool account, if so, remove it.
+				if frame_system::Pallet::<T>::consumers(&pool_account) == 1 {
+					frame_system::Pallet::<T>::dec_consumers(&pool_account);
+				}
+
+				// Note: This is not pretty, but we have to do this because of a bug where old pool
+				// accounts might have had an extra consumer increment. We know at this point no
+				// other pallet should depend on pool account so safe to do this.
+				// Refer to following issues:
+				// - https://github.com/paritytech/polkadot-sdk/issues/4440
+				// - https://github.com/paritytech/polkadot-sdk/issues/2037
+			}
 
 			let mut sum_unlocked_points: BalanceOf<T> = Zero::zero();
 			let balance_to_unbond = withdrawn_points
