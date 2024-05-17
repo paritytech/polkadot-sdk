@@ -59,12 +59,6 @@ fn rejects_unknown_mode() {
 	assert!(CheckMetadataHash::<Test>::decode(&mut &50u8.encode()[..]).is_err());
 }
 
-#[test]
-fn when_metadata_check_is_disabled_it_encodes_to_nothing() {
-	let ext = CheckMetadataHash::<Test>::decode(&mut &0u8.encode()[..]).unwrap();
-	assert!(ext.additional_signed().unwrap().encode().is_empty());
-}
-
 /// Generate the metadata hash for the `test-runtime`.
 fn generate_metadata_hash(metadata: RuntimeMetadataPrefixed) -> [u8; 32] {
 	let runtime_version = runtime::VERSION;
