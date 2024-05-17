@@ -79,8 +79,11 @@ test-linux-stable-codecov:
     RUSTFLAGS: "-Cdebug-assertions=y -Cinstrument-coverage"
     LLVM_PROFILE_FILE: "target/coverage/cargo-test-${CI_NODE_INDEX}-%p-%m.profraw"
     CARGO_INCREMENTAL: 0
-    FORKLIFT_BYPASS: "true"
-  parallel: 2
+  parallel:
+    matrix:
+      - TEST_PACKAGE:
+        - polkadot      
+        - staging-node-cli
   script:
     # tools
     - !reference [.codecov-check, script]
@@ -88,11 +91,11 @@ test-linux-stable-codecov:
     - mkdir -p target/coverage/result/
     # Place real test call here
     - >
-      time cargo nextest run -p polkadot \
+      time cargo nextest run \
         --locked \
         --release \
         --no-fail-fast \
-        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
+        -E 'package($TEST_PACKAGE) & !test(/.*benchmark.*/)'
     # generate and upload reports
     - >
       grcov \
@@ -105,12 +108,10 @@ test-linux-stable-codecov:
     - ls -l target/coverage/result/
     - >
       if [ "$CI_COMMIT_REF_NAME" != "master" ]; then  
-        codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github;
+        codecovcli -v do-upload --flag $TEST_PACKAGE -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github;
       else
-        codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
+        codecovcli -v do-upload --flag $TEST_PACKAGE -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
       fi
-
-  #
 
 test-linux-stable:
   stage: test
