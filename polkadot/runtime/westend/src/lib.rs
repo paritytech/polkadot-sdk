@@ -2725,7 +2725,7 @@ mod remote_tests {
 
 				if cursor.is_none() {
 					// run the try-state at the end.
-					Staking::do_try_state()
+					Staking::do_try_state(frame_system::Pallet::<Runtime>::block_number())
 						.map_err(|err| {
 							log::error!(" 🕵️‍♂️ try_state failure: {:?}", err);
 							err

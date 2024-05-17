@@ -2106,6 +2106,10 @@ fn wrong_vote_errors() {
 			assert_eq!(Staking::status(&41), Ok(StakerStatus::Idle));
 			assert_eq!(Staking::status(&31), Ok(StakerStatus::Validator));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21, 31, 41]));
+			assert_eq!(
+				Staking::status(&61).unwrap(),
+				StakerStatus::Nominator(vec![11, 21, 31, 41])
+			);
 
 			// nominating duplicate targets does not fail, but the final nominations list is
 			// deduplicated.
@@ -5258,11 +5262,12 @@ mod sorted_list_provider_integration {
 			assert_eq!(VoterBagsList::score(&42), 20);
 			assert_eq!(TargetBagsList::score(&42), 20);
 
-			// stash 42 chills, thus it should be part of the target bags list but not in the voter
-			// list. And it is `Idle` status.
+			// stash 42 chills and no one nominates it, thus its score is 0 and it sis not part of
+			// the target bags list. In addition, it is not in the voter list. And it is `Idle`
+			// status.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
 			assert!(!VoterBagsList::contains(&42));
-			assert!(TargetBagsList::contains(&42));
+			assert!(!TargetBagsList::contains(&42));
 			assert_eq!(Staking::status(&42), Ok(StakerStatus::Idle));
 			// the target score of 42 is 0, since it is chilled and it has no nominations.
 			assert_eq!(TargetBagsList::score(&42), 0);
@@ -8260,10 +8265,10 @@ mod stake_tracker {
 			// the chilled validator score drops to 0, since it had only self-stake before chill.
 			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 0);
 
-			// 11 is still part of the targets list although the score is 0, since its status is
-			// Idle. However, it has been removed from the nominator sand validators lists.
+			// since score of 11 is 0, it is removed from the target list. Since it is idle, it is
+			// nor part of the nominator and validator lists.
 			assert_eq!(Staking::status(&11), Ok(StakerStatus::Idle));
-			assert_eq!(voters_and_targets().1, [(21, 1000), (31, 500), (11, 0)]);
+			assert_eq!(voters_and_targets().1, [(21, 1000), (31, 500)]);
 			assert!(!Nominators::<Test>::contains_key(&11));
 			assert!(!Validators::<Test>::contains_key(&11));
 
@@ -8276,8 +8281,6 @@ mod stake_tracker {
 			assert_eq!(
 				target_bags_events(),
 				[
-					BagsEvent::Rebagged { who: 11, from: 1000, to: 100 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 0 },
 					BagsEvent::Rebagged { who: 11, from: 100, to: 2000 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 1100 },
 					BagsEvent::Rebagged { who: 21, from: 1000, to: 10000 },

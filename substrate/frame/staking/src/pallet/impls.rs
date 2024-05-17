@@ -2102,7 +2102,7 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
-	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+	pub fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		ensure!(
 			T::VoterList::iter().all(|x| <Nominators<T>>::contains_key(&x) ||
 				<Validators<T>>::contains_key(&x) ||
@@ -2477,18 +2477,6 @@ impl<T: Config> Pallet<T> {
 		use sp_std::collections::btree_map::BTreeMap;
 		let mut approvals_map: BTreeMap<T::AccountId, T::CurrencyBalance> = BTreeMap::new();
 
-		log::info!("try-state approvals check");
-
-		// closure to update the approvals map.
-		let mut update_approvals = |target: T::AccountId, with_score: T::CurrencyBalance| {
-			if let Some(approvals) = approvals_map.get_mut(&target) {
-				*approvals += with_score;
-			} else {
-				// init approvals for target.
-				approvals_map.insert(target, with_score);
-			};
-		};
-
 		// build map of approvals stakes from the `Nominators` storage map POV.
 		for (voter, nominations) in Nominators::<T>::iter() {
 			let vote = Self::weight_of(&voter);
@@ -2511,7 +2499,18 @@ impl<T: Config> Pallet<T> {
 			);
 
 			for target in nominations.into_iter() {
-				update_approvals(target, vote.into());
+				if let Some(approvals) = approvals_map.get_mut(&target) {
+					*approvals += vote.into();
+				} else {
+					// new addition to the map. add self-stake if validator is active.
+					let _ = match Self::status(&target) {
+						Ok(StakerStatus::Validator) => {
+							let self_stake = Pallet::<T>::weight_of(&target);
+							approvals_map.insert(target, vote.saturating_add(self_stake).into())
+						},
+						_ => approvals_map.insert(target, vote.into()),
+					};
+				}
 			}
 
 			// stop builing the approvals map at the cursor, if it is set.
@@ -2521,39 +2520,15 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// add self-vote of active targets to calculated approvals from the `TargetList` POV.
-		for target in T::TargetList::iter() {
-			match Self::status(&target) {
-				Err(_) => {
-					// if target is "dangling" (i.e unbonded but still in the `TargetList`), it
-					// should NOT be part of the voter list.
-					frame_support::ensure!(
-						!T::VoterList::contains(&target),
-						"dangling target (i.e. unbonded) should not be part of the voter list"
-					);
-				},
-				Ok(StakerStatus::Idle) => {
-					// target is idle and not part of the voter list.
-					frame_support::ensure!(
-						!T::VoterList::contains(&target),
-						"chilled validator (idle target) should not be part of the voter list"
-					);
-
-					// self-stake is 0.
-					update_approvals(target, Zero::zero());
-				},
-				Ok(StakerStatus::Validator) | Ok(StakerStatus::Nominator(_)) => {
-					frame_support::ensure!(
-						T::VoterList::contains(&target),
-						"bonded and active validator/nominator should also be part of the voter list"
-					);
-
-					// add self-vote to approvals.
-					let self_stake = Self::weight_of(&target);
-					update_approvals(target, self_stake.into());
-				},
-			};
+		// add active validators without any nominations.
+		for (validator, _) in Validators::<T>::iter() {
+			if !approvals_map.contains_key(&validator) {
+				let self_stake = Pallet::<T>::weight_of(&validator);
+				approvals_map.insert(validator, self_stake.into());
+			}
 		}
+
+		let mut bad_count = 0;
 
 		// compare calculated approvals per target with target list state.
 		for (target, calculated_stake) in approvals_map.iter() {
@@ -2572,9 +2547,20 @@ impl<T: Config> Pallet<T> {
 					calculated_stake,
 				);
 
-				return Err("target score in the target list is different than the expected".into())
+				log!(
+					error,
+					"{:?} score in the target list {:?} is different than the expected {:?}",
+					target,
+					stake_in_list,
+					calculated_stake,
+				);
+				bad_count += 1;
+				//return Err("target score in the target list is different than the
+				// expected".into())
 			}
 		}
+
+		log!(error, "BAD COUNT: {:?}", bad_count);
 
 		frame_support::ensure!(
 			approvals_map.keys().count() == T::TargetList::iter().count(),

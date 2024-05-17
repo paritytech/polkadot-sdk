@@ -267,12 +267,8 @@ pub mod pallet {
 					if let Ok(current_score) = T::TargetList::get_score(who) {
 						let balance = current_score.saturating_sub(imbalance);
 
-						// the target is removed from the list IFF score is 0 and the target is
-						// either dangling (i.e. not bonded) or currently registered as a nominator.
-						let remove_target = balance.is_zero() &&
-							T::Staking::status(who).map(|s| s.is_nominator()).unwrap_or(true);
-
-						if remove_target {
+						// the target is removed from the list IFF score is 0.
+						if balance.is_zero() {
 							let _ = T::TargetList::on_remove(who).defensive_proof(
 								"staker exists in the list as per the check above; qed.",
 							);
@@ -411,7 +407,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			}
 		} else {
 			// target is not part of the list. Given the contract with staking and the checks above,
-			// this may actually be called. So do nothing and skip defensive warns.
+			// this may actually be called. Do nothing and skip defensive warns.
 		};
 	}
 

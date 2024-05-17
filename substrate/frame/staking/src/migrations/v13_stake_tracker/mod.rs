@@ -34,6 +34,9 @@ use sp_std::prelude::*;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+const TRY_STATE_INTERVAL: usize = 10_000_000;
+
 /// V13 Multi-block migration to introduce the stake-tracker pallet.
 ///
 /// A step of the migration consists of processing one nominator in the [`Nominators`] list. All
@@ -71,13 +74,10 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		// TODO(remove): configs and state for partial checks.
-		#[cfg(any(test, feature = "try-runtime"))]
-		const TRY_STATE_INTERVAL: usize = 10;
-		#[cfg(any(test, feature = "try-runtime"))]
+		#[cfg(test)]
 		let mut counter = 0;
 
-		// Do as much progress as possible per step.
+		// do as much progress as possible per step.
 		while meter.try_consume(required).is_ok() {
 			// fetch the next nominator to migrate.
 			let mut iter = if let Some(ref last_nom) = cursor {
@@ -133,8 +133,8 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 					}
 				}
 
-				// TODO(remove): performs partial checks.
-				#[cfg(any(test, feature = "try-runtime"))]
+				// enable partial checks for testing purposes only.
+				#[cfg(test)]
 				{
 					counter += 1;
 					if counter % TRY_STATE_INTERVAL == 0 {
@@ -172,6 +172,8 @@ impl<T: Config, W: weights::WeightInfo> MigrationV13<T, W> {
 	/// - `stash` has no duplicate nominations;
 	/// - `stash` has no dangling nominations (i.e. nomination of non-active validator stashes).
 	///
+	/// If the clean set of nominations is empty, `who` is chilled.
+	///
 	/// When successful, the final nominations of the stash are returned.
 	pub(crate) fn clean_nominations(
 		who: &T::AccountId,
@@ -202,8 +204,10 @@ impl<T: Config, W: weights::WeightInfo> MigrationV13<T, W> {
 			.filter(|n| Pallet::<T>::status(n) == Ok(StakerStatus::Validator))
 			.collect::<Vec<_>>();
 
-		// update `who`'s nominations in staking, if necessary.
-		if count_before > nominations.len() {
+		// update `who`'s nominations in staking or chill voter, if necessary.
+		if nominations.len() == 0 {
+			let _ = <Pallet<T> as StakingInterface>::chill(&who).defensive();
+		} else if count_before > nominations.len() {
 			<Pallet<T> as StakingInterface>::nominate(who, nominations.clone()).map_err(|e| {
 				log!(error, "failed to migrate nominations {:?}.", e);
 				SteppedMigrationError::Failed
