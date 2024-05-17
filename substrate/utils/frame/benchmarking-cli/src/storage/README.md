@@ -106,6 +106,6 @@ write: 71_347 * constants::WEIGHT_REF_TIME_PER_NANOS,
 License: Apache-2.0
 
 <!-- LINKS -->
-[Polkachu]: https://polkachu.com/snapshots
+[Polkachu]: https://polkachu.com/substrate_snapshots/polkadot
 [paritydb_weights.rs]:
     https://github.com/paritytech/polkadot/blob/c254e5975711a6497af256f6831e9a6c752d28f5/runtime/polkadot/constants/src/weights/paritydb_weights.rs#L60
