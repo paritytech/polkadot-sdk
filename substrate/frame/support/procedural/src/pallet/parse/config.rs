@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::helper;
-use frame_support_procedural_tools::{get_doc_literals, is_using_frame_crate};
+use frame_support_procedural_tools::{get_cfg_attributes, get_doc_literals, is_using_frame_crate};
 use quote::ToTokens;
 use syn::{spanned::Spanned, token, Token};
 
@@ -135,14 +135,17 @@ pub struct AssociatedTypeMetadataDef {
 	pub ident: syn::Ident,
 	/// The doc associated
 	pub doc: Vec<syn::Expr>,
+	/// The cfg associated.
+	pub cfg: Vec<syn::Attribute>,
 }
 
 impl From<&mut syn::TraitItemType> for AssociatedTypeMetadataDef {
 	fn from(trait_ty: &mut syn::TraitItemType) -> Self {
 		let ident = trait_ty.ident.clone();
 		let doc = get_doc_literals(&trait_ty.attrs);
+		let cfg = get_cfg_attributes(&trait_ty.attrs);
 
-		Self { ident, doc }
+		Self { ident, doc, cfg }
 	}
 }
 

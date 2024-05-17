@@ -113,11 +113,20 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 	let types = def.config.associated_types_metadata.iter().map(|metadata| {
 		let ident = &metadata.ident;
 		let ident_str = format!("{}", ident);
+		let cfgs = &metadata.cfg;
+
+		if ident == "BenchmarkHelper" {
+			println!();
+			println!();
+			println!();
+			println!(" cfg {:?}", cfgs);
+		}
 
 		let no_docs = vec![];
 		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &metadata.doc };
 
 		quote::quote!({
+			#( #cfgs ) *
 			#frame_support::__private::metadata_ir::PalletAssociatedTypesMetadataIR {
 				name: #ident_str,
 				ty: #frame_support::__private::scale_info::meta_type::<
