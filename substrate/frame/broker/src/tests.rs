@@ -1584,6 +1584,34 @@ fn auto_renewal_works() {
 }
 
 #[test]
+fn disable_auto_renew_works() {
+	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 3));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let record = Regions::<Test>::get(region_id).unwrap();
+
+		// Eligible for renewal after final assignment:
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+
+		// Cannot disable auto-renewal if we don't have it enabled.
+		assert_noop!(Broker::do_disable_auto_renew(1001, 0), Error::<Test>::AutoRenewalNotEnabled);
+
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, None));
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001)]);
+
+		// Only the sovereign account can disable:
+		assert_noop!(Broker::do_disable_auto_renew(2001, 0), Error::<Test>::NoPermission);
+		assert_ok!(Broker::do_disable_auto_renew(1001, 0));
+
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![]);
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalDisabled { core: region_id.core, task: 1001 }.into(),
+		);
+	});
+}
+
+#[test]
 fn start_sales_sets_correct_core_count() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		advance_to(1);
