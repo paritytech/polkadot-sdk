@@ -1529,7 +1529,10 @@ mod tests {
 	}
 
 	fn members_and_stake() -> Vec<(u64, u64)> {
-		elections_phragmen::Members::<Test>::get().into_iter().map(|m| (m.who, m.stake)).collect::<Vec<_>>()
+		elections_phragmen::Members::<Test>::get()
+			.into_iter()
+			.map(|m| (m.who, m.stake))
+			.collect::<Vec<_>>()
 	}
 
 	fn runners_up_and_stake() -> Vec<(u64, u64)> {
