@@ -121,6 +121,7 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		SkippedSyncCommitteePeriod,
+		SyncCommitteeUpdateRequired,
 		/// Attested header is older than latest finalized header.
 		IrrelevantUpdate,
 		NotBootstrapped,
@@ -393,6 +394,7 @@ pub mod pallet {
 
 			// Verify update is relevant.
 			let update_attested_period = compute_period(update.attested_header.slot);
+			let update_finalized_period = compute_period(update.finalized_header.slot);
 			let update_has_next_sync_committee = !<NextSyncCommittee<T>>::exists() &&
 				(update.next_sync_committee_update.is_some() &&
 					update_attested_period == store_period);
@@ -467,6 +469,11 @@ pub mod pallet {
 						update.attested_header.state_root
 					),
 					Error::<T>::InvalidSyncCommitteeMerkleProof
+				);
+			} else {
+				ensure!(
+					update_finalized_period == store_period,
+					Error::<T>::SyncCommitteeUpdateRequired
 				);
 			}
 
