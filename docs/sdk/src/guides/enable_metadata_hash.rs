@@ -52,7 +52,6 @@
 //! >
 //! > Adding the signed extension changes the encoding of the transaction and adds one extra byte
 //! > per
-//! > transaction!
 //!
 //! This signed extension will make sure to decode the requested `mode` and will add the metadata
 //! hash to the signed data depending on the requested `mode`. The `mode` gives the user/wallet
