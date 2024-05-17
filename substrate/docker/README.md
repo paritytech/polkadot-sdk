@@ -17,7 +17,7 @@ You should refer to the [.Dockerfile](./substrate_builder.Dockerfile) for the ac
 - `parachain-template-node` from package "parachain-template-node"
 - `adder-collator` from package "test-parachain-adder-collator"
 
-Note: `polkadot-parachain` from package "polkadot-parachain" is NOT currently supported due to this error https://github.com/paritytech/polkadot-sdk/issues/4448.
+> Note: `polkadot-parachain` from package "polkadot-parachain" is NOT currently supported due to this error https://github.com/paritytech/polkadot-sdk/issues/4448.
 
 First, install [Docker](https://docs.docker.com/get-docker/).
 
@@ -27,9 +27,9 @@ export DOCKER_DEFAULT_PLATFORM=linux/amd64
 ./build.sh
 ```
 
-> IMPORTANT: The build.sh script is configured to default to `linux/amd64` platform architecture. If you are using Apple Silicon then it will use `linux/x86_64`. If you are using a different platform architecture then please specify it for the value of `DOCKER_DEFAULT_PLATFORM`.
+> Important: The build.sh script is configured to default to `linux/amd64` platform architecture. If you are using Apple Silicon then it will use `linux/x86_64`. If you are using a different platform architecture then please specify it for the value of `DOCKER_DEFAULT_PLATFORM`.
 
-> NOTE: If you are in the root directory of the Polkadot SDK please run `./substrate/docker/build.sh`
+> Note: If you are in the root directory of the Polkadot SDK please run `./substrate/docker/build.sh`
 
 If you wish to create a debug build rather than a production build, then you may modify the
 [.Dockerfile](./substrate_builder.Dockerfile) replacing `cargo build --locked --release` with just
@@ -62,11 +62,12 @@ Then try running the following command to start a single node development chain 
   --unsafe-rpc-external \
   --rpc-cors all \
   --prometheus-external \
-  --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
   -lsync=debug
 ```
 
-Note: It is recommended to provide a custom `--base-path` to store the chain database. For example:
+> Note: It may not let you run with `--telemetry-url "wss://telemetry.polkadot.io/submit/ 0"` in the above command unless you configure `docker run` to run using the option `-d`.
+
+> Note: It is recommended to provide a custom `--base-path` to store the chain database. For example:
 
 ```sh
 # Run Substrate Solo Node Template without re-compiling
@@ -80,10 +81,10 @@ Note: It is recommended to provide a custom `--base-path` to store the chain dat
 ./run.sh solochain-template-node purge-chain --dev --base-path=/data -y
 ```
 
-> IMPORTANT: The run.sh script is configured to default to `linux/amd64` platform architecture. If you are using Apple Silicon then it will use `linux/x86_64`. If you are using a different platform architecture then please specify it for the value of `DOCKER_DEFAULT_PLATFORM` and run `export DOCKER_DEFAULT_PLATFORM=xxx` prior to the above commands, replacig `xxx` with the value of your platform architecture.
+> Important: The run.sh script is configured to default to `linux/amd64` platform architecture. If you are using Apple Silicon then it will use `linux/x86_64`. If you are using a different platform architecture then please specify it for the value of `DOCKER_DEFAULT_PLATFORM` and run `export DOCKER_DEFAULT_PLATFORM=xxx` prior to the above commands, replacig `xxx` with the value of your platform architecture.
 
-> NOTE: If you run a chain with the run.sh script within the Docker container, chain syncing will utilize all available memory and CPU power as mentioned in /substrate/primitives/runtime/docs/contributor/docker.md, so it may be important to provide options to `docker run` to configure `--memory`, `--memory-reservation`, `--memory-swap`, and `--cpus` values to limit resources used. To run the commands within the Docker container itself instead of from the host machine, run the Docker container in the background in detached mode with `-d` (e.g. `docker run --platform $PLATFORM -it -d parity/substrate`) and then enter that Docker container with `docker exec -it parity-substrate /bin/bash` (where the Docker container name is `parity-substrate`, whereas the Docker image name is `parity/substrate`).
+> Note: If you run a chain with the run.sh script within the Docker container, chain syncing will utilize all available memory and CPU power as mentioned in /substrate/primitives/runtime/docs/contributor/docker.md, so it may be important to provide options to `docker run` to configure `--memory`, `--memory-reservation`, `--memory-swap`, and `--cpus` values to limit resources used. To run the commands within the Docker container itself instead of from the host machine, run the Docker container in the background in detached mode with `-d` (e.g. `docker run --platform $PLATFORM -it -d parity/substrate`) and then enter that Docker container with `docker exec -it parity-substrate /bin/bash` (where the Docker container name is `parity-substrate`, whereas the Docker image name is `parity/substrate`). If you want the Docker container to restart on failure then provide to `docker run` the option `--restart "on-failure"` instead of `--rm`. If you wish to stop and remove the Docker container that you can view running with `docker ps -a` then run `docker stop parity-substrate && docker rm parity-substrate`.
 
-> NOTE: If you want the Docker container to restart on failure then provide to `docker run` the option `--restart "on-failure"` instead of `--rm`.
+> Note: If you get error `Bind for 0.0.0.0:30333 failed: port is already allocated.` or similar, then you might be running a different Docker container that is using the ports you need. To resolve that either find that other container with `docker ps -a` and stop that other container with `docker stop <CONTAINER_ID>` or change the host side ports used in run.sh. For example, if you changed `--publish 0.0.0.0:9944:9944` to `--publish 0.0.0.0:9955:9944` where `9955` is an available port on the host machine, then if you wanted to connect to the node running in the Docker container using Polkadot.js Apps at https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9944, then you would have to change the port in that URL to `9955`.
 
-> NOTE: In the [.Dockerfile](./substrate_builder.Dockerfile), the exposed ports are for running a Substrate-based node. In addition, ports 80 and 443 have been included incase you wishes to run a frontend from within the Docker container.
+> Note: In the [.Dockerfile](./substrate_builder.Dockerfile), the exposed ports are for running a Substrate-based node. In addition, ports 80 and 443 have been included incase you wishes to run a frontend from within the Docker container.

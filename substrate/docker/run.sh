@@ -35,7 +35,13 @@ try_run() {
     --memory-reservation 125M \
     --memory-swap 15G \
     --cpus 1 \
-    --rm -it -d parity/substrate $ARGS
+    --publish 0.0.0.0:30333:30333 \
+    --publish 0.0.0.0:9933:9933 \
+    --publish 0.0.0.0:9944:9944 \
+    --publish 0.0.0.0:9615:9615 \
+    --publish 0.0.0.0:443:443 \
+    --publish 0.0.0.0:80:80 \
+    --rm -it parity/substrate $ARGS
 }
 
 # handle when arguments not provided. run arguments provided to script.
