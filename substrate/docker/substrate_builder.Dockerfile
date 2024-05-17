@@ -40,7 +40,8 @@ RUN RUST_NIGHTLY="-2023-05-23" && \
 	git config --global core.compression 0 && \
 	git config --system core.longpaths true && \
 	git config --global http.version HTTP/1.1 && \
-	# additional dependencies that may not actually be necessary
+	# additional dependencies that were used in https://hub.docker.com/r/paritytech/ci-linux
+	# that may not actually be necessary
 	cargo install cargo-web wasm-pack cargo-deny cargo-spellcheck cargo-hack mdbook mdbook-mermaid mdbook-linkcheck mdbook-graphviz mdbook-last-changed && \
 	cargo install cargo-nextest --locked && \
 	cargo install diener --version 0.4.6 && \
@@ -52,7 +53,8 @@ RUN RUST_NIGHTLY="-2023-05-23" && \
 	###
 	rustup show && \
 	cargo --version && \
-	# # don't do the below since it takes ~45 mins to re-build and users may want them in the container too
+	# # don't do the below like they do in https://hub.docker.com/r/paritytech/ci-linux
+	# # since it takes ~45 mins to re-build and users may want them in the container too
 	# apt-get autoremove -y && \
 	# apt-get clean && \
 	# rm -rf /var/lib/apt/lists/* && \
