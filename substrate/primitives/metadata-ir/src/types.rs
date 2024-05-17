@@ -417,6 +417,29 @@ impl IntoPortable for PalletConstantMetadataIR {
 	}
 }
 
+/// Metadata about one pallet associated type.
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub struct PalletAssociatedTypesMetadataIR<T: Form = MetaForm> {
+	/// Name of the pallet associated type.
+	pub name: T::String,
+	/// Type of the pallet associated type.
+	pub ty: T::Type,
+	/// Documentation of the associated type.
+	pub docs: Vec<T::String>,
+}
+
+impl IntoPortable for PalletAssociatedTypesMetadataIR {
+	type Output = PalletAssociatedTypesMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		PalletAssociatedTypesMetadataIR {
+			name: self.name.into_portable(registry),
+			ty: registry.register_type(&self.ty),
+			docs: registry.map_into_portable(self.docs),
+		}
+	}
+}
+
 /// Metadata about a pallet error.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct PalletErrorMetadataIR<T: Form = MetaForm> {
