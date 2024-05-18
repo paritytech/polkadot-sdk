@@ -8421,6 +8421,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
+ "pallet-transaction-payment-rpc",
  "polkadot-sdk-frame",
  "sc-basic-authorship",
  "sc-cli",

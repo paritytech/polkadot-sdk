@@ -45,6 +45,7 @@ sp-block-builder = { path = "../../../substrate/primitives/block-builder" }
 sp-io = { path = "../../../substrate/primitives/io" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 
+pallet-transaction-payment-rpc = { path = "../../../substrate/frame/transaction-payment/rpc" }
 substrate-frame-rpc-system = { path = "../../../substrate/utils/frame/rpc/system" }
 
 # Once the native runtime is gone, there should be little to no dependency on FRAME here, and
