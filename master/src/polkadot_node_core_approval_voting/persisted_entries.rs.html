@@ -1469,7 +1469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.distributed_assignments.resize(new_len, <span class="bool-val">false</span>);
 		<span class="self">self</span>.distributed_assignments |= bitfield;
 
-		<span class="comment">// If the an operation did not change our current bitfied, we return true.
+		<span class="comment">// If the an operation did not change our current bitfield, we return true.
 		</span><span class="kw">let </span>distributed = total_one_bits == <span class="self">self</span>.distributed_assignments.count_ones();
 
 		distributed

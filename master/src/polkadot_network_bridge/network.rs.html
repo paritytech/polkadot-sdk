@@ -680,7 +680,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// network used `Bytes` this would not be necessary.
 	//
 	// peer may have gotten disconnect by the time `send_message()` is called
-	// at which point the the sink is not available.
+	// at which point the sink is not available.
 	</span><span class="kw">let </span>last_peer = peers.pop();
 	peers.into_iter().for_each(|peer| {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(sink) = notification_sinks.get(<span class="kw-2">&amp;</span>(peer_set, peer)) {
