@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716138026971,
+  "lastUpdate": 1716146734906,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3900,6 +3900,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.293660103249934,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e7b6d7dffd6459174f02598bd8b84fe4b1cb6e72",
+          "message": "`remote-externalities`: `rpc_child_get_keys` to use paged scraping (#4512)\n\nReplace usage of deprecated\n`substrate_rpc_client::ChildStateApi::storage_keys` with\n`substrate_rpc_client::ChildStateApi::storage_keys_paged`.\n\nRequired for successful scraping of Aleph Zero state.",
+          "timestamp": "2024-05-19T17:53:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7b6d7dffd6459174f02598bd8b84fe4b1cb6e72"
+        },
+        "date": 1716146707452,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63542.42,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0756305048901917,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.22913772824999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.808103166350001,
             "unit": "seconds"
           }
         ]
