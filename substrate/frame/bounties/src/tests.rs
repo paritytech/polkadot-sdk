@@ -95,8 +95,13 @@ parameter_types! {
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
+	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = ();
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ConstU64<1>;
+	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -117,8 +122,13 @@ impl pallet_treasury::Config for Test {
 impl pallet_treasury::Config<Instance1> for Test {
 	type PalletId = TreasuryPalletId2;
 	type Currency = pallet_balances::Pallet<Test>;
+	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = ();
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ConstU64<1>;
+	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -145,8 +155,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type OnSlash = ();
-	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
@@ -162,8 +170,6 @@ impl Config for Test {
 }
 
 impl Config<Instance1> for Test {
-	type OnSlash = ();
-	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
@@ -226,9 +232,7 @@ fn accepted_spend_proposal_ignored_outside_spend_period() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		assert_ok!({
-			Treasury::spend_local(RuntimeOrigin::root(), 100, 3)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(1);
 		assert_eq!(Balances::free_balance(3), 0);
@@ -255,9 +259,7 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!({
-			Treasury::spend_local(RuntimeOrigin::root(), 100, 3)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Balances::free_balance(3), 100);
@@ -271,9 +273,7 @@ fn pot_underflow_should_not_diminish() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!({
-			Treasury::spend_local(RuntimeOrigin::root(), 150, 3)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 150, 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
@@ -294,16 +294,12 @@ fn treasury_account_doesnt_get_deleted() {
 		assert_eq!(Treasury::pot(), 100);
 		let treasury_balance = Balances::free_balance(&Treasury::account_id());
 
-		assert_ok!({
-			Treasury::spend_local(RuntimeOrigin::root(), treasury_balance, 3)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), treasury_balance, 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-		assert_ok!({
-			Treasury::spend_local(RuntimeOrigin::root(), Treasury::pot(), 3)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), Treasury::pot(), 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(4);
 		assert_eq!(Treasury::pot(), 0); // Pot is emptied
@@ -326,12 +322,8 @@ fn inexistent_account_works() {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
 		assert_eq!(Treasury::pot(), 0); // Pot is empty
 
-		assert_ok!({
-			Treasury::spend_local(RuntimeOrigin::root(), 99, 3)
-		});
-		assert_ok!({
-			Treasury::spend_local(RuntimeOrigin::root(), 1, 3)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 99, 3) });
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 1, 3) });
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
 		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed

@@ -116,8 +116,13 @@ parameter_types! {
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
+	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = ();
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ConstU64<1>;
+	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -138,8 +143,13 @@ impl pallet_treasury::Config for Test {
 impl pallet_treasury::Config<Instance1> for Test {
 	type PalletId = TreasuryPalletId2;
 	type Currency = pallet_balances::Pallet<Test>;
+	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = ();
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ConstU64<1>;
+	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -162,7 +172,6 @@ parameter_types! {
 	pub static TipReportDepositBase: u64 = 1;
 }
 impl Config for Test {
-	type OnSlash = ();
 	type MaximumReasonLength = ConstU32<16384>;
 	type Tippers = TenToFourteen;
 	type TipCountdown = ConstU64<1>;
@@ -175,7 +184,6 @@ impl Config for Test {
 }
 
 impl Config<Instance1> for Test {
-	type OnSlash = ();
 	type MaximumReasonLength = ConstU32<16384>;
 	type Tippers = TenToFourteen;
 	type TipCountdown = ConstU64<1>;

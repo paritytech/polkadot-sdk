@@ -205,12 +205,31 @@ pub mod pallet {
 		/// The staking balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
+		/// Origin from which approvals must come.
+		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Origin from which rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
+		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+
+		/// Fraction of a proposal's value that should be bonded in order to place the proposal.
+		/// An accepted proposal gets these back. A rejected proposal does not.
+		#[pallet::constant]
+		type ProposalBond: Get<Permill>;
+
+		/// Minimum amount of funds that should be placed in a deposit for making a proposal.
+		#[pallet::constant]
+		type ProposalBondMinimum: Get<BalanceOf<Self, I>>;
+
+		/// Maximum amount of funds that should be placed in a deposit for making a proposal.
+		#[pallet::constant]
+		type ProposalBondMaximum: Get<Option<BalanceOf<Self, I>>>;
 
 		/// Period between successive spends.
 		#[pallet::constant]

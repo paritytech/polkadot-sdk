@@ -171,9 +171,6 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// Handler for the unbalanced decrease when slashing for a tip.
-		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
 	}
 
 	/// TipsMap that are not yet completed. Keyed by the hash of `(reason, who)` from the value.
