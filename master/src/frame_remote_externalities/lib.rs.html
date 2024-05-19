@@ -1743,6 +1743,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1592" id="1592">1592</a>
 <a href="#1593" id="1593">1593</a>
 <a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
+<a href="#1608" id="1608">1608</a>
+<a href="#1609" id="1609">1609</a>
+<a href="#1610" id="1610">1610</a>
+<a href="#1611" id="1611">1611</a>
+<a href="#1612" id="1612">1612</a>
+<a href="#1613" id="1613">1613</a>
+<a href="#1614" id="1614">1614</a>
+<a href="#1615" id="1615">1615</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2579,30 +2600,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>retry_strategy =
 			FixedInterval::new(<span class="self">Self</span>::KEYS_PAGE_RETRY_INTERVAL).take(<span class="self">Self</span>::MAX_RETRIES);
-		<span class="kw">let </span>get_child_keys_closure = || {
-			<span class="attr">#[allow(deprecated)]
-			</span>substrate_rpc_client::ChildStateApi::storage_keys(
-				client,
-				PrefixedStorageKey::new(prefixed_top_key.as_ref().to_vec()),
-				child_prefix.clone(),
-				<span class="prelude-val">Some</span>(at),
-			)
-		};
-		<span class="kw">let </span>child_keys =
-			Retry::spawn(retry_strategy, get_child_keys_closure).<span class="kw">await</span>.map_err(|e| {
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error = {:?}"</span>, e);
-				<span class="string">"rpc child_get_keys failed."
-			</span>})<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>all_child_keys = Vec::new();
+		<span class="kw">let </span><span class="kw-2">mut </span>start_key = <span class="prelude-val">None</span>;
+
+		<span class="kw">loop </span>{
+			<span class="kw">let </span>get_child_keys_closure = || {
+				<span class="kw">let </span>top_key = PrefixedStorageKey::new(prefixed_top_key.<span class="number">0</span>.clone());
+				substrate_rpc_client::ChildStateApi::storage_keys_paged(
+					client,
+					top_key,
+					<span class="prelude-val">Some</span>(child_prefix.clone()),
+					<span class="self">Self</span>::DEFAULT_KEY_DOWNLOAD_PAGE,
+					start_key.clone(),
+					<span class="prelude-val">Some</span>(at),
+				)
+			};
+
+			<span class="kw">let </span>child_keys = Retry::spawn(retry_strategy.clone(), get_child_keys_closure)
+				.<span class="kw">await
+				</span>.map_err(|e| {
+					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error = {:?}"</span>, e);
+					<span class="string">"rpc child_get_keys failed."
+				</span>})<span class="question-mark">?</span>;
+
+			<span class="kw">let </span>keys_count = child_keys.len();
+			<span class="kw">if </span>keys_count == <span class="number">0 </span>{
+				<span class="kw">break</span>;
+			}
+
+			start_key = child_keys.last().cloned();
+			all_child_keys.extend(child_keys);
+
+			<span class="kw">if </span>keys_count &lt; <span class="self">Self</span>::DEFAULT_KEY_DOWNLOAD_PAGE <span class="kw">as </span>usize {
+				<span class="kw">break</span>;
+			}
+		}
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
 			<span class="string">"[thread = {:?}] scraped {} child-keys of the child-bearing top key: {}"</span>,
 			std::thread::current().id(),
-			child_keys.len(),
+			all_child_keys.len(),
 			HexDisplay::from(prefixed_top_key)
 		);
 
-		<span class="prelude-val">Ok</span>(child_keys)
+		<span class="prelude-val">Ok</span>(all_child_keys)
 	}
 }
 
