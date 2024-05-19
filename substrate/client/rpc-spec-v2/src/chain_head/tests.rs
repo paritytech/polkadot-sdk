@@ -16,13 +16,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use super::*;
 use crate::{
 	chain_head::{api::ChainHeadApiClient, event::MethodResponse, test_utils::ChainHeadMockClient},
 	common::events::{StorageQuery, StorageQueryType, StorageResultType},
 	hex_string,
 };
-
-use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use futures::Future;
@@ -32,7 +31,6 @@ use jsonrpsee::{
 	},
 	rpc_params, MethodsError as Error, RpcModule,
 };
-
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sc_service::client::new_in_mem;
@@ -156,7 +154,7 @@ async fn setup_api() -> (
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -266,7 +264,7 @@ async fn follow_subscription_produces_blocks() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -337,7 +335,7 @@ async fn follow_with_runtime() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -448,14 +446,14 @@ async fn get_header() {
 
 	// Invalid subscription ID must produce no results.
 	let res: Option<String> = api
-		.call("chainHead_unstable_header", ["invalid_sub_id", &invalid_hash])
+		.call("chainHead_v1_header", ["invalid_sub_id", &invalid_hash])
 		.await
 		.unwrap();
 	assert!(res.is_none());
 
 	// Valid subscription with invalid block hash will error.
 	let err = api
-		.call::<_, serde_json::Value>("chainHead_unstable_header", [&sub_id, &invalid_hash])
+		.call::<_, serde_json::Value>("chainHead_v1_header", [&sub_id, &invalid_hash])
 		.await
 		.unwrap_err();
 	assert_matches!(err,
@@ -463,7 +461,7 @@ async fn get_header() {
 	);
 
 	// Obtain the valid header.
-	let res: String = api.call("chainHead_unstable_header", [&sub_id, &block_hash]).await.unwrap();
+	let res: String = api.call("chainHead_v1_header", [&sub_id, &block_hash]).await.unwrap();
 	let bytes = array_bytes::hex2bytes(&res).unwrap();
 	let header: Header = Decode::decode(&mut &bytes[..]).unwrap();
 	assert_eq!(header, block.header);
@@ -476,15 +474,13 @@ async fn get_body() {
 	let invalid_hash = hex_string(&INVALID_HASH);
 
 	// Subscription ID is invalid.
-	let response: MethodResponse = api
-		.call("chainHead_unstable_body", ["invalid_sub_id", &invalid_hash])
-		.await
-		.unwrap();
+	let response: MethodResponse =
+		api.call("chainHead_v1_body", ["invalid_sub_id", &invalid_hash]).await.unwrap();
 	assert_matches!(response, MethodResponse::LimitReached);
 
 	// Block hash is invalid.
 	let err = api
-		.call::<_, serde_json::Value>("chainHead_unstable_body", [&sub_id, &invalid_hash])
+		.call::<_, serde_json::Value>("chainHead_v1_body", [&sub_id, &invalid_hash])
 		.await
 		.unwrap_err();
 	assert_matches!(err,
@@ -493,7 +489,7 @@ async fn get_body() {
 
 	// Valid call.
 	let response: MethodResponse =
-		api.call("chainHead_unstable_body", [&sub_id, &block_hash]).await.unwrap();
+		api.call("chainHead_v1_body", [&sub_id, &block_hash]).await.unwrap();
 	let operation_id = match response {
 		MethodResponse::Started(started) => started.operation_id,
 		MethodResponse::LimitReached => panic!("Expected started response"),
@@ -534,7 +530,7 @@ async fn get_body() {
 
 	// Valid call to a block with extrinsics.
 	let response: MethodResponse =
-		api.call("chainHead_unstable_body", [&sub_id, &block_hash]).await.unwrap();
+		api.call("chainHead_v1_body", [&sub_id, &block_hash]).await.unwrap();
 	let operation_id = match response {
 		MethodResponse::Started(started) => started.operation_id,
 		MethodResponse::LimitReached => panic!("Expected started response"),
@@ -556,10 +552,7 @@ async fn call_runtime() {
 
 	// Subscription ID is invalid.
 	let response: MethodResponse = api
-		.call(
-			"chainHead_unstable_call",
-			["invalid_sub_id", &block_hash, "BabeApi_current_epoch", "0x00"],
-		)
+		.call("chainHead_v1_call", ["invalid_sub_id", &block_hash, "BabeApi_current_epoch", "0x00"])
 		.await
 		.unwrap();
 	assert_matches!(response, MethodResponse::LimitReached);
@@ -567,7 +560,7 @@ async fn call_runtime() {
 	// Block hash is invalid.
 	let err = api
 		.call::<_, serde_json::Value>(
-			"chainHead_unstable_call",
+			"chainHead_v1_call",
 			[&sub_id, &invalid_hash, "BabeApi_current_epoch", "0x00"],
 		)
 		.await
@@ -579,7 +572,7 @@ async fn call_runtime() {
 	// Pass an invalid parameters that cannot be decode.
 	let err = api
 		.call::<_, serde_json::Value>(
-			"chainHead_unstable_call",
+			"chainHead_v1_call",
 			// 0x0 is invalid.
 			[&sub_id, &block_hash, "BabeApi_current_epoch", "0x0"],
 		)
@@ -595,7 +588,7 @@ async fn call_runtime() {
 	let call_parameters = hex_string(&alice_id.encode());
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_call",
+			"chainHead_v1_call",
 			[&sub_id, &block_hash, "AccountNonceApi_account_nonce", &call_parameters],
 		)
 		.await
@@ -614,7 +607,7 @@ async fn call_runtime() {
 	// The `current_epoch` takes no parameters and not draining the input buffer
 	// will cause the execution to fail.
 	let response: MethodResponse = api
-		.call("chainHead_unstable_call", [&sub_id, &block_hash, "BabeApi_current_epoch", "0x00"])
+		.call("chainHead_v1_call", [&sub_id, &block_hash, "BabeApi_current_epoch", "0x00"])
 		.await
 		.unwrap();
 	let operation_id = match response {
@@ -651,7 +644,7 @@ async fn call_runtime_without_flag() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -685,7 +678,7 @@ async fn call_runtime_without_flag() {
 	let call_parameters = hex_string(&alice_id.encode());
 	let err = api
 		.call::<_, serde_json::Value>(
-			"chainHead_unstable_call",
+			"chainHead_v1_call",
 			[&sub_id, &block_hash, "AccountNonceApi_account_nonce", &call_parameters],
 		)
 		.await
@@ -706,7 +699,7 @@ async fn get_storage_hash() {
 	// Subscription ID is invalid.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				"invalid_sub_id",
 				&invalid_hash,
@@ -720,7 +713,7 @@ async fn get_storage_hash() {
 	// Block hash is invalid.
 	let err = api
 		.call::<_, serde_json::Value>(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&invalid_hash,
@@ -736,7 +729,7 @@ async fn get_storage_hash() {
 	// Valid call without storage at the key.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -779,7 +772,7 @@ async fn get_storage_hash() {
 	// Valid call with storage at the key.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -812,7 +805,7 @@ async fn get_storage_hash() {
 	// Valid call with storage at the key.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&genesis_hash,
@@ -869,7 +862,7 @@ async fn get_storage_multi_query_iter() {
 	// Valid call with storage at the key.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -920,7 +913,7 @@ async fn get_storage_multi_query_iter() {
 	let expected_value = hex_string(&CHILD_VALUE);
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&genesis_hash,
@@ -974,7 +967,7 @@ async fn get_storage_value() {
 	// Subscription ID is invalid.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				"invalid_sub_id",
 				&invalid_hash,
@@ -988,7 +981,7 @@ async fn get_storage_value() {
 	// Block hash is invalid.
 	let err = api
 		.call::<_, serde_json::Value>(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&invalid_hash,
@@ -1004,7 +997,7 @@ async fn get_storage_value() {
 	// Valid call without storage at the key.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -1047,7 +1040,7 @@ async fn get_storage_value() {
 	// Valid call with storage at the key.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -1079,7 +1072,7 @@ async fn get_storage_value() {
 
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&genesis_hash,
@@ -1121,7 +1114,7 @@ async fn get_storage_non_queryable_key() {
 
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -1146,7 +1139,7 @@ async fn get_storage_non_queryable_key() {
 	let prefixed_key = hex_string(&prefixed_key);
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -1171,7 +1164,7 @@ async fn get_storage_non_queryable_key() {
 	let prefixed_key = hex_string(&prefixed_key);
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -1197,7 +1190,7 @@ async fn get_storage_non_queryable_key() {
 	let prefixed_key = hex_string(&prefixed_key);
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -1227,9 +1220,9 @@ async fn unique_operation_ids() {
 
 	// Ensure that operation IDs are unique for multiple method calls.
 	for _ in 0..5 {
-		// Valid `chainHead_unstable_body` call.
+		// Valid `chainHead_v1_body` call.
 		let response: MethodResponse =
-			api.call("chainHead_unstable_body", [&sub_id, &block_hash]).await.unwrap();
+			api.call("chainHead_v1_body", [&sub_id, &block_hash]).await.unwrap();
 		let operation_id = match response {
 			MethodResponse::Started(started) => started.operation_id,
 			MethodResponse::LimitReached => panic!("Expected started response"),
@@ -1241,11 +1234,11 @@ async fn unique_operation_ids() {
 		// Ensure uniqueness.
 		assert!(op_ids.insert(operation_id));
 
-		// Valid `chainHead_unstable_storage` call.
+		// Valid `chainHead_v1_storage` call.
 		let key = hex_string(&KEY);
 		let response: MethodResponse = api
 			.call(
-				"chainHead_unstable_storage",
+				"chainHead_v1_storage",
 				rpc_params![
 					&sub_id,
 					&block_hash,
@@ -1266,12 +1259,12 @@ async fn unique_operation_ids() {
 		// Ensure uniqueness.
 		assert!(op_ids.insert(operation_id));
 
-		// Valid `chainHead_unstable_call` call.
+		// Valid `chainHead_v1_call` call.
 		let alice_id = AccountKeyring::Alice.to_account_id();
 		let call_parameters = hex_string(&alice_id.encode());
 		let response: MethodResponse = api
 			.call(
-				"chainHead_unstable_call",
+				"chainHead_v1_call",
 				[&sub_id, &block_hash, "AccountNonceApi_account_nonce", &call_parameters],
 			)
 			.await
@@ -1313,12 +1306,11 @@ async fn separate_operation_ids_for_subscriptions() {
 	.into_rpc();
 
 	// Create two separate subscriptions.
-	let mut sub_first = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub_first = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	let sub_id_first = sub_first.subscription_id();
 	let sub_id_first = serde_json::to_string(&sub_id_first).unwrap();
 
-	let mut sub_second =
-		api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub_second = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	let sub_id_second = sub_second.subscription_id();
 	let sub_id_second = serde_json::to_string(&sub_id_second).unwrap();
 
@@ -1362,17 +1354,15 @@ async fn separate_operation_ids_for_subscriptions() {
 
 	// Each `chainHead_follow` subscription receives a separate operation ID.
 	let response: MethodResponse =
-		api.call("chainHead_unstable_body", [&sub_id_first, &block_hash]).await.unwrap();
+		api.call("chainHead_v1_body", [&sub_id_first, &block_hash]).await.unwrap();
 	let operation_id: String = match response {
 		MethodResponse::Started(started) => started.operation_id,
 		MethodResponse::LimitReached => panic!("Expected started response"),
 	};
 	assert_eq!(operation_id, "0");
 
-	let response: MethodResponse = api
-		.call("chainHead_unstable_body", [&sub_id_second, &block_hash])
-		.await
-		.unwrap();
+	let response: MethodResponse =
+		api.call("chainHead_v1_body", [&sub_id_second, &block_hash]).await.unwrap();
 	let operation_id_second: String = match response {
 		MethodResponse::Started(started) => started.operation_id,
 		MethodResponse::LimitReached => panic!("Expected started response"),
@@ -1449,7 +1439,7 @@ async fn follow_generates_initial_blocks() {
 	let block_2_f_hash = block_2_f.header.hash();
 	client.import(BlockOrigin::Own, block_2_f.clone()).await.unwrap();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -1561,7 +1551,7 @@ async fn follow_exceeding_pinned_blocks() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -1640,7 +1630,7 @@ async fn follow_with_unpin() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -1672,17 +1662,14 @@ async fn follow_with_unpin() {
 	// Unpin an invalid subscription ID must return Ok(()).
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let _res: () = api
-		.call("chainHead_unstable_unpin", rpc_params!["invalid_sub_id", &invalid_hash])
+		.call("chainHead_v1_unpin", rpc_params!["invalid_sub_id", &invalid_hash])
 		.await
 		.unwrap();
 
 	// Valid subscription with invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let err = api
-		.call::<_, serde_json::Value>(
-			"chainHead_unstable_unpin",
-			rpc_params![&sub_id, &invalid_hash],
-		)
+		.call::<_, serde_json::Value>("chainHead_v1_unpin", rpc_params![&sub_id, &invalid_hash])
 		.await
 		.unwrap_err();
 	assert_matches!(err,
@@ -1690,10 +1677,7 @@ async fn follow_with_unpin() {
 	);
 
 	// To not exceed the number of pinned blocks, we need to unpin before the next import.
-	let _res: () = api
-		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_hash])
-		.await
-		.unwrap();
+	let _res: () = api.call("chainHead_v1_unpin", rpc_params![&sub_id, &block_hash]).await.unwrap();
 
 	// Block tree:
 	//   finalized_block -> block -> block2
@@ -1754,7 +1738,7 @@ async fn unpin_duplicate_hashes() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -1786,7 +1770,7 @@ async fn unpin_duplicate_hashes() {
 	// Try to unpin duplicate hashes.
 	let err = api
 		.call::<_, serde_json::Value>(
-			"chainHead_unstable_unpin",
+			"chainHead_v1_unpin",
 			rpc_params![&sub_id, vec![&block_hash, &block_hash]],
 		)
 		.await
@@ -1821,7 +1805,7 @@ async fn unpin_duplicate_hashes() {
 	// Try to unpin duplicate hashes.
 	let err = api
 		.call::<_, serde_json::Value>(
-			"chainHead_unstable_unpin",
+			"chainHead_v1_unpin",
 			rpc_params![&sub_id, vec![&block_hash, &block_hash_2, &block_hash]],
 		)
 		.await
@@ -1832,7 +1816,7 @@ async fn unpin_duplicate_hashes() {
 
 	// Can unpin blocks.
 	let _res: () = api
-		.call("chainHead_unstable_unpin", rpc_params![&sub_id, vec![&block_hash, &block_hash_2]])
+		.call("chainHead_v1_unpin", rpc_params![&sub_id, vec![&block_hash, &block_hash_2]])
 		.await
 		.unwrap();
 }
@@ -1859,7 +1843,7 @@ async fn follow_with_multiple_unpin_hashes() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -1930,16 +1914,13 @@ async fn follow_with_multiple_unpin_hashes() {
 	// Unpin an invalid subscription ID must return Ok(()).
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let _res: () = api
-		.call("chainHead_unstable_unpin", rpc_params!["invalid_sub_id", &invalid_hash])
+		.call("chainHead_v1_unpin", rpc_params!["invalid_sub_id", &invalid_hash])
 		.await
 		.unwrap();
 
 	// Valid subscription with invalid block hash.
 	let err = api
-		.call::<_, serde_json::Value>(
-			"chainHead_unstable_unpin",
-			rpc_params![&sub_id, &invalid_hash],
-		)
+		.call::<_, serde_json::Value>("chainHead_v1_unpin", rpc_params![&sub_id, &invalid_hash])
 		.await
 		.unwrap_err();
 	assert_matches!(err,
@@ -1947,14 +1928,14 @@ async fn follow_with_multiple_unpin_hashes() {
 	);
 
 	let _res: () = api
-		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_1_hash])
+		.call("chainHead_v1_unpin", rpc_params![&sub_id, &block_1_hash])
 		.await
 		.unwrap();
 
 	// One block hash is invalid. Block 1 is already unpinned.
 	let err = api
 		.call::<_, serde_json::Value>(
-			"chainHead_unstable_unpin",
+			"chainHead_v1_unpin",
 			rpc_params![&sub_id, vec![&block_1_hash, &block_2_hash, &block_3_hash]],
 		)
 		.await
@@ -1965,16 +1946,13 @@ async fn follow_with_multiple_unpin_hashes() {
 
 	// Unpin multiple blocks.
 	let _res: () = api
-		.call("chainHead_unstable_unpin", rpc_params![&sub_id, vec![&block_2_hash, &block_3_hash]])
+		.call("chainHead_v1_unpin", rpc_params![&sub_id, vec![&block_2_hash, &block_3_hash]])
 		.await
 		.unwrap();
 
 	// Check block 2 and 3 are unpinned.
 	let err = api
-		.call::<_, serde_json::Value>(
-			"chainHead_unstable_unpin",
-			rpc_params![&sub_id, &block_2_hash],
-		)
+		.call::<_, serde_json::Value>("chainHead_v1_unpin", rpc_params![&sub_id, &block_2_hash])
 		.await
 		.unwrap_err();
 	assert_matches!(err,
@@ -1982,10 +1960,7 @@ async fn follow_with_multiple_unpin_hashes() {
 	);
 
 	let err = api
-		.call::<_, serde_json::Value>(
-			"chainHead_unstable_unpin",
-			rpc_params![&sub_id, &block_3_hash],
-		)
+		.call::<_, serde_json::Value>("chainHead_v1_unpin", rpc_params![&sub_id, &block_3_hash])
 		.await
 		.unwrap_err();
 	assert_matches!(err,
@@ -2016,7 +1991,7 @@ async fn follow_prune_best_block() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -2178,7 +2153,7 @@ async fn follow_prune_best_block() {
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 	let hash = format!("{:?}", block_2_hash);
-	let _res: () = api.call("chainHead_unstable_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
+	let _res: () = api.call("chainHead_v1_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
 }
 
 #[tokio::test]
@@ -2282,7 +2257,7 @@ async fn follow_forks_pruned_block() {
 	// Block 2_f and 3_f are not pruned, pruning happens at height (N - 1).
 	client.finalize_block(block_3_hash, None).unwrap();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -2444,7 +2419,7 @@ async fn follow_report_multiple_pruned_block() {
 	let block_3_f = block_builder.build().unwrap().block;
 	let block_3_f_hash = block_3_f.hash();
 	client.import(BlockOrigin::Own, block_3_f.clone()).await.unwrap();
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -2512,6 +2487,7 @@ async fn follow_report_multiple_pruned_block() {
 	client.finalize_block(block_3_hash, None).unwrap();
 
 	// Finalizing block 3 directly will also result in block 1 and 2 being finalized.
+	// It will also mark block 2 and block 3 from the fork as pruned.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
@@ -2519,7 +2495,7 @@ async fn follow_report_multiple_pruned_block() {
 			format!("{:?}", block_2_hash),
 			format!("{:?}", block_3_hash),
 		],
-		pruned_block_hashes: vec![],
+		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
 	});
 	assert_eq!(event, expected);
 
@@ -2529,7 +2505,6 @@ async fn follow_report_multiple_pruned_block() {
 	//                                                  ^^^ finalized
 	//           -> block 1 -> block 2_f -> block 3_f
 	//
-	// Mark block 4 as finalized to force block 2_f and 3_f to get pruned.
 
 	let block_4 = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(block_3.hash())
@@ -2560,11 +2535,11 @@ async fn follow_report_multiple_pruned_block() {
 	});
 	assert_eq!(event, expected);
 
-	// Block 4 and 5 be reported as pruned, not just the stale head (block 5).
+	// Blocks from the fork were pruned earlier.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_4_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 }
@@ -2573,7 +2548,7 @@ async fn follow_report_multiple_pruned_block() {
 async fn pin_block_references() {
 	// Manually construct an in-memory backend and client.
 	let backend = Arc::new(sc_client_api::in_mem::Backend::new());
-	let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
+	let executor = substrate_test_runtime_client::WasmExecutor::default();
 	let client_config = sc_service::ClientConfig::default();
 
 	let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
@@ -2630,7 +2605,7 @@ async fn pin_block_references() {
 		}
 	}
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -2669,10 +2644,7 @@ async fn pin_block_references() {
 	wait_pinned_references(&backend, &hash, 1).await;
 
 	// To not exceed the number of pinned blocks, we need to unpin before the next import.
-	let _res: () = api
-		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_hash])
-		.await
-		.unwrap();
+	let _res: () = api.call("chainHead_v1_unpin", rpc_params![&sub_id, &block_hash]).await.unwrap();
 
 	// Make sure unpin clears out the reference.
 	let refs = backend.pin_refs(&hash).unwrap();
@@ -2765,7 +2737,7 @@ async fn follow_finalized_before_new_block() {
 	let block_1_hash = block_1.header.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 
 	// Trigger the `FinalizedNotification` for block 1 before the `BlockImportNotification`, and
 	// expect for the `chainHead` to generate `NewBlock`, `BestBlock` and `Finalized` events.
@@ -2870,7 +2842,7 @@ async fn ensure_operation_limits_works() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -2909,7 +2881,7 @@ async fn ensure_operation_limits_works() {
 	];
 
 	let response: MethodResponse = api
-		.call("chainHead_unstable_storage", rpc_params![&sub_id, &block_hash, items])
+		.call("chainHead_v1_storage", rpc_params![&sub_id, &block_hash, items])
 		.await
 		.unwrap();
 	let operation_id = match response {
@@ -2932,7 +2904,7 @@ async fn ensure_operation_limits_works() {
 	let call_parameters = hex_string(&alice_id.encode());
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_call",
+			"chainHead_v1_call",
 			[&sub_id, &block_hash, "AccountNonceApi_account_nonce", &call_parameters],
 		)
 		.await
@@ -2977,7 +2949,7 @@ async fn check_continue_operation() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -3014,17 +2986,17 @@ async fn check_continue_operation() {
 
 	// Invalid subscription ID must produce no results.
 	let _res: () = api
-		.call("chainHead_unstable_continue", ["invalid_sub_id", &invalid_hash])
+		.call("chainHead_v1_continue", ["invalid_sub_id", &invalid_hash])
 		.await
 		.unwrap();
 
 	// Invalid operation ID must produce no results.
-	let _res: () = api.call("chainHead_unstable_continue", [&sub_id, &invalid_hash]).await.unwrap();
+	let _res: () = api.call("chainHead_v1_continue", [&sub_id, &invalid_hash]).await.unwrap();
 
 	// Valid call with storage at the key.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -3060,7 +3032,7 @@ async fn check_continue_operation() {
 		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
 	)
 	.await;
-	let _res: () = api.call("chainHead_unstable_continue", [&sub_id, &operation_id]).await.unwrap();
+	let _res: () = api.call("chainHead_v1_continue", [&sub_id, &operation_id]).await.unwrap();
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
@@ -3079,7 +3051,7 @@ async fn check_continue_operation() {
 		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
 	)
 	.await;
-	let _res: () = api.call("chainHead_unstable_continue", [&sub_id, &operation_id]).await.unwrap();
+	let _res: () = api.call("chainHead_v1_continue", [&sub_id, &operation_id]).await.unwrap();
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
@@ -3099,7 +3071,7 @@ async fn check_continue_operation() {
 		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
 	)
 	.await;
-	let _res: () = api.call("chainHead_unstable_continue", [&sub_id, &operation_id]).await.unwrap();
+	let _res: () = api.call("chainHead_v1_continue", [&sub_id, &operation_id]).await.unwrap();
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
@@ -3118,7 +3090,7 @@ async fn check_continue_operation() {
 		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
 	)
 	.await;
-	let _res: () = api.call("chainHead_unstable_continue", [&sub_id, &operation_id]).await.unwrap();
+	let _res: () = api.call("chainHead_v1_continue", [&sub_id, &operation_id]).await.unwrap();
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
@@ -3162,7 +3134,7 @@ async fn stop_storage_operation() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -3196,20 +3168,17 @@ async fn stop_storage_operation() {
 
 	// Invalid subscription ID must produce no results.
 	let _res: () = api
-		.call("chainHead_unstable_stopOperation", ["invalid_sub_id", &invalid_hash])
+		.call("chainHead_v1_stopOperation", ["invalid_sub_id", &invalid_hash])
 		.await
 		.unwrap();
 
 	// Invalid operation ID must produce no results.
-	let _res: () = api
-		.call("chainHead_unstable_stopOperation", [&sub_id, &invalid_hash])
-		.await
-		.unwrap();
+	let _res: () = api.call("chainHead_v1_stopOperation", [&sub_id, &invalid_hash]).await.unwrap();
 
 	// Valid call with storage at the key.
 	let response: MethodResponse = api
 		.call(
-			"chainHead_unstable_storage",
+			"chainHead_v1_storage",
 			rpc_params![
 				&sub_id,
 				&block_hash,
@@ -3241,10 +3210,7 @@ async fn stop_storage_operation() {
 	);
 
 	// Stop the operation.
-	let _res: () = api
-		.call("chainHead_unstable_stopOperation", [&sub_id, &operation_id])
-		.await
-		.unwrap();
+	let _res: () = api.call("chainHead_v1_stopOperation", [&sub_id, &operation_id]).await.unwrap();
 
 	does_not_produce_event::<FollowEvent<String>>(
 		&mut sub,
@@ -3272,7 +3238,7 @@ async fn storage_closest_merkle_value() {
 		// Valid call with storage at the keys.
 		let response: MethodResponse = api
 			.call(
-				"chainHead_unstable_storage",
+				"chainHead_v1_storage",
 				rpc_params![
 					&sub_id,
 					&block_hash,
@@ -3466,7 +3432,7 @@ async fn chain_head_stop_all_subscriptions() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 
 	// Ensure the imported block is propagated and pinned for this subscription.
 	assert_matches!(
@@ -3500,8 +3466,7 @@ async fn chain_head_stop_all_subscriptions() {
 		);
 	}
 
-	let mut second_sub =
-		api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut second_sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	// Lagging detected, the stop event is delivered immediately.
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut second_sub).await,
@@ -3512,14 +3477,14 @@ async fn chain_head_stop_all_subscriptions() {
 	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
 
 	// Other subscriptions cannot be started until the suspension period is over.
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	// Should receive the stop event immediately.
 	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
 
 	// For the next subscription, lagging distance must be smaller.
 	client.finalize_block(parent_hash, None).unwrap();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::Initialized(_)
@@ -3681,12 +3646,12 @@ async fn chain_head_limit_reached() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let _event: FollowEvent<String> = get_next_event(&mut sub).await;
 
-	let error = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap_err();
+	let error = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap_err();
 	assert!(error
 		.to_string()
 		.contains("Maximum number of chainHead_follow has been reached"));
@@ -3696,7 +3661,7 @@ async fn chain_head_limit_reached() {
 	// Ensure the `chainHead_unfollow` is propagated to the server.
 	tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [true]).await.unwrap();
 	// Initialized must always be reported first.
 	let _event: FollowEvent<String> = get_next_event(&mut sub).await;
 }
@@ -3723,7 +3688,7 @@ async fn follow_unique_pruned_blocks() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -3749,16 +3714,8 @@ async fn follow_unique_pruned_blocks() {
 	// The chainHead will see block 5 as the best block. However, the
 	// client will finalize the block 6, which is on another fork.
 	//
-	// When the block 6 is finalized, block 2 block 3 block 4 and block 5 are placed on an invalid
-	// fork. However, pruning of blocks happens on level N - 1.
-	// Therefore, no pruned blocks are reported yet.
+	// When the block 6 is finalized all blocks from the stale forks (2, 3, 4, 5) are pruned.
 	//
-	// When the block 7 is finalized, block 3 is detected as stale. At this step, block 2 and 3
-	// are reported as pruned.
-	//
-	// When the block 8 is finalized, block 5 block 4 and block 2 are detected as stale. However,
-	// only blocks 5 and 4 are reported as pruned. This is because the block 2 was previously
-	// reported.
 
 	// Initial setup steps:
 	let block_1_hash =
@@ -3811,23 +3768,40 @@ async fn follow_unique_pruned_blocks() {
 	});
 	assert_eq!(event, expected);
 
-	// Block 2 must be reported as pruned, even if it was the previous best.
-	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	// All blocks from stale forks are pruned when we finalize block 6.
+	let mut event: FollowEvent<String> = get_next_event(&mut sub).await;
+
+	// Sort pruned block hashes to counter flaky test caused by event generation (get_pruned_hashes)
+	if let FollowEvent::Finalized(Finalized { pruned_block_hashes, .. }) = &mut event {
+		pruned_block_hashes.sort();
+	}
+	let expected_pruned_block_hashes = {
+		let mut hashes = vec![
+			format!("{:?}", block_2_hash),
+			format!("{:?}", block_3_hash),
+			format!("{:?}", block_4_hash),
+			format!("{:?}", block_5_hash),
+		];
+		hashes.sort();
+		hashes
+	};
+
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
 			format!("{:?}", block_1_hash),
 			format!("{:?}", block_2_f_hash),
 			format!("{:?}", block_6_hash),
 		],
-		pruned_block_hashes: vec![],
+		pruned_block_hashes: expected_pruned_block_hashes,
 	});
+
 	assert_eq!(event, expected);
 
 	// Pruned hash can be unpinned.
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 	let hash = format!("{:?}", block_2_hash);
-	let _res: () = api.call("chainHead_unstable_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
+	let _res: () = api.call("chainHead_v1_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
 
 	// Import block 7 and check it.
 	let block_7_hash = import_block(client.clone(), block_6_hash, 3).await.hash();
@@ -3837,9 +3811,10 @@ async fn follow_unique_pruned_blocks() {
 	client.finalize_block(block_7_hash, None).unwrap();
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	// All necessary blocks were pruned on block 6 finalization.
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_7_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_2_hash), format!("{:?}", block_3_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 
@@ -3850,10 +3825,11 @@ async fn follow_unique_pruned_blocks() {
 	// Finalize the block 8.
 	client.finalize_block(block_8_hash, None).unwrap();
 
+	// All necessary blocks were pruned on block 6 finalization.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_8_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_4_hash), format!("{:?}", block_5_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 }

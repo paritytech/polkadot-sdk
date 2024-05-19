@@ -30,7 +30,7 @@
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
@@ -55,7 +55,8 @@ use sp_runtime::{
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
-use xcm::latest::XcmHash;
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
 pub mod migration;
@@ -1021,6 +1022,13 @@ impl<T: Config> FeeTracker for Pallet<T> {
 	}
 }
 
+impl<T: Config> ListChannelInfos for Pallet<T> {
+	fn outgoing_channels() -> Vec<ParaId> {
+		let Some(state) = RelevantMessagingState::<T>::get() else { return Vec::new() };
+		state.egress_channels.into_iter().map(|(id, _)| id).collect()
+	}
+}
+
 impl<T: Config> GetChannelInfo for Pallet<T> {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		// Note, that we are using `relevant_messaging_state` which may be from the previous
@@ -1605,6 +1613,19 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> UpwardMessageSender for Pallet<T> {
 	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
+	}
+}
+
+impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		use xcm::prelude::*;
+
+		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
+			.iter()
+			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.collect();
+
+		vec![(VersionedLocation::V4(Parent.into()), messages)]
 	}
 }
 

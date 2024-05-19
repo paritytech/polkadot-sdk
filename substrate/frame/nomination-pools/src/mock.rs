@@ -131,6 +131,10 @@ impl sp_staking::StakingInterface for StakingMock {
 		Ok(())
 	}
 
+	fn update_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
+		unimplemented!("method currently not used in testing")
+	}
+
 	fn chill(_: &Self::AccountId) -> sp_runtime::DispatchResult {
 		Ok(())
 	}
@@ -156,7 +160,8 @@ impl sp_staking::StakingInterface for StakingMock {
 		Pools::on_withdraw(&who, unlocking_before.saturating_sub(unlocking(&staker_map)));
 
 		UnbondingBalanceMap::set(&unbonding_map);
-		Ok(UnbondingBalanceMap::get().is_empty() && BondedBalanceMap::get().is_empty())
+		Ok(UnbondingBalanceMap::get().get(&who).unwrap().is_empty() &&
+			BondedBalanceMap::get().get(&who).unwrap().is_zero())
 	}
 
 	fn bond(stash: &Self::AccountId, value: Self::Balance, _: &Self::AccountId) -> DispatchResult {
@@ -221,6 +226,10 @@ impl sp_staking::StakingInterface for StakingMock {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> sp_staking::Page {
+		unimplemented!("method currently not used in testing")
+	}
+
+	fn slash_reward_fraction() -> Perbill {
 		unimplemented!("method currently not used in testing")
 	}
 }
