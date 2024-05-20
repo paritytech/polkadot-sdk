@@ -552,6 +552,12 @@ where
 			})
 			//todo: add const
 			//todo: add threshold (min revalidated, but older than e.g. 10 blocks)
+			//threshold ~~> finality period?
+			//count ~~> 25% of block?
+			.filter(|xt| {
+				let finalized_block_number = finalized_block.number.into().as_u64();
+				xt.1.validated_at.load(atomic::Ordering::Relaxed) < finalized_block_number + 10
+			})
 			.take(1000);
 
 		let futs = input.into_iter().map(|(xt_hash, xt)| {
@@ -1049,9 +1055,7 @@ where
 		let tx_hash = self.hash_of(&xt);
 		let view_count = self.views_len();
 		async move {
-			let s = Instant::now();
 			let results = views.submit_one(source, xt).await;
-			let d = s.elapsed();
 			let results = results
 				.into_values()
 				.reduce(|mut r, v| {
@@ -1064,7 +1068,7 @@ where
 
 			let duration = start.elapsed();
 
-			log::debug!(target: LOG_TARGET, "[{tx_hash:?}] submit_one: views:{view_count} took {duration:?} {d:?}");
+			log::debug!(target: LOG_TARGET, "[{tx_hash:?}] submit_one: views:{view_count} took {duration:?}");
 
 			results
 		}
