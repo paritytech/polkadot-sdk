@@ -47,7 +47,7 @@ use sp_consensus_grandpa::{
 	ConsensusLog, EquivocationProof, ScheduledChange, SetId, GRANDPA_ENGINE_ID,
 	RUNTIME_LOG_TARGET as LOG_TARGET,
 };
-use sp_runtime::{generic::DigestItem, traits::Zero, DispatchResult};
+use sp_runtime::{generic::DigestItem, traits::{BlockNumber, Zero}, DispatchResult};
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 use sp_std::prelude::*;
@@ -424,6 +424,47 @@ pub enum StoredState<N> {
 }
 
 impl<T: Config> Pallet<T> {
+
+	/// Get the tate of the current authority set
+	pub fn state() -> StoredState<BlockNumberFor<T>> {
+		State::<T>::get()
+	}
+
+	/// Get the pending change: (signaled at, scheduled change)
+	pub fn pending_change() -> StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities> {
+		PendingChange::<T>::get()
+	}
+
+	/// Get the next block number where we can force a change
+	pub fn next_forced() -> BlockNumberFor<T> {
+		NextForced::<T>::get()
+	}
+
+	/// `true` if we are currently stalled
+	pub fn stalled() -> (BlockNumberFor<T>, BlockNumberFor<T>) {
+		Stalled::<T>::get()
+	}
+
+	/// Get the number of changes (both in terms of keys and underlying economic responsibilities)
+	/// in the "set" of Grandpa validators from genesis
+	pub fn current_set_id() -> SetId {
+		CurrentSetId::<T>::get()
+	}
+
+	/// Get a mapping from grandpa set ID to the index of the *most recent* session for which its
+	/// members were responsible.
+	///
+	/// This is only used for validating equivocation proofs. An equivocation proof must
+	/// contains a key-ownership proof for a given session, therefore we need a way to tie
+	/// together sessions and GRANDPA set ids, i.e. we need to validate that a validator
+	/// was the owner of a given key on a given session, and what the active set ID was
+	/// during that session.
+	///
+	/// TWOX-NOTE: `SetId` is not under user control
+	pub fn session_for_set(set_id : SetId) -> SessionIndex {
+		SetIdSession::<T>::get(set_id)
+	}
+
 	/// Get the current set of authorities, along with their respective weights.
 	pub fn grandpa_authorities() -> AuthorityList {
 		Authorities::<T>::get().into_inner()
