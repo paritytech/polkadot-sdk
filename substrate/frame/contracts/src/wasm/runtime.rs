@@ -298,10 +298,10 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			GetStorage(len) => T::WeightInfo::seal_get_storage(len),
 			TakeStorage(len) => T::WeightInfo::seal_take_storage(len),
 			Transfer => T::WeightInfo::seal_transfer(),
-			CallBase => T::WeightInfo::seal_call(0, 0, 0),
+			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
-			CallTransferSurcharge => cost_args!(seal_call, 1, 0, 0),
-			CallInputCloned(len) => cost_args!(seal_call, 0, 1, len),
+			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
+			CallInputCloned(len) => cost_args!(seal_call, 0, len),
 			InstantiateBase { input_data_len, salt_len } =>
 				T::WeightInfo::seal_instantiate(0, input_data_len, salt_len),
 			InstantiateTransferSurcharge => cost_args!(seal_instantiate, 1, 0, 0),

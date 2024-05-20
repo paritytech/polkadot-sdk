@@ -1196,15 +1196,10 @@ mod benchmarks {
 		assert_ok!(result);
 	}
 
-	// c: with or without clone flag
 	// t: with or without some value to transfer
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(
-		t: Linear<0, 1>,
-		c: Linear<0, 1>,
-		i: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>,
-	) {
+	fn seal_call(t: Linear<0, 1>, i: Linear<0, { code::max_pages::<T>() * 64 * 1024 }>) {
 		let Contract { account_id: callee, .. } =
 			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let callee_bytes = callee.encode();
@@ -1226,24 +1221,22 @@ mod benchmarks {
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 
-		let flags = if c == 1 { CallFlags::CLONE_INPUT } else { CallFlags::empty() };
-
 		let result;
 		#[block]
 		{
 			result = BenchEnv::seal2_call(
 				&mut runtime,
 				&mut memory,
-				flags.bits(),             // flags
-				0,                        // callee_ptr
-				0,                        // ref_time_limit
-				0,                        // proof_size_limit
-				callee_len,               // deposit_ptr
-				callee_len + deposit_len, // value_ptr
-				0,                        // input_data_ptr
-				0,                        // input_data_len
-				SENTINEL,                 // output_ptr
-				0,                        // output_len_ptr
+				CallFlags::CLONE_INPUT.bits(), // flags
+				0,                             // callee_ptr
+				0,                             // ref_time_limit
+				0,                             // proof_size_limit
+				callee_len,                    // deposit_ptr
+				callee_len + deposit_len,      // value_ptr
+				0,                             // input_data_ptr
+				0,                             // input_data_len
+				SENTINEL,                      // output_ptr
+				0,                             // output_len_ptr
 			);
 		}
 
