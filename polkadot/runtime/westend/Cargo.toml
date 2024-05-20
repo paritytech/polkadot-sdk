@@ -11,19 +11,14 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = [
-	"derive",
-	"max-encoded-len",
-] }
-scale-info = { version = "2.11.1", default-features = false, features = [
-	"derive",
-] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 smallvec = "1.8.0"
+bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/primitives/consensus/babe", default-features = false }
