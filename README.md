@@ -33,7 +33,8 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## 🚀 Releases
 
-> [!NOTE] Our release process is still Work-In-Progress and may not yet reflect the aspired outline
+> [!NOTE] 
+> Our release process is still Work-In-Progress and may not yet reflect the aspired outline
 > here.
 
 The Polkadot-SDK has two release channels: `stable` and `nightly`. Production software is advised to
