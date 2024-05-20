@@ -25,6 +25,7 @@
 	  "--pool-kbytes=10000000000",
 	  "-lbasic-authorship=debug",
 	  "-ltxpool=debug",
+	  "-lsync=debug",
 	  "--rpc-max-subscriptions-per-connection=128000"
 	]
       },
@@ -37,6 +38,7 @@
 	  "--pool-kbytes=10000000000",
 	  "-lbasic-authorship=debug",
 	  "-ltxpool=debug",
+	  "-lsync=debug",
 	  "--rpc-max-subscriptions-per-connection=128000"
 	]
       }

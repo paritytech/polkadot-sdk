@@ -312,10 +312,11 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::common::tests::TestApi;
 	use futures::StreamExt;
 	use sp_core::H256;
 
-	type MultiViewListener = super::MultiViewListener<crate::tests::TestApi>;
+	type MultiViewListener = super::MultiViewListener<TestApi>;
 
 	#[tokio::test]
 	async fn test01() {

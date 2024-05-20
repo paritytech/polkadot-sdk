@@ -33,7 +33,7 @@ use substrate_test_runtime_client::{
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 const LOG_TARGET: &str = "txpool";
 
-use sc_transaction_pool::fork_aware_pool::{ForkAwareTxPool, ImportNotificationTask};
+use sc_transaction_pool::{ForkAwareTxPool, ImportNotificationTask};
 
 fn invalid_hash() -> Hash {
 	Default::default()

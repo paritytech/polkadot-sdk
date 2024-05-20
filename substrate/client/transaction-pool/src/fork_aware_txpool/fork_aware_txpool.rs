@@ -75,17 +75,62 @@ use sp_runtime::{
 };
 use std::time::Instant;
 
-pub use import_notification_sink::ImportNotificationTask;
-use import_notification_sink::MultiViewImportNotificationSink;
-use multi_view_listener::MultiViewListener;
+pub use super::import_notification_sink::ImportNotificationTask;
+use super::{
+	import_notification_sink::MultiViewImportNotificationSink,
+	multi_view_listener::{MultiViewListener, TxStatusStream},
+};
+use crate::{
+	fork_aware_txpool::{view_revalidation, view_revalidation::RevalidationQueue},
+	PolledIterator, ReadyIteratorFor,
+};
+use prometheus_endpoint::Registry as PrometheusRegistry;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::transaction_validity::TransactionValidityError;
 
-mod import_notification_sink;
-mod multi_view_listener;
-mod view_revalidation;
-
 pub(crate) const LOG_TARGET: &str = "txpool";
+
+pub type FullPool<Block, Client> = ForkAwareTxPool<FullChainApi<Client, Block>, Block>;
+
+impl<Block, Client> FullPool<Block, Client>
+where
+	Block: BlockT,
+	Client: sp_api::ProvideRuntimeApi<Block>
+		+ sc_client_api::BlockBackend<Block>
+		+ sc_client_api::blockchain::HeaderBackend<Block>
+		+ sp_runtime::traits::BlockIdTo<Block>
+		+ sc_client_api::ExecutorProvider<Block>
+		+ sc_client_api::UsageProvider<Block>
+		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ Send
+		+ Sync
+		+ 'static,
+	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+	<Block as BlockT>::Hash: std::marker::Unpin,
+{
+	/// Create new basic transaction pool for a full node with the provided api.
+	pub fn new_full(
+		options: graph::Options,
+		is_validator: IsValidator,
+		prometheus: Option<&PrometheusRegistry>,
+		spawner: impl SpawnEssentialNamed,
+		client: Arc<Client>,
+	) -> Arc<Self> {
+		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
+		let pool = Arc::new(Self::new_with_background_queue(
+			options,
+			is_validator,
+			pool_api,
+			//todo: add prometheus,
+			spawner,
+			client.usage_info().chain.best_number,
+			client.usage_info().chain.best_hash,
+			client.usage_info().chain.finalized_hash,
+		));
+
+		pool
+	}
+}
 
 pub struct View<PoolApi: graph::ChainApi> {
 	pool: graph::Pool<PoolApi>,
@@ -233,7 +278,7 @@ where
 		at: Block::Hash,
 		source: TransactionSource,
 		xt: Block::Extrinsic,
-	) -> Result<multi_view_listener::TxStatusStream<PoolApi>, PoolApi::Error> {
+	) -> Result<TxStatusStream<PoolApi>, PoolApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let external_watcher = self.listener.create_external_watcher_for_tx(tx_hash).await;
 		let results = {
@@ -322,7 +367,7 @@ where
 	}
 
 	// todo: API change? ready at block?
-	fn ready(&self, at: Block::Hash) -> Option<super::ReadyIteratorFor<PoolApi>> {
+	fn ready(&self, at: Block::Hash) -> Option<ReadyIteratorFor<PoolApi>> {
 		let maybe_ready = self.views.read().get(&at).map(|v| v.pool.validated_pool().ready());
 		let Some(ready) = maybe_ready else { return None };
 		Some(Box::new(ready))
@@ -635,7 +680,7 @@ where
 		self.xts2.write().retain(|hash, _| !finalized_xts.contains(&hash));
 	}
 
-	async fn purge_transactions(&self, finalized_block: HashAndNumber<Block>) {
+	pub async fn purge_transactions(&self, finalized_block: HashAndNumber<Block>) {
 		let invalid_hashes = self.validate_array(finalized_block.clone()).await;
 
 		self.xts2.write().retain(|hash, _| !invalid_hashes.contains(&hash));
@@ -657,7 +702,7 @@ where
 	// todo: is ViewManager strucy really needed? (no)
 	view_store: Arc<ViewStore<PoolApi, Block>>,
 	// todo: is ReadyPoll struct really needed? (no)
-	ready_poll: Arc<Mutex<ReadyPoll<super::ReadyIteratorFor<PoolApi>, Block>>>,
+	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<PoolApi>, Block>>>,
 	// current tree? (somehow similar to enactment state?)
 	// todo: metrics
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
@@ -1159,10 +1204,9 @@ where
 	}
 
 	// todo: API change? ready at hash (not number)?
-	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> super::PolledIterator<PoolApi> {
+	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<PoolApi> {
 		if let Some(view) = self.view_store.views.read().get(&at) {
-			let iterator: super::ReadyIteratorFor<PoolApi> =
-				Box::new(view.pool.validated_pool().ready());
+			let iterator: ReadyIteratorFor<PoolApi> = Box::new(view.pool.validated_pool().ready());
 			return async move { iterator }.boxed();
 		}
 
@@ -1178,7 +1222,7 @@ where
 			.boxed()
 	}
 
-	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<super::ReadyIteratorFor<PoolApi>> {
+	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<ReadyIteratorFor<PoolApi>> {
 		self.view_store.ready(at)
 	}
 
@@ -1503,7 +1547,7 @@ where
 				.enacted()
 				.iter()
 				// .chain(std::iter::once(&hash_and_number))
-				.map(|h| super::prune_known_txs_for_block(h, &*api, &view.pool)),
+				.map(|h| crate::prune_known_txs_for_block(h, &*api, &view.pool)),
 		)
 		.await
 		.into_iter()

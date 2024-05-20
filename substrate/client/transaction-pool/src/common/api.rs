@@ -40,11 +40,11 @@ use sp_runtime::{
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 
-use crate::{
+use super::{
 	error::{self, Error},
-	graph,
 	metrics::{ApiMetrics, ApiMetricsExt},
 };
+use crate::graph;
 
 /// The transaction pool logic for full client.
 pub struct FullChainApi<Client, Block> {
@@ -95,11 +95,29 @@ impl<Client, Block> FullChainApi<Client, Block> {
 			Ok(api) => Some(Arc::new(api)),
 		});
 
-		let (sender, receiver) = mpsc::channel(2);
+		let (sender, receiver) = mpsc::channel(1);
 
 		let receiver = Arc::new(Mutex::new(receiver));
 		spawn_validation_pool_task("transaction-pool-task-0", receiver.clone(), spawner);
-		spawn_validation_pool_task("transaction-pool-task-1", receiver, spawner);
+		spawn_validation_pool_task("transaction-pool-task-1", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-2", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-3", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-4", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-5", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-6", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-7", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-8", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-9", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-10", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-11", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-12", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-13", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-14", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-15", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-16", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-17", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-18", receiver.clone(), spawner);
+		// spawn_validation_pool_task("transaction-pool-task-19", receiver.clone(), spawner);
 
 		FullChainApi { client, validation_pool: sender, _marker: Default::default(), metrics }
 	}
@@ -304,7 +322,7 @@ where
 			}
 		})
 	});
-	log::debug!("[{h:?}] submit_one: validate_transaction_blocking: {:?}", s.elapsed());
+	log::debug!(target: LOG_TARGET, "[{h:?}] validate_transaction_blocking: {:?}", s.elapsed());
 
 	r
 }

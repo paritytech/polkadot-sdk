@@ -516,8 +516,10 @@ where
 					TransactionImport::NewGood
 				},
 				Err(e) => match e.into_pool_error() {
-					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) =>
-						TransactionImport::KnownGood,
+					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) => {
+						debug!("import transaction known good");
+						TransactionImport::KnownGood
+					},
 					Ok(e) => {
 						debug!("Error adding transaction to the pool: {:?}", e);
 						TransactionImport::Bad

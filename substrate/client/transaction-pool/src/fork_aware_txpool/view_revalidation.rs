@@ -33,7 +33,7 @@ use sp_runtime::{
 	transaction_validity::TransactionValidityError,
 };
 
-use super::{TxMemPool, View};
+use super::fork_aware_txpool::{TxMemPool, View};
 use futures::prelude::*;
 use std::time::Duration;
 
@@ -158,8 +158,8 @@ where
 mod tests {
 	use super::*;
 	use crate::{
+		common::tests::{uxt, TestApi},
 		graph::Pool,
-		tests::{uxt, TestApi},
 	};
 	use futures::executor::block_on;
 	use sc_transaction_pool_api::TransactionSource;
