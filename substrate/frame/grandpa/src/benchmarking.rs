@@ -17,7 +17,7 @@
 
 //! Benchmarks for the GRANDPA pallet.
 
-use super::{Pallet as Grandpa, *};
+use super::*;
 use frame_benchmarking::v1::benchmarks;
 use frame_system::RawOrigin;
 use sp_core::H256;
