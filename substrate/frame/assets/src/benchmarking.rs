@@ -553,5 +553,15 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::Blocked { asset_id: asset_id.into(), who: caller }.into());
 	}
 
+	transfer_all {
+		let amount = T::Balance::from(100u32);
+		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup, false)
+	verify {
+		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+	}
+
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)
 }
