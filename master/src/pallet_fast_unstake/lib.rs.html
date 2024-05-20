@@ -776,7 +776,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#625" id="625">625</a>
 <a href="#626" id="626">626</a>
 <a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -920,7 +919,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="macro-nonterminal">$level</span>:tt, <span class="macro-nonterminal">$patter</span>:expr $(, <span class="macro-nonterminal">$values</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
 		log::<span class="macro-nonterminal">$</span><span class="macro">level!</span>(
 			<span class="macro-nonterminal">target</span>: <span class="kw">crate</span>::LOG_TARGET,
-			<span class="macro">concat!</span>(<span class="string">"[{:?}] 💨 "</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
+			<span class="macro">concat!</span>(<span class="string">"[{:?}] 💨 "</span>, <span class="macro-nonterminal">$patter</span>), frame_system::Pallet::&lt;T&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
 		)
 	};
 }
@@ -1006,7 +1005,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// checked. The checking is represented by updating [`UnstakeRequest::checked`], which is
 	/// stored in [`Head`].
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>eras_to_check_per_block)]
 	</span><span class="kw">pub type </span>ErasToCheckPerBlock&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::event]
@@ -1111,7 +1109,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>register_fast_unstake(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
 			<span class="kw">let </span>ctrl = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="macro">ensure!</span>(ErasToCheckPerBlock::&lt;T&gt;::get() != <span class="number">0</span>, &lt;Error&lt;T&gt;&gt;::CallNotAllowed);
+			<span class="macro">ensure!</span>(ErasToCheckPerBlock::&lt;T&gt;::get() != <span class="number">0</span>, Error::&lt;T&gt;::CallNotAllowed);
 			<span class="kw">let </span>stash_account =
 				T::Staking::stash_by_ctrl(<span class="kw-2">&amp;</span>ctrl).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(!Queue::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>stash_account), Error::&lt;T&gt;::AlreadyQueued);
@@ -1152,7 +1150,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>deregister(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
 			<span class="kw">let </span>ctrl = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="macro">ensure!</span>(ErasToCheckPerBlock::&lt;T&gt;::get() != <span class="number">0</span>, &lt;Error&lt;T&gt;&gt;::CallNotAllowed);
+			<span class="macro">ensure!</span>(ErasToCheckPerBlock::&lt;T&gt;::get() != <span class="number">0</span>, Error::&lt;T&gt;::CallNotAllowed);
 
 			<span class="kw">let </span>stash_account =
 				T::Staking::stash_by_ctrl(<span class="kw-2">&amp;</span>ctrl).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
