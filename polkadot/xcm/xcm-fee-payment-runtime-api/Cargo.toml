@@ -11,7 +11,7 @@ description = "XCM fee payment runtime API"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
 
@@ -26,15 +26,46 @@ sp-weights = { path = "../../../substrate/primitives/weights", default-features 
 xcm = { package = "staging-xcm", path = "../", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 
+[dev-dependencies]
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+pallet-xcm = { path = "../pallet-xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
+pallet-assets = { path = "../../../substrate/frame/assets", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
+frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
+log = { workspace = true }
+env_logger = "0.9.0"
+
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-executive/std",
 	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-xcm/std",
 	"scale-info/std",
 	"sp-api/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-weights/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
 	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
