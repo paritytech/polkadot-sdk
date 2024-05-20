@@ -75,7 +75,7 @@ Development in this repo usually goes hand in hand with the `fellowship` organiz
 this repository provides all the SDK pieces needed to build both Polkadot and its parachains. But,
 the actual Polkadot runtime lives in the `fellowship/runtimes` repository. Read more about the
 fellowship, this separation, the RFC process
-[here](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html).
+[here](https://polkadot-fellows.github.io/dashboard/).
 
 ## History
 
