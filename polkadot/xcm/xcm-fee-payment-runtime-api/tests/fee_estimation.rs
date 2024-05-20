@@ -69,7 +69,7 @@ fn fee_estimation_for_teleport() {
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
-			Some(VersionedXcm::V4(
+			Some(VersionedXcm::from(
 				Xcm::builder_unsafe()
 					.withdraw_asset((Parent, 20u128))
 					.burn_asset((Parent, 20u128))
@@ -89,8 +89,8 @@ fn fee_estimation_for_teleport() {
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
-				VersionedLocation::V4(send_destination.clone()),
-				vec![VersionedXcm::V4(send_message.clone())],
+				VersionedLocation::from(send_destination.clone()),
+				vec![VersionedXcm::from(send_message.clone())],
 			),],
 		);
 
@@ -153,7 +153,7 @@ fn fee_estimation_for_teleport() {
 			.query_weight_to_asset_fee(
 				H256::zero(),
 				weight,
-				VersionedAssetId::V4(HereLocation::get().into()),
+				VersionedAssetId::from(AssetId(HereLocation::get())),
 			)
 			.unwrap()
 			.unwrap();
