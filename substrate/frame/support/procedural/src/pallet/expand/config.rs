@@ -115,12 +115,12 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 		let ident_str = format!("{}", ident);
 		let cfgs = &metadata.cfg;
 
-		if ident == "BenchmarkHelper" {
-			println!();
-			println!();
-			println!();
-			println!(" cfg {:?}", cfgs);
-		}
+		// if ident == "BenchmarkHelper" {
+		// 	println!();
+		// 	println!();
+		// 	println!();
+		// 	println!(" cfg {:?}", cfgs);
+		// }
 
 		let no_docs = vec![];
 		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &metadata.doc };

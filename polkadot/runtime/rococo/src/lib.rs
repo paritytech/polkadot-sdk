@@ -344,6 +344,7 @@ impl pallet_preimage::Config for Runtime {
 
 parameter_types! {
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+	#[derive(scale_info::TypeInfo)]
 	pub ReportLongevity: u64 = EpochDurationInBlocks::get() as u64 * 10;
 }
 

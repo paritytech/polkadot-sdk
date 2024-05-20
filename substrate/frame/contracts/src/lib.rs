@@ -508,6 +508,7 @@ pub mod pallet {
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
+		#[derive(scale_info::TypeInfo)]
 		pub struct TestDefaultConfig;
 
 		impl<Output, BlockNumber> Randomness<Output, BlockNumber> for TestDefaultConfig {

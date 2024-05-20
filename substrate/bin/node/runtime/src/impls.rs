@@ -55,6 +55,7 @@ impl HandleCredit<AccountId, Assets> for CreditToBlockAuthor {
 	}
 }
 
+#[derive(scale_info::TypeInfo)]
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	fn has_required_identities(who: &AccountId) -> bool {

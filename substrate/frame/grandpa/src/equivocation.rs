@@ -114,6 +114,7 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 /// - On-chain validity checks and processing are mostly delegated to the user provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the the authorship pallet.
+#[derive(scale_info::TypeInfo)]
 pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
 
 impl<T, R, P, L>

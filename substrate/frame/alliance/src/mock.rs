@@ -154,6 +154,7 @@ impl Verify for AccountU64 {
 	}
 }
 
+#[derive(scale_info::TypeInfo)]
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	fn has_required_identities(who: &AccountId) -> bool {
@@ -213,6 +214,7 @@ impl ProposalProvider<AccountId, H256, RuntimeCall> for AllianceProposalProvider
 
 parameter_types! {
 	pub const MaxFellows: u32 = MaxMembers::get();
+	#[derive(scale_info::TypeInfo)]
 	pub const MaxAllies: u32 = 100;
 	pub const AllyDeposit: u64 = 25;
 	pub const RetirementPeriod: BlockNumber = MOTION_DURATION_IN_BLOCKS + 1;

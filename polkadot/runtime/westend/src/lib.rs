@@ -1367,8 +1367,13 @@ impl pallet_root_testing::Config for Runtime {
 
 parameter_types! {
 	// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
+	#[derive(scale_info::TypeInfo)]
 	pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
+
+	#[derive(scale_info::TypeInfo)]
 	pub const MigrationSignedDepositBase: Balance = 20 * CENTS * 100;
+
+	#[derive(scale_info::TypeInfo)]
 	pub const MigrationMaxKeyLen: u32 = 512;
 }
 

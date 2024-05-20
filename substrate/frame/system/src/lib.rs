@@ -1220,6 +1220,7 @@ impl<
 }
 
 /// Ensure the origin is any `Signed` origin.
+#[derive(scale_info::TypeInfo)]
 pub struct EnsureSigned<AccountId>(sp_std::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Decode>
 	EnsureOrigin<O> for EnsureSigned<AccountId>

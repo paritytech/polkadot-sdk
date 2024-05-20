@@ -489,6 +489,8 @@ parameter_types! {
 	//       Attempting to do so will brick block production.
 	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+
+	#[derive(scale_info::TypeInfo)]
 	pub const ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 }
@@ -1954,8 +1956,13 @@ impl pallet_whitelist::Config for Runtime {
 }
 
 parameter_types! {
+	#[derive(scale_info::TypeInfo)]
 	pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
+
+	#[derive(scale_info::TypeInfo)]
 	pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
+
+	#[derive(scale_info::TypeInfo)]
 	pub const MigrationMaxKeyLen: u32 = 512;
 }
 
@@ -1978,8 +1985,13 @@ impl pallet_state_trie_migration::Config for Runtime {
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
 parameter_types! {
+	#[derive(scale_info::TypeInfo)]
 	pub const AllianceMotionDuration: BlockNumber = ALLIANCE_MOTION_DURATION_IN_BLOCKS;
+
+	#[derive(scale_info::TypeInfo)]
 	pub const AllianceMaxProposals: u32 = 100;
+
+	#[derive(scale_info::TypeInfo)]
 	pub const AllianceMaxMembers: u32 = 100;
 }
 
@@ -1999,6 +2011,7 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 
 parameter_types! {
 	pub const MaxFellows: u32 = AllianceMaxMembers::get();
+	#[derive(scale_info::TypeInfo)]
 	pub const MaxAllies: u32 = 100;
 	pub const AllyDeposit: Balance = 10 * DOLLARS;
 	pub const RetirementPeriod: BlockNumber = ALLIANCE_MOTION_DURATION_IN_BLOCKS + (1 * DAYS);
@@ -2065,6 +2078,7 @@ impl pallet_statement::Config for Runtime {
 }
 
 parameter_types! {
+	#[derive(scale_info::TypeInfo)]
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 }
 
@@ -2087,6 +2101,7 @@ parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 }
 
+#[derive(scale_info::TypeInfo)]
 pub struct IntoAuthor;
 impl OnUnbalanced<Credit<AccountId, Balances>> for IntoAuthor {
 	fn on_nonzero_unbalanced(credit: Credit<AccountId, Balances>) {
@@ -2100,6 +2115,7 @@ parameter_types! {
 	pub storage CoretimeRevenue: Option<(BlockNumber, Balance)> = None;
 }
 
+#[derive(scale_info::TypeInfo)]
 pub struct CoretimeProvider;
 impl CoretimeInterface for CoretimeProvider {
 	type AccountId = AccountId;
@@ -2206,6 +2222,7 @@ impl Default for RuntimeParameters {
 	}
 }
 
+#[derive(scale_info::TypeInfo)]
 pub struct DynamicParametersManagerOrigin;
 impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParametersManagerOrigin {
 	type Success = ();
@@ -2336,6 +2353,7 @@ mod runtime {
 	pub type Offences = pallet_offences;
 
 	#[runtime::pallet_index(26)]
+	#[derive(scale_info::TypeInfo)]
 	pub type Historical = pallet_session_historical;
 
 	#[runtime::pallet_index(27)]

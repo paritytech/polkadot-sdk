@@ -103,6 +103,7 @@ pub fn expand_outer_origin(
 		///
 		#[doc = #doc_string]
 		#[derive(Clone)]
+		#[derive(#scrate::__private::scale_info::TypeInfo)]
 		pub struct RuntimeOrigin {
 			pub caller: OriginCaller,
 			filter: #scrate::__private::sp_std::rc::Rc<Box<dyn Fn(&<#runtime as #system_path::Config>::RuntimeCall) -> bool>>,

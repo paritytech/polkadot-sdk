@@ -40,6 +40,7 @@ pub trait WeightInfo {
 }
 
 /// Weights for pallet_collator_selection using the Substrate node and recommended hardware.
+#[derive(scale_info::TypeInfo)]
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_invulnerables(b: u32) -> Weight {
