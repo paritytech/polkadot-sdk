@@ -294,7 +294,7 @@ struct FetchSummary {
 }
 
 // Request the min relay parents from prospective-parachains.
-async fn prospective_parachains_min_relay_parents<
+async fn fetch_min_relay_parents_from_prospective_parachains<
 	Sender: SubsystemSender<ProspectiveParachainsMessage>,
 >(
 	leaf_hash: Hash,
@@ -308,8 +308,9 @@ async fn prospective_parachains_min_relay_parents<
 	rx.await.map_err(|_| FetchError::ProspectiveParachainsUnavailable)
 }
 
-// Request the min relay parent for a single para, directly using ChainApi.
-async fn para_min_relay_parent<Sender>(
+// Request the min relay parent for the purposes of a collator, directly using ChainApi (where
+// prospective-parachains is not available).
+async fn fetch_min_relay_parents_for_collator<Sender>(
 	leaf_hash: Hash,
 	leaf_number: BlockNumber,
 	sender: &mut Sender,
@@ -403,12 +404,12 @@ where
 	// If the node is a collator, bypass prospective-parachains. We're only interested in the one
 	// paraid and the subsystem is not present.
 	let min_relay_parents = if let Some(para_id) = collating_for {
-		para_min_relay_parent(leaf_hash, leaf_header.number, sender)
+		fetch_min_relay_parents_for_collator(leaf_hash, leaf_header.number, sender)
 			.await?
 			.map(|x| vec![(para_id, x)])
 			.unwrap_or_default()
 	} else {
-		prospective_parachains_min_relay_parents(leaf_hash, sender).await?
+		fetch_min_relay_parents_from_prospective_parachains(leaf_hash, sender).await?
 	};
 
 	let min_min = min_relay_parents.iter().map(|x| x.1).min().unwrap_or(leaf_header.number);
@@ -502,12 +503,12 @@ mod tests {
 	use crate::TimeoutExt;
 	use assert_matches::assert_matches;
 	use futures::future::{join, FutureExt};
-	use polkadot_node_subsystem::AllMessages;
+	use polkadot_node_subsystem::{messages::RuntimeApiRequest, AllMessages};
 	use polkadot_node_subsystem_test_helpers::{
 		make_subsystem_context, TestSubsystemContextHandle,
 	};
 	use polkadot_overseer::SubsystemContext;
-	use polkadot_primitives::Header;
+	use polkadot_primitives::{AsyncBackingParams, Header};
 	use sp_core::testing::TaskExecutor;
 	use std::time::Duration;
 
@@ -608,12 +609,79 @@ mod tests {
 		);
 	}
 
+	async fn assert_async_backing_params_request(
+		virtual_overseer: &mut VirtualOverseer,
+		leaf: Hash,
+		params: AsyncBackingParams,
+	) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(
+					leaf_hash,
+					RuntimeApiRequest::AsyncBackingParams(
+						tx
+					)
+				)
+			) => {
+				assert_eq!(leaf, leaf_hash, "received unexpected leaf hash");
+				tx.send(Ok(params)).unwrap();
+			}
+		);
+	}
+
+	async fn assert_session_index_request(
+		virtual_overseer: &mut VirtualOverseer,
+		leaf: Hash,
+		session: u32,
+	) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(
+					leaf_hash,
+					RuntimeApiRequest::SessionIndexForChild(
+						tx
+					)
+				)
+			) => {
+				assert_eq!(leaf, leaf_hash, "received unexpected leaf hash");
+				tx.send(Ok(session)).unwrap();
+			}
+		);
+	}
+
+	async fn assert_ancestors_request(
+		virtual_overseer: &mut VirtualOverseer,
+		leaf: Hash,
+		expected_ancestor_len: u32,
+		response: Vec<Hash>,
+	) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::ChainApi(
+				ChainApiMessage::Ancestors {
+					hash: leaf_hash,
+					k,
+					response_channel: tx
+				}
+			) => {
+				assert_eq!(leaf, leaf_hash, "received unexpected leaf hash");
+				assert_eq!(k, expected_ancestor_len as usize);
+
+				tx.send(Ok(response)).unwrap();
+			}
+		);
+	}
+
 	#[test]
 	fn construct_fresh_view() {
 		let pool = TaskExecutor::new();
 		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
 
 		let mut view = View::default();
+
+		assert_eq!(view.collating_for, None);
 
 		// Chain B.
 		const PARA_A_MIN_PARENT: u32 = 4;
@@ -622,14 +690,17 @@ mod tests {
 		let prospective_response = vec![(PARA_A, PARA_A_MIN_PARENT), (PARA_B, PARA_B_MIN_PARENT)];
 
 		let leaf = CHAIN_B.last().unwrap();
+		let leaf_idx = CHAIN_B.len() - 1;
 		let min_min_idx = (PARA_B_MIN_PARENT - GENESIS_NUMBER - 1) as usize;
 
 		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
 			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[leaf_idx..]).await;
 			assert_min_relay_parents_request(&mut ctx_handle, leaf, prospective_response).await;
-			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[min_min_idx..]).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[min_min_idx..leaf_idx])
+				.await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
@@ -651,6 +722,11 @@ mod tests {
 					allowed_relay_parents.allowed_relay_parents_contiguous,
 					expected_ancestry
 				);
+
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, None), Some(&expected_ancestry[..]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_A)), Some(&expected_ancestry[..(PARA_A_MIN_PARENT - 1) as usize]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)), Some(&expected_ancestry[..]));
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
 			}
 		);
 
@@ -659,17 +735,188 @@ mod tests {
 		let prospective_response = vec![(PARA_C, PARA_C_MIN_PARENT)];
 		let leaf = CHAIN_A.last().unwrap();
 		let blocks = [&[GENESIS_HASH], CHAIN_A].concat();
+		let leaf_idx = blocks.len() - 1;
 
 		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
 			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[leaf_idx..]).await;
 			assert_min_relay_parents_request(&mut ctx_handle, leaf, prospective_response).await;
-			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[..leaf_idx]).await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
 		assert_eq!(view.leaves.len(), 2);
+
+		let leaf_info =
+			view.block_info_storage.get(leaf).expect("block must be present in storage");
+		assert_matches!(
+			leaf_info.maybe_allowed_relay_parents,
+			Some(ref allowed_relay_parents) => {
+				assert_eq!(allowed_relay_parents.minimum_relay_parents[&PARA_C], GENESIS_NUMBER);
+				let expected_ancestry: Vec<Hash> =
+					blocks[..].iter().rev().copied().collect();
+				assert_eq!(
+					allowed_relay_parents.allowed_relay_parents_contiguous,
+					expected_ancestry
+				);
+
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, None), Some(&expected_ancestry[..]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)), Some(&expected_ancestry[..]));
+
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_A)).unwrap().is_empty());
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
+			}
+		);
+	}
+
+	#[test]
+	fn construct_fresh_view_single_para() {
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+		let mut view = View::new(Some(PARA_A));
+
+		assert_eq!(view.collating_for, Some(PARA_A));
+
+		// Chain B.
+		const PARA_A_MIN_PARENT: u32 = 4;
+
+		let current_session = 2;
+
+		let leaf = CHAIN_B.last().unwrap();
+		let leaf_idx = CHAIN_B.len() - 1;
+		let min_min_idx = (PARA_A_MIN_PARENT - GENESIS_NUMBER - 1) as usize;
+
+		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
+			res.expect("`activate_leaf` timed out").unwrap();
+		});
+		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[leaf_idx..]).await;
+
+			assert_async_backing_params_request(
+				&mut ctx_handle,
+				*leaf,
+				AsyncBackingParams {
+					max_candidate_depth: 0,
+					allowed_ancestry_len: PARA_A_MIN_PARENT,
+				},
+			)
+			.await;
+
+			assert_session_index_request(&mut ctx_handle, *leaf, current_session).await;
+
+			assert_ancestors_request(
+				&mut ctx_handle,
+				*leaf,
+				PARA_A_MIN_PARENT,
+				CHAIN_B[min_min_idx..leaf_idx].iter().copied().rev().collect(),
+			)
+			.await;
+
+			for hash in CHAIN_B[min_min_idx..leaf_idx].into_iter().rev() {
+				assert_session_index_request(&mut ctx_handle, *hash, current_session).await;
+			}
+
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[min_min_idx..leaf_idx])
+				.await;
+		};
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		for i in min_min_idx..(CHAIN_B.len() - 1) {
+			// No allowed relay parents constructed for ancestry.
+			assert!(view.known_allowed_relay_parents_under(&CHAIN_B[i], None).is_none());
+		}
+
+		let leaf_info =
+			view.block_info_storage.get(leaf).expect("block must be present in storage");
+		assert_matches!(
+			leaf_info.maybe_allowed_relay_parents,
+			Some(ref allowed_relay_parents) => {
+				assert_eq!(allowed_relay_parents.minimum_relay_parents[&PARA_A], PARA_A_MIN_PARENT);
+				let expected_ancestry: Vec<Hash> =
+					CHAIN_B[min_min_idx..].iter().rev().copied().collect();
+				assert_eq!(
+					allowed_relay_parents.allowed_relay_parents_contiguous,
+					expected_ancestry
+				);
+
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, None), Some(&expected_ancestry[..]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_A)), Some(&expected_ancestry[..]));
+
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
+			}
+		);
+
+		// Suppose the whole test chain A is allowed up to genesis for para A, but the genesis block
+		// is in a different session.
+		let leaf = CHAIN_A.last().unwrap();
+		let blocks = [&[GENESIS_HASH], CHAIN_A].concat();
+		let leaf_idx = blocks.len() - 1;
+
+		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
+			res.expect("`activate_leaf` timed out").unwrap();
+		});
+
+		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[leaf_idx..]).await;
+
+			assert_async_backing_params_request(
+				&mut ctx_handle,
+				*leaf,
+				AsyncBackingParams {
+					max_candidate_depth: 0,
+					allowed_ancestry_len: blocks.len() as u32,
+				},
+			)
+			.await;
+
+			assert_session_index_request(&mut ctx_handle, *leaf, current_session).await;
+
+			assert_ancestors_request(
+				&mut ctx_handle,
+				*leaf,
+				blocks.len() as u32,
+				blocks[..leaf_idx].iter().rev().copied().collect(),
+			)
+			.await;
+
+			for hash in blocks[1..leaf_idx].into_iter().rev() {
+				assert_session_index_request(&mut ctx_handle, *hash, current_session).await;
+			}
+
+			assert_session_index_request(&mut ctx_handle, GENESIS_HASH, 0).await;
+
+			// We won't request for the genesis block
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[1..leaf_idx]).await;
+		};
+
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		assert_eq!(view.leaves.len(), 2);
+
+		let leaf_info =
+			view.block_info_storage.get(leaf).expect("block must be present in storage");
+		assert_matches!(
+			leaf_info.maybe_allowed_relay_parents,
+			Some(ref allowed_relay_parents) => {
+				assert_eq!(allowed_relay_parents.minimum_relay_parents[&PARA_A], 1);
+				let expected_ancestry: Vec<Hash> =
+					CHAIN_A[..].iter().rev().copied().collect();
+				assert_eq!(
+					allowed_relay_parents.allowed_relay_parents_contiguous,
+					expected_ancestry
+				);
+
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, None), Some(&expected_ancestry[..]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_A)), Some(&expected_ancestry[..]));
+
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
+			}
+		);
 	}
 
 	#[test]
@@ -690,11 +937,17 @@ mod tests {
 			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(
+				&mut ctx_handle,
+				CHAIN_B,
+				&CHAIN_B[(leaf_a_number - 1)..leaf_a_number],
+			)
+			.await;
 			assert_min_relay_parents_request(&mut ctx_handle, &leaf_a, prospective_response).await;
 			assert_block_header_requests(
 				&mut ctx_handle,
 				CHAIN_B,
-				&CHAIN_B[min_min_idx..leaf_a_number],
+				&CHAIN_B[min_min_idx..(leaf_a_number - 1)],
 			)
 			.await;
 		};
@@ -711,11 +964,17 @@ mod tests {
 			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(
+				&mut ctx_handle,
+				CHAIN_B,
+				&CHAIN_B[(leaf_b_number - 1)..leaf_b_number],
+			)
+			.await;
 			assert_min_relay_parents_request(&mut ctx_handle, &leaf_b, prospective_response).await;
 			assert_block_header_requests(
 				&mut ctx_handle,
 				CHAIN_B,
-				&CHAIN_B[leaf_a_number..leaf_b_number], // Note the expected range.
+				&CHAIN_B[leaf_a_number..(leaf_b_number - 1)], // Note the expected range.
 			)
 			.await;
 		};
@@ -755,13 +1014,15 @@ mod tests {
 			.timeout(TIMEOUT)
 			.map(|res| res.unwrap().unwrap());
 		let overseer_fut = async {
-			assert_min_relay_parents_request(&mut ctx_handle, &leaf_a, prospective_response).await;
 			assert_block_header_requests(
 				&mut ctx_handle,
 				CHAIN_B,
-				&CHAIN_B[min_a_idx..=leaf_a_idx],
+				&CHAIN_B[leaf_a_idx..(leaf_a_idx + 1)],
 			)
 			.await;
+			assert_min_relay_parents_request(&mut ctx_handle, &leaf_a, prospective_response).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[min_a_idx..leaf_a_idx])
+				.await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
@@ -779,8 +1040,11 @@ mod tests {
 			.timeout(TIMEOUT)
 			.map(|res| res.expect("`activate_leaf` timed out").unwrap());
 		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &blocks[(blocks.len() - 1)..])
+				.await;
 			assert_min_relay_parents_request(&mut ctx_handle, &leaf_b, prospective_response).await;
-			assert_block_header_requests(&mut ctx_handle, CHAIN_B, blocks).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &blocks[..(blocks.len() - 1)])
+				.await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
@@ -814,15 +1078,15 @@ mod tests {
 			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, &[GENESIS_HASH], &[GENESIS_HASH]).await;
 			assert_min_relay_parents_request(&mut ctx_handle, &GENESIS_HASH, prospective_response)
 				.await;
-			assert_block_header_requests(&mut ctx_handle, &[GENESIS_HASH], &[GENESIS_HASH]).await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
 		assert_matches!(
 			view.known_allowed_relay_parents_under(&GENESIS_HASH, None),
-			Some(hashes) if !hashes.is_empty()
+			Some(hashes) if hashes == &[GENESIS_HASH]
 		);
 	}
 }
