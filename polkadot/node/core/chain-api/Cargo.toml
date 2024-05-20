@@ -21,7 +21,7 @@ sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
 [dev-dependencies]
 futures = { version = "0.3.30", features = ["thread-pool"] }
 maplit = "1.0.2"
-parity-scale-codec = "3.6.1"
+parity-scale-codec = "3.6.12"
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }

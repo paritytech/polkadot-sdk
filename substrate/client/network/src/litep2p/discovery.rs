@@ -268,10 +268,10 @@ impl Discovery {
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
 				public_addresses: config.public_addresses.iter().cloned().collect(),
 				next_kad_query: Some(Delay::new(KADEMLIA_QUERY_INTERVAL)),
-				local_protocols: HashSet::from_iter([
-					kademlia_protocol_name(genesis_hash, fork_id),
-					legacy_kademlia_protocol_name(protocol_id),
-				]),
+				local_protocols: HashSet::from_iter([kademlia_protocol_name(
+					genesis_hash,
+					fork_id,
+				)]),
 			},
 			ping_config,
 			identify_config,
@@ -295,6 +295,11 @@ impl Discovery {
 		addresses: Vec<Multiaddr>,
 	) {
 		if self.local_protocols.is_disjoint(&supported_protocols) {
+			log::trace!(
+				target: "sub-libp2p",
+				"Ignoring self-reported address of peer {peer} as remote node is not part of the \
+				 Kademlia DHT supported by the local node.",
+			);
 			return
 		}
 
@@ -462,7 +467,10 @@ impl Stream for Discovery {
 					"`GET_RECORD` succeeded for {query_id:?}: {record:?}",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, record }));
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess {
+					query_id,
+					record: record.record,
+				}));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
