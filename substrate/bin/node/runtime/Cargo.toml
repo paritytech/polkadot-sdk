@@ -102,7 +102,7 @@ pallet-multisig = { path = "../../../frame/multisig", default-features = false, 
 pallet-nfts = { path = "../../../frame/nfts", default-features = false, version = "23.0.0" }
 pallet-nfts-runtime-api = { path = "../../../frame/nfts/runtime-api", default-features = false, version = "15.0.0" }
 pallet-nft-fractionalization = { path = "../../../frame/nft-fractionalization", default-features = false, version = "11.0.0" }
-pallet-nomination-pools = { path = "../../../frame/nomination-pools", default-features = false, version = "26.0.0" }
+pallet-nomination-pools = { path = "../../../frame/nomination-pools", default-features = false, version = "26.0.1" }
 pallet-nomination-pools-benchmarking = { path = "../../../frame/nomination-pools/benchmarking", default-features = false, optional = true, version = "27.0.0" }
 pallet-nomination-pools-runtime-api = { path = "../../../frame/nomination-pools/runtime-api", default-features = false, version = "24.0.0" }
 pallet-offences = { path = "../../../frame/offences", default-features = false, version = "28.0.0" }
@@ -119,9 +119,9 @@ pallet-root-testing = { path = "../../../frame/root-testing", default-features =
 pallet-salary = { path = "../../../frame/salary", default-features = false, version = "14.0.0" }
 pallet-session = { path = "../../../frame/session", default-features = false, features = ["historical"], version = "29.0.0" }
 pallet-session-benchmarking = { path = "../../../frame/session/benchmarking", default-features = false, optional = true, version = "29.0.0" }
-pallet-staking = { path = "../../../frame/staking", default-features = false, version = "29.0.2" }
+pallet-staking = { path = "../../../frame/staking", default-features = false, version = "29.0.3" }
 pallet-staking-reward-curve = { path = "../../../frame/staking/reward-curve", default-features = false, version = "11.0.0" }
-pallet-staking-runtime-api = { path = "../../../frame/staking/runtime-api", default-features = false, version = "15.0.0" }
+pallet-staking-runtime-api = { path = "../../../frame/staking/runtime-api", default-features = false, version = "15.0.1" }
 pallet-state-trie-migration = { path = "../../../frame/state-trie-migration", default-features = false, version = "30.0.0" }
 pallet-statement = { path = "../../../frame/statement", default-features = false, version = "11.0.0" }
 pallet-scheduler = { path = "../../../frame/scheduler", default-features = false, version = "30.0.0" }
