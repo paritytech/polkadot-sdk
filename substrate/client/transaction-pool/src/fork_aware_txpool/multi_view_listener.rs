@@ -24,7 +24,7 @@ use crate::graph::{BlockHash, ChainApi, ExtrinsicHash as TxHash};
 use futures::{stream, StreamExt};
 use log::trace;
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
-use sp_runtime::traits::{Block as BlockT, Extrinsic, Hash as HashT};
+use sp_runtime::traits::Block as BlockT;
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
@@ -72,7 +72,7 @@ struct ExternalWatcherContext<PoolApi: ChainApi> {
 	terminate: bool,
 	future_seen: bool,
 	ready_seen: bool,
-	breadcast_seen: bool,
+	broadcast_seen: bool,
 
 	inblock: HashSet<BlockHash<PoolApi>>,
 	views_keeping_tx_valid: HashSet<BlockHash<PoolApi>>,
@@ -93,7 +93,7 @@ where
 			terminate: false,
 			future_seen: false,
 			ready_seen: false,
-			breadcast_seen: false,
+			broadcast_seen: false,
 			views_keeping_tx_valid: Default::default(),
 			inblock: Default::default(),
 		}
@@ -130,7 +130,13 @@ where
 					true
 				}
 			},
-			TransactionStatus::Broadcast(_) => true,
+			TransactionStatus::Broadcast(_) =>
+				if !self.broadcast_seen {
+					self.broadcast_seen = true;
+					true
+				} else {
+					false
+				},
 			TransactionStatus::InBlock((block, _)) => self.inblock.insert(*block),
 			TransactionStatus::Retracted(_) => {
 				//todo: remove panic
@@ -295,7 +301,6 @@ where
 		block: BlockHash<PoolApi>,
 		idx: TxIndex,
 	) {
-		use futures::future::FutureExt;
 		let mut controllers = self.controllers.write().await;
 
 		if let Some(tx) = controllers.get(&tx_hash) {

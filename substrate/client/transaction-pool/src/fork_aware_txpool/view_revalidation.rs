@@ -18,24 +18,15 @@
 
 //! View background revalidation.
 
-use std::{
-	collections::{BTreeMap, HashMap, HashSet},
-	pin::Pin,
-	sync::Arc,
-};
+use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
-use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction};
+use crate::graph::ChainApi;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::HashAndNumber;
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, SaturatedConversion},
-	transaction_validity::TransactionValidityError,
-};
+use sp_runtime::traits::Block as BlockT;
 
-use super::fork_aware_txpool::{TxMemPool, View};
+use super::fork_aware_txpool::TxMemPool;
 use futures::prelude::*;
-use std::time::Duration;
 
 const LOG_TARGET: &str = "txpool::v-revalidation";
 
@@ -56,8 +47,7 @@ where
 ///
 /// Implements future and can be spawned in place or in background.
 struct RevalidationWorker<Block: BlockT> {
-	//what is already scheduled, so we don't need to duplicate work
-	scheduled: HashSet<Block::Hash>,
+	_phantom: PhantomData<Block>,
 }
 
 // todo: ??? (remove?)
@@ -69,7 +59,7 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	fn new() -> Self {
-		Self { scheduled: Default::default() }
+		Self { _phantom: Default::default() }
 	}
 
 	/// Background worker main loop.
@@ -156,15 +146,15 @@ where
 #[cfg(test)]
 //todo: add tests!
 mod tests {
-	use super::*;
-	use crate::{
-		common::tests::{uxt, TestApi},
-		graph::Pool,
-	};
-	use futures::executor::block_on;
-	use sc_transaction_pool_api::TransactionSource;
-	use substrate_test_runtime::{AccountId, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
+	// use super::*;
+	// use crate::{
+	// 	common::tests::{uxt, TestApi},
+	// 	graph::Pool,
+	// };
+	// use futures::executor::block_on;
+	// use sc_transaction_pool_api::TransactionSource;
+	// use substrate_test_runtime::{AccountId, Transfer, H256};
+	// use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
 
 	// #[test]
 	// fn revalidation_queue_works() {

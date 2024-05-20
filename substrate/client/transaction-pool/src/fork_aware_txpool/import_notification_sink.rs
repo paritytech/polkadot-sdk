@@ -22,21 +22,18 @@ const LOG_TARGET: &str = "txpool::mvimportnotif";
 
 use futures::{
 	channel::mpsc::{channel, Receiver, Sender},
-	executor::block_on,
 	stream::{self, Fuse, StreamExt},
 	Future, FutureExt,
 };
-use log::{debug, info, trace};
+use log::{debug, trace};
 use std::{
 	collections::HashSet,
 	fmt::{self, Debug, Formatter},
 	hash::Hash,
-	marker::PhantomData,
 	pin::Pin,
 	sync::Arc,
-	time::Duration,
 };
-use tokio::{sync::RwLock, task::JoinHandle};
+use tokio::sync::RwLock;
 use tokio_stream::StreamMap;
 
 type StreamOf<I> = Pin<Box<dyn futures::Stream<Item = I> + Send>>;
@@ -80,7 +77,7 @@ where
 					cmd = ctx.controller.recv() => {
 						match cmd {
 							Some(Command::AddView(key,stream)) => {
-								debug!("Command::addView {key:?}");
+								debug!(target: LOG_TARGET,"Command::addView {key:?}");
 								ctx.stream_map.get_mut().insert(key,stream);
 							},
 							//controller sender is terminated, terminate the map as well
@@ -89,7 +86,7 @@ where
 					},
 
 					event = futures::StreamExt::select_next_some(&mut ctx.stream_map) => {
-						trace!("sm -> {:#?}", event);
+						trace!(target: LOG_TARGET, "sm -> {:#?}", event);
 						return Some((event.1, ctx));
 					}
 				}
@@ -108,6 +105,7 @@ pub struct MultiViewImportNotificationSink<K, I: Send + Sync> {
 	filter: Arc<RwLock<HashSet<I>>>,
 }
 
+///todo: doc
 pub type ImportNotificationTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 impl<K, I> MultiViewImportNotificationSink<K, I>
@@ -128,7 +126,7 @@ where
 				async move {
 					if filter.write().await.insert(event.clone()) {
 						for sink in &mut *external_sinks.write().await {
-							debug!("import_sink_worker sending out event: {event:?}");
+							debug!(target: LOG_TARGET, "import_sink_worker sending out event: {event:?}");
 							//todo: log/handle error
 							let _ = sink.try_send(event.clone());
 						}
@@ -151,7 +149,7 @@ where
 		receiver
 	}
 
-	pub async fn clean_filter(&self, items_to_be_removed: Vec<I>) {
+	pub async fn clean_filter(&self, items_to_be_removed: &Vec<I>) {
 		self.filter.write().await.retain(|v| !items_to_be_removed.contains(v));
 	}
 }
@@ -159,6 +157,9 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use core::time::Duration;
+	use log::info;
+	use tokio::task::JoinHandle;
 
 	#[derive(Debug, Clone)]
 	struct Event<I: Send> {
@@ -276,7 +277,7 @@ mod tests {
 			let ctrl = ctrl.clone();
 			tokio::spawn(async move {
 				tokio::time::sleep(Duration::from_millis(70)).await;
-				ctrl.clean_filter(vec![1, 3]).await;
+				ctrl.clean_filter(&vec![1, 3]).await;
 				ctrl.add_view(3000, o3.boxed()).await;
 			})
 		};

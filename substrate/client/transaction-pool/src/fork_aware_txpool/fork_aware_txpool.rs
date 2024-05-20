@@ -674,7 +674,7 @@ where
 		invalid_hashes
 	}
 
-	async fn purge_finalized_transactions(&self, finalized_xts: Vec<ExtrinsicHash<PoolApi>>) {
+	async fn purge_finalized_transactions(&self, finalized_xts: &Vec<ExtrinsicHash<PoolApi>>) {
 		log::info!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
 		log::debug!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts);
 		self.xts2.write().retain(|hash, _| !finalized_xts.contains(&hash));
@@ -1633,7 +1633,8 @@ where
 			})
 		}
 
-		self.mempool.purge_finalized_transactions(finalized_xts).await;
+		self.mempool.purge_finalized_transactions(&finalized_xts).await;
+		self.import_notification_sink.clean_filter(&finalized_xts).await;
 
 		if let Ok(Some(finalized_number)) = finalized_number {
 			self.revalidation_queue

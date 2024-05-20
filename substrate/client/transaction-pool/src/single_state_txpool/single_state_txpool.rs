@@ -18,16 +18,10 @@
 
 //! Substrate transaction pool implementation.
 
-#![recursion_limit = "256"]
-#![warn(missing_docs)]
-#![warn(unused_extern_crates)]
-
 use crate::common::enactment_state::{EnactmentAction, EnactmentState};
 pub use crate::{
 	api::FullChainApi,
-	graph::{
-		base_pool::Limit as PoolLimit, ChainApi, Options, Pool, Transaction, ValidatedTransaction,
-	},
+	graph::{ChainApi, ValidatedTransaction},
 };
 use async_trait::async_trait;
 use futures::{
@@ -45,7 +39,7 @@ use std::{
 use crate::graph::{ExtrinsicHash, IsValidator};
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
-	PoolFuture, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool, TransactionSource,
+	PoolFuture, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatusStreamFor, TxHash,
 };
 use sp_core::traits::SpawnEssentialNamed;

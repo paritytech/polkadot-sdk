@@ -470,6 +470,7 @@ impl<B: ChainApi> Pool<B> {
 }
 
 impl<B: ChainApi> Pool<B> {
+	///todo: doc
 	pub fn deep_clone(&self) -> Self {
 		let other: ValidatedPool<B> = (*self.validated_pool).clone();
 		Self { validated_pool: Arc::from(other) }

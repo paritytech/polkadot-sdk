@@ -52,9 +52,6 @@ pub use api::FullChainApi;
 pub use fork_aware_txpool::{ForkAwareTxPool, ImportNotificationTask};
 pub use single_state_txpool::BasicPool;
 
-#[cfg(test)]
-use common::tests::*;
-
 use single_state_txpool::prune_known_txs_for_block;
 
 // shared types
