@@ -228,8 +228,9 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 	/// The index of the first core which is for sale. Core of Regions which are sold have
 	/// incrementing indices from this.
 	pub first_core: CoreIndex,
-	/// The latest price at which Bulk Coretime was purchased until surpassing the ideal number of
-	/// cores were sold.
+	/// The price at which cores have been sold out.
+	///
+	/// Will only be `None` if no core was offered for sale.
 	pub sellout_price: Option<Balance>,
 	/// Number of cores which have been sold; never more than cores_offered.
 	pub cores_sold: CoreIndex,
@@ -266,8 +267,9 @@ pub struct ConfigRecord<BlockNumber, RelayBlockNumber> {
 	pub leadin_length: BlockNumber,
 	/// The length in timeslices of Regions which are up for sale in forthcoming sales.
 	pub region_length: Timeslice,
-	/// The proportion of cores available for sale which should be sold in order for the price
-	/// to remain the same in the next sale.
+	/// The proportion of cores available for sale which should be sold.
+	///
+	/// If more cores are sold than this, then the price will not be adjusted downwards further.
 	pub ideal_bulk_proportion: Perbill,
 	/// An artificial limit to the number of cores which are allowed to be sold. If `Some` then
 	/// no more cores will be sold than this.

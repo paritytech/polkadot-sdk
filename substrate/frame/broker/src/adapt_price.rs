@@ -17,20 +17,33 @@
 
 #![deny(missing_docs)]
 
-use crate::CoreIndex;
+use crate::{CoreIndex, SaleInfoRecord};
 use sp_arithmetic::{traits::One, FixedU64};
 use sp_runtime::Saturating;
 
-struct SalePerformance<Balance> {
+pub struct SalePerformance<Balance> {
 	/// The price at which the last core was sold.
 	///
 	/// Will be `None` if no cores have been offered.
-	purchase_price: Option<Balance>,
+	sellout_price: Option<Balance>,
 
 	/// The base price (lowest possible price) that was used in this sale.
 	price: Balance,
 }
 
+/// Result of `AdaptPrice::adapt_price`.
+pub struct AdaptedPrices<Balance> {
+	/// New base price to use.
+	price: Balance,
+	/// Price to use for renewals of leases.
+	renewal_price: Balance,
+}
+
+impl<Balance, BlockNumber> From<SaleInfoRecord<Balance, BlockNumber>> for SalePerformance<Balance> {
+	fn from(record: SaleInfoRecord<Balance, BlockNumber>) -> Self {
+		Self { sellout_price: record.sellout_price, price: record.price }
+	}
+}
 
 /// Type for determining how to set price.
 pub trait AdaptPrice<Balance> {
@@ -39,28 +52,30 @@ pub trait AdaptPrice<Balance> {
 	/// - `when`: The amount through the leadin period; between zero and one.
 	fn leadin_factor_at(when: FixedU64) -> FixedU64;
 
-	/// Return the base price that should be used in the next sale, based on this sale's
-	/// performance.
-	fn adapt_price(SalePerformance<Balance>) -> Balance;
+	/// Return adapted prices for next sale.
+	///
+	/// Based on this sale's performance.
+	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance>;
 }
 
-impl AdaptPrice for () {
+impl<Balance> AdaptPrice<Balance> for () {
 	fn leadin_factor_at(_: FixedU64) -> FixedU64 {
 		FixedU64::one()
 	}
-	fn adapt_price(_: CoreIndex, _: CoreIndex, _: CoreIndex) -> FixedU64 {
-		FixedU64::one()
+	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
+		let price = performance.sellout_price.unwrap_or(performance.price);
+		AdaptedPrices { price, renewal_price: price }
 	}
 }
 
 /// Simple implementation of `AdaptPrice` giving a monotonic leadin and a linear price change based
 /// on cores sold.
 pub struct Linear;
-impl AdaptPrice for Linear {
+impl<Balance> AdaptPrice<Balance> for Linear {
 	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
 		FixedU64::from(2).saturating_sub(when)
 	}
-	fn adapt_price(sold: CoreIndex, target: CoreIndex, limit: CoreIndex) -> FixedU64 {
+	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
 		if sold <= target {
 			// Range of [0.5, 1.0].
 			FixedU64::from_rational(1, 2).saturating_add(FixedU64::from_rational(

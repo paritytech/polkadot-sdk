@@ -163,31 +163,7 @@ impl<T: Config> Pallet<T> {
 		InstaPoolIo::<T>::mutate(old_sale.region_end, |r| r.system.saturating_reduce(old_pooled));
 
 		// Calculate the start price for the upcoming sale.
-		let price = {
-			let offered = old_sale.cores_offered;
-			let ideal = old_sale.ideal_cores_sold;
-			let sold = old_sale.cores_sold;
-
-			let maybe_purchase_price = if offered == 0 {
-				// No cores offered for sale - no purchase price.
-				None
-			} else if sold >= ideal {
-				// Sold more than the ideal amount. We should look for the last purchase price
-				// before the sell-out. If there was no purchase at all, then we avoid having a
-				// price here so that we make no alterations to it (since otherwise we would
-				// increase it).
-				old_sale.sellout_price
-			} else {
-				// Sold less than the ideal - we fall back to the regular price.
-				Some(old_sale.price)
-			};
-			if let Some(purchase_price) = maybe_purchase_price {
-				T::PriceAdapter::adapt_price(sold.min(offered), ideal, offered)
-					.saturating_mul_int(purchase_price)
-			} else {
-				old_sale.price
-			}
-		};
+		let new_prices = T::PriceAdapter::adapt_price(old_sale.into());
 
 		// Set workload for the reserved (system, probably) workloads.
 		let region_begin = old_sale.region_end;
@@ -221,11 +197,14 @@ impl<T: Config> Pallet<T> {
 			if expire {
 				// last time for this one - make it renewable in the next sale.
 				let renewal_id = PotentialRenewalId { core: first_core, when: region_end };
-				let record = PotentialRenewalRecord { price, completion: Complete(schedule) };
+				let record = PotentialRenewalRecord {
+					price: new_prices.renewal_price,
+					completion: Complete(schedule),
+				};
 				PotentialRenewals::<T>::insert(renewal_id, &record);
 				Self::deposit_event(Event::Renewable {
 					core: first_core,
-					price,
+					price: new_prices.renewal_price,
 					begin: region_end,
 					workload: record.completion.drain_complete().unwrap_or_default(),
 				});
@@ -245,10 +224,11 @@ impl<T: Config> Pallet<T> {
 		let leadin_length = config.leadin_length;
 		let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
 		// Update SaleInfo
-		let new_sale = SaleInfoRecord {
+		let mut new_sale = SaleInfoRecord {
 			sale_start,
 			leadin_length,
-			price,
+			price: new_prices.price,
+			// None for now, we adjust below:
 			sellout_price: None,
 			region_begin,
 			region_end,
@@ -257,6 +237,10 @@ impl<T: Config> Pallet<T> {
 			cores_offered,
 			cores_sold: 0,
 		};
+
+		if cores_offered > 0 {
+			new_sale.sellout_price = Some(Self::sale_price(&new_sale, new_sale.sale_start));
+		}
 		SaleInfo::<T>::put(&new_sale);
 		Self::deposit_event(Event::SaleInitialized {
 			sale_start,
