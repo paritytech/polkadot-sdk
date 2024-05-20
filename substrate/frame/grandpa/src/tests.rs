@@ -239,7 +239,10 @@ fn schedule_pause_only_when_live() {
 		Grandpa::schedule_pause(1).unwrap();
 
 		// we've switched to the pending pause state
-		assert_eq!(State::<Test>::get(), StoredState::PendingPause { scheduled_at: 1u64, delay: 1 });
+		assert_eq!(
+			State::<Test>::get(),
+			StoredState::PendingPause { scheduled_at: 1u64, delay: 1 }
+		);
 
 		Grandpa::on_finalize(1);
 		let _ = System::finalize();
