@@ -99,7 +99,7 @@ pub trait WeightInfo {
 	fn seal_contains_storage(n: u32, ) -> Weight;
 	fn seal_take_storage(n: u32, ) -> Weight;
 	fn seal_transfer() -> Weight;
-	fn seal_call(t: u32, c: u32, i: u32, ) -> Weight;
+	fn seal_call(t: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_instantiate(t: u32, i: u32, s: u32, ) -> Weight;
 	fn seal_hash_sha2_256(n: u32, ) -> Weight;
@@ -797,7 +797,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `t` is `[0, 1]`.
 	/// The range of component `c` is `[0, 1]`.
 	/// The range of component `i` is `[0, 1048576]`.
-	fn seal_call(t: u32, _c: u32, i: u32, ) -> Weight {
+	fn seal_call(t: u32, i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `620 + t * (280 ±0)`
 		//  Estimated: `4085 + t * (2182 ±0)`
@@ -1666,7 +1666,7 @@ impl WeightInfo for () {
 	/// The range of component `t` is `[0, 1]`.
 	/// The range of component `c` is `[0, 1]`.
 	/// The range of component `i` is `[0, 1048576]`.
-	fn seal_call(t: u32, _c: u32, i: u32, ) -> Weight {
+	fn seal_call(t: u32, i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `620 + t * (280 ±0)`
 		//  Estimated: `4085 + t * (2182 ±0)`
