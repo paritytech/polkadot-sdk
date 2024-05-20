@@ -36,6 +36,7 @@ pub mod storage;
 pub mod tasks;
 pub mod type_value;
 pub mod validate_unsigned;
+pub mod view_functions;
 
 #[cfg(test)]
 pub mod tests;
@@ -104,6 +105,7 @@ impl Def {
 		let mut storages = vec![];
 		let mut type_values = vec![];
 		let mut composites: Vec<CompositeDef> = vec![];
+		let mut view_functions = None;
 
 		for (index, item) in items.iter_mut().enumerate() {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
@@ -206,6 +208,9 @@ impl Def {
 					}
 					composites.push(composite);
 				},
+				Some(PalletAttr::ViewFunctions(span)) => {
+					view_functions = Some(view_functions::ViewFunctionsDef::try_from(span)?);
+				}
 				Some(attr) => {
 					let msg = "Invalid duplicated attribute";
 					return Err(syn::Error::new(attr.span(), msg))
@@ -560,6 +565,7 @@ mod keyword {
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(extra_constants);
 	syn::custom_keyword!(composite_enum);
+	syn::custom_keyword!(view_functions);
 }
 
 /// Parse attributes for item in pallet module
@@ -622,6 +628,7 @@ enum PalletAttr {
 	TypeValue(proc_macro2::Span),
 	ExtraConstants(proc_macro2::Span),
 	Composite(proc_macro2::Span),
+	ViewFunctions(proc_macro2::Span),
 }
 
 impl PalletAttr {
@@ -647,6 +654,7 @@ impl PalletAttr {
 			Self::TypeValue(span) => *span,
 			Self::ExtraConstants(span) => *span,
 			Self::Composite(span) => *span,
+			Self::ViewFunctions(span) => *span,
 		}
 	}
 }
@@ -712,6 +720,8 @@ impl syn::parse::Parse for PalletAttr {
 			Ok(PalletAttr::ExtraConstants(content.parse::<keyword::extra_constants>()?.span()))
 		} else if lookahead.peek(keyword::composite_enum) {
 			Ok(PalletAttr::Composite(content.parse::<keyword::composite_enum>()?.span()))
+		} else if lookahead.peek(keyword::view_functions) {
+			Ok(PalletAttr::ViewFunctions(content.parse::<keyword::view_functions>()?.span()))
 		} else {
 			Err(lookahead.error())
 		}
