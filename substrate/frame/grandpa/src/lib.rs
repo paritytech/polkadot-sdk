@@ -125,7 +125,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// check for scheduled pending authority set changes
-			if let Some(pending_change) = <PendingChange<T>>::get() {
+			if let Some(pending_change) = PendingChange::<T>::get() {
 				// emit signal if we're at the block that scheduled the change
 				if block_number == pending_change.scheduled_at {
 					let next_authorities = pending_change.next_authorities.to_vec();
@@ -148,12 +148,12 @@ pub mod pallet {
 					Self::deposit_event(Event::NewAuthorities {
 						authority_set: pending_change.next_authorities.into_inner(),
 					});
-					<PendingChange<T>>::kill();
+					PendingChange::<T>::kill();
 				}
 			}
 
 			// check for scheduled pending state changes
-			match <State<T>>::get() {
+			match State::<T>::get() {
 				StoredState::PendingPause { scheduled_at, delay } => {
 					// signal change to pause
 					if block_number == scheduled_at {
@@ -162,7 +162,7 @@ pub mod pallet {
 
 					// enact change to paused state
 					if block_number == scheduled_at + delay {
-						<State<T>>::put(StoredState::Paused);
+						State::<T>::put(StoredState::Paused);
 						Self::deposit_event(Event::Paused);
 					}
 				},
@@ -174,7 +174,7 @@ pub mod pallet {
 
 					// enact change to live state
 					if block_number == scheduled_at + delay {
-						<State<T>>::put(StoredState::Live);
+						State::<T>::put(StoredState::Live);
 						Self::deposit_event(Event::Resumed);
 					}
 				},
@@ -438,9 +438,9 @@ impl<T: Config> Pallet<T> {
 	/// Schedule GRANDPA to pause starting in the given number of blocks.
 	/// Cannot be done when already paused.
 	pub fn schedule_pause(in_blocks: BlockNumberFor<T>) -> DispatchResult {
-		if let StoredState::Live = <State<T>>::get() {
-			let scheduled_at = <frame_system::Pallet<T>>::block_number();
-			<State<T>>::put(StoredState::PendingPause { delay: in_blocks, scheduled_at });
+		if let StoredState::Live = State::<T>::get() {
+			let scheduled_at = frame_system::Pallet::<T>::block_number();
+			State::<T>::put(StoredState::PendingPause { delay: in_blocks, scheduled_at });
 
 			Ok(())
 		} else {
@@ -450,9 +450,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedule a resume of GRANDPA after pausing.
 	pub fn schedule_resume(in_blocks: BlockNumberFor<T>) -> DispatchResult {
-		if let StoredState::Paused = <State<T>>::get() {
-			let scheduled_at = <frame_system::Pallet<T>>::block_number();
-			<State<T>>::put(StoredState::PendingResume { delay: in_blocks, scheduled_at });
+		if let StoredState::Paused = State::<T>::get() {
+			let scheduled_at = frame_system::Pallet::<T>::block_number();
+			State::<T>::put(StoredState::PendingResume { delay: in_blocks, scheduled_at });
 
 			Ok(())
 		} else {
@@ -479,8 +479,8 @@ impl<T: Config> Pallet<T> {
 		in_blocks: BlockNumberFor<T>,
 		forced: Option<BlockNumberFor<T>>,
 	) -> DispatchResult {
-		if !<PendingChange<T>>::exists() {
-			let scheduled_at = <frame_system::Pallet<T>>::block_number();
+		if !PendingChange::<T>::exists() {
+			let scheduled_at = frame_system::Pallet::<T>::block_number();
 
 			if forced.is_some() {
 				if Self::next_forced().map_or(false, |next| next > scheduled_at) {
@@ -489,7 +489,7 @@ impl<T: Config> Pallet<T> {
 
 				// only allow the next forced change when twice the window has passed since
 				// this one.
-				<NextForced<T>>::put(scheduled_at + in_blocks * 2u32.into());
+				NextForced::<T>::put(scheduled_at + in_blocks * 2u32.into());
 			}
 
 			let next_authorities = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
@@ -500,7 +500,7 @@ impl<T: Config> Pallet<T> {
 				),
 			);
 
-			<PendingChange<T>>::put(StoredPendingChange {
+			PendingChange::<T>::put(StoredPendingChange {
 				delay: in_blocks,
 				scheduled_at,
 				next_authorities,
@@ -516,7 +516,7 @@ impl<T: Config> Pallet<T> {
 	/// Deposit one of this module's logs.
 	fn deposit_log(log: ConsensusLog<BlockNumberFor<T>>) {
 		let log = DigestItem::Consensus(GRANDPA_ENGINE_ID, log.encode());
-		<frame_system::Pallet<T>>::deposit_log(log);
+		frame_system::Pallet::<T>::deposit_log(log);
 	}
 
 	// Perform module initialization, abstracted so that it can be called either through genesis
@@ -552,7 +552,7 @@ impl<T: Config> Pallet<T> {
 		// when we record old authority sets we could try to figure out _who_
 		// failed. until then, we can't meaningfully guard against
 		// `next == last` the way that normal session changes do.
-		<Stalled<T>>::put((further_wait, median));
+		Stalled::<T>::put((further_wait, median));
 	}
 }
 
@@ -581,10 +581,10 @@ where
 		// Always issue a change if `session` says that the validators have changed.
 		// Even if their session keys are the same as before, the underlying economic
 		// identities have changed.
-		let current_set_id = if changed || <Stalled<T>>::exists() {
+		let current_set_id = if changed || Stalled::<T>::exists() {
 			let next_authorities = validators.map(|(_, k)| (k, 1)).collect::<Vec<_>>();
 
-			let res = if let Some((further_wait, median)) = <Stalled<T>>::take() {
+			let res = if let Some((further_wait, median)) = Stalled::<T>::take() {
 				Self::schedule_change(next_authorities, further_wait, Some(median))
 			} else {
 				Self::schedule_change(next_authorities, Zero::zero(), None)
@@ -616,7 +616,7 @@ where
 
 		// update the mapping to note that the current set corresponds to the
 		// latest equivalent session (i.e. now).
-		let session_index = <pallet_session::Pallet<T>>::current_index();
+		let session_index = pallet_session::Pallet::<T>::current_index();
 		SetIdSession::<T>::insert(current_set_id, &session_index);
 	}
 

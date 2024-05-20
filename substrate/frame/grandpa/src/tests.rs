@@ -110,7 +110,7 @@ fn cannot_schedule_change_when_one_pending() {
 	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
 		initialize_block(1, Default::default());
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 1, None).unwrap();
-		assert!(<PendingChange<Test>>::exists());
+		assert!(PendingChange::<Test>::exists());
 		assert_noop!(
 			Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None),
 			Error::<Test>::ChangePending
@@ -120,7 +120,7 @@ fn cannot_schedule_change_when_one_pending() {
 		let header = System::finalize();
 
 		initialize_block(2, header.hash());
-		assert!(<PendingChange<Test>>::exists());
+		assert!(PendingChange::<Test>::exists());
 		assert_noop!(
 			Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None),
 			Error::<Test>::ChangePending
@@ -130,7 +130,7 @@ fn cannot_schedule_change_when_one_pending() {
 		let header = System::finalize();
 
 		initialize_block(3, header.hash());
-		assert!(!<PendingChange<Test>>::exists());
+		assert!(!PendingChange::<Test>::exists());
 		assert_ok!(Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None));
 
 		Grandpa::on_finalize(3);
@@ -144,7 +144,7 @@ fn dispatch_forced_change() {
 		initialize_block(1, Default::default());
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 5, Some(0)).unwrap();
 
-		assert!(<PendingChange<Test>>::exists());
+		assert!(PendingChange::<Test>::exists());
 		assert_noop!(
 			Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, Some(0)),
 			Error::<Test>::ChangePending
@@ -155,7 +155,7 @@ fn dispatch_forced_change() {
 
 		for i in 2..7 {
 			initialize_block(i, header.hash());
-			assert!(<PendingChange<Test>>::get().unwrap().forced.is_some());
+			assert!(PendingChange::<Test>::get().unwrap().forced.is_some());
 			assert_eq!(Grandpa::next_forced(), Some(11));
 			assert_noop!(
 				Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None),
@@ -174,7 +174,7 @@ fn dispatch_forced_change() {
 		// add a normal change.
 		{
 			initialize_block(7, header.hash());
-			assert!(!<PendingChange<Test>>::exists());
+			assert!(!PendingChange::<Test>::exists());
 			assert_eq!(
 				Grandpa::grandpa_authorities(),
 				to_authorities(vec![(4, 1), (5, 1), (6, 1)])
@@ -187,7 +187,7 @@ fn dispatch_forced_change() {
 		// run the normal change.
 		{
 			initialize_block(8, header.hash());
-			assert!(<PendingChange<Test>>::exists());
+			assert!(PendingChange::<Test>::exists());
 			assert_eq!(
 				Grandpa::grandpa_authorities(),
 				to_authorities(vec![(4, 1), (5, 1), (6, 1)])
@@ -204,7 +204,7 @@ fn dispatch_forced_change() {
 		// time.
 		for i in 9..11 {
 			initialize_block(i, header.hash());
-			assert!(!<PendingChange<Test>>::exists());
+			assert!(!PendingChange::<Test>::exists());
 			assert_eq!(Grandpa::grandpa_authorities(), to_authorities(vec![(5, 1)]));
 			assert_eq!(Grandpa::next_forced(), Some(11));
 			assert_noop!(
@@ -217,7 +217,7 @@ fn dispatch_forced_change() {
 
 		{
 			initialize_block(11, header.hash());
-			assert!(!<PendingChange<Test>>::exists());
+			assert!(!PendingChange::<Test>::exists());
 			assert_ok!(Grandpa::schedule_change(
 				to_authorities(vec![(5, 1), (6, 1), (7, 1)]),
 				5,
@@ -769,8 +769,8 @@ fn on_new_session_doesnt_start_new_set_if_schedule_change_failed() {
 
 		// session rotation might also fail to schedule a change if it's for a
 		// forced change (i.e. grandpa is stalled) and it is too soon.
-		<NextForced<Test>>::put(1000);
-		<Stalled<Test>>::put((30, 1));
+		NextForced::<Test>::put(1000);
+		Stalled::<Test>::put((30, 1));
 
 		// NOTE: we cannot go through normal era rotation since having `Stalled`
 		// defined will also trigger a new set (regardless of whether the
@@ -824,7 +824,7 @@ fn always_schedules_a_change_on_new_session_when_stalled() {
 
 		// if grandpa is stalled then we should **always** schedule a forced
 		// change on a new session
-		<Stalled<Test>>::put((10, 1));
+		Stalled::<Test>::put((10, 1));
 		Grandpa::on_new_session(false, std::iter::empty(), std::iter::empty());
 
 		assert!(Grandpa::pending_change().is_some());
