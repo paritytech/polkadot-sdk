@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716146734906,
+  "lastUpdate": 1716192354483,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3947,6 +3947,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.808103166350001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "polka.dom",
+            "username": "PolkadotDom",
+            "email": "polkadotdom@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "313fe0f9a277f27a4228634f0fb15a1c3fa21271",
+          "message": "Remove usage of the pallet::getter macro from pallet-fast-unstake (#4514)\n\nAs per #3326, removes pallet::getter macro usage from\npallet-fast-unstake. The syntax `StorageItem::<T, I>::get()` should be\nused instead.\n\ncc @muraca\n\n---------\n\nCo-authored-by: Liam Aharon <liam.aharon@hotmail.com>",
+          "timestamp": "2024-05-20T06:36:48Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/313fe0f9a277f27a4228634f0fb15a1c3fa21271"
+        },
+        "date": 1716192326386,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63547.829999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.547934758850094,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.4239887044501196,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.857821811039999,
             "unit": "seconds"
           }
         ]
