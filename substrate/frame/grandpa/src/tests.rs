@@ -790,19 +790,19 @@ fn cleans_up_old_set_id_session_mappings() {
 		// we should have a session id mapping for all the set ids from
 		// `max_set_id_session_entries` eras we have observed
 		for i in 1..=max_set_id_session_entries {
-			assert!(SetIdSession::<Test>get(i as u64).is_some());
+			assert!(SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		start_era(max_set_id_session_entries * 2);
 
 		// we should keep tracking the new mappings for new eras
 		for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
-			assert!(SetIdSession::<Test>get(i as u64).is_some());
+			assert!(SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		// but the old ones should have been pruned by now
 		for i in 1..=max_set_id_session_entries {
-			assert!(SetIdSession::<Test>get(i as u64).is_none());
+			assert!(SetIdSession::<Test>::get(i as u64).is_none());
 		}
 	});
 }
