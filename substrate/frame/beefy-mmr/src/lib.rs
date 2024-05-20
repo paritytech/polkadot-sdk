@@ -181,9 +181,9 @@ impl<T: Config> AncestryHelper<BlockNumberFor<T>> for Pallet<T> {
 			match pallet_mmr::Pallet::<T>::block_num_to_leaf_count(commitment.block_number) {
 				Ok(commitment_leaf_count) => commitment_leaf_count,
 				Err(_) => {
-					// We consider the commitment non-canonical if the `commitment.block_number`
-					// is invalid.
-					return true
+					// We can't prove that the commitment is non-canonical if the
+					// `commitment.block_number` is invalid.
+					return false
 				},
 			};
 		if commitment_leaf_count != proof.prev_leaf_count {
