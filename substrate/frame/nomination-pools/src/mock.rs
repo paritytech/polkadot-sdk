@@ -140,7 +140,8 @@ impl sp_staking::StakingInterface for StakingMock {
 		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
 
 		UnbondingBalanceMap::set(&unbonding_map);
-		Ok(UnbondingBalanceMap::get().is_empty() && BondedBalanceMap::get().is_empty())
+		Ok(UnbondingBalanceMap::get().get(&who).unwrap().is_empty() &&
+			BondedBalanceMap::get().get(&who).unwrap().is_zero())
 	}
 
 	fn bond(stash: &Self::AccountId, value: Self::Balance, _: &Self::AccountId) -> DispatchResult {
