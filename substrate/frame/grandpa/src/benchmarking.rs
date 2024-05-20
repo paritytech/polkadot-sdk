@@ -66,7 +66,7 @@ benchmarks! {
 
 	}: _(RawOrigin::Root, delay, best_finalized_block_number)
 	verify {
-		assert!(Grandpa::<T>::stalled().is_some());
+		assert!(Stalled::<T>::get().is_some());
 	}
 
 	impl_benchmark_test_suite!(

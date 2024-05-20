@@ -301,30 +301,25 @@ pub mod pallet {
 
 	/// State of the current authority set.
 	#[pallet::storage]
-	#[pallet::getter(fn state)]
 	pub(super) type State<T: Config> =
 		StorageValue<_, StoredState<BlockNumberFor<T>>, ValueQuery, DefaultForState<T>>;
 
 	/// Pending change: (signaled at, scheduled change).
 	#[pallet::storage]
-	#[pallet::getter(fn pending_change)]
 	pub(super) type PendingChange<T: Config> =
 		StorageValue<_, StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities>>;
 
 	/// next block number where we can force a change.
 	#[pallet::storage]
-	#[pallet::getter(fn next_forced)]
 	pub(super) type NextForced<T: Config> = StorageValue<_, BlockNumberFor<T>>;
 
 	/// `true` if we are currently stalled.
 	#[pallet::storage]
-	#[pallet::getter(fn stalled)]
 	pub(super) type Stalled<T: Config> = StorageValue<_, (BlockNumberFor<T>, BlockNumberFor<T>)>;
 
 	/// The number of changes (both in terms of keys and underlying economic responsibilities)
 	/// in the "set" of Grandpa validators from genesis.
 	#[pallet::storage]
-	#[pallet::getter(fn current_set_id)]
 	pub(super) type CurrentSetId<T: Config> = StorageValue<_, SetId, ValueQuery>;
 
 	/// A mapping from grandpa set ID to the index of the *most recent* session for which its
@@ -338,7 +333,6 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: `SetId` is not under user control.
 	#[pallet::storage]
-	#[pallet::getter(fn session_for_set)]
 	pub(super) type SetIdSession<T: Config> = StorageMap<_, Twox64Concat, SetId, SessionIndex>;
 
 	/// The current list of authorities.
@@ -483,7 +477,7 @@ impl<T: Config> Pallet<T> {
 			let scheduled_at = frame_system::Pallet::<T>::block_number();
 
 			if forced.is_some() {
-				if Self::next_forced().map_or(false, |next| next > scheduled_at) {
+				if NextForced::<T>::get().map_or(false, |next| next > scheduled_at) {
 					return Err(Error::<T>::TooSoon.into())
 				}
 
@@ -606,12 +600,12 @@ where
 				// either the session module signalled that the validators have changed
 				// or the set was stalled. but since we didn't successfully schedule
 				// an authority set change we do not increment the set id.
-				Self::current_set_id()
+				CurrentSetId::<T>::get()
 			}
 		} else {
 			// nothing's changed, neither economic conditions nor session keys. update the pointer
 			// of the current set.
-			Self::current_set_id()
+			CurrentSetId::<T>::get()
 		};
 
 		// update the mapping to note that the current set corresponds to the
