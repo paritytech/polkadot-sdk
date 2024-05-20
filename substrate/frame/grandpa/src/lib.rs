@@ -47,7 +47,7 @@ use sp_consensus_grandpa::{
 	ConsensusLog, EquivocationProof, ScheduledChange, SetId, GRANDPA_ENGINE_ID,
 	RUNTIME_LOG_TARGET as LOG_TARGET,
 };
-use sp_runtime::{generic::DigestItem, traits::{BlockNumber, Zero}, DispatchResult};
+use sp_runtime::{generic::DigestItem, traits::Zero, DispatchResult};
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 use sp_std::prelude::*;
@@ -426,31 +426,31 @@ pub enum StoredState<N> {
 impl<T: Config> Pallet<T> {
 
 	/// Get the tate of the current authority set
-	pub fn state() -> StoredState<BlockNumberFor<T>> {
-		State::<T>::get()
+	pub fn state() -> StoredState<BlockNumberFor<T> >{
+		<State<T>as frame_support::storage::StorageValue<StoredState<BlockNumberFor<T> > > > ::get()
 	}
 
 	/// Get the pending change: (signaled at, scheduled change)
-	pub fn pending_change() -> StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities> {
-		PendingChange::<T>::get()
+	pub fn pending_change() -> Option<StoredPendingChange<BlockNumberFor<T> ,T::MaxAuthorities> >{
+		<PendingChange<T>as frame_support::storage::StorageValue<StoredPendingChange<BlockNumberFor<T> ,T::MaxAuthorities> > > ::get()
 	}
 
 	/// Get the next block number where we can force a change
-	pub fn next_forced() -> BlockNumberFor<T> {
-		NextForced::<T>::get()
+	pub fn next_forced() -> Option<BlockNumberFor<T> >{
+		<NextForced<T>as frame_support::storage::StorageValue<BlockNumberFor<T> > > ::get()
 	}
 
 	/// `true` if we are currently stalled
-	pub fn stalled() -> (BlockNumberFor<T>, BlockNumberFor<T>) {
-		Stalled::<T>::get()
+	pub fn stalled() -> Option<(BlockNumberFor<T> ,BlockNumberFor<T>)>{
+		<Stalled<T>as frame_support::storage::StorageValue<(BlockNumberFor<T> ,BlockNumberFor<T>)> > ::get()
 	}
 
 	/// Get the number of changes (both in terms of keys and underlying economic responsibilities)
 	/// in the "set" of Grandpa validators from genesis
 	pub fn current_set_id() -> SetId {
-		CurrentSetId::<T>::get()
+		<CurrentSetId<T>as frame_support::storage::StorageValue<SetId> > ::get()
 	}
-
+		
 	/// Get a mapping from grandpa set ID to the index of the *most recent* session for which its
 	/// members were responsible.
 	///
@@ -461,9 +461,10 @@ impl<T: Config> Pallet<T> {
 	/// during that session.
 	///
 	/// TWOX-NOTE: `SetId` is not under user control
-	pub fn session_for_set(set_id : SetId) -> SessionIndex {
-		SetIdSession::<T>::get(set_id)
+	pub fn session_for_set<KArg>(k:KArg) -> Option<SessionIndex>where KArg:frame_support::__private::codec::EncodeLike<SetId> ,{
+		<SetIdSession<T>as frame_support::storage::StorageMap<SetId,SessionIndex> > ::get(k)
 	}
+	
 
 	/// Get the current set of authorities, along with their respective weights.
 	pub fn grandpa_authorities() -> AuthorityList {
