@@ -19,6 +19,8 @@ crates:
     bump: minor
   - name: sc-network
     bump: minor
+  - name: sc-network-sync
+    bump: minor
   - name: sc-authority-discovery
     bump: minor
   - name: sc-cli
