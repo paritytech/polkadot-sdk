@@ -8409,7 +8409,7 @@ dependencies = [
  "pallet-minimal-template",
  "polkadot-sdk-docs",
  "polkadot-sdk-frame",
- "simple-mermaid",
+ "simple-mermaid 0.1.1",
 ]
 
 [[package]]
@@ -11959,9 +11959,9 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.6.11"
+version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1b5927e4a9ae8d6cdb6a69e4e04a0ec73381a358e21b8a576f44769f34e7c24"
+checksum = "306800abfa29c7f16596b5970a588435e3d5b3149683d00c12b699cc19f895ee"
 dependencies = [
  "arrayvec 0.7.4",
  "bitvec",
@@ -11974,11 +11974,11 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.6.9"
+version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be30eaf4b0a9fba5336683b38de57bb86d179a35862ba6bfcf57625d006bde5b"
+checksum = "d830939c76d294956402033aee57a6da7b438f2294eb94864c37b0569053a42c"
 dependencies = [
- "proc-macro-crate 2.0.0",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.82",
  "quote 1.0.35",
  "syn 1.0.109",
@@ -13900,7 +13900,7 @@ dependencies = [
  "sc-rpc-api",
  "sc-service",
  "scale-info",
- "simple-mermaid",
+ "simple-mermaid 0.1.1",
  "sp-api",
  "sp-arithmetic",
  "sp-core",
@@ -14648,15 +14648,6 @@ checksum = "7f4c021e1093a56626774e81216a4ce732a735e5bad4868a03f3ed65ca0c3919"
 dependencies = [
  "once_cell",
  "toml_edit 0.19.15",
-]
-
-[[package]]
-name = "proc-macro-crate"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e8366a6159044a37876a2b9817124296703c586a5c92e2c53751fa06d8d43e8"
-dependencies = [
- "toml_edit 0.20.7",
 ]
 
 [[package]]
@@ -15481,6 +15472,7 @@ dependencies = [
  "jsonpath_lib",
  "log",
  "num-traits",
+ "parking_lot 0.12.1",
  "serde_json",
  "sp-runtime",
  "substrate-prometheus-endpoint",
@@ -18364,6 +18356,11 @@ dependencies = [
 
 [[package]]
 name = "simple-mermaid"
+version = "0.1.0"
+source = "git+https://github.com/kianenigma/simple-mermaid.git?branch=main#e48b187bcfd5cc75111acd9d241f1bd36604344b"
+
+[[package]]
+name = "simple-mermaid"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "620a1d43d70e142b1d46a929af51d44f383db9c7a2ec122de2cd992ccfcf3c18"
@@ -19654,7 +19651,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "simple-mermaid",
+ "simple-mermaid 0.1.1",
  "sp-api",
  "sp-application-crypto",
  "sp-arithmetic",
@@ -21078,6 +21075,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 
 [[package]]
+name = "test-log"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3dffced63c2b5c7be278154d76b479f9f9920ed34e7574201407f0b14e2bbb93"
+dependencies = [
+ "env_logger 0.11.3",
+ "test-log-macros",
+ "tracing-subscriber 0.3.18",
+]
+
+[[package]]
+name = "test-log-macros"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5999e24eaa32083191ba4e425deb75cdf25efefabe5aaccb7446dd0d4122a3f5"
+dependencies = [
+ "proc-macro2 1.0.82",
+ "quote 1.0.35",
+ "syn 2.0.61",
+]
+
+[[package]]
 name = "test-parachain-adder"
 version = "1.0.0"
 dependencies = [
@@ -21539,17 +21558,6 @@ name = "toml_edit"
 version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
-dependencies = [
- "indexmap 2.2.3",
- "toml_datetime",
- "winnow",
-]
-
-[[package]]
-name = "toml_edit"
-version = "0.20.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70f427fce4d84c72b5b732388bf4a9f4531b53f74e2887e3ecb2481f68f66d81"
 dependencies = [
  "indexmap 2.2.3",
  "toml_datetime",
@@ -23302,6 +23310,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "xcm-docs"
+version = "0.1.0"
+dependencies = [
+ "docify",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "simple-mermaid 0.1.0",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "test-log",
+ "xcm-simulator",
+]
+
+[[package]]
 name = "xcm-emulator"
 version = "0.5.0"
 dependencies = [
@@ -23399,12 +23432,16 @@ name = "xcm-simulator"
 version = "7.0.0"
 dependencies = [
  "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "paste",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
+ "polkadot-primitives",
  "polkadot-runtime-parachains",
+ "scale-info",
  "sp-io",
+ "sp-runtime",
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
