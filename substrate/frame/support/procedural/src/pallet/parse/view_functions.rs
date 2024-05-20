@@ -38,12 +38,51 @@ pub struct ViewFunctionsDef {
 	// pub docs: Vec<syn::Expr>,
 	// /// The optional `weight` attribute on the `pallet::call`.
 	// pub inherited_call_weight: Option<InheritedCallWeightAttr>,
+	view_functions: Vec<ViewFunctionDef>
+}
+
+pub struct ViewFunctionDef {
+	pub name: syn::Ident,
+	pub return_type: syn::Type,
 }
 
 impl ViewFunctionsDef {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
+		item: &mut syn::Item,
 	) -> syn::Result<Self> {
-		Ok(Self { })
+		let item_impl = if let syn::Item::Impl(item) = item {
+			item
+		} else {
+			return Err(syn::Error::new(item.span(), "Invalid pallet::view_functions, expected item impl"))
+		};
+		let mut view_functions = Vec::new();
+		for item in &mut item_impl.items {
+			if let syn::ImplItem::Fn(method) = item {
+				if !matches!(method.vis, syn::Visibility::Public(_)) {
+					let msg = "Invalid pallet::view_functions, view function must be public: \
+						`pub fn`";
+
+					let span = match method.vis {
+						syn::Visibility::Inherited => method.sig.span(),
+						_ => method.vis.span(),
+					};
+
+					return Err(syn::Error::new(span, msg))
+				}
+
+				let syn::ReturnType::Type(_, type_) = &method.sig.output else {
+					return Err(syn::Error::new(method.sig.output.span(), "view functions must return a value"))
+				};
+
+				view_functions.push(ViewFunctionDef {
+					name: method.sig.ident.clone(),
+					return_type: *type_.clone(),
+				})
+			}
+		}
+		Ok(Self {
+			view_functions,
+		})
 	}
 }

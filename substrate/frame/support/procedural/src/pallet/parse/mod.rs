@@ -209,7 +209,7 @@ impl Def {
 					composites.push(composite);
 				},
 				Some(PalletAttr::ViewFunctions(span)) => {
-					view_functions = Some(view_functions::ViewFunctionsDef::try_from(span)?);
+					view_functions = Some(view_functions::ViewFunctionsDef::try_from(span, item)?);
 				}
 				Some(attr) => {
 					let msg = "Invalid duplicated attribute";
