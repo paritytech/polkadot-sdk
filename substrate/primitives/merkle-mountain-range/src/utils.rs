@@ -52,14 +52,12 @@ where
 	H: Clone + Debug + PartialEq + Encode,
 	M: mmr_lib::Merge<Item = H>,
 {
-	let p: mmr_lib::NodeMerkleProof<H, _> = mmr_lib::NodeMerkleProof::<H, M>::new(
-		mmr_size,
-		ancestry_proof.proof.items.into_iter().collect(),
-	);
+	let p: mmr_lib::NodeMerkleProof<H, _> =
+		mmr_lib::NodeMerkleProof::<H, M>::new(mmr_size, ancestry_proof.items.into_iter().collect());
 
 	let ancestry_proof = mmr_lib::AncestryProof::<H, _> {
 		prev_peaks: ancestry_proof.prev_peaks,
-		prev_size: ancestry_proof.prev_size,
+		prev_size: ancestry_proof.prev_leaf_count,
 		proof: p,
 	};
 

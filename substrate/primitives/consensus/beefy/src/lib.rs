@@ -578,7 +578,7 @@ where
 		// this can be inferred from the leaf_count / mmr_size of the prev_root:
 		// we've converted the commitment.block_number to an mmr size and now
 		// compare with the value in the ancestry proof
-		if expected_mmr_size != ancestry_proof.prev_size {
+		if expected_mmr_size != ancestry_proof.prev_leaf_count {
 			return false
 		}
 		if sp_mmr_primitives::utils::verify_ancestry_proof::<

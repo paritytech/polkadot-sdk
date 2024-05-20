@@ -20,7 +20,7 @@ use crate::{
 		storage::{OffchainStorage, RuntimeStorage, Storage},
 		Hasher, Node, NodeOf,
 	},
-	primitives::{self, Error, LeafIndex, NodeIndex},
+	primitives::{self, Error, NodeIndex},
 	Config, HashOf, HashingOf,
 };
 use sp_mmr_primitives::{mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils, LeafIndex};

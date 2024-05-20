@@ -67,7 +67,7 @@ use sp_consensus_beefy::{
 };
 use sp_core::H256;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
-use sp_mmr_primitives::{AncestryProof, Error as MmrError, LeafIndex, MmrApi, NodeProof};
+use sp_mmr_primitives::{AncestryProof, Error as MmrError, LeafIndex, MmrApi};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	traits::{Header as HeaderT, NumberFor},
@@ -362,8 +362,9 @@ sp_api::mock_impl_runtime_apis! {
 		) -> Result<AncestryProof<MmrRootHash>, MmrError> {
 			Ok(AncestryProof {
 				prev_peaks: vec![],
-				prev_size: 0,
-				proof: NodeProof { leaf_indices: vec![], leaf_count: 0, items: vec![] },
+				prev_leaf_count: 0,
+				leaf_count: 0,
+				items: vec![],
 			})
 		}
 	}
