@@ -103,7 +103,6 @@ impl From<Multiaddr> for LiteP2pMultiaddr {
 }
 
 impl TryFrom<Vec<u8>> for Multiaddr {
-	// TODO: extend `ParseError` variants to cover conversion from bytes.
 	type Error = ParseError;
 
 	fn try_from(v: Vec<u8>) -> Result<Self, ParseError> {
