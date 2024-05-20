@@ -220,9 +220,9 @@ impl<T: Config> Pallet<T> {
 			let expire = until < region_end;
 			if expire {
 				// last time for this one - make it renewable in the next sale.
-				let renewal_id = AllowedRenewalId { core: first_core, when: region_end };
-				let record = AllowedRenewalRecord { price, completion: Complete(schedule) };
-				AllowedRenewals::<T>::insert(renewal_id, &record);
+				let renewal_id = PotentialRenewalId { core: first_core, when: region_end };
+				let record = PotentialRenewalRecord { price, completion: Complete(schedule) };
+				PotentialRenewals::<T>::insert(renewal_id, &record);
 				Self::deposit_event(Event::Renewable {
 					core: first_core,
 					price,

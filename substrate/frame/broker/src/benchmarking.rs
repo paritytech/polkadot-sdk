@@ -288,8 +288,8 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region.core);
 
-		let id = AllowedRenewalId { core: region.core, when: region.begin + region_len * 2 };
-		assert!(AllowedRenewals::<T>::get(id).is_some());
+		let id = PotentialRenewalId { core: region.core, when: region.begin + region_len * 2 };
+		assert!(PotentialRenewals::<T>::get(id).is_some());
 
 		Ok(())
 	}
@@ -670,20 +670,20 @@ mod benches {
 			(T::TimeslicePeriod::get() * (region_len * 3).into()).try_into().ok().unwrap(),
 		);
 
-		let id = AllowedRenewalId { core, when };
-		let record = AllowedRenewalRecord {
+		let id = PotentialRenewalId { core, when };
+		let record = PotentialRenewalRecord {
 			price: 1u32.into(),
 			completion: CompletionStatus::Complete(new_schedule()),
 		};
-		AllowedRenewals::<T>::insert(id, record);
+		PotentialRenewals::<T>::insert(id, record);
 
 		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), core, when);
 
-		assert!(AllowedRenewals::<T>::get(id).is_none());
-		assert_last_event::<T>(Event::AllowedRenewalDropped { core, when }.into());
+		assert!(PotentialRenewals::<T>::get(id).is_none());
+		assert_last_event::<T>(Event::PotentialRenewalDropped { core, when }.into());
 
 		Ok(())
 	}

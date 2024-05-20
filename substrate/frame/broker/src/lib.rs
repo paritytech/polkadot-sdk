@@ -136,10 +136,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
 
-	/// Records of allowed renewals.
+	/// Records of potential renewals.
+	///
+	/// Renewals will only actually be allowed if `CompletionStatus` is actually `Complete`.
 	#[pallet::storage]
-	pub type AllowedRenewals<T> =
-		StorageMap<_, Twox64Concat, AllowedRenewalId, AllowedRenewalRecordOf<T>, OptionQuery>;
+	pub type PotentialRenewals<T> =
+		StorageMap<_, Twox64Concat, PotentialRenewalId, PotentialRenewalRecordOf<T>, OptionQuery>;
 
 	/// The current (unassigned or provisionally assigend) Regions.
 	#[pallet::storage]
@@ -413,7 +415,7 @@ pub mod pallet {
 			assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		},
 		/// Some historical Instantaneous Core Pool payment record has been dropped.
-		AllowedRenewalDropped {
+		PotentialRenewalDropped {
 			/// The timeslice whose renewal is no longer available.
 			when: Timeslice,
 			/// The core whose workload is no longer available to be renewed for `when`.

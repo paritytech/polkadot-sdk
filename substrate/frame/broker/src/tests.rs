@@ -78,9 +78,9 @@ fn drop_renewal_works() {
 		let e = Error::<Test>::StillValid;
 		assert_noop!(Broker::do_drop_renewal(region.core, region.begin + 3), e);
 		advance_to(12);
-		assert_eq!(AllowedRenewals::<Test>::iter().count(), 1);
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
 		assert_ok!(Broker::do_drop_renewal(region.core, region.begin + 3));
-		assert_eq!(AllowedRenewals::<Test>::iter().count(), 0);
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 0);
 		let e = Error::<Test>::UnknownRenewal;
 		assert_noop!(Broker::do_drop_renewal(region.core, region.begin + 3), e);
 	});
@@ -927,12 +927,12 @@ fn leases_can_be_renewed() {
 		// Start the sales with only one core for this lease.
 		assert_ok!(Broker::do_start_sales(100, 0));
 
-		// Advance to sale period 1, we should get an AllowedRenewal for task 2001 for the next
+		// Advance to sale period 1, we should get an PotentialRenewal for task 2001 for the next
 		// sale.
 		advance_sale_period();
 		assert_eq!(
-			AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }),
-			Some(AllowedRenewalRecord {
+			PotentialRenewals::<Test>::get(PotentialRenewalId { core: 0, when: 10 }),
+			Some(PotentialRenewalRecord {
 				price: 100,
 				completion: CompletionStatus::Complete(
 					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
@@ -1023,14 +1023,14 @@ fn short_leases_cannot_be_renewed() {
 		// The lease is removed.
 		assert_eq!(Leases::<Test>::get().len(), 0);
 
-		// We should have got an entry in AllowedRenewals, but we don't because rotate_sale
+		// We should have got an entry in PotentialRenewals, but we don't because rotate_sale
 		// schedules leases a period in advance. This renewal should be in the period after next
 		// because while bootstrapping our way into the sale periods, we give everything a lease for
 		// period 1, so they can renew for period 2. So we have a core until the end of period 1,
 		// but we are not marked as able to renew because we expired before sale period 1 starts.
 		//
 		// This should be fixed.
-		assert_eq!(AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }), None);
+		assert_eq!(PotentialRenewals::<Test>::get(PotentialRenewalId { core: 0, when: 10 }), None);
 		// And the lease has been removed from storage.
 		assert_eq!(Leases::<Test>::get().len(), 0);
 
@@ -1163,11 +1163,11 @@ fn renewal_requires_valid_status_and_sale_info() {
 		assert_ok!(Broker::do_start_sales(200, 1));
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::NotAllowed);
 
-		let record = AllowedRenewalRecord {
+		let record = PotentialRenewalRecord {
 			price: 100,
 			completion: CompletionStatus::Partial(CoreMask::from_chunk(0, 20)),
 		};
-		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 1, when: 4 }, &record);
+		PotentialRenewals::<Test>::insert(PotentialRenewalId { core: 1, when: 4 }, &record);
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::IncompleteAssignment);
 	});
 }
