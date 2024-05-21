@@ -22,6 +22,11 @@ use frame_support::dispatch::DispatchResult;
 use frame_system::offchain::SendTransactionTypes;
 #[cfg(feature = "experimental")]
 use frame_system::offchain::SubmitTransaction;
+use frame_support::traits::fungible::Mutate;
+use sp_runtime::traits::StaticLookup;
+
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
@@ -47,8 +52,9 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The referenced task was not found.
 		NotFound,
+		AlreadyFunded,
 	}
-
+	
 	#[pallet::tasks_experimental]
 	impl<T: Config> Pallet<T> {
 		/// Add a pair of numbers into the totals and remove them.
@@ -62,6 +68,23 @@ pub mod pallet {
 				*total_keys += i;
 				*total_values += v;
 			});
+			Ok(())
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::weight({ 0 })] // does not matter
+		pub fn faucet(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResult {
+			ensure_none(origin)?;
+
+			let who = T::Lookup::lookup(who)?;
+
+			if <frame_system::Pallet<T>>::account(&who) == Default::default() {
+				<frame_system::Pallet<T>>::inc_providers(&who);	
+			}
+			
+			T::Currency::mint_into(&who, 1_000_000_000u32.into())?; // TODO 1000 is a placeholder
 			Ok(())
 		}
 	}
@@ -97,6 +120,34 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeTask>
 			+ From<Task<Self>>;
 		type WeightInfo: WeightInfo;
+		type Currency: Mutate<Self::AccountId>;
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(_: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			let Call::faucet { who } = call else {
+				return InvalidTransaction::Call.into();
+			};
+			let who = T::Lookup::lookup(who.clone())?;
+
+			// Check that the account does not yet exist.
+			if <frame_system::Pallet<T>>::account(&who) != Default::default() {
+				return InvalidTransaction::Custom(0).into();
+			}
+
+			ValidTransaction::with_tag_prefix("ExampleTasks")
+				.priority(0) // Faucet, so low prio
+				.longevity(5) // 5 blocks longevity to prevent too much spam
+				.and_provides(who)
+				.propagate(true)
+				.build()
+		}
+
+		fn pre_dispatch(_: &Self::Call) -> Result<(), TransactionValidityError> {
+			Ok(())
+		}
 	}
 
 	#[pallet::pallet]

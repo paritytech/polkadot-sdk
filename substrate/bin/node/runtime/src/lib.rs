@@ -321,6 +321,7 @@ impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 impl pallet_example_tasks::Config for Runtime {
 	type RuntimeTask = RuntimeTask;
 	type WeightInfo = pallet_example_tasks::weights::SubstrateWeight<Runtime>;
+	type Currency = Balances;
 }
 
 impl pallet_example_mbm::Config for Runtime {}
@@ -520,7 +521,7 @@ impl pallet_indices::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: Balance = 1 * DOLLARS;
+	pub const ExistentialDeposit: Balance = 0;
 	// For weight estimation, we assume that the most locks on an individual account will be 50.
 	// This number may need to be adjusted in the future if this assumption no longer holds true.
 	pub const MaxLocks: u32 = 50;

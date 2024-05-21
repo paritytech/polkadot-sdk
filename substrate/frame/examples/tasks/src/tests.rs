@@ -35,6 +35,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {
 		// We use default for brevity, but you can configure as desired if needed.
 		system: Default::default(),
+		balances: Default::default(),
 	}
 	.build_storage()
 	.unwrap();
@@ -42,10 +43,24 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[test]
-fn task_enumerate_works() {
+fn asdf() {
 	new_test_ext().execute_with(|| {
 		Numbers::<Runtime>::insert(0, 1);
 		assert_eq!(crate::pallet::Task::<Runtime>::iter().collect::<Vec<_>>().len(), 1);
+	});
+}
+
+#[test]
+fn faucet_works() {
+	new_test_ext().execute_with(|| {
+		let alice = 123;
+		let bob = 456;
+
+		assert_eq!(Balances::free_balance(&bob), 0);
+
+		// Alice funds bob with the faucet
+		TasksExample::faucet(RuntimeOrigin::none(), bob).unwrap();
+		assert_eq!(Balances::free_balance(&bob), 1000);
 	});
 }
 

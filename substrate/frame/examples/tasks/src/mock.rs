@@ -21,15 +21,17 @@
 use crate::{self as tasks_example};
 use frame_support::derive_impl;
 use sp_runtime::testing::TestXt;
+use frame_support::pallet_prelude::ConstU32;
 
 pub type AccountId = u32;
-pub type Balance = u32;
+pub type Balance = u64;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		TasksExample: tasks_example,
+		Balances: pallet_balances,
 	}
 );
 
@@ -38,6 +40,7 @@ pub type Extrinsic = TestXt<RuntimeCall, ()>;
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
+	type AccountData = pallet_balances::AccountData<Balance>;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
@@ -51,6 +54,29 @@ where
 impl tasks_example::Config for Runtime {
 	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
+	type Currency = Balances;
+}
+
+frame_support::parameter_types! {
+	pub ExistentialDeposit: Balance = 0;
+	pub const MaxLocks: u32 = 50;
+	pub const MaxReserves: u32 = 50;
+}
+
+impl pallet_balances::Config for Runtime {
+	type MaxLocks = MaxLocks;
+	type Balance = Balance;
+	type RuntimeEvent = RuntimeEvent;
+	type DustRemoval = ();
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = System;
+	type WeightInfo = ();
+	type MaxReserves = MaxReserves;
+	type ReserveIdentifier = [u8; 8];
+	type FreezeIdentifier = ();
+	type MaxFreezes = ConstU32<0>;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pub fn advance_to(b: u64) {
