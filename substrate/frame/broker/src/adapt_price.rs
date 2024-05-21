@@ -149,6 +149,22 @@ mod tests {
 	}
 
 	#[test]
+	fn price_adjusts_correctly_upwards() {
+		let performance = SalePerformance { sellout_price: Some(10_100), price: 100 };
+		let prices = Linear::adapt_price(performance);
+		assert_eq!(prices.renewal_price, 10_100);
+		assert_eq!(prices.price, 2 * 10_100 / 102);
+	}
+
+	#[test]
+	fn price_adjusts_correctly_downwards() {
+		let performance = SalePerformance { sellout_price: Some(100), price: 100 };
+		let prices = Linear::adapt_price(performance);
+		assert_eq!(prices.renewal_price, 100);
+		assert_eq!(prices.price, 2 * 100 / 102);
+	}
+
+	#[test]
 	fn price_never_goes_to_zero_and_recovers() {
 		// Check price stays stable if sold at the optimal price:
 		let sellout_price = 51;
@@ -162,20 +178,19 @@ mod tests {
 			assert!(prices.price > 0);
 		}
 	}
-	// Using constraints from pallet implementation i.e. `limit >= sold`.
-	//     Check extremes
-	//     let limit = 10;
-	//     let target = 5;
 
-	//     Maximally sold: `sold == limit`
-	//     assert_eq!(Linear::adapt_price(limit, target, limit), FixedU64::from_float(2.0));
-	//     Ideally sold: `sold == target`
-	//     assert_eq!(Linear::adapt_price(target, target, limit), FixedU64::one());
-	//     Minimally sold: `sold == 0`
-	//     assert_eq!(Linear::adapt_price(0, target, limit), FixedU64::from_float(0.5));
-	//     Optimistic target: `target == limit`
-	//     assert_eq!(Linear::adapt_price(limit, limit, limit), FixedU64::one());
-	//     Pessimistic target: `target == 0`
-	//     assert_eq!(Linear::adapt_price(limit, 0, limit), FixedU64::from_float(2.0));
-	// }
+	#[test]
+	fn renewal_price_is_correct_on_no_sale() {
+		let performance = SalePerformance { sellout_price: None, price: 100 };
+		let prices = Linear::adapt_price(performance);
+		assert_eq!(prices.renewal_price, 5100);
+		assert_eq!(prices.price, 100);
+	}
+
+	#[test]
+	fn renewal_price_is_sell_out() {
+		let performance = SalePerformance { sellout_price: Some(1000), price: 100 };
+		let prices = Linear::adapt_price(performance);
+		assert_eq!(prices.renewal_price, 1000);
+	}
 }
