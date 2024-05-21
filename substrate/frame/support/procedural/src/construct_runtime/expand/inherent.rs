@@ -87,6 +87,7 @@ pub fn expand_outer_inherent(
 			}
 
 			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult {
+				use #scrate::__private::sp_std::ops::Deref;
 				use #scrate::inherent::{ProvideInherent, IsFatalError};
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 				use #scrate::sp_runtime::traits::Block as _;
@@ -134,7 +135,7 @@ pub fn expand_outer_inherent(
 					#(
 						#pallet_attrs
 						{
-							if let Some(call) = IsSubType::<_>::is_sub_type(&call) {
+							if let Some(call) = IsSubType::<_>::is_sub_type(call.deref()) {
 								if #pallet_names::is_inherent(call) {
 									is_inherent = true;
 									if let Err(e) = #pallet_names::check_inherent(call, self) {
@@ -164,7 +165,7 @@ pub fn expand_outer_inherent(
 					match #pallet_names::is_inherent_required(self) {
 						Ok(Some(e)) => {
 							let found = inherents.iter().any(|call| {
-								if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+								if let Some(call) = IsSubType::<_>::is_sub_type(call.deref()) {
 									return #pallet_names::is_inherent(&call);
 								}
 
@@ -198,6 +199,7 @@ pub fn expand_outer_inherent(
 
 		impl #scrate::traits::IsInherent<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic> for #runtime {
 			fn is_inherent(ext: &<#block as #scrate::sp_runtime::traits::Block>::Extrinsic) -> bool {
+				use #scrate::__private::sp_std::ops::Deref;
 				use #scrate::inherent::ProvideInherent;
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 
@@ -210,7 +212,7 @@ pub fn expand_outer_inherent(
 				#(
 					#pallet_attrs
 					{
-						if let Some(call) = IsSubType::<_>::is_sub_type(&call) {
+						if let Some(call) = IsSubType::<_>::is_sub_type(call.deref()) {
 							if <#pallet_names as ProvideInherent>::is_inherent(&call) {
 								return true;
 							}

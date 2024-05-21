@@ -27,6 +27,8 @@ mod header;
 mod tests;
 mod unchecked_extrinsic;
 
+use sp_std::ops::Deref;
+
 pub use self::{
 	block::{Block, BlockId, SignedBlock},
 	checked_extrinsic::CheckedExtrinsic,
@@ -35,3 +37,22 @@ pub use self::{
 	header::Header,
 	unchecked_extrinsic::{SignedPayload, UncheckedExtrinsic},
 };
+
+/// Helper enum containing either a value or a reference to one.
+pub enum ValOrRef<'a, T> {
+	/// Value
+	Val(T),
+	/// Reference
+	Ref(&'a T),
+}
+
+impl<'a, T> Deref for ValOrRef<'a, T> {
+	type Target = T;
+
+	fn deref(&self) -> &Self::Target {
+		match self {
+			ValOrRef::Val(val) => val,
+			ValOrRef::Ref(val) => val,
+		}
+	}
+}

@@ -29,7 +29,7 @@ pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16, ConstU32,
 	ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
 };
-use sp_runtime::{traits::Block as BlockT, DispatchError};
+use sp_runtime::{generic::ValOrRef, traits::Block as BlockT, DispatchError};
 use sp_std::{cmp::Ordering, prelude::*};
 
 #[doc(hidden)]
@@ -916,7 +916,7 @@ pub trait IsInherent<Extrinsic> {
 /// An extrinsic on which we can get access to call.
 pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
 	/// Get the call of the extrinsic.
-	fn call(&self) -> Self::Call;
+	fn call(&self) -> ValOrRef<Self::Call>;
 }
 
 #[cfg(feature = "std")]
@@ -925,8 +925,8 @@ where
 	Call: codec::Codec + Clone + Sync + Send + TypeInfo,
 	Extra: TypeInfo,
 {
-	fn call(&self) -> Self::Call {
-		self.call.clone()
+	fn call(&self) -> ValOrRef<Self::Call> {
+		ValOrRef::Ref(&self.call)
 	}
 }
 
@@ -938,8 +938,8 @@ where
 	Signature: TypeInfo,
 	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
 {
-	fn call(&self) -> Self::Call {
-		self.decode_function()
+	fn call(&self) -> ValOrRef<Self::Call> {
+		self.get_or_decode_function()
 	}
 }
 

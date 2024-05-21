@@ -375,7 +375,7 @@ where
 	Extra: SignedExtension,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		self.decode_function().get_dispatch_info()
+		self.get_or_decode_function().get_dispatch_info()
 	}
 }
 

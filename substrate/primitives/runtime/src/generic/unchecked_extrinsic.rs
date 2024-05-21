@@ -18,7 +18,7 @@
 //! Generic implementation of an unchecked (pre-verification) extrinsic.
 
 use crate::{
-	generic::CheckedExtrinsic,
+	generic::{CheckedExtrinsic, ValOrRef},
 	traits::{
 		self, Checkable, Extrinsic, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member,
 		SignaturePayload, SignedExtension,
@@ -108,6 +108,9 @@ where
 	pub signature: Option<UncheckedSignaturePayload<Address, Signature, Extra>>,
 	/// The function that should be called. We store it in an encoded form for memory efficiency.
 	encoded_function: Vec<u8>,
+	/// The function that should be called. Sometimes we cahce it in order to avoid decoding
+	/// it multiple times.
+	function: Option<Call>,
 
 	_phantom: PhantomData<Call>,
 }
@@ -162,25 +165,56 @@ impl<Address, Call: Encode, Signature, Extra: SignedExtension>
 		Self {
 			signature: Some((signed, signature, extra)),
 			encoded_function: function.encode(),
+			function: None,
 			_phantom: Default::default(),
 		}
 	}
 
 	/// New instance of an unsigned extrinsic aka "inherent".
 	pub fn new_unsigned(function: Call) -> Self {
-		Self { signature: None, encoded_function: function.encode(), _phantom: Default::default() }
+		Self {
+			signature: None,
+			encoded_function: function.encode(),
+			function: None,
+			_phantom: Default::default(),
+		}
 	}
 }
 
 impl<Address, Call: Decode, Signature, Extra: SignedExtension>
 	UncheckedExtrinsic<Address, Call, Signature, Extra>
 {
-	/// Get the function that should be called in a decoded form.
-	pub fn decode_function(&self) -> Call {
+	fn decode_function(&self) -> Call {
 		Call::decode(&mut &self.encoded_function[..]).expect(
 			"We always check if the function is valid \
 			before setting the encoded_function field; qed",
 		)
+	}
+
+	fn cache_function(&mut self) {
+		if self.function.is_none() {
+			let _ = self.function.insert(self.decode_function());
+		}
+	}
+
+	/// Get the function that should be called in a decoded form.
+	///
+	/// The function will be retrieved from the cache if possible or, if not,
+	/// it will be or decoded it on the spot.
+	pub fn get_or_decode_function(&self) -> ValOrRef<Call> {
+		if let Some(call) = &self.function {
+			return ValOrRef::Ref(call)
+		}
+
+		ValOrRef::Val(self.decode_function())
+	}
+
+	fn take_or_decode_function(&mut self) -> Call {
+		if let Some(call) = self.function.take() {
+			return call;
+		}
+
+		self.decode_function()
 	}
 }
 
@@ -221,8 +255,8 @@ where
 {
 	type Checked = CheckedExtrinsic<AccountId, Call, Extra>;
 
-	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
-		let function = self.decode_function();
+	fn check(mut self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
+		let function = self.take_or_decode_function();
 		Ok(match self.signature {
 			Some((signed, signature, extra)) => {
 				let signed = lookup.lookup(signed)?;
@@ -240,10 +274,10 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn unchecked_into_checked_i_know_what_i_am_doing(
-		self,
+		mut self,
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
-		let function = self.decode_function();
+		let function = self.take_or_decode_function();
 		Ok(match self.signature {
 			Some((signed, _, extra)) => {
 				let signed = lookup.lookup(signed)?;
@@ -361,7 +395,12 @@ where
 			}
 		}
 
-		Ok(Self { signature, encoded_function: input.into_vec(), _phantom: Default::default() })
+		Ok(Self {
+			signature,
+			encoded_function: input.into_vec(),
+			function: None,
+			_phantom: Default::default(),
+		})
 	}
 }
 
