@@ -36,7 +36,7 @@ use litep2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
 				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, KademliaEvent,
-				KademliaHandle, QueryId, Quorum, Record, RecordKey,
+				KademliaHandle, QueryId, Quorum, Record, RecordKey, RecordsType,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -50,6 +50,7 @@ use schnellru::{ByLength, LruMap};
 use std::{
 	cmp,
 	collections::{HashMap, HashSet, VecDeque},
+	num::NonZeroUsize,
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -67,6 +68,9 @@ const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
 
 /// Minimum number of confirmations received before an address is verified.
 const MIN_ADDRESS_CONFIRMATIONS: usize = 5;
+
+// The minimum number of peers we expect an answer before we terminate the request.
+const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
 
 /// Discovery events.
 #[derive(Debug)]
@@ -124,8 +128,8 @@ pub enum DiscoveryEvent {
 		/// Query ID.
 		query_id: QueryId,
 
-		/// Record.
-		record: Record,
+		/// Records.
+		records: RecordsType,
 	},
 
 	/// Record was successfully stored on the DHT.
@@ -330,7 +334,10 @@ impl Discovery {
 	/// Start Kademlia `GET_VALUE` query for `key`.
 	pub async fn get_value(&mut self, key: KademliaKey) -> QueryId {
 		self.kademlia_handle
-			.get_record(RecordKey::new(&key.to_vec()), Quorum::One)
+			.get_record(
+				RecordKey::new(&key.to_vec()),
+				Quorum::N(NonZeroUsize::new(GET_RECORD_REDUNDANCY_FACTOR).unwrap()),
+			)
 			.await
 	}
 
@@ -338,6 +345,22 @@ impl Discovery {
 	pub async fn put_value(&mut self, key: KademliaKey, value: Vec<u8>) -> QueryId {
 		self.kademlia_handle
 			.put_record(Record::new(RecordKey::new(&key.to_vec()), value))
+			.await
+	}
+
+	/// Put record to given peers.
+	pub async fn put_value_to_peers(
+		&mut self,
+		record: Record,
+		peers: Vec<sc_network_types::PeerId>,
+		update_local_storage: bool,
+	) -> QueryId {
+		self.kademlia_handle
+			.put_record_to_peers(
+				record,
+				peers.into_iter().map(|peer| peer.into()).collect(),
+				update_local_storage,
+			)
 			.await
 	}
 
@@ -461,16 +484,13 @@ impl Stream for Discovery {
 					peers: peers.into_iter().collect(),
 				}))
 			},
-			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, record })) => {
+			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, records })) => {
 				log::trace!(
 					target: LOG_TARGET,
-					"`GET_RECORD` succeeded for {query_id:?}: {record:?}",
+					"`GET_RECORD` succeeded for {query_id:?}: {records:?}",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess {
-					query_id,
-					record: record.record,
-				}));
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),

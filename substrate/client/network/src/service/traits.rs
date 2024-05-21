@@ -32,6 +32,7 @@ use crate::{
 };
 
 use futures::{channel::oneshot, Stream};
+use libp2p::kad::Record;
 use prometheus_endpoint::Registry;
 
 use sc_client_api::BlockBackend;
@@ -209,6 +210,11 @@ pub trait NetworkDHTProvider {
 
 	/// Start putting a value in the DHT.
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>);
+
+	/// Start putting the record to `peers`.
+	///
+	/// If `update_local_storage` is true the local storage is udpated as well.
+	fn put_record_to(&self, record: Record, peers: HashSet<PeerId>, update_local_storage: bool);
 }
 
 impl<T> NetworkDHTProvider for Arc<T>
@@ -222,6 +228,10 @@ where
 
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>) {
 		T::put_value(self, key, value)
+	}
+
+	fn put_record_to(&self, record: Record, peers: HashSet<PeerId>, update_local_storage: bool) {
+		T::put_record_to(self, record, peers, update_local_storage)
 	}
 }
 

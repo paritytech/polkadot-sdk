@@ -56,7 +56,6 @@ impl AddrCache {
 				authority_id,
 				addresses,
 			);
-
 			return
 		} else if peer_ids.len() > 1 {
 			log::warn!(
@@ -66,7 +65,6 @@ impl AddrCache {
 				peer_ids
 			);
 		}
-
 		log::debug!(
 			target: super::LOG_TARGET,
 			"Found addresses for authority {authority_id:?}: {addresses:?}",
@@ -82,7 +80,6 @@ impl AddrCache {
 				.or_default()
 				.insert(authority_id.clone());
 		});
-
 		// Remove the old peer ids
 		self.remove_authority_id_from_peer_ids(&authority_id, old_peer_ids.difference(&peer_ids));
 	}
