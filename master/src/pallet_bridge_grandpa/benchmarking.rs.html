@@ -291,6 +291,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -429,6 +443,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// check that the header#0 has been pruned
 		</span><span class="macro">assert!</span>(!&lt;ImportedHeaders&lt;T, I&gt;&gt;::contains_key(genesis_header.hash()));
+	}
+
+	force_set_pallet_state {
+		<span class="kw">let </span>set_id = <span class="number">100</span>;
+		<span class="kw">let </span>authorities = accounts(T::BridgedChain::MAX_AUTHORITIES_COUNT <span class="kw">as </span>u16)
+			.iter()
+			.map(|id| (AuthorityId::from(<span class="kw-2">*</span>id), <span class="number">1</span>))
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>(header, <span class="kw">_</span>) = prepare_benchmark_data::&lt;T, I&gt;(<span class="number">1</span>, <span class="number">1</span>);
+		<span class="kw">let </span>expected_hash = header.hash();
+	}: force_set_pallet_state(RawOrigin::Root, set_id, authorities, Box::new(header))
+	verify {
+		<span class="macro">assert_eq!</span>(&lt;BestFinalized&lt;T, I&gt;&gt;::get().unwrap().<span class="number">1</span>, expected_hash);
+		<span class="macro">assert_eq!</span>(&lt;CurrentAuthoritySet&lt;T, I&gt;&gt;::get().set_id, set_id);
 	}
 
 	<span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::TestRuntime)
