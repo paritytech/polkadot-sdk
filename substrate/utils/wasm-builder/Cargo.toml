@@ -29,7 +29,7 @@ parity-wasm = "0.45"
 polkavm-linker = { workspace = true }
 
 # Dependencies required for the `metadata-hash` feature.
-merkleized-metadata = { git = "https://github.com/bkchr/merkleized-metadata.git", optional = true }
+merkleized-metadata = { version = "0.1.0", optional = true }
 sc-executor = { path = "../../client/executor", optional = true }
 sp-core = { path = "../../primitives/core", optional = true }
 sp-io = { path = "../../primitives/io", optional = true }
