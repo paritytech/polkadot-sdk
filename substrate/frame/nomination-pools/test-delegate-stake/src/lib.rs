@@ -923,19 +923,23 @@ fn pool_migration_e2e() {
 			]
 		);
 
-		// have two members join
+		// have three members join
 		let pre_20 = Balances::free_balance(20);
 		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
 		let pre_21 = Balances::free_balance(21);
 		assert_ok!(Pools::join(RuntimeOrigin::signed(21), 10, 1));
+		let pre_22 = Balances::free_balance(22);
+		assert_ok!(Pools::join(RuntimeOrigin::signed(22), 10, 1));
 
 		// verify members balance is moved to pool.
 		assert_eq!(Balances::free_balance(20), pre_20 - 10);
 		assert_eq!(Balances::free_balance(21), pre_21 - 10);
+		assert_eq!(Balances::free_balance(22), pre_22 - 10);
 
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
 				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
 				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
 			]
@@ -945,6 +949,30 @@ fn pool_migration_e2e() {
 			vec![
 				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
 				PoolsEvent::Bonded { member: 21, pool_id: 1, bonded: 10, joined: true },
+				PoolsEvent::Bonded { member: 22, pool_id: 1, bonded: 10, joined: true },
+			]
+		);
+
+		CurrentEra::<Runtime>::set(Some(2));
+		// 20 is partially unbonding
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 5));
+
+		CurrentEra::<Runtime>::set(Some(3));
+		// 21 is fully unbonding
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(21), 21, 10));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Unbonded { member: 20, pool_id: 1, balance: 5, points: 5, era: 5 },
+				PoolsEvent::Unbonded { member: 21, pool_id: 1, balance: 10, points: 10, era: 6 },
 			]
 		);
 
@@ -952,12 +980,25 @@ fn pool_migration_e2e() {
 		LegacyAdapter::set(false);
 		// migrate the pool.
 		assert_ok!(Pools::migrate_to_delegate_stake(1));
-		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 10));
 
-		// progress to a future era where funds are unlocked
-		CurrentEra::<Runtime>::set(Some(10));
+		// unclaimed delegations to the pool are stored in this account.
+		let proxy_delegator_1 = DelegatedStaking::generate_proxy_delegator(POOL1_BONDED);
 
-		// withdraw fails before claiming delegation
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![DelegatedStakingEvent::Delegated {
+				agent: POOL1_BONDED,
+				delegator: proxy_delegator_1,
+				amount: 50 + 10 * 3
+			}]
+		);
+
+		// move to era 5 when 20 can withdraw unbonded funds.
+		CurrentEra::<Runtime>::set(Some(5));
+		// Unbond works even without claiming delegation. Lets unbond 22.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(22), 22, 5));
+
+		// withdraw fails for 20 before claiming delegation
 		assert_noop!(
 			Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 10),
 			DelegatedStakingError::<Runtime>::NotDelegator
@@ -966,19 +1007,125 @@ fn pool_migration_e2e() {
 		let pre_claim_balance_20 = Balances::total_balance(&20);
 		assert_eq!(Balances::total_balance_on_hold(&20), 0);
 
-		// lets claim delegation
+		// migrate delegation for 20. This is permissionless and can be called by anyone.
 		assert_ok!(Pools::migrate_delegation(RuntimeOrigin::signed(10), 20));
 
 		// tokens moved to 20's account and held there.
 		assert_eq!(Balances::total_balance(&20), pre_claim_balance_20 + 10);
-		use frame_support::traits::fungible::InspectHold;
 		assert_eq!(Balances::total_balance_on_hold(&20), 10);
 
 		// withdraw works now
-		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 10));
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 5));
 
 		// balance unlocked in 20's account
-		assert_eq!(Balances::total_balance_on_hold(&20), 0);
+		assert_eq!(Balances::total_balance_on_hold(&20), 5);
 		assert_eq!(Balances::total_balance(&20), pre_claim_balance_20 + 10);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5 },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 5 }
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Unbonded { member: 22, pool_id: 1, balance: 5, points: 5, era: 8 },
+				PoolsEvent::Withdrawn { member: 20, pool_id: 1, balance: 5, points: 5 },
+			]
+		);
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::MigratedDelegation {
+					agent: POOL1_BONDED,
+					delegator: 20,
+					amount: 10
+				},
+				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: 20, amount: 5 }
+			]
+		);
+
+		// MIGRATE 21
+		let pre_migrate_balance_21 = Balances::total_balance(&21);
+		assert_eq!(Balances::total_balance_on_hold(&21), 0);
+
+		// migrate delegation for 21.
+		assert_ok!(Pools::migrate_delegation(RuntimeOrigin::signed(10), 21));
+
+		// tokens moved to 21's account and held there.
+		assert_eq!(Balances::total_balance(&21), pre_migrate_balance_21 + 10);
+		assert_eq!(Balances::total_balance_on_hold(&21), 10);
+
+		// withdraw fails since 21 only unbonds at era 6.
+		assert_noop!(
+			Pools::withdraw_unbonded(RuntimeOrigin::signed(21), 21, 10),
+			PoolsError::<Runtime>::CannotWithdrawAny
+		);
+
+		// go to era when 21 can unbond
+		CurrentEra::<Runtime>::set(Some(6));
+
+		// withdraw works now
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(21), 21, 10));
+
+		// all balance unlocked in 21's account
+		assert_eq!(Balances::total_balance_on_hold(&21), 0);
+		assert_eq!(Balances::total_balance(&21), pre_migrate_balance_21 + 10);
+
+		// MIGRATE 22
+		let pre_migrate_balance_22 = Balances::total_balance(&22);
+		assert_eq!(Balances::total_balance_on_hold(&22), 0);
+
+		// migrate delegation for 22.
+		assert_ok!(Pools::migrate_delegation(RuntimeOrigin::signed(10), 22));
+
+		// tokens moved to 22's account and held there.
+		assert_eq!(Balances::total_balance(&22), pre_migrate_balance_22 + 10);
+		assert_eq!(Balances::total_balance_on_hold(&22), 10);
+
+		// withdraw fails since 22 only unbonds at era 8.
+		assert_noop!(
+			Pools::withdraw_unbonded(RuntimeOrigin::signed(22), 22, 5),
+			PoolsError::<Runtime>::CannotWithdrawAny
+		);
+
+		// go to era when 22 can unbond
+		CurrentEra::<Runtime>::set(Some(10));
+
+		// withdraw works now
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(22), 22, 10));
+
+		// balance of 5 unlocked in 22's account
+		assert_eq!(Balances::total_balance_on_hold(&22), 10 - 5);
+
+		// assert events for 21 and 22.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 5 }
+			]
+		);
+
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 10, points: 10 },
+				// 21 was fully unbonding and removed from pool.
+				PoolsEvent::MemberRemoved { member: 21, pool_id: 1 },
+				PoolsEvent::Withdrawn { member: 22, pool_id: 1, balance: 5, points: 5 },
+			]
+		);
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::MigratedDelegation { agent: POOL1_BONDED, delegator: 21, amount: 10 },
+				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: 21, amount: 10 },
+				DelegatedStakingEvent::MigratedDelegation { agent: POOL1_BONDED, delegator: 22, amount: 10 },
+				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: 22, amount: 5 }
+			]
+		);
 	})
 }

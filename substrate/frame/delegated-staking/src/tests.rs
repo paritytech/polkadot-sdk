@@ -624,7 +624,7 @@ mod staking_integration {
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded
 			// with at least ED.
-			let proxy_delegator = DelegatedStaking::sub_account(AccountType::ProxyDelegator, 200);
+			let proxy_delegator = DelegatedStaking::generate_proxy_delegator(200);
 
 			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(200).into(), 201));
 
