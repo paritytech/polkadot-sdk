@@ -121,12 +121,8 @@ impl<T: Config> Pallet<T> {
 		let price = Self::sale_price(&sale, now);
 		ensure!(price_limit >= price, Error::<T>::Overpriced);
 
-		Self::charge(&who, price)?;
-		let core = sale.first_core.saturating_add(sale.cores_sold);
-		sale.cores_sold.saturating_inc();
-		if sale.cores_sold <= sale.ideal_cores_sold || sale.sellout_price.is_none() {
-			sale.sellout_price = Some(price);
-		}
+		let core = Self::purchase_core(&who, price, &mut sale)?;
+
 		SaleInfo::<T>::put(&sale);
 		let id =
 			Self::issue(core, sale.region_begin, sale.region_end, Some(who.clone()), Some(price));
@@ -149,8 +145,9 @@ impl<T: Config> Pallet<T> {
 			record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
 
 		let old_core = core;
-		let core = sale.first_core.saturating_add(sale.cores_sold);
-		Self::charge(&who, record.price)?;
+
+		let core = Self::purchase_core(&who, record.price, &mut sale)?;
+
 		Self::deposit_event(Event::Renewed {
 			who,
 			old_core,
@@ -160,8 +157,6 @@ impl<T: Config> Pallet<T> {
 			duration: sale.region_end.saturating_sub(sale.region_begin),
 			workload: workload.clone(),
 		});
-
-		sale.cores_sold.saturating_inc();
 
 		Workplan::<T>::insert((sale.region_begin, core), &workload);
 
