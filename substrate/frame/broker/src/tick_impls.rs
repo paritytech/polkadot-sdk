@@ -17,10 +17,7 @@
 
 use super::*;
 use frame_support::{pallet_prelude::*, weights::WeightMeter};
-use sp_arithmetic::{
-	traits::{One, SaturatedConversion, Saturating, Zero},
-	FixedPointNumber,
-};
+use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::ConvertBack;
 use sp_std::{vec, vec::Vec};
 use CompletionStatus::Complete;
@@ -163,7 +160,7 @@ impl<T: Config> Pallet<T> {
 		InstaPoolIo::<T>::mutate(old_sale.region_end, |r| r.system.saturating_reduce(old_pooled));
 
 		// Calculate the start price for the upcoming sale.
-		let new_prices = T::PriceAdapter::adapt_price(old_sale.into());
+		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&old_sale));
 
 		// Set workload for the reserved (system, probably) workloads.
 		let region_begin = old_sale.region_end;
@@ -223,13 +220,19 @@ impl<T: Config> Pallet<T> {
 		let sale_start = now.saturating_add(config.interlude_length);
 		let leadin_length = config.leadin_length;
 		let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
+		let sellout_price = if cores_offered > 0 {
+			// No core sold -> price was too high.
+			Some(new_prices.price)
+		} else {
+			None
+		};
+
 		// Update SaleInfo
-		let mut new_sale = SaleInfoRecord {
+		let new_sale = SaleInfoRecord {
 			sale_start,
 			leadin_length,
 			price: new_prices.price,
-			// None for now, we adjust below:
-			sellout_price: None,
+			sellout_price,
 			region_begin,
 			region_end,
 			first_core,
@@ -238,15 +241,12 @@ impl<T: Config> Pallet<T> {
 			cores_sold: 0,
 		};
 
-		if cores_offered > 0 {
-			new_sale.sellout_price = Some(Self::sale_price(&new_sale, new_sale.sale_start));
-		}
 		SaleInfo::<T>::put(&new_sale);
 		Self::deposit_event(Event::SaleInitialized {
 			sale_start,
 			leadin_length,
 			start_price: Self::sale_price(&new_sale, now),
-			regular_price: price,
+			regular_price: new_prices.price,
 			region_begin,
 			region_end,
 			ideal_cores_sold,

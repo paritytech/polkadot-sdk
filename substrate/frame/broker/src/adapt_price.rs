@@ -17,10 +17,11 @@
 
 #![deny(missing_docs)]
 
-use crate::{CoreIndex, SaleInfoRecord};
+use crate::SaleInfoRecord;
 use sp_arithmetic::{traits::One, FixedU64};
-use sp_runtime::Saturating;
+use sp_runtime::{FixedPointNumber, FixedPointOperand, Saturating};
 
+/// Performance of a past sale.
 pub struct SalePerformance<Balance> {
 	/// The price at which the last core was sold.
 	///
@@ -39,8 +40,9 @@ pub struct AdaptedPrices<Balance> {
 	pub renewal_price: Balance,
 }
 
-impl<Balance, BlockNumber> From<SaleInfoRecord<Balance, BlockNumber>> for SalePerformance<Balance> {
-	fn from(record: SaleInfoRecord<Balance, BlockNumber>) -> Self {
+impl<Balance: Copy> SalePerformance<Balance> {
+	/// Construct performance via data from a `SaleInfoRecord`.
+	pub fn from_sale<BlockNumber>(record: &SaleInfoRecord<Balance, BlockNumber>) -> Self {
 		Self { sellout_price: record.sellout_price, price: record.price }
 	}
 }
@@ -58,7 +60,7 @@ pub trait AdaptPrice<Balance> {
 	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance>;
 }
 
-impl<Balance> AdaptPrice<Balance> for () {
+impl<Balance: Copy> AdaptPrice<Balance> for () {
 	fn leadin_factor_at(_: FixedU64) -> FixedU64 {
 		FixedU64::one()
 	}
@@ -70,28 +72,32 @@ impl<Balance> AdaptPrice<Balance> for () {
 
 /// Simple implementation of `AdaptPrice` giving a monotonic leadin and a linear price change based
 /// on cores sold.
-pub struct Linear;
-impl<Balance> AdaptPrice<Balance> for Linear {
+pub struct Linear<Balance>(std::marker::PhantomData<Balance>);
+impl<Balance: FixedPointOperand> AdaptPrice<Balance> for Linear<Balance> {
 	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
-		FixedU64::from(2).saturating_sub(when)
+		FixedU64::from(101).saturating_sub(when.saturating_mul(100.into()))
 	}
-	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
-		if sold <= target {
-			// Range of [0.5, 1.0].
-			FixedU64::from_rational(1, 2).saturating_add(FixedU64::from_rational(
-				sold.into(),
-				target.saturating_mul(2).into(),
-			))
-		} else {
-			// Range of (1.0, 2].
 
-			// Unchecked math: In this branch we know that sold > target. The limit must be >= sold
-			// by construction, and thus target must be < limit.
-			FixedU64::one().saturating_add(FixedU64::from_rational(
-				(sold - target).into(),
-				(limit - target).into(),
-			))
-		}
+	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
+		let leadin_max = Self::leadin_factor_at(0.into());
+		let leadin_min = Self::leadin_factor_at(1.into());
+		let spread = leadin_max.saturating_sub(leadin_min);
+
+		let Some(sellout_price) = performance.sellout_price else {
+			return AdaptedPrices {
+				price: performance.price,
+				renewal_price: spread
+					.saturating_add(2.into())
+					.div(2.into())
+					.saturating_mul_int(performance.price),
+			}
+		};
+
+		let price = FixedU64::from(2)
+			.div(spread.saturating_add(2.into()))
+			.saturating_mul_int(sellout_price);
+
+		AdaptedPrices { price, renewal_price: sellout_price }
 	}
 }
 

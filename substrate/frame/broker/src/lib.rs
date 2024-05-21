@@ -92,7 +92,7 @@ pub mod pallet {
 		type Coretime: CoretimeInterface;
 
 		/// The algorithm to determine the next price on the basis of market performance.
-		type PriceAdapter: AdaptPrice;
+		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
 
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
