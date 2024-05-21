@@ -232,7 +232,7 @@ fn can_estimate_current_epoch_progress() {
 
 		// with BABE the genesis block is not part of any epoch, the first epoch starts at block #1,
 		// therefore its last block should be #3
-		for i in 1u64..4 {
+		for i in 1u32..4 {
 			progress_to_block(i);
 
 			assert_eq!(Babe::estimate_next_session_rotation(i).0.unwrap(), 4);
@@ -1016,7 +1016,7 @@ fn skipping_over_epochs_works() {
 		// we will author all blocks from epoch #0 and arrive at a point where
 		// we are in epoch #1. we should already have the randomness ready that
 		// will be used in epoch #2
-		progress_to_block(epoch_duration + 1);
+		progress_to_block(epoch_duration as u32 + 1);
 		assert_eq!(EpochIndex::<Test>::get(), 1);
 
 		// genesis randomness is an array of zeros

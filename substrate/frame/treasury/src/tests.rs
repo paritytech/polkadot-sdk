@@ -39,7 +39,7 @@ use frame_support::{
 use super::*;
 use crate as treasury;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 type UtilityCall = pallet_utility::Call<Test>;
 type TreasuryCall = crate::Call<Test>;
 
@@ -58,6 +58,7 @@ impl frame_system::Config for Test {
 	type AccountId = u128; // u64 is not enough to hold bytes used to generate bounty account
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
+	type BlockHashCount = ConstU32<10>;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 impl pallet_balances::Config for Test {
@@ -140,7 +141,7 @@ parameter_types! {
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub TreasuryAccount: u128 = Treasury::account_id();
-	pub const SpendPayoutPeriod: u64 = 5;
+	pub const SpendPayoutPeriod: u32 = 5;
 }
 pub struct TestSpendOrigin;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
@@ -181,7 +182,7 @@ impl Config for Test {
 	type ProposalBond = ProposalBond;
 	type ProposalBondMinimum = ConstU64<1>;
 	type ProposalBondMaximum = ();
-	type SpendPeriod = ConstU64<2>;
+	type SpendPeriod = ConstU32<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
@@ -276,10 +277,10 @@ fn spend_local_origin_works() {
 		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(12), 20, 6));
 		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(13), 50, 6));
 		// free balance of `6` is zero, spend period has not passed.
-		<Treasury as OnInitialize<u64>>::on_initialize(1);
+		<Treasury as OnInitialize<u32>>::on_initialize(1);
 		assert_eq!(Balances::free_balance(6), 0);
 		// free balance of `6` is `100`, spend period has passed.
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 		assert_eq!(Balances::free_balance(6), 100);
 		// `100` spent, `1` burned.
 		assert_eq!(Treasury::pot(), 0);
@@ -346,7 +347,7 @@ fn accepted_spend_proposal_ignored_outside_spend_period() {
 			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
 		});
 
-		<Treasury as OnInitialize<u64>>::on_initialize(1);
+		<Treasury as OnInitialize<u32>>::on_initialize(1);
 		assert_eq!(Balances::free_balance(3), 0);
 		assert_eq!(Treasury::pot(), 100);
 	});
@@ -359,7 +360,7 @@ fn unused_pot_should_diminish() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Balances::total_issuance(), init_total_issuance + 100);
 
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 50);
 		assert_eq!(Balances::total_issuance(), init_total_issuance + 50);
 	});
@@ -379,7 +380,7 @@ fn rejected_spend_proposal_ignored_on_spend_period() {
 			Treasury::reject_proposal(RuntimeOrigin::root(), 0)
 		});
 
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 		assert_eq!(Balances::free_balance(3), 0);
 		assert_eq!(Treasury::pot(), 50);
 	});
@@ -472,7 +473,7 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
 		});
 
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 		assert_eq!(Balances::free_balance(3), 100);
 		assert_eq!(Treasury::pot(), 0);
 	});
@@ -493,11 +494,11 @@ fn pot_underflow_should_not_diminish() {
 			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
 		});
 
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
 		let _ = Balances::deposit_into_existing(&Treasury::account_id(), 100).unwrap();
-		<Treasury as OnInitialize<u64>>::on_initialize(4);
+		<Treasury as OnInitialize<u32>>::on_initialize(4);
 		assert_eq!(Balances::free_balance(3), 150); // Fund has been spent
 		assert_eq!(Treasury::pot(), 25); // Pot has finally changed
 	});
@@ -521,7 +522,7 @@ fn treasury_account_doesnt_get_deleted() {
 			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
 		});
 
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
 		assert_ok!({
@@ -533,7 +534,7 @@ fn treasury_account_doesnt_get_deleted() {
 			Treasury::approve_proposal(RuntimeOrigin::root(), 1)
 		});
 
-		<Treasury as OnInitialize<u64>>::on_initialize(4);
+		<Treasury as OnInitialize<u32>>::on_initialize(4);
 		assert_eq!(Treasury::pot(), 0); // Pot is emptied
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 1); // but the account is still there
 	});
@@ -570,7 +571,7 @@ fn inexistent_account_works() {
 			#[allow(deprecated)]
 			Treasury::approve_proposal(RuntimeOrigin::root(), 1)
 		});
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		<Treasury as OnInitialize<u32>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
 		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed
 
@@ -578,7 +579,7 @@ fn inexistent_account_works() {
 		assert_eq!(Treasury::pot(), 99); // Pot now contains funds
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 100); // Account does exist
 
-		<Treasury as OnInitialize<u64>>::on_initialize(4);
+		<Treasury as OnInitialize<u32>>::on_initialize(4);
 
 		assert_eq!(Treasury::pot(), 0); // Pot has changed
 		assert_eq!(Balances::free_balance(3), 99); // Balance of `3` has changed

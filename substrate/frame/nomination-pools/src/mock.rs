@@ -25,7 +25,7 @@ use frame_system::{EnsureSignedBy, RawOrigin};
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::{OnStakingUpdate, Stake};
 
-pub type BlockNumber = u64;
+pub type BlockNumber = u32;
 pub type AccountId = u128;
 pub type Balance = u128;
 pub type RewardCounter = FixedU128;
@@ -323,7 +323,7 @@ impl pools::Config for Runtime {
 	type AdminOrigin = EnsureSignedBy<Admin, AccountId>;
 }
 
-type Block = frame_system::mocking::MockBlock<Runtime>;
+type Block = frame_system::mocking::MockBlockU32<Runtime>;
 frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
@@ -452,13 +452,13 @@ parameter_types! {
 }
 
 /// Helper to run a specified amount of blocks.
-pub fn run_blocks(n: u64) {
+pub fn run_blocks(n: u32) {
 	let current_block = System::block_number();
 	run_to_block(n + current_block);
 }
 
 /// Helper to run to a specific block.
-pub fn run_to_block(n: u64) {
+pub fn run_to_block(n: u32) {
 	let current_block = System::block_number();
 	assert!(n > current_block);
 	while System::block_number() < n {

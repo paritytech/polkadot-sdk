@@ -28,7 +28,7 @@ use frame_support_test::TestRandomness;
 use frame_system::EnsureRoot;
 use sp_runtime::{BuildStorage, Perbill};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -47,6 +47,7 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {
@@ -96,7 +97,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 /// Run until a particular block.
-pub fn run_to_block(n: u64) {
+pub fn run_to_block(n: u32) {
 	while System::block_number() < n {
 		if System::block_number() > 1 {
 			Lottery::on_finalize(System::block_number());

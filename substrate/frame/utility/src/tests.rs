@@ -27,7 +27,7 @@ use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, Pays},
 	error::BadOrigin,
 	parameter_types, storage,
-	traits::{ConstU64, Contains},
+	traits::{ConstU32, ConstU64, Contains},
 	weights::Weight,
 };
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
@@ -36,7 +36,7 @@ use sp_runtime::{
 	BuildStorage, DispatchError, TokenError,
 };
 
-type BlockNumber = u64;
+type BlockNumber = u32;
 
 // example module to test behaviors.
 #[frame_support::pallet(dev_mode)]
@@ -123,7 +123,7 @@ mod mock_democracy {
 	}
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -149,6 +149,7 @@ impl frame_system::Config for Test {
 	type BlockWeights = BlockWeights;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {

@@ -50,7 +50,7 @@ mod fungible_tests;
 mod general_tests;
 mod reentrancy_tests;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 #[derive(
 	Encode,
@@ -95,6 +95,7 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = super::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]

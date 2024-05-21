@@ -39,7 +39,7 @@ use frame_support::{
 use super::*;
 use crate::{self as pallet_tips, Event as TipEvent};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -63,6 +63,7 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {
@@ -123,7 +124,7 @@ impl pallet_treasury::Config for Test {
 	type ProposalBond = ProposalBond;
 	type ProposalBondMinimum = ConstU64<1>;
 	type ProposalBondMaximum = ();
-	type SpendPeriod = ConstU64<2>;
+	type SpendPeriod = ConstU32<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
@@ -135,7 +136,7 @@ impl pallet_treasury::Config for Test {
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = UnityAssetBalanceConversion;
-	type PayoutPeriod = ConstU64<10>;
+	type PayoutPeriod = ConstU32<10>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -150,7 +151,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type ProposalBond = ProposalBond;
 	type ProposalBondMinimum = ConstU64<1>;
 	type ProposalBondMaximum = ();
-	type SpendPeriod = ConstU64<2>;
+	type SpendPeriod = ConstU32<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
@@ -162,7 +163,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayFromAccount<Balances, TreasuryInstance1Account>;
 	type BalanceConverter = UnityAssetBalanceConversion;
-	type PayoutPeriod = ConstU64<10>;
+	type PayoutPeriod = ConstU32<10>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -174,7 +175,7 @@ parameter_types! {
 impl Config for Test {
 	type MaximumReasonLength = ConstU32<16384>;
 	type Tippers = TenToFourteen;
-	type TipCountdown = ConstU64<1>;
+	type TipCountdown = ConstU32<1>;
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = TipReportDepositBase;
 	type DataDepositPerByte = ConstU64<1>;
@@ -186,7 +187,7 @@ impl Config for Test {
 impl Config<Instance1> for Test {
 	type MaximumReasonLength = ConstU32<16384>;
 	type Tippers = TenToFourteen;
-	type TipCountdown = ConstU64<1>;
+	type TipCountdown = ConstU32<1>;
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = TipReportDepositBase;
 	type DataDepositPerByte = ConstU64<1>;
@@ -476,7 +477,7 @@ fn test_last_reward_migration() {
 	let reason1 = BlakeTwo256::hash(b"reason1");
 	let hash1 = BlakeTwo256::hash_of(&(reason1, 10u64));
 
-	let old_tip_finder = OldOpenTip::<u128, u64, u64, H256> {
+	let old_tip_finder = OldOpenTip::<u128, u64, u32, H256> {
 		reason: reason1,
 		who: 10,
 		finder: Some((20, 30)),
@@ -487,7 +488,7 @@ fn test_last_reward_migration() {
 	let reason2 = BlakeTwo256::hash(b"reason2");
 	let hash2 = BlakeTwo256::hash_of(&(reason2, 20u64));
 
-	let old_tip_no_finder = OldOpenTip::<u128, u64, u64, H256> {
+	let old_tip_no_finder = OldOpenTip::<u128, u64, u32, H256> {
 		reason: reason2,
 		who: 20,
 		finder: None,
@@ -659,7 +660,7 @@ fn equal_entries_invariant() {
 		let reason1 = BlakeTwo256::hash(b"reason1");
 		let hash1 = BlakeTwo256::hash_of(&(reason1, 10u64));
 
-		let tip = OpenTip::<u128, u64, u64, H256> {
+		let tip = OpenTip::<u128, u64, u32, H256> {
 			reason: reason1,
 			who: 10,
 			finder: 20,
