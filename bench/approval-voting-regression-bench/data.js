@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716192354483,
+  "lastUpdate": 1716284662775,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -3994,6 +3994,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.857821811039999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "278486f9bf7db06c174203f098eec2f91839757a",
+          "message": "Remove the prospective-parachains subsystem from collators (#4471)\n\nImplements https://github.com/paritytech/polkadot-sdk/issues/4429\n\nCollators only need to maintain the implicit view for the paraid they\nare collating on.\nIn this case, bypass prospective-parachains entirely. It's still useful\nto use the GetMinimumRelayParents message from prospective-parachains\nfor validators, because the data is already present there.\n\nThis enables us to entirely remove the subsystem from collators, which\nconsumed resources needlessly\n\nAims to resolve https://github.com/paritytech/polkadot-sdk/issues/4167 \n\nTODO:\n- [x] fix unit tests",
+          "timestamp": "2024-05-21T08:14:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/278486f9bf7db06c174203f098eec2f91839757a"
+        },
+        "date": 1716284635180,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63540.590000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3545758959401804,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.299857497449985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.616803574690006,
             "unit": "seconds"
           }
         ]
