@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716306203748,
+  "lastUpdate": 1716313895289,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -4135,6 +4135,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.537354433450137,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin",
+            "email": "dmitry@markin.tech"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d05786ffb5523c334f10d16870c2e73674661a52",
+          "message": "Replace `Multiaddr` & related types with substrate-specific types (#4198)\n\nThis PR introduces custom types / substrate wrappers for `Multiaddr`,\n`multiaddr::Protocol`, `Multihash`, `ed25519::*` and supplementary types\nlike errors and iterators.\n\nThis is needed to unblock `libp2p` upgrade PR\nhttps://github.com/paritytech/polkadot-sdk/pull/1631 after\nhttps://github.com/paritytech/polkadot-sdk/pull/2944 was merged.\n`libp2p` and `litep2p` currently depend on different versions of\n`multiaddr` crate, and introduction of this \"common ground\" types is\nneeded to support independent version upgrades of `multiaddr` and\ndependent crates in `libp2p` & `litep2p`.\n\nWhile being just convenient to not tie versions of `libp2p` & `litep2p`\ndependencies together, it's currently not even possible to keep `libp2p`\n& `litep2p` dependencies updated to the same versions as `multiaddr` in\n`libp2p` depends on `libp2p-identity` that we can't include as a\ndependency of `litep2p`, which has it's own `PeerId` type. In the\nfuture, to keep things updated on `litep2p` side, we will likely need to\nfork `multiaddr` and make it use `litep2p` `PeerId` as a payload of\n`/p2p/...` protocol.\n\nWith these changes, common code in substrate uses these custom types,\nand `litep2p` & `libp2p` backends use corresponding libraries types.",
+          "timestamp": "2024-05-21T16:10:10Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d05786ffb5523c334f10d16870c2e73674661a52"
+        },
+        "date": 1716313867064,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63548.22000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1532320208801203,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.245917500669933,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.114284166720072,
             "unit": "seconds"
           }
         ]
