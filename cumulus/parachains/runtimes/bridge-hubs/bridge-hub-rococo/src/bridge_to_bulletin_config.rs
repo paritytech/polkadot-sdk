@@ -25,7 +25,7 @@ use crate::{
 	XcmOverRococoBulletin, XcmRouter,
 };
 use bp_messages::LaneId;
-use bp_runtime::Chain;
+use bp_runtime::{Chain, RelayerVersion};
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
@@ -44,6 +44,8 @@ use bridge_runtime_common::{
 };
 
 use frame_support::{parameter_types, traits::PalletInfoAccess};
+use hex_literal::hex;
+use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
@@ -109,6 +111,11 @@ parameter_types! {
 
 	/// XCM message that is never sent.
 	pub NeverSentMessage: Option<Xcm<()>> = None;
+
+	pub const WithRococoBulletinCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("70eed2935a540a45fe0e94e5f24daf70e323061e60e3784c02b27151acf9a2b2")),
+	};
 }
 pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 0]);
 
@@ -178,15 +185,16 @@ pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAd
 		>,
 		ActualFeeRefund<Runtime>,
 		PriorityBoostPerMessage,
-		StrOnBridgeHubRococoRefundRococoBulletinMessages,
+		StrRefundComplexRococoBulletinBridgeTransactions,
 	>,
 >;
-bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundRococoBulletinMessages);
+bp_runtime::generate_static_str_provider!(RefundComplexRococoBulletinBridgeTransactions);
 
 /// Add XCM messages support for BridgeHubRococo to support Rococo->Rococo Bulletin XCM messages.
 pub type WithRococoBulletinMessagesInstance = pallet_bridge_messages::Instance4;
 impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithRococoBulletinCompatibleMessagesRelayer;
 	type WeightInfo =
 		weights::pallet_bridge_messages_rococo_to_rococo_bulletin::WeightInfo<Runtime>;
 	type BridgedChainId = RococoBulletinChainId;
@@ -228,7 +236,11 @@ mod tests {
 	use super::*;
 	use crate::bridge_common_config::BridgeGrandpaRococoBulletinInstance;
 	use bridge_runtime_common::{
-		assert_complete_bridge_types, integrity::check_message_lane_weights,
+		assert_complete_bridge_types,
+		integrity::check_message_lane_weights,
+		relayer_compatibility::{
+			ensure_grandpa_relayer_compatibility, ensure_messages_relayer_compatibility,
+		},
 	};
 	use parachains_common::Balance;
 	use testnet_parachains_constants::rococo;
@@ -294,5 +306,20 @@ mod tests {
 		.into();
 
 		assert_eq!(BridgeRococoToRococoBulletinMessagesPalletInstance::get(), expected,);
+
+		sp_io::TestExternalities::default().execute_with(|| {
+			ensure_grandpa_relayer_compatibility::<
+				Runtime,
+				BridgeGrandpaRococoBulletinInstance,
+				crate::SignedExtra,
+			>();
+			ensure_messages_relayer_compatibility::<
+				Runtime,
+				BridgeGrandpaRococoBulletinInstance,
+				crate::SignedExtra,
+				_,
+				_,
+			>();
+		});
 	}
 }

@@ -2057,6 +2057,7 @@ dependencies = [
  "pallet-xcm-bridge-hub",
  "parachains-common",
  "parity-scale-codec",
+ "paste",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "rococo-runtime-constants",
@@ -2228,6 +2229,7 @@ dependencies = [
  "pallet-xcm-bridge-hub",
  "parachains-common",
  "parity-scale-codec",
+ "paste",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
@@ -2271,6 +2273,8 @@ dependencies = [
  "bp-test-utils",
  "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
+ "const-fnv1a-hash",
+ "const_format",
  "frame-support",
  "frame-system",
  "hash-db",
@@ -3003,6 +3007,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "const-fnv1a-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32b13ea120a812beba79e34316b3942a857c86ec1593cb34f27bb28272ce2cca"
+
+[[package]]
 name = "const-hex"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3041,6 +3051,26 @@ dependencies = [
  "once_cell",
  "proc-macro-hack",
  "tiny-keccak",
+]
+
+[[package]]
+name = "const_format"
+version = "0.2.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3a214c7af3d04997541b18d432afaff4c455e79e2029079647e72fc2bd27673"
+dependencies = [
+ "const_format_proc_macros",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7f6ff08fd20f4f299298a28e2dfa8a8ba1036e6cd2460ac1de7b425d76f2500"
+dependencies = [
+ "proc-macro2 1.0.75",
+ "quote 1.0.35",
+ "unicode-xid 0.2.4",
 ]
 
 [[package]]

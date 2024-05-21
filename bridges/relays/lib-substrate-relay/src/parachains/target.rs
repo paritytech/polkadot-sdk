@@ -17,6 +17,7 @@
 //! Parachain heads target.
 
 use crate::{
+	ensure_relayer_compatibility,
 	parachains::{
 		ParachainsPipelineAdapter, SubmitParachainHeadsCallBuilder, SubstrateParachainsPipeline,
 	},
@@ -190,6 +191,16 @@ where
 		proof: ParaHeadsProof,
 		is_free_execution_expected: bool,
 	) -> Result<Self::TransactionTracker, Self::Error> {
+		let best_block_id = self.target_client.best_header().await?.id();
+		ensure_relayer_compatibility::<P::SourceParachain, P::TargetChain>(
+			"parachains",
+			&self.target_client,
+			best_block_id,
+			P::SourceParachain::WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD,
+			&P::RELAYER_VERSION,
+		)
+		.await?;
+
 		let transaction_params = self.transaction_params.clone();
 		let call = P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
 			at_relay_block,
@@ -199,8 +210,9 @@ where
 		);
 		self.target_client
 			.submit_and_watch_signed_extrinsic(
+				best_block_id,
 				&transaction_params.signer,
-				move |best_block_id, transaction_nonce| {
+				move |transaction_nonce| {
 					Ok(UnsignedTransaction::new(call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))
 				},

@@ -721,6 +721,10 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_rococo::Hash, bp_rococo::BlockNumber>> {
 			BridgeRococoGrandpa::best_finalized()
 		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeRococoGrandpa::compatible_relayer_version()
+		}
+
 		fn free_headers_interval() -> Option<bp_rococo::BlockNumber> {
 			<Runtime as pallet_bridge_grandpa::Config<
 				bridge_to_rococo_config::BridgeGrandpaRococoInstance
@@ -738,6 +742,9 @@ impl_runtime_apis! {
 				bp_bridge_hub_rococo::BridgeHubRococo
 			>().unwrap_or(None)
 		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeRococoParachains::compatible_relayer_version()
+		}
 		fn free_headers_interval() -> Option<bp_bridge_hub_rococo::BlockNumber> {
 			// "free interval" is not currently used for parachains
 			None
@@ -753,6 +760,9 @@ impl_runtime_apis! {
 				Runtime,
 				bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 			>(lane, messages)
+		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeRococoMessages::compatible_relayer_version()
 		}
 	}
 

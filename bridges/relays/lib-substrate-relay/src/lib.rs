@@ -18,7 +18,8 @@
 
 #![warn(missing_docs)]
 
-use relay_substrate_client::{Chain, ChainWithUtilityPallet, UtilityPallet};
+use bp_runtime::{HeaderIdOf, RelayerVersion};
+use relay_substrate_client::{Chain, ChainWithUtilityPallet, Client, UtilityPallet};
 
 use std::marker::PhantomData;
 
@@ -129,4 +130,43 @@ impl<Call> BatchCallBuilder<Call> for () {
 	fn build_batch_call(&self, _calls: Vec<Call>) -> Call {
 		unreachable!("never called, because ()::new_builder() returns None; qed")
 	}
+}
+
+/// Ensure that the relayer is compatible with on-chain bridge version.
+pub async fn ensure_relayer_compatibility<SourceChain: Chain, TargetChain: Chain>(
+	relayer_type: &'static str,
+	target_client: &Client<TargetChain>,
+	at_target_block: HeaderIdOf<TargetChain>,
+	onchain_relayer_version_method: &str,
+	offchain_relayer_version: &Option<RelayerVersion>,
+) -> Result<(), relay_substrate_client::Error> {
+	let Some(offchain_relayer_version) = offchain_relayer_version.as_ref() else { return Ok(()) };
+
+	// read onchain version
+	let onchain_relayer_version: RelayerVersion = target_client
+		.typed_state_call(onchain_relayer_version_method.into(), (), Some(at_target_block.hash()))
+		.await?;
+	// if they are the same => just return, we are safe to submit transactions
+	if onchain_relayer_version.manual == offchain_relayer_version.manual {
+		return Ok(())
+	}
+
+	// else if offchain version is lower than onchain, we need to abort - we are running the old
+	// version. We also abort if the `manual` version is the same, but `auto` version is different.
+	// It means a programming error and we are incompatible
+	let error = relay_substrate_client::Error::IncompatibleRelayerVersion {
+		source_chain: SourceChain::NAME,
+		target_chain: TargetChain::NAME,
+		relayer_type,
+		offchain_relayer_version: *offchain_relayer_version,
+		onchain_relayer_version,
+	};
+	if offchain_relayer_version.manual <= onchain_relayer_version.manual {
+		log::error!(target: "bridge-guard", "Aborting relay: {error}");
+		std::process::abort();
+	}
+
+	// we are running a newer version, so let's just return an error and wait until runtime is
+	// upgraded
+	Err(error)
 }

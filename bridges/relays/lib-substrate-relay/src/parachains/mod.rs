@@ -19,6 +19,7 @@
 
 use async_trait::async_trait;
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
+use bp_runtime::RelayerVersion;
 use pallet_bridge_parachains::{
 	Call as BridgeParachainsCall, Config as BridgeParachainsConfig, RelayBlockHash,
 	RelayBlockHasher, RelayBlockNumber,
@@ -38,6 +39,11 @@ pub mod target;
 /// will be used (at least) initially.
 #[async_trait]
 pub trait SubstrateParachainsPipeline: 'static + Clone + Debug + Send + Sync {
+	/// Version of this relayer. It must match version that the
+	/// `Self::SourceParachain::WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD`
+	/// returns when called at `Self::TargetChain`.
+	const RELAYER_VERSION: Option<RelayerVersion>;
+
 	/// Headers of this parachain are submitted to the `Self::TargetChain`.
 	type SourceParachain: Parachain;
 	/// Relay chain that is storing headers of `Self::SourceParachain`.

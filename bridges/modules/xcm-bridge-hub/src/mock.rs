@@ -35,7 +35,7 @@ use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::Run
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, GetDefault, IdentityLookup},
 	AccountId32, BuildStorage,
 };
 use xcm::prelude::*;
@@ -83,6 +83,7 @@ parameter_types! {
 
 impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = GetDefault;
 	type WeightInfo = TestMessagesWeights;
 
 	type BridgedChainId = ();

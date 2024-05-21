@@ -23,6 +23,7 @@ use frame_support::{
 	construct_runtime, derive_impl, parameter_types, traits::Hooks, weights::Weight,
 };
 use sp_core::sr25519::Signature;
+use sp_runtime::traits::GetDefault;
 
 pub type AccountId = u64;
 pub type TestHeader = sp_runtime::testing::Header;
@@ -55,6 +56,7 @@ parameter_types! {
 
 impl grandpa::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = GetDefault;
 	type BridgedChain = TestBridgedChain;
 	type MaxFreeHeadersPerBlock = MaxFreeHeadersPerBlock;
 	type FreeHeadersInterval = FreeHeadersInterval;

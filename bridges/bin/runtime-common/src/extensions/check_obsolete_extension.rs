@@ -262,7 +262,25 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 		#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 		pub struct BridgeRejectObsoleteHeadersAndMessages;
 		impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteHeadersAndMessages {
-			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
+			// What we do here is:
+			// - computing hash of all stringified **types**, passed to the macro
+			// - prefixing it with `BridgeReject_`
+			//
+			// So whenever any type passed to the `generate_bridge_reject_obsolete_headers_and_messages`
+			// changes, the `IDENTIFIER` is also changed. Keep in mind that it may change if the type
+			// stays the same, but e.g. name of type alias, used in type name changes:
+			// ```rust
+			// struct F<T>;
+			// type A = u32;
+			// type B = u32;
+			// ```
+			// Then `IDENTIFIER` of `F<A>` is not equal to `F<B>`, even though the type is the same.
+			const IDENTIFIER: &'static str = $crate::extensions::prelude::const_format::concatcp!(
+				"BridgeReject_",
+				$crate::extensions::prelude::const_fnv1a_hash::fnv1a_hash_str_128(
+					concat!($(stringify!($filter_call), )*)
+				)
+			);
 			type AccountId = $account_id;
 			type Call = $call;
 			type AdditionalSigned = ();
@@ -456,6 +474,11 @@ mod tests {
 			u64,
 			FirstFilterCall,
 			SecondFilterCall
+		);
+
+		assert_eq!(
+			BridgeRejectObsoleteHeadersAndMessages::IDENTIFIER,
+			"BridgeReject_163603100942600502516220926454699703369"
 		);
 
 		run_test(|| {

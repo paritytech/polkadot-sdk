@@ -26,7 +26,8 @@ use crate::{
 use async_std::sync::Arc;
 use bp_messages::{ChainWithMessages as _, LaneId, MessageNonce};
 use bp_runtime::{
-	AccountIdOf, Chain as _, EncodedOrDecodedCall, HeaderIdOf, TransactionEra, WeightExtraOps,
+	AccountIdOf, Chain as _, EncodedOrDecodedCall, HeaderIdOf, RelayerVersion, TransactionEra,
+	WeightExtraOps,
 };
 use bridge_runtime_common::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
@@ -50,6 +51,15 @@ use std::{fmt::Debug, marker::PhantomData, ops::RangeInclusive};
 
 /// Substrate -> Substrate messages synchronization pipeline.
 pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
+	/// Version of this relayer. It must match version that the
+	/// `Self::TargetChain::WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD`
+	/// returns when called at `Self::SourceChain`.
+	const AT_SOURCE_CHAIN_RELAYER_VERSION: Option<RelayerVersion>;
+	/// Version of this relayer. It must match version that the
+	/// `Self::SourceChain::WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD`
+	/// returns when called at `Self::TargetChain`.
+	const AT_TARGET_CHAIN_RELAYER_VERSION: Option<RelayerVersion>;
+
 	/// Messages of this chain are relayed to the `TargetChain`.
 	type SourceChain: ChainWithMessages + ChainWithTransactions;
 	/// Messages from the `SourceChain` are dispatched on this chain.

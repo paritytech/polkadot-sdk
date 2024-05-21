@@ -19,6 +19,7 @@
 //! `<BridgedName>` chain.
 
 use crate::{
+	ensure_relayer_compatibility,
 	messages_lane::{
 		BatchProofTransaction, MessageLaneAdapter, ReceiveMessagesProofCallBuilder,
 		SubstrateMessageLane,
@@ -34,14 +35,15 @@ use bp_messages::{
 	storage_keys::inbound_lane_data_key, ChainWithMessages as _, InboundLaneData, LaneId,
 	MessageNonce, UnrewardedRelayersState,
 };
+use bp_runtime::HeaderIdProvider;
 use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
 };
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, Client, Error as SubstrateError, HashOf,
-	TransactionEra, TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, ChainWithMessages, Client,
+	Error as SubstrateError, HashOf, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
@@ -249,12 +251,23 @@ where
 			None => messages_proof_call,
 		};
 
+		let best_block_id = self.target_client.best_header().await?.id();
+		ensure_relayer_compatibility::<P::SourceChain, P::TargetChain>(
+			"finality",
+			&self.target_client,
+			best_block_id,
+			P::SourceChain::WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD,
+			&P::AT_TARGET_CHAIN_RELAYER_VERSION,
+		)
+		.await?;
+
 		let transaction_params = self.transaction_params.clone();
 		let tx_tracker = self
 			.target_client
 			.submit_and_watch_signed_extrinsic(
+				best_block_id,
 				&self.transaction_params.signer,
-				move |best_block_id, transaction_nonce| {
+				move |transaction_nonce| {
 					Ok(UnsignedTransaction::new(final_call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))
 				},

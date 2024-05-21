@@ -24,7 +24,7 @@
 use crate::{error::Error, finality_base::engine::Engine};
 use sp_core::Pair;
 
-use bp_runtime::HeaderIdOf;
+use bp_runtime::{HeaderIdOf, HeaderIdProvider};
 use relay_substrate_client::{
 	AccountKeyPairOf, Chain, ChainWithTransactions, Client, Error as SubstrateError,
 	UnsignedTransaction,
@@ -143,17 +143,26 @@ where
 		initialization_data,
 	);
 
+	let best_block_id = target_client
+		.best_header()
+		.await
+		.map_err(|e| Error::RetrieveBestHeader(TargetChain::NAME, e))?
+		.id();
 	let tx_status = target_client
-		.submit_and_watch_signed_extrinsic(&target_signer, move |_, transaction_nonce| {
-			let tx = prepare_initialize_transaction(transaction_nonce, initialization_data);
-			if dry_run {
-				Err(SubstrateError::Custom(
-					"Not submitting extrinsic in `dry-run` mode!".to_string(),
-				))
-			} else {
-				tx
-			}
-		})
+		.submit_and_watch_signed_extrinsic(
+			best_block_id,
+			&target_signer,
+			move |transaction_nonce| {
+				let tx = prepare_initialize_transaction(transaction_nonce, initialization_data);
+				if dry_run {
+					Err(SubstrateError::Custom(
+						"Not submitting extrinsic in `dry-run` mode!".to_string(),
+					))
+				} else {
+					tx
+				}
+			},
+		)
 		.await
 		.map_err(|err| Error::SubmitTransaction(TargetChain::NAME, err))?
 		.wait()

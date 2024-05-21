@@ -972,6 +972,9 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
 			BridgeWestendGrandpa::best_finalized()
 		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeWestendGrandpa::compatible_relayer_version()
+		}
 		fn free_headers_interval() -> Option<bp_westend::BlockNumber> {
 			<Runtime as pallet_bridge_grandpa::Config<
 				bridge_common_config::BridgeGrandpaWestendInstance
@@ -989,6 +992,9 @@ impl_runtime_apis! {
 				bp_bridge_hub_westend::BridgeHubWestend
 			>().unwrap_or(None)
 		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeWestendParachains::compatible_relayer_version()
+		}
 		fn free_headers_interval() -> Option<bp_bridge_hub_westend::BlockNumber> {
 			// "free interval" is not currently used for parachains
 			None
@@ -1005,6 +1011,9 @@ impl_runtime_apis! {
 				Runtime,
 				bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 			>(lane, messages)
+		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeWestendMessages::compatible_relayer_version()
 		}
 	}
 
@@ -1026,13 +1035,14 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<bp_runtime::HeaderId<bp_polkadot_bulletin::Hash, bp_polkadot_bulletin::BlockNumber>> {
 			BridgePolkadotBulletinGrandpa::best_finalized()
 		}
-
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgePolkadotBulletinGrandpa::compatible_relayer_version()
+		}
 		fn free_headers_interval() -> Option<bp_polkadot_bulletin::BlockNumber> {
 			<Runtime as pallet_bridge_grandpa::Config<
 				bridge_common_config::BridgeGrandpaRococoBulletinInstance
 			>>::FreeHeadersInterval::get()
 		}
-
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_polkadot_bulletin::Header>> {
 			BridgePolkadotBulletinGrandpa::synced_headers_grandpa_info()
@@ -1048,6 +1058,9 @@ impl_runtime_apis! {
 				Runtime,
 				bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
 			>(lane, messages)
+		}
+		fn compatible_relayer_version() -> bp_runtime::RelayerVersion {
+			BridgeRococoBulletinMessages::compatible_relayer_version()
 		}
 	}
 

@@ -36,7 +36,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight, Weight},
 };
 use scale_info::TypeInfo;
-use sp_runtime::BuildStorage;
+use sp_runtime::{traits::GetDefault, BuildStorage};
 use std::{
 	collections::{BTreeMap, VecDeque},
 	ops::RangeInclusive,
@@ -103,6 +103,7 @@ pub type TestWeightInfo = ();
 
 impl Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = GetDefault;
 	type WeightInfo = TestWeightInfo;
 	type ActiveOutboundLanes = ActiveOutboundLanes;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;

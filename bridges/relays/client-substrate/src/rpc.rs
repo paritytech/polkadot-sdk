@@ -81,7 +81,7 @@ pub(crate) trait SubstrateAuthor<C> {
 pub(crate) trait SubstrateState<C> {
 	/// Get current runtime version.
 	#[method(name = "getRuntimeVersion")]
-	async fn runtime_version(&self) -> RpcResult<RuntimeVersion>;
+	async fn runtime_version(&self, at_block: Option<C::Hash>) -> RpcResult<RuntimeVersion>;
 	/// Call given runtime method.
 	#[method(name = "call")]
 	async fn call(

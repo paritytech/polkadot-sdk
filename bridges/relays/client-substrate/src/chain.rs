@@ -46,6 +46,12 @@ pub trait Chain: ChainBase + Clone {
 	/// Keep in mind that this method is normally provided by the other chain, which is
 	/// bridged with this chain.
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str;
+	/// Name of the runtime API method that is returning version of the
+	/// compatible relayer (`bp_runtime::RelayerVersion`).
+	///
+	/// Keep in mind that this method is normally provided by the other chain, which is
+	/// bridged with this chain.
+	const WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD: &'static str;
 	/// Name of the runtime API method that is returning interval between source chain
 	/// headers that may be submitted for free to the target chain.
 	///
@@ -119,6 +125,12 @@ pub trait ChainWithMessages: Chain + ChainWithMessagesBase {
 	/// We assume that all chains that are bridging with this `ChainWithMessages` are using
 	/// the same name.
 	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str>;
+	/// Name of the runtime API method that is returning version of the
+	/// compatible relayer (`bp_runtime::RelayerVersion`).
+	///
+	/// Keep in mind that this method is normally provided by the other chain, which is
+	/// bridged with this chain.
+	const WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD: &'static str;
 
 	/// Name of the `To<ChainWithMessages>OutboundLaneApi::message_details` runtime API method.
 	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.

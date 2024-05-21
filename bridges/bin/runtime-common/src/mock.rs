@@ -45,7 +45,7 @@ use frame_support::{
 use pallet_transaction_payment::Multiplier;
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, ConstU32, ConstU64, ConstU8},
+	traits::{BlakeTwo256, ConstU32, ConstU64, ConstU8, GetDefault},
 	FixedPointNumber, Perquintill,
 };
 
@@ -182,6 +182,7 @@ impl pallet_transaction_payment::Config for TestRuntime {
 
 impl pallet_bridge_grandpa::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = GetDefault;
 	type BridgedChain = BridgedUnderlyingChain;
 	type MaxFreeHeadersPerBlock = ConstU32<4>;
 	type FreeHeadersInterval = ConstU32<1_024>;
@@ -191,6 +192,7 @@ impl pallet_bridge_grandpa::Config for TestRuntime {
 
 impl pallet_bridge_parachains::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = GetDefault;
 	type BridgesGrandpaPalletInstance = ();
 	type ParasPalletName = BridgedParasPalletName;
 	type ParaStoredHeaderDataBuilder =
@@ -202,6 +204,7 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 
 impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = GetDefault;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
 	type ActiveOutboundLanes = ActiveOutboundLanes;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;

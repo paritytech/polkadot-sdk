@@ -23,7 +23,7 @@ use crate::{
 };
 use bp_messages::LaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
-use bp_runtime::Chain;
+use bp_runtime::{Chain, RelayerVersion};
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
@@ -45,6 +45,8 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU32, PalletInfoAccess},
 };
+use hex_literal::hex;
+use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
@@ -104,6 +106,19 @@ parameter_types! {
 			Parachain(<bp_bridge_hub_rococo::BridgeHubRococo as bp_runtime::Parachain>::PARACHAIN_ID)
 		]
 	);
+
+	pub const WithRococoCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("49191a792ed3ae0bb1b45cced35a916b153eefdf6805760a176b2dc3d0567d5e")),
+	};
+	pub const WithRococoCompatibleParachainsRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("4698a08e18d00a19a793397158d64d7074555eeb782282dda25ef4b1f4fa3a66")),
+	};
+	pub const WithRococoCompatibleMessagesRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("3531d22ffe925ea1cf562c5a59d7f5e220bc69351e1013ba2dbfdeda52f4e215")),
+	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -203,15 +218,16 @@ pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtension
 		>,
 		ActualFeeRefund<Runtime>,
 		PriorityBoostPerMessage,
-		StrOnBridgeHubWestendRefundBridgeHubRococoMessages,
+		StrRefundComplexRococoBridgeTransactions,
 	>,
 >;
-bp_runtime::generate_static_str_provider!(OnBridgeHubWestendRefundBridgeHubRococoMessages);
+bp_runtime::generate_static_str_provider!(RefundComplexRococoBridgeTransactions);
 
 /// Add GRANDPA bridge pallet to track Rococo relay chain.
 pub type BridgeGrandpaRococoInstance = pallet_bridge_grandpa::Instance1;
 impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithRococoCompatibleGrandpaRelayer;
 	type BridgedChain = bp_rococo::Rococo;
 	type MaxFreeHeadersPerBlock = ConstU32<4>;
 	type FreeHeadersInterval = ConstU32<5>;
@@ -223,6 +239,7 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
 pub type BridgeParachainRococoInstance = pallet_bridge_parachains::Instance1;
 impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithRococoCompatibleParachainsRelayer;
 	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
 	type ParasPalletName = RococoBridgeParachainPalletName;
@@ -236,6 +253,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 pub type WithBridgeHubRococoMessagesInstance = pallet_bridge_messages::Instance1;
 impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithRococoCompatibleMessagesRelayer;
 	type WeightInfo = weights::pallet_bridge_messages::WeightInfo<Runtime>;
 	type BridgedChainId = BridgeHubRococoChainId;
 	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubRococo;
@@ -290,6 +308,10 @@ mod tests {
 			assert_complete_bridge_constants, check_message_lane_weights,
 			AssertBridgeMessagesPalletConstants, AssertBridgePalletNames, AssertChainConstants,
 			AssertCompleteBridgeConstants,
+		},
+		relayer_compatibility::{
+			ensure_grandpa_relayer_compatibility, ensure_messages_relayer_compatibility,
+			ensure_parachains_relayer_compatibility,
 		},
 	};
 	use parachains_common::Balance;
@@ -386,5 +408,25 @@ mod tests {
 				bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX
 			)]
 		);
+
+		sp_io::TestExternalities::default().execute_with(|| {
+			ensure_grandpa_relayer_compatibility::<
+				Runtime,
+				BridgeGrandpaRococoInstance,
+				crate::SignedExtra,
+			>();
+			ensure_parachains_relayer_compatibility::<
+				Runtime,
+				BridgeParachainRococoInstance,
+				crate::SignedExtra,
+			>();
+			ensure_messages_relayer_compatibility::<
+				Runtime,
+				WithBridgeHubRococoMessagesInstance,
+				crate::SignedExtra,
+				_,
+				_,
+			>();
+		});
 	}
 }

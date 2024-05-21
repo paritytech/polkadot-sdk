@@ -25,6 +25,7 @@ use crate::{
 
 use async_trait::async_trait;
 use bp_header_chain::justification::{GrandpaJustification, JustificationVerificationContext};
+use bp_runtime::{HeaderIdProvider, RelayerVersion};
 use finality_relay::{
 	FinalityPipeline, FinalitySyncPipeline, HeadersToRelay, SourceClient, TargetClient,
 };
@@ -72,6 +73,11 @@ where
 /// Substrate -> Substrate finality proofs synchronization pipeline.
 #[async_trait]
 pub trait SubstrateFinalitySyncPipeline: BaseSubstrateFinalitySyncPipeline {
+	/// Version of this relayer. It must match version that the
+	/// `Self::SourceChain::WITH_CHAIN_COMPATIBLE_FINALITY_RELAYER_VERSION_METHOD`
+	/// returns when called at `Self::TargetChain`.
+	const RELAYER_VERSION: Option<RelayerVersion>;
+
 	/// How submit finality proof call is built?
 	type SubmitFinalityProofCallBuilder: SubmitFinalityProofCallBuilder<Self>;
 
@@ -81,9 +87,10 @@ pub trait SubstrateFinalitySyncPipeline: BaseSubstrateFinalitySyncPipeline {
 		enable_version_guard: bool,
 	) -> relay_substrate_client::Result<()> {
 		if enable_version_guard {
+			let best_block_id = target_client.best_header().await?.id();
 			relay_substrate_client::guard::abort_on_spec_version_change(
 				target_client.clone(),
-				target_client.simple_runtime_version().await?.spec_version,
+				target_client.simple_runtime_version(best_block_id.hash()).await?.spec_version,
 			);
 		}
 		Ok(())

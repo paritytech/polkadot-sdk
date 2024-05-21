@@ -42,8 +42,10 @@ use bp_header_chain::{
 	HeaderChain, InitializationData, StoredHeaderData, StoredHeaderDataBuilder,
 	StoredHeaderGrandpaInfo,
 };
-use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
-use frame_support::{dispatch::PostDispatchInfo, ensure, DefaultNoBound};
+use bp_runtime::{
+	BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule, RelayerVersion,
+};
+use frame_support::{dispatch::PostDispatchInfo, ensure, traits::Get, DefaultNoBound};
 use sp_consensus_grandpa::SetId;
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
@@ -100,6 +102,9 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// Version of the relayer that is compatible with this pallet configuration.
+		#[pallet::constant]
+		type CompatibleWithRelayer: Get<RelayerVersion>;
 
 		/// The chain we are bridging to here.
 		type BridgedChain: ChainWithGrandpa;
@@ -739,6 +744,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I>
 where
 	<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T, I>>,
 {
+	/// Get compatible relayer version.
+	pub fn compatible_relayer_version() -> RelayerVersion {
+		T::CompatibleWithRelayer::get()
+	}
+
 	/// Get the GRANDPA justifications accepted in the current block.
 	pub fn synced_headers_grandpa_info() -> Vec<StoredHeaderGrandpaInfo<BridgedHeader<T, I>>> {
 		frame_system::Pallet::<T>::read_events_no_consensus()

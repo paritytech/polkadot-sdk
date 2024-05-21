@@ -25,9 +25,11 @@ use super::{
 	weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent, RuntimeOrigin,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
-use bp_runtime::UnderlyingChainProvider;
+use bp_runtime::{RelayerVersion, UnderlyingChainProvider};
 use bridge_runtime_common::messages::ThisChainWithMessages;
 use frame_support::{parameter_types, traits::ConstU32};
+use hex_literal::hex;
+use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 
 parameter_types! {
@@ -41,6 +43,19 @@ parameter_types! {
 	pub const RelayerStakeLease: u32 = 8;
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
 
+	pub const WithRococoBulletinCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("6138a8e2b887e0555545ae1a3335a31b1ee61c54b06fde481e50a67be5cdb1fb")),
+	};
+	pub const WithWestendCompatibleGrandpaRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("e4898d272b30869b13f3a10fca4ed5bbbfee3745ad9b322bf0982624353b622a")),
+	};
+	pub const WithWestendCompatibleParachainsRelayer: RelayerVersion = RelayerVersion {
+		manual: 0,
+		auto: H256(hex!("6a9443a8994da4b52f95f7d2e4e9905c0a6eb116042483a09b9c795c0e6f834a")),
+	};
+
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
 
@@ -48,6 +63,7 @@ parameter_types! {
 pub type BridgeGrandpaWestendInstance = pallet_bridge_grandpa::Instance3;
 impl pallet_bridge_grandpa::Config<BridgeGrandpaWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithWestendCompatibleGrandpaRelayer;
 	type BridgedChain = bp_westend::Westend;
 	type MaxFreeHeadersPerBlock = ConstU32<4>;
 	type FreeHeadersInterval = ConstU32<5>;
@@ -59,6 +75,7 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaWestendInstance> for Runtime {
 pub type BridgeParachainWestendInstance = pallet_bridge_parachains::Instance3;
 impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithWestendCompatibleParachainsRelayer;
 	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaWestendInstance;
 	type ParasPalletName = WestendBridgeParachainPalletName;
@@ -89,6 +106,7 @@ impl pallet_bridge_relayers::Config for Runtime {
 pub type BridgeGrandpaRococoBulletinInstance = pallet_bridge_grandpa::Instance4;
 impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoBulletinInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CompatibleWithRelayer = WithRococoBulletinCompatibleGrandpaRelayer;
 	type BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
 	type MaxFreeHeadersPerBlock = ConstU32<4>;
 	type FreeHeadersInterval = ConstU32<5>;

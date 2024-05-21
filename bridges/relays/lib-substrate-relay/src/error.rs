@@ -52,6 +52,9 @@ pub enum Error<Hash: Debug + MaybeDisplay, HeaderNumber: Debug + MaybeDisplay> {
 	/// Failed to decode GRANDPA authorities at the given header of the source chain.
 	#[error("Failed to decode {0} GRANDPA authorities set at header {1}: {2:?}")]
 	DecodeAuthorities(&'static str, Hash, codec::Error),
+	/// Failed to retrieve best header from the chain.
+	#[error("Failed to retrieve best {0} header: {0:?}")]
+	RetrieveBestHeader(&'static str, client::Error),
 	/// Failed to retrieve header by the hash from the source chain.
 	#[error("Failed to retrieve {0} header with hash {1}: {2:?}")]
 	RetrieveHeader(&'static str, Hash, client::Error),

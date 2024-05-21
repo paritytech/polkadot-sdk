@@ -29,7 +29,7 @@ use crate::{
 
 use async_std::sync::{Arc, Mutex, RwLock};
 use async_trait::async_trait;
-use bp_runtime::{HeaderIdProvider, StorageDoubleMapKeyProvider, StorageMapKeyProvider};
+use bp_runtime::{StorageDoubleMapKeyProvider, StorageMapKeyProvider};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use futures::{SinkExt, StreamExt};
@@ -302,10 +302,10 @@ impl<C: Chain> Client<C> {
 
 impl<C: Chain> Client<C> {
 	/// Return simple runtime version, only include `spec_version` and `transaction_version`.
-	pub async fn simple_runtime_version(&self) -> Result<SimpleRuntimeVersion> {
+	pub async fn simple_runtime_version(&self, at: HashOf<C>) -> Result<SimpleRuntimeVersion> {
 		Ok(match &self.chain_runtime_version {
 			ChainRuntimeVersion::Auto => {
-				let runtime_version = self.runtime_version().await?;
+				let runtime_version = self.runtime_version(at).await?;
 				SimpleRuntimeVersion::from_runtime_version(&runtime_version)
 			},
 			ChainRuntimeVersion::Custom(version) => *version,
@@ -408,9 +408,9 @@ impl<C: Chain> Client<C> {
 	}
 
 	/// Return runtime version.
-	pub async fn runtime_version(&self) -> Result<RuntimeVersion> {
+	pub async fn runtime_version(&self, at: HashOf<C>) -> Result<RuntimeVersion> {
 		self.jsonrpsee_execute(move |client| async move {
-			Ok(SubstrateStateClient::<C>::runtime_version(&*client).await?)
+			Ok(SubstrateStateClient::<C>::runtime_version(&*client, Some(at)).await?)
 		})
 		.await
 	}
@@ -493,38 +493,15 @@ impl<C: Chain> Client<C> {
 		.await
 	}
 
-	/// Submit unsigned extrinsic for inclusion in a block.
-	///
-	/// Note: The given transaction needs to be SCALE encoded beforehand.
-	pub async fn submit_unsigned_extrinsic(&self, transaction: Bytes) -> Result<C::Hash> {
-		// one last check that the transaction is valid. Most of checks happen in the relay loop and
-		// it is the "final" check before submission.
-		let best_header_hash = self.best_header().await?.hash();
-		self.validate_transaction(best_header_hash, PreEncoded(transaction.0.clone()))
-			.await
-			.map_err(|e| {
-				log::error!(target: "bridge", "Pre-submit {} transaction validation failed: {:?}", C::NAME, e);
-				e
-			})??;
-
-		self.jsonrpsee_execute(move |client| async move {
-			let tx_hash = SubstrateAuthorClient::<C>::submit_extrinsic(&*client, transaction)
-				.await
-				.map_err(|e| {
-					log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
-					e
-				})?;
-			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
-			Ok(tx_hash)
-		})
-		.await
-	}
-
-	async fn build_sign_params(&self, signer: AccountKeyPairOf<C>) -> Result<SignParam<C>>
+	async fn build_sign_params(
+		&self,
+		signer: AccountKeyPairOf<C>,
+		at: HashOf<C>,
+	) -> Result<SignParam<C>>
 	where
 		C: ChainWithTransactions,
 	{
-		let runtime_version = self.simple_runtime_version().await?;
+		let runtime_version = self.simple_runtime_version(at).await?;
 		Ok(SignParam::<C> {
 			spec_version: runtime_version.spec_version,
 			transaction_version: runtime_version.transaction_version,
@@ -533,83 +510,26 @@ impl<C: Chain> Client<C> {
 		})
 	}
 
-	/// Submit an extrinsic signed by given account.
-	///
-	/// All calls of this method are synchronized, so there can't be more than one active
-	/// `submit_signed_extrinsic()` call. This guarantees that no nonces collision may happen
-	/// if all client instances are clones of the same initial `Client`.
-	///
-	/// Note: The given transaction needs to be SCALE encoded beforehand.
-	pub async fn submit_signed_extrinsic(
-		&self,
-		signer: &AccountKeyPairOf<C>,
-		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Nonce) -> Result<UnsignedTransaction<C>>
-			+ Send
-			+ 'static,
-	) -> Result<C::Hash>
-	where
-		C: ChainWithTransactions,
-		C::AccountId: From<<C::AccountKeyPair as Pair>::Public>,
-	{
-		let _guard = self.submit_signed_extrinsic_lock.lock().await;
-		let transaction_nonce = self.next_account_index(signer.public().into()).await?;
-		let best_header = self.best_header().await?;
-		let signing_data = self.build_sign_params(signer.clone()).await?;
-
-		// By using parent of best block here, we are protecing again best-block reorganizations.
-		// E.g. transaction may have been submitted when the best block was `A[num=100]`. Then it
-		// has been changed to `B[num=100]`. Hash of `A` has been included into transaction
-		// signature payload. So when signature will be checked, the check will fail and transaction
-		// will be dropped from the pool.
-		let best_header_id = best_header.parent_id().unwrap_or_else(|| best_header.id());
-
-		let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce)?;
-		let signed_extrinsic = C::sign_transaction(signing_data, extrinsic)?.encode();
-
-		// one last check that the transaction is valid. Most of checks happen in the relay loop and
-		// it is the "final" check before submission.
-		self.validate_transaction(best_header_id.1, PreEncoded(signed_extrinsic.clone()))
-			.await
-			.map_err(|e| {
-				log::error!(target: "bridge", "Pre-submit {} transaction validation failed: {:?}", C::NAME, e);
-				e
-			})??;
-
-		self.jsonrpsee_execute(move |client| async move {
-			let tx_hash =
-				SubstrateAuthorClient::<C>::submit_extrinsic(&*client, Bytes(signed_extrinsic))
-					.await
-					.map_err(|e| {
-						log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
-						e
-					})?;
-			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
-			Ok(tx_hash)
-		})
-		.await
-	}
-
 	/// Does exactly the same as `submit_signed_extrinsic`, but keeps watching for extrinsic status
 	/// after submission.
+	///
+	/// The best block``
 	pub async fn submit_and_watch_signed_extrinsic(
 		&self,
+		best_header_id: HeaderIdOf<C>,
 		signer: &AccountKeyPairOf<C>,
-		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, C::Nonce) -> Result<UnsignedTransaction<C>>
-			+ Send
-			+ 'static,
+		prepare_extrinsic: impl FnOnce(C::Nonce) -> Result<UnsignedTransaction<C>> + Send + 'static,
 	) -> Result<TransactionTracker<C, Self>>
 	where
 		C: ChainWithTransactions,
 		C::AccountId: From<<C::AccountKeyPair as Pair>::Public>,
 	{
 		let self_clone = self.clone();
-		let signing_data = self.build_sign_params(signer.clone()).await?;
+		let signing_data = self.build_sign_params(signer.clone(), best_header_id.hash()).await?;
 		let _guard = self.submit_signed_extrinsic_lock.lock().await;
 		let transaction_nonce = self.next_account_index(signer.public().into()).await?;
-		let best_header = self.best_header().await?;
-		let best_header_id = best_header.id();
 
-		let extrinsic = prepare_extrinsic(best_header_id, transaction_nonce)?;
+		let extrinsic = prepare_extrinsic(transaction_nonce)?;
 		let stall_timeout = transaction_stall_timeout(
 			extrinsic.era.mortality_period(),
 			C::AVERAGE_BLOCK_INTERVAL,
@@ -658,14 +578,6 @@ impl<C: Chain> Client<C> {
 			cancel_receiver,
 		));
 		Ok(tracker)
-	}
-
-	/// Returns pending extrinsics from transaction pool.
-	pub async fn pending_extrinsics(&self) -> Result<Vec<Bytes>> {
-		self.jsonrpsee_execute(move |client| async move {
-			Ok(SubstrateAuthorClient::<C>::pending_extrinsics(&*client).await?)
-		})
-		.await
 	}
 
 	/// Validate transaction at given block state.

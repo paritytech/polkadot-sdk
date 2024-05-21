@@ -19,6 +19,7 @@
 //! `<BridgedName>` chain.
 
 use crate::{
+	ensure_relayer_compatibility,
 	finality_base::best_synced_header_id,
 	messages_lane::{
 		BatchProofTransaction, MessageLaneAdapter, ReceiveMessagesDeliveryProofCallBuilder,
@@ -356,11 +357,22 @@ where
 			None => messages_proof_call,
 		};
 
+		let best_block_id = self.source_client.best_header().await?.id();
+		ensure_relayer_compatibility::<P::TargetChain, P::SourceChain>(
+			"finality",
+			&self.source_client,
+			best_block_id,
+			P::TargetChain::WITH_CHAIN_COMPATIBLE_MESSAGES_RELAYER_VERSION_METHOD,
+			&P::AT_SOURCE_CHAIN_RELAYER_VERSION,
+		)
+		.await?;
+
 		let transaction_params = self.transaction_params.clone();
 		self.source_client
 			.submit_and_watch_signed_extrinsic(
+				best_block_id,
 				&self.transaction_params.signer,
-				move |best_block_id, transaction_nonce| {
+				move |transaction_nonce| {
 					Ok(UnsignedTransaction::new(final_call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))
 				},
