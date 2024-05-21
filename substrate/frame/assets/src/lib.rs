@@ -357,6 +357,11 @@ pub mod pallet {
 		#[pallet::no_default]
 		type Freezer: FrozenBalance<Self::AssetId, Self::AccountId, Self::Balance>;
 
+		/// A hook to allow a per-asset, per-account minimum balance to be enforced. This must be
+		/// respected in all permissionless operations.
+		#[pallet::no_default]
+		type Holder: HeldBalance<Self::AssetId, Self::AccountId, Self::Balance>;
+
 		/// Additional data to be stored with an account's asset balance.
 		type Extra: Member + Parameter + Default + MaxEncodedLen;
 

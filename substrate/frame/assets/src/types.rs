@@ -232,6 +232,37 @@ impl<AssetId, AccountId, Balance> FrozenBalance<AssetId, AccountId, Balance> for
 	fn died(_: AssetId, _: &AccountId) {}
 }
 
+/// Trait for specifying a balance that cannot be reduced or forcely reduced.
+/// This balance is then added to the minimum balance that must be met in conjunction
+/// with the frozen balance (if any), and the `minimum_balance` of the asset.
+pub trait HeldBalance<AssetId, AccountId, Balance> {
+	/// Return the held balance.
+	///
+	/// Generally, the balance of every account must be at least the sum of this (if `Some`) and
+	/// the asset's `minimum_balance` (the latter since there may be complications to destroying an
+	/// asset's account completely).
+	///
+	/// Under normal circumstances, the account balance should not go below the sum of this (if
+	/// `Some`) and the asset's minimum balance.
+	///
+	/// In special cases (privileged intervention) the account balance may also go below the sum.
+	///
+	/// If `None` is returned, then nothing special is enforced.
+	fn held_balance(asset: AssetId, who: &AccountId) -> Option<Balance>;
+
+	/// Called after an account has been removed.
+	///
+	/// NOTE: It is possible that the asset does no longer exist when this hook is called.
+	fn died(asset: AssetId, who: &AccountId);
+}
+
+impl<AssetId, AccountId, Balance> HeldBalance<AssetId, AccountId, Balance> for () {
+	fn held_balance(_: AssetId, _: &AccountId) -> Option<Balance> {
+		None
+	}
+	fn died(_: AssetId, _: &AccountId) {}
+}
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(super) struct TransferFlags {
 	/// The debited account must stay alive at the end of the operation; an error is returned if

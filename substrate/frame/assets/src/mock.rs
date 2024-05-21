@@ -114,6 +114,7 @@ impl Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;
+	type Holder = ();
 	type CallbackHandle = AssetsCallbackHandle;
 }
 
