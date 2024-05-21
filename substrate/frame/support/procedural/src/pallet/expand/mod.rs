@@ -36,6 +36,7 @@ mod tt_default_parts;
 mod type_value;
 mod validate_unsigned;
 mod warnings;
+mod view_functions;
 
 use crate::pallet::Def;
 use quote::ToTokens;

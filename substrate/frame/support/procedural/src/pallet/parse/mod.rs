@@ -71,6 +71,7 @@ pub struct Def {
 	pub frame_system: syn::Path,
 	pub frame_support: syn::Path,
 	pub dev_mode: bool,
+	pub view_functions: Option<view_functions::ViewFunctionsDef>,
 }
 
 impl Def {
@@ -256,6 +257,7 @@ impl Def {
 			frame_system,
 			frame_support,
 			dev_mode,
+			view_functions,
 		};
 
 		def.check_instance_usage()?;
