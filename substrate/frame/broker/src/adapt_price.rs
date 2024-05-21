@@ -22,6 +22,7 @@ use sp_arithmetic::{traits::One, FixedU64};
 use sp_runtime::{FixedPointNumber, FixedPointOperand, Saturating};
 
 /// Performance of a past sale.
+#[derive(Copy, Clone)]
 pub struct SalePerformance<Balance> {
 	/// The price at which the last core was sold.
 	///
@@ -33,6 +34,7 @@ pub struct SalePerformance<Balance> {
 }
 
 /// Result of `AdaptPrice::adapt_price`.
+#[derive(Copy, Clone)]
 pub struct AdaptedPrices<Balance> {
 	/// New base price to use.
 	pub price: Balance,
@@ -73,6 +75,7 @@ impl<Balance: Copy> AdaptPrice<Balance> for () {
 /// Simple implementation of `AdaptPrice` giving a monotonic leadin and a linear price change based
 /// on cores sold.
 pub struct Linear<Balance>(std::marker::PhantomData<Balance>);
+
 impl<Balance: FixedPointOperand> AdaptPrice<Balance> for Linear<Balance> {
 	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
 		FixedU64::from(101).saturating_sub(when.saturating_mul(100.into()))
@@ -97,6 +100,13 @@ impl<Balance: FixedPointOperand> AdaptPrice<Balance> for Linear<Balance> {
 			.div(spread.saturating_add(2.into()))
 			.saturating_mul_int(sellout_price);
 
+		let price = if price == Balance::zero() {
+			// We could not recover from a price equal 0 ever.
+			sellout_price
+		} else {
+			price
+		};
+
 		AdaptedPrices { price, renewal_price: sellout_price }
 	}
 }
@@ -107,37 +117,65 @@ mod tests {
 
 	#[test]
 	fn linear_no_panic() {
-		for limit in 0..10 {
-			for target in 1..10 {
-				for sold in 0..=limit {
-					let price = Linear::adapt_price(sold, target, limit);
-
-					if sold > target {
-						assert!(price > FixedU64::one());
-					} else {
-						assert!(price <= FixedU64::one());
-					}
-				}
+		for sellout in 0..11 {
+			for price in 0..10 {
+				let sellout_price = if sellout == 11 { None } else { Some(sellout) };
+				Linear::adapt_price(SalePerformance { sellout_price, price });
 			}
 		}
 	}
 
 	#[test]
-	fn linear_bound_check() {
-		// Using constraints from pallet implementation i.e. `limit >= sold`.
-		// Check extremes
-		let limit = 10;
-		let target = 5;
-
-		// Maximally sold: `sold == limit`
-		assert_eq!(Linear::adapt_price(limit, target, limit), FixedU64::from_float(2.0));
-		// Ideally sold: `sold == target`
-		assert_eq!(Linear::adapt_price(target, target, limit), FixedU64::one());
-		// Minimally sold: `sold == 0`
-		assert_eq!(Linear::adapt_price(0, target, limit), FixedU64::from_float(0.5));
-		// Optimistic target: `target == limit`
-		assert_eq!(Linear::adapt_price(limit, limit, limit), FixedU64::one());
-		// Pessimistic target: `target == 0`
-		assert_eq!(Linear::adapt_price(limit, 0, limit), FixedU64::from_float(2.0));
+	fn no_op_sale_is_good() {
+		let prices = Linear::adapt_price(SalePerformance { sellout_price: None, price: 1 });
+		assert_eq!(prices.renewal_price, 51);
+		assert_eq!(prices.price, 1);
 	}
+
+	#[test]
+	fn price_stays_stable_on_optimal_sale() {
+		// Check price stays stable if sold at the optimal price:
+		let mut performance = SalePerformance { sellout_price: Some(5100), price: 100 };
+		for _ in 0..10 {
+			let prices = Linear::adapt_price(performance);
+			performance.sellout_price = Some(5100);
+			performance.price = prices.price;
+
+			assert!(prices.price <= 101);
+			assert!(prices.price >= 99);
+			assert!(prices.renewal_price <= 5101);
+			assert!(prices.renewal_price >= 5099);
+		}
+	}
+
+	#[test]
+	fn price_never_goes_to_zero_and_recovers() {
+		// Check price stays stable if sold at the optimal price:
+		let sellout_price = 51;
+		let mut performance = SalePerformance { sellout_price: Some(sellout_price), price: 1 };
+		for _ in 0..11 {
+			let prices = Linear::adapt_price(performance);
+			performance.sellout_price = Some(sellout_price);
+			performance.price = prices.price;
+
+			assert!(prices.price <= sellout_price);
+			assert!(prices.price > 0);
+		}
+	}
+	// Using constraints from pallet implementation i.e. `limit >= sold`.
+	//     Check extremes
+	//     let limit = 10;
+	//     let target = 5;
+
+	//     Maximally sold: `sold == limit`
+	//     assert_eq!(Linear::adapt_price(limit, target, limit), FixedU64::from_float(2.0));
+	//     Ideally sold: `sold == target`
+	//     assert_eq!(Linear::adapt_price(target, target, limit), FixedU64::one());
+	//     Minimally sold: `sold == 0`
+	//     assert_eq!(Linear::adapt_price(0, target, limit), FixedU64::from_float(0.5));
+	//     Optimistic target: `target == limit`
+	//     assert_eq!(Linear::adapt_price(limit, limit, limit), FixedU64::one());
+	//     Pessimistic target: `target == 0`
+	//     assert_eq!(Linear::adapt_price(limit, 0, limit), FixedU64::from_float(2.0));
+	// }
 }

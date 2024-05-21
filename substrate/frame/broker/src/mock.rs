@@ -199,7 +199,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
-	type PriceAdapter = Linear;
+	type PriceAdapter = Linear<BalanceOf<Self>>;
 }
 
 pub fn advance_to(b: u64) {
