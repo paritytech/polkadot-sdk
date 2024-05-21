@@ -25,18 +25,18 @@ pub struct SalePerformance<Balance> {
 	/// The price at which the last core was sold.
 	///
 	/// Will be `None` if no cores have been offered.
-	sellout_price: Option<Balance>,
+	pub sellout_price: Option<Balance>,
 
 	/// The base price (lowest possible price) that was used in this sale.
-	price: Balance,
+	pub price: Balance,
 }
 
 /// Result of `AdaptPrice::adapt_price`.
 pub struct AdaptedPrices<Balance> {
 	/// New base price to use.
-	price: Balance,
+	pub price: Balance,
 	/// Price to use for renewals of leases.
-	renewal_price: Balance,
+	pub renewal_price: Balance,
 }
 
 impl<Balance, BlockNumber> From<SaleInfoRecord<Balance, BlockNumber>> for SalePerformance<Balance> {
