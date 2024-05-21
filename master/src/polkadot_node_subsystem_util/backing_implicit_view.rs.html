@@ -888,6 +888,359 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -907,12 +1260,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>polkadot_node_subsystem::{
 	errors::ChainApiError,
-	messages::{ChainApiMessage, ProspectiveParachainsMessage},
+	messages::{ChainApiMessage, ProspectiveParachainsMessage, RuntimeApiMessage},
 	SubsystemSender,
 };
 <span class="kw">use </span>polkadot_primitives::{BlockNumber, Hash, Id <span class="kw">as </span>ParaId};
 
 <span class="kw">use </span>std::collections::HashMap;
+
+<span class="kw">use crate</span>::{
+	request_session_index_for_child,
+	runtime::{<span class="self">self</span>, prospective_parachains_mode, recv_runtime, ProspectiveParachainsMode},
+};
 
 <span class="comment">// Always aim to retain 1 block before the active leaves.
 </span><span class="kw">const </span>MINIMUM_RETAIN_LENGTH: BlockNumber = <span class="number">2</span>;
@@ -920,10 +1278,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Handles the implicit view of the relay chain derived from the immediate view, which
 /// is composed of active leaves, and the minimum relay-parents allowed for
 /// candidates of various parachains at those leaves.
-</span><span class="attr">#[derive(Default, Clone)]
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>View {
 	leaves: HashMap&lt;Hash, ActiveLeafPruningInfo&gt;,
 	block_info_storage: HashMap&lt;Hash, BlockInfo&gt;,
+	collating_for: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
+}
+
+<span class="kw">impl </span>View {
+	<span class="doccomment">/// Create a new empty view.
+	/// If `collating_for` is `Some`, the node is a collator and is only interested in the allowed
+	/// relay parents of a single paraid. When this is true, prospective-parachains is no longer
+	/// queried.
+	</span><span class="kw">pub fn </span>new(collating_for: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ leaves: Default::default(), block_info_storage: Default::default(), collating_for }
+	}
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>View {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>::new(<span class="prelude-val">None</span>)
+	}
 }
 
 <span class="comment">// Minimum relay parents implicitly relative to a particular block.
@@ -996,15 +1371,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Activate a leaf in the view.
-	/// This will request the minimum relay parents from the
-	/// Prospective Parachains subsystem for each leaf and will load headers in the ancestry of each
-	/// leaf in the view as needed. These are the 'implicit ancestors' of the leaf.
+	/// This will request the minimum relay parents the leaf and will load headers in the
+	/// ancestry of the leaf as needed. These are the 'implicit ancestors' of the leaf.
 	///
 	/// To maximize reuse of outdated leaves, it's best to activate new leaves before
 	/// deactivating old ones.
 	///
-	/// This returns a list of para-ids which are relevant to the leaf,
-	/// and the allowed relay parents for these paras under this leaf can be
+	/// The allowed relay parents for the relevant paras under this leaf can be
 	/// queried with [`View::known_allowed_relay_parents_under`].
 	///
 	/// No-op for known leaves.
@@ -1012,10 +1385,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		sender: <span class="kw-2">&amp;mut </span>Sender,
 		leaf_hash: Hash,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ParaId&gt;, FetchError&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), FetchError&gt;
 	<span class="kw">where
-		</span>Sender: SubsystemSender&lt;ChainApiMessage&gt;,
-		Sender: SubsystemSender&lt;ProspectiveParachainsMessage&gt;,
+		</span>Sender: SubsystemSender&lt;ChainApiMessage&gt;
+			+ SubsystemSender&lt;ProspectiveParachainsMessage&gt;
+			+ SubsystemSender&lt;RuntimeApiMessage&gt;,
 	{
 		<span class="kw">if </span><span class="self">self</span>.leaves.contains_key(<span class="kw-2">&amp;</span>leaf_hash) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(FetchError::AlreadyKnown)
@@ -1025,6 +1399,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			leaf_hash,
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>.block_info_storage,
 			<span class="kw-2">&amp;mut *</span>sender,
+			<span class="self">self</span>.collating_for,
 		)
 		.<span class="kw">await</span>;
 
@@ -1040,7 +1415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="self">self</span>.leaves.insert(leaf_hash, ActiveLeafPruningInfo { retain_minimum });
 
-				<span class="prelude-val">Ok</span>(fetched.relevant_paras)
+				<span class="prelude-val">Ok</span>(())
 			},
 			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
 		}
@@ -1139,6 +1514,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Request to the Chain API subsystem failed.
 	</span><span class="attr">#[error(<span class="string">"The chain API subsystem was unavailable"</span>)]
 	</span>ChainApiUnavailable,
+
+	<span class="doccomment">/// Request to the runtime API failed.
+	</span><span class="attr">#[error(<span class="string">"Runtime API error: {0}"</span>)]
+	</span>RuntimeApi(<span class="attr">#[from] </span>runtime::Error),
 }
 
 <span class="doccomment">/// Reasons a block header might have been unavailable.
@@ -1155,30 +1534,92 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">struct </span>FetchSummary {
 	minimum_ancestor_number: BlockNumber,
 	leaf_number: BlockNumber,
-	relevant_paras: Vec&lt;ParaId&gt;,
+}
+
+<span class="comment">// Request the min relay parents from prospective-parachains.
+</span><span class="kw">async fn </span>fetch_min_relay_parents_from_prospective_parachains&lt;
+	Sender: SubsystemSender&lt;ProspectiveParachainsMessage&gt;,
+&gt;(
+	leaf_hash: Hash,
+	sender: <span class="kw-2">&amp;mut </span>Sender,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(ParaId, BlockNumber)&gt;, FetchError&gt; {
+	<span class="kw">let </span>(tx, rx) = oneshot::channel();
+	sender
+		.send_message(ProspectiveParachainsMessage::GetMinimumRelayParents(leaf_hash, tx))
+		.<span class="kw">await</span>;
+
+	rx.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| FetchError::ProspectiveParachainsUnavailable)
+}
+
+<span class="comment">// Request the min relay parent for the purposes of a collator, directly using ChainApi (where
+// prospective-parachains is not available).
+</span><span class="kw">async fn </span>fetch_min_relay_parents_for_collator&lt;Sender&gt;(
+	leaf_hash: Hash,
+	leaf_number: BlockNumber,
+	sender: <span class="kw-2">&amp;mut </span>Sender,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumber&gt;, FetchError&gt;
+<span class="kw">where
+	</span>Sender: SubsystemSender&lt;ProspectiveParachainsMessage&gt;
+		+ SubsystemSender&lt;RuntimeApiMessage&gt;
+		+ SubsystemSender&lt;ChainApiMessage&gt;,
+{
+	<span class="kw">let </span><span class="prelude-val">Ok</span>(ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. }) =
+		prospective_parachains_mode(sender, leaf_hash).<span class="kw">await
+	else </span>{
+		<span class="comment">// This should never happen, leaves that don't have prospective parachains mode enabled
+		// should not use implicit view.
+		</span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+	};
+
+	<span class="comment">// Fetch the session of the leaf. We must make sure that we stop at the ancestor which has a
+	// different session index.
+	</span><span class="kw">let </span>required_session =
+		recv_runtime(request_session_index_for_child(leaf_hash, sender).<span class="kw">await</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+
+	<span class="kw">let </span><span class="kw-2">mut </span>min = leaf_number;
+
+	<span class="comment">// Fetch the ancestors, up to allowed_ancestry_len.
+	</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
+	sender
+		.send_message(ChainApiMessage::Ancestors {
+			hash: leaf_hash,
+			k: allowed_ancestry_len,
+			response_channel: tx,
+		})
+		.<span class="kw">await</span>;
+	<span class="kw">let </span>hashes = rx
+		.<span class="kw">await
+		</span>.map_err(|<span class="kw">_</span>| FetchError::ChainApiUnavailable)<span class="question-mark">?
+		</span>.map_err(|err| FetchError::ChainApiError(leaf_hash, err))<span class="question-mark">?</span>;
+
+	<span class="kw">for </span>hash <span class="kw">in </span>hashes {
+		<span class="comment">// The relay chain cannot accept blocks backed from previous sessions, with
+		// potentially previous validators. This is a technical limitation we need to
+		// respect here.
+		</span><span class="kw">let </span>session = recv_runtime(request_session_index_for_child(hash, sender).<span class="kw">await</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+
+		<span class="kw">if </span>session == required_session {
+			<span class="comment">// We should never underflow here, the ChainAPI stops at genesis block.
+			</span>min = min.saturating_sub(<span class="number">1</span>);
+		} <span class="kw">else </span>{
+			<span class="kw">break
+		</span>}
+	}
+
+	<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(min))
 }
 
 <span class="kw">async fn </span>fetch_fresh_leaf_and_insert_ancestry&lt;Sender&gt;(
 	leaf_hash: Hash,
 	block_info_storage: <span class="kw-2">&amp;mut </span>HashMap&lt;Hash, BlockInfo&gt;,
 	sender: <span class="kw-2">&amp;mut </span>Sender,
+	collating_for: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;FetchSummary, FetchError&gt;
 <span class="kw">where
-	</span>Sender: SubsystemSender&lt;ChainApiMessage&gt;,
-	Sender: SubsystemSender&lt;ProspectiveParachainsMessage&gt;,
+	</span>Sender: SubsystemSender&lt;ChainApiMessage&gt;
+		+ SubsystemSender&lt;ProspectiveParachainsMessage&gt;
+		+ SubsystemSender&lt;RuntimeApiMessage&gt;,
 {
-	<span class="kw">let </span>min_relay_parents_raw = {
-		<span class="kw">let </span>(tx, rx) = oneshot::channel();
-		sender
-			.send_message(ProspectiveParachainsMessage::GetMinimumRelayParents(leaf_hash, tx))
-			.<span class="kw">await</span>;
-
-		<span class="kw">match </span>rx.<span class="kw">await </span>{
-			<span class="prelude-val">Ok</span>(m) =&gt; m,
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FetchError::ProspectiveParachainsUnavailable),
-		}
-	};
-
 	<span class="kw">let </span>leaf_header = {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		sender.send_message(ChainApiMessage::BlockHeader(leaf_hash, tx)).<span class="kw">await</span>;
@@ -1203,8 +1644,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	};
 
-	<span class="kw">let </span>min_min = min_relay_parents_raw.iter().map(|x| x.<span class="number">1</span>).min().unwrap_or(leaf_header.number);
-	<span class="kw">let </span>relevant_paras = min_relay_parents_raw.iter().map(|x| x.<span class="number">0</span>).collect();
+	<span class="comment">// If the node is a collator, bypass prospective-parachains. We're only interested in the one
+	// paraid and the subsystem is not present.
+	</span><span class="kw">let </span>min_relay_parents = <span class="kw">if let </span><span class="prelude-val">Some</span>(para_id) = collating_for {
+		fetch_min_relay_parents_for_collator(leaf_hash, leaf_header.number, sender)
+			.<span class="kw">await</span><span class="question-mark">?
+			</span>.map(|x| <span class="macro">vec!</span>[(para_id, x)])
+			.unwrap_or_default()
+	} <span class="kw">else </span>{
+		fetch_min_relay_parents_from_prospective_parachains(leaf_hash, sender).<span class="kw">await</span><span class="question-mark">?
+	</span>};
+
+	<span class="kw">let </span>min_min = min_relay_parents.iter().map(|x| x.<span class="number">1</span>).min().unwrap_or(leaf_header.number);
 	<span class="kw">let </span>expected_ancestry_len = (leaf_header.number.saturating_sub(min_min) <span class="kw">as </span>usize) + <span class="number">1</span>;
 
 	<span class="kw">let </span>ancestry = <span class="kw">if </span>leaf_header.number &gt; <span class="number">0 </span>{
@@ -1270,14 +1721,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">vec!</span>[leaf_hash]
 	};
 
-	<span class="kw">let </span>fetched_ancestry = FetchSummary {
-		minimum_ancestor_number: min_min,
-		leaf_number: leaf_header.number,
-		relevant_paras,
-	};
+	<span class="kw">let </span>fetched_ancestry =
+		FetchSummary { minimum_ancestor_number: min_min, leaf_number: leaf_header.number };
 
 	<span class="kw">let </span>allowed_relay_parents = AllowedRelayParents {
-		minimum_relay_parents: min_relay_parents_raw.iter().cloned().collect(),
+		minimum_relay_parents: min_relay_parents.into_iter().collect(),
 		allowed_relay_parents_contiguous: ancestry,
 	};
 
@@ -1298,12 +1746,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span><span class="kw">crate</span>::TimeoutExt;
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>futures::future::{join, FutureExt};
-	<span class="kw">use </span>polkadot_node_subsystem::AllMessages;
+	<span class="kw">use </span>polkadot_node_subsystem::{messages::RuntimeApiRequest, AllMessages};
 	<span class="kw">use </span>polkadot_node_subsystem_test_helpers::{
 		make_subsystem_context, TestSubsystemContextHandle,
 	};
 	<span class="kw">use </span>polkadot_overseer::SubsystemContext;
-	<span class="kw">use </span>polkadot_primitives::Header;
+	<span class="kw">use </span>polkadot_primitives::{AsyncBackingParams, Header};
 	<span class="kw">use </span>sp_core::testing::TaskExecutor;
 	<span class="kw">use </span>std::time::Duration;
 
@@ -1404,12 +1852,79 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
+	<span class="kw">async fn </span>assert_async_backing_params_request(
+		virtual_overseer: <span class="kw-2">&amp;mut </span>VirtualOverseer,
+		leaf: Hash,
+		params: AsyncBackingParams,
+	) {
+		<span class="macro">assert_matches!</span>(
+			overseer_recv(virtual_overseer).<span class="kw">await</span>,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(
+					leaf_hash,
+					RuntimeApiRequest::AsyncBackingParams(
+						tx
+					)
+				)
+			) =&gt; {
+				<span class="macro">assert_eq!</span>(leaf, leaf_hash, <span class="string">"received unexpected leaf hash"</span>);
+				tx.send(<span class="prelude-val">Ok</span>(params)).unwrap();
+			}
+		);
+	}
+
+	<span class="kw">async fn </span>assert_session_index_request(
+		virtual_overseer: <span class="kw-2">&amp;mut </span>VirtualOverseer,
+		leaf: Hash,
+		session: u32,
+	) {
+		<span class="macro">assert_matches!</span>(
+			overseer_recv(virtual_overseer).<span class="kw">await</span>,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(
+					leaf_hash,
+					RuntimeApiRequest::SessionIndexForChild(
+						tx
+					)
+				)
+			) =&gt; {
+				<span class="macro">assert_eq!</span>(leaf, leaf_hash, <span class="string">"received unexpected leaf hash"</span>);
+				tx.send(<span class="prelude-val">Ok</span>(session)).unwrap();
+			}
+		);
+	}
+
+	<span class="kw">async fn </span>assert_ancestors_request(
+		virtual_overseer: <span class="kw-2">&amp;mut </span>VirtualOverseer,
+		leaf: Hash,
+		expected_ancestor_len: u32,
+		response: Vec&lt;Hash&gt;,
+	) {
+		<span class="macro">assert_matches!</span>(
+			overseer_recv(virtual_overseer).<span class="kw">await</span>,
+			AllMessages::ChainApi(
+				ChainApiMessage::Ancestors {
+					hash: leaf_hash,
+					k,
+					response_channel: tx
+				}
+			) =&gt; {
+				<span class="macro">assert_eq!</span>(leaf, leaf_hash, <span class="string">"received unexpected leaf hash"</span>);
+				<span class="macro">assert_eq!</span>(k, expected_ancestor_len <span class="kw">as </span>usize);
+
+				tx.send(<span class="prelude-val">Ok</span>(response)).unwrap();
+			}
+		);
+	}
+
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>construct_fresh_view() {
 		<span class="kw">let </span>pool = TaskExecutor::new();
 		<span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>ctx_handle) = make_subsystem_context::&lt;AllMessages, <span class="kw">_</span>&gt;(pool);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>view = View::default();
+
+		<span class="macro">assert_eq!</span>(view.collating_for, <span class="prelude-val">None</span>);
 
 		<span class="comment">// Chain B.
 		</span><span class="kw">const </span>PARA_A_MIN_PARENT: u32 = <span class="number">4</span>;
@@ -1418,15 +1933,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prospective_response = <span class="macro">vec!</span>[(PARA_A, PARA_A_MIN_PARENT), (PARA_B, PARA_B_MIN_PARENT)];
 
 		<span class="kw">let </span>leaf = CHAIN_B.last().unwrap();
+		<span class="kw">let </span>leaf_idx = CHAIN_B.len() - <span class="number">1</span>;
 		<span class="kw">let </span>min_min_idx = (PARA_B_MIN_PARENT - GENESIS_NUMBER - <span class="number">1</span>) <span class="kw">as </span>usize;
 
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), <span class="kw-2">*</span>leaf).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
-			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_A, PARA_B]);
+			res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, <span class="kw-2">&amp;</span>CHAIN_B[leaf_idx..]).<span class="kw">await</span>;
 			assert_min_relay_parents_request(<span class="kw-2">&amp;mut </span>ctx_handle, leaf, prospective_response).<span class="kw">await</span>;
-			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, <span class="kw-2">&amp;</span>CHAIN_B[min_min_idx..]).<span class="kw">await</span>;
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, <span class="kw-2">&amp;</span>CHAIN_B[min_min_idx..leaf_idx])
+				.<span class="kw">await</span>;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
@@ -1448,6 +1965,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					allowed_relay_parents.allowed_relay_parents_contiguous,
 					expected_ancestry
 				);
+
+				<span class="macro">assert_eq!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">None</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>expected_ancestry[..]));
+				<span class="macro">assert_eq!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_A)), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>expected_ancestry[..(PARA_A_MIN_PARENT - <span class="number">1</span>) <span class="kw">as </span>usize]));
+				<span class="macro">assert_eq!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_B)), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>expected_ancestry[..]));
+				<span class="macro">assert!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_C)).unwrap().is_empty());
 			}
 		);
 
@@ -1456,18 +1978,188 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prospective_response = <span class="macro">vec!</span>[(PARA_C, PARA_C_MIN_PARENT)];
 		<span class="kw">let </span>leaf = CHAIN_A.last().unwrap();
 		<span class="kw">let </span>blocks = [<span class="kw-2">&amp;</span>[GENESIS_HASH], CHAIN_A].concat();
+		<span class="kw">let </span>leaf_idx = blocks.len() - <span class="number">1</span>;
 
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), <span class="kw-2">*</span>leaf).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
-			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_C]);
+			res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_A, <span class="kw-2">&amp;</span>blocks[leaf_idx..]).<span class="kw">await</span>;
 			assert_min_relay_parents_request(<span class="kw-2">&amp;mut </span>ctx_handle, leaf, prospective_response).<span class="kw">await</span>;
-			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_A, <span class="kw-2">&amp;</span>blocks).<span class="kw">await</span>;
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_A, <span class="kw-2">&amp;</span>blocks[..leaf_idx]).<span class="kw">await</span>;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
 		<span class="macro">assert_eq!</span>(view.leaves.len(), <span class="number">2</span>);
+
+		<span class="kw">let </span>leaf_info =
+			view.block_info_storage.get(leaf).expect(<span class="string">"block must be present in storage"</span>);
+		<span class="macro">assert_matches!</span>(
+			leaf_info.maybe_allowed_relay_parents,
+			<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>allowed_relay_parents) =&gt; {
+				<span class="macro">assert_eq!</span>(allowed_relay_parents.minimum_relay_parents[<span class="kw-2">&amp;</span>PARA_C], GENESIS_NUMBER);
+				<span class="kw">let </span>expected_ancestry: Vec&lt;Hash&gt; =
+					blocks[..].iter().rev().copied().collect();
+				<span class="macro">assert_eq!</span>(
+					allowed_relay_parents.allowed_relay_parents_contiguous,
+					expected_ancestry
+				);
+
+				<span class="macro">assert_eq!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">None</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>expected_ancestry[..]));
+				<span class="macro">assert_eq!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_C)), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>expected_ancestry[..]));
+
+				<span class="macro">assert!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_A)).unwrap().is_empty());
+				<span class="macro">assert!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_B)).unwrap().is_empty());
+			}
+		);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>construct_fresh_view_single_para() {
+		<span class="kw">let </span>pool = TaskExecutor::new();
+		<span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>ctx_handle) = make_subsystem_context::&lt;AllMessages, <span class="kw">_</span>&gt;(pool);
+
+		<span class="kw">let </span><span class="kw-2">mut </span>view = View::new(<span class="prelude-val">Some</span>(PARA_A));
+
+		<span class="macro">assert_eq!</span>(view.collating_for, <span class="prelude-val">Some</span>(PARA_A));
+
+		<span class="comment">// Chain B.
+		</span><span class="kw">const </span>PARA_A_MIN_PARENT: u32 = <span class="number">4</span>;
+
+		<span class="kw">let </span>current_session = <span class="number">2</span>;
+
+		<span class="kw">let </span>leaf = CHAIN_B.last().unwrap();
+		<span class="kw">let </span>leaf_idx = CHAIN_B.len() - <span class="number">1</span>;
+		<span class="kw">let </span>min_min_idx = (PARA_A_MIN_PARENT - GENESIS_NUMBER - <span class="number">1</span>) <span class="kw">as </span>usize;
+
+		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), <span class="kw-2">*</span>leaf).timeout(TIMEOUT).map(|res| {
+			res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
+		});
+		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, <span class="kw-2">&amp;</span>CHAIN_B[leaf_idx..]).<span class="kw">await</span>;
+
+			assert_async_backing_params_request(
+				<span class="kw-2">&amp;mut </span>ctx_handle,
+				<span class="kw-2">*</span>leaf,
+				AsyncBackingParams {
+					max_candidate_depth: <span class="number">0</span>,
+					allowed_ancestry_len: PARA_A_MIN_PARENT,
+				},
+			)
+			.<span class="kw">await</span>;
+
+			assert_session_index_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">*</span>leaf, current_session).<span class="kw">await</span>;
+
+			assert_ancestors_request(
+				<span class="kw-2">&amp;mut </span>ctx_handle,
+				<span class="kw-2">*</span>leaf,
+				PARA_A_MIN_PARENT,
+				CHAIN_B[min_min_idx..leaf_idx].iter().copied().rev().collect(),
+			)
+			.<span class="kw">await</span>;
+
+			<span class="kw">for </span>hash <span class="kw">in </span>CHAIN_B[min_min_idx..leaf_idx].into_iter().rev() {
+				assert_session_index_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">*</span>hash, current_session).<span class="kw">await</span>;
+			}
+
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, <span class="kw-2">&amp;</span>CHAIN_B[min_min_idx..leaf_idx])
+				.<span class="kw">await</span>;
+		};
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		<span class="kw">for </span>i <span class="kw">in </span>min_min_idx..(CHAIN_B.len() - <span class="number">1</span>) {
+			<span class="comment">// No allowed relay parents constructed for ancestry.
+			</span><span class="macro">assert!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>CHAIN_B[i], <span class="prelude-val">None</span>).is_none());
+		}
+
+		<span class="kw">let </span>leaf_info =
+			view.block_info_storage.get(leaf).expect(<span class="string">"block must be present in storage"</span>);
+		<span class="macro">assert_matches!</span>(
+			leaf_info.maybe_allowed_relay_parents,
+			<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>allowed_relay_parents) =&gt; {
+				<span class="macro">assert_eq!</span>(allowed_relay_parents.minimum_relay_parents[<span class="kw-2">&amp;</span>PARA_A], PARA_A_MIN_PARENT);
+				<span class="kw">let </span>expected_ancestry: Vec&lt;Hash&gt; =
+					CHAIN_B[min_min_idx..].iter().rev().copied().collect();
+				<span class="macro">assert_eq!</span>(
+					allowed_relay_parents.allowed_relay_parents_contiguous,
+					expected_ancestry
+				);
+
+				<span class="macro">assert_eq!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">None</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>expected_ancestry[..]));
+				<span class="macro">assert_eq!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_A)), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>expected_ancestry[..]));
+
+				<span class="macro">assert!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_B)).unwrap().is_empty());
+				<span class="macro">assert!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_C)).unwrap().is_empty());
+			}
+		);
+
+		<span class="comment">// Suppose the whole test chain A is allowed up to genesis for para A, but the genesis block
+		// is in a different session.
+		</span><span class="kw">let </span>leaf = CHAIN_A.last().unwrap();
+		<span class="kw">let </span>blocks = [<span class="kw-2">&amp;</span>[GENESIS_HASH], CHAIN_A].concat();
+		<span class="kw">let </span>leaf_idx = blocks.len() - <span class="number">1</span>;
+
+		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), <span class="kw-2">*</span>leaf).timeout(TIMEOUT).map(|res| {
+			res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
+		});
+
+		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_A, <span class="kw-2">&amp;</span>blocks[leaf_idx..]).<span class="kw">await</span>;
+
+			assert_async_backing_params_request(
+				<span class="kw-2">&amp;mut </span>ctx_handle,
+				<span class="kw-2">*</span>leaf,
+				AsyncBackingParams {
+					max_candidate_depth: <span class="number">0</span>,
+					allowed_ancestry_len: blocks.len() <span class="kw">as </span>u32,
+				},
+			)
+			.<span class="kw">await</span>;
+
+			assert_session_index_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">*</span>leaf, current_session).<span class="kw">await</span>;
+
+			assert_ancestors_request(
+				<span class="kw-2">&amp;mut </span>ctx_handle,
+				<span class="kw-2">*</span>leaf,
+				blocks.len() <span class="kw">as </span>u32,
+				blocks[..leaf_idx].iter().rev().copied().collect(),
+			)
+			.<span class="kw">await</span>;
+
+			<span class="kw">for </span>hash <span class="kw">in </span>blocks[<span class="number">1</span>..leaf_idx].into_iter().rev() {
+				assert_session_index_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">*</span>hash, current_session).<span class="kw">await</span>;
+			}
+
+			assert_session_index_request(<span class="kw-2">&amp;mut </span>ctx_handle, GENESIS_HASH, <span class="number">0</span>).<span class="kw">await</span>;
+
+			<span class="comment">// We won't request for the genesis block
+			</span>assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_A, <span class="kw-2">&amp;</span>blocks[<span class="number">1</span>..leaf_idx]).<span class="kw">await</span>;
+		};
+
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		<span class="macro">assert_eq!</span>(view.leaves.len(), <span class="number">2</span>);
+
+		<span class="kw">let </span>leaf_info =
+			view.block_info_storage.get(leaf).expect(<span class="string">"block must be present in storage"</span>);
+		<span class="macro">assert_matches!</span>(
+			leaf_info.maybe_allowed_relay_parents,
+			<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>allowed_relay_parents) =&gt; {
+				<span class="macro">assert_eq!</span>(allowed_relay_parents.minimum_relay_parents[<span class="kw-2">&amp;</span>PARA_A], <span class="number">1</span>);
+				<span class="kw">let </span>expected_ancestry: Vec&lt;Hash&gt; =
+					CHAIN_A[..].iter().rev().copied().collect();
+				<span class="macro">assert_eq!</span>(
+					allowed_relay_parents.allowed_relay_parents_contiguous,
+					expected_ancestry
+				);
+
+				<span class="macro">assert_eq!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">None</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>expected_ancestry[..]));
+				<span class="macro">assert_eq!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_A)), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>expected_ancestry[..]));
+
+				<span class="macro">assert!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_B)).unwrap().is_empty());
+				<span class="macro">assert!</span>(view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf, <span class="prelude-val">Some</span>(PARA_C)).unwrap().is_empty());
+			}
+		);
 	}
 
 	<span class="attr">#[test]
@@ -1485,15 +2177,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prospective_response = <span class="macro">vec!</span>[(PARA_A, PARA_A_MIN_PARENT)];
 
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), leaf_a).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
-			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_A]);
+			res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
+			assert_block_header_requests(
+				<span class="kw-2">&amp;mut </span>ctx_handle,
+				CHAIN_B,
+				<span class="kw-2">&amp;</span>CHAIN_B[(leaf_a_number - <span class="number">1</span>)..leaf_a_number],
+			)
+			.<span class="kw">await</span>;
 			assert_min_relay_parents_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">&amp;</span>leaf_a, prospective_response).<span class="kw">await</span>;
 			assert_block_header_requests(
 				<span class="kw-2">&amp;mut </span>ctx_handle,
 				CHAIN_B,
-				<span class="kw-2">&amp;</span>CHAIN_B[min_min_idx..leaf_a_number],
+				<span class="kw-2">&amp;</span>CHAIN_B[min_min_idx..(leaf_a_number - <span class="number">1</span>)],
 			)
 			.<span class="kw">await</span>;
 		};
@@ -1507,15 +2204,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prospective_response = <span class="macro">vec!</span>[(PARA_B, PARA_B_MIN_PARENT)];
 
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), leaf_b).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
-			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_B]);
+			res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
+			assert_block_header_requests(
+				<span class="kw-2">&amp;mut </span>ctx_handle,
+				CHAIN_B,
+				<span class="kw-2">&amp;</span>CHAIN_B[(leaf_b_number - <span class="number">1</span>)..leaf_b_number],
+			)
+			.<span class="kw">await</span>;
 			assert_min_relay_parents_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">&amp;</span>leaf_b, prospective_response).<span class="kw">await</span>;
 			assert_block_header_requests(
 				<span class="kw-2">&amp;mut </span>ctx_handle,
 				CHAIN_B,
-				<span class="kw-2">&amp;</span>CHAIN_B[leaf_a_number..leaf_b_number], <span class="comment">// Note the expected range.
+				<span class="kw-2">&amp;</span>CHAIN_B[leaf_a_number..(leaf_b_number - <span class="number">1</span>)], <span class="comment">// Note the expected range.
 			</span>)
 			.<span class="kw">await</span>;
 		};
@@ -1555,13 +2257,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.timeout(TIMEOUT)
 			.map(|res| res.unwrap().unwrap());
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
-			assert_min_relay_parents_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">&amp;</span>leaf_a, prospective_response).<span class="kw">await</span>;
 			assert_block_header_requests(
 				<span class="kw-2">&amp;mut </span>ctx_handle,
 				CHAIN_B,
-				<span class="kw-2">&amp;</span>CHAIN_B[min_a_idx..=leaf_a_idx],
+				<span class="kw-2">&amp;</span>CHAIN_B[leaf_a_idx..(leaf_a_idx + <span class="number">1</span>)],
 			)
 			.<span class="kw">await</span>;
+			assert_min_relay_parents_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">&amp;</span>leaf_a, prospective_response).<span class="kw">await</span>;
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, <span class="kw-2">&amp;</span>CHAIN_B[min_a_idx..leaf_a_idx])
+				.<span class="kw">await</span>;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
@@ -1579,8 +2283,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.timeout(TIMEOUT)
 			.map(|res| res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap());
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, <span class="kw-2">&amp;</span>blocks[(blocks.len() - <span class="number">1</span>)..])
+				.<span class="kw">await</span>;
 			assert_min_relay_parents_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">&amp;</span>leaf_b, prospective_response).<span class="kw">await</span>;
-			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, blocks).<span class="kw">await</span>;
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, <span class="kw-2">&amp;</span>blocks[..(blocks.len() - <span class="number">1</span>)])
+				.<span class="kw">await</span>;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
@@ -1611,19 +2318,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>prospective_response = <span class="macro">vec!</span>[(PARA_A, PARA_A_MIN_PARENT)];
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), GENESIS_HASH).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
-			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_A]);
+			res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
+			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">&amp;</span>[GENESIS_HASH], <span class="kw-2">&amp;</span>[GENESIS_HASH]).<span class="kw">await</span>;
 			assert_min_relay_parents_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">&amp;</span>GENESIS_HASH, prospective_response)
 				.<span class="kw">await</span>;
-			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">&amp;</span>[GENESIS_HASH], <span class="kw-2">&amp;</span>[GENESIS_HASH]).<span class="kw">await</span>;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
 		<span class="macro">assert_matches!</span>(
 			view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>GENESIS_HASH, <span class="prelude-val">None</span>),
-			<span class="prelude-val">Some</span>(hashes) <span class="kw">if </span>!hashes.is_empty()
+			<span class="prelude-val">Some</span>(hashes) <span class="kw">if </span>hashes == <span class="kw-2">&amp;</span>[GENESIS_HASH]
 		);
 	}
 }

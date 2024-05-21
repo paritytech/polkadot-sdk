@@ -1749,6 +1749,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1598" id="1598">1598</a>
 <a href="#1599" id="1599">1599</a>
 <a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
+<a href="#1608" id="1608">1608</a>
+<a href="#1609" id="1609">1609</a>
+<a href="#1610" id="1610">1610</a>
+<a href="#1611" id="1611">1611</a>
+<a href="#1612" id="1612">1612</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2015,7 +2027,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// never included in the fragment chains of active leaves which do. In
 	/// particular, this means that if a given relay parent belongs to implicit
 	/// ancestry of some active leaf, then it does support prospective parachains.
-	</span>implicit_view: ImplicitView,
+	///
+	/// It's `None` if the collator is not yet collating for a paraid.
+	</span>implicit_view: <span class="prelude-ty">Option</span>&lt;ImplicitView&gt;,
 
 	<span class="doccomment">/// All active leaves observed by us, including both that do and do not
 	/// support prospective parachains. This mapping works as a replacement for
@@ -2085,7 +2099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			metrics,
 			collating_on: Default::default(),
 			peer_data: Default::default(),
-			implicit_view: Default::default(),
+			implicit_view: <span class="prelude-val">None</span>,
 			active_leaves: Default::default(),
 			per_relay_parent: Default::default(),
 			span_per_relay_parent: Default::default(),
@@ -2290,11 +2304,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.filter(|(<span class="kw">_</span>, PeerData { view: v, .. })| <span class="kw">match </span>relay_parent_mode {
 				ProspectiveParachainsMode::Disabled =&gt; v.contains(<span class="kw-2">&amp;</span>candidate_relay_parent),
 				ProspectiveParachainsMode::Enabled { .. } =&gt; v.iter().any(|block_hash| {
-					state
-						.implicit_view
-						.known_allowed_relay_parents_under(block_hash, <span class="prelude-val">Some</span>(id))
-						.unwrap_or_default()
-						.contains(<span class="kw-2">&amp;</span>candidate_relay_parent)
+					state.implicit_view.as_ref().map(|implicit_view| {
+						implicit_view
+							.known_allowed_relay_parents_under(block_hash, <span class="prelude-val">Some</span>(id))
+							.unwrap_or_default()
+							.contains(<span class="kw-2">&amp;</span>candidate_relay_parent)
+					}) == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)
 				}),
 			});
 
@@ -2581,6 +2596,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">match </span>msg {
 		CollateOn(id) =&gt; {
 			state.collating_on = <span class="prelude-val">Some</span>(id);
+			state.implicit_view = <span class="prelude-val">Some</span>(ImplicitView::new(<span class="prelude-val">Some</span>(id)));
 		},
 		DistributeCollation {
 			candidate_receipt,
@@ -2966,7 +2982,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(ProspectiveParachainsMode::Disabled) =&gt; std::slice::from_ref(<span class="kw-2">&amp;</span>added),
 			<span class="prelude-val">Some</span>(ProspectiveParachainsMode::Enabled { .. }) =&gt; state
 				.implicit_view
-				.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>added, state.collating_on)
+				.as_ref()
+				.and_then(|implicit_view| {
+					implicit_view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>added, state.collating_on)
+				})
 				.unwrap_or_default(),
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">gum::trace!</span>(
@@ -3104,21 +3123,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state.per_relay_parent.insert(<span class="kw-2">*</span>leaf, PerRelayParent::new(mode));
 
 		<span class="kw">if </span>mode.is_enabled() {
-			state
-				.implicit_view
-				.activate_leaf(sender, <span class="kw-2">*</span>leaf)
-				.<span class="kw">await
-				</span>.map_err(Error::ImplicitViewFetchError)<span class="question-mark">?</span>;
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>implicit_view) = state.implicit_view {
+				implicit_view
+					.activate_leaf(sender, <span class="kw-2">*</span>leaf)
+					.<span class="kw">await
+					</span>.map_err(Error::ImplicitViewFetchError)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>allowed_ancestry = state
-				.implicit_view
-				.known_allowed_relay_parents_under(leaf, state.collating_on)
-				.unwrap_or_default();
-			<span class="kw">for </span>block_hash <span class="kw">in </span>allowed_ancestry {
-				state
-					.per_relay_parent
-					.entry(<span class="kw-2">*</span>block_hash)
-					.or_insert_with(|| PerRelayParent::new(mode));
+				<span class="kw">let </span>allowed_ancestry = implicit_view
+					.known_allowed_relay_parents_under(leaf, state.collating_on)
+					.unwrap_or_default();
+
+				<span class="kw">for </span>block_hash <span class="kw">in </span>allowed_ancestry {
+					state
+						.per_relay_parent
+						.entry(<span class="kw-2">*</span>block_hash)
+						.or_insert_with(|| PerRelayParent::new(mode));
+				}
 			}
 		}
 	}
@@ -3129,7 +3149,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// of implicit ancestry. Only update the state after the hash is actually
 		// pruned from the block info storage.
 		</span><span class="kw">let </span>pruned = <span class="kw">if </span>mode.is_enabled() {
-			state.implicit_view.deactivate_leaf(<span class="kw-2">*</span>leaf)
+			state
+				.implicit_view
+				.as_mut()
+				.map(|view| view.deactivate_leaf(<span class="kw-2">*</span>leaf))
+				.unwrap_or_default()
 		} <span class="kw">else </span>{
 			<span class="macro">vec!</span>[<span class="kw-2">*</span>leaf]
 		};
