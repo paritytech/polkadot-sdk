@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use multiaddr::{Multiaddr, Protocol};
-use multihash::{Code, Error, Multihash};
+use crate::{
+	multiaddr::{Multiaddr, Protocol},
+	multihash::{Code, Error, Multihash},
+};
 use rand::Rng;
 
 use std::{fmt, hash::Hash, str::FromStr};
@@ -185,7 +187,7 @@ pub enum ParseError {
 	#[error("unsupported multihash code '{0}'")]
 	UnsupportedCode(u64),
 	#[error("invalid multihash")]
-	InvalidMultihash(#[from] multihash::Error),
+	InvalidMultihash(#[from] crate::multihash::Error),
 }
 
 impl FromStr for PeerId {
