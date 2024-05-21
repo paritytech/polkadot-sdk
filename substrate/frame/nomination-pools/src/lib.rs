@@ -1951,6 +1951,8 @@ pub mod pallet {
 		NoDelegationToMigrate,
 		/// The pool has already migrated.
 		AlreadyMigrated,
+		/// This call is not allowed in the current state of the pool.
+		NotSupported,
 	}
 
 	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
@@ -2869,6 +2871,9 @@ pub mod pallet {
 
 		/// Apply a pending slash on a member.
 		///
+		/// Fails unless [`crate::pallet::Config::StakeAdapter`] is of strategy type:
+		/// [`adapter::StakeStrategyType::Delegate`].
+		///
 		/// This call can be dispatched permissionlessly (i.e. by any account). If the member has
 		/// slash to be applied, caller may be rewarded with the part of the slash.
 		#[pallet::call_index(23)]
@@ -2877,6 +2882,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,
 		) -> DispatchResultWithPostInfo {
+			ensure!(
+				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+				Error::<T>::NotSupported
+			);
+
 			let who = ensure_signed(origin)?;
 			let member_account = T::Lookup::lookup(member_account)?;
 			Self::do_apply_slash(&member_account, Some(who))?;
@@ -2886,6 +2896,9 @@ pub mod pallet {
 		}
 
 		/// Migrates delegated funds from the pool account to the `member_account`.
+		///
+		/// Fails unless [`crate::pallet::Config::StakeAdapter`] is of strategy type:
+		/// [`adapter::StakeStrategyType::Delegate`].
 		///
 		/// This is a permission-less call and refunds any fee if claim is successful.
 		///
@@ -2897,6 +2910,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,
 		) -> DispatchResultWithPostInfo {
+			ensure!(
+				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+				Error::<T>::NotSupported
+			);
+
 			let _caller = ensure_signed(origin)?;
 
 			let member_account = T::Lookup::lookup(member_account)?;
@@ -2925,7 +2943,10 @@ pub mod pallet {
 		/// Migrate pool from [`adapter::StakeStrategyType::Transfer`] to
 		/// [`adapter::StakeStrategyType::Delegate`].
 		///
-		/// This is a permission-less call and can be called only once for a pool.
+		/// Fails unless [`crate::pallet::Config::StakeAdapter`] is of strategy type:
+		/// [`adapter::StakeStrategyType::Delegate`].
+		///
+		/// This call can be dispatched permissionlessly, and refunds any fee if successful.
 		///
 		/// If the pool has already migrated to delegation based staking, this call will fail.
 		#[pallet::call_index(25)]
@@ -2934,6 +2955,12 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			pool_id: PoolId,
 		) -> DispatchResultWithPostInfo {
+			// gate this call to be called only if `DelegateStake` strategy is used.
+			ensure!(
+				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+				Error::<T>::NotSupported
+			);
+
 			let _caller = ensure_signed(origin)?;
 			// ensure pool exists.
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
@@ -3058,7 +3085,7 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_sub_account_truncating((AccountType::Bonded, id))
 	}
 
-	pub fn migrate_to_delegate_stake(id: PoolId) -> DispatchResult {
+	fn migrate_to_delegate_stake(id: PoolId) -> DispatchResult {
 		T::StakeAdapter::migrate_nominator_to_agent(
 			&Self::generate_bonded_account(id),
 			&Self::generate_reward_account(id),

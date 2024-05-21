@@ -979,7 +979,13 @@ fn pool_migration_e2e() {
 		// we migrate to the new strategy `DelegateStake`
 		LegacyAdapter::set(false);
 		// migrate the pool.
-		assert_ok!(Pools::migrate_to_delegate_stake(1));
+		assert_ok!(Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1));
+
+		// migrate again does not work.
+		assert_noop!(
+			Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
+			PoolsError::<Runtime>::AlreadyMigrated
+		);
 
 		// unclaimed delegations to the pool are stored in this account.
 		let proxy_delegator_1 = DelegatedStaking::generate_proxy_delegator(POOL1_BONDED);

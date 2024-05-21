@@ -980,7 +980,7 @@ frame_benchmarking::benchmarks! {
 		let _ = migrate_to_transfer_stake::<T>(1);
 	}: {
 		// Try migrate to `DelegateStake`. Would succeed only if `DelegateStake` strategy is used.
-		let res = Pools::<T>::migrate_to_delegate_stake(1);
+		let res = Pools::<T>::migrate_pool_to_delegate_stake(RuntimeOrigin::Signed(depositor.clone()).into(), 1u32.into());
 		assert!(is_transfer_stake_strategy::<T>() ^ res.is_ok());
 	}
 	verify {
@@ -998,7 +998,7 @@ frame_benchmarking::benchmarks! {
 		let _ = migrate_to_transfer_stake::<T>(1);
 
 		// Now migrate pool to delegate stake keeping delegators unmigrated.
-		let migration_res = Pools::<T>::migrate_to_delegate_stake(1);
+		let migration_res = Pools::<T>::migrate_pool_to_delegate_stake(RuntimeOrigin::Signed(depositor.clone()).into(), 1u32.into());
 		assert!(is_transfer_stake_strategy::<T>() ^ migration_res.is_ok());
 
 		// verify balances that we will check again later.
