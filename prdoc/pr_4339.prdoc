@@ -1,0 +1,9 @@
+title: Improving on_demand_assigner emitted events
+
+doc:
+
+audience: Rutime User
+description: OnDemandOrderPlaced event that is useful for indexers to save data related to on demand orders. Check discussion here.
+Closes #4254
+
+crates: [ 'runtime-parachain]
