@@ -221,7 +221,7 @@ impl<T: Config> Pallet<T> {
 		let leadin_length = config.leadin_length;
 		let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
 		let sellout_price = if cores_offered > 0 {
-			// No core sold -> price was too high.
+			// No core sold -> price was too high -> we have to adjust downwards.
 			Some(new_prices.price)
 		} else {
 			None
