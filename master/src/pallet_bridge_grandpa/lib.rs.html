@@ -2277,7 +2277,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Pallet owner has a right to halt all pallet operations and then resume it. If it is
 	/// `None`, then there are no direct ways to halt/resume pallet operations, but other
 	/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
-	/// flag directly or call the `halt_operations`).
+	/// flag directly or call the `set_operating_mode`).
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>PalletOwner&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;

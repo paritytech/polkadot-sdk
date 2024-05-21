@@ -460,9 +460,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -736,7 +733,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">move </span>|expected_message_size| -&gt; MessagePayload {
 		<span class="comment">// For XCM bridge hubs, it is the message that
 		// will be pushed further to some XCM queue (XCMP/UMP)
-		</span><span class="kw">let </span>location = xcm::VersionedInteriorLocation::V4(destination.clone());
+		</span><span class="kw">let </span>location = xcm::VersionedInteriorLocation::from(destination.clone());
 		<span class="kw">let </span>location_encoded_size = location.encoded_size();
 
 		<span class="comment">// we don't need to be super-precise with `expected_size` here
@@ -759,16 +756,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			expected_message_size, location_encoded_size, xcm_size, xcm_data_size,
 		);
 
-		<span class="kw">let </span>xcm = xcm::VersionedXcm::&lt;()&gt;::V4(
-			<span class="macro">vec!</span>[Instruction::&lt;()&gt;::ExpectPallet {
-				index: <span class="number">0</span>,
-				name: <span class="macro">vec!</span>[<span class="number">42</span>; xcm_data_size],
-				module_name: <span class="macro">vec!</span>[],
-				crate_major: <span class="number">0</span>,
-				min_crate_minor: <span class="number">0</span>,
-			}]
-			.into(),
-		);
+		<span class="kw">let </span>xcm = xcm::VersionedXcm::&lt;()&gt;::from(Xcm(<span class="macro">vec!</span>[Instruction::&lt;()&gt;::ExpectPallet {
+			index: <span class="number">0</span>,
+			name: <span class="macro">vec!</span>[<span class="number">42</span>; xcm_data_size],
+			module_name: <span class="macro">vec!</span>[],
+			crate_major: <span class="number">0</span>,
+			min_crate_minor: <span class="number">0</span>,
+		}]));
 
 		<span class="comment">// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
 		// or public fields, so just tuple

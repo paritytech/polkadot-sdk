@@ -1183,6 +1183,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1032" id="1032">1032</a>
 <a href="#1033" id="1033">1033</a>
 <a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2034,24 +2042,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>xcm_fee_payment_runtime_api::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>query_acceptable_payment_assets(xcm_version: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, XcmPaymentApiError&gt; {
-			<span class="kw">if </span>!<span class="macro">matches!</span>(xcm_version, <span class="number">3 </span>| <span class="number">4</span>) {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(XcmPaymentApiError::UnhandledXcmVersion);
-			}
-			<span class="prelude-val">Ok</span>([VersionedAssetId::V4(xcm_config::RelayLocation::get().into())]
+			<span class="kw">let </span>acceptable = <span class="macro">vec!</span>[
+				<span class="comment">// native token
+				</span>VersionedAssetId::from(AssetLocationId(xcm_config::RelayLocation::get()))
+			];
+
+			<span class="prelude-val">Ok</span>(acceptable
 				.into_iter()
 				.filter_map(|asset| asset.into_version(xcm_version).ok())
 				.collect())
 		}
 
 		<span class="kw">fn </span>query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, XcmPaymentApiError&gt; {
-			<span class="kw">let </span>local_asset = VersionedAssetId::V4(xcm_config::RelayLocation::get().into());
-			<span class="kw">let </span>asset = asset
-				.into_version(<span class="number">4</span>)
-				.map_err(|<span class="kw">_</span>| XcmPaymentApiError::VersionedConversionFailed)<span class="question-mark">?</span>;
-
-			<span class="kw">if  </span>asset != local_asset { <span class="kw">return </span><span class="prelude-val">Err</span>(XcmPaymentApiError::AssetNotFound); }
-
-			<span class="prelude-val">Ok</span>(WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight))
+			<span class="kw">match </span>asset.try_as::&lt;AssetLocationId&gt;() {
+				<span class="prelude-val">Ok</span>(asset_id) <span class="kw">if </span>asset_id.<span class="number">0 </span>== xcm_config::RelayLocation::get() =&gt; {
+					<span class="comment">// for native token
+					</span><span class="prelude-val">Ok</span>(WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight))
+				},
+				<span class="prelude-val">Ok</span>(asset_id) =&gt; {
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"</span>);
+					<span class="prelude-val">Err</span>(XcmPaymentApiError::AssetNotFound)
+				},
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"</span>);
+					<span class="prelude-val">Err</span>(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
 		}
 
 		<span class="kw">fn </span>query_xcm_weight(message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, XcmPaymentApiError&gt; {
@@ -2082,7 +2098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			<span class="kw">let </span>events: Vec&lt;RuntimeEvent&gt; = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
 			<span class="prelude-val">Ok</span>(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::&lt;()&gt;::V4),
+				local_xcm: local_xcm.map(VersionedXcm::&lt;()&gt;::from),
 				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,

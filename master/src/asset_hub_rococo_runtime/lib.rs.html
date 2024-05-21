@@ -3356,7 +3356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			<span class="kw">let </span>events: Vec&lt;RuntimeEvent&gt; = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
 			<span class="prelude-val">Ok</span>(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::&lt;()&gt;::V4),
+				local_xcm: local_xcm.map(VersionedXcm::&lt;()&gt;::from),
 				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,
