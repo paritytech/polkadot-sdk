@@ -656,8 +656,7 @@ impl<T: Config> Pallet<T> {
 
 		let agent = source_delegation.agent.clone();
 		// update delegations
-		Delegation::<T>::new(&agent, amount)
-			.update_or_kill(destination_delegator);
+		Delegation::<T>::new(&agent, amount).update_or_kill(destination_delegator);
 
 		source_delegation.amount = source_delegation
 			.amount

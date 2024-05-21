@@ -1121,9 +1121,17 @@ fn pool_migration_e2e() {
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
 			vec![
-				DelegatedStakingEvent::MigratedDelegation { agent: POOL1_BONDED, delegator: 21, amount: 10 },
+				DelegatedStakingEvent::MigratedDelegation {
+					agent: POOL1_BONDED,
+					delegator: 21,
+					amount: 10
+				},
 				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: 21, amount: 10 },
-				DelegatedStakingEvent::MigratedDelegation { agent: POOL1_BONDED, delegator: 22, amount: 10 },
+				DelegatedStakingEvent::MigratedDelegation {
+					agent: POOL1_BONDED,
+					delegator: 22,
+					amount: 10
+				},
 				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: 22, amount: 5 }
 			]
 		);
