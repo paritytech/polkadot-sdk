@@ -149,6 +149,7 @@ pub trait Ext: sealing::Sealed {
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
+		read_only: bool,
 	) -> Result<ExecReturnValue, ExecError>;
 
 	/// Execute code in the current frame.
@@ -182,7 +183,7 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> Result<(), DispatchError>;
+	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult;
 
 	/// Transfer some amount of funds into the specified account.
 	fn transfer(&mut self, to: &AccountIdOf<Self::T>, value: BalanceOf<Self::T>) -> DispatchResult;
@@ -254,7 +255,7 @@ pub trait Ext: sealing::Sealed {
 	/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<TopicOf<Self::T>>, data: Vec<u8>);
+	fn deposit_event(&mut self, topics: Vec<TopicOf<Self::T>>, data: Vec<u8>) -> DispatchResult;
 
 	/// Returns the current block number.
 	fn block_number(&self) -> BlockNumberFor<Self::T>;
@@ -307,7 +308,7 @@ pub trait Ext: sealing::Sealed {
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T>;
 
 	/// Sets new code hash for existing contract.
-	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> Result<(), DispatchError>;
+	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Returns the number of times the currently executing contract exists on the call stack in
 	/// addition to the calling instance. A value of 0 means no reentrancy.
@@ -327,7 +328,7 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
 	/// `code_hash`.
-	fn increment_refcount(code_hash: CodeHash<Self::T>) -> Result<(), DispatchError>;
+	fn increment_refcount(code_hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Decrement the reference count of a stored code by one.
 	///
@@ -348,10 +349,7 @@ pub trait Ext: sealing::Sealed {
 	/// - [`Error::<T>::MaxDelegateDependenciesReached`]
 	/// - [`Error::<T>::CannotAddSelfAsDelegateDependency`]
 	/// - [`Error::<T>::DelegateDependencyAlreadyExists`]
-	fn lock_delegate_dependency(
-		&mut self,
-		code_hash: CodeHash<Self::T>,
-	) -> Result<(), DispatchError>;
+	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
@@ -361,10 +359,7 @@ pub trait Ext: sealing::Sealed {
 	/// # Errors
 	///
 	/// - [`Error::<T>::DelegateDependencyNotFound`]
-	fn unlock_delegate_dependency(
-		&mut self,
-		code_hash: &CodeHash<Self::T>,
-	) -> Result<(), DispatchError>;
+	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -498,6 +493,8 @@ pub struct Frame<T: Config> {
 	nested_storage: storage::meter::NestedMeter<T>,
 	/// If `false` the contract enabled its defense against reentrance attacks.
 	allows_reentry: bool,
+	/// If `true` subsequent calls cannot modify storage.
+	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
 }
@@ -776,6 +773,7 @@ where
 			storage_meter,
 			BalanceOf::<T>::zero(),
 			determinism,
+			false,
 		)?;
 
 		let stack = Self {
@@ -808,6 +806,7 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		determinism: Determinism,
+		read_only: bool,
 	) -> Result<(Frame<T>, E, Option<u64>), ExecError> {
 		let (account_id, contract_info, executable, delegate_caller, entry_point, nonce) =
 			match frame_args {
@@ -848,11 +847,11 @@ where
 
 		// `Relaxed` will only be ever set in case of off-chain execution.
 		// Instantiations are never allowed even when executing off-chain.
-		if !(executable.is_deterministic() ||
-			(matches!(determinism, Determinism::Relaxed) &&
-				matches!(entry_point, ExportedFunction::Call)))
+		if !(executable.is_deterministic()
+			|| (matches!(determinism, Determinism::Relaxed)
+				&& matches!(entry_point, ExportedFunction::Call)))
 		{
-			return Err(Error::<T>::Indeterministic.into())
+			return Err(Error::<T>::Indeterministic.into());
 		}
 
 		let frame = Frame {
@@ -864,6 +863,7 @@ where
 			nested_gas: gas_meter.nested(gas_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
+			read_only,
 		};
 
 		Ok((frame, executable, nonce))
@@ -878,7 +878,7 @@ where
 		deposit_limit: BalanceOf<T>,
 	) -> Result<E, ExecError> {
 		if self.frames.len() == T::CallStack::size() {
-			return Err(Error::<T>::MaxCallDepthReached.into())
+			return Err(Error::<T>::MaxCallDepthReached.into());
 		}
 
 		// We need to make sure that changes made to the contract info are not discarded.
@@ -895,6 +895,8 @@ where
 		let frame = top_frame_mut!(self);
 		let nested_gas = &mut frame.nested_gas;
 		let nested_storage = &mut frame.nested_storage;
+		// Inherit `read_only` flag from top frame.
+		let read_only = frame.read_only;
 		let (frame, executable, _) = Self::new_frame(
 			frame_args,
 			value_transferred,
@@ -903,6 +905,7 @@ where
 			nested_storage,
 			deposit_limit,
 			self.determinism,
+			read_only,
 		)?;
 		self.frames.push(frame);
 		Ok(executable)
@@ -950,7 +953,7 @@ where
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
-				return Ok(output)
+				return Ok(output);
 			}
 
 			// Storage limit is normally enforced as late as possible (when the last frame returns)
@@ -970,7 +973,7 @@ where
 				(ExportedFunction::Constructor, _) => {
 					// It is not allowed to terminate a contract inside its constructor.
 					if matches!(frame.contract_info, CachedContract::Terminated) {
-						return Err(Error::<T>::TerminatedInConstructor.into())
+						return Err(Error::<T>::TerminatedInConstructor.into());
 					}
 
 					// If a special limit was set for the sub-call, we enforce it here.
@@ -1022,8 +1025,9 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1065,7 +1069,7 @@ where
 
 			// Only gas counter changes are persisted in case of a failure.
 			if !persist {
-				return
+				return;
 			}
 
 			// Record the storage meter changes of the nested call into the parent meter.
@@ -1084,7 +1088,7 @@ where
 				// trigger a rollback.
 				if prev.account_id == *account_id {
 					prev.contract_info = CachedContract::Cached(contract);
-					return
+					return;
 				}
 
 				// Predecessor is a different contract: We persist the info and invalidate the first
@@ -1107,7 +1111,7 @@ where
 			}
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
-				return
+				return;
 			}
 			let mut contract = self.first_frame.contract_info.as_contract();
 			self.storage_meter.absorb(
@@ -1145,7 +1149,7 @@ where
 		// If it is a delegate call, then we've already transferred tokens in the
 		// last non-delegate frame.
 		if frame.delegate_caller.is_some() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let value = frame.value_transferred;
@@ -1194,6 +1198,14 @@ where
 		!self.frames().any(|f| &f.account_id == id && !f.allows_reentry)
 	}
 
+	/// Checks if the state can be changed
+	fn allows_state_change(&self) -> DispatchResult {
+		if self.top_frame().read_only {
+			return Err(<Error<T>>::StateChangeDenied.into());
+		}
+		Ok(())
+	}
+
 	/// Increments and returns the next nonce. Pulls it from storage if it isn't in cache.
 	fn next_nonce(&mut self) -> u64 {
 		let next = self.nonce().wrapping_add(1);
@@ -1217,15 +1229,27 @@ where
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
+		read_only: bool,
 	) -> Result<ExecReturnValue, ExecError> {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
 		self.top_frame_mut().allows_reentry = allows_reentry;
 
+		// Enable read-only access if requested; cannot disable it if already set.
+		let set_frame_read_only = read_only && !self.top_frame().read_only;
+		if set_frame_read_only {
+			self.top_frame_mut().read_only = read_only;
+		}
+
 		let try_call = || {
 			if !self.allows_reentry(&to) {
-				return Err(<Error<T>>::ReentranceDenied.into())
+				return Err(<Error<T>>::ReentranceDenied.into());
+			}
+
+			// If the call value is non-zero and state change is not allowed, issue an error.
+			if !value.is_zero() {
+				self.allows_state_change()?;
 			}
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
@@ -1251,6 +1275,11 @@ where
 
 		// Protection is on a per call basis.
 		self.top_frame_mut().allows_reentry = true;
+
+		if set_frame_read_only {
+			// Revert to the previous setting, if it was changed.
+			self.top_frame_mut().read_only = false;
+		}
 
 		result
 	}
@@ -1287,6 +1316,7 @@ where
 		input_data: Vec<u8>,
 		salt: &[u8],
 	) -> Result<(AccountIdOf<T>, ExecReturnValue), ExecError> {
+		self.allows_state_change()?;
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let nonce = self.next_nonce();
 		let executable = self.push_frame(
@@ -1305,9 +1335,10 @@ where
 		self.run(executable, input_data).map(|ret| (account_id, ret))
 	}
 
-	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> Result<(), DispatchError> {
+	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult {
+		self.allows_state_change()?;
 		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into())
+			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
 		let frame = self.top_frame_mut();
 		let info = frame.terminate();
@@ -1332,6 +1363,7 @@ where
 	}
 
 	fn transfer(&mut self, to: &T::AccountId, value: BalanceOf<T>) -> DispatchResult {
+		self.allows_state_change()?;
 		Self::transfer(Preservation::Preserve, &self.top_frame().account_id, to, value)
 	}
 
@@ -1349,6 +1381,7 @@ where
 		value: Option<Vec<u8>>,
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
+		self.allows_state_change()?;
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),
@@ -1418,11 +1451,13 @@ where
 		T::Currency::minimum_balance()
 	}
 
-	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
+	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) -> DispatchResult {
+		self.allows_state_change()?;
 		Contracts::<Self::T>::deposit_indexed_event(
 			topics,
 			Event::ContractEmitted { contract: self.top_frame().account_id.clone(), data },
 		);
+		Ok(())
 	}
 
 	fn block_number(&self) -> BlockNumberFor<T> {
@@ -1502,10 +1537,11 @@ where
 		self.top_frame_mut().contract_info()
 	}
 
-	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult {
+		self.allows_state_change()?;
 		let frame = top_frame_mut!(self);
 		if !E::from_storage(hash, &mut frame.nested_gas)?.is_deterministic() {
-			return Err(<Error<T>>::Indeterministic.into())
+			return Err(<Error<T>>::Indeterministic.into());
 		}
 
 		let info = frame.contract_info();
@@ -1553,7 +1589,7 @@ where
 		}
 	}
 
-	fn increment_refcount(code_hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+	fn increment_refcount(code_hash: CodeHash<Self::T>) -> DispatchResult {
 		<CodeInfoOf<Self::T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
 			if let Some(info) = existing {
 				*info.refcount_mut() = info.refcount().saturating_add(1);
@@ -1572,10 +1608,8 @@ where
 		});
 	}
 
-	fn lock_delegate_dependency(
-		&mut self,
-		code_hash: CodeHash<Self::T>,
-	) -> Result<(), DispatchError> {
+	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult {
+		self.allows_state_change()?;
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 		ensure!(code_hash != info.code_hash, Error::<T>::CannotAddSelfAsDelegateDependency);
@@ -1591,10 +1625,8 @@ where
 		Ok(())
 	}
 
-	fn unlock_delegate_dependency(
-		&mut self,
-		code_hash: &CodeHash<Self::T>,
-	) -> Result<(), DispatchError> {
+	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult {
+		self.allows_state_change()?;
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 
@@ -2116,7 +2148,9 @@ mod tests {
 		let value = Default::default();
 		let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 			// Try to call into yourself.
-			let r = ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true);
+			let r =
+				ctx.ext
+					.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true, true);
 
 			ReachedBottom::mutate(|reached_bottom| {
 				if !*reached_bottom {
@@ -2175,8 +2209,15 @@ mod tests {
 
 			// Call into CHARLIE contract.
 			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					true
+				),
 				Ok(_)
 			);
 			exec_success()
@@ -2323,7 +2364,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_origin());
 			// BOB calls CHARLIE
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2422,7 +2463,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_root());
 			// BOB calls CHARLIE.
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2456,8 +2497,15 @@ mod tests {
 
 			// Call into charlie contract.
 			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					true
+				),
 				Ok(_)
 			);
 			exec_success()
@@ -2825,7 +2873,8 @@ mod tests {
 						CHARLIE,
 						0,
 						vec![],
-						true
+						true,
+						false
 					),
 					exec_trapped()
 				);
@@ -2836,7 +2885,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true, true)
 				.is_ok());
 			exec_trapped()
 		});
@@ -2869,7 +2918,7 @@ mod tests {
 	fn recursive_call_during_constructor_fails() {
 		let code = MockLoader::insert(Constructor, |ctx, _| {
 			assert_matches!(
-				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), ctx.ext.address().clone(), 0, vec![], true),
+				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), ctx.ext.address().clone(), 0, vec![], true, false),
 				Err(ExecError{error, ..}) if error == <Error<Test>>::ContractNotFound.into()
 			);
 			exec_success()
@@ -3019,7 +3068,8 @@ mod tests {
 		// call the contract passed as input with disabled reentry
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			let dest = Decode::decode(&mut ctx.input_data.as_ref()).unwrap();
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false, false)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3068,8 +3118,15 @@ mod tests {
 	fn call_deny_reentry() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], false)
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					false,
+					false,
+				)
 			} else {
 				exec_success()
 			}
@@ -3077,7 +3134,8 @@ mod tests {
 
 		// call BOB with input set to '1'
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3103,6 +3161,155 @@ mod tests {
 				)
 				.map_err(|e| e.error),
 				<Error<Test>>::ReentranceDenied,
+			);
+		});
+	}
+
+	#[test]
+	fn read_only_call_with_non_zero_value_fails() {
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext.call(
+				Weight::zero(),
+				BalanceOf::<Test>::zero(),
+				CHARLIE,
+				ctx.input_data[0] as u64,
+				vec![],
+				true,
+				true,
+			)
+		});
+
+		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
+
+		ExtBuilder::default().build().execute_with(|| {
+			let schedule = <Test as Config>::Schedule::get();
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let contract_origin = Origin::from_account_id(ALICE);
+			let mut storage_meter =
+				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
+
+			// BOB calls CHARLIE with read-only flag and zero value
+			assert_ok!(MockStack::run_call(
+				contract_origin.clone(),
+				BOB,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				&schedule,
+				0,
+				vec![0],
+				None,
+				Determinism::Enforced
+			));
+
+			// BOB calls CHARLIE with read-only flag and non zero value
+			assert_err!(
+				MockStack::run_call(
+					contract_origin,
+					BOB,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					&schedule,
+					0,
+					vec![1],
+					None,
+					Determinism::Enforced
+				)
+				.map_err(|e| e.error),
+				<Error<Test>>::StateChangeDenied,
+			);
+		});
+	}
+
+	#[test]
+	fn read_only_call_with_set_storage_fails() {
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, true)
+		});
+
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false)?;
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			let schedule = <Test as Config>::Schedule::get();
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let contract_origin = Origin::from_account_id(ALICE);
+			let mut storage_meter =
+				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
+
+			// If BOB calls CHARLIE with the read-only flag, CHARLIE cannot modify the storage,
+			// causing set_storage to fail.
+			assert_err!(
+				MockStack::run_call(
+					contract_origin,
+					BOB,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					&schedule,
+					0,
+					vec![],
+					None,
+					Determinism::Enforced
+				)
+				.map_err(|e| e.error),
+				<Error<Test>>::StateChangeDenied,
+			);
+		});
+	}
+
+	#[test]
+	fn read_only_subsequent_call_with_set_storage_fails() {
+		// Checks if the read-only flag is kept for subsequent calls.
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			if ctx.input_data[0] == 0 {
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					true,
+				)
+			} else {
+				ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false)?;
+				exec_success()
+			}
+		});
+
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			let schedule = <Test as Config>::Schedule::get();
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let contract_origin = Origin::from_account_id(ALICE);
+			let mut storage_meter =
+				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
+
+			// If BOB calls CHARLIE with the read-only flag, and CHARLIE calls back BOB,
+			// BOB cannot modify the storage, causing set_storage to fail.
+			assert_err!(
+				MockStack::run_call(
+					contract_origin,
+					BOB,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					&schedule,
+					0,
+					vec![0],
+					None,
+					Determinism::Enforced
+				)
+				.map_err(|e| e.error),
+				<Error<Test>>::StateChangeDenied,
 			);
 		});
 	}
@@ -3297,7 +3504,7 @@ mod tests {
 
 			// a plain call should not influence the account counter
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), account_id, 0, vec![], false)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), account_id, 0, vec![], false, true)
 				.unwrap();
 
 			exec_success()
