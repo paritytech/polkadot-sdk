@@ -102,7 +102,12 @@ impl<
 					target: LOG_TARGET,
 					"XCM message execution error: {error:?}",
 				);
-				(required, Err(ProcessMessageError::Unsupported))
+				let error = match error {
+					xcm::latest::Error::ExceedsStackLimit => ProcessMessageError::StackLimitReached,
+					_ => ProcessMessageError::Unsupported,
+				};
+
+				(required, Err(error))
 			},
 		};
 		meter.consume(consumed);
@@ -146,6 +151,45 @@ mod tests {
 		for msg in msgs {
 			assert_err!(process_raw(msg), Corrupt);
 		}
+	}
+
+	#[test]
+	fn process_message_exceeds_limits_fails() {
+		struct MockedExecutor;
+		impl ExecuteXcm<()> for MockedExecutor {
+			type Prepared = xcm_executor::WeighedMessage<()>;
+			fn prepare(
+				message: xcm::latest::Xcm<()>,
+			) -> core::result::Result<Self::Prepared, xcm::latest::Xcm<()>> {
+				Ok(xcm_executor::WeighedMessage::new(Weight::zero(), message))
+			}
+			fn execute(
+				_: impl Into<Location>,
+				_: Self::Prepared,
+				_: &mut XcmHash,
+				_: Weight,
+			) -> Outcome {
+				Outcome::Error { error: xcm::latest::Error::ExceedsStackLimit }
+			}
+			fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> xcm::latest::Result {
+				unreachable!()
+			}
+		}
+
+		type Processor = ProcessXcmMessage<Junction, MockedExecutor, ()>;
+
+		let xcm = VersionedXcm::V4(xcm::latest::Xcm::<()>(vec![
+			xcm::latest::Instruction::<()>::ClearOrigin,
+		]));
+		assert_err!(
+			Processor::process_message(
+				&xcm.encode(),
+				ORIGIN,
+				&mut WeightMeter::new(),
+				&mut [0; 32]
+			),
+			ProcessMessageError::StackLimitReached,
+		);
 	}
 
 	#[test]

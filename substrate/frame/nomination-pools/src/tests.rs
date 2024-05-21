@@ -4594,6 +4594,92 @@ mod withdraw_unbonded {
 			assert_eq!(ClaimPermissions::<Runtime>::contains_key(20), false);
 		});
 	}
+
+	#[test]
+	fn destroy_works_without_erroneous_extra_consumer() {
+		ExtBuilder::default().ed(1).build_and_execute(|| {
+			// 10 is the depositor for pool 1, with min join bond 10.
+			// set pool to destroying.
+			unsafe_set_state(1, PoolState::Destroying);
+
+			// set current era
+			CurrentEra::set(1);
+			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 10));
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Created { depositor: 10, pool_id: 1 },
+					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::Unbonded { member: 10, pool_id: 1, balance: 10, points: 10, era: 4 },
+				]
+			);
+
+			// move to era when unbonded funds can be withdrawn.
+			CurrentEra::set(4);
+			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Withdrawn { member: 10, pool_id: 1, points: 10, balance: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::Destroyed { pool_id: 1 },
+				]
+			);
+
+			// pool is destroyed.
+			assert!(!Metadata::<T>::contains_key(1));
+			// ensure the pool account is reaped.
+			assert!(!frame_system::Account::<T>::contains_key(&Pools::create_bonded_account(1)));
+		})
+	}
+
+	#[test]
+	fn destroy_works_with_erroneous_extra_consumer() {
+		ExtBuilder::default().ed(1).build_and_execute(|| {
+			// 10 is the depositor for pool 1, with min join bond 10.
+			let pool_one = Pools::create_bonded_account(1);
+
+			// set pool to destroying.
+			unsafe_set_state(1, PoolState::Destroying);
+
+			// set current era
+			CurrentEra::set(1);
+			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 10));
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Created { depositor: 10, pool_id: 1 },
+					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::Unbonded { member: 10, pool_id: 1, balance: 10, points: 10, era: 4 },
+				]
+			);
+
+			// move to era when unbonded funds can be withdrawn.
+			CurrentEra::set(4);
+
+			// increment consumer by 1 reproducing the erroneous consumer bug.
+			// refer https://github.com/paritytech/polkadot-sdk/issues/4440.
+			assert_ok!(frame_system::Pallet::<T>::inc_consumers(&pool_one));
+			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Withdrawn { member: 10, pool_id: 1, points: 10, balance: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::Destroyed { pool_id: 1 },
+				]
+			);
+
+			// pool is destroyed.
+			assert!(!Metadata::<T>::contains_key(1));
+			// ensure the pool account is reaped.
+			assert!(!frame_system::Account::<T>::contains_key(&pool_one));
+		})
+	}
 }
 
 mod create {

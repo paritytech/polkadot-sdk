@@ -28,7 +28,8 @@ use xcm_builder::{
 		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
 		TestSubscriptionService, TestUniversalAliases,
 	},
-	AliasForeignAccountId32, AllowUnpaidExecutionFrom, FrameTransactionalProcessor,
+	AliasForeignAccountId32, AllowUnpaidExecutionFrom, EnsureDecodableXcm,
+	FrameTransactionalProcessor,
 };
 use xcm_executor::traits::ConvertOrigin;
 
@@ -81,7 +82,7 @@ type Aliasers = AliasForeignAccountId32<OnlyParachains>;
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = DevNull;
+	type XcmSender = EnsureDecodableXcm<DevNull>;
 	type AssetTransactor = NoAssetTransactor;
 	type OriginConverter = AlwaysSignedByDefault<RuntimeOrigin>;
 	type IsReserve = AllAssetLocationsPass;
@@ -109,6 +110,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 parameter_types! {
@@ -132,9 +134,8 @@ impl crate::Config for Test {
 		Ok(valid_destination)
 	}
 	fn worst_case_holding(depositable_count: u32) -> Assets {
-		crate::mock_worst_case_holding(
-			depositable_count,
-			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get(),
+		generate_holding_assets(
+			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get() - depositable_count,
 		)
 	}
 }

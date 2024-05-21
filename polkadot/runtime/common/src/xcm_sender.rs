@@ -18,7 +18,7 @@
 
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
 use primitives::Id as ParaId;
 use runtime_parachains::{
 	configuration::{self, HostConfiguration},
@@ -27,6 +27,7 @@ use runtime_parachains::{
 use sp_runtime::FixedPointNumber;
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::prelude::*;
+use xcm_builder::InspectMessageQueues;
 use SendError::*;
 
 /// Simple value-bearing trait for determining/expressing the assets required to be paid for a
@@ -119,7 +120,9 @@ where
 		let config = configuration::ActiveConfig::<T>::get();
 		let para = id.into();
 		let price = P::price_for_delivery(para, &xcm);
-		let blob = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?.encode();
+		let versioned_xcm = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?;
+		versioned_xcm.validate_xcm_nesting().map_err(|()| ExceedsMaxMessageSize)?;
+		let blob = versioned_xcm.encode();
 		dmp::Pallet::<T>::can_queue_downward_message(&config, &para, &blob)
 			.map_err(Into::<SendError>::into)?;
 
@@ -133,6 +136,24 @@ where
 		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
 			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
+	}
+}
+
+impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		dmp::DownwardMessageQueues::<T>::iter()
+			.map(|(para_id, messages)| {
+				let decoded_messages: Vec<VersionedXcm<()>> = messages
+					.iter()
+					.map(|downward_message| {
+						let message = VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap();
+						log::trace!(target: "xcm::DownwardMessageQueues::get_messages", "Message: {:?}, sent at: {:?}", message, downward_message.sent_at);
+						message
+					})
+					.collect();
+				(VersionedLocation::V4(Parachain(para_id.into()).into()), decoded_messages)
+			})
+			.collect()
 	}
 }
 
@@ -236,9 +257,11 @@ impl EnsureForParachain for () {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::parameter_types;
+	use crate::integration_tests::new_test_ext;
+	use frame_support::{assert_ok, parameter_types};
 	use runtime_parachains::FeeTracker;
 	use sp_runtime::FixedU128;
+	use xcm::MAX_XCM_DECODE_DEPTH;
 
 	parameter_types! {
 		pub const BaseDeliveryFee: u128 = 300_000_000;
@@ -296,5 +319,41 @@ mod tests {
 			),
 			(FeeAssetId::get(), result).into()
 		);
+	}
+
+	#[test]
+	fn child_parachain_router_validate_nested_xcm_works() {
+		let dest = Parachain(5555);
+
+		type Router = ChildParachainRouter<
+			crate::integration_tests::Test,
+			(),
+			NoPriceForMessageDelivery<ParaId>,
+		>;
+
+		// Message that is not too deeply nested:
+		let mut good = Xcm(vec![ClearOrigin]);
+		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
+			good = Xcm(vec![SetAppendix(good)]);
+		}
+
+		new_test_ext().execute_with(|| {
+			configuration::ActiveConfig::<crate::integration_tests::Test>::mutate(|c| {
+				c.max_downward_message_size = u32::MAX;
+			});
+
+			// Check that the good message is validated:
+			assert_ok!(<Router as SendXcm>::validate(
+				&mut Some(dest.into()),
+				&mut Some(good.clone())
+			));
+
+			// Nesting the message one more time should reject it:
+			let bad = Xcm(vec![SetAppendix(good)]);
+			assert_eq!(
+				Err(ExceedsMaxMessageSize),
+				<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
+			);
+		});
 	}
 }
