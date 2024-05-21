@@ -2902,9 +2902,12 @@ pub mod pallet {
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 			let pool_contribution = member.total_balance();
 			ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
+			// the member must have some contribution to be migrated.
+			ensure!(pool_contribution > Zero::zero(), Error::<T>::NoDelegationToClaim);
 
 			let delegation = T::StakeAdapter::member_delegation_balance(&member_account);
-			ensure!(pool_contribution > delegation, Error::<T>::NoDelegationToClaim);
+			// delegation can be claimed only once.
+			ensure!(delegation == Zero::zero(), Error::<T>::NoDelegationToClaim);
 
 			let diff = pool_contribution.defensive_saturating_sub(delegation);
 			T::StakeAdapter::migrate_delegation(
