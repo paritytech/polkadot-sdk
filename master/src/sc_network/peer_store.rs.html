@@ -640,6 +640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -661,8 +662,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! [`PeerStore`] manages peer reputations and provides connection candidates to
 //! [`crate::protocol_controller::ProtocolController`].
 
-</span><span class="kw">use crate</span>::{service::traits::PeerStore <span class="kw">as </span>PeerStoreT, PeerId};
+</span><span class="kw">use </span><span class="kw">crate</span>::service::traits::PeerStore <span class="kw">as </span>PeerStoreT;
 
+<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::trace;
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>partial_sort::PartialSort;

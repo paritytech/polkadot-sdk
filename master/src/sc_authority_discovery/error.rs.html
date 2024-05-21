@@ -264,7 +264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>VerifyingDhtPayload,
 
 	<span class="attr">#[error(<span class="string">"Failed to hash the authority id to be used as a dht key."</span>)]
-	</span>HashingAuthorityId(<span class="attr">#[from] </span>sc_network::multiaddr::multihash::Error),
+	</span>HashingAuthorityId(<span class="attr">#[from] </span>sc_network_types::multihash::Error),
 
 	<span class="attr">#[error(<span class="string">"Failed calling into the Substrate runtime: {0}"</span>)]
 	</span>CallingRuntime(<span class="attr">#[from] </span>sp_blockchain::Error),
@@ -282,7 +282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>EncodingDecodingScale(<span class="attr">#[from] </span>codec::Error),
 
 	<span class="attr">#[error(<span class="string">"Failed to parse a libp2p multi address."</span>)]
-	</span>ParsingMultiaddress(<span class="attr">#[from] </span>sc_network::multiaddr::Error),
+	</span>ParsingMultiaddress(<span class="attr">#[from] </span>sc_network::multiaddr::ParseError),
 
 	<span class="attr">#[error(<span class="string">"Failed to parse a libp2p key: {0}"</span>)]
 	</span>ParsingLibp2pIdentity(String),

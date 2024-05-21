@@ -1138,6 +1138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#987" id="987">987</a>
 <a href="#988" id="988">988</a>
 <a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1178,7 +1179,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			request_response::{RequestResponseConfig, RequestResponseProtocol},
 		},
 	},
-	multiaddr::{Multiaddr, Protocol},
 	peer_store::PeerStoreProvider,
 	protocol,
 	service::{
@@ -1194,7 +1194,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>libp2p::kad::RecordKey;
 <span class="kw">use </span>litep2p::{
 	config::ConfigBuilder,
-	crypto::ed25519::{Keypair, SecretKey},
+	crypto::ed25519::Keypair,
 	executor::Executor,
 	protocol::{
 		libp2p::{bitswap::Config <span class="kw">as </span>BitswapConfig, kademlia::QueryId},
@@ -1204,7 +1204,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tcp::config::Config <span class="kw">as </span>TcpTransportConfig,
 		websocket::config::Config <span class="kw">as </span>WebSocketTransportConfig, Endpoint,
 	},
-	types::ConnectionId,
+	types::{
+		multiaddr::{Multiaddr, Protocol},
+		ConnectionId,
+	},
 	Error <span class="kw">as </span>Litep2pError, Litep2p, Litep2pEvent, ProtocolName <span class="kw">as </span>Litep2pProtocolName,
 };
 <span class="kw">use </span>parking_lot::RwLock;
@@ -1221,7 +1224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	collections::{hash_map::Entry, HashMap, HashSet},
 	fs,
 	future::Future,
-	io, iter,
+	iter,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
@@ -1340,12 +1343,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Protocol::Ip4(<span class="kw">_</span>),
 				) =&gt; <span class="kw">match </span>address.iter().find(|protocol| <span class="macro">std::matches!</span>(protocol, Protocol::P2p(<span class="kw">_</span>)))
 				{
-					<span class="prelude-val">Some</span>(Protocol::P2p(multihash)) =&gt; PeerId::from_multihash(multihash)
+					<span class="prelude-val">Some</span>(Protocol::P2p(multihash)) =&gt; PeerId::from_multihash(multihash.into())
 						.map_or(<span class="prelude-val">None</span>, |peer| <span class="prelude-val">Some</span>((peer, <span class="prelude-val">Some</span>(address)))),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 				},
 				<span class="prelude-val">Some</span>(Protocol::P2p(multihash)) =&gt;
-					PeerId::from_multihash(multihash).map_or(<span class="prelude-val">None</span>, |peer| <span class="prelude-val">Some</span>((peer, <span class="prelude-val">None</span>))),
+					PeerId::from_multihash(multihash.into()).map_or(<span class="prelude-val">None</span>, |peer| <span class="prelude-val">Some</span>((peer, <span class="prelude-val">None</span>))),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 			})
 			.fold(HashMap::new(), |<span class="kw-2">mut </span>acc, (peer, maybe_address)| {
@@ -1384,16 +1387,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Litep2pNetworkBackend {
 	<span class="doccomment">/// Get `litep2p` keypair from `NodeKeyConfig`.
 	</span><span class="kw">fn </span>get_keypair(node_key: <span class="kw-2">&amp;</span>NodeKeyConfig) -&gt; <span class="prelude-ty">Result</span>&lt;(Keypair, litep2p::PeerId), Error&gt; {
-		<span class="kw">let </span>secret = libp2p::identity::Keypair::try_into_ed25519(node_key.clone().into_keypair()<span class="question-mark">?</span>)
-			.map_err(|error| {
-				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"failed to convert to ed25519: {error:?}"</span>);
-				Error::Io(io::ErrorKind::InvalidInput.into())
-			})<span class="question-mark">?
-			</span>.secret();
+		<span class="kw">let </span>secret: litep2p::crypto::ed25519::SecretKey =
+			node_key.clone().into_keypair()<span class="question-mark">?</span>.secret().into();
 
-		<span class="kw">let </span><span class="kw-2">mut </span>secret = secret.as_ref().iter().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-		<span class="kw">let </span>secret = SecretKey::from_bytes(<span class="kw-2">&amp;mut </span>secret)
-			.map_err(|<span class="kw">_</span>| Error::Io(io::ErrorKind::InvalidInput.into()))<span class="question-mark">?</span>;
 		<span class="kw">let </span>local_identity = Keypair::from(secret);
 		<span class="kw">let </span>local_public = local_identity.public();
 		<span class="kw">let </span>local_peer_id = local_public.to_peer_id();
@@ -1467,6 +1463,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.listen_addresses
 			.iter()
 			.filter_map(|address| {
+				<span class="kw">use </span>sc_network_types::multiaddr::Protocol;
+
 				<span class="kw">let </span><span class="kw-2">mut </span>iter = address.iter();
 
 				<span class="kw">match </span>iter.next() {
@@ -1507,12 +1505,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		config_builder
 			.with_websocket(WebSocketTransportConfig {
-				listen_addresses: websocket.into_iter().flatten().collect(),
+				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
 				yamux_config: yamux_config.clone(),
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
-				listen_addresses: tcp.into_iter().flatten().collect(),
+				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
 				yamux_config,
 				..Default::default()
 			})
@@ -1662,6 +1660,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// collect known addresses
 		</span><span class="kw">let </span>known_addresses: HashMap&lt;litep2p::PeerId, Vec&lt;Multiaddr&gt;&gt; =
 			known_addresses.into_iter().fold(HashMap::new(), |<span class="kw-2">mut </span>acc, (peer, address)| {
+				<span class="kw">use </span>sc_network_types::multiaddr::Protocol;
+
 				<span class="kw">let </span>address = <span class="kw">match </span>address.iter().last() {
 					<span class="prelude-val">Some</span>(Protocol::Ws(<span class="kw">_</span>) | Protocol::Wss(<span class="kw">_</span>) | Protocol::Tcp(<span class="kw">_</span>)) =&gt;
 						address.with(Protocol::P2p(peer.into())),
@@ -1669,7 +1669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">_ </span>=&gt; <span class="kw">return </span>acc,
 				};
 
-				acc.entry(peer.into()).or_default().push(address);
+				acc.entry(peer.into()).or_default().push(address.into());
 				peer_store_handle.add_known_peer(peer);
 
 				acc
@@ -1707,7 +1707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Litep2p::new(config_builder.build()).map_err(|error| Error::Litep2p(error))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>external_addresses: Arc&lt;RwLock&lt;HashSet&lt;Multiaddr&gt;&gt;&gt; = Arc::new(RwLock::new(
-			HashSet::from_iter(network_config.public_addresses.iter().cloned()),
+			HashSet::from_iter(network_config.public_addresses.iter().cloned().map(Into::into)),
 		));
 		litep2p.listen_addresses().for_each(|address| {
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"listening on: {address}"</span>);
@@ -1853,7 +1853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							protocol,
 							peers,
 						} =&gt; {
-							<span class="kw">let </span>peers = <span class="self">self</span>.add_addresses(peers.into_iter());
+							<span class="kw">let </span>peers = <span class="self">self</span>.add_addresses(peers.into_iter().map(Into::into));
 
 							<span class="kw">match </span><span class="self">self</span>.peerset_handles.get(<span class="kw-2">&amp;</span>protocol) {
 								<span class="prelude-val">Some</span>(handle) =&gt; {
@@ -1862,9 +1862,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="prelude-val">None </span>=&gt; <span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"protocol {protocol} doens't exist"</span>),
 							};
 						}
-						NetworkServiceCommand::AddKnownAddress { peer, <span class="kw-2">mut </span>address } =&gt; {
+						NetworkServiceCommand::AddKnownAddress { peer, address } =&gt; {
+							<span class="kw">let </span><span class="kw-2">mut </span>address: Multiaddr = address.into();
+
 							<span class="kw">if </span>!address.iter().any(|protocol| <span class="macro">std::matches!</span>(protocol, Protocol::P2p(<span class="kw">_</span>))) {
-								address.push(Protocol::P2p(peer.into()));
+								address.push(Protocol::P2p(litep2p::PeerId::from(peer).into()));
 							}
 
 							<span class="kw">if </span><span class="self">self</span>.litep2p.add_known_address(peer.into(), iter::once(address.clone())) == <span class="number">0usize </span>{
@@ -1875,7 +1877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}
 						},
 						NetworkServiceCommand::SetReservedPeers { protocol, peers } =&gt; {
-							<span class="kw">let </span>peers = <span class="self">self</span>.add_addresses(peers.into_iter());
+							<span class="kw">let </span>peers = <span class="self">self</span>.add_addresses(peers.into_iter().map(Into::into));
 
 							<span class="kw">match </span><span class="self">self</span>.peerset_handles.get(<span class="kw-2">&amp;</span>protocol) {
 								<span class="prelude-val">Some</span>(handle) =&gt; {

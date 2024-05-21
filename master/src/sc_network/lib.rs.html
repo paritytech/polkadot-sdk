@@ -449,6 +449,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -723,6 +727,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	role::{ObservedRole, Roles},
 	types::ReputationChange,
 };
+<span class="kw">pub use </span>sc_network_types::{
+	multiaddr::{<span class="self">self</span>, Multiaddr},
+	PeerId,
+};
 <span class="kw">pub use </span>service::{
 	metrics::NotificationMetrics,
 	signature::Signature,
@@ -736,7 +744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
 	PublicKey,
 };
-<span class="kw">pub use </span>types::{multiaddr, Multiaddr, PeerId, ProtocolName};
+<span class="kw">pub use </span>types::ProtocolName;
 
 <span class="doccomment">/// The maximum allowed number of established connections per peer.
 ///

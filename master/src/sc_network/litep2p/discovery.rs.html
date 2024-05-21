@@ -684,7 +684,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -707,9 +706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{
 	config::{NetworkConfiguration, ProtocolId},
-	multiaddr::Protocol,
 	peer_store::PeerStoreProvider,
-	Multiaddr,
 };
 
 <span class="kw">use </span>array_bytes::bytes2hex;
@@ -729,6 +726,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		mdns::{Config <span class="kw">as </span>MdnsConfig, MdnsEvent},
 	},
+	types::multiaddr::{Multiaddr, Protocol},
 	PeerId, ProtocolName,
 };
 <span class="kw">use </span>parking_lot::RwLock;
@@ -914,7 +912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(identify_config, identify_event_stream) = IdentifyConfig::new(
 			<span class="string">"/substrate/1.0"</span>.to_string(),
 			<span class="prelude-val">Some</span>(user_agent),
-			config.public_addresses.clone(),
+			config.public_addresses.clone().into_iter().map(Into::into).collect(),
 		);
 
 		<span class="kw">let </span>(mdns_config, mdns_event_stream) = <span class="kw">match </span>config.transport {
@@ -953,7 +951,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				duration_to_next_find_query: Duration::from_secs(<span class="number">1</span>),
 				address_confirmations: LruMap::new(ByLength::new(<span class="number">8</span>)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
-				public_addresses: config.public_addresses.iter().cloned().collect(),
+				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: <span class="prelude-val">Some</span>(Delay::new(KADEMLIA_QUERY_INTERVAL)),
 				local_protocols: HashSet::from_iter([kademlia_protocol_name(
 					genesis_hash,

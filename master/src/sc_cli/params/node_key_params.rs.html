@@ -418,10 +418,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -441,7 +437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>clap::Args;
-<span class="kw">use </span>sc_network::config::{identity::ed25519, NodeKeyConfig};
+<span class="kw">use </span>sc_network::config::{ed25519, NodeKeyConfig};
 <span class="kw">use </span>sc_service::Role;
 <span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>std::{path::PathBuf, str::FromStr};
@@ -572,7 +568,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>clap::ValueEnum;
-	<span class="kw">use </span>libp2p_identity::ed25519;
+	<span class="kw">use </span>sc_network::config::ed25519;
 	<span class="kw">use </span>std::fs::{<span class="self">self</span>, File};
 	<span class="kw">use </span>tempfile::TempDir;
 
@@ -618,11 +614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.into_keypair()
 				.expect(<span class="string">"Creates node key pair"</span>);
 
-			<span class="kw">if let </span><span class="prelude-val">Ok</span>(pair) = node_key.try_into_ed25519() {
-				<span class="kw">if </span>pair.secret().as_ref() != key.as_ref() {
-					<span class="macro">panic!</span>(<span class="string">"Invalid key"</span>)
-				}
-			} <span class="kw">else </span>{
+			<span class="kw">if </span>node_key.secret().as_ref() != key.as_ref() {
 				<span class="macro">panic!</span>(<span class="string">"Invalid key"</span>)
 			}
 		}

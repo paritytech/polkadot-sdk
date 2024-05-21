@@ -1084,7 +1084,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	request_responses::{IfDisconnected, RequestFailure},
 	service::{metrics::NotificationMetrics, signature::Signature, PeerStoreProvider},
 	types::ProtocolName,
-	Multiaddr, ReputationChange,
+	ReputationChange,
 };
 
 <span class="kw">use </span>futures::{channel::oneshot, Stream};
@@ -1092,7 +1092,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>sc_client_api::BlockBackend;
 <span class="kw">use </span>sc_network_common::{role::ObservedRole, ExHashT};
-<span class="kw">use </span>sc_network_types::PeerId;
+<span class="kw">use </span>sc_network_types::{multiaddr::Multiaddr, PeerId};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">use </span>std::{collections::HashSet, fmt::Debug, future::Future, pin::Pin, sync::Arc, time::Duration};

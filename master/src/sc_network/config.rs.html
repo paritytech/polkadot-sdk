@@ -1125,14 +1125,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#974" id="974">974</a>
 <a href="#975" id="975">975</a>
 <a href="#976" id="976">976</a>
-<a href="#977" id="977">977</a>
-<a href="#978" id="978">978</a>
-<a href="#979" id="979">979</a>
-<a href="#980" id="980">980</a>
-<a href="#981" id="981">981</a>
-<a href="#982" id="982">982</a>
-<a href="#983" id="983">983</a>
-<a href="#984" id="984">984</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1170,12 +1162,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	types::ProtocolName,
 };
 
-<span class="kw">pub use </span>libp2p::{
-	build_multiaddr,
-	identity::{<span class="self">self</span>, ed25519, Keypair},
-	multiaddr, Multiaddr,
+<span class="kw">pub use </span>sc_network_types::{build_multiaddr, ed25519};
+<span class="kw">use </span>sc_network_types::{
+	multiaddr::{<span class="self">self</span>, Multiaddr},
+	PeerId,
 };
-<span class="kw">use </span>sc_network_types::PeerId;
 
 <span class="kw">use </span><span class="kw">crate</span>::service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend};
 <span class="kw">use </span>codec::Encode;
@@ -1235,7 +1226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # Example
 ///
 /// ```
-/// # use libp2p::{Multiaddr, PeerId};
+/// # use sc_network_types::{multiaddr::Multiaddr, PeerId};
 /// use sc_network::config::parse_str_addr;
 /// let (peer_id, addr) = parse_str_addr(
 /// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV"
@@ -1266,7 +1257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # Example
 ///
 /// ```
-/// # use libp2p::{Multiaddr, PeerId};
+/// # use sc_network_types::{multiaddr::Multiaddr, PeerId};
 /// use sc_network::config::MultiaddrWithPeerId;
 /// let addr: MultiaddrWithPeerId =
 /// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse().unwrap();
@@ -1322,7 +1313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>ParseErr {
 	<span class="doccomment">/// Error while parsing the multiaddress.
-	</span>MultiaddrParse(multiaddr::Error),
+	</span>MultiaddrParse(multiaddr::ParseError),
 	<span class="doccomment">/// Multihash of the peer ID is invalid.
 	</span>InvalidPeerId,
 	<span class="doccomment">/// The peer ID is missing from the address.
@@ -1349,8 +1340,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;multiaddr::Error&gt; <span class="kw">for </span>ParseErr {
-	<span class="kw">fn </span>from(err: multiaddr::Error) -&gt; ParseErr {
+<span class="kw">impl </span>From&lt;multiaddr::ParseError&gt; <span class="kw">for </span>ParseErr {
+	<span class="kw">fn </span>from(err: multiaddr::ParseError) -&gt; ParseErr {
 		<span class="self">Self</span>::MultiaddrParse(err)
 	}
 }
@@ -1478,10 +1469,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	///  * If the secret is configured to be new, it is generated and the corresponding keypair is
 	///    returned.
-	</span><span class="kw">pub fn </span>into_keypair(<span class="self">self</span>) -&gt; io::Result&lt;Keypair&gt; {
+	</span><span class="kw">pub fn </span>into_keypair(<span class="self">self</span>) -&gt; io::Result&lt;ed25519::Keypair&gt; {
 		<span class="kw">use </span>NodeKeyConfig::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">self </span>{
-			Ed25519(Secret::New) =&gt; <span class="prelude-val">Ok</span>(Keypair::generate_ed25519()),
+			Ed25519(Secret::New) =&gt; <span class="prelude-val">Ok</span>(ed25519::Keypair::generate()),
 
 			Ed25519(Secret::Input(k)) =&gt; <span class="prelude-val">Ok</span>(ed25519::Keypair::from(k).into()),
 
@@ -1500,8 +1491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ed25519::SecretKey::generate,
 				|b| b.as_ref().to_vec(),
 			)
-			.map(ed25519::Keypair::from)
-			.map(Keypair::from),
+			.map(ed25519::Keypair::from),
 		}
 	}
 }
@@ -2022,7 +2012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.find(|o| o.peer_id != bootnode.peer_id)
 			{
 				<span class="prelude-val">Err</span>(<span class="kw">crate</span>::error::Error::DuplicateBootnode {
-					address: bootnode.multiaddr.clone(),
+					address: bootnode.multiaddr.clone().into(),
 					first_id: bootnode.peer_id.into(),
 					second_id: other.peer_id.into(),
 				})
@@ -2082,14 +2072,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
 	}
 
-	<span class="kw">fn </span>secret_bytes(kp: Keypair) -&gt; Vec&lt;u8&gt; {
-		kp.try_into_ed25519()
-			.expect(<span class="string">"ed25519 keypair"</span>)
-			.secret()
-			.as_ref()
-			.iter()
-			.cloned()
-			.collect()
+	<span class="kw">fn </span>secret_bytes(kp: ed25519::Keypair) -&gt; Vec&lt;u8&gt; {
+		kp.secret().to_bytes().into()
 	}
 
 	<span class="attr">#[test]

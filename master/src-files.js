@@ -376,7 +376,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["sc_network_sync",["",[["service",[],["mock.rs","mod.rs","network.rs","syncing_service.rs"]],["strategy",[],["chain_sync.rs","state.rs","state_sync.rs","warp.rs"]]],["block_announce_validator.rs","block_relay_protocol.rs","block_request_handler.rs","blocks.rs","engine.rs","futures_stream.rs","justification_requests.rs","lib.rs","mock.rs","pending_responses.rs","request_metrics.rs","schema.rs","state_request_handler.rs","strategy.rs","types.rs","warp_request_handler.rs"]]],\
 ["sc_network_test",["",[],["lib.rs"]]],\
 ["sc_network_transactions",["",[],["config.rs","lib.rs"]]],\
-["sc_network_types",["",[],["lib.rs","peer_id.rs"]]],\
+["sc_network_types",["",[["multiaddr",[],["protocol.rs"]]],["ed25519.rs","lib.rs","multiaddr.rs","multihash.rs","peer_id.rs"]]],\
 ["sc_offchain",["",[["api",[],["http.rs","timestamp.rs"]]],["api.rs","lib.rs"]]],\
 ["sc_proposer_metrics",["",[],["lib.rs"]]],\
 ["sc_rpc",["",[["author",[],["mod.rs"]],["chain",[],["chain_full.rs","mod.rs"]],["dev",[],["mod.rs"]],["mixnet",[],["mod.rs"]],["offchain",[],["mod.rs"]],["state",[],["mod.rs","state_full.rs","utils.rs"]],["statement",[],["mod.rs"]],["system",[],["mod.rs"]]],["lib.rs","testing.rs","utils.rs"]]],\

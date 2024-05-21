@@ -1409,6 +1409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1258" id="1258">1258</a>
 <a href="#1259" id="1259">1259</a>
 <a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1446,7 +1447,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>futures::{channel::oneshot, future::BoxFuture, pin_mut, prelude::<span class="kw-2">*</span>};
-<span class="kw">use </span>libp2p::{build_multiaddr, PeerId};
+<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::trace;
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
@@ -1468,8 +1469,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	peer_store::PeerStore,
 	request_responses::ProtocolConfig <span class="kw">as </span>RequestResponseConfig,
 	types::ProtocolName,
-	Multiaddr, NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest,
-	NetworkWorker, NotificationMetrics, NotificationService,
+	NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest, NetworkWorker,
+	NotificationMetrics, NotificationService,
 };
 <span class="kw">use </span>sc_network_common::role::Roles;
 <span class="kw">use </span>sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -1482,6 +1483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	warp_request_handler,
 };
+<span class="kw">use </span>sc_network_types::{build_multiaddr, multiaddr::Multiaddr};
 <span class="kw">use </span>sc_service::client::Client;
 <span class="kw">use </span>sp_blockchain::{
 	Backend <span class="kw">as </span>BlockchainBackend, HeaderBackend, Info <span class="kw">as </span>BlockchainInfo, <span class="prelude-ty">Result </span><span class="kw">as </span>ClientResult,
@@ -2396,7 +2398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>peer <span class="kw">in </span>peers.iter_mut() {
 				peer.network.add_known_address(
 					network.service().local_peer_id().into(),
-					listen_addr.clone(),
+					listen_addr.clone().into(),
 				);
 			}
 

@@ -2196,7 +2196,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2045" id="2045">2045</a>
 <a href="#2046" id="2046">2046</a>
 <a href="#2047" id="2047">2047</a>
-<a href="#2048" id="2048">2048</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2240,12 +2239,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Even though this does not guarantee that `ProtocolController` and `Notifications` have the same
 //! view of the peers' states at any given moment, the eventual consistency is maintained.
 
-</span><span class="kw">use crate</span>::{
-	peer_store::{PeerStoreProvider, ProtocolHandle <span class="kw">as </span>ProtocolHandleT},
-	PeerId,
-};
+</span><span class="kw">use </span><span class="kw">crate</span>::peer_store::{PeerStoreProvider, ProtocolHandle <span class="kw">as </span>ProtocolHandleT};
 
 <span class="kw">use </span>futures::{channel::oneshot, future::Either, FutureExt, StreamExt};
+<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::{debug, error, trace, warn};
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
@@ -3059,8 +3056,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{
 		peer_store::{PeerStoreProvider, ProtocolHandle <span class="kw">as </span>ProtocolHandleT},
-		PeerId, ReputationChange,
+		ReputationChange,
 	};
+	<span class="kw">use </span>libp2p::PeerId;
 	<span class="kw">use </span>sc_network_common::role::ObservedRole;
 	<span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TryRecvError};
 	<span class="kw">use </span>std::collections::HashSet;

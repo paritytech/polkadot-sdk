@@ -378,6 +378,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -405,8 +406,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Mixnet, Mixnode <span class="kw">as </span>CoreMixnode, MixnodesErr <span class="kw">as </span>CoreMixnodesErr, RelSessionIndex,
 	SessionPhase <span class="kw">as </span>CoreSessionPhase, SessionStatus <span class="kw">as </span>CoreSessionStatus,
 };
-<span class="kw">use </span>multiaddr::{multiaddr, Multiaddr, Protocol};
-<span class="kw">use </span>sc_network_types::PeerId;
+<span class="kw">use </span>sc_network_types::{
+	multiaddr::{multiaddr, Multiaddr, Protocol},
+	PeerId,
+};
 <span class="kw">use </span>sp_api::{ApiError, ApiRef};
 <span class="kw">use </span>sp_mixnet::{
 	runtime_api::MixnetApi,
@@ -576,7 +579,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>multiaddr::multiaddr;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>fixup_empty_external_addresses() {

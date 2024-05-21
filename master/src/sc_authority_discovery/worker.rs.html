@@ -1024,6 +1024,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#873" id="873">873</a>
 <a href="#874" id="874">874</a>
 <a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1061,7 +1063,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>ip_network::IpNetwork;
 <span class="kw">use </span>linked_hash_set::LinkedHashSet;
-<span class="kw">use </span>multihash::{Code, Multihash, MultihashDigest};
 
 <span class="kw">use </span>log::{debug, error, log_enabled};
 <span class="kw">use </span>prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
@@ -1072,7 +1073,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	event::DhtEvent, multiaddr, KademliaKey, Multiaddr, NetworkDHTProvider, NetworkSigner,
 	NetworkStateInfo,
 };
-<span class="kw">use </span>sc_network_types::PeerId;
+<span class="kw">use </span>sc_network_types::{
+	multihash::{Code, Multihash},
+	PeerId,
+};
 <span class="kw">use </span>sp_api::{ApiError, ProvideRuntimeApi};
 <span class="kw">use </span>sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,

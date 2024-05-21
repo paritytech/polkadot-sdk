@@ -2044,6 +2044,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1893" id="1893">1893</a>
 <a href="#1894" id="1894">1894</a>
 <a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2101,24 +2116,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	transport,
 	types::ProtocolName,
-	Multiaddr, NotificationService, PeerId, ReputationChange,
+	NotificationService, ReputationChange,
 };
 
 <span class="kw">use </span>codec::DecodeAll;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>libp2p::identity::ed25519;
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>libp2p::{
 	connection_limits::Exceeded,
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info <span class="kw">as </span>IdentifyInfo,
 	kad::record::Key <span class="kw">as </span>KademliaKey,
-	multiaddr,
+	multiaddr::{<span class="self">self</span>, Multiaddr},
 	ping::Failure <span class="kw">as </span>PingFailure,
 	swarm::{
 		AddressScore, ConnectionError, ConnectionId, ConnectionLimits, DialError, Executor,
 		ListenError, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent, THandlerErr,
 	},
+	PeerId,
 };
 <span class="kw">use </span>log::{debug, error, info, trace, warn};
 <span class="kw">use </span>metrics::{Histogram, MetricSources, Metrics};
@@ -2315,6 +2332,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>local_public = local_identity.public();
 		<span class="kw">let </span>local_peer_id = local_public.to_peer_id();
 
+		<span class="comment">// Convert to libp2p types.
+		</span><span class="kw">let </span>local_identity: ed25519::Keypair = local_identity.into();
+		<span class="kw">let </span>local_public: ed25519::PublicKey = local_public.into();
+		<span class="kw">let </span>local_peer_id: PeerId = local_peer_id.into();
+		<span class="kw">let </span>listen_addresses: Vec&lt;Multiaddr&gt; =
+			network_config.listen_addresses.iter().cloned().map(Into::into).collect();
+		<span class="kw">let </span>public_addresses: Vec&lt;Multiaddr&gt; =
+			network_config.public_addresses.iter().cloned().map(Into::into).collect();
+
 		network_config.boot_nodes = network_config
 			.boot_nodes
 			.into_iter()
@@ -2416,7 +2442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 			transport::build_transport(
-				local_identity.clone(),
+				local_identity.clone().into(),
 				config_mem,
 				network_config.yamux_window_size,
 				yamux_maximum_buffer_size,
@@ -2508,7 +2534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.find(|o| o.peer_id != bootnode.peer_id)
 			{
 				<span class="prelude-val">Err</span>(Error::DuplicateBootnode {
-					address: bootnode.multiaddr.clone(),
+					address: bootnode.multiaddr.clone().into(),
 					first_id: bootnode.peer_id.into(),
 					second_id: other.peer_id.into(),
 				})
@@ -2524,7 +2550,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			boot_node_ids
 				.entry(bootnode.peer_id.into())
 				.or_default()
-				.push(bootnode.multiaddr.clone());
+				.push(bootnode.multiaddr.clone().into());
 		}
 
 		<span class="kw">let </span>boot_node_ids = Arc::new(boot_node_ids);
@@ -2548,11 +2574,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">format!</span>(<span class="string">"{} ({})"</span>, network_config.client_version, network_config.node_name);
 
 			<span class="kw">let </span>discovery_config = {
-				<span class="kw">let </span><span class="kw-2">mut </span>config = DiscoveryConfig::new(local_public.to_peer_id());
+				<span class="kw">let </span><span class="kw-2">mut </span>config = DiscoveryConfig::new(local_peer_id);
 				config.with_permanent_addresses(
 					known_addresses
 						.iter()
-						.map(|(peer, address)| (peer.into(), address.clone()))
+						.map(|(peer, address)| (peer.into(), address.clone().into()))
 						.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 				);
 				config.discovery_limit(u64::from(network_config.default_peers_set.out_peers) + <span class="number">15</span>);
@@ -2590,7 +2616,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>result = Behaviour::new(
 					protocol,
 					user_agent,
-					local_public,
+					local_public.into(),
 					discovery_config,
 					request_response_protocols,
 					Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
@@ -2650,14 +2676,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="comment">// Listen on multiaddresses.
-		</span><span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>network_config.listen_addresses {
+		</span><span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>listen_addresses {
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = Swarm::&lt;Behaviour&lt;B&gt;&gt;::listen_on(<span class="kw-2">&amp;mut </span>swarm, addr.clone()) {
 				<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Can't listen on {} because: {:?}"</span>, addr, err)
 			}
 		}
 
 		<span class="comment">// Add external addresses.
-		</span><span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>network_config.public_addresses {
+		</span><span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>public_addresses {
 			Swarm::&lt;Behaviour&lt;B&gt;&gt;::add_external_address(
 				<span class="kw-2">&amp;mut </span>swarm,
 				addr.clone(),
@@ -2665,15 +2691,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="kw">let </span>listen_addresses = Arc::new(Mutex::new(HashSet::new()));
+		<span class="kw">let </span>listen_addresses_set = Arc::new(Mutex::new(HashSet::new()));
 
 		<span class="kw">let </span>service = Arc::new(NetworkService {
 			bandwidth,
 			external_addresses,
-			listen_addresses: listen_addresses.clone(),
+			listen_addresses: listen_addresses_set.clone(),
 			num_connected: num_connected.clone(),
 			local_peer_id,
-			local_identity,
+			local_identity: local_identity.into(),
 			to_worker,
 			notification_protocol_ids,
 			protocol_handles,
@@ -2684,7 +2710,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="prelude-val">Ok</span>(NetworkWorker {
-			listen_addresses,
+			listen_addresses: listen_addresses_set,
 			num_connected,
 			network_service: swarm,
 			service,
@@ -2926,13 +2952,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	H: ExHashT,
 {
 	<span class="doccomment">/// Returns the local external addresses.
-	</span><span class="kw">fn </span>external_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Multiaddr&gt; {
-		<span class="self">self</span>.external_addresses.lock().iter().cloned().collect()
+	</span><span class="kw">fn </span>external_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;sc_network_types::multiaddr::Multiaddr&gt; {
+		<span class="self">self</span>.external_addresses.lock().iter().cloned().map(Into::into).collect()
 	}
 
 	<span class="doccomment">/// Returns the listener addresses (without trailing `/p2p/` with our `PeerId`).
-	</span><span class="kw">fn </span>listen_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Multiaddr&gt; {
-		<span class="self">self</span>.listen_addresses.lock().iter().cloned().collect()
+	</span><span class="kw">fn </span>listen_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;sc_network_types::multiaddr::Multiaddr&gt; {
+		<span class="self">self</span>.listen_addresses.lock().iter().cloned().map(Into::into).collect()
 	}
 
 	<span class="doccomment">/// Returns the local Peer ID.
@@ -3044,10 +3070,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.sync_protocol_handle.set_reserved_only(reserved_only);
 	}
 
-	<span class="kw">fn </span>add_known_address(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: sc_network_types::PeerId, addr: Multiaddr) {
+	<span class="kw">fn </span>add_known_address(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		peer_id: sc_network_types::PeerId,
+		addr: sc_network_types::multiaddr::Multiaddr,
+	) {
 		<span class="kw">let _ </span>= <span class="self">self
 			</span>.to_worker
-			.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(peer_id.into(), addr));
+			.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(peer_id.into(), addr.into()));
 	}
 
 	<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: sc_network_types::PeerId, cost_benefit: ReputationChange) {
@@ -3080,7 +3110,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(
 			peer.peer_id.into(),
-			peer.multiaddr,
+			peer.multiaddr.into(),
 		));
 		<span class="self">self</span>.sync_protocol_handle.add_reserved_peer(peer.peer_id.into());
 
@@ -3094,16 +3124,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>set_reserved_peers(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		protocol: ProtocolName,
-		peers: HashSet&lt;Multiaddr&gt;,
+		peers: HashSet&lt;sc_network_types::multiaddr::Multiaddr&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(set_id) = <span class="self">self</span>.notification_protocol_ids.get(<span class="kw-2">&amp;</span>protocol) <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Cannot set reserved peers for unknown protocol: {}"</span>, protocol))
 		};
 
+		<span class="kw">let </span>peers: HashSet&lt;Multiaddr&gt; = peers.into_iter().map(Into::into).collect();
 		<span class="kw">let </span>peers_addrs = <span class="self">self</span>.split_multiaddr_and_peer_id(peers)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>peers: HashSet&lt;sc_network_types::PeerId&gt; =
-			HashSet::with_capacity(peers_addrs.len());
+		<span class="kw">let </span><span class="kw-2">mut </span>peers: HashSet&lt;PeerId&gt; = HashSet::with_capacity(peers_addrs.len());
 
 		<span class="kw">for </span>(peer_id, addr) <span class="kw">in </span>peers_addrs.into_iter() {
 			<span class="comment">// Make sure the local peer ID is never added to the PSM.
@@ -3120,8 +3150,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="self">self</span>.protocol_handles[usize::from(<span class="kw-2">*</span>set_id)]
-			.set_reserved_peers(peers.iter().map(|peer| (<span class="kw-2">*</span>peer).into()).collect());
+		<span class="self">self</span>.protocol_handles[usize::from(<span class="kw-2">*</span>set_id)].set_reserved_peers(peers);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3129,7 +3158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>add_peers_to_reserved_set(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		protocol: ProtocolName,
-		peers: HashSet&lt;Multiaddr&gt;,
+		peers: HashSet&lt;sc_network_types::multiaddr::Multiaddr&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(set_id) = <span class="self">self</span>.notification_protocol_ids.get(<span class="kw-2">&amp;</span>protocol) <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
@@ -3138,6 +3167,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			))
 		};
 
+		<span class="kw">let </span>peers: HashSet&lt;Multiaddr&gt; = peers.into_iter().map(Into::into).collect();
 		<span class="kw">let </span>peers = <span class="self">self</span>.split_multiaddr_and_peer_id(peers)<span class="question-mark">?</span>;
 
 		<span class="kw">for </span>(peer_id, addr) <span class="kw">in </span>peers.into_iter() {
@@ -3769,8 +3799,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					{
 						<span class="kw">if let </span>DialError::WrongPeerId { obtained, endpoint } = <span class="kw-2">&amp;</span>error {
 							<span class="kw">if let </span>ConnectedPoint::Dialer { address, role_override: <span class="kw">_ </span>} = endpoint {
-								<span class="kw">let </span>address_without_peer_id = parse_addr(address.clone())
-									.map_or_else(|<span class="kw">_</span>| address.clone(), |r| r.<span class="number">1</span>);
+								<span class="kw">let </span>address_without_peer_id = parse_addr(address.clone().into())
+									.map_or_else(|<span class="kw">_</span>| address.clone(), |r| r.<span class="number">1</span>.into());
 
 								<span class="comment">// Only report for address of boot node that was added at startup of
 								// the node and not for any address that the node learned of the
@@ -3906,14 +3936,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_addresses_consistent_with_transport&lt;<span class="lifetime">'a</span>&gt;(
-	addresses: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Multiaddr&gt;,
+	addresses: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>sc_network_types::multiaddr::Multiaddr&gt;,
 	transport: <span class="kw-2">&amp;</span>TransportConfig,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+	<span class="kw">use </span>sc_network_types::multiaddr::Protocol;
+
 	<span class="kw">if </span><span class="macro">matches!</span>(transport, TransportConfig::MemoryOnly) {
 		<span class="kw">let </span>addresses: Vec&lt;<span class="kw">_</span>&gt; = addresses
-			.filter(|x| {
-				x.iter().any(|y| !<span class="macro">matches!</span>(y, libp2p::core::multiaddr::Protocol::Memory(<span class="kw">_</span>)))
-			})
+			.filter(|x| x.iter().any(|y| !<span class="macro">matches!</span>(y, Protocol::Memory(<span class="kw">_</span>))))
 			.cloned()
 			.collect();
 
@@ -3925,7 +3955,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	} <span class="kw">else </span>{
 		<span class="kw">let </span>addresses: Vec&lt;<span class="kw">_</span>&gt; = addresses
-			.filter(|x| x.iter().any(|y| <span class="macro">matches!</span>(y, libp2p::core::multiaddr::Protocol::Memory(<span class="kw">_</span>))))
+			.filter(|x| x.iter().any(|y| <span class="macro">matches!</span>(y, Protocol::Memory(<span class="kw">_</span>))))
 			.cloned()
 			.collect();
 

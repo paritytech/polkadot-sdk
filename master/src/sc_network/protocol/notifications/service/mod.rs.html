@@ -837,13 +837,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 	},
 	types::ProtocolName,
-	PeerId,
 };
 
 <span class="kw">use </span>futures::{
 	stream::{FuturesUnordered, Stream},
 	StreamExt,
 };
+<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>tokio::sync::{mpsc, oneshot};
 <span class="kw">use </span>tokio_stream::wrappers::ReceiverStream;

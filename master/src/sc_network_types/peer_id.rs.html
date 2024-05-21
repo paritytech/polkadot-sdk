@@ -397,6 +397,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -415,8 +417,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>multiaddr::{Multiaddr, Protocol};
-<span class="kw">use </span>multihash::{Code, Error, Multihash};
+</span><span class="kw">use crate</span>::{
+	multiaddr::{Multiaddr, Protocol},
+	multihash::{Code, Error, Multihash},
+};
 <span class="kw">use </span>rand::Rng;
 
 <span class="kw">use </span>std::{fmt, hash::Hash, str::FromStr};
@@ -584,7 +588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[error(<span class="string">"unsupported multihash code '{0}'"</span>)]
 	</span>UnsupportedCode(u64),
 	<span class="attr">#[error(<span class="string">"invalid multihash"</span>)]
-	</span>InvalidMultihash(<span class="attr">#[from] </span>multihash::Error),
+	</span>InvalidMultihash(<span class="attr">#[from] </span><span class="kw">crate</span>::multihash::Error),
 }
 
 <span class="kw">impl </span>FromStr <span class="kw">for </span>PeerId {

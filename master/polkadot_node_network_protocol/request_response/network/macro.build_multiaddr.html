@@ -153,7 +153,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }</pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Easy way for a user to create a <code>Multiaddr</code>.</p>
 <p>Example:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>addr = <span class="macro">multiaddr!</span>(Ip4([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]), Tcp(<span class="number">10500u16</span>));</code></pre></div>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>sc_network_types::build_multiaddr;
+<span class="kw">let </span>addr = <span class="macro">build_multiaddr!</span>(Ip4([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]), Tcp(<span class="number">10500u16</span>));</code></pre></div>
 <p>Each element passed to <code>multiaddr!</code> should be a variant of the <code>Protocol</code> enum. The
 optional parameter is turned into the proper type with the <code>Into</code> trait.</p>
 <p>For example, <code>Ip4([127, 0, 0, 1])</code> works because <code>Ipv4Addr</code> implements <code>From&lt;[u8; 4]&gt;</code>.</p>
