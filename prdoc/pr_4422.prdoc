@@ -8,7 +8,7 @@ doc:
     description: |
       This PR implements the `READ_ONLY` flag to be used as a `Callflag` in the contract `call` function.
       The flag indicates that the callee is restricted from modifying the state during call execution.
-      It is equivalent to Ethereum's [STATICCALL](https://eips.ethereum.org/EIPS/eip-214).
+      It is equivalent to Ethereum's [STATICCALL](https://eips.ethereum.org/EIPS/eip-214) .
 
 crates:
   - name: pallet-contracts
