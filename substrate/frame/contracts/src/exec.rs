@@ -46,7 +46,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Zero},
+	traits::{Convert, Dispatchable, Zero},
 	DispatchError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
@@ -847,11 +847,11 @@ where
 
 		// `Relaxed` will only be ever set in case of off-chain execution.
 		// Instantiations are never allowed even when executing off-chain.
-		if !(executable.is_deterministic() ||
-			(matches!(determinism, Determinism::Relaxed) &&
-				matches!(entry_point, ExportedFunction::Call)))
+		if !(executable.is_deterministic()
+			|| (matches!(determinism, Determinism::Relaxed)
+				&& matches!(entry_point, ExportedFunction::Call)))
 		{
-			return Err(Error::<T>::Indeterministic.into())
+			return Err(Error::<T>::Indeterministic.into());
 		}
 
 		let frame = Frame {
@@ -878,7 +878,7 @@ where
 		deposit_limit: BalanceOf<T>,
 	) -> Result<E, ExecError> {
 		if self.frames.len() == T::CallStack::size() {
-			return Err(Error::<T>::MaxCallDepthReached.into())
+			return Err(Error::<T>::MaxCallDepthReached.into());
 		}
 
 		// We need to make sure that changes made to the contract info are not discarded.
@@ -953,7 +953,7 @@ where
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
-				return Ok(output)
+				return Ok(output);
 			}
 
 			// Storage limit is normally enforced as late as possible (when the last frame returns)
@@ -973,7 +973,7 @@ where
 				(ExportedFunction::Constructor, _) => {
 					// It is not allowed to terminate a contract inside its constructor.
 					if matches!(frame.contract_info, CachedContract::Terminated) {
-						return Err(Error::<T>::TerminatedInConstructor.into())
+						return Err(Error::<T>::TerminatedInConstructor.into());
 					}
 
 					// If a special limit was set for the sub-call, we enforce it here.
@@ -986,16 +986,16 @@ where
 					let caller = self.caller().account_id()?.clone();
 
 					// Deposit an instantiation event.
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(account_id)],
-						Event::Instantiated { deployer: caller, contract: account_id.clone() },
-					);
+					Contracts::<T>::deposit_event(Event::Instantiated {
+						deployer: caller,
+						contract: account_id.clone(),
+					});
 				},
 				(ExportedFunction::Call, Some(code_hash)) => {
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(account_id), T::Hashing::hash_of(&code_hash)],
-						Event::DelegateCalled { contract: account_id.clone(), code_hash },
-					);
+					Contracts::<T>::deposit_event(Event::DelegateCalled {
+						contract: account_id.clone(),
+						code_hash,
+					});
 				},
 				(ExportedFunction::Call, None) => {
 					// If a special limit was set for the sub-call, we enforce it here.
@@ -1004,13 +1004,11 @@ where
 					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
-					if !frame.read_only {
-						let caller = self.caller();
-						Contracts::<T>::deposit_event(
-							vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(&account_id)],
-							Event::Called { caller: caller.clone(), contract: account_id.clone() },
-						);
-					}
+					let caller = self.caller();
+					Contracts::<T>::deposit_event(Event::Called {
+						caller: caller.clone(),
+						contract: account_id.clone(),
+					});
 				},
 			}
 
@@ -1027,8 +1025,9 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1070,7 +1069,7 @@ where
 
 			// Only gas counter changes are persisted in case of a failure.
 			if !persist {
-				return
+				return;
 			}
 
 			// Record the storage meter changes of the nested call into the parent meter.
@@ -1089,7 +1088,7 @@ where
 				// trigger a rollback.
 				if prev.account_id == *account_id {
 					prev.contract_info = CachedContract::Cached(contract);
-					return
+					return;
 				}
 
 				// Predecessor is a different contract: We persist the info and invalidate the first
@@ -1112,7 +1111,7 @@ where
 			}
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
-				return
+				return;
 			}
 			let mut contract = self.first_frame.contract_info.as_contract();
 			self.storage_meter.absorb(
@@ -1150,7 +1149,7 @@ where
 		// If it is a delegate call, then we've already transferred tokens in the
 		// last non-delegate frame.
 		if frame.delegate_caller.is_some() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let value = frame.value_transferred;
@@ -1202,7 +1201,7 @@ where
 	/// Checks if the state can be changed
 	fn allows_state_change(&self) -> DispatchResult {
 		if self.top_frame().read_only {
-			return Err(<Error<T>>::StateChangeDenied.into())
+			return Err(<Error<T>>::StateChangeDenied.into());
 		}
 		Ok(())
 	}
@@ -1245,7 +1244,7 @@ where
 
 		let try_call = || {
 			if !self.allows_reentry(&to) {
-				return Err(<Error<T>>::ReentranceDenied.into())
+				return Err(<Error<T>>::ReentranceDenied.into());
 			}
 
 			// If the call value is non-zero and state change is not allowed, issue an error.
@@ -1339,7 +1338,7 @@ where
 	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult {
 		self.allows_state_change()?;
 		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into())
+			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
 		let frame = self.top_frame_mut();
 		let info = frame.terminate();
@@ -1356,13 +1355,10 @@ where
 				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
 		}
 
-		Contracts::<T>::deposit_event(
-			vec![T::Hashing::hash_of(&frame.account_id), T::Hashing::hash_of(&beneficiary)],
-			Event::Terminated {
-				contract: frame.account_id.clone(),
-				beneficiary: beneficiary.clone(),
-			},
-		);
+		Contracts::<T>::deposit_event(Event::Terminated {
+			contract: frame.account_id.clone(),
+			beneficiary: beneficiary.clone(),
+		});
 		Ok(())
 	}
 
@@ -1457,7 +1453,7 @@ where
 
 	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) -> DispatchResult {
 		self.allows_state_change()?;
-		Contracts::<Self::T>::deposit_event(
+		Contracts::<Self::T>::deposit_indexed_event(
 			topics,
 			Event::ContractEmitted { contract: self.top_frame().account_id.clone(), data },
 		);
@@ -1545,7 +1541,7 @@ where
 		self.allows_state_change()?;
 		let frame = top_frame_mut!(self);
 		if !E::from_storage(hash, &mut frame.nested_gas)?.is_deterministic() {
-			return Err(<Error<T>>::Indeterministic.into())
+			return Err(<Error<T>>::Indeterministic.into());
 		}
 
 		let info = frame.contract_info();
@@ -1564,14 +1560,11 @@ where
 
 		Self::increment_refcount(hash)?;
 		Self::decrement_refcount(prev_hash);
-		Contracts::<Self::T>::deposit_event(
-			vec![T::Hashing::hash_of(&frame.account_id), hash, prev_hash],
-			Event::ContractCodeUpdated {
-				contract: frame.account_id.clone(),
-				new_code_hash: hash,
-				old_code_hash: prev_hash,
-			},
-		);
+		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
+			contract: frame.account_id.clone(),
+			new_code_hash: hash,
+			old_code_hash: prev_hash,
+		});
 		Ok(())
 	}
 
@@ -1672,7 +1665,7 @@ mod tests {
 		exec::ExportedFunction::*,
 		gas::GasMeter,
 		tests::{
-			test_utils::{get_balance, hash, place_contract, set_balance},
+			test_utils::{get_balance, place_contract, set_balance},
 			ExtBuilder, RuntimeCall, RuntimeEvent as MetaEvent, Test, TestFilter, ALICE, BOB,
 			CHARLIE, GAS_LIMIT,
 		},
@@ -3372,7 +3365,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![],
 					},
 				]
 			);
@@ -3472,7 +3465,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![],
 					},
 				]
 			);
