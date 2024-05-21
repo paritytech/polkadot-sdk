@@ -6,7 +6,7 @@
 //!
 //! - [Polkadot Forum](https://forum.polkadot.network/)
 //! - [Polkadot Parachains](https://parachains.info/)
-//! - [Polkadot (multi-chain) Explorer](https://subscan.io/)
+//! - [Polkadot (multi-chain) Explorer: Subscan](https://subscan.io/)
 //! - Polkadot Fellowship
 //!     - [Manifesto](https://github.com/polkadot-fellows/manifesto)
 //!     - [Runtimes](https://github.com/polkadot-fellows/runtimes)
