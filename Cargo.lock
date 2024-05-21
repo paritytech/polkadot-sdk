@@ -2350,7 +2350,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d624ef88b39588d113f807ffb38ee968aafc388ca57dd7a9a7b82d3de1f5f4"
 dependencies = [
  "bitflags 1.3.2",
- "proc-macro2 1.0.75",
+ "proc-macro2 1.0.82",
  "quote 1.0.35",
  "syn 1.0.109",
 ]
