@@ -432,7 +432,7 @@ sp_api::mock_impl_runtime_apis! {
 			Ok(vec![
 				VersionedAssetId::from(AssetId(HereLocation::get()))
 					.into_version(xcm_version)
-					.or_else(|_| Err(XcmPaymentApiError::VersionedConversionFailed))?
+					.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?
 			])
 		}
 
