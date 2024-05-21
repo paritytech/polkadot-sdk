@@ -5301,18 +5301,6 @@ dependencies = [
 
 [[package]]
 name = "expander"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a718c0675c555c5f976fff4ea9e2c150fa06cefa201cadef87cfbf9324075881"
-dependencies = [
- "blake3",
- "fs-err",
- "proc-macro2 1.0.82",
- "quote 1.0.35",
-]
-
-[[package]]
-name = "expander"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f86a749cf851891866c10515ef6c299b5c69661465e9c3bbe7e07a2b77fb0f7"
@@ -5374,36 +5362,11 @@ dependencies = [
 
 [[package]]
 name = "fatality"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ad875162843b0d046276327afe0136e9ed3a23d5a754210fb6f1f33610d39ab"
-dependencies = [
- "fatality-proc-macro 0.0.6",
- "thiserror",
-]
-
-[[package]]
-name = "fatality"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec6f82451ff7f0568c6181287189126d492b5654e30a788add08027b6363d019"
 dependencies = [
- "fatality-proc-macro 0.1.1",
- "thiserror",
-]
-
-[[package]]
-name = "fatality-proc-macro"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5aa1e3ae159e592ad222dc90c5acbad632b527779ba88486abe92782ab268bd"
-dependencies = [
- "expander 0.0.4",
- "indexmap 1.9.3",
- "proc-macro-crate 1.3.1",
- "proc-macro2 1.0.82",
- "quote 1.0.35",
- "syn 1.0.109",
+ "fatality-proc-macro",
  "thiserror",
 ]
 
@@ -5413,7 +5376,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb42427514b063d97ce21d5199f36c0c307d981434a6be32582bc79fe5bd2303"
 dependencies = [
- "expander 2.0.0",
+ "expander",
  "indexmap 2.2.3",
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.82",
@@ -5907,7 +5870,7 @@ dependencies = [
  "Inflector",
  "cfg-expr",
  "derive-syn-parse 0.2.0",
- "expander 2.0.0",
+ "expander",
  "frame-support-procedural-tools",
  "itertools 0.11.0",
  "macro_magic",
@@ -9380,7 +9343,7 @@ version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1344346d5af32c95bbddea91b18a88cc83eac394192d20ef2fc4c40a74332355"
 dependencies = [
- "expander 2.0.0",
+ "expander",
  "indexmap 2.2.3",
  "itertools 0.11.0",
  "petgraph",
@@ -12670,7 +12633,7 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "derive_more",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "futures-timer",
  "parity-scale-codec",
@@ -12701,7 +12664,7 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "futures-timer",
  "log",
@@ -12764,7 +12727,7 @@ dependencies = [
  "assert_matches",
  "bitvec",
  "env_logger 0.11.3",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "futures-timer",
  "log",
@@ -12807,7 +12770,7 @@ dependencies = [
  "async-channel",
  "async-trait",
  "derive_more",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "futures-timer",
  "indexmap 2.2.3",
@@ -12886,7 +12849,7 @@ dependencies = [
  "assert_matches",
  "async-trait",
  "bytes",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "futures-timer",
  "parity-scale-codec",
@@ -13010,7 +12973,7 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "polkadot-erasure-coding",
  "polkadot-node-primitives",
@@ -13119,7 +13082,7 @@ name = "polkadot-node-core-dispute-coordinator"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "futures-timer",
  "kvdb",
@@ -13164,7 +13127,7 @@ version = "6.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "parity-scale-codec",
  "polkadot-node-primitives",
@@ -13188,7 +13151,7 @@ name = "polkadot-node-core-provisioner"
 version = "7.0.0"
 dependencies = [
  "bitvec",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "futures-timer",
  "polkadot-node-primitives",
@@ -13409,7 +13372,7 @@ dependencies = [
  "async-trait",
  "bitvec",
  "derive_more",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "hex",
  "parity-scale-codec",
@@ -13487,7 +13450,7 @@ dependencies = [
  "async-trait",
  "bitvec",
  "derive_more",
- "fatality 0.0.6",
+ "fatality",
  "futures",
  "orchestra",
  "polkadot-node-jaeger",
@@ -13517,7 +13480,7 @@ dependencies = [
  "async-trait",
  "derive_more",
  "env_logger 0.11.3",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "futures-channel",
  "itertools 0.11.0",
@@ -14127,7 +14090,7 @@ dependencies = [
  "assert_matches",
  "async-channel",
  "bitvec",
- "fatality 0.1.1",
+ "fatality",
  "futures",
  "futures-timer",
  "indexmap 2.2.3",
@@ -19072,7 +19035,7 @@ dependencies = [
  "Inflector",
  "assert_matches",
  "blake2 0.10.6",
- "expander 2.0.0",
+ "expander",
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.82",
  "quote 1.0.35",
@@ -19767,7 +19730,7 @@ name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
 dependencies = [
  "Inflector",
- "expander 2.0.0",
+ "expander",
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.82",
  "quote 1.0.35",
@@ -21723,7 +21686,7 @@ name = "tracing-gum-proc-macro"
 version = "5.0.0"
 dependencies = [
  "assert_matches",
- "expander 2.0.0",
+ "expander",
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.82",
  "quote 1.0.35",
