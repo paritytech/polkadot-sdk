@@ -220,7 +220,7 @@ impl<Address, Call: Decode, Signature, Extra: SignedExtension>
 
 impl<
 		Address: TypeInfo,
-		Call: Encode + TypeInfo,
+		Call: Decode + Encode + TypeInfo,
 		Signature: TypeInfo,
 		Extra: SignedExtension + TypeInfo,
 	> Extrinsic for UncheckedExtrinsic<Address, Call, Signature, Extra>
@@ -231,6 +231,10 @@ impl<
 
 	fn is_signed(&self) -> Option<bool> {
 		Some(self.signature.is_some())
+	}
+
+	fn pre_fetch(&mut self) {
+		self.cache_function();
 	}
 
 	fn new(function: Call, signed_data: Option<Self::SignaturePayload>) -> Option<Self> {

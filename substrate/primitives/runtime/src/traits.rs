@@ -1327,6 +1327,13 @@ pub trait Extrinsic: Sized {
 		None
 	}
 
+	/// Optional method used to cache some of the extrinsic parameters
+	/// in order to make further processing faster.
+	///
+	/// `UncheckedExtrinsic` for example caches the decoded call.
+	/// Other implementations of `Extrinsic` might be no-ops.
+	fn pre_fetch(&mut self) {}
+
 	/// Create new instance of the extrinsic.
 	///
 	/// Extrinsics can be split into:

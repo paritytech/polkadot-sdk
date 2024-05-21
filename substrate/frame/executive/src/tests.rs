@@ -1173,9 +1173,9 @@ fn try_execute_tx_forbidden_errors() {
 	});
 }
 
-/// Check that `ensure_inherents_are_first` reports the correct indices.
+/// Check that `apply_extrinsics` works correctly.
 #[test]
-fn ensure_inherents_are_first_works() {
+fn apply_extrinsics_work() {
 	let in1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 	let in2 = TestXt::new(RuntimeCall::Custom2(custom2::Call::inherent {}), None);
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
@@ -1187,50 +1187,83 @@ fn ensure_inherents_are_first_works() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		assert_ok!(Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![]),), 0);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![xt2.clone()]),),
-			0
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![]).extrinsics.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(0, 0)
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![in1.clone()])),
-			1
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![xt2.clone()]).extrinsics.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(0, 1)
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in1.clone(), xt2.clone()]
-			),),
-			1
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![in1.clone()]).extrinsics.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(1, 1)
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in2.clone(), in1.clone(), xt2.clone()]
-			),),
-			2
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![in1.clone(), xt2.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(1, 2)
 		);
-
+		assert_ok!(
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![in2.clone(), in1.clone(), xt2.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(2, 3)
+		);
 		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), in1.clone()]
-			),),
-			Err(1)
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![xt2.clone(), in1.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			Err(ApplyExtrinsicsError::InvalidInherentPosition(1))
 		);
 		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), in1.clone()]
-			),),
-			Err(2)
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![xt2.clone(), xt2.clone(), in1.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			Err(ApplyExtrinsicsError::InvalidInherentPosition(2))
 		);
 		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()]
-			),),
-			Err(3)
+			Executive::apply_extrinsics(
+				Block::new(
+					header.clone(),
+					vec![xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()]
+				)
+				.extrinsics
+				.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			Err(ApplyExtrinsicsError::InvalidInherentPosition(3))
+		);
+		assert_eq!(
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![in2.clone(), in1.clone(), xt2.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Err(InvalidTransaction::Call.into()) }
+			),
+			Err(ApplyExtrinsicsError::ApplyExtrinsic(InvalidTransaction::Call.into()))
 		);
 	});
 }

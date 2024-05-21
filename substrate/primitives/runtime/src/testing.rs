@@ -261,6 +261,7 @@ impl<
 	fn extrinsics(&self) -> &[Self::Extrinsic] {
 		&self.extrinsics[..]
 	}
+
 	fn deconstruct(self) -> (Self::Header, Vec<Self::Extrinsic>) {
 		(self.header, self.extrinsics)
 	}
