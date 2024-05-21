@@ -5014,6 +5014,13 @@ mod set_state {
 			// surpassed. Making this pool destroyable by anyone.
 			StakingMock::slash_by(1, 10);
 
+			// in mock we are using transfer stake which implies slash is greedy. Extrinsic to
+			// apply pending slash should fail.
+			assert_noop!(
+				Pools::apply_slash(RuntimeOrigin::signed(11), 10),
+				Error::<Runtime>::NotSupported
+			);
+
 			// When
 			assert_ok!(Pools::set_state(RuntimeOrigin::signed(11), 1, PoolState::Destroying));
 			// Then
@@ -7474,5 +7481,63 @@ mod chill {
 			// any account can chill
 			assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
 		})
+	}
+}
+
+// the test mock is using `TransferStake` and so `DelegateStake` is not tested here. Extrinsics
+// meant for `DelegateStake` should be gated.
+//
+// `DelegateStake` tests are in `pallet-nomination-pools-test-delegate-stake`. Since we support both
+// strategies currently, we keep these tests as it is but in future we may remove `TransferStake`
+// completely.
+mod delegate_stake {
+	use super::*;
+	#[test]
+	fn delegation_specific_calls_are_gated() {
+		ExtBuilder::default().with_check(0).build_and_execute(|| {
+			// Given
+			Currency::set_balance(&11, ExistentialDeposit::get() + 2);
+			assert!(!PoolMembers::<Runtime>::contains_key(11));
+
+			// When
+			assert_ok!(Pools::join(RuntimeOrigin::signed(11), 2, 1));
+
+			// Then
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Created { depositor: 10, pool_id: 1 },
+					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::Bonded { member: 11, pool_id: 1, bonded: 2, joined: true },
+				]
+			);
+
+			assert_eq!(
+				PoolMembers::<Runtime>::get(11).unwrap(),
+				PoolMember::<Runtime> { pool_id: 1, points: 2, ..Default::default() }
+			);
+
+			// ensure pool 1 cannot be migrated.
+			assert_noop!(
+				Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
+				Error::<Runtime>::NotSupported
+			);
+
+			// members cannot be migrated either.
+			assert_noop!(
+				Pools::migrate_delegation(RuntimeOrigin::signed(10), 11),
+				Error::<Runtime>::NotSupported
+			);
+
+			// Given
+			// The bonded balance is slashed in half
+			StakingMock::slash_by(1, 6);
+
+			// since slash is greedy with `TransferStake`, `apply_slash` should not work either.
+			assert_noop!(
+				Pools::apply_slash(RuntimeOrigin::signed(10), 11),
+				Error::<Runtime>::NotSupported
+			);
+		});
 	}
 }
