@@ -24,6 +24,9 @@ use sp_staking::{DelegationInterface, DelegationMigrator};
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq)]
 pub enum StakeStrategyType {
 	/// Member funds are transferred to pool account and staked.
+	///
+	/// This is the older staking strategy used by pools. For a new runtime, it is recommended to
+	/// use [`StakeStrategyType::Delegate`] strategy instead.
 	Transfer,
 	/// Member funds are delegated to pool account and staked.
 	Delegate,
@@ -39,7 +42,7 @@ pub trait StakeStrategy {
 	type AccountId: Clone + sp_std::fmt::Debug;
 	type CoreStaking: StakingInterface<Balance = Self::Balance, AccountId = Self::AccountId>;
 
-	/// The type of staking strategy.
+	/// The type of staking strategy of the current adapter.
 	fn strategy_type() -> StakeStrategyType;
 
 	/// See [`StakingInterface::bonding_duration`].
@@ -77,6 +80,17 @@ pub trait StakeStrategy {
 	/// See [`StakingInterface::total_stake`].
 	fn total_stake(pool_account: &Self::AccountId) -> Self::Balance {
 		Self::CoreStaking::total_stake(pool_account).unwrap_or_default()
+	}
+
+	/// Which strategy the pool account is using.
+	///
+	/// This can be different from the [`Self::strategy_type`] of the adapter if the pool has not
+	/// migrated to the new strategy yet.
+	fn pool_strategy(pool_account: &Self::AccountId) -> StakeStrategyType {
+		match Self::CoreStaking::is_virtual_staker(pool_account) {
+			true => StakeStrategyType::Delegate,
+			false => StakeStrategyType::Transfer,
+		}
 	}
 
 	/// See [`StakingInterface::nominate`].
@@ -179,8 +193,9 @@ pub trait StakeStrategy {
 /// pool account and stakes through the pool account on `Staking`.
 ///
 /// This is the older Staking strategy used by pools. To switch to the newer [`DelegateStake`]
-/// strategy, storage migration is required. See
-/// [`migration::unversioned::DelegationStakeMigration`].
+/// strategy in an existing runtime, storage migration is required. See
+/// [`migration::unversioned::DelegationStakeMigration`]. For new runtimes, it is highly recommended
+/// to use the [`DelegateStake`] strategy.
 pub struct TransferStake<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
 impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>

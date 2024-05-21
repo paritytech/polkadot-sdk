@@ -111,6 +111,10 @@ impl sp_staking::StakingInterface for StakingMock {
 			.ok_or(DispatchError::Other("NotStash"))
 	}
 
+	fn is_virtual_staker(_who: &Self::AccountId) -> bool {
+		false
+	}
+
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
 		let mut x = BondedBalanceMap::get();
 		x.get_mut(who).map(|v| *v += extra);

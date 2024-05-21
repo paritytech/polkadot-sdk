@@ -1947,8 +1947,10 @@ pub mod pallet {
 		NothingToAdjust,
 		/// No slash pending that can be applied to the member.
 		NothingToSlash,
-		/// No delegation to claim.
-		NoDelegationToClaim,
+		/// No delegation to migrate.
+		NoDelegationToMigrate,
+		/// The pool has already migrated.
+		AlreadyMigrated,
 	}
 
 	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
@@ -2903,11 +2905,11 @@ pub mod pallet {
 			let pool_contribution = member.total_balance();
 			ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// the member must have some contribution to be migrated.
-			ensure!(pool_contribution > Zero::zero(), Error::<T>::NoDelegationToClaim);
+			ensure!(pool_contribution > Zero::zero(), Error::<T>::NoDelegationToMigrate);
 
 			let delegation = T::StakeAdapter::member_delegation_balance(&member_account);
 			// delegation can be claimed only once.
-			ensure!(delegation == Zero::zero(), Error::<T>::NoDelegationToClaim);
+			ensure!(delegation == Zero::zero(), Error::<T>::NoDelegationToMigrate);
 
 			let diff = pool_contribution.defensive_saturating_sub(delegation);
 			T::StakeAdapter::migrate_delegation(
@@ -2917,6 +2919,31 @@ pub mod pallet {
 			)?;
 
 			// if successful, we refund the fee.
+			Ok(Pays::No.into())
+		}
+
+		/// Migrate pool from [`adapter::StakeStrategyType::Transfer`] to
+		/// [`adapter::StakeStrategyType::Delegate`].
+		///
+		/// This is a permission-less call and can be called only once for a pool.
+		///
+		/// If the pool has already migrated to delegation based staking, this call will fail.
+		#[pallet::call_index(25)]
+		#[pallet::weight(T::WeightInfo::pool_migrate())]
+		pub fn migrate_pool_to_delegate_stake(
+			origin: OriginFor<T>,
+			pool_id: PoolId,
+		) -> DispatchResultWithPostInfo {
+			let _caller = ensure_signed(origin)?;
+			// ensure pool exists.
+			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			ensure!(
+				T::StakeAdapter::pool_strategy(&bonded_pool.bonded_account()) ==
+					adapter::StakeStrategyType::Transfer,
+				Error::<T>::AlreadyMigrated
+			);
+
+			Self::migrate_to_delegate_stake(pool_id)?;
 			Ok(Pays::No.into())
 		}
 	}
