@@ -385,7 +385,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
-		ProspectiveParachainsSubsystem,
+		DummySubsystem,
 	>,
 	Error,
 >
@@ -462,7 +462,7 @@ where
 		.dispute_coordinator(DummySubsystem)
 		.dispute_distribution(DummySubsystem)
 		.chain_selection(DummySubsystem)
-		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
+		.prospective_parachains(DummySubsystem)
 		.activation_external_listeners(Default::default())
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())

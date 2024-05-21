@@ -520,7 +520,7 @@ fn hrmp_signals_are_prioritized() {
 		});
 
 		// But a signal gets prioritized instead of the messages:
-		XcmpQueue::send_signal(sibling_para_id.into(), ChannelSignal::Suspend);
+		assert_ok!(XcmpQueue::send_signal(sibling_para_id.into(), ChannelSignal::Suspend));
 
 		let taken = XcmpQueue::take_outbound_messages(130);
 		assert_eq!(

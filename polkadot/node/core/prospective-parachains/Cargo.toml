@@ -12,9 +12,9 @@ workspace = true
 [dependencies]
 futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
-parity-scale-codec = "3.6.4"
+parity-scale-codec = "3.6.12"
 thiserror = { workspace = true }
-fatality = "0.1.0"
+fatality = "0.1.1"
 bitvec = "1"
 
 polkadot-primitives = { path = "../../../primitives" }
