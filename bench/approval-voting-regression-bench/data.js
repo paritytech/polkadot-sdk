@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716313895289,
+  "lastUpdate": 1716332524700,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -4182,6 +4182,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.114284166720072,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Javier Viola",
+            "username": "pepoviola",
+            "email": "363911+pepoviola@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ec46106c33f2220d16a9dc7ad604d564d42ee009",
+          "message": "chore: bump zombienet version (#4535)\n\nThis version includes the latest release of pjs/api\n(https://github.com/polkadot-js/api/releases/tag/v11.1.1).\nThx!",
+          "timestamp": "2024-05-21T21:33:18Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec46106c33f2220d16a9dc7ad604d564d42ee009"
+        },
+        "date": 1716332496659,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63544.240000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.637186603939912,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.290151388159984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.380804310180065,
             "unit": "seconds"
           }
         ]
