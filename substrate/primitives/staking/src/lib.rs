@@ -285,6 +285,13 @@ pub trait StakingInterface {
 		Self::status(who).map(|s| matches!(s, StakerStatus::Validator)).unwrap_or(false)
 	}
 
+	/// Checks whether the staker is a virtual account.
+	///
+	/// A virtual staker is an account whose locks are not managed by the [`StakingInterface`]
+	/// implementation but by an external pallet. See [`StakingUnchecked::virtual_bond`] for more
+	/// details.
+	fn is_virtual_staker(who: &Self::AccountId) -> bool;
+
 	/// Get the nominations of a stash, if they are a nominator, `None` otherwise.
 	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		match Self::status(who) {
