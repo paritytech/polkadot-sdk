@@ -1949,9 +1949,11 @@ pub mod pallet {
 		NothingToSlash,
 		/// No delegation to migrate.
 		NoDelegationToMigrate,
-		/// The pool has already migrated.
-		AlreadyMigrated,
-		/// This call is not allowed in the current state of the pool.
+		/// The pool has already migrated to enable delegation.
+		PoolAlreadyMigrated,
+		/// The pool has not migrated yet to enable delegation.
+		PoolNotMigrated,
+		/// This call is not allowed in the current state of the pallet.
 		NotSupported,
 	}
 
@@ -2910,16 +2912,24 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,
 		) -> DispatchResultWithPostInfo {
+			let _caller = ensure_signed(origin)?;
+
 			ensure!(
 				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
 				Error::<T>::NotSupported
 			);
 
-			let _caller = ensure_signed(origin)?;
-
 			let member_account = T::Lookup::lookup(member_account)?;
 			let member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
+
+			// ensure pool is migrated.
+			ensure!(
+				T::StakeAdapter::pool_strategy(&Self::generate_bonded_account(member.pool_id)) ==
+					adapter::StakeStrategyType::Delegate,
+				Error::<T>::PoolNotMigrated
+			);
+
 			let pool_contribution = member.total_balance();
 			ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// the member must have some contribution to be migrated.
@@ -2967,7 +2977,7 @@ pub mod pallet {
 			ensure!(
 				T::StakeAdapter::pool_strategy(&bonded_pool.bonded_account()) ==
 					adapter::StakeStrategyType::Transfer,
-				Error::<T>::AlreadyMigrated
+				Error::<T>::PoolAlreadyMigrated
 			);
 
 			Self::migrate_to_delegate_stake(pool_id)?;

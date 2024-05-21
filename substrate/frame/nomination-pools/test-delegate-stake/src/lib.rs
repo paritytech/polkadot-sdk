@@ -976,15 +976,28 @@ fn pool_migration_e2e() {
 			]
 		);
 
-		// we migrate to the new strategy `DelegateStake`
+		// with `TransferStake`, we can't migrate.
+		assert_noop!(
+			Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
+			PoolsError::<Runtime>::NotSupported
+		);
+
+		// we reset the adapter to `DelegateStake`.
 		LegacyAdapter::set(false);
+
+		// cannot migrate the member delegation unless pool is migrated first.
+		assert_noop!(
+			Pools::migrate_delegation(RuntimeOrigin::signed(10), 20),
+			PoolsError::<Runtime>::PoolNotMigrated
+		);
+
 		// migrate the pool.
 		assert_ok!(Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1));
 
 		// migrate again does not work.
 		assert_noop!(
 			Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
-			PoolsError::<Runtime>::AlreadyMigrated
+			PoolsError::<Runtime>::PoolAlreadyMigrated
 		);
 
 		// unclaimed delegations to the pool are stored in this account.
