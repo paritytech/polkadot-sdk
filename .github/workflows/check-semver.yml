@@ -23,7 +23,7 @@ jobs:
           rustup component add rust-src --toolchain nightly-2024-03-01
 
       - name: install parity-publish
-        run: cargo install --git https://github.com/paritytech/parity-publish
+        run: cargo install --git https://github.com/paritytech/parity-publish --branch log
 
       - name: extra git setup
         run: |
@@ -33,12 +33,11 @@ jobs:
         run: |
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
-          git show --stat
-          git show --stat HEAD^1
-          parity-publish --color always semver --since HEAD^1 --toolchain nightly-2024-03-01 pallet-contracts pallet-contracts-uapi
+          which parity-publish
+          parity-publish --debug --color always semver --since 6847f88 --toolchain nightly-2024-03-01 pallet-contracts pallet-contracts-uapi
 
 
-          if ! parity-publish --color always prdoc --since HEAD^1 --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
+          if ! parity-publish --debug --color always prdoc --since 6847f88 --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
             cat <<EOF
           👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 
