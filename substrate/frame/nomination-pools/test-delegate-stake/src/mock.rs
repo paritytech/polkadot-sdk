@@ -24,8 +24,10 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use pallet_nomination_pools::{adapter::StakeStrategyType, BondType};
-use pallet_nomination_pools::adapter::PoolAccount;
+use pallet_nomination_pools::{
+	adapter::{PoolAccount, StakeStrategyType},
+	BondType,
+};
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,

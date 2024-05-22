@@ -318,7 +318,8 @@ impl<
 	}
 
 	fn transferable_balance(pool_account: PoolAccount<Self::AccountId>) -> BalanceOf<T> {
-		Delegation::agent_balance(&pool_account.0).saturating_sub(Self::active_stake(&pool_account.0))
+		Delegation::agent_balance(&pool_account.0)
+			.saturating_sub(Self::active_stake(&pool_account.0))
 	}
 
 	fn total_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
