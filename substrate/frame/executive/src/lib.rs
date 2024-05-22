@@ -86,6 +86,12 @@
 //! done by setting an optional generic parameter. The custom logic will be called before
 //! the on runtime upgrade logic of all modules is called.
 //!
+//! ### Custom `TryState` logic
+//!
+//! You can add custom logic that should be called in your runtime on a try-state test. This is
+//! done by setting an optional generic parameter after the `OnRuntimeUpgrade` type. The custom logic will be called before
+//! the `try-state` logic of all modules is called.
+//!
 //! ```
 //! # use sp_runtime::generic;
 //! # use frame_executive as executive;
@@ -115,7 +121,16 @@
 //!     }
 //! }
 //!
-//! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, CustomOnRuntimeUpgrade>;
+//! struct CustomTryState;
+//! impl frame_support::traits::TryState<BlockNumber> for CustomTryState {
+//!
+//! 	fn try_state(_: BlockNumber, _: Select) -> Result<(), sp_runtime::TryRuntimeError> {
+//!         // Do whatever you want.
+//!         Ok(())
+//! 	}
+//! }
+//!
+//! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, CustomOnRuntimeUpgrade, CustomTryState>;
 //! ```
 
 #[cfg(doc)]
@@ -205,6 +220,8 @@ pub type OriginOf<E, C> = <CallOf<E, C> as Dispatchable>::RuntimeOrigin;
 ///   used to call hooks e.g. `on_initialize`.
 /// - `OnRuntimeUpgrade`: Custom logic that should be called after a runtime upgrade. Modules are
 ///   already called by `AllPalletsWithSystem`. It will be called before all modules will be called.
+/// - `TryState`: Custom logic that should be called when running `try-state` tests. Modules are
+///   already called by `AllPalletsWithSystem`. It will be called before all modules will be called.
 pub struct Executive<
 	System,
 	Block,
@@ -212,6 +229,7 @@ pub struct Executive<
 	UnsignedValidator,
 	AllPalletsWithSystem,
 	OnRuntimeUpgrade = (),
+	TryState = (),
 >(
 	PhantomData<(
 		System,
@@ -220,6 +238,7 @@ pub struct Executive<
 		UnsignedValidator,
 		AllPalletsWithSystem,
 		OnRuntimeUpgrade,
+		TryState,
 	)>,
 );
 
@@ -280,8 +299,17 @@ impl<
 			+ TryState<BlockNumberFor<System>>
 			+ TryDecodeEntireStorage,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
-where
+		CTryState: frame_support::traits::TryState<BlockNumberFor<System>>,
+	>
+	Executive<
+		System,
+		Block,
+		Context,
+		UnsignedValidator,
+		AllPalletsWithSystem,
+		COnRuntimeUpgrade,
+		CTryState,
+	> where
 	Block::Extrinsic: Checkable<Context> + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
@@ -318,7 +346,7 @@ where
 
 		// Check if there are any forbidden non-inherents in the block.
 		if mode == ExtrinsicInclusionMode::OnlyInherents && extrinsics.len() > num_inherents {
-			return Err("Only inherents allowed".into())
+			return Err("Only inherents allowed".into());
 		}
 
 		let try_apply_extrinsic = |uxt: Block::Extrinsic| -> ApplyExtrinsicResult {
@@ -343,7 +371,7 @@ where
 			let r = Applyable::apply::<UnsignedValidator>(xt, &dispatch_info, encoded_len)?;
 
 			if r.is_err() && dispatch_info.class == DispatchClass::Mandatory {
-				return Err(InvalidTransaction::BadMandatory.into())
+				return Err(InvalidTransaction::BadMandatory.into());
 			}
 
 			<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
@@ -359,7 +387,7 @@ where
 					e,
 					err,
 				);
-				break
+				break;
 			}
 		}
 
@@ -377,7 +405,7 @@ where
 
 		// run the try-state checks of all pallets, ensuring they don't alter any state.
 		let _guard = frame_support::StorageNoopGuard::default();
-		<AllPalletsWithSystem as frame_support::traits::TryState<
+		<(CTryState, AllPalletsWithSystem) as frame_support::traits::TryState<
 			BlockNumberFor<System>,
 		>>::try_state(*header.number(), select.clone())
 		.map_err(|e| {
@@ -456,7 +484,7 @@ where
 
 		// Check all storage invariants:
 		if checks.try_state() {
-			AllPalletsWithSystem::try_state(
+			<(CTryState, AllPalletsWithSystem)>::try_state(
 				frame_system::Pallet::<System>::block_number(),
 				TryStateSelect::All,
 			)?;
@@ -621,9 +649,9 @@ where
 		// Check that `parent_hash` is correct.
 		let n = *header.number();
 		assert!(
-			n > BlockNumberFor::<System>::zero() &&
-				<frame_system::Pallet<System>>::block_hash(n - BlockNumberFor::<System>::one()) ==
-					*header.parent_hash(),
+			n > BlockNumberFor::<System>::zero()
+				&& <frame_system::Pallet<System>>::block_hash(n - BlockNumberFor::<System>::one())
+					== *header.parent_hash(),
 			"Parent hash should be valid.",
 		);
 
@@ -719,7 +747,7 @@ where
 	/// ongoing MBMs.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
 		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
-			return
+			return;
 		}
 
 		let weight = <frame_system::Pallet<System>>::block_weight();
@@ -803,7 +831,7 @@ where
 		// The entire block should be discarded if an inherent fails to apply. Otherwise
 		// it may open an attack vector.
 		if r.is_err() && dispatch_info.class == DispatchClass::Mandatory {
-			return Err(InvalidTransaction::BadMandatory.into())
+			return Err(InvalidTransaction::BadMandatory.into());
 		}
 
 		<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
@@ -873,7 +901,7 @@ where
 		};
 
 		if dispatch_info.class == DispatchClass::Mandatory {
-			return Err(InvalidTransaction::MandatoryValidation.into())
+			return Err(InvalidTransaction::MandatoryValidation.into());
 		}
 
 		within_span! {
