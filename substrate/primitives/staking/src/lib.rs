@@ -463,7 +463,12 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
+/// Wrapper around `Agent` account that receives delegations from [`DelegatorAccount`]s.
+#[derive(Clone, Debug)]
 pub struct AgentAccount<AccountId>(pub AccountId);
+
+/// Wrapper around `Delegator` account that delegates to an [`AgentAccount`].
+#[derive(Clone, Debug)]
 pub struct DelegatorAccount<AccountId>(pub AccountId);
 
 

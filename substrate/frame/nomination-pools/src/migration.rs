@@ -132,7 +132,7 @@ pub mod unversioned {
 				let pool_acc = Pallet::<T>::generate_bonded_account(id);
 
 				// only migrate if the pool is in Transfer Strategy.
-				if T::StakeAdapter::pool_strategy(&pool_acc) == adapter::StakeStrategyType::Transfer
+				if T::StakeAdapter::pool_strategy(PoolAccount(pool_acc)) == adapter::StakeStrategyType::Transfer
 				{
 					let _ = Pallet::<T>::migrate_to_delegate_stake(id).map_err(|err| {
 						log!(
@@ -1151,7 +1151,7 @@ mod helpers {
 
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
 		BondedPools::<T>::iter_keys()
-			.map(|id| T::StakeAdapter::total_stake(&Pallet::<T>::generate_bonded_account(id)))
+			.map(|id| T::StakeAdapter::total_stake(PoolAccount(Pallet::<T>::generate_bonded_account(id))))
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()
 	}
