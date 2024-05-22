@@ -258,16 +258,12 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 	fn charge_fees(origin: impl Into<Location>, fees: Assets, asset_for_fees: &AssetId) -> XcmResult {
 		let origin = origin.into();
 		if !Config::FeeManager::is_waived(Some(&origin), FeeReason::ChargeFees) {
-			// We allow only one asset for fee payment.
 			log::trace!(target: "xcm::charge_fees", "Fees: {:?}", fees);
 			let first = fees.get(0).ok_or(XcmError::AssetNotFound)?;
-			log::trace!(target: "xcm::charge_fees", "Old asset: {:?}", first);
-			// New config item, it will just return `first` unaffected if there's no
-			// way to convert it. This will result in an error later if they're not present.
 			log::trace!(target: "xcm::charge_fees", "Asset for fees: {:?}", asset_for_fees);
 			// If no conversion can be made, we use the original asset even if it's not
 			// the desired one, as best effort.
-			let actual_asset_to_use = match Config::AssetConverter::convert_asset(&first, asset_for_fees) {
+			let asset_to_withdraw = match Config::AssetConverter::convert_asset(&first, asset_for_fees) {
 				Ok(new_asset) => new_asset,
 				Err(error) => {
 					log::error!(
@@ -279,8 +275,8 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 					first.clone()
 				},
 			};
-			log::trace!(target: "xcm::charge_fees", "New asset: {:?}", actual_asset_to_use);
-			Config::AssetTransactor::withdraw_asset(&actual_asset_to_use, &origin, None)?;
+			log::trace!(target: "xcm::charge_fees", "New asset: {:?}", asset_to_withdraw);
+			Config::AssetTransactor::withdraw_asset(&asset_to_withdraw, &origin, None)?;
 			Config::FeeManager::handle_fee(fees, None, FeeReason::ChargeFees);
 		}
 		Ok(())
@@ -527,7 +523,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						break;
 					},
 					Err(error) => {
-						log::error!(
+						// It's `trace` and not `error` because we expect it to happen
+						// until we reach the correct implementation in the tuple.
+						log::trace!(
 							target: "xcm::take_fee",
 							"Could not convert fees to {:?}. Error: {:?}",
 							asset.id,
@@ -540,12 +538,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			asset_for_fees
 		};
 		log::trace!(target: "xcm", "Actual asset for fees: {:?}", actual_asset_to_use);
+		// TODO: Remove `jit_withdrawal`, it makes this much harder.
 		let paid = if self.fees_mode.jit_withdraw {
 			let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 			Config::AssetTransactor::withdraw_asset(&actual_asset_to_use, origin, Some(&self.context))?;
-			vec![actual_asset_to_use].into()
+			let swapped_asset = Config::AssetConverter::swap(&actual_asset_to_use, first)?;
+			vec![swapped_asset].into()
 		} else {
-			self.holding.try_take(actual_asset_to_use.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
+			let assets = self.holding.try_take(actual_asset_to_use.clone().into()).map_err(|_| XcmError::NotHoldingFees)?;
+			let taken_asset = assets.into_assets_iter().next().ok_or(XcmError::AssetNotFound)?;
+			let swapped_asset = Config::AssetConverter::swap(&taken_asset, first)?;
+			vec![swapped_asset].into()
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())

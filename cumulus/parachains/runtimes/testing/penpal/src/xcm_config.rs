@@ -24,16 +24,16 @@
 //! soon.
 use super::{
 	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Authorship, Balance,
-	Balances, ForeignAssets, ForeignAssetsInstance, NonZeroIssuance, ParachainInfo,
+	Balances, CollatorSelection, ForeignAssets, ForeignAssetsInstance, NonZeroIssuance, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee,
 	XcmpQueue, TrustBackedAssetsInstance,
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
-use assets_common::SufficientAssetConverter;
+use assets_common::{SufficientAssetConverter, SwapAssetConverter, TrustBackedAssetsAsLocation};
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, ContainsPair, Everything, EverythingBut, Get, Nothing},
+	traits::{ConstU32, Contains, ContainsPair, Everything, EverythingBut, Get, Nothing, tokens::imbalance::ResolveAssetTo, PalletInfoAccess},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -58,7 +58,7 @@ use xcm_executor::{traits::JustTry, XcmExecutor};
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
-	// Local native currency which is stored in `pallet_balances``
+	// Local native currency which is stored in `pallet_balances`
 	pub const PenpalNativeCurrency: Location = Location::here();
 	// The Penpal runtime is utilized for testing with various environment setups.
 	// This storage item allows us to customize the `NetworkId` where Penpal is deployed.
@@ -71,6 +71,10 @@ parameter_types! {
 		Parachain(ParachainInfo::parachain_id().into())
 	].into();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
+	pub StakingPot: AccountId = CollatorSelection::account_id();
+	pub TrustBackedAssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
+	pub TrustBackedAssetsPalletLocation: Location =
+		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -341,8 +345,21 @@ pub type ForeignSufficientAssetsConverter = SufficientAssetConverter<
 /// Used to convert assets in pools to the asset required for fee payment.
 /// The pool must be between the first asset and the one required for fee payment.
 /// This type allows paying fees with any asset in a pool with the asset required for fee payment.
-// TODO: Finish.
-pub type PoolAssetsConverter = ();
+pub type PoolAssetsConverter = SwapAssetConverter<
+	RelayLocation,
+	Runtime,
+	crate::NativeAndAssets,
+	(
+		TrustBackedAssetsAsLocation<
+			TrustBackedAssetsPalletLocation,
+			Balance,
+			xcm::latest::Location,
+		>,
+		ForeignAssetsConvertedConcreteId,
+	),
+	crate::AssetConversion,
+	AccountId,
+>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -361,6 +378,22 @@ impl xcm_executor::Config for XcmConfig {
 		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>,
 		// This trader allows to pay with `is_sufficient=true` "Foreign" assets from dedicated
 		// `pallet_assets` instance - `ForeignAssets`.
+		cumulus_primitives_utility::SwapFirstAssetTrader<
+			RelayLocation,
+			crate::AssetConversion,
+			WeightToFee,
+			crate::NativeAndAssets,
+			(
+				TrustBackedAssetsAsLocation<
+					TrustBackedAssetsPalletLocation,
+					Balance,
+					xcm::latest::Location,
+				>,
+				ForeignAssetsConvertedConcreteId,
+			),
+			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
+			AccountId,
+		>,
 		cumulus_primitives_utility::TakeFirstAssetTrader<
 			AccountId,
 			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
@@ -395,9 +428,9 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type AssetConverter = (
+		PoolAssetsConverter,
 		TrustBackedSufficientAssetsConverter,
 		ForeignSufficientAssetsConverter,
-		PoolAssetsConverter,
 	);
 	type XcmRecorder = PolkadotXcm;
 }

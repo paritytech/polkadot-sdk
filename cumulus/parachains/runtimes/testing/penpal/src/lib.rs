@@ -32,6 +32,10 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod weights;
 pub mod xcm_config;
 
+use assets_common::{
+	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
+	AssetIdForTrustBackedAssetsConvert,
+};
 use codec::Encode;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
@@ -40,10 +44,11 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	pallet_prelude::Weight,
-	parameter_types,
+	parameter_types, ord_parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU8, Everything, TransformOrigin,
+		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU128, ConstU8, Everything, TransformOrigin,
 		PalletInfoAccess,
+		tokens::{imbalance::ResolveAssetTo, fungible, fungibles},
 	},
 	weights::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, FeePolynomial, WeightToFee as _,
@@ -54,6 +59,7 @@ use frame_support::{
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
+	EnsureSignedBy,
 };
 use parachains_common::{
 	impls::{AssetsToBlockAuthor, NonZeroIssuance},
@@ -65,7 +71,7 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, AccountIdConversion},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -502,6 +508,103 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 }
 
 parameter_types! {
+	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+}
+
+ord_parameter_types! {
+	pub const AssetConversionOrigin: sp_runtime::AccountId32 =
+		AccountIdConversion::<sp_runtime::AccountId32>::into_account_truncating(&AssetConversionPalletId::get());
+}
+
+pub type AssetsForceOrigin = EnsureRoot<AccountId>;
+
+pub type PoolAssetsInstance = pallet_assets::Instance3;
+impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetId = u32;
+	type AssetIdParameter = u32;
+	type Currency = Balances;
+	type CreateOrigin =
+		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
+	type ForceOrigin = AssetsForceOrigin;
+	type AssetDeposit = ConstU128<0>;
+	type AssetAccountDeposit = ConstU128<0>;
+	type MetadataDepositBase = ConstU128<0>;
+	type MetadataDepositPerByte = ConstU128<0>;
+	type ApprovalDeposit = ConstU128<0>;
+	type StringLimit = ConstU32<50>;
+	type Freezer = ();
+	type Extra = ();
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+	type CallbackHandle = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
+/// Union fungibles implementation for `Assets` and `ForeignAssets`.
+pub type LocalAndForeignAssets = fungibles::UnionOf<
+	Assets,
+	ForeignAssets,
+	LocalFromLeft<
+		AssetIdForTrustBackedAssetsConvert<xcm_config::TrustBackedAssetsPalletLocation, xcm::latest::Location>,
+		parachains_common::AssetIdForTrustBackedAssets,
+		xcm::latest::Location,
+	>,
+	xcm::latest::Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
+pub type NativeAndAssets = fungible::UnionOf<
+	Balances,
+	LocalAndForeignAssets,
+	TargetFromLeft<xcm_config::PenpalNativeCurrency, xcm::latest::Location>,
+	xcm::latest::Location,
+	AccountId,
+>;
+
+pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
+	AssetConversionPalletId,
+	(xcm::latest::Location, xcm::latest::Location),
+>;
+
+impl pallet_asset_conversion::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type HigherPrecisionBalance = sp_core::U256;
+	type AssetKind = xcm::latest::Location;
+	type Assets = NativeAndAssets;
+	type PoolId = (Self::AssetKind, Self::AssetKind);
+	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
+		xcm_config::PenpalNativeCurrency,
+		AccountId,
+		Self::AssetKind,
+		PoolIdToAccountId,
+	>;
+	type PoolAssetId = u32;
+	type PoolAssets = PoolAssets;
+	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
+	type PoolSetupFeeAsset = xcm_config::PenpalNativeCurrency;
+	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
+	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
+	type LPFee = ConstU32<3>;
+	type PalletId = AssetConversionPalletId;
+	type MaxSwapPathLength = ConstU32<3>;
+	type MintMinLiquidity = ConstU128<100>;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
+		xcm_config::PenpalNativeCurrency,
+		parachain_info::Pallet<Runtime>,
+		xcm_config::TrustBackedAssetsPalletIndex,
+		xcm::latest::Location,
+	>;
+}
+
+parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
@@ -682,6 +785,8 @@ construct_runtime!(
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
 		ForeignAssets: pallet_assets::<Instance2> = 51,
+		PoolAssets: pallet_assets::<Instance3> = 52,
+		AssetConversion: pallet_asset_conversion = 53,
 
 		Sudo: pallet_sudo = 255,
 	}

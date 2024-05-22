@@ -24,6 +24,7 @@ use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
 	TrustBackedAssetsAsLocation,
 	SufficientAssetConverter,
+	SwapAssetConverter,
 };
 use core::marker::PhantomData;
 use frame_support::{
@@ -375,10 +376,18 @@ pub type ForeignSufficientAssetsConverter = SufficientAssetConverter<
 /// Used to convert assets in pools to the asset required for fee payment.
 /// The pool must be between the first asset and the one required for fee payment.
 /// This type allows paying fees with any asset in a pool with the asset required for fee payment.
-// TODO: Finish.
 pub type PoolAssetsConverter = SwapAssetConverter<
-	crate::Assets,
-	TrustBackedAssetsConvertedConcreteId,
+	WestendLocationV3,
+	Runtime,
+	crate::NativeAndAssets,
+	(
+		TrustBackedAssetsAsLocation<
+			TrustBackedAssetsPalletLocation,
+			Balance,
+			xcm::v3::Location,
+		>,
+		ForeignAssetsConvertedConcreteId,
+	),
 	crate::AssetConversion,
 	AccountId,
 >;
@@ -454,9 +463,9 @@ impl xcm_executor::Config for XcmConfig {
 		>,
 	);
 	type AssetConverter = (
+		PoolAssetsConverter,
 		TrustBackedSufficientAssetsConverter,
 		ForeignSufficientAssetsConverter,
-		PoolAssetsConverter,
 	);
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;

@@ -42,6 +42,7 @@ pallet-transaction-payment = { path = "../../../../../substrate/frame/transactio
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
 pallet-asset-tx-payment = { path = "../../../../../substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
+pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false }
 sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
@@ -55,6 +56,8 @@ sp-std = { path = "../../../../../substrate/primitives/std", default-features = 
 sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false }
 sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false }
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
+# num-traits feature needed for dex integer sq root:
+primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 # Polkadot
 polkadot-primitives = { path = "../../../../../polkadot/primitives", default-features = false }
@@ -102,6 +105,7 @@ std = [
 	"log/std",
 	"pallet-asset-tx-payment/std",
 	"pallet-assets/std",
+	"pallet-asset-conversion/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
@@ -153,6 +157,7 @@ runtime-benchmarks = [
 	"hex-literal",
 	"pallet-asset-tx-payment/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
@@ -180,6 +185,7 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-asset-tx-payment/try-runtime",
 	"pallet-assets/try-runtime",
+	"pallet-asset-conversion/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",

@@ -1388,36 +1388,48 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	assert!(receiver_assets_after > receiver_assets_before);
 }
 
+// ===============================================================
+// ===== Reserve Transfers - Pool Asset - AssetHub->Parachain ====
+// ===============================================================
 #[test]
 fn reserve_transfer_pool_assets_from_system_para_to_para() {
-	let native_asset = RelayLocation::get();
-	let asset_id = 9999;
-	let pool_asset = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())]);
+	let native_asset = RelayLocationV3::get();
+	let asset_id = 9999u32;
+	let pool_asset = xcm::v3::Location::new(0, [
+		xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID),
+		xcm::v3::Junction::GeneralIndex(asset_id.into())
+	]);
+	let penpal_location = AssetHubWestend::sibling_location_of(PenpalA::para_id());
+	let penpal_sov_account = AssetHubWestend::sovereign_account_id_of(penpal_location.clone());
 
-	// Setup the pool between `native_asset` and `pool_asset`.
+	// Create SA-of-Penpal-on-AHR with ED.
+	// This ED isn't reflected in any derivative in a PenpalA account.
+	AssetHubWestend::fund_accounts(vec![(penpal_sov_account.clone().into(), ASSET_HUB_WESTEND_ED)]);
+
+	// Setup the pool between `native_asset` and `pool_asset` on AssetHub.
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-		// set up pool with ASSET_ID <> NATIVE pair
+		// set up pool with asset_id <> native pair
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::create(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			ASSET_ID.into(),
+			asset_id.into(),
 			AssetHubWestendSender::get().into(),
 			ASSET_MIN_BALANCE,
 		));
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::Assets::asset_exists(ASSET_ID));
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::Assets::asset_exists(asset_id));
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			ASSET_ID.into(),
+			asset_id.into(),
 			AssetHubWestendSender::get().into(),
-			3_000_000_000_000,
+			10_000_000_000_000, // For it to have more than enough.
 		));
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(asset_native),
-			Box::new(asset_one),
+			Box::new(native_asset),
+			Box::new(pool_asset),
 		));
 
 		assert_expected_events!(
@@ -1429,10 +1441,10 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(asset_native),
-			Box::new(asset_one),
+			Box::new(native_asset),
+			Box::new(pool_asset),
 			1_000_000_000_000,
-			2_000_000_000_000,
+			2_000_000_000_000, // `pool_asset` is worth half of `native_asset`
 			0,
 			0,
 			AssetHubWestendSender::get().into()
@@ -1444,26 +1456,128 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {lp_token_minted, .. }) => { lp_token_minted: *lp_token_minted == 1414213562273, },
 			]
 		);
+	});
 
-		// ensure `penpal` sovereign account has no native tokens and mint some `ASSET_ID`
-		assert_eq!(
-			<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(penpal.clone()),
-			0
-		);
+	let penpal_native_asset = Location::here();
+	let custom_asset_penpal_pov = Location::new(1, [
+		Parachain(1000),
+		PalletInstance(ASSETS_PALLET_ID),
+		GeneralIndex(asset_id.into()),
+	]);
+	PenpalA::force_create_foreign_asset(
+		custom_asset_penpal_pov.clone(),
+		PenpalAssetOwner::get(),
+		false, // Asset not sufficient, has a pool to pay for fees.
+		1_000_000,
+		vec![(PenpalASender::get(), 10_000_000_000_000)], // We give it some funds to be able to add liquidity later.
+	);
 
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::touch_other(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			ASSET_ID.into(),
-			penpal.clone().into(),
+	// Setup the pool between `native_penpal_asset` and `pool_asset` on PenpalA.
+	// So we can swap the custom asset that comes from AssetHubWestend for native
+	// penpal asset to pay for fees.
+	PenpalA::execute_with(|| {
+		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
+
+		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::create_pool(
+			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+			Box::new(penpal_native_asset.clone()),
+			Box::new(custom_asset_penpal_pov.clone()),
 		));
 
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			ASSET_ID.into(),
-			penpal.clone().into(),
-			10_000_000_000_000,
+		assert_expected_events!(
+			PenpalA,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+
+		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::add_liquidity(
+			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+			Box::new(penpal_native_asset),
+			Box::new(custom_asset_penpal_pov.clone()),
+			1_000_000_000_000,
+			3_000_000_000_000, // `custom_asset_penpal_pov` is worth a third of `penpal_native_asset`
+			0,
+			0,
+			PenpalASender::get().into()
+		));
+
+		assert_expected_events!(
+			PenpalA,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {lp_token_minted, .. }) => { lp_token_minted: *lp_token_minted == 1732050807468, },
+			]
+		);
+	});
+
+	let sender = AssetHubWestendSender::get();
+	let receiver = PenpalAReceiver::get();
+	let asset_amount_to_send = 1_000_000_000_000;
+	let assets: Assets = vec![
+		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())], asset_amount_to_send).into(),
+	].into();
+
+	let test_args = TestContext {
+		sender: sender.clone(),
+		receiver: receiver.clone(),
+		args: TestArgs::new_para(
+			penpal_location,
+			receiver.clone(),
+			asset_amount_to_send,
+			assets,
+			None,
+			0
+		),
+	};
+	let mut test = SystemParaToParaTest::new(test_args);
+
+	// We want to make sure the sender doesn't have ANY native asset (other than ED),
+	// so we can make sure we are paying delivery fees with the pool asset.
+	<AssetHubWestend as TestExt>::execute_with(|| {
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Balances::force_set_balance(
+			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
+			sender.clone().into(),
+			ASSET_HUB_WESTEND_ED,
 		));
 	});
 
-	// TODO: Transfer assets and assert.
+	let sender_initial_balance = AssetHubWestend::execute_with(|| {
+		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
+		<Assets as Inspect<_>>::balance(asset_id, &sender)
+	});
+	let sender_initial_native_balance = AssetHubWestend::execute_with(|| {
+		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
+		Balances::free_balance(&sender)
+	});
+	assert_eq!(sender_initial_native_balance, ASSET_HUB_WESTEND_ED);
+	let receiver_initial_balance = PenpalA::execute_with(|| {
+		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(custom_asset_penpal_pov.clone(), &receiver)
+	});
+
+	// test.set_assertion::<AssetHubWestend>(system_para_to_para_sender_assertions);
+	// test.set_assertion::<PenpalA>(system_para_to_para_receiver_assertions);
+	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_reserve_transfer_assets);
+	test.assert();
+
+	let sender_after_balance = AssetHubWestend::execute_with(|| {
+		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
+		<Assets as Inspect<_>>::balance(asset_id, &sender)
+	});
+	let sender_after_native_balance = AssetHubWestend::execute_with(|| {
+		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
+		Balances::free_balance(&sender)
+	});
+	let receiver_after_balance = PenpalA::execute_with(|| {
+		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(custom_asset_penpal_pov, &receiver)
+	});
+
+	// Native amount stays the same.
+	assert_eq!(sender_after_native_balance, sender_initial_native_balance);
+	// Sender account's balance decreases.
+	assert!(sender_after_balance < sender_initial_balance - asset_amount_to_send);
+	// Receiver account's balance increases.
+	assert!(receiver_after_balance > receiver_initial_balance);
+	assert!(receiver_after_balance < receiver_initial_balance + asset_amount_to_send);
 }
