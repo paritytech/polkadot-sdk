@@ -1134,7 +1134,6 @@ mod mock {
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
-		type BlockHashCount = ConstU32<250>;
 		type AccountData = pallet_balances::AccountData<u64>;
 	}
 
