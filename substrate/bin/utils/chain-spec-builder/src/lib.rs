@@ -260,7 +260,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 
 	let chain_type = sc_chain_spec::ChainType::from_str(&cmd.chain_type[..])
-		.map_err(|_| format!("chain type should be valid"))?;
+		.map_err(|_| "chain type should be valid".to_string())?;
 
 	let builder = GenericChainSpec::<()>::builder(&code[..], Default::default())
 		.with_name(&cmd.chain_name[..])
