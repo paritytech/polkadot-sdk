@@ -1,0 +1,23 @@
+title: Broker pallet: AdaptPrice price controller is now price controlled.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      We discovered a flaw of the current price controller interface in the
+      broker pallet. This is fixed by changing the interface to no longer
+      operate on the number of cores sold, but rather on the price that was
+      achieved during the sale. More information here:
+
+      https://github.com/paritytech/polkadot-sdk/issues/4360
+
+  - audience: Runtime User
+    description: |
+      The price controller of the Coretime chain will be adjusted with this
+      release. This will very likely be used in the fellowship production
+      runtime to have a much larger leadin. This fixes a price manipulation
+      issue we discovered with the Kusama launch.
+
+crates:
+  - name: pallet-broker
+    bump: major
+
