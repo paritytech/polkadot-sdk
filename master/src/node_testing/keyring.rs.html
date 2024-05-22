@@ -266,6 +266,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -350,6 +359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, <span class="prelude-val">None</span>),
 		),
+		frame_metadata_hash_extension::CheckMetadataHash::new(<span class="bool-val">false</span>),
 	)
 }
 
@@ -359,11 +369,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	spec_version: u32,
 	tx_version: u32,
 	genesis_hash: [u8; <span class="number">32</span>],
+	metadata_hash: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 ) -&gt; UncheckedExtrinsic {
 	<span class="kw">match </span>xt.signed {
 		<span class="prelude-val">Some</span>((signed, extra)) =&gt; {
-			<span class="kw">let </span>payload =
-				(xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
+			<span class="kw">let </span>payload = (
+				xt.function,
+				extra.clone(),
+				spec_version,
+				tx_version,
+				genesis_hash,
+				genesis_hash,
+				metadata_hash,
+			);
 			<span class="kw">let </span>key = AccountKeyring::from_account_id(<span class="kw-2">&amp;</span>signed).unwrap();
 			<span class="kw">let </span>signature =
 				payload

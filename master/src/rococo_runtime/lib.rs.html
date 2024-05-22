@@ -2764,6 +2764,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2613" id="2613">2613</a>
 <a href="#2614" id="2614">2614</a>
 <a href="#2615" id="2615">2615</a>
+<a href="#2616" id="2616">2616</a>
+<a href="#2617" id="2617">2617</a>
+<a href="#2618" id="2618">2618</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3409,7 +3412,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			frame_system::CheckNonce::&lt;Runtime&gt;::from(nonce),
 			frame_system::CheckWeight::&lt;Runtime&gt;::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::&lt;Runtime&gt;::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::new(<span class="bool-val">true</span>),
 		);
+
 		<span class="kw">let </span>raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
 				<span class="macro">log::warn!</span>(<span class="string">"Unable to create signed payload: {:?}"</span>, e);
@@ -4294,6 +4299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_system::CheckNonce&lt;Runtime&gt;,
 	frame_system::CheckWeight&lt;Runtime&gt;,
 	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
+	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.

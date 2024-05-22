@@ -2849,6 +2849,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2698" id="2698">2698</a>
 <a href="#2699" id="2699">2699</a>
 <a href="#2700" id="2700">2700</a>
+<a href="#2701" id="2701">2701</a>
+<a href="#2702" id="2702">2702</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3648,6 +3650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			frame_system::CheckNonce::&lt;Runtime&gt;::from(nonce),
 			frame_system::CheckWeight::&lt;Runtime&gt;::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::&lt;Runtime&gt;::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::&lt;Runtime&gt;::new(<span class="bool-val">true</span>),
 		);
 		<span class="kw">let </span>raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -4468,6 +4471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_system::CheckNonce&lt;Runtime&gt;,
 	frame_system::CheckWeight&lt;Runtime&gt;,
 	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
+	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
 );
 
 <span class="kw">pub struct </span>NominationPoolsMigrationV4OldPallet;

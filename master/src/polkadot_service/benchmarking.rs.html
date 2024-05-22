@@ -456,6 +456,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -659,6 +663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		frame_system::CheckNonce::&lt;runtime::Runtime&gt;::from(nonce),
 		frame_system::CheckWeight::&lt;runtime::Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;runtime::Runtime&gt;::from(<span class="number">0</span>),
+		frame_metadata_hash_extension::CheckMetadataHash::&lt;runtime::Runtime&gt;::new(<span class="bool-val">false</span>),
 	);
 
 	<span class="kw">let </span>payload = runtime::SignedPayload::from_raw(
@@ -673,6 +678,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(),
 			(),
 			(),
+			<span class="prelude-val">None</span>,
 		),
 	);
 
@@ -711,6 +717,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		frame_system::CheckNonce::&lt;runtime::Runtime&gt;::from(nonce),
 		frame_system::CheckWeight::&lt;runtime::Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;runtime::Runtime&gt;::from(<span class="number">0</span>),
+		frame_metadata_hash_extension::CheckMetadataHash::&lt;runtime::Runtime&gt;::new(<span class="bool-val">false</span>),
 	);
 
 	<span class="kw">let </span>payload = runtime::SignedPayload::from_raw(
@@ -725,6 +732,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(),
 			(),
 			(),
+			<span class="prelude-val">None</span>,
 		),
 	);
 

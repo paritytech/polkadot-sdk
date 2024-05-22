@@ -2083,6 +2083,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1932" id="1932">1932</a>
 <a href="#1933" id="1933">1933</a>
 <a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2208,7 +2209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	spec_version: <span class="number">1_012_000</span>,
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: <span class="number">15</span>,
+	transaction_version: <span class="number">16</span>,
 	state_version: <span class="number">1</span>,
 };
 
@@ -3059,6 +3060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_system::CheckWeight&lt;Runtime&gt;,
 	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment&lt;Runtime&gt;,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
+	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
 );
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =

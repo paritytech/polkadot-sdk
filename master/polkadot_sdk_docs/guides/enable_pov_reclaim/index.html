@@ -285,6 +285,7 @@ It reclaims the difference between the calculated size and the benchmarked size.
 	frame_system::CheckWeight&lt;Runtime&gt;,
 	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
+	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
 );</code></pre></div>
 <h3 id="optional-verify-that-reclaim-works"><a class="doc-anchor" href="#optional-verify-that-reclaim-works">§</a>Optional: Verify that reclaim works</h3>
 <p>Start your node with the log target <code>runtime::storage_reclaim</code> set to <code>trace</code> to enable full

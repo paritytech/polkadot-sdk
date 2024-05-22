@@ -822,6 +822,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1395,6 +1397,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					tx_version,
 					genesis_hash,
 					genesis_hash,
+					<span class="comment">// metadata_hash
+					</span><span class="prelude-val">None</span>::&lt;()&gt;,
 				);
 				<span class="kw">let </span>key = <span class="self">self</span>.accounts.get(<span class="kw-2">&amp;</span>signed).expect(<span class="string">"Account id not found in keyring"</span>);
 				<span class="kw">let </span>signature = payload.using_encoded(|b| {

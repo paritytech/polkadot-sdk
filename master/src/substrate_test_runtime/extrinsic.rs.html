@@ -355,6 +355,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -379,10 +399,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CheckSubstrateCall, Extrinsic, Nonce, Pair, RuntimeCall, SignedPayload, TransferData,
 };
 <span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>frame_metadata_hash_extension::CheckMetadataHash;
 <span class="kw">use </span>frame_system::{CheckNonce, CheckWeight};
 <span class="kw">use </span>sp_core::crypto::Pair <span class="kw">as </span>TraitPair;
 <span class="kw">use </span>sp_keyring::AccountKeyring;
-<span class="kw">use </span>sp_runtime::{transaction_validity::TransactionPriority, Perbill};
+<span class="kw">use </span>sp_runtime::{traits::SignedExtension, transaction_validity::TransactionPriority, Perbill};
 
 <span class="doccomment">/// Transfer used in test substrate pallet. Extrinsic is created and signed using this data.
 </span><span class="attr">#[derive(Clone)]
@@ -438,17 +459,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	function: RuntimeCall,
 	signer: <span class="prelude-ty">Option</span>&lt;Pair&gt;,
 	nonce: <span class="prelude-ty">Option</span>&lt;Nonce&gt;,
+	metadata_hash: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 }
 
 <span class="kw">impl </span>ExtrinsicBuilder {
 	<span class="doccomment">/// Create builder for given `RuntimeCall`. By default `Extrinsic` will be signed by `Alice`.
 	</span><span class="kw">pub fn </span>new(function: <span class="kw">impl </span>Into&lt;RuntimeCall&gt;) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ function: function.into(), signer: <span class="prelude-val">Some</span>(AccountKeyring::Alice.pair()), nonce: <span class="prelude-val">None </span>}
+		<span class="self">Self </span>{
+			function: function.into(),
+			signer: <span class="prelude-val">Some</span>(AccountKeyring::Alice.pair()),
+			nonce: <span class="prelude-val">None</span>,
+			metadata_hash: <span class="prelude-val">None</span>,
+		}
 	}
 
 	<span class="doccomment">/// Create builder for given `RuntimeCall`. `Extrinsic` will be unsigned.
 	</span><span class="kw">pub fn </span>new_unsigned(function: <span class="kw">impl </span>Into&lt;RuntimeCall&gt;) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ function: function.into(), signer: <span class="prelude-val">None</span>, nonce: <span class="prelude-val">None </span>}
+		<span class="self">Self </span>{ function: function.into(), signer: <span class="prelude-val">None</span>, nonce: <span class="prelude-val">None</span>, metadata_hash: <span class="prelude-val">None </span>}
 	}
 
 	<span class="doccomment">/// Create builder for `pallet_call::bench_transfer` from given `TransferData`.
@@ -462,6 +489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self </span>{
 			nonce: <span class="prelude-val">Some</span>(transfer.nonce),
 			signer: <span class="prelude-val">Some</span>(transfer.from.clone()),
+			metadata_hash: <span class="prelude-val">None</span>,
 			..<span class="self">Self</span>::new(BalancesCall::transfer_allow_death {
 				dest: transfer.to,
 				value: transfer.amount,
@@ -543,6 +571,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self
 	</span>}
 
+	<span class="doccomment">/// Metadata hash to put into the signed data of the extrinsic.
+	</span><span class="kw">pub fn </span>metadata_hash(<span class="kw-2">mut </span><span class="self">self</span>, metadata_hash: [u8; <span class="number">32</span>]) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.metadata_hash = <span class="prelude-val">Some</span>(metadata_hash);
+		<span class="self">self
+	</span>}
+
 	<span class="doccomment">/// Build `Extrinsic` using embedded parameters
 	</span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; Extrinsic {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(signer) = <span class="self">self</span>.signer {
@@ -550,9 +584,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				CheckNonce::from(<span class="self">self</span>.nonce.unwrap_or(<span class="number">0</span>)),
 				CheckWeight::new(),
 				CheckSubstrateCall {},
+				<span class="self">self</span>.metadata_hash
+					.map(CheckMetadataHash::new_with_custom_hash)
+					.unwrap_or_else(|| CheckMetadataHash::new(<span class="bool-val">false</span>)),
 			);
-			<span class="kw">let </span>raw_payload =
-				SignedPayload::from_raw(<span class="self">self</span>.function.clone(), extra.clone(), ((), (), ()));
+			<span class="kw">let </span>raw_payload = SignedPayload::from_raw(
+				<span class="self">self</span>.function.clone(),
+				extra.clone(),
+				extra.additional_signed().unwrap(),
+			);
 			<span class="kw">let </span>signature = raw_payload.using_encoded(|e| signer.sign(e));
 
 			Extrinsic::new_signed(<span class="self">self</span>.function, signer.public(), signature, extra)

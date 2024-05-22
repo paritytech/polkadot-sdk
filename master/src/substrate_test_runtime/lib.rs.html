@@ -1690,6 +1690,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1539" id="1539">1539</a>
 <a href="#1540" id="1540">1540</a>
 <a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1841,7 +1846,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>Pair = sp_core::sr25519::Pair;
 
 <span class="doccomment">/// The SignedExtension to the basic transaction logic.
-</span><span class="kw">pub type </span>SignedExtra = (CheckNonce&lt;Runtime&gt;, CheckWeight&lt;Runtime&gt;, CheckSubstrateCall);
+</span><span class="kw">pub type </span>SignedExtra = (
+	CheckNonce&lt;Runtime&gt;,
+	CheckWeight&lt;Runtime&gt;,
+	CheckSubstrateCall,
+	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
+);
 <span class="doccomment">/// The payload being signed in transactions.
 </span><span class="kw">pub type </span>SignedPayload = sp_runtime::generic::SignedPayload&lt;RuntimeCall, SignedExtra&gt;;
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
@@ -2186,14 +2196,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>sp_api::Metadata&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>metadata() -&gt; OpaqueMetadata {
-			<span class="macro">unimplemented!</span>()
+			OpaqueMetadata::new(Runtime::metadata().into())
 		}
 
-		<span class="kw">fn </span>metadata_at_version(_version: u32) -&gt; <span class="prelude-ty">Option</span>&lt;OpaqueMetadata&gt; {
-			<span class="macro">unimplemented!</span>()
+		<span class="kw">fn </span>metadata_at_version(version: u32) -&gt; <span class="prelude-ty">Option</span>&lt;OpaqueMetadata&gt; {
+			Runtime::metadata_at_version(version)
 		}
 		<span class="kw">fn </span>metadata_versions() -&gt; alloc::vec::Vec&lt;u32&gt; {
-			<span class="macro">unimplemented!</span>()
+			Runtime::metadata_versions()
 		}
 	}
 

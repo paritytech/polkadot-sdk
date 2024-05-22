@@ -3440,6 +3440,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3289" id="3289">3289</a>
 <a href="#3290" id="3290">3290</a>
 <a href="#3291" id="3291">3291</a>
+<a href="#3292" id="3292">3292</a>
+<a href="#3293" id="3293">3293</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4879,6 +4881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					tip, <span class="prelude-val">None</span>,
 				),
 			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(<span class="bool-val">false</span>),
 		);
 		<span class="kw">let </span>raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -5956,6 +5959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Runtime,
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment&lt;Runtime&gt;,
 	&gt;,
+	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
