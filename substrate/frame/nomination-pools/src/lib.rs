@@ -3686,7 +3686,7 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::StakeAdapter::active_stake(&pool_account);
-			let total_balance = T::StakeAdapter::total_balance(&pool_account);
+			let total_balance = T::StakeAdapter::total_stake(&pool_account);
 
 			assert!(
 				total_balance >= bonded_balance + sum_unbonding_balance,
