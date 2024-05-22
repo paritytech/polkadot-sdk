@@ -12,6 +12,5 @@ doc:
       anymore.
 
 crates:
-  - name: sc-cli
+  - name: sc-tracing
     bump: patch
-    validate: false
