@@ -27,7 +27,6 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 };
 use frame_system::Config;
-use sp_core::ConstU64;
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;

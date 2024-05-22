@@ -23,7 +23,7 @@ use crate::{
 };
 use frame_support::{
 	derive_impl,
-	traits::{ConstU32, ConstU64, OnFinalize, OnInitialize},
+	traits::{ConstU32, OnFinalize, OnInitialize},
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
