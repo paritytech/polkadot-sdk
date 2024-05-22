@@ -3686,14 +3686,23 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::StakeAdapter::active_stake(&pool_account);
-			let total_balance = T::StakeAdapter::total_stake(&pool_account);
+			let total_balance = T::StakeAdapter::total_balance(&pool_account);
+
+			// At the time when StakeAdapter is changed but migration is not yet done, the new
+			// adapter would return zero balance (as it is not an agent yet). We handle that by
+			// falling back to reading actual balance of the pool account.
+			let pool_balance = if total_balance.is_zero() {
+				T::Currency::total_balance(&pool_account)
+			} else {
+				total_balance
+			};
 
 			assert!(
-				total_balance >= bonded_balance + sum_unbonding_balance,
-				"faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
+				pool_balance >= bonded_balance + sum_unbonding_balance,
+				"faulty pool: {:?} / {:?}, pool_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
 				pool_id,
 				_pool,
-				total_balance,
+				pool_balance,
 				bonded_balance,
 				sum_unbonding_balance
 			);
