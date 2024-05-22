@@ -32,6 +32,9 @@ pub enum StakeStrategyType {
 	Delegate,
 }
 
+pub struct PoolAccount<AccountID>(AccountID);
+struct MemberAccount<AccountID>(AccountID);
+
 /// An adapter trait that can support multiple staking strategies.
 ///
 /// Depending on which staking strategy we want to use, the staking logic can be slightly
@@ -64,7 +67,7 @@ pub trait StakeStrategy {
 	///
 	/// This is part of the pool balance that is not actively staked. That is, tokens that are
 	/// in unbonding period or unbonded.
-	fn transferable_balance(pool_account: &Self::AccountId) -> Self::Balance;
+	fn transferable_balance(pool_account: PoolAccount<Self::AccountId>) -> Self::Balance;
 
 	/// Total balance of the pool including amount that is actively staked.
 	fn total_balance(pool_account: &Self::AccountId) -> Self::Balance;
@@ -209,8 +212,8 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		StakeStrategyType::Transfer
 	}
 
-	fn transferable_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
-		T::Currency::balance(pool_account).saturating_sub(Self::active_stake(pool_account))
+	fn transferable_balance(pool_account: PoolAccount<Self::AccountId>) -> BalanceOf<T> {
+		T::Currency::balance(&pool_account.0).saturating_sub(Self::active_stake(&pool_account.0))
 	}
 
 	fn total_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
@@ -314,8 +317,8 @@ impl<
 		StakeStrategyType::Delegate
 	}
 
-	fn transferable_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
-		Delegation::agent_balance(pool_account).saturating_sub(Self::active_stake(pool_account))
+	fn transferable_balance(pool_account: PoolAccount<Self::AccountId>) -> BalanceOf<T> {
+		Delegation::agent_balance(&pool_account.0).saturating_sub(Self::active_stake(&pool_account.0))
 	}
 
 	fn total_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {

@@ -25,6 +25,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_nomination_pools::{adapter::StakeStrategyType, BondType};
+use pallet_nomination_pools::adapter::PoolAccount;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
@@ -190,11 +191,11 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		}
 		DelegateStake::strategy_type()
 	}
-	fn transferable_balance(pool_account: &Self::AccountId) -> Self::Balance {
+	fn transferable_balance(pool_account: PoolAccount<Self::AccountId>) -> Self::Balance {
 		if LegacyAdapter::get() {
-			return TransferStake::transferable_balance(pool_account)
+			return TransferStake::transferable_balance(PoolAccount(pool_account.clone()))
 		}
-		DelegateStake::transferable_balance(pool_account)
+		DelegateStake::transferable_balance(PoolAccount(pool_account.clone()))
 	}
 
 	fn total_balance(pool_account: &Self::AccountId) -> Self::Balance {
