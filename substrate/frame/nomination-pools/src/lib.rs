@@ -1738,13 +1738,6 @@ pub mod pallet {
 	pub type ClaimPermissions<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, ClaimPermission, ValueQuery>;
 
-	/// Records last migration of stake strategy. Stores the migrated strategy type.
-	///
-	/// This is used to ensure that the stake strategy is only migrated once.
-	#[pallet::storage]
-	pub type StrategyMigration<T: Config> =
-		StorageValue<_, adapter::StakeStrategyType, OptionQuery>;
-
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub min_join_bond: BalanceOf<T>,

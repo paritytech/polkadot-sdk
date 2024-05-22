@@ -118,51 +118,66 @@ pub mod unversioned {
 	/// sequence and hence can be applied unversioned on a production runtime.
 	pub struct DelegationStakeMigration<T>(sp_std::marker::PhantomData<T>);
 
+	/// We iterate over a maximum of `MAX_POOLS_BOUND` pools in a single block. At the time of
+	/// migration, there are currently less than `MAX_POOLS_BOUND` pools in the system. But if
+	/// there are more pools in the future, the remaining pools can be migrated via the
+	/// permission-less extrinsic [`Call::migrate_pool_to_delegate_stake`].
+	const MAX_POOLS_BOUND: u32 = 250;
+
 	impl<T: Config> OnRuntimeUpgrade for DelegationStakeMigration<T> {
 		fn on_runtime_upgrade() -> Weight {
-			if StrategyMigration::<T>::get() == Some(adapter::StakeStrategyType::Delegate) {
-				log!(info, "`pools::migration::unversioned::DelegationStakeMigration` already migrated and can be removed.");
-				return T::DbWeight::get().reads_writes(1, 0)
-			}
+			let mut count: u32 = 0;
 
-			let mut migrate_count: u32 = 0;
-			let mut fail_count: u32 = 0;
-			BondedPools::<T>::iter().for_each(|(id, _inner)| {
-				if Pallet::<T>::migrate_to_delegate_stake(id).is_ok() {
-					migrate_count.saturating_inc();
-				} else {
-					fail_count.saturating_inc();
+			BondedPools::<T>::iter_keys().take(MAX_POOLS_BOUND as usize).for_each(|id| {
+				let pool_acc = Pallet::<T>::generate_bonded_account(id);
+
+				// only migrate if the pool is in Transfer Strategy.
+				if T::StakeAdapter::pool_strategy(&pool_acc) == adapter::StakeStrategyType::Transfer
+				{
+					let _ = Pallet::<T>::migrate_to_delegate_stake(id).map_err(|err| {
+						log!(
+							warn,
+							"failed to migrate pool {:?} to delegate stake strategy with err: {:?}",
+							id,
+							err
+						)
+					});
+					count.saturating_inc();
 				}
 			});
 
-			log!(
-				info,
-				"migrated {:?} pools and failed to migrate {:?} pools.",
-				migrate_count,
-				fail_count
-			);
+			log!(info, "migrated {:?} pools to delegate stake strategy", count);
 
-			// mark migrated to Delegate Strategy.
-			StrategyMigration::<T>::put(adapter::StakeStrategyType::Delegate);
-
-			let count = migrate_count.saturating_add(fail_count);
-
-			T::WeightInfo::pool_migrate().saturating_mul(count.into()).saturating_add(
-				// reads: count of bonded pools
-				// writes: One write to set the StakeStrategyType.
-				T::DbWeight::get().reads_writes(count.into(), 1u64),
-			)
+			// reads: (bonded pool key + current pool strategy) * MAX_POOLS_BOUND (worst case)
+			T::DbWeight::get()
+				.reads_writes(2, 0)
+				.saturating_mul(MAX_POOLS_BOUND as u64)
+				// migration weight: `pool_migrate` weight * count
+				.saturating_add(T::WeightInfo::pool_migrate().saturating_mul(count.into()))
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			// if not set, then consider it as older strategy `Transfer`.
-			let current_strategy =
-				StrategyMigration::<T>::get().unwrap_or(adapter::StakeStrategyType::Transfer);
-			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
+			// ensure stake adapter is correct.
+			ensure!(
+				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+				"Current strategy is not `Delegate"
+			);
 
-			BondedPools::<T>::iter_keys().for_each(|id| {
+			if BondedPools::<T>::count() > MAX_POOLS_BOUND {
+				// we log a warning if the number of pools exceeds the bound.
+				log!(
+					warn,
+					"Number of pools {} exceeds the maximum bound {}. This would leave some pools unmigrated.", BondedPools::<T>::count(), MAX_POOLS_BOUND
+				);
+			}
+
+			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
+			BondedPools::<T>::iter_keys().take(MAX_POOLS_BOUND as usize).for_each(|id| {
 				let pool_account = Pallet::<T>::generate_bonded_account(id);
+				let current_strategy = T::StakeAdapter::pool_strategy(&pool_account);
+
+				// we ensure migration is idempotent.
 				let pool_balance = if current_strategy == adapter::StakeStrategyType::Transfer {
 					T::Currency::total_balance(&pool_account)
 				} else {
@@ -174,18 +189,23 @@ pub mod unversioned {
 
 			Ok(pool_balances.encode())
 		}
+
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			ensure!(
-				StrategyMigration::<T>::get() == Some(adapter::StakeStrategyType::Delegate),
-				"Failed to migrate to `DelegateStake` strategy"
-			);
-
 			let expected_pool_balances: Vec<BalanceOf<T>> = Decode::decode(&mut &data[..]).unwrap();
 
-			for (index, id) in BondedPools::<T>::iter_keys().enumerate() {
-				let actual_balance =
-					T::StakeAdapter::total_balance(&Pallet::<T>::generate_bonded_account(id));
+			for (index, id) in
+				BondedPools::<T>::iter_keys().take(MAX_POOLS_BOUND as usize).enumerate()
+			{
+				let pool_account = Pallet::<T>::generate_bonded_account(id);
+				if T::StakeAdapter::pool_strategy(&pool_account) ==
+					adapter::StakeStrategyType::Transfer
+				{
+					log!(error, "Pool {} failed to migrate", id,);
+					return Err(TryRuntimeError::Other("Pool failed to migrate"));
+				}
+
+				let actual_balance = T::StakeAdapter::total_balance(&pool_account);
 				let expected_balance = expected_pool_balances.get(index).unwrap();
 
 				if actual_balance != *expected_balance {
@@ -200,8 +220,7 @@ pub mod unversioned {
 				}
 
 				// account balance should be zero.
-				let pool_account_balance =
-					T::Currency::total_balance(&Pallet::<T>::generate_bonded_account(id));
+				let pool_account_balance = T::Currency::total_balance(&pool_account);
 				if pool_account_balance != Zero::zero() {
 					log!(
 						error,
