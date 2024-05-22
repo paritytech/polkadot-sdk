@@ -57,11 +57,10 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   
   test-linux-stable-int:
-    needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}  
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
-    needs: [set-image]
+    needs: [set-image, changes]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -79,11 +78,10 @@ jobs:
   
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
-    needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}    
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
-    needs: [set-image]
+    needs: [set-image, changes]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
