@@ -92,11 +92,19 @@ pub fn sign(
 	spec_version: u32,
 	tx_version: u32,
 	genesis_hash: [u8; 32],
+	metadata_hash: Option<[u8; 32]>,
 ) -> UncheckedExtrinsic {
 	match xt.signed {
 		Some((signed, extra)) => {
-			let payload =
-				(xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
+			let payload = (
+				xt.function,
+				extra.clone(),
+				spec_version,
+				tx_version,
+				genesis_hash,
+				genesis_hash,
+				metadata_hash,
+			);
 			let key = AccountKeyring::from_account_id(&signed).unwrap();
 			let signature =
 				payload
