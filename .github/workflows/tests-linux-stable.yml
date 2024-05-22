@@ -39,6 +39,7 @@ jobs:
           rust:
             - '**'
             - '!prdoc/**'
+            - '!.github/**'
 
 
   set-image:
