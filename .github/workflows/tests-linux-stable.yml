@@ -29,7 +29,7 @@ jobs:
       pull-requests: read
     # Set job outputs to values from filter step
     outputs:
-      backend: ${{ steps.filter.outputs.rust }}
+      rust: ${{ steps.filter.outputs.rust }}
     steps:
     # For pull requests it's not necessary to checkout the code
     - uses: dorny/paths-filter@v3
