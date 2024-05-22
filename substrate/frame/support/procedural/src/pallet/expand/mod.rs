@@ -35,8 +35,8 @@ mod tasks;
 mod tt_default_parts;
 mod type_value;
 mod validate_unsigned;
-mod warnings;
 mod view_functions;
+mod warnings;
 
 use crate::pallet::Def;
 use quote::ToTokens;

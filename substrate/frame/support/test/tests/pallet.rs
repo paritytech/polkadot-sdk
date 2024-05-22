@@ -451,11 +451,7 @@ pub mod pallet {
 	}
 
 	#[pallet::view_functions]
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: From<SomeType1> + SomeAssociation1,
-	{
-	}
+	impl<T: Config> Pallet<T> where T::AccountId: From<SomeType1> + SomeAssociation1 {}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
@@ -555,8 +551,6 @@ pub mod pallet {
 	}
 
 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"testpall";
-
-
 }
 
 // Test that a pallet with non generic event and generic genesis_config is correctly handled

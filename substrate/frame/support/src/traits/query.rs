@@ -21,27 +21,26 @@ use codec::{Decode, Encode};
 
 /// implemented by the runtime dispatching by prefix and then the pallet dispatching by suffix
 pub trait DispatchQuery {
-    fn dispatch_query(id: &QueryId, input: Vec<u8>) -> Result<Vec<u8>, codec::Error>;
+	fn dispatch_query(id: &QueryId, input: Vec<u8>) -> Result<Vec<u8>, codec::Error>;
 }
 
 pub trait QueryIdPrefix {
-    const PREFIX: [u8; 16]; // same as `PalletInfo::name_hash` twox_128
+	const PREFIX: [u8; 16]; // same as `PalletInfo::name_hash` twox_128
 }
 
 pub trait QueryIdSuffix {
-    const SUFFIX: [u8; 16];
+	const SUFFIX: [u8; 16];
 }
 
 #[derive(Encode, Decode)]
 pub struct QueryId {
-    prefix: [u8; 16],
-    suffix: [u8; 16],
+	prefix: [u8; 16],
+	suffix: [u8; 16],
 }
 
 /// implemented for each pallet view function method
 pub trait Query {
-    type ReturnType: codec::Codec;
+	type ReturnType: codec::Codec;
 
-    fn query(self) -> Self::ReturnType;
+	fn query(self) -> Self::ReturnType;
 }
-

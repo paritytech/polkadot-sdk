@@ -17,10 +17,10 @@
 
 use super::{helper, InheritedCallWeightAttr};
 use frame_support_procedural_tools::get_doc_literals;
+use inflector::Inflector;
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
-use inflector::Inflector;
 use syn::{spanned::Spanned, ExprClosure};
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -39,7 +39,7 @@ pub struct ViewFunctionsDef {
 	// pub docs: Vec<syn::Expr>,
 	// /// The optional `weight` attribute on the `pallet::call`.
 	// pub inherited_call_weight: Option<InheritedCallWeightAttr>,
-	pub view_functions: Vec<ViewFunctionDef>
+	pub view_functions: Vec<ViewFunctionDef>,
 }
 
 pub struct ViewFunctionDef {
@@ -49,14 +49,14 @@ pub struct ViewFunctionDef {
 }
 
 impl ViewFunctionsDef {
-	pub fn try_from(
-		attr_span: proc_macro2::Span,
-		item: &mut syn::Item,
-	) -> syn::Result<Self> {
+	pub fn try_from(attr_span: proc_macro2::Span, item: &mut syn::Item) -> syn::Result<Self> {
 		let item_impl = if let syn::Item::Impl(item) = item {
 			item
 		} else {
-			return Err(syn::Error::new(item.span(), "Invalid pallet::view_functions, expected item impl"))
+			return Err(syn::Error::new(
+				item.span(),
+				"Invalid pallet::view_functions, expected item impl",
+			))
 		};
 		let mut view_functions = Vec::new();
 		for item in &mut item_impl.items {
@@ -77,9 +77,7 @@ impl ViewFunctionsDef {
 				view_functions.push(view_fn_def)
 			}
 		}
-		Ok(Self {
-			view_functions,
-		})
+		Ok(Self { view_functions })
 	}
 }
 
@@ -87,7 +85,10 @@ impl TryFrom<syn::ImplItemFn> for ViewFunctionDef {
 	type Error = syn::Error;
 	fn try_from(method: syn::ImplItemFn) -> Result<Self, Self::Error> {
 		let syn::ReturnType::Type(_, type_) = method.sig.output else {
-			return Err(syn::Error::new(method.sig.output.span(), "view functions must return a value"))
+			return Err(syn::Error::new(
+				method.sig.output.span(),
+				"view functions must return a value",
+			))
 		};
 
 		Ok(Self {
