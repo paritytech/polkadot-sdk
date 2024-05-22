@@ -967,7 +967,8 @@ frame_benchmarking::benchmarks! {
 		whitelist_account!(joiner);
 
 	}: {
-		assert_noop!(Pools::<T>::apply_slash(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone()), Error::<T>::NothingToSlash);
+		// Since the StakeAdapter can be different based on the runtime config, the errors could be different as well.
+		assert!(Pools::<T>::apply_slash(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone()).is_err());
 	}
 
 
