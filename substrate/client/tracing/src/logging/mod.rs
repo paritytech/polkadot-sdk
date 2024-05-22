@@ -148,8 +148,7 @@ where
 				.expect("provided directive is valid"),
 		)
 		.add_directive(
-			parse_default_directive("rustls::conn=off")
-				.expect("provided directive is valid"),
+			parse_default_directive("rustls::conn=off").expect("provided directive is valid"),
 		);
 
 	if let Ok(lvl) = std::env::var("RUST_LOG") {
