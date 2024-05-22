@@ -71,7 +71,7 @@ pub struct Def {
 	pub frame_system: syn::Path,
 	pub frame_support: syn::Path,
 	pub dev_mode: bool,
-	pub view_functions: Option<view_functions::ViewFunctionsDef>,
+	pub view_functions: Option<view_functions::ViewFunctionsImplDef>,
 }
 
 impl Def {
@@ -210,7 +210,7 @@ impl Def {
 					composites.push(composite);
 				},
 				Some(PalletAttr::ViewFunctions(span)) => {
-					view_functions = Some(view_functions::ViewFunctionsDef::try_from(span, item)?);
+					view_functions = Some(view_functions::ViewFunctionsImplDef::try_from(span, item)?);
 				}
 				Some(attr) => {
 					let msg = "Invalid duplicated attribute";

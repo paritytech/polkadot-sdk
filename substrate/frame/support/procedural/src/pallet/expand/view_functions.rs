@@ -16,40 +16,51 @@
 // limitations under the License.
 
 use crate::pallet::{
-	parse::view_functions::{ViewFunctionDef, ViewFunctionsDef},
+	parse::view_functions::{ViewFunctionDef, ViewFunctionsImplDef},
 	Def,
 };
-use inflector::Inflector;
 use proc_macro2::TokenStream;
-use quote::ToTokens;
 
-pub fn expand_view_functions(def: &mut Def) -> TokenStream {
+pub fn expand_view_functions(def: &Def) -> TokenStream {
 	let Some(view_fns_def) = def.view_functions.as_ref() else {
 		return TokenStream::new();
 	};
 
+	let view_fn_impls = view_fns_def.view_functions.iter().map(|view_fn| {
+		expand_view_function(def, &view_fns_def, view_fn)
+	});
+
 	quote::quote! {
-		#view_fns_def
+		#( #view_fn_impls )*
 	}
 }
 
-impl ToTokens for ViewFunctionsDef {
-	fn to_tokens(&self, tokens: &mut TokenStream) {
-		let view_fn_impls = self.view_functions.iter().map(|view_fn| {
-			quote::quote! { #view_fn }
-		});
+fn expand_view_function(def: &Def, view_fns_impl: &ViewFunctionsImplDef, view_fn: &ViewFunctionDef) -> TokenStream {
+	let span = view_fns_impl.attr_span;
+	let frame_support = &def.frame_support;
+	let type_impl_gen = &def.type_impl_generics(span);
+	let type_decl_bounded_gen = &def.type_decl_bounded_generics(span);
+	let type_use_gen = &def.type_use_generics(span);
+	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
+	let where_clause = &view_fns_impl.where_clause;
 
-		tokens.extend(quote::quote! {
-			#( #view_fn_impls )*
-		});
-	}
-}
+	let query_struct_ident = view_fn.query_struct_ident();
+	quote::quote! {
+		#[derive(
+			#frame_support::RuntimeDebugNoBound,
+			#frame_support::CloneNoBound,
+			#frame_support::EqNoBound,
+			#frame_support::PartialEqNoBound,
+			#frame_support::__private::codec::Encode,
+			#frame_support::__private::codec::Decode,
+			#frame_support::__private::scale_info::TypeInfo,
+		)]
+		#[codec(encode_bound())]
+		#[codec(decode_bound())]
+		#[scale_info(skip_type_params(#type_use_gen), capture_docs = #capture_docs)]
+		#[allow(non_camel_case_types)]
+		pub struct #query_struct_ident<#type_decl_bounded_gen> #where_clause {
 
-impl ToTokens for ViewFunctionDef {
-	fn to_tokens(&self, tokens: &mut TokenStream) {
-		let name = self.query_struct_ident();
-		tokens.extend(quote::quote! {
-			pub struct #name;
-		});
+		};
 	}
 }

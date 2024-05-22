@@ -15,26 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{helper, InheritedCallWeightAttr};
-use frame_support_procedural_tools::get_doc_literals;
-use inflector::Inflector;
-use proc_macro2::Span;
-use quote::ToTokens;
-use std::collections::HashMap;
-use syn::{spanned::Spanned, ExprClosure};
+use syn::{spanned::Spanned};
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
-pub struct ViewFunctionsDef {
-	// /// The where_clause used.
-	// pub where_clause: Option<syn::WhereClause>,
+pub struct ViewFunctionsImplDef {
+	/// The where_clause used.
+	pub where_clause: Option<syn::WhereClause>,
 	// /// A set of usage of instance, must be check for consistency with trait.
 	// pub instances: Vec<helper::InstanceUsage>,
 	// /// The index of call item in pallet module.
 	// pub index: usize,
 	// /// Information on methods (used for expansion).
 	// pub methods: Vec<CallVariantDef>,
-	// /// The span of the pallet::call attribute.
-	// pub attr_span: proc_macro2::Span,
+	/// The span of the pallet::view_functions attribute.
+	pub attr_span: proc_macro2::Span,
 	// /// Docs, specified on the impl Block.
 	// pub docs: Vec<syn::Expr>,
 	// /// The optional `weight` attribute on the `pallet::call`.
@@ -42,13 +36,7 @@ pub struct ViewFunctionsDef {
 	pub view_functions: Vec<ViewFunctionDef>,
 }
 
-pub struct ViewFunctionDef {
-	pub name: syn::Ident,
-	pub args: Vec<syn::FnArg>,
-	pub return_type: syn::Type,
-}
-
-impl ViewFunctionsDef {
+impl ViewFunctionsImplDef {
 	pub fn try_from(attr_span: proc_macro2::Span, item: &mut syn::Item) -> syn::Result<Self> {
 		let item_impl = if let syn::Item::Impl(item) = item {
 			item
@@ -77,8 +65,18 @@ impl ViewFunctionsDef {
 				view_functions.push(view_fn_def)
 			}
 		}
-		Ok(Self { view_functions })
+		Ok(Self {
+			view_functions,
+			attr_span,
+			where_clause: item_impl.generics.where_clause.clone(),
+		})
 	}
+}
+
+pub struct ViewFunctionDef {
+	pub name: syn::Ident,
+	pub args: Vec<syn::FnArg>,
+	pub return_type: syn::Type,
 }
 
 impl TryFrom<syn::ImplItemFn> for ViewFunctionDef {
