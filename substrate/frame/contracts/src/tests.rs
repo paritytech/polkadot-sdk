@@ -20,13 +20,13 @@ mod test_debug;
 
 use self::{
 	test_debug::TestDebug,
-	test_utils::{ensure_stored, expected_deposit, hash},
+	test_utils::{ensure_stored, expected_deposit},
 };
 use crate::{
 	self as pallet_contracts,
 	chain_extension::{
 		ChainExtension, Environment, Ext, InitState, RegisteredChainExtension,
-		Result as ExtensionResult, RetVal, ReturnFlags, SysConfig,
+		Result as ExtensionResult, RetVal, ReturnFlags,
 	},
 	exec::{Frame, Key},
 	migration::codegen::LATEST_MIGRATION_VERSION,
@@ -63,7 +63,7 @@ use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Convert, Hash, IdentityLookup},
+	traits::{BlakeTwo256, Convert, IdentityLookup},
 	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
 
@@ -97,7 +97,7 @@ macro_rules! assert_refcount {
 }
 
 pub mod test_utils {
-	use super::{Contracts, DepositPerByte, DepositPerItem, Hash, SysConfig, Test};
+	use super::{Contracts, DepositPerByte, DepositPerItem, Test};
 	use crate::{
 		exec::AccountIdOf, BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo,
 		ContractInfoOf, Nonce, PristineCode,
@@ -144,9 +144,6 @@ pub mod test_utils {
 		DepositPerByte::get()
 			.saturating_mul(info_size)
 			.saturating_add(DepositPerItem::get())
-	}
-	pub fn hash<S: Encode>(s: &S) -> <<Test as SysConfig>::Hashing as Hash>::Output {
-		<<Test as SysConfig>::Hashing as Hash>::hash_of(s)
 	}
 	pub fn expected_deposit(code_len: usize) -> u64 {
 		// For code_info, the deposit for max_encoded_len is taken.
@@ -768,7 +765,7 @@ fn instantiate_and_call_and_deposit_event() {
 						deployer: ALICE,
 						contract: addr.clone()
 					}),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -779,7 +776,7 @@ fn instantiate_and_call_and_deposit_event() {
 							amount: test_utils::contract_info_storage_deposit(&addr),
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 			]
 		);
@@ -1039,7 +1036,7 @@ fn deploy_and_call_other_contract() {
 						deployer: caller_addr.clone(),
 						contract: callee_addr.clone(),
 					}),
-					topics: vec![hash(&caller_addr), hash(&callee_addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1056,10 +1053,7 @@ fn deploy_and_call_other_contract() {
 						caller: Origin::from_account_id(caller_addr.clone()),
 						contract: callee_addr.clone(),
 					}),
-					topics: vec![
-						hash(&Origin::<Test>::from_account_id(caller_addr.clone())),
-						hash(&callee_addr)
-					],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1067,7 +1061,7 @@ fn deploy_and_call_other_contract() {
 						caller: Origin::from_account_id(ALICE),
 						contract: caller_addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&caller_addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1078,7 +1072,7 @@ fn deploy_and_call_other_contract() {
 							amount: test_utils::contract_info_storage_deposit(&callee_addr),
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&callee_addr)],
+					topics: vec![],
 				},
 			]
 		);
@@ -1304,7 +1298,7 @@ fn self_destruct_works() {
 						contract: addr.clone(),
 						beneficiary: DJANGO
 					}),
-					topics: vec![hash(&addr), hash(&DJANGO)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1312,7 +1306,7 @@ fn self_destruct_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1323,7 +1317,7 @@ fn self_destruct_works() {
 							amount: info_deposit,
 						}
 					),
-					topics: vec![hash(&addr), hash(&ALICE)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2511,7 +2505,7 @@ fn upload_code_works() {
 					deposit_held: deposit_expected,
 					uploader: ALICE
 				}),
-				topics: vec![code_hash],
+				topics: vec![],
 			},]
 		);
 	});
@@ -2599,7 +2593,7 @@ fn remove_code_works() {
 						deposit_held: deposit_expected,
 						uploader: ALICE
 					}),
-					topics: vec![code_hash],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2608,7 +2602,7 @@ fn remove_code_works() {
 						deposit_released: deposit_expected,
 						remover: ALICE
 					}),
-					topics: vec![code_hash],
+					topics: vec![],
 				},
 			]
 		);
@@ -2648,7 +2642,7 @@ fn remove_code_wrong_origin() {
 					deposit_held: deposit_expected,
 					uploader: ALICE
 				}),
-				topics: vec![code_hash],
+				topics: vec![],
 			},]
 		);
 	});
@@ -2727,7 +2721,7 @@ fn instantiate_with_zero_balance_works() {
 						deposit_held: deposit_expected,
 						uploader: ALICE
 					}),
-					topics: vec![code_hash],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2759,7 +2753,7 @@ fn instantiate_with_zero_balance_works() {
 						deployer: ALICE,
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2770,7 +2764,7 @@ fn instantiate_with_zero_balance_works() {
 							amount: test_utils::contract_info_storage_deposit(&addr),
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 			]
 		);
@@ -2812,7 +2806,7 @@ fn instantiate_with_below_existential_deposit_works() {
 						deposit_held: deposit_expected,
 						uploader: ALICE
 					}),
-					topics: vec![code_hash],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2853,7 +2847,7 @@ fn instantiate_with_below_existential_deposit_works() {
 						deployer: ALICE,
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2864,7 +2858,7 @@ fn instantiate_with_below_existential_deposit_works() {
 							amount: test_utils::contract_info_storage_deposit(&addr),
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 			]
 		);
@@ -2925,7 +2919,7 @@ fn storage_deposit_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2936,7 +2930,7 @@ fn storage_deposit_works() {
 							amount: charged0,
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2944,7 +2938,7 @@ fn storage_deposit_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2955,7 +2949,7 @@ fn storage_deposit_works() {
 							amount: charged1,
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2963,7 +2957,7 @@ fn storage_deposit_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2974,7 +2968,7 @@ fn storage_deposit_works() {
 							amount: refunded0,
 						}
 					),
-					topics: vec![hash(&addr.clone()), hash(&ALICE)],
+					topics: vec![],
 				},
 			]
 		);
@@ -3078,7 +3072,7 @@ fn set_code_extrinsic() {
 					new_code_hash,
 					old_code_hash: code_hash,
 				}),
-				topics: vec![hash(&addr), new_code_hash, code_hash],
+				topics: vec![],
 			},]
 		);
 	});
@@ -3230,7 +3224,7 @@ fn set_code_hash() {
 						new_code_hash,
 						old_code_hash: code_hash,
 					}),
-					topics: vec![hash(&contract_addr), new_code_hash, code_hash],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -3238,10 +3232,7 @@ fn set_code_hash() {
 						caller: Origin::from_account_id(ALICE),
 						contract: contract_addr.clone(),
 					}),
-					topics: vec![
-						hash(&Origin::<Test>::from_account_id(ALICE)),
-						hash(&contract_addr)
-					],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -3249,10 +3240,7 @@ fn set_code_hash() {
 						caller: Origin::from_account_id(ALICE),
 						contract: contract_addr.clone(),
 					}),
-					topics: vec![
-						hash(&Origin::<Test>::from_account_id(ALICE)),
-						hash(&contract_addr)
-					],
+					topics: vec![],
 				},
 			],
 		);
