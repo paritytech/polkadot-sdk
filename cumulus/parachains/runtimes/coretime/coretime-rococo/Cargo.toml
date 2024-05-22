@@ -13,7 +13,7 @@ workspace = true
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 hex-literal = "0.4.1"
 log = { workspace = true }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }

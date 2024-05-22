@@ -138,5 +138,19 @@ benchmarks_instance_pallet! {
 		assert!(!<ImportedHeaders<T, I>>::contains_key(genesis_header.hash()));
 	}
 
+	force_set_pallet_state {
+		let set_id = 100;
+		let authorities = accounts(T::BridgedChain::MAX_AUTHORITIES_COUNT as u16)
+			.iter()
+			.map(|id| (AuthorityId::from(*id), 1))
+			.collect::<Vec<_>>();
+		let (header, _) = prepare_benchmark_data::<T, I>(1, 1);
+		let expected_hash = header.hash();
+	}: force_set_pallet_state(RawOrigin::Root, set_id, authorities, Box::new(header))
+	verify {
+		assert_eq!(<BestFinalized<T, I>>::get().unwrap().1, expected_hash);
+		assert_eq!(<CurrentAuthoritySet<T, I>>::get().set_id, set_id);
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)
 }
