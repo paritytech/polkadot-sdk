@@ -4,7 +4,7 @@
 title: Remove `parametrized-consensus-hook` feature
 
 doc:
-  - audience: Runtime Developer
+  - audience: Runtime Dev
     description: |
       `parametrized-consensus-hook` feature is obsolete and is removed by this PR. The
       long-deprecated `CheckInherents` trait is set to be removed by September 2024.
