@@ -327,6 +327,8 @@ mod genesis_block;
 mod genesis_config_builder;
 pub mod json_patch;
 
+use std::str::FromStr;
+
 pub use self::{
 	chain_spec::{
 		update_code_in_json_chain_spec, ChainSpec as GenericChainSpec, ChainSpecBuilder,
@@ -367,6 +369,19 @@ pub enum ChainType {
 impl Default for ChainType {
 	fn default() -> Self {
 		Self::Live
+	}
+}
+
+impl FromStr for ChainType {
+	type Err = ();
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		Ok(match s {
+			"Development" => ChainType::Development,
+			"Local" => ChainType::Local,
+			"Live" => ChainType::Live,
+			_ => ChainType::Custom(s.to_string()),
+		})
 	}
 }
 
