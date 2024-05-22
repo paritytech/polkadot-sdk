@@ -201,10 +201,11 @@ var srcIndex = new Map(JSON.parse('[\
 ["pallet_nfts_runtime_api",["",[],["lib.rs"]]],\
 ["pallet_nis",["",[],["benchmarking.rs","lib.rs","weights.rs"]]],\
 ["pallet_node_authorization",["",[],["lib.rs","weights.rs"]]],\
-["pallet_nomination_pools",["",[],["lib.rs","migration.rs","mock.rs","weights.rs"]]],\
+["pallet_nomination_pools",["",[],["adapter.rs","lib.rs","migration.rs","mock.rs","weights.rs"]]],\
 ["pallet_nomination_pools_benchmarking",["",[],["inner.rs","lib.rs"]]],\
 ["pallet_nomination_pools_runtime_api",["",[],["lib.rs"]]],\
-["pallet_nomination_pools_test_staking",["",[],["lib.rs"]]],\
+["pallet_nomination_pools_test_delegate_stake",["",[],["lib.rs"]]],\
+["pallet_nomination_pools_test_transfer_stake",["",[],["lib.rs"]]],\
 ["pallet_offences",["",[],["lib.rs","migration.rs"]]],\
 ["pallet_offences_benchmarking",["",[],["inner.rs","lib.rs"]]],\
 ["pallet_paged_list",["",[],["lib.rs","mock.rs","paged_list.rs"]]],\

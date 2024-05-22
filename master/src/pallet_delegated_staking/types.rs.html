@@ -440,7 +440,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -722,7 +721,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This is similar to [Self::available_to_bond] except it also includes `unclaimed_withdrawals`
 	/// of `Agent`.
 	</span><span class="attr">#[cfg(test)]
-	#[allow(unused)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>total_unbonded(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
 		<span class="kw">let </span>bonded_stake = <span class="self">self</span>.bonded_stake();
 

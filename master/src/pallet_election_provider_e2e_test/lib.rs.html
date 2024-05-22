@@ -902,7 +902,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>init_free_balance_2 = Balances::free_balance(<span class="number">2</span>);
 		<span class="kw">let </span>init_free_balance_3 = Balances::free_balance(<span class="number">3</span>);
 
-		<span class="kw">let </span>pool_bonded_account = Pools::create_bonded_account(<span class="number">1</span>);
+		<span class="kw">let </span>pool_bonded_account = Pools::generate_bonded_account(<span class="number">1</span>);
 
 		<span class="comment">// creates a pool with 5 bonded, owned by 1.
 		</span><span class="macro">assert_ok!</span>(Pools::create(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">5</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>));

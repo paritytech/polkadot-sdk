@@ -811,7 +811,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					BondedPools::&lt;T&gt;::iter().for_each(|(id, <span class="kw">_</span>)| {
 						<span class="kw">let </span>amount = random_ed_multiple(<span class="kw-2">&amp;mut </span>rng);
 						<span class="kw">let _ </span>=
-							Balances::deposit_creating(<span class="kw-2">&amp;</span>Pools::create_reward_account(id), amount);
+							Balances::deposit_creating(<span class="kw-2">&amp;</span>Pools::generate_reward_account(id), amount);
 						<span class="comment">// if we just paid out the reward agent, let's calculate how much we expect
 						// our reward agent to have earned.
 						</span><span class="kw">if </span>reward_agent.pool_id.map_or(<span class="bool-val">false</span>, |mid| mid == id) {

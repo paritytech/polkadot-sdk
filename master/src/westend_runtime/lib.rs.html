@@ -2851,6 +2851,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2700" id="2700">2700</a>
 <a href="#2701" id="2701">2701</a>
 <a href="#2702" id="2702">2702</a>
+<a href="#2703" id="2703">2703</a>
+<a href="#2704" id="2704">2704</a>
+<a href="#2705" id="2705">2705</a>
+<a href="#2706" id="2706">2706</a>
+<a href="#2707" id="2707">2707</a>
+<a href="#2708" id="2708">2708</a>
+<a href="#2709" id="2709">2709</a>
+<a href="#2710" id="2710">2710</a>
+<a href="#2711" id="2711">2711</a>
+<a href="#2712" id="2712">2712</a>
+<a href="#2713" id="2713">2713</a>
+<a href="#2714" id="2714">2714</a>
+<a href="#2715" id="2715">2715</a>
+<a href="#2716" id="2716">2716</a>
+<a href="#2717" id="2717">2717</a>
+<a href="#2718" id="2718">2718</a>
+<a href="#2719" id="2719">2719</a>
+<a href="#2720" id="2720">2720</a>
+<a href="#2721" id="2721">2721</a>
+<a href="#2722" id="2722">2722</a>
+<a href="#2723" id="2723">2723</a>
+<a href="#2724" id="2724">2724</a>
+<a href="#2725" id="2725">2725</a>
+<a href="#2726" id="2726">2726</a>
+<a href="#2727" id="2727">2727</a>
+<a href="#2728" id="2728">2728</a>
+<a href="#2729" id="2729">2729</a>
+<a href="#2730" id="2730">2730</a>
+<a href="#2731" id="2731">2731</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3500,7 +3529,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>HistoryDepth = frame_support::traits::ConstU32&lt;<span class="number">84</span>&gt;;
 	<span class="kw">type </span>MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	<span class="kw">type </span>BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
-	<span class="kw">type </span>EventListeners = NominationPools;
+	<span class="kw">type </span>EventListeners = (NominationPools, DelegatedStaking);
 	<span class="kw">type </span>WeightInfo = weights::pallet_staking::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
@@ -4213,7 +4242,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RewardCounter = FixedU128;
 	<span class="kw">type </span>BalanceToU256 = BalanceToU256;
 	<span class="kw">type </span>U256ToBalance = U256ToBalance;
-	<span class="kw">type </span>Staking = Staking;
+	<span class="kw">type </span>StakeAdapter =
+		pallet_nomination_pools::adapter::DelegateStake&lt;<span class="self">Self</span>, Staking, DelegatedStaking&gt;;
 	<span class="kw">type </span>PostUnbondingPoolsWindow = ConstU32&lt;<span class="number">4</span>&gt;;
 	<span class="kw">type </span>MaxMetadataLen = ConstU32&lt;<span class="number">256</span>&gt;;
 	<span class="comment">// we use the same number of allowed unlocking chunks as with staking.
@@ -4221,6 +4251,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>PalletId = PoolsPalletId;
 	<span class="kw">type </span>MaxPointsToBalance = MaxPointsToBalance;
 	<span class="kw">type </span>AdminOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, StakingAdmin&gt;;
+}
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>DelegatedStakingPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/dlstk"</span>);
+	<span class="kw">pub const </span>SlashRewardFraction: Perbill = Perbill::from_percent(<span class="number">1</span>);
+}
+
+<span class="kw">impl </span>pallet_delegated_staking::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>PalletId = DelegatedStakingPalletId;
+	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>OnSlash = ();
+	<span class="kw">type </span>SlashRewardFraction = SlashRewardFraction;
+	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
+	<span class="kw">type </span>CoreStaking = Staking;
 }
 
 <span class="kw">impl </span>pallet_root_testing::Config <span class="kw">for </span>Runtime {
@@ -4371,6 +4416,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">37</span>)]
 	</span><span class="kw">pub type </span>Treasury = pallet_treasury;
 
+	<span class="comment">// Staking extension for delegation
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">38</span>)]
+	</span><span class="kw">pub type </span>DelegatedStaking = pallet_delegated_staking;
+
 	<span class="comment">// Parachains pallets. Start indices at 40 to leave room.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">41</span>)]
 	</span><span class="kw">pub type </span>ParachainsOrigin = parachains_origin;
@@ -4474,11 +4523,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
 );
 
-<span class="kw">pub struct </span>NominationPoolsMigrationV4OldPallet;
-<span class="kw">impl </span>Get&lt;Perbill&gt; <span class="kw">for </span>NominationPoolsMigrationV4OldPallet {
-	<span class="kw">fn </span>get() -&gt; Perbill {
-		Perbill::from_percent(<span class="number">100</span>)
-	}
+<span class="macro">parameter_types! </span>{
+	<span class="comment">// This is the max pools that will be migrated in the runtime upgrade. Westend has more pools
+	// than this, but we want to emulate some non migrated pools. In prod runtimes, if weight is not
+	// a concern, it is recommended to set to (existing pools + 10) to also account for any new
+	// pools getting created before the migration is actually executed.
+	</span><span class="kw">pub const </span>MaxPoolsToMigrate: u32 = <span class="number">250</span>;
 }
 
 <span class="doccomment">/// All migrations that will run on the next runtime upgrade.
@@ -4511,7 +4561,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
-	</span><span class="kw">pub type </span>Unreleased = (pallet_staking::migrations::v15::MigrateV14ToV15&lt;Runtime&gt;,);
+	</span><span class="kw">pub type </span>Unreleased = (
+		<span class="comment">// Migrate NominationPools to `DelegateStake` adapter. This is unversioned upgrade and
+		// should not be applied yet in Kusama/Polkadot.
+		</span>pallet_nomination_pools::migration::unversioned::DelegationStakeMigration&lt;
+			Runtime,
+			MaxPoolsToMigrate,
+		&gt;,
+		pallet_staking::migrations::v15::MigrateV14ToV15&lt;Runtime&gt;,
+	);
 }
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.

@@ -727,6 +727,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1013,6 +1026,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>is_validator(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; bool {
 		<span class="self">Self</span>::status(who).map(|s| <span class="macro">matches!</span>(s, StakerStatus::Validator)).unwrap_or(<span class="bool-val">false</span>)
 	}
+
+	<span class="doccomment">/// Checks whether the staker is a virtual account.
+	///
+	/// A virtual staker is an account whose locks are not managed by the [`StakingInterface`]
+	/// implementation but by an external pallet. See [`StakingUnchecked::virtual_bond`] for more
+	/// details.
+	</span><span class="kw">fn </span>is_virtual_staker(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; bool;
 
 	<span class="doccomment">/// Get the nominations of a stash, if they are a nominator, `None` otherwise.
 	</span><span class="kw">fn </span>nominations(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="self">Self</span>::AccountId&gt;&gt; {
@@ -1302,6 +1322,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		delegator: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 		value: <span class="self">Self</span>::Balance,
 	) -&gt; DispatchResult;
+
+	<span class="doccomment">/// Drop the `Agent` account and its associated delegators.
+	///
+	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">fn </span>drop_agent(agent: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId);
 }
 
 <span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">"runtime-benchmarks"</span>, $);

@@ -724,6 +724,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -762,12 +766,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Ext builder creates a pool with id 1.
 </span><span class="kw">pub fn </span>default_bonded_account() -&gt; AccountId {
-	Pools::create_bonded_account(<span class="number">1</span>)
+	Pools::generate_bonded_account(<span class="number">1</span>)
 }
 
 <span class="comment">// Ext builder creates a pool with id 1.
 </span><span class="kw">pub fn </span>default_reward_account() -&gt; AccountId {
-	Pools::create_reward_account(<span class="number">1</span>)
+	Pools::generate_reward_account(<span class="number">1</span>)
 }
 
 <span class="macro">parameter_types! </span>{
@@ -797,7 +801,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Does not modify any [`SubPools`] of the pool as [`Default::default`] is passed for
 	/// `slashed_unlocking`.
 	</span><span class="kw">pub fn </span>slash_by(pool_id: PoolId, amount: Balance) {
-		<span class="kw">let </span>acc = Pools::create_bonded_account(pool_id);
+		<span class="kw">let </span>acc = Pools::generate_bonded_account(pool_id);
 		<span class="kw">let </span>bonded = BondedBalanceMap::get();
 		<span class="kw">let </span>pre_total = bonded.get(<span class="kw-2">&amp;</span>acc).unwrap();
 		<span class="self">Self</span>::set_bonded_balance(acc, pre_total - amount);
@@ -836,6 +840,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|noms| sp_staking::StakerStatus::Nominator(noms))
 			.ok_or(DispatchError::Other(<span class="string">"NotStash"</span>))
 	}
+
+	<span class="kw">fn </span>is_virtual_staker(_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; bool {
+		<span class="bool-val">false
+	</span>}
 
 	<span class="kw">fn </span>bond_extra(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, extra: <span class="self">Self</span>::Balance) -&gt; DispatchResult {
 		<span class="kw">let </span><span class="kw-2">mut </span>x = BondedBalanceMap::get();
@@ -1040,7 +1048,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RewardCounter = RewardCounter;
 	<span class="kw">type </span>BalanceToU256 = BalanceToU256;
 	<span class="kw">type </span>U256ToBalance = U256ToBalance;
-	<span class="kw">type </span>Staking = StakingMock;
+	<span class="kw">type </span>StakeAdapter = adapter::TransferStake&lt;<span class="self">Self</span>, StakingMock&gt;;
 	<span class="kw">type </span>PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	<span class="kw">type </span>PalletId = PoolsPalletId;
 	<span class="kw">type </span>MaxMetadataLen = MaxMetadataLen;

@@ -964,6 +964,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#813" id="813">813</a>
 <a href="#814" id="814">814</a>
 <a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1131,7 +1148,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
+	<span class="doccomment">/// The in-code storage version.
+	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">0</span>);
 	<span class="attr">#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(PhantomData&lt;T&gt;);
 
 	<span class="attr">#[pallet::config]
@@ -1211,6 +1231,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>Released { agent: T::AccountId, delegator: T::AccountId, amount: BalanceOf&lt;T&gt; },
 		<span class="doccomment">/// Funds slashed from a delegator.
 		</span>Slashed { agent: T::AccountId, delegator: T::AccountId, amount: BalanceOf&lt;T&gt; },
+		<span class="doccomment">/// Unclaimed delegation funds migrated to delegator.
+		</span>MigratedDelegation { agent: T::AccountId, delegator: T::AccountId, amount: BalanceOf&lt;T&gt; },
 	}
 
 	<span class="doccomment">/// Map of Delegators to their `Delegation`.
@@ -1337,7 +1359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">ensure!</span>(<span class="self">Self</span>::is_agent(<span class="kw-2">&amp;</span>agent), Error::&lt;T&gt;::NotAgent);
 
 			<span class="comment">// and has enough delegated balance to migrate.
-			</span><span class="kw">let </span>proxy_delegator = <span class="self">Self</span>::sub_account(AccountType::ProxyDelegator, agent);
+			</span><span class="kw">let </span>proxy_delegator = <span class="self">Self</span>::generate_proxy_delegator(agent);
 			<span class="kw">let </span>balance_remaining = <span class="self">Self</span>::held_balance_of(<span class="kw-2">&amp;</span>proxy_delegator);
 			<span class="macro">ensure!</span>(balance_remaining &gt;= amount, Error::&lt;T&gt;::NotEnoughFunds);
 
@@ -1388,6 +1410,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="doccomment">/// Derive an account from the migrating agent account where the unclaimed delegation funds
+	/// are held.
+	</span><span class="kw">pub fn </span>generate_proxy_delegator(agent: T::AccountId) -&gt; T::AccountId {
+		<span class="self">Self</span>::sub_account(AccountType::ProxyDelegator, agent)
+	}
+
 	<span class="doccomment">/// Derive a (keyless) pot account from the given agent account and account type.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>sub_account(account_type: AccountType, agent: T::AccountId) -&gt; T::AccountId {
 		T::PalletId::get().into_sub_account_truncating((account_type, agent.clone()))
@@ -1430,7 +1458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// We create a proxy delegator that will keep all the delegation funds until funds are
 		// transferred to actual delegator.
-		</span><span class="kw">let </span>proxy_delegator = <span class="self">Self</span>::sub_account(AccountType::ProxyDelegator, who.clone());
+		</span><span class="kw">let </span>proxy_delegator = <span class="self">Self</span>::generate_proxy_delegator(who.clone());
 
 		<span class="comment">// Keep proxy delegator alive until all funds are migrated.
 		</span>frame_system::Pallet::&lt;T&gt;::inc_providers(<span class="kw-2">&amp;</span>proxy_delegator);
@@ -1612,9 +1640,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			!<span class="self">Self</span>::is_delegator(destination_delegator) &amp;&amp; !<span class="self">Self</span>::is_agent(destination_delegator)
 		);
 
+		<span class="kw">let </span>agent = source_delegation.agent.clone();
 		<span class="comment">// update delegations
-		</span>Delegation::&lt;T&gt;::new(<span class="kw-2">&amp;</span>source_delegation.agent, amount)
-			.update_or_kill(destination_delegator);
+		</span>Delegation::&lt;T&gt;::new(<span class="kw-2">&amp;</span>agent, amount).update_or_kill(destination_delegator);
 
 		source_delegation.amount = source_delegation
 			.amount
@@ -1649,6 +1677,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// hold the funds again in the new delegator account.
 		</span>T::Currency::hold(<span class="kw-2">&amp;</span>HoldReason::StakingDelegation.into(), destination_delegator, amount)<span class="question-mark">?</span>;
+
+		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::MigratedDelegation {
+			agent,
+			delegator: destination_delegator.clone(),
+			amount,
+		});
 
 		<span class="prelude-val">Ok</span>(())
 	}

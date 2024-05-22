@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["StakeStrategyType"],"struct":["DelegateStake","TransferStake"],"trait":["StakeStrategy"]};

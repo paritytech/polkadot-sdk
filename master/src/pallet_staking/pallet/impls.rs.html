@@ -3619,11 +3619,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; Exposure&lt;T::AccountId, BalanceOf&lt;T&gt;&gt; {
 		EraInfo::&lt;T&gt;::get_full_exposure(era, account)
 	}
-
-	<span class="doccomment">/// Whether `who` is a virtual staker whose funds are managed by another pallet.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_virtual_staker(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
-		VirtualStakers::&lt;T&gt;::contains_key(who)
-	}
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
@@ -4341,6 +4336,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::BadState.into())
 			},
 		}
+	}
+
+	<span class="doccomment">/// Whether `who` is a virtual staker whose funds are managed by another pallet.
+	</span><span class="kw">fn </span>is_virtual_staker(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
+		VirtualStakers::&lt;T&gt;::contains_key(who)
 	}
 
 	<span class="kw">fn </span>slash_reward_fraction() -&gt; Perbill {
