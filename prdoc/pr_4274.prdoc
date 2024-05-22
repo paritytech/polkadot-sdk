@@ -23,3 +23,17 @@ doc:
 crates:
   - name: substrate-wasm-builder
     bump: minor
+  - name: sc-executor-wasmtime
+    bump: patch
+  - name: frame-metadata-hash-extension
+    bump: none
+  - name: polkadot-service
+    bump: none
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
