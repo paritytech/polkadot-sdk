@@ -1633,10 +1633,8 @@ impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pall
 }
 
 /// Something that can check the inherents of a block.
-#[deprecated(
-	note = "This trait is deprecated and will be removed by September 2024. \
-		Consider switching to `cumulus-pallet-parachain-system::ConsensusHook`"
-)]
+#[deprecated(note = "This trait is deprecated and will be removed by September 2024. \
+		Consider switching to `cumulus-pallet-parachain-system::ConsensusHook`")]
 pub trait CheckInherents<Block: BlockT> {
 	/// Check all inherents of the block.
 	///
