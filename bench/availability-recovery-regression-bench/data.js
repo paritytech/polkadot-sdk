@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716334013717,
+  "lastUpdate": 1716368736999,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -8525,6 +8525,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.937239446466666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "joe petrowski",
+            "username": "joepetrowski",
+            "email": "25483142+joepetrowski@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c7cb1f25d1f8bb1a922d466e39ee935f5f027266",
+          "message": "Add Extra Check in Primary Username Setter (#4534)",
+          "timestamp": "2024-05-22T07:21:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7cb1f25d1f8bb1a922d466e39ee935f5f027266"
+        },
+        "date": 1716368709169,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.760006015866665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19805844703333333,
             "unit": "seconds"
           }
         ]
