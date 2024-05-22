@@ -99,6 +99,7 @@ sc-offchain = { path = "../../../client/offchain" }
 
 # frame dependencies
 frame-benchmarking = { path = "../../../frame/benchmarking" }
+frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension" }
 frame-system = { path = "../../../frame/system" }
 frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api" }
 pallet-assets = { path = "../../../frame/assets" }

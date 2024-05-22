@@ -324,6 +324,7 @@ fn construct_extrinsic_westend(
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 	);
 	let raw_payload = westend_runtime::SignedPayload::new(call, extra).unwrap();
 	let signature = raw_payload.using_encoded(|payload| sender.sign(payload));
