@@ -1606,6 +1606,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1455" id="1455">1455</a>
 <a href="#1456" id="1456">1456</a>
 <a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2777,7 +2779,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>set_primary_username(origin: OriginFor&lt;T&gt;, username: Username&lt;T&gt;) -&gt; DispatchResult {
 			<span class="comment">// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			</span><span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(AccountOfUsername::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>username), Error::&lt;T&gt;::NoUsername);
+			<span class="kw">let </span>account_of_username =
+				AccountOfUsername::&lt;T&gt;::get(<span class="kw-2">&amp;</span>username).ok_or(Error::&lt;T&gt;::NoUsername)<span class="question-mark">?</span>;
+			<span class="macro">ensure!</span>(who == account_of_username, Error::&lt;T&gt;::InvalidUsername);
 			<span class="kw">let </span>(registration, _maybe_username) =
 				IdentityOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T&gt;::NoIdentity)<span class="question-mark">?</span>;
 			IdentityOf::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>who, (registration, <span class="prelude-val">Some</span>(username.clone())));
