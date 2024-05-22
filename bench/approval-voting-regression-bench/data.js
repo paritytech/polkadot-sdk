@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716332524700,
+  "lastUpdate": 1716368136311,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -4229,6 +4229,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.380804310180065,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "joe petrowski",
+            "username": "joepetrowski",
+            "email": "25483142+joepetrowski@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c7cb1f25d1f8bb1a922d466e39ee935f5f027266",
+          "message": "Add Extra Check in Primary Username Setter (#4534)",
+          "timestamp": "2024-05-22T07:21:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7cb1f25d1f8bb1a922d466e39ee935f5f027266"
+        },
+        "date": 1716368108343,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63537.97000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.8140629319002803,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.88439057956005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.111667285029984,
             "unit": "seconds"
           }
         ]
