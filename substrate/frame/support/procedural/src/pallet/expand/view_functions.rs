@@ -26,16 +26,21 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 		return TokenStream::new();
 	};
 
-	let view_fn_impls = view_fns_def.view_functions.iter().map(|view_fn| {
-		expand_view_function(def, &view_fns_def, view_fn)
-	});
+	let view_fn_impls = view_fns_def
+		.view_functions
+		.iter()
+		.map(|view_fn| expand_view_function(def, &view_fns_def, view_fn));
 
 	quote::quote! {
 		#( #view_fn_impls )*
 	}
 }
 
-fn expand_view_function(def: &Def, view_fns_impl: &ViewFunctionsImplDef, view_fn: &ViewFunctionDef) -> TokenStream {
+fn expand_view_function(
+	def: &Def,
+	view_fns_impl: &ViewFunctionsImplDef,
+	view_fn: &ViewFunctionDef,
+) -> TokenStream {
 	let span = view_fns_impl.attr_span;
 	let frame_support = &def.frame_support;
 	let type_impl_gen = &def.type_impl_generics(span);

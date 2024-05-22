@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use syn::{spanned::Spanned};
+use syn::spanned::Spanned;
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
 pub struct ViewFunctionsImplDef {
