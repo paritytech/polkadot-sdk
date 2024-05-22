@@ -9135,7 +9135,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "29.0.1"
+version = "29.0.2"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -9872,7 +9872,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-identity"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -10135,7 +10135,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10605,7 +10605,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "29.0.2"
+version = "29.0.3"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -10654,7 +10654,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-runtime-api"
-version = "15.0.0"
+version = "15.0.1"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -10951,7 +10951,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "8.0.4"
+version = "8.0.5"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -17508,7 +17508,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bp-runtime",
  "byte-slice-cast",
@@ -19007,7 +19007,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "8.0.1"
+version = "8.0.2"
 dependencies = [
  "environmental",
  "frame-benchmarking",
