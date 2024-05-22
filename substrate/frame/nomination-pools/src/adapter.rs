@@ -32,8 +32,8 @@ pub enum StakeStrategyType {
 	Delegate,
 }
 
-pub struct PoolAccount<AccountID>(AccountID);
-struct MemberAccount<AccountID>(AccountID);
+pub struct PoolAccount<AccountID>(pub AccountID);
+struct MemberAccount<AccountID>(pub AccountID);
 
 /// An adapter trait that can support multiple staking strategies.
 ///
