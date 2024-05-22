@@ -30,6 +30,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-npos-elections = { path = "../../../substrate/primitives/npos-elections" }
 sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
 
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension" }
 frame-system = { path = "../../../substrate/frame/system" }
 frame-support = { path = "../../../substrate/frame/support" }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support" }
