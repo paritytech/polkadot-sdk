@@ -832,6 +832,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
 <a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -976,9 +980,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			parse_default_directive(<span class="string">"libp2p_mdns::behaviour::iface=off"</span>)
 				.expect(<span class="string">"provided directive is valid"</span>),
 		)
-		.add_directive(
+		<span class="comment">// Disable annoying log messages from rustls
+		</span>.add_directive(
 			parse_default_directive(<span class="string">"rustls::common_state=off"</span>)
 				.expect(<span class="string">"provided directive is valid"</span>),
+		)
+		.add_directive(
+			parse_default_directive(<span class="string">"rustls::conn=off"</span>).expect(<span class="string">"provided directive is valid"</span>),
 		);
 
 	<span class="kw">if let </span><span class="prelude-val">Ok</span>(lvl) = std::env::var(<span class="string">"RUST_LOG"</span>) {

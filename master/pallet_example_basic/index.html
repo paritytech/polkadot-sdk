@@ -171,7 +171,7 @@ imported (see: [<code>frame_support::traits::Hooks</code>])</li>
 use the <a href="pallet/trait.Config.html#associatedtype.WeightInfo" title="associated type pallet_example_basic::pallet::Config::WeightInfo"><code>Config::WeightInfo</code></a> trait to calculate call weights. This can also be overridden,
 as demonstrated by <a href="pallet/enum.Call.html#variant.set_dummy" title="variant pallet_example_basic::pallet::Call::set_dummy"><code>Call::set_dummy</code></a>.</li>
 <li>A private function that performs a storage update.</li>
-<li>A simple signed extension implementation (see: [<code>sp_runtime::traits::SignedExtension</code>]) which
+<li>A simple signed extension implementation (see: <a href="../sp_runtime/traits/trait.SignedExtension.html" title="trait sp_runtime::traits::SignedExtension"><code>sp_runtime::traits::SignedExtension</code></a>) which
 increases the priority of the <a href="pallet/enum.Call.html#variant.set_dummy" title="variant pallet_example_basic::pallet::Call::set_dummy"><code>Call::set_dummy</code></a> if it’s present and drops any transaction
 with an encoded length higher than 200 bytes.</li>
 </ul>
