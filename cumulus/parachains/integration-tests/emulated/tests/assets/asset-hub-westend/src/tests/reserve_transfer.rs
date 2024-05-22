@@ -1146,8 +1146,7 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	});
 
 	// Sender's balance is reduced by amount sent plus delivery fees.
-	// Delivery fees are taken from the amount to send.
-	assert_eq!(sender_assets_after, sender_assets_before - amount_to_send);
+	assert!(sender_assets_after < sender_assets_before - amount_to_send);
 	// Receiver's balance is increased by `amount_to_send` minus delivery fees.
 	assert!(receiver_assets_after > receiver_assets_before);
 	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
@@ -1314,13 +1313,16 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 		],
 	);
 
+	// Need to make sure account has enough for jit withdrawal of delivery fees.
+	// This number is too big of an estimate.
+	let delivery_fees_estimate = 1_000_000_000_000;
 	// Create sufficient foreign asset.
 	PenpalA::force_create_foreign_asset(
 		system_para_foreign_asset_location.clone(),
 		PenpalAssetOwner::get(),
 		true, // Mark it as sufficient.
 		70_000,
-		vec![(sender.clone(), asset_amount_to_send + fee_amount_to_send)],
+		vec![(sender.clone(), asset_amount_to_send + fee_amount_to_send + delivery_fees_estimate)],
 	);
 	PenpalB::force_create_foreign_asset(
 		system_para_foreign_asset_location.clone(),
@@ -1458,7 +1460,7 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 		);
 	});
 
-	let penpal_native_asset = Location::here();
+	let relay_asset_penpal_pov = Location::parent();
 	let custom_asset_penpal_pov = Location::new(1, [
 		Parachain(1000),
 		PalletInstance(ASSETS_PALLET_ID),
@@ -1480,7 +1482,7 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 
 		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::create_pool(
 			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
-			Box::new(penpal_native_asset.clone()),
+			Box::new(relay_asset_penpal_pov.clone()),
 			Box::new(custom_asset_penpal_pov.clone()),
 		));
 
@@ -1493,10 +1495,10 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 
 		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::add_liquidity(
 			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
-			Box::new(penpal_native_asset),
+			Box::new(relay_asset_penpal_pov),
 			Box::new(custom_asset_penpal_pov.clone()),
 			1_000_000_000_000,
-			3_000_000_000_000, // `custom_asset_penpal_pov` is worth a third of `penpal_native_asset`
+			3_000_000_000_000, // `custom_asset_penpal_pov` is worth a third of `relay_asset_penpal_pov`
 			0,
 			0,
 			PenpalASender::get().into()

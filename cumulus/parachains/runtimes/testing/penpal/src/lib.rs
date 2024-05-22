@@ -561,7 +561,7 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
 	LocalAndForeignAssets,
-	TargetFromLeft<xcm_config::PenpalNativeCurrency, xcm::latest::Location>,
+	TargetFromLeft<xcm_config::RelayLocation, xcm::latest::Location>,
 	xcm::latest::Location,
 	AccountId,
 >;
@@ -579,7 +579,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
-		xcm_config::PenpalNativeCurrency,
+		xcm_config::RelayLocation,
 		AccountId,
 		Self::AssetKind,
 		PoolIdToAccountId,
@@ -587,7 +587,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
-	type PoolSetupFeeAsset = xcm_config::PenpalNativeCurrency;
+	type PoolSetupFeeAsset = xcm_config::RelayLocation;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = ConstU32<3>;
@@ -597,7 +597,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
-		xcm_config::PenpalNativeCurrency,
+		xcm_config::RelayLocation,
 		parachain_info::Pallet<Runtime>,
 		xcm_config::TrustBackedAssetsPalletIndex,
 		xcm::latest::Location,

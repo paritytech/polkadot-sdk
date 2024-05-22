@@ -1131,8 +1131,7 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	});
 
 	// Sender's balance is reduced by amount sent plus delivery fees.
-	// Delivery fees are taken from `amount_to_send`.
-	assert_eq!(sender_assets_after, sender_assets_before - amount_to_send);
+	assert!(sender_assets_after < sender_assets_before - amount_to_send);
 	// Receiver's balance is increased.
 	assert!(receiver_assets_after > receiver_assets_before);
 }
