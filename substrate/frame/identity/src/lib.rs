@@ -1169,7 +1169,9 @@ pub mod pallet {
 		pub fn set_primary_username(origin: OriginFor<T>, username: Username<T>) -> DispatchResult {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			let who = ensure_signed(origin)?;
-			ensure!(AccountOfUsername::<T>::contains_key(&username), Error::<T>::NoUsername);
+			let account_of_username =
+				AccountOfUsername::<T>::get(&username).ok_or(Error::<T>::NoUsername)?;
+			ensure!(who == account_of_username, Error::<T>::InvalidUsername);
 			let (registration, _maybe_username) =
 				IdentityOf::<T>::get(&who).ok_or(Error::<T>::NoIdentity)?;
 			IdentityOf::<T>::insert(&who, (registration, Some(username.clone())));
