@@ -26,7 +26,7 @@ crates:
   - name: sc-executor-wasmtime
     bump: patch
   - name: frame-metadata-hash-extension
-    bump: none
+    bump: major
   - name: polkadot-service
     bump: none
   - name: rococo-runtime
