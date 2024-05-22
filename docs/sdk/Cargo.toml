@@ -58,9 +58,7 @@ substrate-wasm-builder = { path = "../../substrate/utils/wasm-builder" }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../cumulus/pallets/aura-ext" }
-cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-system", features = [
-	"parameterized-consensus-hook",
-] }
+cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-system" }
 parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info" }
 cumulus-primitives-proof-size-hostfunction = { path = "../../cumulus/primitives/proof-size-hostfunction" }
 cumulus-client-service = { path = "../../cumulus/client/service" }
