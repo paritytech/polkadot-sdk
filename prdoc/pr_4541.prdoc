@@ -12,5 +12,5 @@ doc:
       anymore.
 
 crates:
-  - name: sc-clig
+  - name: sc-cli
     bump: patch
