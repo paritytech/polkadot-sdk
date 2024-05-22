@@ -158,8 +158,9 @@ use frame_support::{
 	migrations::MultiStepMigrator,
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		BeforeAllRuntimeMigrations, ExecuteBlock, IsInherent, OffchainWorker, OnFinalize, OnIdle,
-		OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents, PostTransactions, PreInherents,
+		BeforeAllRuntimeMigrations, ExecuteBlock, ExtrinsicCall, IsInherent, OffchainWorker,
+		OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents,
+		PostTransactions, PreInherents,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -167,7 +168,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	generic::Digest,
 	traits::{
-		self, Applyable, CheckEqual, Checkable, Dispatchable, Extrinsic, Header, NumberFor, One,
+		self, Applyable, CheckEqual, Checkable, Dispatchable, Header, NumberFor, One,
 		ValidateUnsigned, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
@@ -259,7 +260,7 @@ impl<
 	> ExecuteBlock<Block>
 	for Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
 where
-	Block::Extrinsic: Checkable<Context> + Codec,
+	Block::Extrinsic: Checkable<Context> + ExtrinsicCall + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
 		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -299,7 +300,7 @@ impl<
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
 where
-	Block::Extrinsic: Checkable<Context> + Codec,
+	Block::Extrinsic: Checkable<Context> + ExtrinsicCall + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
 		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -521,7 +522,7 @@ impl<
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
 where
-	Block::Extrinsic: Checkable<Context> + Codec,
+	Block::Extrinsic: Checkable<Context> + ExtrinsicCall + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
 		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -698,7 +699,7 @@ where
 		let mut num_extrinsics = 0;
 		for (i, mut e) in extrinsics.into_iter().enumerate() {
 			num_extrinsics += 1;
-			e.pre_fetch();
+			ExtrinsicCall::cache_call(&mut e);
 
 			let is_inherent = System::is_inherent(&e);
 			if is_inherent {

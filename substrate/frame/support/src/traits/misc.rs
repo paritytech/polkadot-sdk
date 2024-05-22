@@ -901,6 +901,8 @@ pub trait IsInherent<Extrinsic> {
 
 /// An extrinsic on which we can get access to call.
 pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
+	/// Cache the call of the extrinsic.
+	fn cache_call(&mut self);
 	/// Get the call of the extrinsic.
 	fn call(&self) -> ValOrRef<Self::Call>;
 }
@@ -911,6 +913,8 @@ where
 	Call: codec::Codec + Clone + Sync + Send + TypeInfo,
 	Extra: TypeInfo,
 {
+	fn cache_call(&mut self) {}
+
 	fn call(&self) -> ValOrRef<Self::Call> {
 		ValOrRef::Ref(&self.call)
 	}
@@ -924,6 +928,10 @@ where
 	Signature: TypeInfo,
 	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
 {
+	fn cache_call(&mut self) {
+		self.cache_function();
+	}
+
 	fn call(&self) -> ValOrRef<Self::Call> {
 		self.get_or_decode_function()
 	}

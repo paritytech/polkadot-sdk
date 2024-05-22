@@ -985,7 +985,7 @@ fn calculating_storage_root_twice_works() {
 }
 
 #[test]
-#[should_panic(expected = "Invalid inherent position for extrinsic at index 1")]
+#[should_panic(expected = "ApplyExtrinsicsError::InvalidInherentPosition(1)")]
 fn invalid_inherent_position_fail() {
 	let xt1 = TestXt::new(
 		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
@@ -1029,7 +1029,9 @@ fn valid_inherents_position_works() {
 }
 
 #[test]
-#[should_panic(expected = "A call was labelled as mandatory, but resulted in an Error.")]
+#[should_panic(
+	expected = "ApplyExtrinsicsError::ApplyExtrinsic(TransactionValidityError::Invalid(InvalidTransaction::BadMandatory))"
+)]
 fn invalid_inherents_fail_block_execution() {
 	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), sign_extra(1, 0, 0));
 
@@ -1076,7 +1078,7 @@ fn inherents_ok_while_exts_forbidden_works() {
 
 /// Refuses to import blocks with transactions during `OnlyInherents` mode.
 #[test]
-#[should_panic = "Only inherents are allowed in this block"]
+#[should_panic = "ApplyExtrinsicsError::OnlyInherentsAllowed"]
 fn transactions_in_only_inherents_block_errors() {
 	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
@@ -1319,8 +1321,8 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			match header {
 				Err(e) => {
-					let err = e.downcast::<&str>().unwrap();
-					assert_eq!(*err, "Only inherents are allowed in this block");
+					let err = e.downcast::<String>().unwrap();
+					assert_eq!(*err, "ApplyExtrinsicsError::OnlyInherentsAllowed");
 					assert!(
 						MbmActive::get() && n_tx > 0,
 						"Transactions should be rejected when MBMs are active"

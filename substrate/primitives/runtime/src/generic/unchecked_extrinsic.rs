@@ -191,7 +191,8 @@ impl<Address, Call: Decode, Signature, Extra: SignedExtension>
 		)
 	}
 
-	fn cache_function(&mut self) {
+	/// Cache the function in a decoded form.
+	pub fn cache_function(&mut self) {
 		if self.function.is_none() {
 			let _ = self.function.insert(self.decode_function());
 		}
@@ -231,10 +232,6 @@ impl<
 
 	fn is_signed(&self) -> Option<bool> {
 		Some(self.signature.is_some())
-	}
-
-	fn pre_fetch(&mut self) {
-		self.cache_function();
 	}
 
 	fn new(function: Call, signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
