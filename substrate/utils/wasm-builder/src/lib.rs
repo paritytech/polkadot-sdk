@@ -115,6 +115,8 @@ use std::{
 use version::Version;
 
 mod builder;
+#[cfg(feature = "metadata-hash")]
+mod metadata_hash;
 mod prerequisites;
 mod version;
 mod wasm_project;
@@ -236,7 +238,7 @@ fn get_rustup_command() -> Option<CargoCommand> {
 }
 
 /// Wraps a specific command which represents a cargo invocation.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct CargoCommand {
 	program: String,
 	args: Vec<String>,
@@ -310,6 +312,7 @@ impl CargoCommand {
 }
 
 /// Wraps a [`CargoCommand`] and the version of `rustc` the cargo command uses.
+#[derive(Clone)]
 struct CargoCommandVersioned {
 	command: CargoCommand,
 	version: String,

@@ -83,7 +83,7 @@ pub const TRANSACTION_VERSION: u32 = kitchensink_runtime::VERSION.transaction_ve
 pub type TestExternalities<H> = CoreTestExternalities<H>;
 
 pub fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
-	node_testing::keyring::sign(xt, SPEC_VERSION, TRANSACTION_VERSION, GENESIS_HASH)
+	node_testing::keyring::sign(xt, SPEC_VERSION, TRANSACTION_VERSION, GENESIS_HASH, None)
 }
 
 pub fn default_transfer_call() -> pallet_balances::Call<Runtime> {
