@@ -38,8 +38,8 @@ jobs:
         filters: |
           rust:
             - '**'
-            - '!prdoc/**'
-            - '!.github/**'
+            - '!prdoc/**/*'
+            - '!.github/**/*'
 
 
   set-image:
