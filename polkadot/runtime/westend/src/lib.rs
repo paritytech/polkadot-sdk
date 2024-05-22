@@ -1639,11 +1639,12 @@ pub type SignedExtra = (
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 
-pub struct NominationPoolsMigrationV4OldPallet;
-impl Get<Perbill> for NominationPoolsMigrationV4OldPallet {
-	fn get() -> Perbill {
-		Perbill::from_percent(100)
-	}
+parameter_types! {
+	// This is the max pools that will be migrated in the runtime upgrade. Westend has more pools
+	// than this, but we want to emulate some non migrated pools. In prod runtimes, if weight is not
+	// a concern, it is recommended to set to (existing pools + 10) to also account for any new
+	// pools getting created before the migration is actually executed.
+	pub const MaxPoolsToMigrate: u32 = 250;
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -1679,7 +1680,10 @@ pub mod migrations {
 	pub type Unreleased = (
 		// Migrate NominationPools to `DelegateStake` adapter. This is unversioned upgrade and
 		// should not be applied yet in Kusama/Polkadot.
-		pallet_nomination_pools::migration::unversioned::DelegationStakeMigration<Runtime>,
+		pallet_nomination_pools::migration::unversioned::DelegationStakeMigration<
+			Runtime,
+			MaxPoolsToMigrate,
+		>,
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
 	);
 }
