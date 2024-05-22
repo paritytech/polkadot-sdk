@@ -463,6 +463,10 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
+pub struct AgentAccount<AccountId>(pub AccountId);
+pub struct DelegatorAccount<AccountId>(pub AccountId);
+
+
 /// Trait to provide delegation functionality for stakers.
 ///
 /// Introduces two new terms to the staking system:
@@ -492,17 +496,17 @@ pub trait DelegationInterface {
 	/// Effective balance of the `Agent` account.
 	///
 	/// This takes into account any pending slashes to `Agent`.
-	fn agent_balance(agent: &Self::AccountId) -> Self::Balance;
+	fn agent_balance(agent: AgentAccount<Self::AccountId>) -> Self::Balance;
 
 	/// Returns the total amount of funds delegated by a `delegator`.
-	fn delegator_balance(delegator: &Self::AccountId) -> Self::Balance;
+	fn delegator_balance(delegator: DelegatorAccount<Self::AccountId>) -> Self::Balance;
 
 	/// Delegate funds to `Agent`.
 	///
 	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
 	fn delegate(
-		delegator: &Self::AccountId,
-		agent: &Self::AccountId,
+		delegator: DelegatorAccount<Self::AccountId>,
+		agent: AgentAccount<Self::AccountId>,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
@@ -511,8 +515,8 @@ pub trait DelegationInterface {
 	///
 	/// If this is the first delegation, use [`Self::delegate`] instead.
 	fn delegate_extra(
-		delegator: &Self::AccountId,
-		agent: &Self::AccountId,
+		delegator: DelegatorAccount<Self::AccountId>,
+		agent: AgentAccount<Self::AccountId>,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
@@ -521,8 +525,8 @@ pub trait DelegationInterface {
 	/// If there are `Agent` funds upto `amount` available to withdraw, then those funds would
 	/// be released to the `delegator`
 	fn withdraw_delegation(
-		delegator: &Self::AccountId,
-		agent: &Self::AccountId,
+		delegator: DelegatorAccount<Self::AccountId>,
+		agent: AgentAccount<Self::AccountId>,
 		amount: Self::Balance,
 		num_slashing_spans: u32,
 	) -> DispatchResult;
@@ -531,15 +535,15 @@ pub trait DelegationInterface {
 	///
 	/// Slashes to `Agent` account are not immediate and are applied lazily. Since `Agent`
 	/// has an unbounded number of delegators, immediate slashing is not possible.
-	fn has_pending_slash(agent: &Self::AccountId) -> bool;
+	fn has_pending_slash(agent: AgentAccount<Self::AccountId>) -> bool;
 
 	/// Apply a pending slash to an `Agent` by slashing `value` from `delegator`.
 	///
 	/// A reporter may be provided (if one exists) in order for the implementor to reward them,
 	/// if applicable.
 	fn delegator_slash(
-		agent: &Self::AccountId,
-		delegator: &Self::AccountId,
+		agent: AgentAccount<Self::AccountId>,
+		delegator: DelegatorAccount<Self::AccountId>,
 		value: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
@@ -567,7 +571,7 @@ pub trait DelegationMigrator {
 	/// The implementation should ensure the `Nominator` account funds are moved to an escrow
 	/// from which `Agents` can later release funds to its `Delegators`.
 	fn migrate_nominator_to_agent(
-		agent: &Self::AccountId,
+		agent: AgentAccount<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult;
 
@@ -576,8 +580,8 @@ pub trait DelegationMigrator {
 	/// When a direct `Nominator` migrates to `Agent`, the funds are kept in escrow. This function
 	/// allows the `Agent` to release the funds to the `delegator`.
 	fn migrate_delegation(
-		agent: &Self::AccountId,
-		delegator: &Self::AccountId,
+		agent: AgentAccount<Self::AccountId>,
+		delegator: DelegatorAccount<Self::AccountId>,
 		value: Self::Balance,
 	) -> DispatchResult;
 
@@ -585,7 +589,7 @@ pub trait DelegationMigrator {
 	///
 	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn drop_agent(agent: &Self::AccountId);
+	fn drop_agent(agent: AgentAccount<Self::AccountId>);
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
