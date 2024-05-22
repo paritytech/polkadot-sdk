@@ -62,6 +62,7 @@ sp-version = { version = "34.0.0", path = "../../../substrate/primitives/version
 pallet-babe = { version = "33.0.0", path = "../../../substrate/frame/babe" }
 pallet-staking = { version = "33.0.0", path = "../../../substrate/frame/staking" }
 pallet-transaction-payment-rpc-runtime-api = { version = "33.0.0", path = "../../../substrate/frame/transaction-payment/rpc/runtime-api" }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", optional = true, version = "0.2.0" }
 frame-system = { version = "33.0.0", path = "../../../substrate/frame/system" }
 frame-system-rpc-runtime-api = { version = "31.0.0", path = "../../../substrate/frame/system/rpc/runtime-api" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus", version = "0.17.0" }
@@ -178,8 +179,18 @@ full-node = [
 ]
 
 # Configure the native runtimes to use.
-westend-native = ["bitvec", "westend-runtime", "westend-runtime-constants"]
-rococo-native = ["bitvec", "rococo-runtime", "rococo-runtime-constants"]
+westend-native = [
+	"bitvec",
+	"frame-metadata-hash-extension",
+	"westend-runtime",
+	"westend-runtime-constants",
+]
+rococo-native = [
+	"bitvec",
+	"frame-metadata-hash-extension",
+	"rococo-runtime",
+	"rococo-runtime-constants",
+]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",

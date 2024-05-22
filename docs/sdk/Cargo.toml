@@ -35,6 +35,7 @@ frame-system = { path = "../../substrate/frame/system", default-features = false
 frame-support = { path = "../../substrate/frame/support", default-features = false, version = "33.0.0" }
 frame-executive = { path = "../../substrate/frame/executive", default-features = false, version = "33.0.0" }
 pallet-example-single-block-migrations = { version = "0.1.0", path = "../../substrate/frame/examples/single-block-migrations" }
+frame-metadata-hash-extension = { version = "0.2.0", path = "../../substrate/frame/metadata-hash-extension" }
 sc-network = { version = "0.39.0", path = "../../substrate/client/network" }
 sc-rpc-api = { version = "0.38.0", path = "../../substrate/client/rpc-api" }
 sc-rpc = { version = "34.0.0", path = "../../substrate/client/rpc" }

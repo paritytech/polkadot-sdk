@@ -18,6 +18,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "33.0.0" }
 frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false, version = "33.0.0" }
+frame-metadata-hash-extension = { path = "../../../../../substrate/frame/metadata-hash-extension", default-features = false, version = "0.2.0" }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "33.0.0" }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "33.0.0" }
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true, version = "33.0.0" }
@@ -186,6 +187,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -242,7 +244,10 @@ std = [
 	"xcm/std",
 ]
 
+# Enable the metadata hash generation in the wasm builder.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]

@@ -3598,3 +3598,9 @@ from = "0.1.0"
 to = "0.1.0"
 bump = "major"
 publish = false
+
+[[crate]]
+name = "frame-metadata-hash-extension"
+from = "0.1.0"
+to = "0.2.0"
+bump = "major"

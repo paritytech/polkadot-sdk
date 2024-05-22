@@ -55,7 +55,7 @@ const HEAP_PAGES: u64 = 20;
 type TestExternalities<H> = CoreTestExternalities<H>;
 
 fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
-	node_testing::keyring::sign(xt, SPEC_VERSION, TRANSACTION_VERSION, GENESIS_HASH)
+	node_testing::keyring::sign(xt, SPEC_VERSION, TRANSACTION_VERSION, GENESIS_HASH, None)
 }
 
 fn new_test_ext(genesis_config: &RuntimeGenesisConfig) -> TestExternalities<BlakeTwo256> {
