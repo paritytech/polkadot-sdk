@@ -13,9 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Asset Hub Westend Runtime
+//! # Asset Hub Rococo Runtime
 //!
-//! Testnet for Asset Hub Polkadot.
+//! Asset Hub Rococo, formerly known as "Rockmine", is the test network for its Kusama cousin.
+//!
+//! This runtime is also used for Asset Hub Wococo. But we dont want to create another exact copy of
+//! Asset Hub Rococo, so we injected some tweaks backed by `RuntimeFlavor` and `pub storage Flavor:
+//! RuntimeFlavor`. (For example this is needed for successful asset transfer between Asset Hub
+//! Rococo and Asset Hub Wococo, where we need to have correct `xcm_config::UniversalLocation` with
+//! correct `GlobalConsensus`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -27,23 +33,35 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod weights;
 pub mod xcm_config;
 
-use crate::xcm_config::{
-	LocalAndForeignAssetsMultiLocationMatcher, TrustBackedAssetsPalletLocation,
-};
 use assets_common::{
+	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalAndForeignAssets, MultiLocationConverter},
-	AssetIdForTrustBackedAssetsConvert,
+	matching::FromSiblingParachain,
+	AssetIdForTrustBackedAssetsConvert, MultiLocationForAssetId,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use sp_api::impl_runtime_apis;
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_runtime::{
+	create_runtime_str, generic, impl_opaque_keys,
+	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Verify},
+	transaction_validity::{TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult, Permill,
+};
+
+use sp_std::prelude::*;
+#[cfg(feature = "std")]
+use sp_version::NativeVersion;
+use sp_version::RuntimeVersion;
+
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_config, create_default_config},
 	ord_parameter_types, parameter_types,
 	traits::{
-		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32,
-		ConstU64, ConstU8, InstanceFilter,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
+		Equals, InstanceFilter,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
@@ -57,41 +75,41 @@ use pallet_nfts::PalletFeatures;
 pub use parachains_common as common;
 use parachains_common::{
 	impls::DealWithFees,
-	westend::{consensus::*, currency::*, fee::WeightToFee},
+	rococo::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Hash, Header, Nonce,
 	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Verify},
-	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Permill, RuntimeDebug,
-};
-use sp_std::prelude::*;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
+use sp_runtime::RuntimeDebug;
 use xcm::opaque::v3::MultiLocation;
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
-	TrustBackedAssetsConvertedConcreteId, WestendLocation, XcmConfig,
-	XcmOriginToTransactDispatchOrigin,
+	ForeignAssetsConvertedConcreteId, GovernanceLocation, PoolAssetsConvertedConcreteId,
+	TokenLocation, TrustBackedAssetsConvertedConcreteId, XcmConfig,
 };
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
-use assets_common::{
-	foreign_creators::ForeignCreators, matching::FromSiblingParachain, MultiLocationForAssetId,
-};
+// Polkadot imports
+use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor;
 
-use crate::xcm_config::ForeignCreatorsSovereignAccountOf;
+use crate::xcm_config::{
+	ForeignCreatorsSovereignAccountOf, LocalAndForeignAssetsMultiLocationMatcher,
+	TrustBackedAssetsPalletLocation,
+};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
+
+/// Enum for handling differences in the runtime configuration for `AssetHubRococo` vs.
+/// `AssetHubWococo`.
+#[derive(Default, Eq, PartialEq, Debug, Clone, Copy, Decode, Encode)]
+pub enum RuntimeFlavor {
+	#[default]
+	Rococo,
+	Wococo,
+}
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
@@ -99,15 +117,26 @@ impl_opaque_keys! {
 	}
 }
 
+#[cfg(feature = "state-trie-version-1")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	// Note: "westmint" is the legacy name for this chain. It has been renamed to
-	// "asset-hub-westend". Many wallets/tools depend on the `spec_name`, so it remains "westmint"
-	// for the time being. Wallets/tools should update to treat "asset-hub-westend" equally.
-	spec_name: create_runtime_str!("westmint"),
-	impl_name: create_runtime_str!("westmint"),
+	spec_name: create_runtime_str!("statemine"),
+	impl_name: create_runtime_str!("statemine"),
 	authoring_version: 1,
-	spec_version: 10000,
+	spec_version: 10006,
+	impl_version: 0,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 13,
+	state_version: 1,
+};
+
+#[cfg(not(feature = "state-trie-version-1"))]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("statemine"),
+	impl_name: create_runtime_str!("statemine"),
+	authoring_version: 1,
+	spec_version: 10006,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 13,
@@ -202,6 +231,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	// We allow each account to have holds on it from:
 	//   - `NftFractionalization`: 1
@@ -225,7 +255,7 @@ impl pallet_transaction_payment::Config for Runtime {
 }
 
 parameter_types! {
-	pub const AssetDeposit: Balance = UNITS / 10; // 1 / 10 WND deposit to create asset
+	pub const AssetDeposit: Balance = UNITS / 10; // 1 / 10 UNITS deposit to create asset
 	pub const AssetAccountDeposit: Balance = deposit(1, 16);
 	pub const ApprovalDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const AssetsStringLimit: u32 = 50;
@@ -235,6 +265,7 @@ parameter_types! {
 	pub const MetadataDepositPerByte: Balance = deposit(0, 1);
 }
 
+/// We allow root to execute privileged asset operations.
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 // Called "Trust Backed" assets because these are generally registered by some account, and users of
@@ -260,7 +291,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
 	type CallbackHandle = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
-	type RemoveItemsLimit = ConstU32<1000>;
+	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -288,11 +319,12 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
 	type ForceOrigin = AssetsForceOrigin;
+	// Deposits are zero because creation/admin is limited to Asset Conversion pallet.
 	type AssetDeposit = ConstU128<0>;
 	type AssetAccountDeposit = ConstU128<0>;
 	type MetadataDepositBase = ConstU128<0>;
 	type MetadataDepositPerByte = ConstU128<0>;
-	type ApprovalDeposit = ConstU128<0>;
+	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = ConstU32<50>;
 	type Freezer = ();
 	type Extra = ();
@@ -318,14 +350,15 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolAssetId = u32;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
 	type PoolSetupFeeReceiver = AssetConversionOrigin;
-	type LiquidityWithdrawalFee = LiquidityWithdrawalFee; // should be non-zero if AllowMultiAssetPools is true, otherwise can be zero.
+	// should be non-zero if `AllowMultiAssetPools` is true, otherwise can be zero.
+	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = ConstU32<3>;
 	type PalletId = AssetConversionPalletId;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
 	type MultiAssetId = Box<MultiLocation>;
 	type MultiAssetIdConverter =
-		MultiLocationConverter<WestendLocation, LocalAndForeignAssetsMultiLocationMatcher>;
+		MultiLocationConverter<TokenLocation, LocalAndForeignAssetsMultiLocationMatcher>;
 	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -604,6 +637,20 @@ impl parachain_info::Config for Runtime {}
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
+parameter_types! {
+	/// The asset ID for the asset that we use to pay for message delivery fees.
+	pub FeeAssetId: AssetId = Concrete(xcm_config::TokenLocation::get());
+	/// The base fee for the message delivery fees.
+	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+}
+
+pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+>;
+
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -611,9 +658,9 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type VersionWrapper = PolkadotXcm;
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
-	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
+	type ControllerOriginConverter = xcm_config::XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -653,9 +700,15 @@ impl pallet_aura::Config for Runtime {
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const SessionLength: BlockNumber = 6 * HOURS;
+	// StakingAdmin pluralistic body.
+	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 }
 
-pub type CollatorSelectionUpdateOrigin = EnsureRoot<AccountId>;
+/// We allow root and the `StakingAdmin` to execute privileged collator selection operations.
+pub type CollatorSelectionUpdateOrigin = EitherOfDiverse<
+	EnsureRoot<AccountId>,
+	EnsureXcm<IsVoiceOfBody<GovernanceLocation, StakingAdminBodyId>>,
+>;
 
 impl pallet_collator_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -778,6 +831,68 @@ impl pallet_nfts::Config for Runtime {
 	type Helper = ();
 }
 
+/// XCM router instance to BridgeHub with bridging capabilities for `Wococo` global
+/// consensus with dynamic fees and back-pressure.
+pub type ToWococoXcmRouterInstance = pallet_assets::Instance1;
+impl pallet_xcm_bridge_hub_router::Config<ToWococoXcmRouterInstance> for Runtime {
+	type WeightInfo = weights::pallet_xcm_bridge_hub_router_to_wococo::WeightInfo<Runtime>;
+
+	type UniversalLocation = xcm_config::UniversalLocation;
+	type BridgedNetworkId = xcm_config::bridging::to_wococo::WococoNetwork;
+	type Bridges = xcm_config::bridging::NetworkExportTable;
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BridgeHubOrigin = EitherOfDiverse<
+		// for running benchmarks
+		EnsureRoot<AccountId>,
+		// for running tests with `--feature runtime-benchmarks`
+		EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>,
+	>;
+
+	type ToBridgeHubSender = XcmpQueue;
+	type WithBridgeHubChannel =
+		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<
+			xcm_config::bridging::SiblingBridgeHubParaId,
+			Runtime,
+		>;
+
+	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
+	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
+}
+
+/// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
+/// consensus with dynamic fees and back-pressure.
+pub type ToRococoXcmRouterInstance = pallet_assets::Instance2;
+impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime {
+	type WeightInfo = weights::pallet_xcm_bridge_hub_router_to_rococo::WeightInfo<Runtime>;
+
+	type UniversalLocation = xcm_config::UniversalLocation;
+	type BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
+	type Bridges = xcm_config::bridging::NetworkExportTable;
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BridgeHubOrigin = EitherOfDiverse<
+		// for running benchmarks
+		EnsureRoot<AccountId>,
+		// for running tests with `--feature runtime-benchmarks`
+		EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>,
+	>;
+
+	type ToBridgeHubSender = XcmpQueue;
+	type WithBridgeHubChannel =
+		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<
+			xcm_config::bridging::SiblingBridgeHubParaId,
+			Runtime,
+		>;
+
+	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
+	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -787,14 +902,12 @@ construct_runtime!(
 		ParachainSystem: cumulus_pallet_parachain_system::{
 			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
 		} = 1,
-		// RandomnessCollectiveFlip = 2 removed
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 3,
 		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 4,
 
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		// AssetTxPayment: pallet_asset_tx_payment::{Pallet, Event<T>} = 12,
 		AssetTxPayment: pallet_asset_conversion_tx_payment::{Pallet, Event<T>} = 13,
 
 		// Collator support. the order of these 5 are important and shall not change.
@@ -815,14 +928,22 @@ construct_runtime!(
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
 
+		// Bridge utilities.
+		ToWococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance1>::{Pallet, Storage, Call} = 43,
+		ToRococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance2>::{Pallet, Storage, Call} = 44,
+
 		// The main stage.
 		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
 		Uniques: pallet_uniques::{Pallet, Call, Storage, Event<T>} = 51,
 		Nfts: pallet_nfts::{Pallet, Call, Storage, Event<T>} = 52,
 		ForeignAssets: pallet_assets::<Instance2>::{Pallet, Call, Storage, Event<T>} = 53,
 		NftFractionalization: pallet_nft_fractionalization::{Pallet, Call, Storage, Event<T>, HoldReason} = 54,
+
 		PoolAssets: pallet_assets::<Instance3>::{Pallet, Call, Storage, Event<T>} = 55,
 		AssetConversion: pallet_asset_conversion::{Pallet, Call, Storage, Event<T>} = 56,
+
+		#[cfg(feature = "state-trie-version-1")]
+		StateTrieMigration: pallet_state_trie_migration = 70,
 	}
 );
 
@@ -849,16 +970,8 @@ pub type SignedExtra = (
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
-
 /// Migrations to apply on runtime upgrade.
-pub type Migrations = (
-	// v9420
-	pallet_nfts::migration::v1::MigrateToV1<Runtime>,
-	// unreleased
-	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
-	// unreleased
-	migrations::NativeAssetParents0ToParents1Migration<Runtime>,
-);
+pub type Migrations = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -893,6 +1006,8 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_xcm_bridge_hub_router, ToWococo]
+		[pallet_xcm_bridge_hub_router, ToRococo]
 		// XCM
 		[pallet_xcm, PolkadotXcm]
 		// NOTE: Make sure you point to the individual modules below.
@@ -995,50 +1110,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_nfts_runtime_api::NftsApi<Block, AccountId, u32, u32> for Runtime {
-		fn owner(collection: u32, item: u32) -> Option<AccountId> {
-			<Nfts as Inspect<AccountId>>::owner(&collection, &item)
-		}
-
-		fn collection_owner(collection: u32) -> Option<AccountId> {
-			<Nfts as Inspect<AccountId>>::collection_owner(&collection)
-		}
-
-		fn attribute(
-			collection: u32,
-			item: u32,
-			key: Vec<u8>,
-		) -> Option<Vec<u8>> {
-			<Nfts as Inspect<AccountId>>::attribute(&collection, &item, &key)
-		}
-
-		fn custom_attribute(
-			account: AccountId,
-			collection: u32,
-			item: u32,
-			key: Vec<u8>,
-		) -> Option<Vec<u8>> {
-			<Nfts as Inspect<AccountId>>::custom_attribute(
-				&account,
-				&collection,
-				&item,
-				&key,
-			)
-		}
-
-		fn system_attribute(
-			collection: u32,
-			item: u32,
-			key: Vec<u8>,
-		) -> Option<Vec<u8>> {
-			<Nfts as Inspect<AccountId>>::system_attribute(&collection, &item, &key)
-		}
-
-		fn collection_attribute(collection: u32, key: Vec<u8>) -> Option<Vec<u8>> {
-			<Nfts as Inspect<AccountId>>::collection_attribute(&collection, &key)
-		}
-	}
-
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
@@ -1049,11 +1120,9 @@ impl_runtime_apis! {
 		fn quote_price_exact_tokens_for_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
-
 		fn quote_price_tokens_for_exact_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
-
 		fn get_reserves(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(&asset1, &asset2).ok()
 		}
@@ -1115,7 +1184,7 @@ impl_runtime_apis! {
 				{
 					let balance = Balances::free_balance(account.clone());
 					if balance > 0 {
-						vec![convert_balance::<WestendLocation, Balance>(balance)?]
+						vec![convert_balance::<TokenLocation, Balance>(balance)?]
 					} else {
 						vec![]
 					}
@@ -1178,6 +1247,7 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_xcm_bridge_hub_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
@@ -1192,6 +1262,9 @@ impl_runtime_apis! {
 			type Local = pallet_assets::Pallet::<Runtime, TrustBackedAssetsInstance>;
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
+
+			type ToWococo = XcmBridgeHubRouterBench<Runtime, ToWococoXcmRouterInstance>;
+			type ToRococo = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1221,20 +1294,65 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
+			use pallet_xcm_bridge_hub_router::benchmarking::{
+				Pallet as XcmBridgeHubRouterBench,
+				Config as XcmBridgeHubRouterConfig,
+			};
+
+			impl XcmBridgeHubRouterConfig<ToWococoXcmRouterInstance> for Runtime {
+				fn make_congested() {
+					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::<Runtime>(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+				}
+				fn ensure_bridged_target_destination() -> MultiLocation {
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+					xcm_config::bridging::to_wococo::AssetHubWococo::get()
+				}
+			}
+			impl XcmBridgeHubRouterConfig<ToRococoXcmRouterInstance> for Runtime {
+				fn make_congested() {
+					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::<Runtime>(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+				}
+				fn ensure_bridged_target_destination() -> MultiLocation {
+					xcm_config::Flavor::set(&RuntimeFlavor::Wococo);
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+					xcm_config::bridging::to_rococo::AssetHubRococo::get()
+				}
+			}
+
 			use xcm::latest::prelude::*;
-			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
+			use xcm_config::{TokenLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
+
+			parameter_types! {
+				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-					Ok(WestendLocation::get())
+					Ok(TokenLocation::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> MultiAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
 					let holding_non_fungibles = MaxAssetsIntoHolding::get() / 2 - depositable_count;
-					let holding_fungibles = holding_non_fungibles - 1;
+					let holding_fungibles = holding_non_fungibles.saturating_sub(1);
 					let fungibles_amount: u128 = 100;
 					let mut assets = (0..holding_fungibles)
 						.map(|i| {
@@ -1251,7 +1369,7 @@ impl_runtime_apis! {
 						.collect::<Vec<_>>();
 
 					assets.push(MultiAsset {
-						id: Concrete(WestendLocation::get()),
+						id: Concrete(TokenLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					});
 					assets.into()
@@ -1260,8 +1378,8 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
-					WestendLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(WestendLocation::get()) },
+					TokenLocation::get(),
+					MultiAsset { fun: Fungible(UNITS), id: Concrete(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
@@ -1276,13 +1394,14 @@ impl_runtime_apis! {
 
 				fn get_multi_asset() -> MultiAsset {
 					MultiAsset {
-						id: Concrete(WestendLocation::get()),
+						id: Concrete(TokenLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
 			}
 
 			impl pallet_xcm_benchmarks::generic::Config for Runtime {
+				type TransactAsset = Balances;
 				type RuntimeCall = RuntimeCall;
 
 				fn worst_case_response() -> (u64, Response) {
@@ -1294,20 +1413,23 @@ impl_runtime_apis! {
 				}
 
 				fn universal_alias() -> Result<(MultiLocation, Junction), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					match xcm_config::bridging::BridgingBenchmarksHelper::prepare_universal_alias() {
+						Some(alias) => Ok(alias),
+						None => Err(BenchmarkError::Skip)
+					}
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
-					Ok((WestendLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((TokenLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
-					Ok(WestendLocation::get())
+					Ok(TokenLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
-					let origin = WestendLocation::get();
-					let assets: MultiAssets = (Concrete(WestendLocation::get()), 1_000 * UNITS).into();
+					let origin = TokenLocation::get();
+					let assets: MultiAssets = (Concrete(TokenLocation::get()), 1_000 * UNITS).into();
 					let ticket = MultiLocation { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
@@ -1333,6 +1455,9 @@ impl_runtime_apis! {
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
+			type ToWococo = XcmBridgeHubRouterBench<Runtime, ToWococoXcmRouterInstance>;
+			type ToRococo = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
+
 			let whitelist: Vec<TrackedStorageKey> = vec![
 				// Block Number
 				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
@@ -1355,16 +1480,6 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
-
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
-		}
-
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
-		}
-	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
@@ -1372,120 +1487,109 @@ cumulus_pallet_parachain_system::register_validate_block! {
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 }
 
-pub mod migrations {
+#[cfg(feature = "state-trie-version-1")]
+parameter_types! {
+	// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
+	pub const MigrationSignedDepositPerItem: Balance = CENTS;
+	pub const MigrationSignedDepositBase: Balance = 2_000 * CENTS;
+	pub const MigrationMaxKeyLen: u32 = 512;
+}
+
+#[cfg(feature = "state-trie-version-1")]
+impl pallet_state_trie_migration::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type SignedDepositPerItem = MigrationSignedDepositPerItem;
+	type SignedDepositBase = MigrationSignedDepositBase;
+	// An origin that can control the whole pallet: should be Root, or a part of your council.
+	type ControlOrigin = frame_system::EnsureSignedBy<RootMigController, AccountId>;
+	// specific account for the migration, can trigger the signed migrations.
+	type SignedFilter = frame_system::EnsureSignedBy<MigController, AccountId>;
+
+	// Replace this with weight based on your runtime.
+	type WeightInfo = pallet_state_trie_migration::weights::SubstrateWeight<Runtime>;
+
+	type MaxKeyLen = MigrationMaxKeyLen;
+}
+
+#[cfg(feature = "state-trie-version-1")]
+frame_support::ord_parameter_types! {
+	pub const MigController: AccountId = AccountId::from(hex_literal::hex!("8458ed39dc4b6f6c7255f7bc42be50c2967db126357c999d44e12ca7ac80dc52"));
+	pub const RootMigController: AccountId = AccountId::from(hex_literal::hex!("8458ed39dc4b6f6c7255f7bc42be50c2967db126357c999d44e12ca7ac80dc52"));
+}
+
+#[cfg(feature = "state-trie-version-1")]
+#[test]
+fn ensure_key_ss58() {
+	use frame_support::traits::SortedMembers;
+	use sp_core::crypto::Ss58Codec;
+	let acc =
+		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
+	//panic!("{:x?}", acc);
+	assert_eq!(acc, MigController::sorted_members()[0]);
+	let acc =
+		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
+	assert_eq!(acc, RootMigController::sorted_members()[0]);
+	//panic!("{:x?}", acc);
+}
+
+#[cfg(test)]
+mod tests {
 	use super::*;
-	use frame_support::{
-		pallet_prelude::Get,
-		traits::{
-			fungibles::{Inspect, Mutate},
-			tokens::Preservation,
-			OnRuntimeUpgrade, OriginTrait,
-		},
-	};
-	use parachains_common::impls::AccountIdOf;
-	use sp_runtime::{traits::StaticLookup, Saturating};
-	use xcm::latest::prelude::*;
+	use crate::{CENTS, MILLICENTS};
+	use parachains_common::rococo::fee;
+	use sp_runtime::traits::Zero;
+	use sp_weights::WeightToFee;
 
-	/// Temporary migration because of bug with native asset, it can be removed once applied on
-	/// `AssetHubWestend`. Migrates pools with `MultiLocation { parents: 0, interior: Here }` to
-	/// `MultiLocation { parents: 1, interior: Here }`
-	pub struct NativeAssetParents0ToParents1Migration<T>(sp_std::marker::PhantomData<T>);
-	impl<
-			T: pallet_asset_conversion::Config<
-				MultiAssetId = Box<MultiLocation>,
-				AssetId = MultiLocation,
-			>,
-		> OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
-	where
-		<T as pallet_asset_conversion::Config>::PoolAssetId: Into<u32>,
-		AccountIdOf<Runtime>: Into<[u8; 32]>,
-		<T as frame_system::Config>::AccountId:
-			Into<<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
-		<<T as frame_system::Config>::Lookup as StaticLookup>::Source:
-			From<<T as frame_system::Config>::AccountId>,
-		sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>,
-	{
-		fn on_runtime_upgrade() -> Weight {
-			let invalid_native_asset = MultiLocation { parents: 0, interior: Here };
-			let valid_native_asset = WestendLocation::get();
+	/// We can fit at least 1000 transfers in a block.
+	#[test]
+	fn sane_block_weight() {
+		use pallet_balances::WeightInfo;
+		let block = RuntimeBlockWeights::get().max_block;
+		let base = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
+		let transfer =
+			base + weights::pallet_balances::WeightInfo::<Runtime>::transfer_allow_death();
 
-			let mut reads: u64 = 1;
-			let mut writes: u64 = 0;
+		let fit = block.checked_div_per_component(&transfer).unwrap_or_default();
+		assert!(fit >= 1000, "{} should be at least 1000", fit);
+	}
 
-			// migrate pools with invalid native asset
-			let pools = pallet_asset_conversion::Pools::<T>::iter().collect::<Vec<_>>();
-			reads.saturating_accrue(1);
-			for (old_pool_id, pool_info) in pools {
-				let old_pool_account =
-					pallet_asset_conversion::Pallet::<T>::get_pool_account(&old_pool_id);
-				reads.saturating_accrue(1);
-				let pool_asset_id = pool_info.lp_token.clone();
-				if old_pool_id.0.as_ref() != &invalid_native_asset {
-					// skip, if ok
-					continue
-				}
+	/// The fee for one transfer is at most 1 CENT.
+	#[test]
+	fn sane_transfer_fee() {
+		use pallet_balances::WeightInfo;
+		let base = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
+		let transfer =
+			base + weights::pallet_balances::WeightInfo::<Runtime>::transfer_allow_death();
 
-				// fix new account
-				let new_pool_id = pallet_asset_conversion::Pallet::<T>::get_pool_id(
-					Box::new(valid_native_asset),
-					old_pool_id.1.clone(),
-				);
-				let new_pool_account =
-					pallet_asset_conversion::Pallet::<T>::get_pool_account(&new_pool_id);
-				frame_system::Pallet::<T>::inc_providers(&new_pool_account);
-				reads.saturating_accrue(2);
-				writes.saturating_accrue(1);
+		let fee: Balance = fee::WeightToFee::weight_to_fee(&transfer);
+		assert!(fee <= CENTS, "{} MILLICENTS should be at most 1000", fee / MILLICENTS);
+	}
 
-				// move currency
-				let _ = Balances::transfer_all(
-					RuntimeOrigin::signed(sp_runtime::AccountId32::from(old_pool_account.clone())),
-					sp_runtime::AccountId32::from(new_pool_account.clone()).into(),
-					false,
-				);
-				reads.saturating_accrue(2);
-				writes.saturating_accrue(2);
+	/// Weight is being charged for both dimensions.
+	#[test]
+	fn weight_charged_for_both_components() {
+		let fee: Balance = fee::WeightToFee::weight_to_fee(&Weight::from_parts(10_000, 0));
+		assert!(!fee.is_zero(), "Charges for ref time");
 
-				// move LP token
-				let _ = T::PoolAssets::transfer(
-					pool_asset_id.clone(),
-					&old_pool_account,
-					&new_pool_account,
-					T::PoolAssets::balance(pool_asset_id.clone(), &old_pool_account),
-					Preservation::Expendable,
-				);
-				reads.saturating_accrue(1);
-				writes.saturating_accrue(2);
+		let fee: Balance = fee::WeightToFee::weight_to_fee(&Weight::from_parts(0, 10_000));
+		assert_eq!(fee, CENTS, "10kb maps to CENT");
+	}
 
-				// change the ownership of LP token
-				let _ = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>::transfer_ownership(
-					RuntimeOrigin::signed(sp_runtime::AccountId32::from(old_pool_account.clone())),
-					pool_asset_id.into(),
-					sp_runtime::AccountId32::from(new_pool_account.clone()).into(),
-				);
-				reads.saturating_accrue(1);
-				writes.saturating_accrue(2);
+	/// Filling up a block by proof size is at most 30 times more expensive than ref time.
+	///
+	/// This is just a sanity check.
+	#[test]
+	fn full_block_fee_ratio() {
+		let block = RuntimeBlockWeights::get().max_block;
+		let time_fee: Balance =
+			fee::WeightToFee::weight_to_fee(&Weight::from_parts(block.ref_time(), 0));
+		let proof_fee: Balance =
+			fee::WeightToFee::weight_to_fee(&Weight::from_parts(0, block.proof_size()));
 
-				// move LocalOrForeignAssets
-				let _ = T::Assets::transfer(
-					*old_pool_id.1.as_ref(),
-					&old_pool_account,
-					&new_pool_account,
-					T::Assets::balance(*old_pool_id.1.as_ref(), &old_pool_account),
-					Preservation::Expendable,
-				);
-				reads.saturating_accrue(1);
-				writes.saturating_accrue(2);
-
-				// dec providers for old account
-				let _ = frame_system::Pallet::<T>::dec_providers(&old_pool_account);
-				writes.saturating_accrue(1);
-
-				// change pool key
-				pallet_asset_conversion::Pools::<T>::insert(new_pool_id, pool_info);
-				pallet_asset_conversion::Pools::<T>::remove(old_pool_id);
-			}
-
-			T::DbWeight::get().reads_writes(reads, writes)
-		}
+		let proof_o_time = proof_fee.checked_div(time_fee).unwrap_or_default();
+		assert!(proof_o_time <= 30, "{} should be at most 30", proof_o_time);
+		let time_o_proof = time_fee.checked_div(proof_fee).unwrap_or_default();
+		assert!(time_o_proof <= 30, "{} should be at most 30", time_o_proof);
 	}
 }
