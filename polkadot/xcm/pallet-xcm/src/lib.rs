@@ -2054,6 +2054,7 @@ impl<T: Config> Pallet<T> {
 		]);
 		Ok(Xcm(vec![
 			WithdrawAsset(assets.into()),
+			// TODO: Is it okay to have removed `SetFeesMode { jit_withdraw: true }`?
 			InitiateReserveWithdraw {
 				assets: Wild(AllCounted(max_assets)),
 				reserve,

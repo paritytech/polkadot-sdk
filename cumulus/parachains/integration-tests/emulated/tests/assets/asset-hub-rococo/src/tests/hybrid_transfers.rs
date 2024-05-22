@@ -798,8 +798,9 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &receiver)
 	});
 
-	// Sender's balance is reduced by amount sent plus delivery fees
-	assert!(sender_balance_after < sender_balance_before - amount_to_send);
+	// Sender's balance is reduced by amount sent plus delivery fees.
+	// Delivery fees are taken from `amount_to_send`.
+	assert_eq!(sender_balance_after, sender_balance_before - amount_to_send);
 	// SA on AH balance is increased
 	assert!(sov_penpal_on_ah_after > sov_penpal_on_ah_before);
 	// Receiver's asset balance is increased
