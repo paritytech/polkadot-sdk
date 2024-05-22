@@ -351,7 +351,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use adapter::{PoolAccount, StakeStrategy};
+use adapter::{MemberAccount, PoolAccount, StakeStrategy};
 use codec::Codec;
 use frame_support::{
 	defensive, defensive_assert, ensure,
@@ -404,7 +404,6 @@ pub mod weights;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
-use crate::adapter::MemberAccount;
 
 /// The balance type used by the currency system.
 pub type BalanceOf<T> =
@@ -2212,7 +2211,10 @@ pub mod pallet {
 			// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
 			// is destroying then `withdraw_unbonded` can be used.
 			ensure!(pool.state != PoolState::Destroying, Error::<T>::NotDestroying);
-			T::StakeAdapter::withdraw_unbonded(PoolAccount(pool.bonded_account()), num_slashing_spans)?;
+			T::StakeAdapter::withdraw_unbonded(
+				PoolAccount(pool.bonded_account()),
+				num_slashing_spans,
+			)?;
 
 			Ok(())
 		}
@@ -2921,8 +2923,9 @@ pub mod pallet {
 
 			// ensure pool is migrated.
 			ensure!(
-				T::StakeAdapter::pool_strategy(PoolAccount(Self::generate_bonded_account(member.pool_id))) ==
-					adapter::StakeStrategyType::Delegate,
+				T::StakeAdapter::pool_strategy(PoolAccount(Self::generate_bonded_account(
+					member.pool_id
+				))) == adapter::StakeStrategyType::Delegate,
 				Error::<T>::PoolNotMigrated
 			);
 
@@ -2931,7 +2934,8 @@ pub mod pallet {
 			// the member must have some contribution to be migrated.
 			ensure!(pool_contribution > Zero::zero(), Error::<T>::NoDelegationToMigrate);
 
-			let delegation = T::StakeAdapter::member_delegation_balance(MemberAccount(member_account.clone()));
+			let delegation =
+				T::StakeAdapter::member_delegation_balance(MemberAccount(member_account.clone()));
 			// delegation can be claimed only once.
 			ensure!(delegation == Zero::zero(), Error::<T>::NoDelegationToMigrate);
 
@@ -3071,7 +3075,8 @@ impl<T: Config> Pallet<T> {
 			"could not transfer all amount to depositor while dissolving pool"
 		);
 		defensive_assert!(
-			T::StakeAdapter::total_balance(PoolAccount(bonded_pool.bonded_account())) == Zero::zero(),
+			T::StakeAdapter::total_balance(PoolAccount(bonded_pool.bonded_account())) ==
+				Zero::zero(),
 			"dissolving pool should not have any balance"
 		);
 		// NOTE: Defensively force set balance to zero.
@@ -3476,9 +3481,13 @@ impl<T: Config> Pallet<T> {
 			PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
 		let pool_account = Pallet::<T>::generate_bonded_account(member.pool_id);
-		ensure!(T::StakeAdapter::has_pending_slash(PoolAccount(pool_account.clone())), Error::<T>::NothingToSlash);
+		ensure!(
+			T::StakeAdapter::has_pending_slash(PoolAccount(pool_account.clone())),
+			Error::<T>::NothingToSlash
+		);
 
-		let unslashed_balance = T::StakeAdapter::member_delegation_balance(MemberAccount(member_account.clone()));
+		let unslashed_balance =
+			T::StakeAdapter::member_delegation_balance(MemberAccount(member_account.clone()));
 		let slashed_balance = member.total_balance();
 		defensive_assert!(
 			unslashed_balance >= slashed_balance,

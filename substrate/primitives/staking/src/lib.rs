@@ -471,7 +471,6 @@ pub struct AgentAccount<AccountId>(pub AccountId);
 #[derive(Clone, Debug)]
 pub struct DelegatorAccount<AccountId>(pub AccountId);
 
-
 /// Trait to provide delegation functionality for stakers.
 ///
 /// Introduces two new terms to the staking system:

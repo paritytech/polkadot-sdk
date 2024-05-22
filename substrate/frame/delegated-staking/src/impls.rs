@@ -19,7 +19,9 @@
 //! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
 use super::*;
-use sp_staking::{DelegationInterface, DelegationMigrator, AgentAccount, DelegatorAccount, OnStakingUpdate};
+use sp_staking::{
+	AgentAccount, DelegationInterface, DelegationMigrator, DelegatorAccount, OnStakingUpdate,
+};
 
 impl<T: Config> DelegationInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
@@ -104,21 +106,14 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 		agent: AgentAccount<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
-		Pallet::<T>::migrate_to_agent(
-			RawOrigin::Signed(agent.0).into(),
-			reward_account.clone(),
-		)
+		Pallet::<T>::migrate_to_agent(RawOrigin::Signed(agent.0).into(), reward_account.clone())
 	}
 	fn migrate_delegation(
 		agent: AgentAccount<Self::AccountId>,
 		delegator: DelegatorAccount<Self::AccountId>,
 		value: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::migrate_delegation(
-			RawOrigin::Signed(agent.0).into(),
-			delegator.0,
-			value,
-		)
+		Pallet::<T>::migrate_delegation(RawOrigin::Signed(agent.0).into(), delegator.0, value)
 	}
 
 	/// Only used for testing.

@@ -32,7 +32,6 @@ pub enum StakeStrategyType {
 	Delegate,
 }
 
-
 /// Wrapper type for pool account. Maps to [`AgentAccount`].
 #[derive(Clone, Debug)]
 pub struct PoolAccount<AccountID>(pub AccountID);
@@ -51,7 +50,6 @@ impl<A> Into<DelegatorAccount<A>> for MemberAccount<A> {
 		DelegatorAccount(self.0)
 	}
 }
-
 
 /// An adapter trait that can support multiple staking strategies.
 ///
