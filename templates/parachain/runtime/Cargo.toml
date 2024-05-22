@@ -77,9 +77,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../cumulus/pallets/aura-ext", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../cumulus/pallets/parachain-system", default-features = false, features = [
-	"parameterized-consensus-hook",
-] }
+cumulus-pallet-parachain-system = { path = "../../../cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "../../../cumulus/pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../cumulus/pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../cumulus/pallets/xcmp-queue", default-features = false }
