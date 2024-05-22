@@ -1923,14 +1923,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1772" id="1772">1772</a>
 <a href="#1773" id="1773">1773</a>
 <a href="#1774" id="1774">1774</a>
-<a href="#1775" id="1775">1775</a>
-<a href="#1776" id="1776">1776</a>
-<a href="#1777" id="1777">1777</a>
-<a href="#1778" id="1778">1778</a>
-<a href="#1779" id="1779">1779</a>
-<a href="#1780" id="1780">1780</a>
-<a href="#1781" id="1781">1781</a>
-<a href="#1782" id="1782">1782</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2178,10 +2170,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// [`consensus_hook::ExpectParentIncluded`] here. This is only necessary in the case
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
-		///
-		/// This config type is only available when the `parameterized-consensus-hook` crate feature
-		/// is activated.
-		</span><span class="attr">#[cfg(feature = <span class="string">"parameterized-consensus-hook"</span>)]
 		</span><span class="kw">type </span>ConsensusHook: ConsensusHook;
 	}
 
@@ -2489,10 +2477,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.expect(<span class="string">"Invalid relay chain state proof"</span>);
 
 			<span class="comment">// Update the desired maximum capacity according to the consensus hook.
-			</span><span class="attr">#[cfg(feature = <span class="string">"parameterized-consensus-hook"</span>)]
-			</span><span class="kw">let </span>(consensus_hook_weight, capacity) = T::ConsensusHook::on_state_proof(<span class="kw-2">&amp;</span>relay_state_proof);
-			<span class="attr">#[cfg(not(feature = <span class="string">"parameterized-consensus-hook"</span>))]
-			</span><span class="kw">let </span>(consensus_hook_weight, capacity) = ExpectParentIncluded::on_state_proof(<span class="kw-2">&amp;</span>relay_state_proof);
+			</span><span class="kw">let </span>(consensus_hook_weight, capacity) =
+				T::ConsensusHook::on_state_proof(<span class="kw-2">&amp;</span>relay_state_proof);
 			total_weight += consensus_hook_weight;
 			total_weight += <span class="self">Self</span>::maybe_drop_included_ancestors(<span class="kw-2">&amp;</span>relay_state_proof, capacity);
 			<span class="comment">// Deposit a log indicating the relay-parent storage root.
@@ -3572,10 +3558,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Something that can check the inherents of a block.
-</span><span class="attr">#[cfg_attr(
-	feature = <span class="string">"parameterized-consensus-hook"</span>,
-	deprecated = <span class="string">"consider switching to `cumulus-pallet-parachain-system::ConsensusHook`"
-</span>)]
+</span><span class="attr">#[deprecated(note = <span class="string">"This trait is deprecated and will be removed by September 2024. \
+		Consider switching to `cumulus-pallet-parachain-system::ConsensusHook`"</span>)]
 </span><span class="kw">pub trait </span>CheckInherents&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// Check all inherents of the block.
 	///
