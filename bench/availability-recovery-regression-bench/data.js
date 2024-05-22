@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716379484086,
+  "lastUpdate": 1716384950243,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -8609,6 +8609,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.744722336799999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Riko",
+            "username": "fasteater",
+            "email": "49999458+fasteater@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ad54bc36c1b2ce9517d023f2df9d6bdec9ca64e1",
+          "message": "fixed link (#4539)",
+          "timestamp": "2024-05-22T11:55:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad54bc36c1b2ce9517d023f2df9d6bdec9ca64e1"
+        },
+        "date": 1716384921850,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17272699146666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.688903119366667,
             "unit": "seconds"
           }
         ]
