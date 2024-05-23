@@ -939,6 +939,43 @@ mod benches {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn enable_auto_renew() -> Result<(), BenchmarkError> {
+		let _core = setup_and_start_sale::<T>()?;
+
+		advance_to::<T>(2);
+
+		let caller: T::AccountId = T::SovereignAccountOf::sovereign_account(2001)
+			.expect("Failed to get sovereign account");
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(100u32.into()),
+		);
+
+		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		Broker::<T>::do_assign(region, None, 2001, Final)
+			.map_err(|_| BenchmarkError::Weightless)?;
+		// advance to next bulk sale:
+		advance_to::<T>(6);
+
+		// The most 'intensive' path is when we renew the core upon enabling auto-renewal.
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), region.core, None);
+
+		assert_last_event::<T>(Event::AutoRenewalEnabled { core: region.core, task: 2001 }.into());
+		// Make sure we indeed renewed:
+		assert!(AllowedRenewals::<T>::get(AllowedRenewalId {
+			core: region.core,
+			when: 10 // region end after renewal
+		})
+		.is_some());
+
+		Ok(())
+	}
+
 	// Implements a test for each benchmark. Execute with:
 	// `cargo test -p pallet-broker --features runtime-benchmarks`.
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
