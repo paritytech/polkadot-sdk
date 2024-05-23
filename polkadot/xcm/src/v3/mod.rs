@@ -18,8 +18,8 @@
 
 #[allow(deprecated)]
 use super::v2::{
-	Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
-	Xcm as OldXcm, OriginKind as OldOriginKind,
+	Instruction as OldInstruction, OriginKind as OldOriginKind, Response as OldResponse,
+	WeightLimit as OldWeightLimit, Xcm as OldXcm,
 };
 use super::v4::{
 	Instruction as NewInstruction, PalletInfo as NewPalletInfo,
@@ -52,8 +52,8 @@ pub use multilocation::{
 	Ancestor, AncestorThen, InteriorMultiLocation, Location, MultiLocation, Parent, ParentThen,
 };
 pub use traits::{
-	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
-	SendResult, SendXcm, Weight, XcmHash, GetWeight,
+	send_xcm, validate_send, Error, ExecuteXcm, GetWeight, Outcome, PreparedMessage, Result,
+	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
 
 /// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.

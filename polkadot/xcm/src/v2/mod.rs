@@ -55,8 +55,8 @@
 use super::{
 	v3::{
 		BodyId as NewBodyId, BodyPart as NewBodyPart, Instruction as NewInstruction,
-		NetworkId as NewNetworkId, Response as NewResponse, WeightLimit as NewWeightLimit,
-		Xcm as NewXcm, OriginKind as NewOriginKind,
+		NetworkId as NewNetworkId, OriginKind as NewOriginKind, Response as NewResponse,
+		WeightLimit as NewWeightLimit, Xcm as NewXcm,
 	},
 	DoubleEncoded,
 };
