@@ -279,6 +279,10 @@ pub use frame_election_provider_support;
 #[cfg(feature = "frame-executive")]
 pub use frame_executive;
 
+/// FRAME signed extension for verifying the metadata hash.
+#[cfg(feature = "frame-metadata-hash-extension")]
+pub use frame_metadata_hash_extension;
+
 /// An externalities provided environment that can load itself from remote nodes or cached
 /// files.
 #[cfg(feature = "frame-remote-externalities")]
