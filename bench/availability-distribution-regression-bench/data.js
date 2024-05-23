@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716412344990,
+  "lastUpdate": 1716457253654,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -10867,6 +10867,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.01340014166666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fd161917108a14e791c1444ea1c767e9f6134bdf",
+          "message": "Fix README.md Logo URL (#4546)\n\nThis one also works and it is easier.",
+          "timestamp": "2024-05-23T08:03:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd161917108a14e791c1444ea1c767e9f6134bdf"
+        },
+        "date": 1716457225756,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.913333333334,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01311429113333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01131437085333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022516358013333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16383017571999997,
             "unit": "seconds"
           }
         ]
