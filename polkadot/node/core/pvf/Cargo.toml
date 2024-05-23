@@ -11,14 +11,13 @@ workspace = true
 
 [dependencies]
 always-assert = "0.1"
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 blake3 = "1.5"
 cfg-if = "1.0"
 futures = "0.3.30"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
-is_executable = "1.0.1"
-libc = "0.2.152"
+is_executable = { version = "1.0.1", optional = true }
 pin-project = "1.0.9"
 rand = "0.8.5"
 slotmap = "1.0"
@@ -26,7 +25,9 @@ tempfile = "3.3.0"
 thiserror = { workspace = true }
 tokio = { version = "1.24.2", features = ["fs", "process"] }
 
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = [
+	"derive",
+] }
 
 polkadot-parachain-primitives = { path = "../../../parachain" }
 polkadot-core-primitives = { path = "../../../core-primitives" }
@@ -37,14 +38,16 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-primitives = { path = "../../../primitives" }
 
 sp-core = { path = "../../../../substrate/primitives/core" }
-sp-wasm-interface = { path = "../../../../substrate/primitives/wasm-interface" }
-sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-compressed-blob" }
+sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-compressed-blob", optional = true }
 polkadot-node-core-pvf-prepare-worker = { path = "prepare-worker", optional = true }
 polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = true }
 
 [dev-dependencies]
 assert_matches = "1.4.0"
-criterion = { version = "0.4.0", default-features = false, features = ["async_tokio", "cargo_bench_support"] }
+criterion = { version = "0.5.1", default-features = false, features = [
+	"async_tokio",
+	"cargo_bench_support",
+] }
 hex-literal = "0.4.1"
 
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
@@ -57,6 +60,7 @@ adder = { package = "test-parachain-adder", path = "../../../parachain/test-para
 halt = { package = "test-parachain-halt", path = "../../../parachain/test-parachains/halt" }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
+libc = "0.2.153"
 procfs = "0.16.0"
 rusty-fork = "0.3.0"
 sc-sysinfo = { path = "../../../../substrate/client/sysinfo" }
@@ -70,6 +74,8 @@ ci-only-tests = []
 jemalloc-allocator = ["polkadot-node-core-pvf-common/jemalloc-allocator"]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = [
-	"polkadot-node-core-pvf-execute-worker",
-	"polkadot-node-core-pvf-prepare-worker",
+	"dep:is_executable",
+	"dep:polkadot-node-core-pvf-execute-worker",
+	"dep:polkadot-node-core-pvf-prepare-worker",
+	"dep:sp-maybe-compressed-blob",
 ]
