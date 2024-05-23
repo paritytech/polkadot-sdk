@@ -1,10 +1,12 @@
-title: "[pallet-contracts] use lazy compilation mode in wasmi"
+title: "[pallet-contracts] bump wasmi to 0.32"
 
 doc:
   - audience: Runtime Dev
     description: |
-      Turn on lazy compilation mode in wasmi.
-      See https://docs.rs/wasmi/0.32.0-beta.7/wasmi/enum.CompilationMode.html#variant.Lazy
+      - Bump wasmi to 0.32
+      - Turn on lazy and unchecked compilation when calling a contract.
+      See https://docs.rs/wasmi/0.32.0-beta.17/wasmi/enum.CompilationMode.html#variant.Lazy
+      See https://docs.rs/wasmi/0.32.0-beta.17/wasmi/struct.Module.html#method.new_unchecked
 
 crates:
   - name: pallet-contracts
