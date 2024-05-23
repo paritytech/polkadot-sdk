@@ -86,6 +86,7 @@ jobs:
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+          owner: "workflow-stopper"
       - name: Workflow stopper - Stop all workflows
         uses: octokit/request-action@v2.x
         if: ${{ failure() && steps.required.conclusion == 'failure' }}
