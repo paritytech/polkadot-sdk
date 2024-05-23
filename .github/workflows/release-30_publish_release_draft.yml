@@ -23,9 +23,30 @@ jobs:
           echo "stable=$RUST_STABLE_VERSION" >> $GITHUB_OUTPUT
 
   build-runtimes:
-    uses: "./.github/workflows/srtool.yml"
+    uses: "./.github/workflows/release-srtool.yml"
     with:
        excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
+
+  build-frame-omni-bencher:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+
+      - name: Build frame-omni-bencher binary
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+
+          cargo build --locked --release -p frame-omni-bencher
+          target/release/frame-omni-bencher --version
+
+      - name: Upload frame-omni-bencher binary
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: frame-omni-bencher
+          path: target/release/frame-omni-bencher
+
 
   publish-release-draft:
     runs-on: ubuntu-latest
@@ -98,7 +119,7 @@ jobs:
           draft: true
 
   publish-runtimes:
-    needs: [ build-runtimes, publish-release-draft ]
+    needs: [ build-runtimes, build-frame-omni-bencher, publish-release-draft ]
     continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
@@ -128,6 +149,25 @@ jobs:
           asset_path: ${{ env.ASSET }}
           asset_name: ${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm
           asset_content_type: application/wasm
+
+  publish-binaries:
+    needs: [ build-frame-omni-bencher, publish-release-draft ]
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        binary: [frame-omni-bencher]
+
+    steps:
+      - name: Upload frame-omni-bencher binary
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 #v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
+          asset_path: ${{ matrix.binary }}/ ${{ matrix.binary }}
+          asset_name:  ${{ matrix.binary }}
+          asset_content_type: application/octet-stream
 
   post_to_matrix:
     runs-on: ubuntu-latest
