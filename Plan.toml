@@ -97,7 +97,7 @@ publish = false
 
 [[crate.rewrite_dep]]
 name = "litep2p"
-version = "0.3.0"
+version = "0.4.0-rc.1"
 
 [[crate]]
 name = "sc-tracing-proc-macro"
@@ -1837,7 +1837,7 @@ reason = "changed"
 
 [[crate.rewrite_dep]]
 name = "litep2p"
-version = "0.3.0"
+version = "0.4.0-rc.1"
 
 [[crate]]
 name = "staging-xcm-builder"
