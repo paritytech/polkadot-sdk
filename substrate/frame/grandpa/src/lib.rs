@@ -295,7 +295,7 @@ pub mod pallet {
 	}
 
 	#[pallet::type_value]
-	pub(super) fn DefaultForState<T: Config>() -> StoredState<BlockNumberFor<T>> {
+	pub fn DefaultForState<T: Config>() -> StoredState<BlockNumberFor<T>> {
 		StoredState::Live
 	}
 
