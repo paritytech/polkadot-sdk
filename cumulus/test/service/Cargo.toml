@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 async-trait = "0.1.79"
 clap = { version = "4.5.3", features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 criterion = { version = "0.5.1", features = ["async_tokio"] }
 jsonrpsee = { version = "0.22", features = ["server"] }
 rand = "0.8.5"
@@ -85,7 +85,7 @@ cumulus-test-runtime = { path = "../runtime" }
 cumulus-relay-chain-minimal-node = { path = "../../client/relay-chain-minimal-node" }
 cumulus-client-pov-recovery = { path = "../../client/pov-recovery" }
 cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
-cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
 cumulus-primitives-storage-weight-reclaim = { path = "../../primitives/storage-weight-reclaim" }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp" }
 

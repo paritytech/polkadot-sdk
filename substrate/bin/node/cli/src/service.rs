@@ -129,6 +129,7 @@ pub fn create_extrinsic(
 					kitchensink_runtime::Runtime,
 				>::from(tip, None),
 			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -145,6 +146,7 @@ pub fn create_extrinsic(
 				(),
 			),
 			(),
+			None,
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -1046,6 +1048,7 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
 					(
 						check_non_zero_sender,
@@ -1058,6 +1061,7 @@ mod tests {
 					)
 						.into(),
 					tx_payment,
+					metadata_hash,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
@@ -1065,6 +1069,7 @@ mod tests {
 					(
 						((), spec_version, transaction_version, genesis_hash, genesis_hash, (), ()),
 						(),
+						None,
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));

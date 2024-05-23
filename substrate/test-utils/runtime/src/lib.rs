@@ -152,7 +152,11 @@ pub type Pair = sp_core::sr25519::Pair;
 
 // TODO: Remove after the Checks are migrated to TxExtension.
 /// The extension to the basic transaction logic.
-pub type TxExtension = ((CheckNonce<Runtime>, CheckWeight<Runtime>), CheckSubstrateCall);
+pub type TxExtension = (
+	(CheckNonce<Runtime>, CheckWeight<Runtime>),
+	CheckSubstrateCall,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
 /// The payload being signed in transactions.
 pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
@@ -493,14 +497,14 @@ impl_runtime_apis! {
 
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
-			unimplemented!()
+			OpaqueMetadata::new(Runtime::metadata().into())
 		}
 
-		fn metadata_at_version(_version: u32) -> Option<OpaqueMetadata> {
-			unimplemented!()
+		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+			Runtime::metadata_at_version(version)
 		}
 		fn metadata_versions() -> alloc::vec::Vec<u32> {
-			unimplemented!()
+			Runtime::metadata_versions()
 		}
 	}
 

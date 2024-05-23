@@ -187,11 +187,13 @@ There may be a special account in every runtime where the messages module is dep
 owner', is like a module-level sudo account - he's able to halt and resume all module operations without requiring
 runtime upgrade. Calls that are related to this account are:
 - `fn set_owner()`: current module owner may call it to transfer "ownership" to another account;
-- `fn halt_operations()`: the module owner (or sudo account) may call this function to stop all module operations. After
-  this call, all message-related transactions will be rejected until further `resume_operations` call'. This call may be
-  used when something extraordinary happens with the bridge;
-- `fn resume_operations()`: module owner may call this function to resume bridge operations. The module will resume its
-  regular operations after this call.
+- `fn set_operating_mode()`: the module owner (or sudo account) may call this function to pause/resume
+  pallet operations. Owner may halt the pallet by calling this method with
+  `MessagesOperatingMode::Basic(BasicOperatingMode::Halted)` argument - all message-related
+  transactions will be rejected. Owner may then resume pallet operations by passing the
+  `MessagesOperatingMode::Basic(BasicOperatingMode::Normal)` argument. There's also
+  `MessagesOperatingMode::RejectingOutboundMessages` pallet mode, where it still accepts all incoming
+  messages, but all outbound messages are rejected.
 
 If pallet owner is not defined, the governance may be used to make those calls.
 
