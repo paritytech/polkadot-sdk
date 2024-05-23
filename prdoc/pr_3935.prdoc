@@ -26,3 +26,5 @@ crates:
     bump: patch
   - name: polkadot-runtime-parachains
     bump: patch
+  - name: polkadot-sdk
+    bump: major
