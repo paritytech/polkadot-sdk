@@ -70,7 +70,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_start_sales(price: BalanceOf<T>, extra_cores: CoreIndex) -> DispatchResult {
+	pub(crate) fn do_start_sales(base_price: BalanceOf<T>, extra_cores: CoreIndex) -> DispatchResult {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 
 		// Determine the core count
@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
 		let old_sale = SaleInfoRecord {
 			sale_start: now,
 			leadin_length: Zero::zero(),
-			price,
+			base_price,
 			sellout_price: None,
 			region_begin: commit_timeslice,
 			region_end: commit_timeslice.saturating_add(config.region_length),
@@ -102,7 +102,7 @@ impl<T: Config> Pallet<T> {
 			cores_offered: 0,
 			cores_sold: 0,
 		};
-		Self::deposit_event(Event::<T>::SalesStarted { price, core_count });
+		Self::deposit_event(Event::<T>::SalesStarted { price: base_price, core_count });
 		Self::rotate_sale(old_sale, &config, &status);
 		Status::<T>::put(&status);
 		Ok(())

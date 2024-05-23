@@ -195,13 +195,13 @@ impl<T: Config> Pallet<T> {
 				// last time for this one - make it renewable in the next sale.
 				let renewal_id = PotentialRenewalId { core: first_core, when: region_end };
 				let record = PotentialRenewalRecord {
-					price: new_prices.renewal_price,
+					price: new_prices.target_price,
 					completion: Complete(schedule),
 				};
 				PotentialRenewals::<T>::insert(renewal_id, &record);
 				Self::deposit_event(Event::Renewable {
 					core: first_core,
-					price: new_prices.renewal_price,
+					price: new_prices.target_price,
 					begin: region_end,
 					workload: record.completion.drain_complete().unwrap_or_default(),
 				});
@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
 		let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
 		let sellout_price = if cores_offered > 0 {
 			// No core sold -> price was too high -> we have to adjust downwards.
-			Some(new_prices.price)
+			Some(new_prices.base_price)
 		} else {
 			None
 		};
@@ -231,7 +231,7 @@ impl<T: Config> Pallet<T> {
 		let new_sale = SaleInfoRecord {
 			sale_start,
 			leadin_length,
-			price: new_prices.price,
+			base_price: new_prices.base_price,
 			sellout_price,
 			region_begin,
 			region_end,
@@ -246,7 +246,7 @@ impl<T: Config> Pallet<T> {
 			sale_start,
 			leadin_length,
 			start_price: Self::sale_price(&new_sale, now),
-			regular_price: new_prices.price,
+			regular_price: new_prices.base_price,
 			region_begin,
 			region_end,
 			ideal_cores_sold,
