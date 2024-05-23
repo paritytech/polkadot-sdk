@@ -270,18 +270,8 @@ pub mod pallet {
 		/// NOTE: Avoids overriding `BlockHashCount` when using `mocking::{MockBlock, MockBlockU32,
 		/// MockBlockU128}`.
 		pub struct TestBlockHashCount<C: Get<u32>>(sp_std::marker::PhantomData<C>);
-		impl<C: Get<u32>> Get<u32> for TestBlockHashCount<C> {
-			fn get() -> u32 {
-				C::get()
-			}
-		}
-		impl<C: Get<u32>> Get<u64> for TestBlockHashCount<C> {
-			fn get() -> u64 {
-				C::get().into()
-			}
-		}
-		impl<C: Get<u32>> Get<u128> for TestBlockHashCount<C> {
-			fn get() -> u128 {
+		impl<I: From<u32>, C: Get<u32>> Get<I> for TestBlockHashCount<C> {
+			fn get() -> I {
 				C::get().into()
 			}
 		}
