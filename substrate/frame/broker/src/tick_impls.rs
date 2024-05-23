@@ -336,14 +336,26 @@ impl<T: Config> Pallet<T> {
 	/// Renews all the cores which have auto-renewal enabled.
 	pub(crate) fn renew_cores() {
 		let renewals = AutoRenewals::<T>::get();
+		let mut successful_renewals: BoundedVec<(CoreIndex, TaskId), T::MaxAutoRenewals> =
+			BoundedVec::new();
 		for (core, task) in renewals.into_iter() {
 			let Some(payer) = T::SovereignAccountOf::sovereign_account(task) else {
 				Self::deposit_event(Event::<T>::AutoRenewalFailed { core, payer: None });
 				continue;
 			};
-			if let Err(_) = Self::do_renew(payer.clone(), core) {
+
+			// The core index can change when renewing for several reasons. Because of this, we will
+			// update the core indices in the auto-renewal vector with the new appropriate values.
+			if let Ok(new_core_index) = Self::do_renew(payer.clone(), core) {
+				if successful_renewals.try_push((new_core_index, task)).is_err() {
+					// This can only happen if we reduce the auto-renewal limit between sale cycles.
+					Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
+				}
+			} else {
 				Self::deposit_event(Event::<T>::AutoRenewalFailed { core, payer: Some(payer) });
 			}
 		}
+
+		AutoRenewals::<T>::set(successful_renewals);
 	}
 }
