@@ -23,7 +23,7 @@ sp-application-crypto = { path = "../../application-crypto", default-features = 
 sp-core = { path = "../../core", default-features = false, version = "33.0.0" }
 sp-crypto-hashing = { path = "../../crypto/hashing", default-features = false, version = "0.1.0" }
 sp-io = { path = "../../io", default-features = false, version = "36.0.0" }
-sp-mmr-primitives = { path = "../../merkle-mountain-range", default-features = false, version = "32.0.0" }
+sp-mmr-primitives = { path = "../../merkle-mountain-range", default-features = false, version = "32.0.1" }
 sp-runtime = { path = "../../runtime", default-features = false, version = "37.0.0" }
 sp-keystore = { path = "../../keystore", default-features = false, version = "0.39.0" }
 strum = { version = "0.26.2", features = ["derive"], default-features = false }

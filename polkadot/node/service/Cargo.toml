@@ -16,7 +16,7 @@ babe = { package = "sc-consensus-babe", path = "../../../substrate/client/consen
 beefy = { package = "sc-consensus-beefy", path = "../../../substrate/client/consensus/beefy", version = "19.0.0" }
 grandpa = { package = "sc-consensus-grandpa", path = "../../../substrate/client/consensus/grandpa", version = "0.25.0" }
 mmr-gadget = { version = "35.0.0", path = "../../../substrate/client/merkle-mountain-range" }
-sp-mmr-primitives = { version = "32.0.0", path = "../../../substrate/primitives/merkle-mountain-range" }
+sp-mmr-primitives = { version = "32.0.1", path = "../../../substrate/primitives/merkle-mountain-range" }
 sc-block-builder = { version = "0.39.0", path = "../../../substrate/client/block-builder" }
 sc-chain-spec = { version = "33.0.0", path = "../../../substrate/client/chain-spec" }
 sc-client-api = { version = "34.0.0", path = "../../../substrate/client/api" }

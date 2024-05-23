@@ -19343,7 +19343,7 @@ dependencies = [
 
 [[package]]
 name = "sp-mmr-primitives"
-version = "32.0.0"
+version = "32.0.1"
 dependencies = [
  "array-bytes",
  "log",
