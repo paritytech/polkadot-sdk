@@ -48,4 +48,7 @@
 //!
 //! - [`pallet_example_tasks`]: This pallet demonstrates the use of `Tasks` to execute service work.
 //!
+//! - [`pallet_example_view_functions`]: This pallet demonstrates the use of view functions to query
+//!   pallet state.
+//!
 //! **Tip**: Use `cargo doc --package <pallet-name> --open` to view each pallet's documentation.
