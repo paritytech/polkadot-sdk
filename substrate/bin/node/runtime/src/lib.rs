@@ -2142,7 +2142,7 @@ impl TaskAccountInterface for TaskSovereignAccount {
 
 				let task = u32::from_le_bytes(encoded);
 				Ok(task)
-			}
+			},
 			_ => Err(BadOrigin),
 		}
 	}

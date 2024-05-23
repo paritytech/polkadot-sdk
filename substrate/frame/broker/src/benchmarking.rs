@@ -775,7 +775,7 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn rotate_sale(n: Linear<0, { MAX_CORE_COUNT.into() }>) {
+	fn rotate_sale(n: Linear<0, { MAX_CORE_COUNT.into() }>) -> Result<(), BenchmarkError> {
 		let core_count = n.try_into().unwrap();
 		let config = new_config_record::<T>();
 
@@ -809,6 +809,27 @@ mod benches {
 		// Assume Leases to be filled for worst case
 		setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
 
+		// Assume max auto renewals for worst case.
+		(0..T::MaxAutoRenewals::get()).try_for_each(|indx| -> Result<(), BenchmarkError> {
+			let task = 1000 + indx;
+			let caller: T::AccountId = T::SovereignAccountOf::sovereign_account(task)
+				.expect("Failed to get sovereign account");
+			T::Currency::set_balance(
+				&caller.clone(),
+				T::Currency::minimum_balance().saturating_add(100u32.into()),
+			);
+
+			let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_assign(region, None, task, Final)
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_enable_auto_renew(task, region.core, None)?;
+
+			Ok(())
+		})?;
+
 		#[block]
 		{
 			Broker::<T>::rotate_sale(sale.clone(), &config, &status);
@@ -832,6 +853,30 @@ mod benches {
 			}
 			.into(),
 		);
+
+		// Make sure all cores got renewed:
+		(0..T::MaxAutoRenewals::get()).for_each(|indx| {
+			let task = 1000 + indx;
+			let who = T::SovereignAccountOf::sovereign_account(task)
+				.expect("Failed to get sovereign account");
+			assert_has_event::<T>(
+				Event::Renewed {
+					who,
+					old_core: 10 + indx as u16, // first ten cores are allocated to leases.
+					core: 10 + indx as u16,
+					price: 10u32.saturated_into(),
+					begin: 7,
+					duration: 3,
+					workload: Schedule::truncate_from(vec![ScheduleItem {
+						assignment: Task(task),
+						mask: CoreMask::complete(),
+					}]),
+				}
+				.into(),
+			);
+		});
+
+		Ok(())
 	}
 
 	#[benchmark]
@@ -1005,63 +1050,6 @@ mod benches {
 		_(RawOrigin::Signed(caller), region.core);
 
 		assert_last_event::<T>(Event::AutoRenewalDisabled { core: region.core, task: 2001 }.into());
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn auto_renew() -> Result<(), BenchmarkError> {
-		let _core = setup_and_start_sale::<T>()?;
-
-		advance_to::<T>(2);
-
-		(0..T::MaxAutoRenewals::get()).try_for_each(|indx| -> Result<(), BenchmarkError> {
-			let task = 1000 + indx;
-			let caller: T::AccountId = T::SovereignAccountOf::sovereign_account(task)
-				.expect("Failed to get sovereign account");
-			T::Currency::set_balance(
-				&caller.clone(),
-				T::Currency::minimum_balance().saturating_add(100u32.into()),
-			);
-
-			let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
-				.map_err(|_| BenchmarkError::Weightless)?;
-
-			Broker::<T>::do_assign(region, None, task, Final)
-				.map_err(|_| BenchmarkError::Weightless)?;
-
-			Broker::<T>::do_enable_auto_renew(task, region.core, None)?;
-
-			Ok(())
-		})?;
-
-		advance_to::<T>(7);
-		#[block]
-		{
-			Broker::<T>::do_tick();
-		}
-
-		// Make sure all cores got renewed:
-		(0..T::MaxAutoRenewals::get()).for_each(|indx| {
-			let task = 1000 + indx;
-			let who = T::SovereignAccountOf::sovereign_account(task)
-				.expect("Failed to get sovereign account");
-			assert_has_event::<T>(
-				Event::Renewed {
-					who,
-					old_core: 10 + indx as u16, // first ten cores are allocated to leases.
-					core: 10 + indx as u16,
-					price: 10u32.saturated_into(),
-					begin: 7,
-					duration: 3,
-					workload: Schedule::truncate_from(vec![ScheduleItem {
-						assignment: Task(task),
-						mask: CoreMask::complete(),
-					}]),
-				}
-				.into(),
-			);
-		});
 
 		Ok(())
 	}
