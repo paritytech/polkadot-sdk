@@ -25,6 +25,8 @@ use sc_transaction_pool::TransactionPoolOptions;
 pub enum TransactionPoolType {
 	/// Uses a legacy, single-state transaction pool.
 	SingleState,
+	/// Uses a fork-aware transaction pool.
+	ForkAware,
 }
 
 impl Into<sc_transaction_pool::TransactionPoolType> for TransactionPoolType {
@@ -32,6 +34,7 @@ impl Into<sc_transaction_pool::TransactionPoolType> for TransactionPoolType {
 		match self {
 			TransactionPoolType::SingleState =>
 				sc_transaction_pool::TransactionPoolType::SingleState,
+			TransactionPoolType::ForkAware => sc_transaction_pool::TransactionPoolType::ForkAware,
 		}
 	}
 }

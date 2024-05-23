@@ -22,6 +22,7 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
+mod builder;
 mod common;
 mod fork_aware_txpool;
 mod graph;
@@ -65,3 +66,5 @@ type ReadyIteratorFor<PoolApi> =
 	BoxedReadyIterator<graph::ExtrinsicHash<PoolApi>, graph::ExtrinsicFor<PoolApi>>;
 
 type PolledIterator<PoolApi> = Pin<Box<dyn Future<Output = ReadyIteratorFor<PoolApi>> + Send>>;
+
+pub use builder::{Builder, TransactionPoolImpl, TransactionPoolOptions, TransactionPoolType};

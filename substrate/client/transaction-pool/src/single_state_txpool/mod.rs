@@ -19,7 +19,7 @@
 //! Substrate single state transaction pool implementation.
 
 mod revalidation;
-mod single_state_txpool;
+pub(crate) mod single_state_txpool;
 
 pub(crate) use single_state_txpool::prune_known_txs_for_block;
 pub use single_state_txpool::BasicPool;
