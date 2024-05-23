@@ -734,7 +734,7 @@ reason = "changed"
 
 [[crate.rewrite_dep]]
 name = "mmr-lib"
-version = "0.6.0"
+version = "0.7.0"
 
 [[crate]]
 name = "sp-offchain"
