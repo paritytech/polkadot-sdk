@@ -16,26 +16,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Generic Transaction Pool
-//!
-//! The pool is based on dependency graph between transactions
-//! and their priority.
-//! The pool is able to return an iterator that traverses transaction
-//! graph in the correct order taking into account priorities and dependencies.
+//! Substrate single state transaction pool implementation.
 
-#![warn(missing_docs)]
-#![warn(unused_extern_crates)]
+mod revalidation;
+pub(crate) mod single_state_txpool;
 
-mod future;
-mod listener;
-mod pool;
-mod ready;
-mod rotator;
-mod tracked_map;
-mod validated_pool;
-
-pub mod base_pool;
-pub mod watcher;
-
-pub use self::pool::{BlockHash, ChainApi, ExtrinsicFor, ExtrinsicHash, NumberFor, Options, Pool};
-pub use validated_pool::{IsValidator, ValidatedTransaction};
+pub use single_state_txpool::{notification_future, BasicPool};

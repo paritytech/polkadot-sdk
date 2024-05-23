@@ -16,26 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Generic Transaction Pool
-//!
-//! The pool is based on dependency graph between transactions
-//! and their priority.
-//! The pool is able to return an iterator that traverses transaction
-//! graph in the correct order taking into account priorities and dependencies.
+//! Common components re-used across different txpool implementations.
 
-#![warn(missing_docs)]
-#![warn(unused_extern_crates)]
-
-mod future;
-mod listener;
-mod pool;
-mod ready;
-mod rotator;
-mod tracked_map;
-mod validated_pool;
-
-pub mod base_pool;
-pub mod watcher;
-
-pub use self::pool::{BlockHash, ChainApi, ExtrinsicFor, ExtrinsicHash, NumberFor, Options, Pool};
-pub use validated_pool::{IsValidator, ValidatedTransaction};
+pub(crate) mod api;
+pub(crate) mod enactment_state;
+pub(crate) mod error;
+pub(crate) mod metrics;
+#[cfg(test)]
+pub(crate) mod tests;
