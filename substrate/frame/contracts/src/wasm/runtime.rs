@@ -425,12 +425,14 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 				SupervisorError(error) => return Err((*error).into()),
 			}
 		}
+
 		// Any other error is returned only if instantiation or linking failed (i.e.
 		// wasm binary tried to import a function that is not provided by the host).
 		// This shouldn't happen because validation process ought to reject such binaries.
 		//
 		// Because panics are really undesirable in the runtime code, we treat this as
 		// a trap for now. Eventually, we might want to revisit this.
+		log::debug!("Code rejected: {:?}", error);
 		Err(Error::<E::T>::CodeRejected.into())
 	}
 
