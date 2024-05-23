@@ -1,13 +1,10 @@
 
 <div align="center">
 
+![SDK Logo](./docs/images/Polkadot_Logo_Horizontal_Pink_White.png#gh-dark-mode-only)
+![SDK Logo](./docs/images/Polkadot_Logo_Horizontal_Pink_Black.png#gh-light-mode-only)
+
 # Polkadot SDK
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/Polkadot_Logo_Horizontal_Pink_White.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/images/Polkadot_Logo_Horizontal_Pink_White.png">
-</picture>
-
 
 ![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub
 forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
