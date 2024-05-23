@@ -16,11 +16,11 @@
 
 //! Version 4 of the Cross-Consensus Message format data structures.
 
-pub use super::v2::GetWeight;
 use super::v3::{
 	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
 	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
 };
+pub use super::v3::GetWeight;
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};

@@ -19,7 +19,7 @@
 #[allow(deprecated)]
 use super::v2::{
 	Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
-	Xcm as OldXcm,
+	Xcm as OldXcm, OriginKind as OldOriginKind,
 };
 use super::v4::{
 	Instruction as NewInstruction, PalletInfo as NewPalletInfo,
@@ -53,10 +53,45 @@ pub use multilocation::{
 };
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
-	SendResult, SendXcm, Weight, XcmHash,
+	SendResult, SendXcm, Weight, XcmHash, GetWeight,
 };
-// These parts of XCM v2 are unchanged in XCM v3, and are re-imported here.
-pub use super::v2::{GetWeight, OriginKind};
+
+/// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum OriginKind {
+	/// Origin should just be the native dispatch origin representation for the sender in the
+	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
+	/// if coming from a chain, though there may be others if the `MultiLocation` XCM origin has a
+	/// primary/native dispatch origin form.
+	Native,
+
+	/// Origin should just be the standard account-based origin with the sovereign account of
+	/// the sender. For Cumulus/Frame chains, this is the `Signed` origin.
+	SovereignAccount,
+
+	/// Origin should be the super-user. For Cumulus/Frame chains, this is the `Root` origin.
+	/// This will not usually be an available option.
+	Superuser,
+
+	/// Origin should be interpreted as an XCM native origin and the `MultiLocation` should be
+	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
+	/// the `pallet_xcm::Origin::Xcm` type.
+	Xcm,
+}
+
+impl From<OldOriginKind> for OriginKind {
+	fn from(old: OldOriginKind) -> Self {
+		use OldOriginKind::*;
+		match old {
+			Native => Self::Native,
+			SovereignAccount => Self::SovereignAccount,
+			Superuser => Self::Superuser,
+			Xcm => Self::Xcm,
+		}
+	}
+}
 
 /// This module's XCM version.
 pub const VERSION: super::Version = 3;
@@ -1500,7 +1535,7 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
 			Transact { origin_type, require_weight_at_most, call } => Self::Transact {
-				origin_kind: origin_type,
+				origin_kind: origin_type.into(),
 				require_weight_at_most: Weight::from_parts(
 					require_weight_at_most,
 					DEFAULT_PROOF_SIZE,
