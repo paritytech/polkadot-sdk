@@ -78,28 +78,18 @@ pub struct Linear<Balance>(std::marker::PhantomData<Balance>);
 
 impl<Balance: FixedPointOperand> AdaptPrice<Balance> for Linear<Balance> {
 	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
-		FixedU64::from(101).saturating_sub(when.saturating_mul(100.into()))
+		FixedU64::from(100).saturating_sub(when.saturating_mul(99.into()))
 	}
 
 	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
-		let leadin_max = Self::leadin_factor_at(0.into());
-		let leadin_min = Self::leadin_factor_at(1.into());
-		let spread = leadin_max.saturating_sub(leadin_min);
-
 		let Some(sellout_price) = performance.sellout_price else {
 			return AdaptedPrices {
 				price: performance.price,
-				renewal_price: spread
-					.saturating_add(2.into())
-					.div(2.into())
-					.saturating_mul_int(performance.price),
+				renewal_price: FixedU64::from(10).saturating_mul_int(performance.price),
 			}
 		};
 
-		let price = FixedU64::from(2)
-			.div(spread.saturating_add(2.into()))
-			.saturating_mul_int(sellout_price);
-
+		let price = FixedU64::from_rational(1, 10).saturating_mul_int(sellout_price);
 		let price = if price == Balance::zero() {
 			// We could not recover from a price equal 0 ever.
 			sellout_price
@@ -128,32 +118,32 @@ mod tests {
 	#[test]
 	fn no_op_sale_is_good() {
 		let prices = Linear::adapt_price(SalePerformance { sellout_price: None, price: 1 });
-		assert_eq!(prices.renewal_price, 51);
+		assert_eq!(prices.renewal_price, 10);
 		assert_eq!(prices.price, 1);
 	}
 
 	#[test]
 	fn price_stays_stable_on_optimal_sale() {
 		// Check price stays stable if sold at the optimal price:
-		let mut performance = SalePerformance { sellout_price: Some(5100), price: 100 };
+		let mut performance = SalePerformance { sellout_price: Some(1000), price: 100 };
 		for _ in 0..10 {
 			let prices = Linear::adapt_price(performance);
-			performance.sellout_price = Some(5100);
+			performance.sellout_price = Some(1000);
 			performance.price = prices.price;
 
 			assert!(prices.price <= 101);
 			assert!(prices.price >= 99);
-			assert!(prices.renewal_price <= 5101);
-			assert!(prices.renewal_price >= 5099);
+			assert!(prices.renewal_price <= 1001);
+			assert!(prices.renewal_price >= 999);
 		}
 	}
 
 	#[test]
 	fn price_adjusts_correctly_upwards() {
-		let performance = SalePerformance { sellout_price: Some(10_100), price: 100 };
+		let performance = SalePerformance { sellout_price: Some(10_000), price: 100 };
 		let prices = Linear::adapt_price(performance);
-		assert_eq!(prices.renewal_price, 10_100);
-		assert_eq!(prices.price, 2 * 10_100 / 102);
+		assert_eq!(prices.renewal_price, 10_000);
+		assert_eq!(prices.price, 1000);
 	}
 
 	#[test]
@@ -161,13 +151,13 @@ mod tests {
 		let performance = SalePerformance { sellout_price: Some(100), price: 100 };
 		let prices = Linear::adapt_price(performance);
 		assert_eq!(prices.renewal_price, 100);
-		assert_eq!(prices.price, 2 * 100 / 102);
+		assert_eq!(prices.price, 10);
 	}
 
 	#[test]
 	fn price_never_goes_to_zero_and_recovers() {
 		// Check price stays stable if sold at the optimal price:
-		let sellout_price = 51;
+		let sellout_price = 1;
 		let mut performance = SalePerformance { sellout_price: Some(sellout_price), price: 1 };
 		for _ in 0..11 {
 			let prices = Linear::adapt_price(performance);
@@ -183,7 +173,7 @@ mod tests {
 	fn renewal_price_is_correct_on_no_sale() {
 		let performance = SalePerformance { sellout_price: None, price: 100 };
 		let prices = Linear::adapt_price(performance);
-		assert_eq!(prices.renewal_price, 5100);
+		assert_eq!(prices.renewal_price, 1000);
 		assert_eq!(prices.price, 100);
 	}
 

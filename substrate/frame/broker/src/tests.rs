@@ -366,22 +366,18 @@ fn renewal_works() {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		// Price is lower, because already two blocks in:
-		let b = b - 100;
-		assert_eq!(balance(1), b);
+		assert_eq!(balance(1), 99_900);
 		assert_ok!(Broker::do_assign(region, None, 1001, Final));
 		// Should now be renewable.
 		advance_to(6);
 		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::TooEarly);
 		let core = Broker::do_renew(1, region.core).unwrap();
-		let b = b - 100;
-		assert_eq!(balance(1), b);
+		assert_eq!(balance(1), 99_800);
 		advance_to(8);
 		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::SoldOut);
 		advance_to(12);
 		assert_ok!(Broker::do_renew(1, core));
-		let b = b - 101;
-		assert_eq!(balance(1), b);
+		assert_eq!(balance(1), 99_690);
 	});
 }
 
@@ -939,7 +935,7 @@ fn leases_can_be_renewed() {
 		assert_eq!(
 			PotentialRenewals::<Test>::get(PotentialRenewalId { core: 0, when: 10 }),
 			Some(PotentialRenewalRecord {
-				price: 5100,
+				price: 1000,
 				completion: CompletionStatus::Complete(
 					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
 						.try_into()
@@ -954,7 +950,7 @@ fn leases_can_be_renewed() {
 		advance_sale_period();
 		assert_ok!(Broker::do_renew(1, 0));
 		// We renew for the price of the previous sale period.
-		assert_eq!(balance(1), initial_balance - 5100);
+		assert_eq!(balance(1), initial_balance - 1000);
 
 		// We just renewed for this period.
 		advance_sale_period();
@@ -1310,7 +1306,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 		let new_core = Broker::do_renew(1, 0).unwrap();
 		// Renewing the active lease doesn't work.
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::SoldOut);
-		assert_eq!(balance(1), 94900);
+		assert_eq!(balance(1), 99000);
 
 		// This intializes the third sale and the period 2.
 		advance_sale_period();
@@ -1318,7 +1314,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 
 		// Renewing the active lease doesn't work.
 		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::SoldOut);
-		assert_eq!(balance(1), 94800);
+		assert_eq!(balance(1), 98900);
 
 		// All leases should have ended
 		assert!(Leases::<Test>::get().is_empty());
@@ -1330,7 +1326,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 		assert_eq!(0, Broker::do_renew(1, new_core).unwrap());
 		// Renew the task 2.
 		assert_eq!(1, Broker::do_renew(1, 0).unwrap());
-		assert_eq!(balance(1), 94699);
+		assert_eq!(balance(1), 98790);
 
 		// This intializes the fifth sale and the period 4.
 		advance_sale_period();
