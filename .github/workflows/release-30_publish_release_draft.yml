@@ -119,7 +119,7 @@ jobs:
           draft: true
 
   publish-runtimes:
-    needs: [ build-runtimes, build-frame-omni-bencher, publish-release-draft ]
+    needs: [ build-runtimes, publish-release-draft ]
     continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
