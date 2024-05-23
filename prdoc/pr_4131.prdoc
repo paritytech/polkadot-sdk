@@ -16,3 +16,11 @@ doc:
 crates:
 - name: staging-xcm
   bump: minor
+- name: xcm-procedural
+  bump: minor
+- name: staging-xcm-builder
+  bump: minor
+- name: pallet-xcm
+  bump: minor
+- name: cumulus-pallet-xcmp-queue
+  bump: minor
