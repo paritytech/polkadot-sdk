@@ -18,7 +18,7 @@ use super::*;
 use crate::Config;
 
 use frame_support::{
-	ensure,
+	defensive, ensure,
 	traits::{
 		fungibles,
 		tokens::{Balance, Fortitude, Precision, Preservation},
@@ -150,13 +150,14 @@ where
 		) {
 			Ok((fee_credit, change)) => (fee_credit, change),
 			Err((credit_in, _)) => {
-				let _ = F::resolve(who, credit_in).defensive();
+				defensive!("Fee swap should pass for the quoted amount");
+				let _ = F::resolve(who, credit_in).defensive_proof("Should resolve the credit");
 				return Err(InvalidTransaction::Payment.into())
 			},
 		};
 
 		// Since the exact price for `fee` has been quoted, the change should be zero.
-		ensure!(change.peek() == Zero::zero(), InvalidTransaction::Payment);
+		ensure!(change.peek().is_zero(), InvalidTransaction::Payment);
 
 		Ok((fee_credit, asset_fee))
 	}
@@ -171,12 +172,13 @@ where
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Result<BalanceOf<T>, TransactionValidityError> {
 		let (fee_paid, initial_asset_consumed) = already_withdrawn;
-		// Try to refund if the fee paid is more than the corrected fee and the account was not
-		// removed by the dispatched function.
-		let (adjusted_paid, fee_in_asset) = if fee_paid.peek() > corrected_fee &&
-			F::total_balance(asset_id.clone(), who) > Zero::zero()
+		let refund_amount = fee_paid.peek().saturating_sub(corrected_fee);
+		let (adjusted_paid, fee_in_asset) = if refund_amount.is_zero() ||
+			F::total_balance(asset_id.clone(), who).is_zero()
 		{
-			let refund_amount = fee_paid.peek().saturating_sub(corrected_fee);
+			// Nothing to refund or the account was removed be the dispatched function.
+			(fee_paid, initial_asset_consumed)
+		} else {
 			// Check if the refund amount can be swapped back into the asset used by `who` for fee
 			// payment.
 			let refund_asset_amount = S::quote_price_exact_tokens_for_tokens(
@@ -200,7 +202,7 @@ where
 				Err(_) => fungibles::Debt::<T::AccountId, F>::zero(asset_id.clone()),
 			};
 
-			if debt.peek() == Zero::zero() {
+			if debt.peek().is_zero() {
 				// No refund given.
 				(fee_paid, initial_asset_consumed)
 			} else {
@@ -215,7 +217,10 @@ where
 							Ok(SameOrOther::None) => {},
 							// This arm should never be reached, as the  amount of `debt` is
 							// expected to be exactly equal to the amount of `refund_asset` credit.
-							_ => return Err(InvalidTransaction::Payment.into()),
+							_ => {
+								defensive!("Debt should be equal to the refund credit");
+								return Err(InvalidTransaction::Payment.into())
+							},
 						};
 						(
 							fee_paid,
@@ -224,11 +229,14 @@ where
 					},
 					// The error should not occur since swap was quoted before.
 					Err((refund, _)) => {
+						defensive!("Refund swap should pass for the quoted amount");
 						match F::settle(who, debt, Preservation::Expendable) {
-							Ok(dust) =>
-								ensure!(dust.peek() == Zero::zero(), InvalidTransaction::Payment),
+							Ok(dust) => ensure!(dust.peek().is_zero(), InvalidTransaction::Payment),
 							// The error should not occur as the `debt` was just withdrawn above.
-							Err(_) => return Err(InvalidTransaction::Payment.into()),
+							Err(_) => {
+								defensive!("Should settle the debt");
+								return Err(InvalidTransaction::Payment.into())
+							},
 						};
 						let fee_paid = fee_paid.merge(refund).map_err(|_| {
 							// The error should never occur since `fee_paid` and `refund` are
@@ -239,8 +247,6 @@ where
 					},
 				}
 			}
-		} else {
-			(fee_paid, initial_asset_consumed)
 		};
 
 		// Handle the imbalance (fee and tip separately).
