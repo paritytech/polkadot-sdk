@@ -77,6 +77,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
+        id: required
         run: exit 1
       - name: Worfklow stopper - Generate token
         uses: actions/create-github-app-token@v1
