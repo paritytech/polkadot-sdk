@@ -245,8 +245,7 @@ fn apply_pending_slash() {
 		let delegators: Vec<AccountId> = (301..=350).collect();
 		let reporter: AccountId = 400;
 
-		let total_staked =
-			setup_delegation_stake(agent.0.clone(), reward_acc, delegators.clone(), 10, 10);
+		let total_staked = setup_delegation_stake(agent.0, reward_acc, delegators.clone(), 10, 10);
 
 		start_era(4);
 		// slash half of the stake
