@@ -1019,7 +1019,7 @@ impl OpaqueValue {
 	}
 
 	/// Try to decode this `OpaqueValue` into the given concrete type.
-	pub fn decode<T: Decode>(self) -> Option<T> {
+	pub fn decode<T: Decode>(&self) -> Option<T> {
 		Decode::decode(&mut &self.0[..]).ok()
 	}
 }
