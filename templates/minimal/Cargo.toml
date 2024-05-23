@@ -1,7 +1,7 @@
 [package]
 name = "minimal-template"
-description = "A minimal template built with Substrate, part of Polkadot Sdk."
-version = "0.0.0"
+description = "A minimal template built with Substrate, part of Polkadot Sdk. (polkadot v1.12.0)"
+version = "0.1.0"
 license = "MIT-0"
 authors.workspace = true
 homepage.workspace = true
@@ -13,12 +13,12 @@ publish = false
 workspace = true
 
 [dependencies]
-minimal-template-node = { path = "./node" }
-minimal-template-runtime = { path = "./runtime" }
-pallet-minimal-template = { path = "./pallets/template" }
-polkadot-sdk-docs = { path = "../../docs/sdk" }
+minimal-template-node = { version = "0.1.0", path = "node" }
+minimal-template-runtime = { version = "0.1.0", path = "runtime" }
+pallet-minimal-template = { version = "0.1.0", path = "pallets/template" }
+polkadot-sdk-docs = { version = "0.1.0", path = "../../docs/sdk" }
 
-frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame" }
+frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", version = "0.3.0" }
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
