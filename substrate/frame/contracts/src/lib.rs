@@ -96,6 +96,7 @@ pub use primitives::*;
 
 mod schedule;
 mod storage;
+mod transient_storage;
 mod wasm;
 
 pub mod chain_extension;

@@ -20,6 +20,7 @@ use crate::{
 	gas::GasMeter,
 	primitives::{ExecReturnValue, StorageDeposit},
 	storage::{self, meter::Diff, WriteOutcome},
+	transient_storage::TransientStorage,
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet as Contracts, Schedule,
 	LOG_TARGET,
@@ -202,6 +203,27 @@ pub trait Ext: sealing::Sealed {
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
 	/// the storage entry is deleted.
 	fn set_storage(
+		&mut self,
+		key: &Key<Self::T>,
+		value: Option<Vec<u8>>,
+		take_old: bool,
+	) -> Result<WriteOutcome, DispatchError>;
+
+	/// Returns the storage entry of the executing account by the given `key`.
+	///
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
+	fn get_transient_storage(&self, key: &Key<Self::T>) -> Option<Vec<u8>>;
+
+	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
+	///
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
+	fn get_transient_storage_size(&self, key: &Key<Self::T>) -> Option<u32>;
+
+	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
+	/// the storage entry is deleted.
+	fn set_transient_storage(
 		&mut self,
 		key: &Key<Self::T>,
 		value: Option<Vec<u8>>,
@@ -470,6 +492,8 @@ pub struct Stack<'a, T: Config, E> {
 	debug_message: Option<&'a mut DebugBufferVec<T>>,
 	/// The determinism requirement of this call stack.
 	determinism: Determinism,
+	/// Transient storage
+	transient_storage: TransientStorage<T>,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -790,6 +814,7 @@ where
 			frames: Default::default(),
 			debug_message,
 			determinism,
+			transient_storage: TransientStorage::new(738 * 1024),
 			_phantom: Default::default(),
 		};
 
@@ -916,6 +941,9 @@ where
 		let entry_point = frame.entry_point;
 		let delegated_code_hash =
 			if frame.delegate_caller.is_some() { Some(*executable.code_hash()) } else { None };
+
+		self.transient_storage.start_transaction();
+
 		let do_transaction = || {
 			// We need to charge the storage deposit before the initial transfer so that
 			// it can create the account in case the initial transfer is < ed.
@@ -1035,6 +1063,12 @@ where
 			// has changed.
 			Err(error) => (false, Err(error.into())),
 		};
+
+		if success {
+			self.transient_storage.commit_transaction();
+		} else {
+			self.transient_storage.rollback_transaction();
+		}
 
 		self.pop_frame(success);
 		output
@@ -1356,6 +1390,24 @@ where
 			Some(&mut frame.nested_storage),
 			take_old,
 		)
+	}
+
+	fn get_transient_storage(&self, key: &Key<T>) -> Option<Vec<u8>> {
+		self.transient_storage.read(self.address(), key)
+	}
+
+	fn get_transient_storage_size(&self, key: &Key<T>) -> Option<u32> {
+		self.transient_storage.read(self.address(), key).map(|value| value.len() as _)
+	}
+
+	fn set_transient_storage(
+		&mut self,
+		key: &Key<T>,
+		value: Option<Vec<u8>>,
+		take_old: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		let account_id = self.address().clone();
+		self.transient_storage.write(&account_id, key, value, take_old)
 	}
 
 	fn address(&self) -> &T::AccountId {
