@@ -67,3 +67,30 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+  test-linux-worfklow-stopper:
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 30
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: exit 1
+      - name: Worfklow stopper - Generate token
+        uses: actions/create-github-app-token@v1
+        if: ${{ failure() && steps.required.conclusion == 'failure' }}
+        id: app-token
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+      - name: Workflow stopper - Stop all workflows
+        uses: octokit/request-action@v2.x
+        if: ${{ failure() && steps.required.conclusion == 'failure' }}
+        with:
+          route: POST /repos/paritytech/workflow-stopper/actions/workflows/stopper.yml/dispatches
+          ref: main
+          inputs: '${{ format(''{{ "github_sha": "{0}", "github_repository": "{1}", "github_ref_name": "{2}", "github_workflow_id": "{3}", "github_job_name": "{4}" }}'', github.event.pull_request.head.sha, github.repository, github.ref_name, github.run_id, github.job) }}'
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
