@@ -552,6 +552,7 @@ mod tests {
 
 	pub struct MockExt {
 		storage: HashMap<Vec<u8>, Vec<u8>>,
+		transient_storage: HashMap<Vec<u8>, Vec<u8>>,
 		instantiates: Vec<InstantiateEntry>,
 		terminations: Vec<TerminationEntry>,
 		calls: Vec<CallEntry>,
@@ -580,6 +581,7 @@ mod tests {
 			Self {
 				code_hashes: Default::default(),
 				storage: Default::default(),
+				transient_storage: Default::default(),
 				instantiates: Default::default(),
 				terminations: Default::default(),
 				calls: Default::default(),
@@ -676,6 +678,31 @@ mod tests {
 			};
 			if let Some(value) = value {
 				self.storage.insert(key, value);
+			}
+			Ok(result)
+		}
+		fn get_transient_storage(&self, key: &Key<Self::T>) -> Option<Vec<u8>> {
+			self.transient_storage.get(&key.to_vec()).cloned()
+		}
+		fn get_transient_storage_size(&self, key: &Key<Self::T>) -> Option<u32> {
+			self.transient_storage.get(&key.to_vec()).map(|val| val.len() as u32)
+		}
+		fn set_transient_storage(
+			&mut self,
+			key: &Key<Self::T>,
+			value: Option<Vec<u8>>,
+			take_old: bool,
+		) -> Result<WriteOutcome, DispatchError> {
+			let key = key.to_vec();
+			let entry = self.storage.entry(key.clone());
+			let result = match (entry, take_old) {
+				(Entry::Vacant(_), _) => WriteOutcome::New,
+				(Entry::Occupied(entry), false) =>
+					WriteOutcome::Overwritten(entry.remove().len() as u32),
+				(Entry::Occupied(entry), true) => WriteOutcome::Taken(entry.remove()),
+			};
+			if let Some(value) = value {
+				self.transient_storage.insert(key, value);
 			}
 			Ok(result)
 		}

@@ -3821,6 +3821,140 @@ mod tests {
 	}
 
 	#[test]
+	fn transient_storage_works() {
+		// Call stack: BOB -> CHARLIE(success) -> BOB' (success)
+		let storage_key_1 = &Key::Fix([1; 32]);
+		let storage_key_2 = &Key::Fix([2; 32]);
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			if ctx.input_data[0] == 0 {
+				assert_eq!(
+					ctx.ext.set_transient_storage(storage_key_1, Some(vec![1, 2]), false),
+					Ok(WriteOutcome::New)
+				);
+				assert_eq!(
+					ctx.ext.call(
+						Weight::zero(),
+						BalanceOf::<Test>::zero(),
+						CHARLIE,
+						0,
+						vec![],
+						true
+					),
+					exec_success()
+				);
+				assert_eq!(ctx.ext.get_transient_storage(storage_key_1), Some(vec![3]));
+				assert_eq!(ctx.ext.get_transient_storage(storage_key_2), Some(vec![4]));
+			} else {
+				assert_eq!(
+					ctx.ext.set_transient_storage(storage_key_1, Some(vec![3]), true),
+					Ok(WriteOutcome::Taken(vec![1, 2]))
+				);
+				assert_eq!(
+					ctx.ext.set_transient_storage(storage_key_2, Some(vec![4]), false),
+					Ok(WriteOutcome::New)
+				);
+			}
+			exec_success()
+		});
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			assert!(ctx
+				.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true)
+				.is_ok());
+			// CHARLIE can not read BOB`s storage.
+			assert_eq!(ctx.ext.get_transient_storage(storage_key_1), None);
+			exec_success()
+		});
+
+		// This one tests passing the input data into a contract via call.
+		ExtBuilder::default().build().execute_with(|| {
+			let schedule = <Test as Config>::Schedule::get();
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let contract_origin = Origin::from_account_id(ALICE);
+			let mut storage_meter =
+				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
+
+			let result = MockStack::run_call(
+				contract_origin,
+				BOB,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				&schedule,
+				0,
+				vec![0],
+				None,
+				Determinism::Enforced,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
+
+	#[test]
+	fn transient_storage_rollback_works() {
+		// Call stack: BOB -> CHARLIE (trap) -> BOB' (success)
+		let storage_key = &Key::Fix([1; 32]);
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			if ctx.input_data[0] == 0 {
+				assert_eq!(
+					ctx.ext.set_transient_storage(storage_key, Some(vec![1, 2]), false),
+					Ok(WriteOutcome::New)
+				);
+				assert_eq!(
+					ctx.ext.call(
+						Weight::zero(),
+						BalanceOf::<Test>::zero(),
+						CHARLIE,
+						0,
+						vec![],
+						true
+					),
+					exec_trapped()
+				);
+				assert_eq!(ctx.ext.get_transient_storage(storage_key), Some(vec![1, 2]));
+			} else {
+				let overwritten_length = ctx.ext.get_transient_storage_size(storage_key).unwrap();
+				assert_eq!(
+					ctx.ext.set_transient_storage(storage_key, Some(vec![3]), false),
+					Ok(WriteOutcome::Overwritten(overwritten_length))
+				);
+				assert_eq!(ctx.ext.get_transient_storage(storage_key), Some(vec![3]));
+			}
+			exec_success()
+		});
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			assert!(ctx
+				.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true)
+				.is_ok());
+			exec_trapped()
+		});
+
+		// This one tests passing the input data into a contract via call.
+		ExtBuilder::default().build().execute_with(|| {
+			let schedule = <Test as Config>::Schedule::get();
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let contract_origin = Origin::from_account_id(ALICE);
+			let mut storage_meter =
+				storage::meter::Meter::new(&contract_origin, Some(0), 0).unwrap();
+
+			let result = MockStack::run_call(
+				contract_origin,
+				BOB,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				&schedule,
+				0,
+				vec![0],
+				None,
+				Determinism::Enforced,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
+
+	#[test]
 	fn ecdsa_to_eth_address_returns_proper_value() {
 		let bob_ch = MockLoader::insert(Call, |ctx, _| {
 			let pubkey_compressed = array_bytes::hex2array_unchecked(
