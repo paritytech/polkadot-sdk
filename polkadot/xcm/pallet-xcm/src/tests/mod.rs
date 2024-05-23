@@ -876,7 +876,10 @@ fn subscriber_side_subscription_works() {
 
 		// This message will be sent as v3.
 		let v4_msg = xcm::v4::Xcm::<()>(vec![xcm::v4::Instruction::Trap(0)]);
-		assert_eq!(XcmPallet::wrap_version(&remote, v4_msg.clone()), Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::Trap(0)]))));
+		assert_eq!(
+			XcmPallet::wrap_version(&remote, v4_msg.clone()),
+			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::Trap(0)])))
+		);
 
 		let message = Xcm(vec![
 			// Remote upgraded to XCM v4
@@ -923,7 +926,10 @@ fn auto_subscription_works() {
 			XcmPallet::wrap_version(&remote_v3, msg_v3.clone()),
 			Ok(VersionedXcm::from(msg_v3.clone())),
 		);
-		assert_eq!(XcmPallet::wrap_version(&remote_v3, msg_v4.clone()), Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::ClearTopic]))));
+		assert_eq!(
+			XcmPallet::wrap_version(&remote_v3, msg_v4.clone()),
+			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::ClearTopic])))
+		);
 
 		let expected = vec![(remote_v3.clone().into(), 2)];
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), expected);
@@ -932,7 +938,10 @@ fn auto_subscription_works() {
 			XcmPallet::wrap_version(&remote_v4, msg_v3.clone()),
 			Ok(VersionedXcm::from(msg_v3.clone())),
 		);
-		assert_eq!(XcmPallet::wrap_version(&remote_v4, msg_v4.clone()), Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::ClearTopic]))));
+		assert_eq!(
+			XcmPallet::wrap_version(&remote_v4, msg_v4.clone()),
+			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::ClearTopic])))
+		);
 
 		let expected = vec![(remote_v3.clone().into(), 2), (remote_v4.clone().into(), 2)];
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), expected);
@@ -1015,7 +1024,10 @@ fn auto_subscription_works() {
 			XcmPallet::wrap_version(&remote_v3, msg_v3.clone()),
 			Ok(VersionedXcm::V3(msg_v3))
 		);
-		assert_eq!(XcmPallet::wrap_version(&remote_v3, msg_v4.clone()), Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::ClearTopic]))));
+		assert_eq!(
+			XcmPallet::wrap_version(&remote_v3, msg_v4.clone()),
+			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::ClearTopic])))
+		);
 	})
 }
 
