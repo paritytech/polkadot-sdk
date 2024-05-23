@@ -2134,12 +2134,23 @@ impl TaskAccountInterface for TaskSovereignAccount {
 	type OuterOrigin = RuntimeOrigin;
 	type TaskOrigin = frame_system::RawOrigin<AccountId>;
 
-	fn ensure_task_sovereign_account(_o: RuntimeOrigin) -> Result<TaskId, BadOrigin> {
-		Err(BadOrigin)
+	fn ensure_task_sovereign_account(o: RuntimeOrigin) -> Result<TaskId, BadOrigin> {
+		match o.into() {
+			Ok(frame_system::RawOrigin::Signed(account)) => {
+				let account_arr: [u8; 32] = account.try_into().map_err(|_| BadOrigin)?;
+				let encoded: [u8; 4] = account_arr[0..4].try_into().map_err(|_| BadOrigin)?;
+
+				let task = u32::from_le_bytes(encoded);
+				Ok(task)
+			}
+			_ => Err(BadOrigin),
+		}
 	}
 
-	fn sovereign_account(_task: TaskId) -> Option<AccountId> {
-		None
+	fn sovereign_account(task: TaskId) -> Option<AccountId> {
+		let mut account: [u8; 32] = [0; 32];
+		account[..4].copy_from_slice(&task.to_le_bytes());
+		Some(account.into())
 	}
 }
 impl pallet_broker::Config for Runtime {
