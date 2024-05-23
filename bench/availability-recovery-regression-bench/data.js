@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716412642917,
+  "lastUpdate": 1716457564385,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -8693,6 +8693,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.122909128766661,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fd161917108a14e791c1444ea1c767e9f6134bdf",
+          "message": "Fix README.md Logo URL (#4546)\n\nThis one also works and it is easier.",
+          "timestamp": "2024-05-23T08:03:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd161917108a14e791c1444ea1c767e9f6134bdf"
+        },
+        "date": 1716457535191,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21169110466666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.879599625,
             "unit": "seconds"
           }
         ]
