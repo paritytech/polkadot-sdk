@@ -458,10 +458,10 @@ pub mod pallet {
 			/// If `None` it indicates that we failed to get the sovereign account of a task.
 			payer: Option<T::AccountId>,
 		},
-		/// The auto-renewal limit has been reduced, and we won't be able to keep auto-renewal for
-		/// all parachains.
+		/// The auto-renewal limit has been reached upon renewing cores.
 		///
-		/// Hopefully, this should never happen.
+		/// This should never happen, given that enable_auto_renew checks for this before enabling
+		/// auto-renewal.
 		AutoRenewalLimitReached,
 	}
 

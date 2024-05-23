@@ -348,7 +348,7 @@ impl<T: Config> Pallet<T> {
 			// update the core indices in the auto-renewal vector with the new appropriate values.
 			if let Ok(new_core_index) = Self::do_renew(payer.clone(), core) {
 				if successful_renewals.try_push((new_core_index, task)).is_err() {
-					// This can only happen if we reduce the auto-renewal limit between sale cycles.
+					// This should never happen.
 					Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
 				}
 			} else {

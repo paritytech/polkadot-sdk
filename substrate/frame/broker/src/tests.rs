@@ -1544,7 +1544,7 @@ fn auto_renewal_works() {
 		// We skip funding the sovereign account of task 1002 on purpose.
 		endow(1003, 1000);
 
-		// Next cycle starting at timeslice 7.
+		// Next cycle starting at 7.
 		advance_to(7);
 		System::assert_has_event(
 			Event::<Test>::Renewed {
@@ -1580,6 +1580,10 @@ fn auto_renewal_works() {
 			}
 			.into(),
 		);
+
+		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
+		// Task (1003) will now be assigned to that core instead of core #2.
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001), (1, 1003)]);
 	});
 }
 
