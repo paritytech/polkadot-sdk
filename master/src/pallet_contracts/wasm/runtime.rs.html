@@ -2434,12 +2434,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2283" id="2283">2283</a>
 <a href="#2284" id="2284">2284</a>
 <a href="#2285" id="2285">2285</a>
-<a href="#2286" id="2286">2286</a>
-<a href="#2287" id="2287">2287</a>
-<a href="#2288" id="2288">2288</a>
-<a href="#2289" id="2289">2289</a>
-<a href="#2290" id="2290">2290</a>
-<a href="#2291" id="2291">2291</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2463,6 +2457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
 	gas::{ChargedAmount, Token},
 	primitives::ExecReturnValue,
+	weights::WeightInfo,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
 <span class="kw">use </span>codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
@@ -2587,6 +2582,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 </span><span class="kw">pub enum </span>RuntimeCosts {
+	<span class="doccomment">/// Base Weight of calling a host function.
+	</span>HostFn,
 	<span class="doccomment">/// Weight charged for copying data from the sandbox.
 	</span>CopyFromContract(u32),
 	<span class="doccomment">/// Weight charged for copying data to the sandbox.
@@ -2619,12 +2616,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Now,
 	<span class="doccomment">/// Weight of calling `seal_weight_to_fee`.
 	</span>WeightToFee,
-	<span class="doccomment">/// Weight of calling `seal_input` without the weight of copying the input.
-	</span>InputBase,
-	<span class="doccomment">/// Weight of calling `seal_return` for the given output size.
-	</span>Return(u32),
-	<span class="doccomment">/// Weight of calling `seal_terminate`.
-	</span>Terminate,
+	<span class="doccomment">/// Weight of calling `seal_terminate`, passing the number of locked dependencies.
+	</span>Terminate(u32),
 	<span class="doccomment">/// Weight of calling `seal_random`. It includes the weight for copying the subject.
 	</span>Random,
 	<span class="doccomment">/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
@@ -2648,13 +2641,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Weight of calling `seal_delegate_call` for the given input size.
 	</span>DelegateCallBase,
 	<span class="doccomment">/// Weight of the transfer performed during a call.
-	</span>CallSurchargeTransfer,
+	</span>CallTransferSurcharge,
 	<span class="doccomment">/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	</span>CallInputCloned(u32),
 	<span class="doccomment">/// Weight of calling `seal_instantiate` for the given input length and salt.
 	</span>InstantiateBase { input_data_len: u32, salt_len: u32 },
 	<span class="doccomment">/// Weight of the transfer performed during an instantiate.
-	</span>InstantiateSurchargeTransfer,
+	</span>InstantiateTransferSurcharge,
 	<span class="doccomment">/// Weight of calling `seal_hash_sha_256` for the given input size.
 	</span>HashSha256(u32),
 	<span class="doccomment">/// Weight of calling `seal_hash_keccak_256` for the given input size.
@@ -2678,15 +2671,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Weight of calling `ecdsa_to_eth_address`
 	</span>EcdsaToEthAddress,
 	<span class="doccomment">/// Weight of calling `reentrance_count`
-	</span>ReentrantCount,
+	</span>ReentranceCount,
 	<span class="doccomment">/// Weight of calling `account_reentrance_count`
-	</span>AccountEntranceCount,
+	</span>AccountReentranceCount,
 	<span class="doccomment">/// Weight of calling `instantiation_nonce`
 	</span>InstantiationNonce,
 	<span class="doccomment">/// Weight of calling `lock_delegate_dependency`
 	</span>LockDelegateDependency,
 	<span class="doccomment">/// Weight of calling `unlock_delegate_dependency`
 	</span>UnlockDelegateDependency,
+}
+
+<span class="macro">macro_rules! </span>cost_args {
+	<span class="comment">// cost_args!(name, a, b, c) -&gt; T::WeightInfo::name(a, b, c).saturating_sub(T::WeightInfo::name(0, 0, 0))
+	</span>(<span class="macro-nonterminal">$name</span>:ident, $( <span class="macro-nonterminal">$arg</span>: expr ),+) =&gt; {
+		(T::WeightInfo::<span class="macro-nonterminal">$name</span>($( <span class="macro-nonterminal">$arg </span>),+).saturating_sub(<span class="macro">cost_args!</span>(@call_zero <span class="macro-nonterminal">$name</span>, $( <span class="macro-nonterminal">$arg </span>),+)))
+	};
+	<span class="comment">// Transform T::WeightInfo::name(a, b, c) into T::WeightInfo::name(0, 0, 0)
+	</span>(@call_zero <span class="macro-nonterminal">$name</span>:ident, $( <span class="macro-nonterminal">$arg</span>:expr ),<span class="kw-2">*</span>) =&gt; {
+		T::WeightInfo::<span class="macro-nonterminal">$name</span>($( <span class="macro">cost_args!</span>(@replace_token <span class="macro-nonterminal">$arg</span>) ),<span class="kw-2">*</span>)
+	};
+	<span class="comment">// Replace the token with 0.
+	</span>(@replace_token <span class="macro-nonterminal">$_in</span>:tt) =&gt; { <span class="number">0 </span>};
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Token&lt;T&gt; <span class="kw">for </span>RuntimeCosts {
@@ -2698,85 +2704,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight {
-		<span class="kw">let </span>s = T::Schedule::get().host_fn_weights;
 		<span class="kw">use </span><span class="self">self</span>::RuntimeCosts::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			CopyFromContract(len) =&gt; s.return_per_byte.saturating_mul(len.into()),
-			CopyToContract(len) =&gt; s.input_per_byte.saturating_mul(len.into()),
-			Caller =&gt; s.caller,
-			IsContract =&gt; s.is_contract,
-			CodeHash =&gt; s.code_hash,
-			OwnCodeHash =&gt; s.own_code_hash,
-			CallerIsOrigin =&gt; s.caller_is_origin,
-			CallerIsRoot =&gt; s.caller_is_root,
-			Address =&gt; s.address,
-			GasLeft =&gt; s.gas_left,
-			Balance =&gt; s.balance,
-			ValueTransferred =&gt; s.value_transferred,
-			MinimumBalance =&gt; s.minimum_balance,
-			BlockNumber =&gt; s.block_number,
-			Now =&gt; s.now,
-			WeightToFee =&gt; s.weight_to_fee,
-			InputBase =&gt; s.input,
-			Return(len) =&gt; s.r#return.saturating_add(s.return_per_byte.saturating_mul(len.into())),
-			Terminate =&gt; s.terminate,
-			Random =&gt; s.random,
-			DepositEvent { num_topic, len } =&gt; s
-				.deposit_event
-				.saturating_add(s.deposit_event_per_topic.saturating_mul(num_topic.into()))
-				.saturating_add(s.deposit_event_per_byte.saturating_mul(len.into())),
-			DebugMessage(len) =&gt; s
-				.debug_message
-				.saturating_add(s.deposit_event_per_byte.saturating_mul(len.into())),
-			SetStorage { new_bytes, old_bytes } =&gt; s
-				.set_storage
-				.saturating_add(s.set_storage_per_new_byte.saturating_mul(new_bytes.into()))
-				.saturating_add(s.set_storage_per_old_byte.saturating_mul(old_bytes.into())),
-			ClearStorage(len) =&gt; s
-				.clear_storage
-				.saturating_add(s.clear_storage_per_byte.saturating_mul(len.into())),
-			ContainsStorage(len) =&gt; s
-				.contains_storage
-				.saturating_add(s.contains_storage_per_byte.saturating_mul(len.into())),
-			GetStorage(len) =&gt;
-				s.get_storage.saturating_add(s.get_storage_per_byte.saturating_mul(len.into())),
-			TakeStorage(len) =&gt; s
-				.take_storage
-				.saturating_add(s.take_storage_per_byte.saturating_mul(len.into())),
-			Transfer =&gt; s.transfer,
-			CallBase =&gt; s.call,
-			DelegateCallBase =&gt; s.delegate_call,
-			CallSurchargeTransfer =&gt; s.call_transfer_surcharge,
-			CallInputCloned(len) =&gt; s.call_per_cloned_byte.saturating_mul(len.into()),
-			InstantiateBase { input_data_len, salt_len } =&gt; s
-				.instantiate
-				.saturating_add(s.instantiate_per_input_byte.saturating_mul(input_data_len.into()))
-				.saturating_add(s.instantiate_per_salt_byte.saturating_mul(salt_len.into())),
-			InstantiateSurchargeTransfer =&gt; s.instantiate_transfer_surcharge,
-			HashSha256(len) =&gt; s
-				.hash_sha2_256
-				.saturating_add(s.hash_sha2_256_per_byte.saturating_mul(len.into())),
-			HashKeccak256(len) =&gt; s
-				.hash_keccak_256
-				.saturating_add(s.hash_keccak_256_per_byte.saturating_mul(len.into())),
-			HashBlake256(len) =&gt; s
-				.hash_blake2_256
-				.saturating_add(s.hash_blake2_256_per_byte.saturating_mul(len.into())),
-			HashBlake128(len) =&gt; s
-				.hash_blake2_128
-				.saturating_add(s.hash_blake2_128_per_byte.saturating_mul(len.into())),
-			EcdsaRecovery =&gt; s.ecdsa_recover,
-			Sr25519Verify(len) =&gt; s
-				.sr25519_verify
-				.saturating_add(s.sr25519_verify_per_byte.saturating_mul(len.into())),
+			HostFn =&gt; <span class="macro">cost_args!</span>(noop_host_fn, <span class="number">1</span>),
+			CopyToContract(len) =&gt; T::WeightInfo::seal_input(len),
+			CopyFromContract(len) =&gt; T::WeightInfo::seal_return(len),
+			Caller =&gt; T::WeightInfo::seal_caller(),
+			IsContract =&gt; T::WeightInfo::seal_is_contract(),
+			CodeHash =&gt; T::WeightInfo::seal_code_hash(),
+			OwnCodeHash =&gt; T::WeightInfo::seal_own_code_hash(),
+			CallerIsOrigin =&gt; T::WeightInfo::seal_caller_is_origin(),
+			CallerIsRoot =&gt; T::WeightInfo::seal_caller_is_root(),
+			Address =&gt; T::WeightInfo::seal_address(),
+			GasLeft =&gt; T::WeightInfo::seal_gas_left(),
+			Balance =&gt; T::WeightInfo::seal_balance(),
+			ValueTransferred =&gt; T::WeightInfo::seal_value_transferred(),
+			MinimumBalance =&gt; T::WeightInfo::seal_minimum_balance(),
+			BlockNumber =&gt; T::WeightInfo::seal_block_number(),
+			Now =&gt; T::WeightInfo::seal_now(),
+			WeightToFee =&gt; T::WeightInfo::seal_weight_to_fee(),
+			Terminate(locked_dependencies) =&gt; T::WeightInfo::seal_terminate(locked_dependencies),
+			Random =&gt; T::WeightInfo::seal_random(),
+			DepositEvent { num_topic, len } =&gt; T::WeightInfo::seal_deposit_event(num_topic, len),
+			DebugMessage(len) =&gt; T::WeightInfo::seal_debug_message(len),
+			SetStorage { new_bytes, old_bytes } =&gt;
+				T::WeightInfo::seal_set_storage(new_bytes, old_bytes),
+			ClearStorage(len) =&gt; T::WeightInfo::seal_clear_storage(len),
+			ContainsStorage(len) =&gt; T::WeightInfo::seal_contains_storage(len),
+			GetStorage(len) =&gt; T::WeightInfo::seal_get_storage(len),
+			TakeStorage(len) =&gt; T::WeightInfo::seal_take_storage(len),
+			Transfer =&gt; T::WeightInfo::seal_transfer(),
+			CallBase =&gt; T::WeightInfo::seal_call(<span class="number">0</span>, <span class="number">0</span>),
+			DelegateCallBase =&gt; T::WeightInfo::seal_delegate_call(),
+			CallTransferSurcharge =&gt; <span class="macro">cost_args!</span>(seal_call, <span class="number">1</span>, <span class="number">0</span>),
+			CallInputCloned(len) =&gt; <span class="macro">cost_args!</span>(seal_call, <span class="number">0</span>, len),
+			InstantiateBase { input_data_len, salt_len } =&gt;
+				T::WeightInfo::seal_instantiate(<span class="number">0</span>, input_data_len, salt_len),
+			InstantiateTransferSurcharge =&gt; <span class="macro">cost_args!</span>(seal_instantiate, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>),
+			HashSha256(len) =&gt; T::WeightInfo::seal_hash_sha2_256(len),
+			HashKeccak256(len) =&gt; T::WeightInfo::seal_hash_keccak_256(len),
+			HashBlake256(len) =&gt; T::WeightInfo::seal_hash_blake2_256(len),
+			HashBlake128(len) =&gt; T::WeightInfo::seal_hash_blake2_128(len),
+			EcdsaRecovery =&gt; T::WeightInfo::seal_ecdsa_recover(),
+			Sr25519Verify(len) =&gt; T::WeightInfo::seal_sr25519_verify(len),
 			ChainExtension(weight) | CallRuntime(weight) | CallXcmExecute(weight) =&gt; weight,
-			SetCodeHash =&gt; s.set_code_hash,
-			EcdsaToEthAddress =&gt; s.ecdsa_to_eth_address,
-			ReentrantCount =&gt; s.reentrance_count,
-			AccountEntranceCount =&gt; s.account_reentrance_count,
-			InstantiationNonce =&gt; s.instantiation_nonce,
-			LockDelegateDependency =&gt; s.lock_delegate_dependency,
-			UnlockDelegateDependency =&gt; s.unlock_delegate_dependency,
+			SetCodeHash =&gt; T::WeightInfo::seal_set_code_hash(),
+			EcdsaToEthAddress =&gt; T::WeightInfo::seal_ecdsa_to_eth_address(),
+			ReentranceCount =&gt; T::WeightInfo::seal_reentrance_count(),
+			AccountReentranceCount =&gt; T::WeightInfo::seal_account_reentrance_count(),
+			InstantiationNonce =&gt; T::WeightInfo::seal_instantiation_nonce(),
+			LockDelegateDependency =&gt; T::WeightInfo::lock_delegate_dependency(),
+			UnlockDelegateDependency =&gt; T::WeightInfo::unlock_delegate_dependency(),
 		}
 	}
 }
@@ -3261,6 +3239,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		output_len_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(call_type.cost())<span class="question-mark">?</span>;
+
 		<span class="kw">let </span>input_data = <span class="kw">if </span>flags.contains(CallFlags::CLONE_INPUT) {
 			<span class="kw">let </span>input = <span class="self">self</span>.input_data.as_ref().ok_or(Error::&lt;E::T&gt;::InputForwarded)<span class="question-mark">?</span>;
 			<span class="macro">charge_gas!</span>(<span class="self">self</span>, RuntimeCosts::CallInputCloned(input.len() <span class="kw">as </span>u32))<span class="question-mark">?</span>;
@@ -3284,7 +3263,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; =
 					<span class="self">self</span>.read_sandbox_memory_as(memory, value_ptr)<span class="question-mark">?</span>;
 				<span class="kw">if </span>value &gt; <span class="number">0u32</span>.into() {
-					<span class="self">self</span>.charge_gas(RuntimeCosts::CallSurchargeTransfer)<span class="question-mark">?</span>;
+					<span class="self">self</span>.charge_gas(RuntimeCosts::CallTransferSurcharge)<span class="question-mark">?</span>;
 				}
 				<span class="self">self</span>.ext.call(
 					weight,
@@ -3352,7 +3331,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>};
 		<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = <span class="self">self</span>.read_sandbox_memory_as(memory, value_ptr)<span class="question-mark">?</span>;
 		<span class="kw">if </span>value &gt; <span class="number">0u32</span>.into() {
-			<span class="self">self</span>.charge_gas(RuntimeCosts::InstantiateSurchargeTransfer)<span class="question-mark">?</span>;
+			<span class="self">self</span>.charge_gas(RuntimeCosts::InstantiateTransferSurcharge)<span class="question-mark">?</span>;
 		}
 		<span class="kw">let </span>code_hash: CodeHash&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; =
 			<span class="self">self</span>.read_sandbox_memory_as(memory, code_hash_ptr)<span class="question-mark">?</span>;
@@ -3384,7 +3363,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;</span>[u8], beneficiary_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
-		<span class="self">self</span>.charge_gas(RuntimeCosts::Terminate)<span class="question-mark">?</span>;
+		<span class="kw">let </span>count = <span class="self">self</span>.ext.locked_delegate_dependencies_count() <span class="kw">as _</span>;
+		<span class="self">self</span>.charge_gas(RuntimeCosts::Terminate(count))<span class="question-mark">?</span>;
+
 		<span class="kw">let </span>beneficiary: &lt;&lt;E <span class="kw">as </span>Ext&gt;::T <span class="kw">as </span>frame_system::Config&gt;::AccountId =
 			<span class="self">self</span>.read_sandbox_memory_as(memory, beneficiary_ptr)<span class="question-mark">?</span>;
 		<span class="self">self</span>.ext.terminate(<span class="kw-2">&amp;</span>beneficiary)<span class="question-mark">?</span>;
@@ -3401,6 +3382,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // for every function.
 </span><span class="attr">#[define_env(doc)]
 </span><span class="kw">pub mod </span>env {
+
+	<span class="doccomment">/// Noop function used to benchmark the time it takes to execute an empty function.
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	#[unstable]
+	</span><span class="kw">fn </span>noop(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
+		<span class="prelude-val">Ok</span>(())
+	}
+
 	<span class="doccomment">/// Set the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::set_storage`]
 	</span><span class="attr">#[prefixed_alias]
@@ -3829,7 +3818,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See [`pallet_contracts_uapi::HostFn::input`].
 	</span><span class="attr">#[prefixed_alias]
 	</span><span class="kw">fn </span>input(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, out_ptr: u32, out_len_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
-		ctx.charge_gas(RuntimeCosts::InputBase)<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(input) = ctx.input_data.take() {
 			ctx.write_sandbox_output(memory, out_ptr, out_len_ptr, <span class="kw-2">&amp;</span>input, <span class="bool-val">false</span>, |len| {
 				<span class="prelude-val">Some</span>(RuntimeCosts::CopyToContract(len))
@@ -3850,7 +3838,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		data_ptr: u32,
 		data_len: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
-		ctx.charge_gas(RuntimeCosts::Return(data_len))<span class="question-mark">?</span>;
+		ctx.charge_gas(RuntimeCosts::CopyFromContract(data_len))<span class="question-mark">?</span>;
 		<span class="prelude-val">Err</span>(TrapReason::Return(ReturnData {
 			flags,
 			data: ctx.read_sandbox_memory(memory, data_ptr, data_len)<span class="question-mark">?</span>,
@@ -4691,7 +4679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See [`pallet_contracts_uapi::HostFn::reentrance_count`].
 	</span><span class="attr">#[unstable]
 	</span><span class="kw">fn </span>reentrance_count(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32, TrapReason&gt; {
-		ctx.charge_gas(RuntimeCosts::ReentrantCount)<span class="question-mark">?</span>;
+		ctx.charge_gas(RuntimeCosts::ReentranceCount)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(ctx.ext.reentrance_count())
 	}
 
@@ -4700,7 +4688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See [`pallet_contracts_uapi::HostFn::account_reentrance_count`].
 	</span><span class="attr">#[unstable]
 	</span><span class="kw">fn </span>account_reentrance_count(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, account_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;u32, TrapReason&gt; {
-		ctx.charge_gas(RuntimeCosts::AccountEntranceCount)<span class="question-mark">?</span>;
+		ctx.charge_gas(RuntimeCosts::AccountReentranceCount)<span class="question-mark">?</span>;
 		<span class="kw">let </span>account_id: &lt;&lt;E <span class="kw">as </span>Ext&gt;::T <span class="kw">as </span>frame_system::Config&gt;::AccountId =
 			ctx.read_sandbox_memory_as(memory, account_ptr)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(ctx.ext.account_reentrance_count(<span class="kw-2">&amp;</span>account_id))

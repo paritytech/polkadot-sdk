@@ -671,21 +671,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -719,7 +704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>sp_keystore::KeystorePtr;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Header <span class="kw">as </span>HeaderT, NumberFor},
-	ConsensusEngineId, RuntimeDebug,
+	ConsensusEngineId, OpaqueValue, RuntimeDebug,
 };
 
 <span class="doccomment">/// The log target to be used by client code.
@@ -1153,22 +1138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// the runtime API boundary this type is unknown and as such we keep this
 /// opaque representation, implementors of the runtime API will have to make
 /// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
-</span><span class="attr">#[derive(Decode, Encode, PartialEq, TypeInfo)]
-</span><span class="kw">pub struct </span>OpaqueKeyOwnershipProof(Vec&lt;u8&gt;);
-
-<span class="kw">impl </span>OpaqueKeyOwnershipProof {
-	<span class="doccomment">/// Create a new `OpaqueKeyOwnershipProof` using the given encoded
-	/// representation.
-	</span><span class="kw">pub fn </span>new(inner: Vec&lt;u8&gt;) -&gt; OpaqueKeyOwnershipProof {
-		OpaqueKeyOwnershipProof(inner)
-	}
-
-	<span class="doccomment">/// Try to decode this `OpaqueKeyOwnershipProof` into the given concrete key
-	/// ownership proof type.
-	</span><span class="kw">pub fn </span>decode&lt;T: Decode&gt;(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
-		codec::Decode::decode(<span class="kw-2">&amp;mut &amp;</span><span class="self">self</span>.<span class="number">0</span>[..]).ok()
-	}
-}
+</span><span class="kw">pub type </span>OpaqueKeyOwnershipProof = OpaqueValue;
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// APIs for integrating the GRANDPA finality gadget into runtimes.

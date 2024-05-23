@@ -697,17 +697,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -762,7 +751,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 <span class="kw">use </span>sp_core::H256;
-<span class="kw">use </span>sp_runtime::traits::{Hash, Keccak256, NumberFor};
+<span class="kw">use </span>sp_runtime::{
+	traits::{Hash, Keccak256, NumberFor},
+	OpaqueValue,
+};
 
 <span class="doccomment">/// Key type for BEEFY module.
 </span><span class="kw">pub const </span>KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;
@@ -1109,21 +1101,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// the runtime API boundary this type is unknown and as such we keep this
 /// opaque representation, implementors of the runtime API will have to make
 /// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
-</span><span class="attr">#[derive(Decode, Encode, PartialEq, TypeInfo)]
-</span><span class="kw">pub struct </span>OpaqueKeyOwnershipProof(Vec&lt;u8&gt;);
-<span class="kw">impl </span>OpaqueKeyOwnershipProof {
-	<span class="doccomment">/// Create a new `OpaqueKeyOwnershipProof` using the given encoded
-	/// representation.
-	</span><span class="kw">pub fn </span>new(inner: Vec&lt;u8&gt;) -&gt; OpaqueKeyOwnershipProof {
-		OpaqueKeyOwnershipProof(inner)
-	}
-
-	<span class="doccomment">/// Try to decode this `OpaqueKeyOwnershipProof` into the given concrete key
-	/// ownership proof type.
-	</span><span class="kw">pub fn </span>decode&lt;T: Decode&gt;(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
-		codec::Decode::decode(<span class="kw-2">&amp;mut &amp;</span><span class="self">self</span>.<span class="number">0</span>[..]).ok()
-	}
-}
+</span><span class="kw">pub type </span>OpaqueKeyOwnershipProof = OpaqueValue;
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// API necessary for BEEFY voters.

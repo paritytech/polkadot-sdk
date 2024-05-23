@@ -4055,6 +4055,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3904" id="3904">3904</a>
 <a href="#3905" id="3905">3905</a>
 <a href="#3906" id="3906">3906</a>
+<a href="#3907" id="3907">3907</a>
+<a href="#3908" id="3908">3908</a>
+<a href="#3909" id="3909">3909</a>
+<a href="#3910" id="3910">3910</a>
+<a href="#3911" id="3911">3911</a>
+<a href="#3912" id="3912">3912</a>
+<a href="#3913" id="3913">3913</a>
+<a href="#3914" id="3914">3914</a>
+<a href="#3915" id="3915">3915</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4360,7 +4369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>ecdsa_to_eth_address(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: <span class="kw-2">&amp;</span>[u8; <span class="number">33</span>]) -&gt; <span class="prelude-ty">Result</span>&lt;[u8; <span class="number">20</span>], ()&gt;;
 
 	<span class="doccomment">/// Tests sometimes need to modify and inspect the contract info directly.
-	</span><span class="attr">#[cfg(test)]
+	</span><span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">fn </span>contract_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>ContractInfo&lt;<span class="self">Self</span>::T&gt;;
 
 	<span class="doccomment">/// Sets new code hash for existing contract.
@@ -4422,6 +4431,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
+
+	<span class="doccomment">/// Returns the number of locked delegate dependencies.
+	///
+	/// Note: Requires &amp;mut self to access the contract info.
+	</span><span class="kw">fn </span>locked_delegate_dependencies_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize;
 }
 
 <span class="doccomment">/// Describes the different functions that can be exported by an [`Executable`].
@@ -5554,7 +5568,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ECDSAPublic::from(<span class="kw-2">*</span>pk).to_eth_address()
 	}
 
-	<span class="attr">#[cfg(test)]
+	<span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">fn </span>contract_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>ContractInfo&lt;<span class="self">Self</span>::T&gt; {
 		<span class="self">self</span>.top_frame_mut().contract_info()
 	}
@@ -5661,6 +5675,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.nested_storage
 			.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(deposit));
 		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="kw">fn </span>locked_delegate_dependencies_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
+		<span class="self">self</span>.top_frame_mut().contract_info().delegate_dependencies_count()
 	}
 }
 

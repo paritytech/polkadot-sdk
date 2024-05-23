@@ -976,6 +976,82 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#825" id="825">825</a>
 <a href="#826" id="826">826</a>
 <a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1110,6 +1186,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	alias_to: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	<span class="doccomment">/// Formulating the predicate inverted makes the expression using it simpler.
 	</span>not_deprecated: bool,
+	cfg: <span class="prelude-ty">Option</span>&lt;syn::Attribute&gt;,
 }
 
 <span class="kw">enum </span>HostFnReturn {
@@ -1141,13 +1218,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>HostFn {
 	<span class="kw">pub fn </span>try_from(<span class="kw-2">mut </span>item: syn::ItemFn) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>err = |span, msg| {
-			<span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Invalid host function definition. {}"</span>, msg);
+			<span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Invalid host function definition.\n{}"</span>, msg);
 			syn::Error::new(span, msg)
 		};
 
 		<span class="comment">// process attributes
 		</span><span class="kw">let </span>msg =
-			<span class="string">"only #[version(&lt;u8&gt;)], #[unstable], #[prefixed_alias] and #[deprecated] attributes are allowed."</span>;
+			<span class="string">"Only #[version(&lt;u8&gt;)], #[unstable], #[prefixed_alias], #[cfg] and #[deprecated] attributes are allowed."</span>;
 		<span class="kw">let </span>span = item.span();
 		<span class="kw">let </span><span class="kw-2">mut </span>attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident(<span class="string">"doc"</span>));
@@ -1155,6 +1232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>is_stable = <span class="bool-val">true</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>alias_to = <span class="prelude-val">None</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>not_deprecated = <span class="bool-val">true</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>cfg = <span class="prelude-val">None</span>;
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(attr) = attrs.pop() {
 			<span class="kw">let </span>ident = attr.path().get_ident().ok_or(err(span, msg))<span class="question-mark">?</span>.to_string();
 			<span class="kw">match </span>ident.as_str() {
@@ -1184,7 +1262,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 					not_deprecated = <span class="bool-val">false</span>;
 				},
-				<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err(span, msg)),
+				<span class="string">"cfg" </span>=&gt; {
+					<span class="kw">if </span>cfg.is_some() {
+						<span class="kw">return </span><span class="prelude-val">Err</span>(err(span, <span class="string">"#[cfg] can only be specified once"</span>))
+					}
+					cfg = <span class="prelude-val">Some</span>(attr);
+				},
+				id =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err(span, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Unsupported attribute \"{id}\". {msg}"</span>))),
 			}
 		}
 		<span class="kw">let </span>name = item.sig.ident.to_string();
@@ -1289,6 +1373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							is_stable,
 							alias_to,
 							not_deprecated,
+							cfg,
 						})
 					},
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(err(span, <span class="kw-2">&amp;</span>msg)),
@@ -1506,8 +1591,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///   - real implementation, to register it in the contract execution environment;
 ///   - dummy implementation, to be used as mocks for contract validation step.
 </span><span class="kw">fn </span>expand_impls(def: <span class="kw-2">&amp;</span>EnvDef) -&gt; TokenStream2 {
-	<span class="kw">let </span>impls = expand_functions(def, <span class="bool-val">true</span>, <span class="macro">quote! </span>{ <span class="kw">crate</span>::wasm::Runtime&lt;E&gt; });
-	<span class="kw">let </span>dummy_impls = expand_functions(def, <span class="bool-val">false</span>, <span class="macro">quote! </span>{ () });
+	<span class="kw">let </span>impls = expand_functions(def, ExpandMode::Impl);
+	<span class="kw">let </span>dummy_impls = expand_functions(def, ExpandMode::MockImpl);
+	<span class="kw">let </span>bench_impls = expand_functions(def, ExpandMode::BenchImpl);
 
 	<span class="macro">quote! </span>{
 		<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, E: Ext&gt; <span class="kw">crate</span>::wasm::Environment&lt;<span class="kw">crate</span>::wasm::runtime::Runtime&lt;<span class="lifetime">'a</span>, E&gt;&gt; <span class="kw">for </span>Env
@@ -1521,6 +1607,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				#impls
 				<span class="prelude-val">Ok</span>(())
 			}
+		}
+
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+		</span><span class="kw">pub struct </span>BenchEnv&lt;E&gt;(::core::marker::PhantomData&lt;E&gt;);
+
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+		</span><span class="kw">impl</span>&lt;E: Ext&gt; BenchEnv&lt;E&gt; {
+			#bench_impls
 		}
 
 		<span class="kw">impl </span><span class="kw">crate</span>::wasm::Environment&lt;()&gt; <span class="kw">for </span>Env
@@ -1538,18 +1632,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>expand_functions(def: <span class="kw-2">&amp;</span>EnvDef, expand_blocks: bool, host_state: TokenStream2) -&gt; TokenStream2 {
+<span class="kw">enum </span>ExpandMode {
+	Impl,
+	BenchImpl,
+	MockImpl,
+}
+
+<span class="kw">impl </span>ExpandMode {
+	<span class="kw">fn </span>expand_blocks(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+			ExpandMode::Impl | ExpandMode::BenchImpl =&gt; <span class="bool-val">true</span>,
+			ExpandMode::MockImpl =&gt; <span class="bool-val">false</span>,
+		}
+	}
+
+	<span class="kw">fn </span>host_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TokenStream2 {
+		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+			ExpandMode::Impl | ExpandMode::BenchImpl =&gt; <span class="macro">quote! </span>{ <span class="kw">crate</span>::wasm::runtime::Runtime&lt;E&gt; },
+			ExpandMode::MockImpl =&gt; <span class="macro">quote! </span>{ () },
+		}
+	}
+}
+
+<span class="kw">fn </span>expand_functions(def: <span class="kw-2">&amp;</span>EnvDef, expand_mode: ExpandMode) -&gt; TokenStream2 {
 	<span class="kw">let </span>impls = def.host_funcs.iter().map(|f| {
 		<span class="comment">// skip the context and memory argument
 		</span><span class="kw">let </span>params = f.item.sig.inputs.iter().skip(<span class="number">2</span>);
-
-		<span class="kw">let </span>(module, name, body, wasm_output, output) = (
-			f.module(),
-			<span class="kw-2">&amp;</span>f.name,
-			<span class="kw-2">&amp;</span>f.item.block,
-			f.returns.to_wasm_sig(),
-			<span class="kw-2">&amp;</span>f.item.sig.output
-		);
+		<span class="kw">let </span>module = f.module();
+		<span class="kw">let </span>cfg = <span class="kw-2">&amp;</span>f.cfg;
+		<span class="kw">let </span>name = <span class="kw-2">&amp;</span>f.name;
+		<span class="kw">let </span>body = <span class="kw-2">&amp;</span>f.item.block;
+		<span class="kw">let </span>wasm_output = f.returns.to_wasm_sig();
+		<span class="kw">let </span>output = <span class="kw-2">&amp;</span>f.item.sig.output;
 		<span class="kw">let </span>is_stable = f.is_stable;
 		<span class="kw">let </span>not_deprecated = f.not_deprecated;
 
@@ -1586,23 +1700,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// - We replace any code by unreachable!
 		// - Allow unused variables as the code that uses is not expanded
 		// - We don't need to map the error as we simply panic if they code would ever be executed
-		</span><span class="kw">let </span>inner = <span class="kw">if </span>expand_blocks {
-			<span class="macro">quote! </span>{ || #output {
-				<span class="kw">let </span>(memory, ctx) = __caller__
-					.data()
-					.memory()
-					.expect(<span class="string">"Memory must be set when setting up host data; qed"</span>)
-					.data_and_store_mut(<span class="kw-2">&amp;mut </span>__caller__);
-				#wrapped_body_with_trace
-			} }
-		} <span class="kw">else </span>{
-			<span class="macro">quote! </span>{ || -&gt; #wasm_output {
-				<span class="comment">// This is part of the implementation for `Environment&lt;()&gt;` which is not
-				// meant to be actually executed. It is only for validation which will
-				// never call host functions.
-				</span><span class="macro">::core::unreachable!</span>()
-			} }
+		</span><span class="kw">let </span>expand_blocks = expand_mode.expand_blocks();
+		<span class="kw">let </span>inner = <span class="kw">match </span>expand_mode {
+			ExpandMode::Impl =&gt; {
+				<span class="macro">quote! </span>{ || #output {
+					<span class="kw">let </span>(memory, ctx) = __caller__
+						.data()
+						.memory()
+						.expect(<span class="string">"Memory must be set when setting up host data; qed"</span>)
+						.data_and_store_mut(<span class="kw-2">&amp;mut </span>__caller__);
+					#wrapped_body_with_trace
+				} }
+			},
+			ExpandMode::BenchImpl =&gt; {
+				<span class="kw">let </span>body = <span class="kw-2">&amp;</span>body.stmts;
+				<span class="macro">quote!</span>{
+					#(#body)*
+				}
+			},
+			ExpandMode::MockImpl =&gt; {
+				<span class="macro">quote! </span>{ || -&gt; #wasm_output {
+					<span class="comment">// This is part of the implementation for `Environment&lt;()&gt;` which is not
+					// meant to be actually executed. It is only for validation which will
+					// never call host functions.
+					</span><span class="macro">::core::unreachable!</span>()
+				} }
+			},
 		};
+
 		<span class="kw">let </span>into_host = <span class="kw">if </span>expand_blocks {
 			<span class="macro">quote! </span>{
 				|reason| {
@@ -1633,6 +1758,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.map_err(TrapReason::from)
 						.map_err(#into_host)<span class="question-mark">?
 				</span>};
+
+				<span class="comment">// Charge gas for host function execution.
+				</span>__caller__.data_mut().charge_gas(<span class="kw">crate</span>::wasm::RuntimeCosts::HostFn)
+						.map_err(TrapReason::from)
+						.map_err(#into_host)<span class="question-mark">?</span>;
 			}
 		} <span class="kw">else </span>{
 			<span class="macro">quote! </span>{ }
@@ -1654,29 +1784,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">quote! </span>{ }
 		};
 
-		<span class="macro">quote! </span>{
-			<span class="comment">// We need to allow all interfaces when runtime benchmarks are performed because
-			// we generate the weights even when those interfaces are not enabled. This
-			// is necessary as the decision whether we allow unstable or deprecated functions
-			// is a decision made at runtime. Generation of the weights happens statically.
-			</span><span class="kw">if </span><span class="macro">::core::cfg!</span>(feature = <span class="string">"runtime-benchmarks"</span>) ||
-				((#is_stable || __allow_unstable__) &amp;&amp; (#not_deprecated || __allow_deprecated__))
-			{
-				#allow_unused
-				linker.define(#module, #name, ::wasmi::Func::wrap(<span class="kw-2">&amp;mut*</span>store, |<span class="kw-2">mut </span>__caller__: ::wasmi::Caller&lt;#host_state&gt;, #( #params, )<span class="kw-2">*</span>| -&gt; #wasm_output {
- 					#sync_gas_before
-					<span class="kw">let </span><span class="kw-2">mut </span>func = #inner;
-					<span class="kw">let </span>result = func().map_err(#into_host).map(::core::convert::Into::into);
-					#sync_gas_after
-					result
-				}))<span class="question-mark">?</span>;
-			}
+		<span class="kw">match </span>expand_mode {
+			ExpandMode::BenchImpl =&gt; {
+				<span class="kw">let </span>name = Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{module}_{name}"</span>), Span::call_site());
+				<span class="macro">quote! </span>{
+					<span class="kw">pub fn </span>#name(ctx: <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::wasm::Runtime&lt;E&gt;, memory: <span class="kw-2">&amp;mut </span>[u8], #(#params),<span class="kw-2">*</span>) #output {
+						#inner
+					}
+				}
+			},
+			<span class="kw">_ </span>=&gt; {
+				<span class="kw">let </span>host_state = expand_mode.host_state();
+				<span class="macro">quote! </span>{
+					<span class="comment">// We need to allow all interfaces when runtime benchmarks are performed because
+					// we generate the weights even when those interfaces are not enabled. This
+					// is necessary as the decision whether we allow unstable or deprecated functions
+					// is a decision made at runtime. Generation of the weights happens statically.
+					</span>#cfg
+					<span class="kw">if </span><span class="macro">::core::cfg!</span>(feature = <span class="string">"runtime-benchmarks"</span>) ||
+						((#is_stable || __allow_unstable__) &amp;&amp; (#not_deprecated || __allow_deprecated__))
+					{
+						#allow_unused
+						linker.define(#module, #name, ::wasmi::Func::wrap(<span class="kw-2">&amp;mut*</span>store, |<span class="kw-2">mut </span>__caller__: ::wasmi::Caller&lt;#host_state&gt;, #( #params, )<span class="kw-2">*</span>| -&gt; #wasm_output {
+							#sync_gas_before
+							<span class="kw">let </span><span class="kw-2">mut </span>func = #inner;
+							<span class="kw">let </span>result = func().map_err(#into_host).map(::core::convert::Into::into);
+							#sync_gas_after
+							result
+						}))<span class="question-mark">?</span>;
+					}
+				}
+			},
 		}
 	});
-	<span class="macro">quote! </span>{
-		<span class="kw">let </span>__allow_unstable__ = <span class="macro">matches!</span>(allow_unstable, AllowUnstableInterface::Yes);
-		<span class="kw">let </span>__allow_deprecated__ = <span class="macro">matches!</span>(allow_deprecated, AllowDeprecatedInterface::Yes);
-		#( #impls )*
+
+	<span class="kw">match </span>expand_mode {
+		ExpandMode::BenchImpl =&gt; {
+			<span class="macro">quote! </span>{
+			 #( #impls )*
+			}
+		},
+		<span class="kw">_ </span>=&gt; <span class="macro">quote! </span>{
+			<span class="kw">let </span>__allow_unstable__ = <span class="macro">matches!</span>(allow_unstable, AllowUnstableInterface::Yes);
+			<span class="kw">let </span>__allow_deprecated__ = <span class="macro">matches!</span>(allow_deprecated, AllowDeprecatedInterface::Yes);
+			#( #impls )*
+		},
 	}
 }
 
