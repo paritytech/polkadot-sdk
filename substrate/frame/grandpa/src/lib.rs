@@ -332,7 +332,6 @@ pub mod pallet {
 	/// during that session.
 	///
 	/// TWOX-NOTE: `SetId` is not under user control.
-	/// session_for_set
 	#[pallet::storage]
 	pub type SetIdSession<T: Config> = StorageMap<_, Twox64Concat, SetId, SessionIndex>;
 
