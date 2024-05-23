@@ -11,4 +11,4 @@ doc:
 
 crates:
   - name: pallet-grandpa
-    bump: minor
+    bump: major

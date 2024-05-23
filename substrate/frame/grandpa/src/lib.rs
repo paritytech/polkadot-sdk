@@ -301,26 +301,26 @@ pub mod pallet {
 
 	/// State of the current authority set.
 	#[pallet::storage]
-	pub(super) type State<T: Config> =
+	pub type State<T: Config> =
 		StorageValue<_, StoredState<BlockNumberFor<T>>, ValueQuery, DefaultForState<T>>;
 
 	/// Pending change: (signaled at, scheduled change).
 	#[pallet::storage]
-	pub(super) type PendingChange<T: Config> =
+	pub type PendingChange<T: Config> =
 		StorageValue<_, StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities>>;
 
 	/// next block number where we can force a change.
 	#[pallet::storage]
-	pub(super) type NextForced<T: Config> = StorageValue<_, BlockNumberFor<T>>;
+	pub type NextForced<T: Config> = StorageValue<_, BlockNumberFor<T>>;
 
 	/// `true` if we are currently stalled.
 	#[pallet::storage]
-	pub(super) type Stalled<T: Config> = StorageValue<_, (BlockNumberFor<T>, BlockNumberFor<T>)>;
+	pub type Stalled<T: Config> = StorageValue<_, (BlockNumberFor<T>, BlockNumberFor<T>)>;
 
 	/// The number of changes (both in terms of keys and underlying economic responsibilities)
 	/// in the "set" of Grandpa validators from genesis.
 	#[pallet::storage]
-	pub(super) type CurrentSetId<T: Config> = StorageValue<_, SetId, ValueQuery>;
+	pub type CurrentSetId<T: Config> = StorageValue<_, SetId, ValueQuery>;
 
 	/// A mapping from grandpa set ID to the index of the *most recent* session for which its
 	/// members were responsible.
@@ -332,12 +332,13 @@ pub mod pallet {
 	/// during that session.
 	///
 	/// TWOX-NOTE: `SetId` is not under user control.
+	/// session_for_set
 	#[pallet::storage]
-	pub(super) type SetIdSession<T: Config> = StorageMap<_, Twox64Concat, SetId, SessionIndex>;
+	pub type SetIdSession<T: Config> = StorageMap<_, Twox64Concat, SetId, SessionIndex>;
 
 	/// The current list of authorities.
 	#[pallet::storage]
-	pub(crate) type Authorities<T: Config> =
+	pub type Authorities<T: Config> =
 		StorageValue<_, BoundedAuthorityList<T::MaxAuthorities>, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -424,53 +425,6 @@ pub enum StoredState<N> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Get the tate of the current authority set
-	pub fn state() -> StoredState<BlockNumberFor<T>> {
-		<State<T> as frame_support::storage::StorageValue<StoredState<BlockNumberFor<T>>>>::get()
-	}
-
-	/// Get the pending change: (signaled at, scheduled change)
-	pub fn pending_change() -> Option<StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities>> {
-		<PendingChange<T> as frame_support::storage::StorageValue<
-			StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities>,
-		>>::get()
-	}
-
-	/// Get the next block number where we can force a change
-	pub fn next_forced() -> Option<BlockNumberFor<T>> {
-		<NextForced<T> as frame_support::storage::StorageValue<BlockNumberFor<T>>>::get()
-	}
-
-	/// `true` if we are currently stalled
-	pub fn stalled() -> Option<(BlockNumberFor<T>, BlockNumberFor<T>)> {
-		<Stalled<T> as frame_support::storage::StorageValue<(
-			BlockNumberFor<T>,
-			BlockNumberFor<T>,
-		)>>::get()
-	}
-
-	/// Get the number of changes (both in terms of keys and underlying economic responsibilities)
-	/// in the "set" of Grandpa validators from genesis
-	pub fn current_set_id() -> SetId {
-		<CurrentSetId<T> as frame_support::storage::StorageValue<SetId>>::get()
-	}
-
-	/// Get a mapping from grandpa set ID to the index of the *most recent* session for which its
-	/// members were responsible.
-	///
-	/// This is only used for validating equivocation proofs. An equivocation proof must
-	/// contains a key-ownership proof for a given session, therefore we need a way to tie
-	/// together sessions and GRANDPA set ids, i.e. we need to validate that a validator
-	/// was the owner of a given key on a given session, and what the active set ID was
-	/// during that session.
-	///
-	/// TWOX-NOTE: `SetId` is not under user control
-	pub fn session_for_set<KArg>(k: KArg) -> Option<SessionIndex>
-	where
-		KArg: frame_support::__private::codec::EncodeLike<SetId>,
-	{
-		<SetIdSession<T> as frame_support::storage::StorageMap<SetId, SessionIndex>>::get(k)
-	}
 
 	/// Get the current set of authorities, along with their respective weights.
 	pub fn grandpa_authorities() -> AuthorityList {
