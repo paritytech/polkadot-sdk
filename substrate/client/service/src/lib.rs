@@ -130,7 +130,14 @@ impl RpcHandlers {
 }
 
 /// An incomplete set of chain components, but enough to run the chain ops subcommands.
-pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, TransactionPool, Other> {
+pub struct PartialComponents<
+	Client,
+	Backend,
+	SelectChain,
+	ImportQueue,
+	TransactionPool: ?Sized,
+	Other,
+> {
 	/// A shared client instance.
 	pub client: Arc<Client>,
 	/// A shared backend instance.
@@ -425,12 +432,12 @@ where
 }
 
 /// Transaction pool adapter.
-pub struct TransactionPoolAdapter<C, P> {
+pub struct TransactionPoolAdapter<C, P: ?Sized> {
 	pool: Arc<P>,
 	client: Arc<C>,
 }
 
-impl<C, P> TransactionPoolAdapter<C, P> {
+impl<C, P: ?Sized> TransactionPoolAdapter<C, P> {
 	/// Constructs a new instance of [`TransactionPoolAdapter`].
 	pub fn new(pool: Arc<P>, client: Arc<C>) -> Self {
 		Self { pool, client }
@@ -442,7 +449,7 @@ impl<C, P> TransactionPoolAdapter<C, P> {
 /// Function extracted to simplify the test and prevent creating `ServiceFactory`.
 fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, B::Extrinsic)>
 where
-	Pool: TransactionPool<Block = B, Hash = H, Error = E>,
+	Pool: TransactionPool<Block = B, Hash = H, Error = E> + ?Sized,
 	B: BlockT,
 	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
 	E: IntoPoolError + From<sc_transaction_pool_api::error::Error>,
@@ -467,7 +474,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Pool: 'static + TransactionPool<Block = B, Hash = H, Error = E>,
+	Pool: 'static + TransactionPool<Block = B, Hash = H, Error = E> + ?Sized,
 	B: BlockT,
 	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
 	E: 'static + IntoPoolError + From<sc_transaction_pool_api::error::Error>,

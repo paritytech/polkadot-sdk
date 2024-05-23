@@ -59,7 +59,7 @@ const DEFAULT_SOFT_DEADLINE_PERCENT: Percent = Percent::from_percent(50);
 const LOG_TARGET: &'static str = "basic-authorship";
 
 /// [`Proposer`] factory.
-pub struct ProposerFactory<A, C, PR> {
+pub struct ProposerFactory<A: ?Sized, C, PR> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	/// The client instance.
 	client: Arc<C>,
@@ -87,7 +87,7 @@ pub struct ProposerFactory<A, C, PR> {
 	_phantom: PhantomData<PR>,
 }
 
-impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
+impl<A: ?Sized, C, PR> Clone for ProposerFactory<A, C, PR> {
 	fn clone(&self) -> Self {
 		Self {
 			spawn_handle: self.spawn_handle.clone(),
@@ -103,7 +103,7 @@ impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
 	}
 }
 
-impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
+impl<A: ?Sized, C> ProposerFactory<A, C, DisableProofRecording> {
 	/// Create a new proposer factory.
 	///
 	/// Proof recording will be disabled when using proposers built by this instance to build
@@ -129,7 +129,7 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 	}
 }
 
-impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
+impl<A: ?Sized, C> ProposerFactory<A, C, EnableProofRecording> {
 	/// Create a new proposer factory with proof recording enabled.
 	///
 	/// Each proposer created by this instance will record a proof while building a block.
@@ -162,7 +162,7 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 	}
 }
 
-impl<A, C, PR> ProposerFactory<A, C, PR> {
+impl<A: ?Sized, C, PR> ProposerFactory<A, C, PR> {
 	/// Set the default block size limit in bytes.
 	///
 	/// The default value for the block size limit is:
@@ -193,7 +193,7 @@ impl<A, C, PR> ProposerFactory<A, C, PR> {
 
 impl<Block, C, A, PR> ProposerFactory<A, C, PR>
 where
-	A: TransactionPool<Block = Block> + 'static,
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -228,7 +228,7 @@ where
 
 impl<A, Block, C, PR> sp_consensus::Environment<Block> for ProposerFactory<A, C, PR>
 where
-	A: TransactionPool<Block = Block> + 'static,
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -244,7 +244,7 @@ where
 }
 
 /// The proposer logic.
-pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
+pub struct Proposer<Block: BlockT, C, A: TransactionPool + ?Sized, PR> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	client: Arc<C>,
 	parent_hash: Block::Hash,
@@ -261,7 +261,7 @@ pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
 
 impl<A, Block, C, PR> sp_consensus::Proposer<Block> for Proposer<Block, C, A, PR>
 where
-	A: TransactionPool<Block = Block> + 'static,
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -312,7 +312,7 @@ const MAX_SKIPPED_TRANSACTIONS: usize = 8;
 
 impl<A, Block, C, PR> Proposer<Block, C, A, PR>
 where
-	A: TransactionPool<Block = Block>,
+	A: TransactionPool<Block = Block> + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,

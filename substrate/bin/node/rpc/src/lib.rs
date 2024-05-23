@@ -86,7 +86,7 @@ pub struct BeefyDeps {
 }
 
 /// Full client dependencies.
-pub struct FullDeps<C, P, SC, B> {
+pub struct FullDeps<C, P: ?Sized, SC, B> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
@@ -141,7 +141,7 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
-	P: TransactionPool + 'static,
+	P: TransactionPool + 'static + ?Sized,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
 	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashingFor<Block>>,
