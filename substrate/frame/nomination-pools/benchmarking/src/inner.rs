@@ -31,10 +31,9 @@ use frame_system::RawOrigin as RuntimeOrigin;
 use pallet_nomination_pools::{
 	adapter::{MemberAccount, PoolAccount, StakeStrategy, StakeStrategyType},
 	BalanceOf, BondExtra, BondedPoolInner, BondedPools, ClaimPermission, ClaimPermissions,
-	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp,
-	GlobalMaxCommission, MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond,
-	MinJoinBond, Pallet as Pools, PoolId, PoolMembers, PoolRoles, PoolState, RewardPools,
-	SubPoolsStorage,
+	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp, GlobalMaxCommission,
+	MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond, MinJoinBond,
+	Pallet as Pools, PoolId, PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
 };
 use pallet_staking::MaxNominationsOf;
 use sp_runtime::{
