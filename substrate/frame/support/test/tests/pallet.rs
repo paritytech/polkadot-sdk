@@ -451,7 +451,20 @@ pub mod pallet {
 	}
 
 	#[pallet::view_functions]
-	impl<T: Config> Pallet<T> where T::AccountId: From<SomeType1> + SomeAssociation1 {}
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: From<SomeType1> + SomeAssociation1,
+	{
+		/// Query value no args.
+		pub fn get_value() -> Option<u32> {
+			Value::<T>::get()
+		}
+
+		/// Query value with args.
+		pub fn get_value_with_arg(key: u16) -> Option<u32> {
+			Map2::<T>::get(key)
+		}
+	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
