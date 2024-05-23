@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716412048456,
+  "lastUpdate": 1716456958521,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -4417,6 +4417,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.861040778459952,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fd161917108a14e791c1444ea1c767e9f6134bdf",
+          "message": "Fix README.md Logo URL (#4546)\n\nThis one also works and it is easier.",
+          "timestamp": "2024-05-23T08:03:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd161917108a14e791c1444ea1c767e9f6134bdf"
+        },
+        "date": 1716456929999,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63550.630000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.063409805489913,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.555947471349903,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3171491323201314,
             "unit": "seconds"
           }
         ]
