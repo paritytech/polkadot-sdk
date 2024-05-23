@@ -159,6 +159,11 @@ jobs:
         binary: [frame-omni-bencher]
 
     steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        with:
+          name: ${{ matrix.binary }}
+
       - name: Upload frame-omni-bencher binary
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 #v1.0.2
         env:
