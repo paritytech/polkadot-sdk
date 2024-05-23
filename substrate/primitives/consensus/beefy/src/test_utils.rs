@@ -23,7 +23,7 @@ use crate::{
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
-use sp_runtime::traits::{BlockNumber, Hash};
+use sp_runtime::traits::{BlockNumber, Hash, Header as HeaderT};
 
 use codec::Encode;
 use std::{collections::HashMap, marker::PhantomData};
@@ -159,10 +159,11 @@ pub fn generate_double_voting_proof(
 }
 
 /// Create a new `ForkVotingProof` based on vote & canonical header.
-pub fn generate_fork_voting_proof<AncestryProof>(
+pub fn generate_fork_voting_proof<Header: HeaderT<Number = u64>, AncestryProof>(
 	vote: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
 	ancestry_proof: AncestryProof,
-) -> ForkVotingProof<u64, ecdsa_crypto::Public, AncestryProof> {
+	header: Header,
+) -> ForkVotingProof<Header, ecdsa_crypto::Public, AncestryProof> {
 	let signed_vote = signed_vote(vote.0, vote.1, vote.2, vote.3);
-	ForkVotingProof { vote: signed_vote, ancestry_proof }
+	ForkVotingProof { vote: signed_vote, ancestry_proof, header }
 }

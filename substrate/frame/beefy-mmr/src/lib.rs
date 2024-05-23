@@ -33,7 +33,7 @@
 //!
 //! and thanks to versioning can be easily updated in the future.
 
-use sp_runtime::traits::{Convert, Member};
+use sp_runtime::traits::{Convert, Header, Member};
 use sp_std::prelude::*;
 
 use codec::Decode;
@@ -41,13 +41,14 @@ use pallet_mmr::{primitives::AncestryProof, LeafDataProvider, ParentNumberAndHas
 use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
-	AncestryHelper, Commitment, ValidatorSet as BeefyValidatorSet,
+	AncestryHelper, Commitment, ConsensusLog, ValidatorSet as BeefyValidatorSet,
 };
 
 use frame_support::{crypto::ecdsa::ECDSAExt, traits::Get};
-use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 
 pub use pallet::*;
+use sp_runtime::generic::OpaqueDigestItemId;
 
 #[cfg(test)]
 mod mock;
@@ -173,10 +174,35 @@ where
 	}
 }
 
-impl<T: Config> AncestryHelper<BlockNumberFor<T>> for Pallet<T> {
+impl<T: Config> AncestryHelper<HeaderFor<T>> for Pallet<T>
+where
+	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
+{
 	type Proof = AncestryProof<MerkleRootOf<T>>;
+	type ValidationContext = MerkleRootOf<T>;
 
-	fn is_non_canonical(commitment: &Commitment<BlockNumberFor<T>>, proof: Self::Proof) -> bool {
+	fn extract_validation_context(header: HeaderFor<T>) -> Option<Self::ValidationContext> {
+		// Check if the provided header is canonical.
+		let expected_hash = frame_system::Pallet::<T>::block_hash(header.number());
+		if expected_hash != header.hash() {
+			return None;
+		}
+
+		// Extract the MMR root from the header digest
+		header.digest().convert_first(|l| {
+			l.try_to(OpaqueDigestItemId::Consensus(&sp_consensus_beefy::BEEFY_ENGINE_ID))
+				.and_then(|log: ConsensusLog<<T as pallet_beefy::Config>::BeefyId>| match log {
+					ConsensusLog::MmrRoot(mmr_root) => Some(mmr_root),
+					_ => None,
+				})
+		})
+	}
+
+	fn is_non_canonical(
+		commitment: &Commitment<BlockNumberFor<T>>,
+		proof: Self::Proof,
+		context: Self::ValidationContext,
+	) -> bool {
 		let commitment_leaf_count =
 			match pallet_mmr::Pallet::<T>::block_num_to_leaf_count(commitment.block_number) {
 				Ok(commitment_leaf_count) => commitment_leaf_count,
@@ -192,7 +218,7 @@ impl<T: Config> AncestryHelper<BlockNumberFor<T>> for Pallet<T> {
 			return false;
 		}
 
-		let canonical_mmr_root = pallet_mmr::Pallet::<T>::mmr_root();
+		let canonical_mmr_root = context;
 		let canonical_prev_root =
 			match pallet_mmr::Pallet::<T>::verify_ancestry_proof(canonical_mmr_root, proof) {
 				Ok(canonical_prev_root) => canonical_prev_root,

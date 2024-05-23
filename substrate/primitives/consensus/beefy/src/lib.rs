@@ -52,7 +52,7 @@ use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 use sp_core::H256;
-use sp_runtime::traits::{Hash, Keccak256, NumberFor};
+use sp_runtime::traits::{Hash, Header as HeaderT, Keccak256, NumberFor};
 
 /// Key type for BEEFY module.
 pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;
@@ -335,11 +335,13 @@ impl<Number, Id, Signature> DoubleVotingProof<Number, Id, Signature> {
 /// Proving is achieved by providing a proof that contains relevant info about the canonical chain
 /// at `commitment.block_number`. The `commitment` can be checked against this info.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
-pub struct ForkVotingProof<Number, Id: RuntimeAppPublic, AncestryProof> {
+pub struct ForkVotingProof<Header: HeaderT, Id: RuntimeAppPublic, AncestryProof> {
 	/// The equivocated vote.
-	pub vote: VoteMessage<Number, Id, Id::Signature>,
+	pub vote: VoteMessage<Header::Number, Id, Id::Signature>,
 	/// Proof containing info about the canonical chain at `commitment.block_number`.
 	pub ancestry_proof: AncestryProof,
+	/// The header of the block where the ancestry proof was generated
+	pub header: Header,
 }
 
 /// Check a commitment signature by encoding the commitment and
@@ -408,13 +410,22 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 }
 
 /// Hook containing helper methods for proving/checking commitment canonicity.
-pub trait AncestryHelper<BlockNumber> {
+pub trait AncestryHelper<Header: HeaderT> {
 	/// Type containing proved info about the canonical chain at a certain height.
 	type Proof: Clone + Debug + Decode + Encode + PartialEq + TypeInfo;
+	/// The data needed for validating the proof.
+	type ValidationContext;
+
+	/// Extract the validation context from the provided header.
+	fn extract_validation_context(header: Header) -> Option<Self::ValidationContext>;
 
 	/// Check if a commitment is pointing to a header on a non-canonical chain
 	/// against a canonicity proof generated at the same header height.
-	fn is_non_canonical(commitment: &Commitment<BlockNumber>, proof: Self::Proof) -> bool;
+	fn is_non_canonical(
+		commitment: &Commitment<Header::Number>,
+		proof: Self::Proof,
+		context: Self::ValidationContext,
+	) -> bool;
 }
 
 /// An opaque type used to represent the key ownership proof at the runtime API

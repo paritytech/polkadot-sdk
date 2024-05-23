@@ -35,9 +35,9 @@ use frame_support::traits::OnInitialize;
 
 use crate::mock::*;
 
-fn init_block(block: u64) {
-	let hash = H256::repeat_byte(block as u8);
-	System::initialize(&block, &hash, &Default::default());
+fn init_block(block: u64, maybe_parent_hash: Option<H256>) {
+	let parent_hash = maybe_parent_hash.unwrap_or(H256::repeat_byte(block as u8));
+	System::initialize(&block, &parent_hash, &Default::default());
 	Session::on_initialize(block);
 	Mmr::on_initialize(block);
 	Beefy::on_initialize(block);
@@ -66,7 +66,7 @@ fn read_mmr_leaf(ext: &mut TestExternalities, key: Vec<u8>) -> MmrLeaf {
 fn should_contain_mmr_digest() {
 	let mut ext = new_test_ext(vec![1, 2, 3, 4]);
 	ext.execute_with(|| {
-		init_block(1);
+		init_block(1, None);
 		assert_eq!(
 			System::digest().logs,
 			vec![
@@ -81,7 +81,7 @@ fn should_contain_mmr_digest() {
 		);
 
 		// unique every time
-		init_block(2);
+		init_block(2, None);
 		assert_eq!(
 			System::digest().logs,
 			vec![
@@ -105,7 +105,7 @@ fn should_contain_valid_leaf_data() {
 
 	let mut ext = new_test_ext(vec![1, 2, 3, 4]);
 	let parent_hash = ext.execute_with(|| {
-		init_block(1);
+		init_block(1, None);
 		frame_system::Pallet::<Test>::parent_hash()
 	});
 
@@ -130,7 +130,7 @@ fn should_contain_valid_leaf_data() {
 
 	// build second block on top
 	let parent_hash = ext.execute_with(|| {
-		init_block(2);
+		init_block(2, None);
 		frame_system::Pallet::<Test>::parent_hash()
 	});
 
@@ -174,7 +174,7 @@ fn should_update_authorities() {
 		assert_eq!(auth_set.keyset_commitment, next_auth_set.keyset_commitment);
 
 		let announced_set = next_auth_set;
-		init_block(1);
+		init_block(1, None);
 		let auth_set = BeefyMmr::authority_set_proof();
 		let next_auth_set = BeefyMmr::next_authority_set_proof();
 
@@ -190,7 +190,7 @@ fn should_update_authorities() {
 		assert_eq!(want, next_auth_set.keyset_commitment);
 
 		let announced_set = next_auth_set;
-		init_block(2);
+		init_block(2, None);
 		let auth_set = BeefyMmr::authority_set_proof();
 		let next_auth_set = BeefyMmr::next_authority_set_proof();
 
@@ -208,13 +208,55 @@ fn should_update_authorities() {
 }
 
 #[test]
+fn extract_validation_context_should_work_correctly() {
+	let mut ext = new_test_ext(vec![1, 2]);
+
+	// Register offchain ext.
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	ext.execute_with(|| {
+		init_block(1, None);
+		let h1 = System::finalize();
+		init_block(2, Some(h1.hash()));
+		let h2 = System::finalize();
+
+		// Check the MMR root log
+		let expected_mmr_root: [u8; 32] = array_bytes::hex_n_into_unchecked(
+			"b2106eff9894288bc212b3a9389caa54efd37962c3a7b71b3b0b06a0911b88a5",
+		);
+		assert_eq!(
+			System::digest().logs,
+			vec![beefy_log(ConsensusLog::MmrRoot(H256::from_slice(&expected_mmr_root)))]
+		);
+
+		// Make sure that all the info about h2 was stored on-chain
+		init_block(3, Some(h2.hash()));
+
+		// `extract_validation_context` should return the MMR root when the provided header
+		// is part of the chain,
+		assert_eq!(
+			BeefyMmr::extract_validation_context(h2.clone()),
+			Some(H256::from_slice(&expected_mmr_root))
+		);
+
+		// `extract_validation_context` should return `None` when the provided header
+		// is not part of the chain.
+		let mut fork_h2 = h2;
+		fork_h2.state_root = H256::repeat_byte(0);
+		assert_eq!(BeefyMmr::extract_validation_context(fork_h2), None);
+	});
+}
+
+#[test]
 fn is_non_canonical_should_work_correctly() {
 	let mut ext = new_test_ext(vec![1, 2]);
 
 	let mut prev_roots = vec![];
 	ext.execute_with(|| {
 		for block_num in 1..=500 {
-			init_block(block_num);
+			init_block(block_num, None);
 			prev_roots.push(Mmr::mmr_root())
 		}
 	});
@@ -239,6 +281,7 @@ fn is_non_canonical_should_work_correctly() {
 					validator_set_id: 0
 				},
 				valid_proof.clone(),
+				Mmr::mmr_root(),
 			),
 			true
 		);
@@ -256,6 +299,7 @@ fn is_non_canonical_should_work_correctly() {
 					validator_set_id: 0,
 				},
 				valid_proof.clone(),
+				Mmr::mmr_root(),
 			),
 			true
 		);
@@ -272,6 +316,7 @@ fn is_non_canonical_should_work_correctly() {
 					validator_set_id: 0
 				},
 				invalid_proof,
+				Mmr::mmr_root(),
 			),
 			false
 		);
@@ -289,6 +334,7 @@ fn is_non_canonical_should_work_correctly() {
 					validator_set_id: 0,
 				},
 				valid_proof,
+				Mmr::mmr_root(),
 			),
 			false
 		);
@@ -310,6 +356,7 @@ fn is_non_canonical_should_work_correctly() {
 						validator_set_id: 0,
 					},
 					proof.clone(),
+					Mmr::mmr_root(),
 				),
 				false
 			);
@@ -325,6 +372,7 @@ fn is_non_canonical_should_work_correctly() {
 						validator_set_id: 0,
 					},
 					proof,
+					Mmr::mmr_root(),
 				),
 				true
 			)

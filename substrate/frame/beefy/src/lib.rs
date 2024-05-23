@@ -28,7 +28,7 @@ use frame_support::{
 };
 use frame_system::{
 	ensure_none, ensure_signed,
-	pallet_prelude::{BlockNumberFor, OriginFor},
+	pallet_prelude::{BlockNumberFor, HeaderFor, OriginFor},
 };
 use log;
 use sp_runtime::{
@@ -99,7 +99,7 @@ pub mod pallet {
 		type OnNewValidatorSet: OnNewValidatorSet<<Self as Config>::BeefyId>;
 
 		/// Hook for checking commitment canonicity.
-		type AncestryHelper: AncestryHelper<BlockNumberFor<Self>>;
+		type AncestryHelper: AncestryHelper<HeaderFor<Self>>;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
@@ -298,9 +298,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
 				ForkVotingProof<
-					BlockNumberFor<T>,
+					HeaderFor<T>,
 					T::BeefyId,
-					<T::AncestryHelper as AncestryHelper<BlockNumberFor<T>>>::Proof,
+					<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
 				>,
 			>,
 			key_owner_proof: T::KeyOwnerProof,
@@ -332,9 +332,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
 				ForkVotingProof<
-					BlockNumberFor<T>,
+					HeaderFor<T>,
 					T::BeefyId,
-					<T::AncestryHelper as AncestryHelper<BlockNumberFor<T>>>::Proof,
+					<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
 				>,
 			>,
 			key_owner_proof: T::KeyOwnerProof,

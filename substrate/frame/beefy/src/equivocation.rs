@@ -36,7 +36,7 @@
 
 use codec::{self as codec, Decode, Encode};
 use frame_support::traits::{Get, KeyOwnerProofSystem};
-use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log::{error, info};
 use sp_consensus_beefy::{
 	check_commitment_signature, AncestryHelper, DoubleVotingProof, ForkVotingProof, ValidatorSetId,
@@ -136,9 +136,9 @@ pub enum EquivocationEvidenceFor<T: Config> {
 	),
 	ForkVotingProof(
 		ForkVotingProof<
-			BlockNumberFor<T>,
+			HeaderFor<T>,
 			T::BeefyId,
-			<T::AncestryHelper as AncestryHelper<BlockNumberFor<T>>>::Proof,
+			<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
 		>,
 		T::KeyOwnerProof,
 	),
@@ -202,13 +202,23 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 				return Ok(())
 			},
 			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) => {
-				let (vote, ancestry_proof) =
-					(equivocation_proof.vote, equivocation_proof.ancestry_proof);
+				let ForkVotingProof { vote, ancestry_proof, header } = equivocation_proof;
+
+				let maybe_validation_context = <T::AncestryHelper as AncestryHelper<
+					HeaderFor<T>,
+				>>::extract_validation_context(header);
+				let validation_context = match maybe_validation_context {
+					Some(validation_context) => validation_context,
+					None => {
+						return Err(Error::<T>::InvalidForkVotingProof);
+					},
+				};
 
 				let is_non_canonical =
-					<T::AncestryHelper as AncestryHelper<BlockNumberFor<T>>>::is_non_canonical(
+					<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::is_non_canonical(
 						&vote.commitment,
 						ancestry_proof,
+						validation_context,
 					);
 				if !is_non_canonical {
 					return Err(Error::<T>::InvalidForkVotingProof);

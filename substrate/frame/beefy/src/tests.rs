@@ -852,6 +852,7 @@ fn report_fork_equivocation_vote_current_set_works() {
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num, payload, set_id, &equivocation_keyring),
 			MockAncestryProof { is_non_canonical: true },
+			System::finalize(),
 		);
 
 		// create the key ownership proof
@@ -964,6 +965,7 @@ fn report_fork_equivocation_vote_old_set_works() {
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num, payload, old_set_id, &equivocation_keyring),
 			MockAncestryProof { is_non_canonical: true },
+			System::finalize(),
 		);
 
 		// report the equivocation and the tx should be dispatched successfully
@@ -1036,6 +1038,7 @@ fn report_fork_equivocation_vote_invalid_set_id() {
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num, payload, set_id + 1, &equivocation_keyring),
 			MockAncestryProof { is_non_canonical: true },
+			System::finalize(),
 		);
 
 		// the call for reporting the equivocation should error
@@ -1088,6 +1091,7 @@ fn report_fork_equivocation_vote_invalid_session() {
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num, payload, set_id, &equivocation_keyring),
 			MockAncestryProof { is_non_canonical: true },
+			System::finalize(),
 		);
 
 		// report an equivocation for the current set using a key ownership
@@ -1141,6 +1145,7 @@ fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num, payload, set_id, &equivocation_keyring),
 			MockAncestryProof { is_non_canonical: true },
+			System::finalize(),
 		);
 
 		// we need to start a new era otherwise the key ownership proof won't be
@@ -1157,6 +1162,85 @@ fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 				invalid_key_owner_proof,
 			),
 			Error::<Test>::InvalidKeyOwnershipProof,
+		);
+	});
+}
+
+#[test]
+fn report_fork_equivocation_vote_invalid_context() {
+	let authorities = test_authorities();
+
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
+
+	let mut era = 1;
+	let block_num = ext.execute_with(|| {
+		assert_eq!(Staking::current_era(), Some(0));
+		assert_eq!(Session::current_index(), 0);
+		start_era(era);
+
+		let block_num = System::block_number();
+		era += 1;
+		start_era(era);
+		block_num
+	});
+	ext.persist_offchain_overlay();
+
+	ext.execute_with(|| {
+		let validator_set = Beefy::validator_set().unwrap();
+		let authorities = validator_set.validators();
+		let set_id = validator_set.id();
+		let validators = Session::validators();
+
+		// make sure that all validators have the same balance
+		for validator in &validators {
+			assert_eq!(Balances::total_balance(validator), 10_000_000);
+			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+
+			assert_eq!(
+				Staking::eras_stakers(era, validator),
+				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+			);
+		}
+
+		assert_eq!(authorities.len(), 2);
+		let equivocation_authority_index = 1;
+		let equivocation_key = &authorities[equivocation_authority_index];
+		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+
+		// generate a fork equivocation proof, with a vote in the same round for a
+		// different payload than finalized
+		let equivocation_proof = generate_fork_voting_proof(
+			(block_num, payload, set_id, &equivocation_keyring),
+			MockAncestryProof { is_non_canonical: true },
+			System::finalize(),
+		);
+
+		// create the key ownership proof
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
+
+		// report an equivocation for the current set. Simulate a failure of
+		// `extract_validation_context`
+		AncestryProofContext::set(&None);
+		assert_err!(
+			Beefy::report_fork_voting_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(equivocation_proof.clone()),
+				key_owner_proof.clone(),
+			),
+			Error::<Test>::InvalidForkVotingProof,
+		);
+
+		// report an equivocation for the current set. Simulate an invalid context.
+		AncestryProofContext::set(&Some(MockAncestryProofContext { is_valid: false }));
+		assert_err!(
+			Beefy::report_fork_voting_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(equivocation_proof),
+				key_owner_proof,
+			),
+			Error::<Test>::InvalidForkVotingProof,
 		);
 	});
 }
@@ -1196,6 +1280,7 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num, payload.clone(), set_id, &BeefyKeyring::Dave),
 			MockAncestryProof { is_non_canonical: true },
+			System::finalize(),
 		);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
@@ -1210,6 +1295,7 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num + 1, payload.clone(), set_id, &equivocation_keyring),
 			MockAncestryProof { is_non_canonical: false },
+			System::finalize(),
 		);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
@@ -1253,6 +1339,7 @@ fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 		let equivocation_proof = generate_fork_voting_proof(
 			(block_num, payload, set_id, &equivocation_keyring),
 			MockAncestryProof { is_non_canonical: true },
+			System::finalize(),
 		);
 
 		// create the key ownership proof.
