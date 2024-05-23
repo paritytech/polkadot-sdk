@@ -25,7 +25,7 @@ use sp_runtime::traits::Hash;
 use crate::{BeefyAuthorityId, Payload, ValidatorSet, ValidatorSetId};
 
 /// A commitment signature, accompanied by the id of the validator that it belongs to.
-#[derive(Debug)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct KnownSignature<TAuthorityId, TSignature> {
 	/// The signing validator.
 	pub validator_id: TAuthorityId,
@@ -104,7 +104,7 @@ where
 	}
 }
 
-/// A commitment with matching GRANDPA validators' signatures.
+/// A commitment with matching BEEFY validators' signatures.
 ///
 /// Note that SCALE-encoding of the structure is optimized for size efficiency over the wire,
 /// please take a look at custom [`Encode`] and [`Decode`] implementations and
@@ -113,7 +113,7 @@ where
 pub struct SignedCommitment<TBlockNumber, TSignature> {
 	/// The commitment signatures are collected for.
 	pub commitment: Commitment<TBlockNumber>,
-	/// GRANDPA validators' signatures for the commitment.
+	/// BEEFY validators' signatures for the commitment.
 	///
 	/// The length of this `Vec` must match number of validators in the current set (see
 	/// [Commitment::validator_set_id]).
@@ -163,7 +163,7 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 		// Arrangement of signatures in the commitment should be in the same order
 		// as validators for that set.
 		let encoded_commitment = self.commitment.encode();
-		let signatories: Vec<_> = validator_set
+		let signatures: Vec<_> = validator_set
 			.validators()
 			.into_iter()
 			.zip(self.signatures.iter())
@@ -176,7 +176,7 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 			})
 			.collect();
 
-		Ok(signatories)
+		Ok(signatures)
 	}
 }
 
@@ -193,7 +193,7 @@ struct CompactSignedCommitment<TBlockNumber, TSignature> {
 	/// A bitfield representing presence of a signature coming from a validator at some index.
 	///
 	/// The bit at index `0` is set to `1` in case we have a signature coming from a validator at
-	/// index `0` in in the original validator set. In case the [`SignedCommitment`] does not
+	/// index `0` in the original validator set. In case the [`SignedCommitment`] does not
 	/// contain that signature the `bit` will be set to `0`. Bits are packed into `Vec<u8>`
 	signatures_from: BitField,
 	/// Number of validators in the Validator Set and hence number of significant bits in the
@@ -328,6 +328,21 @@ impl<N: core::fmt::Debug, S> core::fmt::Display for VersionedFinalityProof<N, S>
 impl<N, S> From<SignedCommitment<N, S>> for VersionedFinalityProof<N, S> {
 	fn from(commitment: SignedCommitment<N, S>) -> Self {
 		VersionedFinalityProof::V1(commitment)
+	}
+}
+
+impl<N, S> VersionedFinalityProof<N, S> {
+	/// Provide reference to inner `Payload`.
+	pub fn payload(&self) -> &Payload {
+		match self {
+			VersionedFinalityProof::V1(inner) => &inner.commitment.payload,
+		}
+	}
+	/// Block number this proof is for.
+	pub fn number(&self) -> &N {
+		match self {
+			VersionedFinalityProof::V1(inner) => &inner.commitment.block_number,
+		}
 	}
 }
 

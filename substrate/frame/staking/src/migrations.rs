@@ -347,9 +347,9 @@ pub mod v10 {
 	#[storage_alias]
 	type EarliestUnappliedSlash<T: Config> = StorageValue<Pallet<T>, EraIndex>;
 
-	/// Apply any pending slashes that where queued.
+	/// Apply any pending slashes that were queued.
 	///
-	/// That means we might slash someone a bit too early, but we will definitely
+	/// That means we might slash someone a bit too early, but we definitely
 	/// won't forget to slash them. The cap of 512 is somewhat randomly taken to
 	/// prevent us from iterating over an arbitrary large number of keys `on_runtime_upgrade`.
 	pub struct MigrateToV10<T>(core::marker::PhantomData<T>);

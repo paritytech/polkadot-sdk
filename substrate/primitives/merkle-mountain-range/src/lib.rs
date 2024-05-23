@@ -438,7 +438,7 @@ impl Error {
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with MMR pallet.
-	#[api_version(2)]
+	#[api_version(3)]
 	pub trait MmrApi<Hash: codec::Codec, BlockNumber: codec::Codec> {
 		/// Return the on-chain MMR root hash.
 		fn mmr_root() -> Result<Hash, Error>;
@@ -469,6 +469,15 @@ sp_api::decl_runtime_apis! {
 		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [LeafProof]
 		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: LeafProof<Hash>)
 			-> Result<(), Error>;
+
+		/// Generate MMR ancestry proof for prior mmr size
+		fn generate_ancestry_proof(
+			prev_best_block: BlockNumber,
+			best_known_block_number: Option<BlockNumber>
+		) -> Result<AncestryProof<Hash>, Error>;
+
+		/// Verifies that a claimed prev_root is in fact an ancestor of the current mmr root
+		fn verify_ancestry_proof(ancestry_proof: AncestryProof<Hash>) -> Result<(), Error>;
 	}
 }
 

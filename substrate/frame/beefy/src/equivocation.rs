@@ -36,10 +36,14 @@
 
 use codec::{self as codec, Decode, Encode};
 use frame_support::traits::{Get, KeyOwnerProofSystem};
-use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log::{error, info};
-use sp_consensus_beefy::{DoubleVotingProof, ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE};
+use sp_consensus_beefy::{
+	BeefyEquivocationProof, CheckForkEquivocationProof, DoubleVotingProof, ForkEquivocationProof,
+	ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE,
+};
 use sp_runtime::{
+	traits::Hash as HashT,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
@@ -76,8 +80,8 @@ where
 	pub session_index: SessionIndex,
 	/// The size of the validator set at the time of the offence.
 	pub validator_set_count: u32,
-	/// The authority which produced this equivocation.
-	pub offender: Offender,
+	/// The authorities which produced this equivocation.
+	pub offenders: Vec<Offender>,
 }
 
 impl<Offender: Clone, N> Offence<Offender> for EquivocationOffence<Offender, N>
@@ -88,7 +92,7 @@ where
 	type TimeSlot = TimeSlot<N>;
 
 	fn offenders(&self) -> Vec<Offender> {
-		vec![self.offender.clone()]
+		self.offenders.clone()
 	}
 
 	fn session_index(&self) -> SessionIndex {
@@ -122,14 +126,91 @@ where
 pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
 
 /// Equivocation evidence convenience alias.
-pub type EquivocationEvidenceFor<T> = (
-	DoubleVotingProof<
-		BlockNumberFor<T>,
-		<T as Config>::BeefyId,
-		<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
-	>,
-	<T as Config>::KeyOwnerProof,
-);
+pub enum EquivocationEvidenceFor<T: Config> {
+	VoteEquivocationProof(
+		DoubleVotingProof<
+			BlockNumberFor<T>,
+			<T as Config>::BeefyId,
+			<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
+		>,
+		<T as Config>::KeyOwnerProof,
+	),
+	ForkEquivocationProof(
+		ForkEquivocationProof<
+			<T as Config>::BeefyId,
+			HeaderFor<T>,
+			<<<T as Config>::CheckForkEquivocationProof as CheckForkEquivocationProof<
+				Error<T>,
+				HeaderFor<T>,
+			>>::Hash as HashT>::Output,
+		>,
+		Vec<<T as Config>::KeyOwnerProof>,
+	),
+}
+
+impl<T: Config> EquivocationEvidenceFor<T> {
+	fn proof(&self) -> Box<&dyn BeefyEquivocationProof<<T as Config>::BeefyId, BlockNumberFor<T>>> {
+		match self {
+			EquivocationEvidenceFor::VoteEquivocationProof(proof, _) => Box::new(proof),
+			EquivocationEvidenceFor::ForkEquivocationProof(proof, _) => Box::new(proof),
+		}
+	}
+
+	fn key_owner_proofs(&self) -> Vec<&<T as Config>::KeyOwnerProof> {
+		match self {
+			EquivocationEvidenceFor::VoteEquivocationProof(_, key_owner_proof) =>
+				vec![key_owner_proof],
+			EquivocationEvidenceFor::ForkEquivocationProof(_, key_owner_proofs) =>
+				key_owner_proofs.iter().collect(),
+		}
+	}
+
+	// Validate the key ownership proofs extracting the ids of the offenders.
+	fn checked_offenders<P>(&self) -> Option<Vec<P::IdentificationTuple>>
+	where
+		P: KeyOwnerProofSystem<(KeyTypeId, T::BeefyId), Proof = T::KeyOwnerProof>,
+	{
+		let offenders_unique: sp_std::collections::btree_set::BTreeSet<_> =
+			self.proof().offender_ids().iter().cloned().collect();
+		if offenders_unique.len() != self.proof().offender_ids().len() {
+			log::warn!(
+					target: LOG_TARGET,
+					"ignoring equivocation evidence since it contains duplicate offenders."
+			);
+			return None
+		}
+
+		self.proof()
+			.offender_ids()
+			.into_iter()
+			.zip(self.key_owner_proofs().iter())
+			.map(|(key, &key_owner_proof)| {
+				P::check_proof((BEEFY_KEY_TYPE, key.clone()), key_owner_proof.clone())
+			})
+			.collect::<Option<Vec<_>>>()
+	}
+
+	fn check_equivocation_proof(&self) -> Result<(), Error<T>> {
+		match self {
+			EquivocationEvidenceFor::VoteEquivocationProof(equivocation_proof, _) => {
+				// Validate equivocation proof (check votes are different and signatures are valid).
+				if !sp_consensus_beefy::check_double_voting_proof(&equivocation_proof) {
+					return Err(Error::<T>::InvalidVoteEquivocationProof.into());
+				}
+
+				return Ok(())
+			},
+			EquivocationEvidenceFor::ForkEquivocationProof(equivocation_proof, _) => {
+				// Validate equivocation proof (check commitment is to unexpected payload and
+				// signatures are valid).
+				<T::CheckForkEquivocationProof as CheckForkEquivocationProof<
+					Error<T>,
+					HeaderFor<T>,
+				>>::check_fork_equivocation_proof(equivocation_proof)
+			},
+		}
+	}
+}
 
 impl<T, R, P, L> OffenceReportSystem<Option<T::AccountId>, EquivocationEvidenceFor<T>>
 	for EquivocationReportSystem<T, R, P, L>
@@ -148,13 +229,8 @@ where
 
 	fn publish_evidence(evidence: EquivocationEvidenceFor<T>) -> Result<(), ()> {
 		use frame_system::offchain::SubmitTransaction;
-		let (equivocation_proof, key_owner_proof) = evidence;
 
-		let call = Call::report_equivocation_unsigned {
-			equivocation_proof: Box::new(equivocation_proof),
-			key_owner_proof,
-		};
-
+		let call: Call<T> = evidence.into();
 		let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
@@ -166,19 +242,11 @@ where
 	fn check_evidence(
 		evidence: EquivocationEvidenceFor<T>,
 	) -> Result<(), TransactionValidityError> {
-		let (equivocation_proof, key_owner_proof) = evidence;
+		let offenders = evidence.checked_offenders::<P>().ok_or(InvalidTransaction::BadProof)?;
 
-		// Check the membership proof to extract the offender's id
-		let key = (BEEFY_KEY_TYPE, equivocation_proof.offender_id().clone());
-		let offender = P::check_proof(key, key_owner_proof).ok_or(InvalidTransaction::BadProof)?;
-
-		// Check if the offence has already been reported, and if so then we can discard the report.
-		let time_slot = TimeSlot {
-			set_id: equivocation_proof.set_id(),
-			round: *equivocation_proof.round_number(),
-		};
-
-		if R::is_known_offence(&[offender], &time_slot) {
+		let time_slot =
+			TimeSlot { set_id: evidence.proof().set_id(), round: *evidence.proof().round_number() };
+		if R::is_known_offence(&offenders, &time_slot) {
 			Err(InvalidTransaction::Stale.into())
 		} else {
 			Ok(())
@@ -189,99 +257,77 @@ where
 		reporter: Option<T::AccountId>,
 		evidence: EquivocationEvidenceFor<T>,
 	) -> Result<(), DispatchError> {
-		let (equivocation_proof, key_owner_proof) = evidence;
-		let reporter = reporter.or_else(|| pallet_authorship::Pallet::<T>::author());
-		let offender = equivocation_proof.offender_id().clone();
+		let reporter = reporter.or_else(|| <pallet_authorship::Pallet<T>>::author());
 
-		// We check the equivocation within the context of its set id (and
-		// associated session) and round. We also need to know the validator
-		// set count at the time of the offence since it is required to calculate
-		// the slash amount.
-		let set_id = equivocation_proof.set_id();
-		let round = *equivocation_proof.round_number();
-		let session_index = key_owner_proof.session();
-		let validator_set_count = key_owner_proof.validator_count();
+		// We check the equivocation within the context of its set id (and associated session).
+		let set_id = evidence.proof().set_id();
+		let set_id_session_index = crate::SetIdSession::<T>::get(set_id)
+			.ok_or(Error::<T>::InvalidEquivocationProofSession)?;
 
-		// Validate the key ownership proof extracting the id of the offender.
-		let offender = P::check_proof((BEEFY_KEY_TYPE, offender), key_owner_proof)
-			.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
-
-		// Validate equivocation proof (check votes are different and signatures are valid).
-		if !sp_consensus_beefy::check_equivocation_proof(&equivocation_proof) {
-			return Err(Error::<T>::InvalidEquivocationProof.into())
-		}
-
-		// Check that the session id for the membership proof is within the
-		// bounds of the set id reported in the equivocation.
-		let set_id_session_index =
-			crate::SetIdSession::<T>::get(set_id).ok_or(Error::<T>::InvalidEquivocationProof)?;
+		// Check that the session id for the membership proof is within the bounds
+		// of the set id reported in the equivocation.
+		let key_owner_proofs = evidence.key_owner_proofs();
+		let session_index = key_owner_proofs[0].session();
 		if session_index != set_id_session_index {
-			return Err(Error::<T>::InvalidEquivocationProof.into())
+			return Err(Error::<T>::InvalidEquivocationProofSession.into())
 		}
+
+		let offenders =
+			evidence.checked_offenders::<P>().ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
+		evidence.check_equivocation_proof()?;
 
 		let offence = EquivocationOffence {
-			time_slot: TimeSlot { set_id, round },
+			time_slot: TimeSlot { set_id, round: *evidence.proof().round_number() },
 			session_index,
-			validator_set_count,
-			offender,
+			validator_set_count: key_owner_proofs[0].validator_count(),
+			offenders,
 		};
-
 		R::report_offence(reporter.into_iter().collect(), offence)
-			.map_err(|_| Error::<T>::DuplicateOffenceReport)?;
-
-		Ok(())
+			.map_err(|_| Error::<T>::DuplicateOffenceReport.into())
 	}
 }
 
 /// Methods for the `ValidateUnsigned` implementation:
-/// It restricts calls to `report_equivocation_unsigned` to local calls (i.e. extrinsics generated
-/// on this node) or that already in a block. This guarantees that only block authors can include
-/// unsigned equivocation reports.
+/// It restricts calls to `report_vote_equivocation_unsigned` to local calls (i.e. extrinsics
+/// generated on this node) or that already in a block. This guarantees that only block authors can
+/// include unsigned equivocation reports.
 impl<T: Config> Pallet<T> {
 	pub fn validate_unsigned(source: TransactionSource, call: &Call<T>) -> TransactionValidity {
-		if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call {
-			// discard equivocation report not coming from the local node
-			match source {
-				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
-				_ => {
-					log::warn!(
-						target: LOG_TARGET,
-						"rejecting unsigned report equivocation transaction because it is not local/in-block."
-					);
-					return InvalidTransaction::Call.into()
-				},
-			}
-
-			let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
-			T::EquivocationReportSystem::check_evidence(evidence)?;
-
-			let longevity =
-				<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
-
-			ValidTransaction::with_tag_prefix("BeefyEquivocation")
-				// We assign the maximum priority for any equivocation report.
-				.priority(TransactionPriority::MAX)
-				// Only one equivocation report for the same offender at the same slot.
-				.and_provides((
-					equivocation_proof.offender_id().clone(),
-					equivocation_proof.set_id(),
-					*equivocation_proof.round_number(),
-				))
-				.longevity(longevity)
-				// We don't propagate this. This can never be included on a remote node.
-				.propagate(false)
-				.build()
-		} else {
-			InvalidTransaction::Call.into()
+		// discard equivocation report not coming from the local node
+		match source {
+			TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+			_ => {
+				log::warn!(
+					target: LOG_TARGET,
+					"rejecting unsigned report equivocation transaction because it is not local/in-block."
+				);
+				return InvalidTransaction::Call.into()
+			},
 		}
+
+		let (evidence, equivocation_proof) =
+			call.to_equivocation_evidence_for().ok_or(InvalidTransaction::Call)?;
+		T::EquivocationReportSystem::check_evidence(evidence)?;
+
+		let longevity =
+			<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
+		ValidTransaction::with_tag_prefix("BeefyEquivocation")
+			// We assign the maximum priority for any equivocation report.
+			.priority(TransactionPriority::MAX)
+			// Only one equivocation report for the same offender at the same slot.
+			.and_provides((
+				equivocation_proof.offender_ids(),
+				equivocation_proof.set_id(),
+				*equivocation_proof.round_number(),
+			))
+			.longevity(longevity)
+			// We don't propagate this. This can never be included on a remote node.
+			.propagate(false)
+			.build()
 	}
 
 	pub fn pre_dispatch(call: &Call<T>) -> Result<(), TransactionValidityError> {
-		if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call {
-			let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
-			T::EquivocationReportSystem::check_evidence(evidence)
-		} else {
-			Err(InvalidTransaction::Call.into())
-		}
+		let (evidence, _) = call.to_equivocation_evidence_for().ok_or(InvalidTransaction::Call)?;
+		T::EquivocationReportSystem::check_evidence(evidence)
 	}
 }

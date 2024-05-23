@@ -30,8 +30,10 @@ use crate::{
 		request_response::{on_demand_justifications_protocol_config, BeefyJustifsRequestHandler},
 	},
 	error::Error,
+	fisherman::Fisherman,
 	gossip_protocol_name,
 	justification::*,
+	keystore::BeefyKeystore,
 	wait_for_runtime_pallet,
 	worker::PersistedState,
 	BeefyRPCLinks, BeefyVoterLinks, BeefyWorkerBuilder, KnownPeers,
@@ -46,7 +48,7 @@ use sc_consensus::{
 };
 use sc_network::{config::RequestResponseConfig, ProtocolName};
 use sc_network_test::{
-	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient,
+	Block, BlockImportAdapter, FullPeerConfig, Header, PassThroughVerifier, Peer, PeersClient,
 	PeersFullClient, TestNetFactory,
 };
 use sc_utils::notification::NotificationReceiver;
@@ -59,13 +61,13 @@ use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
 	test_utils::Keyring as BeefyKeyring,
-	BeefyApi, Commitment, ConsensusLog, DoubleVotingProof, MmrRootHash, OpaqueKeyOwnershipProof,
-	Payload, SignedCommitment, ValidatorSet, ValidatorSetId, VersionedFinalityProof, VoteMessage,
-	BEEFY_ENGINE_ID,
+	BeefyApi, Commitment, ConsensusLog, DoubleVotingProof, ForkEquivocationProof, MmrRootHash,
+	OpaqueKeyOwnershipProof, Payload, SignedCommitment, ValidatorSet, ValidatorSetId,
+	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_core::H256;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
-use sp_mmr_primitives::{Error as MmrError, MmrApi};
+use sp_mmr_primitives::{AncestryProof, Error as MmrError, LeafIndex, MmrApi};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	traits::{Header as HeaderT, NumberFor},
@@ -172,7 +174,7 @@ impl BeefyTestNet {
 		// of hashes, otherwise indexing would be broken
 		assert!(self.peer(0).client().as_backend().blockchain().hash(1).unwrap().is_none());
 
-		// push genesis to make indexing human readable (index equals to block number)
+		// push genesis to make indexing human-readable (index equals to block number)
 		all_hashes.push(self.peer(0).client().info().genesis_hash);
 
 		let mut block_num: NumberFor<Block> = self.peer(0).client().info().best_number;
@@ -258,8 +260,10 @@ pub(crate) struct TestApi {
 	pub beefy_genesis: u64,
 	pub validator_set: Option<BeefyValidatorSet>,
 	pub mmr_root_hash: MmrRootHash,
-	pub reported_equivocations:
+	pub reported_vote_equivocations:
 		Option<Arc<Mutex<Vec<DoubleVotingProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
+	pub reported_fork_equivocations:
+		Option<Arc<Mutex<Vec<ForkEquivocationProof<AuthorityId, Header, MmrRootHash>>>>>,
 }
 
 impl TestApi {
@@ -272,7 +276,8 @@ impl TestApi {
 			beefy_genesis,
 			validator_set: Some(validator_set.clone()),
 			mmr_root_hash,
-			reported_equivocations: None,
+			reported_vote_equivocations: None,
+			reported_fork_equivocations: None,
 		}
 	}
 
@@ -281,12 +286,14 @@ impl TestApi {
 			beefy_genesis: 1,
 			validator_set: Some(validator_set.clone()),
 			mmr_root_hash: GOOD_MMR_ROOT,
-			reported_equivocations: None,
+			reported_vote_equivocations: None,
+			reported_fork_equivocations: None,
 		}
 	}
 
 	pub fn allow_equivocations(&mut self) {
-		self.reported_equivocations = Some(Arc::new(Mutex::new(vec![])));
+		self.reported_vote_equivocations = Some(Arc::new(Mutex::new(vec![])));
+		self.reported_fork_equivocations = Some(Arc::new(Mutex::new(vec![])));
 	}
 }
 
@@ -303,7 +310,7 @@ impl ProvideRuntimeApi<Block> for TestApi {
 	}
 }
 sp_api::mock_impl_runtime_apis! {
-	impl BeefyApi<Block, AuthorityId> for RuntimeApi {
+	impl BeefyApi<Block, AuthorityId, MmrRootHash> for RuntimeApi {
 		fn beefy_genesis() -> Option<NumberFor<Block>> {
 			Some(self.inner.beefy_genesis)
 		}
@@ -312,16 +319,26 @@ sp_api::mock_impl_runtime_apis! {
 			self.inner.validator_set.clone()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
+		fn submit_report_vote_equivocation_unsigned_extrinsic(
 			proof: DoubleVotingProof<NumberFor<Block>, AuthorityId, Signature>,
 			_dummy: OpaqueKeyOwnershipProof,
 		) -> Option<()> {
-			if let Some(equivocations_buf) = self.inner.reported_equivocations.as_ref() {
+			if let Some(equivocations_buf) = self.inner.reported_vote_equivocations.as_ref() {
 				equivocations_buf.lock().push(proof);
-				None
-			} else {
-				panic!("Equivocations not expected, but following proof was reported: {:?}", proof);
 			}
+
+			None
+		}
+
+		fn submit_report_fork_equivocation_unsigned_extrinsic(
+			proof: ForkEquivocationProof<AuthorityId, Header, MmrRootHash>,
+			_dummy: Vec<OpaqueKeyOwnershipProof>,
+		) -> Option<()> {
+			if let Some(equivocations_buf) = self.inner.reported_fork_equivocations.as_ref() {
+				equivocations_buf.lock().push(proof);
+			}
+
+			None
 		}
 
 		fn generate_key_ownership_proof(
@@ -333,6 +350,22 @@ sp_api::mock_impl_runtime_apis! {
 	impl MmrApi<Block, MmrRootHash, NumberFor<Block>> for RuntimeApi {
 		fn mmr_root() -> Result<MmrRootHash, MmrError> {
 			Ok(self.inner.mmr_root_hash)
+		}
+
+		fn mmr_leaf_count() -> Result<LeafIndex, MmrError> {
+			Ok(0)
+		}
+
+		fn generate_ancestry_proof(
+			_prev_best_block: NumberFor<Block>,
+			_best_known_number: Option<NumberFor<Block>>,
+		) -> Result<AncestryProof<MmrRootHash>, MmrError> {
+			Ok(AncestryProof {
+				prev_peaks: vec![],
+				prev_leaf_count: 0,
+				leaf_count: 0,
+				items: vec![],
+			})
 		}
 	}
 }
@@ -367,6 +400,25 @@ pub(crate) fn create_beefy_keystore(authority: &BeefyKeyring<AuthorityId>) -> Ke
 	keystore.into()
 }
 
+pub(crate) fn create_fisherman<BE>(
+	beefy_keyring: &BeefyKeyring<AuthorityId>, /* Assuming BeefyKeyring contains
+	                                            * necessary keys for the Fisherman */
+	api: Arc<TestApi>,
+	backend: Arc<BE>,
+) -> Fisherman<Block, BE, TestApi, MmrRootProvider<Block, TestApi>> {
+	let key_store: Arc<BeefyKeystore<AuthorityId>> =
+		Arc::new(Some(create_beefy_keystore(beefy_keyring)).into());
+	let payload_provider = MmrRootProvider::new(api.clone());
+
+	Fisherman {
+		backend,
+		key_store,
+		runtime: api.clone().into(),
+		payload_provider,
+		_phantom: PhantomData,
+	}
+}
+
 async fn voter_init_setup(
 	net: &mut BeefyTestNet,
 	finality: &mut futures::stream::Fuse<FinalityNotifications<Block>>,
@@ -396,8 +448,9 @@ fn initialize_beefy<API>(
 	min_block_delta: u32,
 ) -> impl Future<Output = ()>
 where
-	API: ProvideRuntimeApi<Block> + Sync + Send,
-	API::Api: BeefyApi<Block, AuthorityId> + MmrApi<Block, MmrRootHash, NumberFor<Block>>,
+	API: ProvideRuntimeApi<Block> + Sync + Send + 'static,
+	API::Api:
+		BeefyApi<Block, AuthorityId, MmrRootHash> + MmrApi<Block, MmrRootHash, NumberFor<Block>>,
 {
 	let tasks = FuturesUnordered::new();
 
@@ -1366,7 +1419,7 @@ async fn beefy_finalizing_after_pallet_genesis() {
 }
 
 #[tokio::test]
-async fn beefy_reports_equivocations() {
+async fn beefy_reports_vote_equivocations() {
 	sp_tracing::try_init_simple();
 
 	let peers = [BeefyKeyring::Alice, BeefyKeyring::Bob, BeefyKeyring::Charlie];
@@ -1416,21 +1469,22 @@ async fn beefy_reports_equivocations() {
 	// run for up to 5 seconds waiting for Alice's report of Bob/Bob_Prime equivocation.
 	for wait_ms in [250, 500, 1250, 3000] {
 		run_for(Duration::from_millis(wait_ms), &net).await;
-		if !api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty() {
+		if !api_alice.reported_vote_equivocations.as_ref().unwrap().lock().is_empty() {
 			break
 		}
 	}
 
 	// Verify expected equivocation
-	let alice_reported_equivocations = api_alice.reported_equivocations.as_ref().unwrap().lock();
-	assert_eq!(alice_reported_equivocations.len(), 1);
-	let equivocation_proof = alice_reported_equivocations.get(0).unwrap();
+	let alice_reported_vote_equivocations =
+		api_alice.reported_vote_equivocations.as_ref().unwrap().lock();
+	assert_eq!(alice_reported_vote_equivocations.len(), 1);
+	let equivocation_proof = alice_reported_vote_equivocations.get(0).unwrap();
 	assert_eq!(equivocation_proof.first.id, BeefyKeyring::Bob.public());
 	assert_eq!(equivocation_proof.first.commitment.block_number, 1);
 
-	// Verify neither Bob or Bob_Prime report themselves as equivocating.
-	assert!(api_bob.reported_equivocations.as_ref().unwrap().lock().is_empty());
-	assert!(api_bob_prime.reported_equivocations.as_ref().unwrap().lock().is_empty());
+	// Verify neither Bob nor Bob_Prime report themselves as equivocating.
+	assert!(api_bob.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
+	assert!(api_bob_prime.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
 
 	// sanity verify no new blocks have been finalized by BEEFY
 	streams_empty_after_timeout(best_blocks, &net, None).await;
@@ -1438,7 +1492,7 @@ async fn beefy_reports_equivocations() {
 }
 
 #[tokio::test]
-async fn gossipped_finality_proofs() {
+async fn gossiped_finality_proofs() {
 	sp_tracing::try_init_simple();
 
 	let validators = [BeefyKeyring::Alice, BeefyKeyring::Bob, BeefyKeyring::Charlie];
@@ -1449,13 +1503,16 @@ async fn gossipped_finality_proofs() {
 	let min_block_delta = 1;
 
 	let mut net = BeefyTestNet::new(3);
+	let backend = net.peer(0).client().as_backend();
 	let api = Arc::new(TestApi::with_validator_set(&validator_set));
 	let beefy_peers = peers.iter().enumerate().map(|(id, key)| (id, key, api.clone())).collect();
 
 	let charlie = &mut net.peers[2];
+	let fisherman = Arc::new(create_fisherman(&BeefyKeyring::Alice, api, backend.clone()));
 	let known_peers = Arc::new(Mutex::new(KnownPeers::<Block>::new()));
 	// Charlie will run just the gossip engine and not the full voter.
-	let gossip_validator = GossipValidator::new(known_peers, Arc::new(TestNetwork::new().0));
+	let gossip_validator =
+		GossipValidator::new(known_peers, Arc::new(TestNetwork::new().0), fisherman);
 	let charlie_gossip_validator = Arc::new(gossip_validator);
 	charlie_gossip_validator.update_filter(GossipFilterCfg::<Block> {
 		start: 1,
@@ -1521,7 +1578,7 @@ async fn gossipped_finality_proofs() {
 
 	// Simulate Charlie vote on #2
 	let header = net.lock().peer(2).client().as_client().expect_header(finalize).unwrap();
-	let mmr_root = find_mmr_root_digest::<Block>(&header).unwrap();
+	let mmr_root = find_mmr_root_digest::<Header>(&header).unwrap();
 	let payload = Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode());
 	let commitment = Commitment { payload, block_number, validator_set_id: validator_set.id() };
 	let signature = sign_commitment(&BeefyKeyring::Charlie, &commitment);

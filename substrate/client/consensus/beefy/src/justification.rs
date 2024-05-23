@@ -20,7 +20,8 @@ use codec::DecodeAll;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefySignatureHasher, KnownSignature, ValidatorSet, ValidatorSetId, VersionedFinalityProof,
+	BeefySignatureHasher, KnownSignature, SignedCommitment, ValidatorSet, ValidatorSetId,
+	VersionedFinalityProof,
 };
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -36,7 +37,7 @@ pub(crate) fn proof_block_num_and_set_id<Block: BlockT>(
 	}
 }
 
-/// Decode and verify a Beefy FinalityProof.
+/// Decode and verify a BEEFY FinalityProof.
 pub(crate) fn decode_and_verify_finality_proof<Block: BlockT>(
 	encoded: &[u8],
 	target_number: NumberFor<Block>,
@@ -48,29 +49,35 @@ pub(crate) fn decode_and_verify_finality_proof<Block: BlockT>(
 	Ok(proof)
 }
 
-/// Verify the Beefy finality proof against the validator set at the block it was generated.
+/// Verify the BEEFY signed commitment against the validator set at the block it was generated.
+pub(crate) fn verify_signed_commitment_with_validator_set<'a, Block: BlockT>(
+	target_number: NumberFor<Block>,
+	validator_set: &'a ValidatorSet<AuthorityId>,
+	signed_commitment: &'a SignedCommitment<NumberFor<Block>, Signature>,
+) -> Result<Vec<KnownSignature<&'a AuthorityId, &'a Signature>>, (ConsensusError, u32)> {
+	let signatures = signed_commitment
+		.verify_signatures::<_, BeefySignatureHasher>(target_number, validator_set)
+		.map_err(|checked_signatures| (ConsensusError::InvalidJustification, checked_signatures))?;
+	if signatures.len() >= crate::round::threshold(validator_set.len()) {
+		Ok(signatures)
+	} else {
+		Err((ConsensusError::InvalidJustification, signed_commitment.signature_count() as u32))
+	}
+}
+
+/// Verify the BEEFY finality proof against the validator set at the block it was generated.
 pub(crate) fn verify_with_validator_set<'a, Block: BlockT>(
 	target_number: NumberFor<Block>,
 	validator_set: &'a ValidatorSet<AuthorityId>,
 	proof: &'a BeefyVersionedFinalityProof<Block>,
 ) -> Result<Vec<KnownSignature<&'a AuthorityId, &'a Signature>>, (ConsensusError, u32)> {
 	match proof {
-		VersionedFinalityProof::V1(signed_commitment) => {
-			let signatories = signed_commitment
-				.verify_signatures::<_, BeefySignatureHasher>(target_number, validator_set)
-				.map_err(|checked_signatures| {
-					(ConsensusError::InvalidJustification, checked_signatures)
-				})?;
-
-			if signatories.len() >= crate::round::threshold(validator_set.len()) {
-				Ok(signatories)
-			} else {
-				Err((
-					ConsensusError::InvalidJustification,
-					signed_commitment.signature_count() as u32,
-				))
-			}
-		},
+		VersionedFinalityProof::V1(signed_commitment) =>
+			verify_signed_commitment_with_validator_set::<Block>(
+				target_number,
+				validator_set,
+				signed_commitment,
+			),
 	}
 }
 

@@ -326,6 +326,7 @@ impl pallet_beefy::Config for Runtime {
 	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	type OnNewValidatorSet = BeefyMmrLeaf;
+	type CheckForkEquivocationProof = BeefyMmrLeaf;
 	type WeightInfo = ();
 	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
@@ -1995,7 +1996,8 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
+	#[api_version(4)]
+	impl beefy_primitives::BeefyApi<Block, BeefyId, Hash> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			pallet_beefy::GenesisBlock::<Runtime>::get()
 		}
@@ -2004,8 +2006,8 @@ sp_api::impl_runtime_apis! {
 			Beefy::validator_set()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: beefy_primitives::DoubleVotingProof<
+		fn submit_report_vote_equivocation_unsigned_extrinsic(
+			vote_equivocation_proof: beefy_primitives::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
@@ -2014,9 +2016,19 @@ sp_api::impl_runtime_apis! {
 		) -> Option<()> {
 			let key_owner_proof = key_owner_proof.decode()?;
 
-			Beefy::submit_unsigned_equivocation_report(
-				equivocation_proof,
+			Beefy::submit_unsigned_vote_equivocation_report(
+				vote_equivocation_proof,
 				key_owner_proof,
+			)
+		}
+
+		fn submit_report_fork_equivocation_unsigned_extrinsic(
+			fork_equivocation_proof: beefy_primitives::ForkEquivocationProof<BeefyId, Header, Hash>,
+			key_owner_proofs: Vec<beefy_primitives::OpaqueKeyOwnershipProof>,
+		) -> Option<()> {
+			Beefy::submit_unsigned_fork_equivocation_report(
+				fork_equivocation_proof,
+				key_owner_proofs,
 			)
 		}
 
@@ -2075,6 +2087,19 @@ sp_api::impl_runtime_apis! {
 		) -> Result<(), mmr::Error> {
 			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
+		}
+
+		fn generate_ancestry_proof(
+			prev_best_block: BlockNumber,
+			best_known_block_number: Option<BlockNumber>
+		) -> Result<mmr::AncestryProof<mmr::Hash>, mmr::Error> {
+			Mmr::generate_ancestry_proof(prev_best_block, best_known_block_number)
+		}
+
+		fn verify_ancestry_proof(
+			ancestry_proof: sp_mmr_primitives::AncestryProof<mmr::Hash>,
+		) -> Result<(), mmr::Error> {
+			Mmr::verify_ancestry_proof(ancestry_proof)
 		}
 	}
 

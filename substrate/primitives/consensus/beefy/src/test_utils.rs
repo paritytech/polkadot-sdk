@@ -18,14 +18,15 @@
 #[cfg(feature = "bls-experimental")]
 use crate::ecdsa_bls_crypto;
 use crate::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof, Payload,
-	ValidatorSetId, VoteMessage,
+	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof,
+	ForkEquivocationProof, KnownSignature, Payload, ValidatorSetId, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
-use sp_runtime::traits::Hash;
+use sp_runtime::traits::{BlockNumber, Hash, Header as HeaderT};
 
 use codec::Encode;
+use sp_mmr_primitives::AncestryProof;
 use std::{collections::HashMap, marker::PhantomData};
 use strum::IntoEnumIterator;
 
@@ -136,20 +137,58 @@ impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa_crypto::Public {
 	}
 }
 
-/// Create a new `EquivocationProof` based on given arguments.
-pub fn generate_equivocation_proof(
+/// Create a new `VoteMessage` from commitment primitives and keyring
+fn signed_vote<Number: BlockNumber>(
+	block_number: Number,
+	payload: Payload,
+	validator_set_id: ValidatorSetId,
+	keyring: &Keyring<ecdsa_crypto::AuthorityId>,
+) -> VoteMessage<Number, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
+	let commitment = Commitment { validator_set_id, block_number, payload };
+	let signature = keyring.sign(&commitment.encode());
+	VoteMessage { commitment, id: keyring.public(), signature }
+}
+
+/// Create a new `VoteEquivocationProof` based on given arguments.
+pub fn generate_double_voting_proof(
 	vote1: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
 	vote2: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
 ) -> DoubleVotingProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
-	let signed_vote = |block_number: u64,
-	                   payload: Payload,
-	                   validator_set_id: ValidatorSetId,
-	                   keyring: &Keyring<ecdsa_crypto::AuthorityId>| {
-		let commitment = Commitment { validator_set_id, block_number, payload };
-		let signature = keyring.sign(&commitment.encode());
-		VoteMessage { commitment, id: keyring.public(), signature }
-	};
 	let first = signed_vote(vote1.0, vote1.1, vote1.2, vote1.3);
 	let second = signed_vote(vote2.0, vote2.1, vote2.2, vote2.3);
 	DoubleVotingProof { first, second }
+}
+
+/// Create a new `ForkEquivocationProof` based on vote & canonical header.
+pub fn generate_fork_equivocation_proof_vote<Header: HeaderT, Hash>(
+	vote: (Header::Number, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
+	canonical_header: Option<Header>,
+	ancestry_proof: Option<AncestryProof<Hash>>,
+) -> ForkEquivocationProof<ecdsa_crypto::Public, Header, Hash> {
+	let signed_vote = signed_vote::<Header::Number>(vote.0, vote.1, vote.2, vote.3);
+	let signatures =
+		vec![KnownSignature { validator_id: signed_vote.id, signature: signed_vote.signature }];
+	ForkEquivocationProof {
+		commitment: signed_vote.commitment,
+		signatures,
+		canonical_header,
+		ancestry_proof,
+	}
+}
+
+/// Create a new `ForkEquivocationProof` based on signed commitment & canonical header.
+pub fn generate_fork_equivocation_proof_sc<Header: HeaderT, Hash>(
+	commitment: Commitment<Header::Number>,
+	keyrings: Vec<Keyring<ecdsa_crypto::AuthorityId>>,
+	canonical_header: Option<Header>,
+	ancestry_proof: Option<AncestryProof<Hash>>,
+) -> ForkEquivocationProof<ecdsa_crypto::Public, Header, Hash> {
+	let signatures = keyrings
+		.into_iter()
+		.map(|k| KnownSignature {
+			validator_id: k.public(),
+			signature: k.sign(&commitment.encode()),
+		})
+		.collect::<Vec<_>>();
+	ForkEquivocationProof { commitment, signatures, canonical_header, ancestry_proof }
 }
