@@ -157,10 +157,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_011_000,
+	spec_version: 1_012_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 25,
+	transaction_version: 26,
 	state_version: 1,
 };
 
@@ -797,6 +797,7 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -1637,13 +1638,15 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-pub struct NominationPoolsMigrationV4OldPallet;
-impl Get<Perbill> for NominationPoolsMigrationV4OldPallet {
-	fn get() -> Perbill {
-		Perbill::from_percent(100)
-	}
+parameter_types! {
+	// This is the max pools that will be migrated in the runtime upgrade. Westend has more pools
+	// than this, but we want to emulate some non migrated pools. In prod runtimes, if weight is not
+	// a concern, it is recommended to set to (existing pools + 10) to also account for any new
+	// pools getting created before the migration is actually executed.
+	pub const MaxPoolsToMigrate: u32 = 250;
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -1679,7 +1682,10 @@ pub mod migrations {
 	pub type Unreleased = (
 		// Migrate NominationPools to `DelegateStake` adapter. This is unversioned upgrade and
 		// should not be applied yet in Kusama/Polkadot.
-		pallet_nomination_pools::migration::unversioned::DelegationStakeMigration<Runtime>,
+		pallet_nomination_pools::migration::unversioned::DelegationStakeMigration<
+			Runtime,
+			MaxPoolsToMigrate,
+		>,
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
 	);
 }
@@ -2282,7 +2288,7 @@ sp_api::impl_runtime_apis! {
 			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::V4),
+				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,

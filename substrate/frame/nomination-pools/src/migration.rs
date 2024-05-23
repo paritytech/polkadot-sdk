@@ -116,19 +116,22 @@ pub mod unversioned {
 	///
 	/// This migration does not break any existing pool storage item, does not need to happen in any
 	/// sequence and hence can be applied unversioned on a production runtime.
-	pub struct DelegationStakeMigration<T>(sp_std::marker::PhantomData<T>);
+	///
+	/// Takes `MaxPools` as type parameter to limit the number of pools that should be migrated in a
+	/// single block. It should be set such that migration weight does not exceed the block weight
+	/// limit. If all pools can be safely migrated, it is good to keep this number a little higher
+	/// than the actual number of pools to handle any extra pools created while the migration is
+	/// proposed, and before it is executed.
+	///
+	/// If there are pools that fail to migrate or did not fit in the bounds, the remaining pools
+	/// can be migrated via the permission-less extrinsic [`Call::migrate_pool_to_delegate_stake`].
+	pub struct DelegationStakeMigration<T, MaxPools>(sp_std::marker::PhantomData<(T, MaxPools)>);
 
-	/// We iterate over a maximum of `MAX_POOLS_BOUND` pools in a single block. At the time of
-	/// migration, there are currently less than `MAX_POOLS_BOUND` pools in the system. But if
-	/// there are more pools in the future, the remaining pools can be migrated via the
-	/// permission-less extrinsic [`Call::migrate_pool_to_delegate_stake`].
-	const MAX_POOLS_BOUND: u32 = 250;
-
-	impl<T: Config> OnRuntimeUpgrade for DelegationStakeMigration<T> {
+	impl<T: Config, MaxPools: Get<u32>> OnRuntimeUpgrade for DelegationStakeMigration<T, MaxPools> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut count: u32 = 0;
 
-			BondedPools::<T>::iter_keys().take(MAX_POOLS_BOUND as usize).for_each(|id| {
+			BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).for_each(|id| {
 				let pool_acc = Pallet::<T>::generate_bonded_account(id);
 
 				// only migrate if the pool is in Transfer Strategy.
@@ -149,10 +152,10 @@ pub mod unversioned {
 
 			log!(info, "migrated {:?} pools to delegate stake strategy", count);
 
-			// reads: (bonded pool key + current pool strategy) * MAX_POOLS_BOUND (worst case)
+			// reads: (bonded pool key + current pool strategy) * MaxPools (worst case)
 			T::DbWeight::get()
 				.reads_writes(2, 0)
-				.saturating_mul(MAX_POOLS_BOUND as u64)
+				.saturating_mul(MaxPools::get() as u64)
 				// migration weight: `pool_migrate` weight * count
 				.saturating_add(T::WeightInfo::pool_migrate().saturating_mul(count.into()))
 		}
@@ -165,16 +168,16 @@ pub mod unversioned {
 				"Current strategy is not `Delegate"
 			);
 
-			if BondedPools::<T>::count() > MAX_POOLS_BOUND {
+			if BondedPools::<T>::count() > MaxPools::get() {
 				// we log a warning if the number of pools exceeds the bound.
 				log!(
 					warn,
-					"Number of pools {} exceeds the maximum bound {}. This would leave some pools unmigrated.", BondedPools::<T>::count(), MAX_POOLS_BOUND
+					"Number of pools {} exceeds the maximum bound {}. This would leave some pools unmigrated.", BondedPools::<T>::count(), MaxPools::get()
 				);
 			}
 
 			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
-			BondedPools::<T>::iter_keys().take(MAX_POOLS_BOUND as usize).for_each(|id| {
+			BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).for_each(|id| {
 				let pool_account = Pallet::<T>::generate_bonded_account(id);
 				let current_strategy =
 					T::StakeAdapter::pool_strategy(PoolAccount(pool_account.clone()));
@@ -197,7 +200,7 @@ pub mod unversioned {
 			let expected_pool_balances: Vec<BalanceOf<T>> = Decode::decode(&mut &data[..]).unwrap();
 
 			for (index, id) in
-				BondedPools::<T>::iter_keys().take(MAX_POOLS_BOUND as usize).enumerate()
+				BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).enumerate()
 			{
 				let pool_account = Pallet::<T>::generate_bonded_account(id);
 				if T::StakeAdapter::pool_strategy(PoolAccount(pool_account.clone())) ==
