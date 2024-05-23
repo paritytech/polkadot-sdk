@@ -117,7 +117,7 @@ where
 {
 }
 
-pub type TransactionPoolImpl<Client, Block> = Arc<dyn FullClientTransactionPool<Client, Block>>;
+pub type TransactionPoolImpl<Client, Block> = dyn FullClientTransactionPool<Client, Block>;
 
 /// Builder allowing to create specific instance of transaction pool.
 pub struct Builder<Client, Block> {
@@ -159,7 +159,7 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
-	) -> TransactionPoolImpl<Client, Block> {
+	) -> Arc<TransactionPoolImpl<Client, Block>> {
 		match self.options.txpool_type {
 			TransactionPoolType::SingleState => SingleStateFullPool::new_full(
 				self.options.options,

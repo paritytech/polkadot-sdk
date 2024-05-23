@@ -165,7 +165,11 @@ pub fn new_partial(
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
+<<<<<<< HEAD
 		sc_transaction_pool::TransactionPoolImpl<Block, FullClient>,
+=======
+		sc_transaction_pool::TransactionPoolImpl<FullClient, Block>,
+>>>>>>> aa5d25adcdf (txpool builder: integrated)
 		(
 			impl Fn(
 				node_rpc::DenyUnsafe,
@@ -378,7 +382,11 @@ pub struct NewFullBase {
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
+<<<<<<< HEAD
 	pub transaction_pool: Arc<TransactionPoolImpl<Block, FullClient>>,
+=======
+	pub transaction_pool: Arc<TransactionPoolImpl<FullClient, Block>>,
+>>>>>>> aa5d25adcdf (txpool builder: integrated)
 	/// The rpc handlers of the node.
 	pub rpc_handlers: RpcHandlers,
 }
