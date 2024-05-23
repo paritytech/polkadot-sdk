@@ -38,7 +38,7 @@ pub struct SalePerformance<Balance> {
 pub struct AdaptedPrices<Balance> {
 	/// New base price to use.
 	pub price: Balance,
-	/// Price to use for renewals of leases.
+	/// Price we optimize for.
 	pub renewal_price: Balance,
 }
 
@@ -78,7 +78,11 @@ pub struct Linear<Balance>(std::marker::PhantomData<Balance>);
 
 impl<Balance: FixedPointOperand> AdaptPrice<Balance> for Linear<Balance> {
 	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
-		FixedU64::from(100).saturating_sub(when.saturating_mul(99.into()))
+		if when <= FixedU64::from_rational(1, 2) {
+			FixedU64::from(100).saturating_sub(when.saturating_mul(180.into()))
+		} else {
+			FixedU64::from(19).saturating_sub(when.saturating_mul(18.into()))
+		}
 	}
 
 	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
