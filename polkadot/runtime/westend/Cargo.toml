@@ -45,6 +45,7 @@ sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", def
 
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["experimental", "tuples-96"] }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
@@ -82,6 +83,7 @@ pallet-society = { path = "../../../substrate/frame/society", default-features =
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
 pallet-staking-reward-curve = { package = "pallet-staking-reward-curve", path = "../../../substrate/frame/staking/reward-curve" }
 pallet-staking-runtime-api = { path = "../../../substrate/frame/staking/runtime-api", default-features = false }
+pallet-delegated-staking = { path = "../../../substrate/frame/delegated-staking", default-features = false }
 pallet-state-trie-migration = { path = "../../../substrate/frame/state-trie-migration", default-features = false }
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
@@ -141,6 +143,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -159,6 +162,7 @@ std = [
 	"pallet-beefy/std",
 	"pallet-collective/std",
 	"pallet-conviction-voting/std",
+	"pallet-delegated-staking/std",
 	"pallet-democracy/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
@@ -242,6 +246,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-democracy/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
@@ -302,6 +307,7 @@ try-runtime = [
 	"pallet-beefy/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-conviction-voting/try-runtime",
+	"pallet-delegated-staking/try-runtime",
 	"pallet-democracy/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
@@ -338,6 +344,9 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
+# Enable the metadata hash generation in the wasm builder.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []
 
@@ -346,4 +355,4 @@ runtime-metrics = ["runtime-parachains/runtime-metrics", "sp-io/with-tracing"]
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]
