@@ -305,6 +305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -377,11 +378,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// the same with validators - if there are too much validators, let's run benchmarks on subrange
 </span><span class="kw">fn </span>precommits_range_end&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() -&gt; u32 {
 	<span class="kw">let </span>max_bridged_authorities = T::BridgedChain::MAX_AUTHORITIES_COUNT;
-	<span class="kw">if </span>max_bridged_authorities &gt; <span class="number">128 </span>{
+	<span class="kw">let </span>max_bridged_authorities = <span class="kw">if </span>max_bridged_authorities &gt; <span class="number">128 </span>{
 		sp_std::cmp::max(<span class="number">128</span>, max_bridged_authorities / <span class="number">5</span>)
 	} <span class="kw">else </span>{
 		max_bridged_authorities
 	};
+
 	required_justification_precommits(max_bridged_authorities)
 }
 
