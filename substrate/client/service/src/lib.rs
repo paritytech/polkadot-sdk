@@ -88,7 +88,7 @@ pub use sc_rpc::{
 	RandomIntegerSubscriptionId, RandomStringSubscriptionId, RpcSubscriptionIdProvider,
 };
 pub use sc_tracing::TracingReceiver;
-pub use sc_transaction_pool::Options as TransactionPoolOptions;
+pub use sc_transaction_pool::TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};

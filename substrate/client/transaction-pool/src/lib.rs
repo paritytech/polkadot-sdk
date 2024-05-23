@@ -32,8 +32,8 @@ use std::{future::Future, pin::Pin, sync::Arc};
 
 pub(crate) const LOG_TARGET: &str = "txpool";
 
-pub use graph::{ChainApi, Options};
-pub use single_state_txpool::notification_future;
+pub use graph::{base_pool::Limit as PoolLimit, ChainApi, Options};
+pub use single_state_txpool::{notification_future, RevalidationType};
 
 //benches:
 pub use graph::Pool;

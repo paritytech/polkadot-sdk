@@ -129,7 +129,7 @@ pub type Backend = TFullBackend<Block>;
 pub type ParachainBlockImport = TParachainBlockImport<Block, Arc<Client>, Backend>;
 
 /// Transaction pool type used by the test service
-pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
+pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolImpl<Block, Client>>;
 
 /// Recovery handle that fails regularly to simulate unavailable povs.
 pub struct FailingRecoveryHandle {
@@ -177,7 +177,7 @@ pub type Service = PartialComponents<
 	Backend,
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
-	sc_transaction_pool::FullPool<Block, Client>,
+	sc_transaction_pool::TransactionPoolImpl<Block, Client>,
 	ParachainBlockImport,
 >;
 
@@ -212,13 +212,14 @@ pub fn new_partial(
 
 	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new()
+		.with_options(config.transaction_pool.clone())
+		.build(
+			config.role.is_authority().into(),
+			config.prometheus_registry(),
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+		);
 
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(

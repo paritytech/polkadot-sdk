@@ -21,4 +21,4 @@
 mod revalidation;
 pub(crate) mod single_state_txpool;
 
-pub use single_state_txpool::{notification_future, BasicPool};
+pub use single_state_txpool::{notification_future, BasicPool, RevalidationType};

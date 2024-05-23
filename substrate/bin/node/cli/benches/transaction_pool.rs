@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::time::Duration;
-
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use futures::{future, StreamExt};
 use kitchensink_runtime::{constants::currency::*, BalancesCall, SudoCall};
@@ -30,8 +28,7 @@ use sc_service::{
 	},
 	BasePath, Configuration, Role,
 };
-use sc_transaction_pool::PoolLimit;
-use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, TransactionStatus};
+use sc_transaction_pool_api::{TransactionSource, TransactionStatus};
 use sp_core::{crypto::Pair, sr25519};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::OpaqueExtrinsic;
@@ -56,12 +53,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		impl_version: "1.0".into(),
 		role: Role::Authority,
 		tokio_handle: tokio_handle.clone(),
-		transaction_pool: TransactionPoolOptions {
-			ready: PoolLimit { count: 100_000, total_bytes: 100 * 1024 * 1024 },
-			future: PoolLimit { count: 100_000, total_bytes: 100 * 1024 * 1024 },
-			reject_future_transactions: false,
-			ban_time: Duration::from_secs(30 * 60),
-		},
+		transaction_pool: TransactionPoolOptions::new_for_benchmarks(),
 		network: network_config,
 		keystore: KeystoreConfig::InMemory,
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
@@ -246,7 +238,7 @@ fn transaction_pool_benchmarks(c: &mut Criterion) {
 
 					runtime.block_on(future::join_all(prepare_extrinsics.into_iter().map(|tx| {
 						submit_tx_and_wait_for_inclusion(
-							&node.transaction_pool,
+							&*node.transaction_pool,
 							tx,
 							&node.client,
 							true,
@@ -258,7 +250,7 @@ fn transaction_pool_benchmarks(c: &mut Criterion) {
 				|extrinsics| {
 					runtime.block_on(future::join_all(extrinsics.into_iter().map(|tx| {
 						submit_tx_and_wait_for_inclusion(
-							&node.transaction_pool,
+							&*node.transaction_pool,
 							tx,
 							&node.client,
 							false,

@@ -69,6 +69,9 @@ type FullGrandpaBlockImport =
 type FullBeefyBlockImport<InnerBlockImport> =
 	beefy::import::BeefyBlockImport<Block, FullBackend, FullClient, InnerBlockImport>;
 
+/// The transaction pool type definition.
+pub type TransactionPool = sc_transaction_pool::TransactionPoolImpl<Block, FullClient>;
+
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
@@ -162,7 +165,7 @@ pub fn new_partial(
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::TransactionPoolImpl<FullClient, Block>,
+		sc_transaction_pool::TransactionPoolImpl<Block, FullClient>,
 		(
 			impl Fn(
 				node_rpc::DenyUnsafe,
@@ -375,7 +378,7 @@ pub struct NewFullBase {
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
-	pub transaction_pool: Arc<TransactionPoolImpl<FullClient, Block>>,
+	pub transaction_pool: Arc<TransactionPoolImpl<Block, FullClient>>,
 	/// The rpc handlers of the node.
 	pub rpc_handlers: RpcHandlers,
 }
@@ -849,7 +852,7 @@ mod tests {
 	use sc_consensus_epochs::descendent_query;
 	use sc_keystore::LocalKeystore;
 	use sc_service_test::TestNetNode;
-	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool};
+	use sc_transaction_pool_api::ChainEvent;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
 	use sp_core::crypto::Pair;
 	use sp_inherents::InherentDataProvider;

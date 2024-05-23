@@ -69,7 +69,7 @@ pub trait TestNetNode: Clone + Future<Output = Result<(), Error>> + Send + 'stat
 	type Backend: Backend<Self::Block>;
 	type Executor: CallExecutor<Self::Block> + Send + Sync;
 	type RuntimeApi: Send + Sync;
-	type TransactionPool: TransactionPool<Block = Self::Block>;
+	type TransactionPool: TransactionPool<Block = Self::Block> + ?Sized;
 
 	fn client(&self) -> Arc<Client<Self::Backend, Self::Executor, Self::Block, Self::RuntimeApi>>;
 	fn transaction_pool(&self) -> Arc<Self::TransactionPool>;
@@ -78,7 +78,7 @@ pub trait TestNetNode: Clone + Future<Output = Result<(), Error>> + Send + 'stat
 	fn spawn_handle(&self) -> SpawnTaskHandle;
 }
 
-pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> {
+pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized> {
 	task_manager: Arc<Mutex<TaskManager>>,
 	client: Arc<Client<TBackend, TExec, TBl, TRtApi>>,
 	transaction_pool: Arc<TExPool>,
@@ -86,7 +86,7 @@ pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> {
 	sync: Arc<SyncingService<TBl>>,
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized>
 	TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	pub fn new(
@@ -106,7 +106,7 @@ impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
 	}
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Clone
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized> Clone
 	for TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	fn clone(&self) -> Self {
@@ -120,7 +120,7 @@ impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Clone
 	}
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Future
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized> Future
 	for TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	type Output = Result<(), Error>;
@@ -137,7 +137,7 @@ where
 	TBackend: sc_client_api::Backend<TBl> + Send + Sync + 'static,
 	TExec: CallExecutor<TBl> + Send + Sync + 'static,
 	TRtApi: Send + Sync + 'static,
-	TExPool: TransactionPool<Block = TBl> + Send + Sync + 'static,
+	TExPool: TransactionPool<Block = TBl> + Send + Sync + 'static + ?Sized,
 {
 	type Block = TBl;
 	type Backend = TBackend;

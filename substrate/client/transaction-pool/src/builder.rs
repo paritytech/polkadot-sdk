@@ -1,5 +1,5 @@
 use sp_runtime::traits::Block as BlockT;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use crate::{
 	graph::IsValidator, single_state_txpool::single_state_txpool::FullPool as SingleStateFullPool,
@@ -58,6 +58,25 @@ impl TransactionPoolOptions {
 
 		TransactionPoolOptions { options, txpool_type }
 	}
+
+	/// Creates predefined options for benchmarking
+	pub fn new_for_benchmarks() -> TransactionPoolOptions {
+		TransactionPoolOptions {
+			options: crate::graph::Options {
+				ready: crate::graph::base_pool::Limit {
+					count: 100_000,
+					total_bytes: 100 * 1024 * 1024,
+				},
+				future: crate::graph::base_pool::Limit {
+					count: 100_000,
+					total_bytes: 100 * 1024 * 1024,
+				},
+				reject_future_transactions: false,
+				ban_time: Duration::from_secs(30 * 60),
+			},
+			txpool_type: TransactionPoolType::SingleState,
+		}
+	}
 }
 
 use crate::{common::api::FullChainApi, graph::ChainApi};
@@ -67,7 +86,7 @@ use crate::{common::api::FullChainApi, graph::ChainApi};
 ///
 /// This trait defines the requirements for a full client transaction pool, ensuring
 /// that it can handle transactions submission and maintenance.
-pub trait FullClientTransactionPool<Client, Block>:
+pub trait FullClientTransactionPool<Block, Client>:
 	MaintainedTransactionPool<
 		Block = Block,
 		Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
@@ -93,7 +112,7 @@ where
 {
 }
 
-impl<Client, Block, P> FullClientTransactionPool<Client, Block> for P
+impl<Block, Client, P> FullClientTransactionPool<Block, Client> for P
 where
 	Block: BlockT,
 	Client: sp_api::ProvideRuntimeApi<Block>
@@ -123,15 +142,15 @@ where
 /// `FullClientTransactionPool` with the given `Client` and `Block` types.
 ///
 /// This trait object abstracts away the specific implementations of the transaction pool.
-pub type TransactionPoolImpl<Client, Block> = dyn FullClientTransactionPool<Client, Block>;
+pub type TransactionPoolImpl<Block, Client> = dyn FullClientTransactionPool<Block, Client>;
 
 /// Builder allowing to create specific instance of transaction pool.
-pub struct Builder<Client, Block> {
+pub struct Builder<Block, Client> {
 	options: TransactionPoolOptions,
 	_phantom: PhantomData<(Client, Block)>,
 }
 
-impl<Client, Block> Builder<Client, Block>
+impl<Client, Block> Builder<Block, Client>
 where
 	Block: BlockT,
 	Client: sp_api::ProvideRuntimeApi<Block>
@@ -148,7 +167,7 @@ where
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
 	/// Creates new instance of `Builder`
-	pub fn new() -> Builder<Client, Block> {
+	pub fn new() -> Builder<Block, Client> {
 		Builder { options: Default::default(), _phantom: Default::default() }
 	}
 
@@ -165,7 +184,7 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
-	) -> Arc<TransactionPoolImpl<Client, Block>> {
+	) -> Arc<TransactionPoolImpl<Block, Client>> {
 		match self.options.txpool_type {
 			TransactionPoolType::SingleState => SingleStateFullPool::new_full(
 				self.options.options,
