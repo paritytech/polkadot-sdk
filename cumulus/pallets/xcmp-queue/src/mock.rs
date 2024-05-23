@@ -325,8 +325,8 @@ pub(crate) fn mk_page() -> Vec<u8> {
 
 	for i in 0..100 {
 		page.extend(match i % 2 {
-			0 => v2_xcm().encode(),
-			1 => v3_xcm().encode(),
+			0 => v3_xcm().encode(),
+			1 => v4_xcm().encode(),
 			// We cannot push an undecodable XCM here since it would break the decode stream.
 			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
 			// instead.
@@ -337,12 +337,12 @@ pub(crate) fn mk_page() -> Vec<u8> {
 	page
 }
 
-pub(crate) fn v2_xcm() -> VersionedXcm<()> {
-	let instr = xcm::v2::Instruction::<()>::ClearOrigin;
-	VersionedXcm::V2(xcm::v2::Xcm::<()>(vec![instr; 3]))
-}
-
 pub(crate) fn v3_xcm() -> VersionedXcm<()> {
 	let instr = xcm::v3::Instruction::<()>::Trap(1);
 	VersionedXcm::V3(xcm::v3::Xcm::<()>(vec![instr; 3]))
+}
+
+pub(crate) fn v4_xcm() -> VersionedXcm<()> {
+	let instr = xcm::v4::Instruction::<()>::Trap(1);
+	VersionedXcm::V4(xcm::v4::Xcm::<()>(vec![instr; 3]))
 }

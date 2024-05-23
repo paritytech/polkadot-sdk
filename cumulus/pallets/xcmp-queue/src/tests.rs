@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use super::{
-	mock::{mk_page, v2_xcm, v3_xcm, EnqueuedMessages, HRMP_PARA_ID},
+	mock::{mk_page, v3_xcm, v4_xcm, EnqueuedMessages, HRMP_PARA_ID},
 	*,
 };
 use XcmpMessageFormat::*;
@@ -536,8 +536,8 @@ fn hrmp_signals_are_prioritized() {
 #[test]
 fn maybe_double_encoded_versioned_xcm_works() {
 	// pre conditions
-	assert_eq!(VersionedXcm::<()>::V2(Default::default()).encode(), &[2, 0]);
 	assert_eq!(VersionedXcm::<()>::V3(Default::default()).encode(), &[3, 0]);
+	assert_eq!(VersionedXcm::<()>::V4(Default::default()).encode(), &[4, 0]);
 }
 
 // Now also testing a page instead of just concat messages.
@@ -550,10 +550,10 @@ fn maybe_double_encoded_versioned_xcm_decode_page_works() {
 	for i in 0..100 {
 		match (i % 2, VersionedXcm::<()>::decode(input)) {
 			(0, Ok(xcm)) => {
-				assert_eq!(xcm, v2_xcm());
+				assert_eq!(xcm, v3_xcm());
 			},
 			(1, Ok(xcm)) => {
-				assert_eq!(xcm, v3_xcm());
+				assert_eq!(xcm, v4_xcm());
 			},
 			unexpected => unreachable!("{:?}", unexpected),
 		}
@@ -572,10 +572,10 @@ fn take_first_concatenated_xcm_works() {
 		let xcm = XcmpQueue::take_first_concatenated_xcm(input, &mut WeightMeter::new()).unwrap();
 		match (i % 2, xcm) {
 			(0, data) | (2, data) => {
-				assert_eq!(data, v2_xcm().encode());
+				assert_eq!(data, v3_xcm().encode());
 			},
 			(1, data) | (3, data) => {
-				assert_eq!(data, v3_xcm().encode());
+				assert_eq!(data, v4_xcm().encode());
 			},
 			unexpected => unreachable!("{:?}", unexpected),
 		}
