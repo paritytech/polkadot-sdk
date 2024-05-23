@@ -606,7 +606,7 @@ pub mod pallet {
 			// Max call depth is CallStack::size() + 1
 			let max_call_depth = u32::try_from(T::CallStack::size().saturating_add(1))
 				.expect("CallStack size is too big");
-
+			let max_transient_storage_size = T::Schedule::get().limits.transient_storage;
 			// Check that given configured `MaxCodeLen`, runtime heap memory limit can't be broken.
 			//
 			// In worst case, the decoded Wasm contract code would be `x16` times larger than the
@@ -630,7 +630,7 @@ pub mod pallet {
 			//
 			// This gives us the following formula:
 			//
-			// `(MaxCodeLen * 17 * 4 + MAX_STACK_SIZE + max_heap_size) * max_call_depth <
+			// `(MaxCodeLen * 17 * 4 + MAX_STACK_SIZE + max_heap_size + max_transient_storage_size) * max_call_depth <
 			// max_runtime_mem/2`
 			//
 			// Hence the upper limit for the `MaxCodeLen` can be defined as follows:
@@ -639,6 +639,7 @@ pub mod pallet {
 				.saturating_div(max_call_depth)
 				.saturating_sub(max_heap_size)
 				.saturating_sub(MAX_STACK_SIZE)
+				.saturating_sub(max_transient_storage_size)
 				.saturating_div(17 * 4);
 
 			assert!(
@@ -1234,6 +1235,8 @@ pub mod pallet {
 		DelegateDependencyAlreadyExists,
 		/// Can not add a delegate dependency to the code hash of the contract itself.
 		CannotAddSelfAsDelegateDependency,
+		/// Can not add more data to transient storage.
+		OutOfStorage,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.

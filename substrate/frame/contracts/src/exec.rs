@@ -819,7 +819,7 @@ where
 			frames: Default::default(),
 			debug_message,
 			determinism,
-			transient_storage: TransientStorage::new(738 * 1024),
+			transient_storage: TransientStorage::new(T::Schedule::get().limits.transient_storage),
 			_phantom: Default::default(),
 		};
 

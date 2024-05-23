@@ -20,7 +20,7 @@
 use crate::{
 	exec::{AccountIdOf, Key},
 	storage::WriteOutcome,
-	Config,
+	Config, Error,
 };
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
@@ -47,12 +47,12 @@ pub struct TransientStorage<T: Config> {
 }
 
 impl<T: Config> TransientStorage<T> {
-	pub fn new(max_capacity: usize) -> Self {
+	pub fn new(max_capacity: u32) -> Self {
 		TransientStorage {
 			current: BTreeMap::new(),
 			journal: vec![],
 			checkpoints: vec![0],
-			max_capacity,
+			max_capacity: max_capacity as _,
 			current_size: 0,
 		}
 	}
@@ -71,24 +71,25 @@ impl<T: Config> TransientStorage<T> {
 		let old_value = self.read(&account, &key);
 		let key = key.hash();
 
-		// Calculate new size and check if it exceeds capacity
-		let old_size = old_value.as_ref().map(|e| e.len()).unwrap_or_default();
-		let new_size = value.as_ref().map(|e| e.len()).unwrap_or_default();
-		if self.current_size + new_size - old_size > self.max_capacity {
-			// TODO: some error
+		// Calculate new size and check if it exceeds capacity.
+		let old_value_size = old_value.as_ref().map(|e| e.len()).unwrap_or_default();
+		let new_value_size = value.as_ref().map(|e| e.len()).unwrap_or_default();
+		let size = self.current_size.saturating_sub(old_value_size).saturating_add(new_value_size);
+		if size > self.max_capacity {
+			return Err(Error::<T>::OutOfStorage.into());
 		}
 
-		// Update current size
-		self.current_size = self.current_size + new_size - old_size;
+		// Update current size.
+		self.current_size = size;
 
-		// Update the journal
+		// Update the journal.
 		self.journal.push(JournalEntry {
 			account: account.clone(),
 			key: key.clone(),
 			prev_value: old_value.clone(),
 		});
 
-		// Update the current state
+		// Update the current state.
 		if let Some(value) = value {
 			self.current
 				.entry(account.clone())
@@ -102,7 +103,7 @@ impl<T: Config> TransientStorage<T> {
 
 		Ok(match (take, old_value) {
 			(_, None) => WriteOutcome::New,
-			(false, Some(_)) => WriteOutcome::Overwritten(old_size as _),
+			(false, Some(_)) => WriteOutcome::Overwritten(old_value_size as _),
 			(true, Some(old_value)) => WriteOutcome::Taken(old_value),
 		})
 	}
