@@ -15,12 +15,11 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use bounded_collections::{ConstU32, WeakBoundedVec};
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
-use xcm::{latest::prelude::*, v2};
+use xcm::{latest::prelude::*, v3};
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::FeeReason;
 
@@ -313,13 +312,12 @@ benchmarks! {
 	}
 
 	notify_target_migration_fail {
-		let bad_loc: v2::MultiLocation = v2::Junction::Plurality {
-			id: v2::BodyId::Named(WeakBoundedVec::<u8, ConstU32<32>>::try_from(vec![0; 32])
-				.expect("vec has a length of 32 bits; qed")),
-			part: v2::BodyPart::Voice,
+		let bad_loc: v3::Location = v3::Junction::Plurality {
+			id: v3::BodyId::Unit,
+			part: v3::BodyPart::Voice,
 		}
 		.into();
-		let bad_loc = VersionedLocation::from(bad_loc);
+		let bad_loc = VersionedLocation::V3(bad_loc);
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(current_version, bad_loc, (0, Weight::zero(), current_version));
 	}: {
