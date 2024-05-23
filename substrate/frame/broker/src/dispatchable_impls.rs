@@ -70,7 +70,10 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_start_sales(base_price: BalanceOf<T>, extra_cores: CoreIndex) -> DispatchResult {
+	pub(crate) fn do_start_sales(
+		base_price: BalanceOf<T>,
+		extra_cores: CoreIndex,
+	) -> DispatchResult {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 
 		// Determine the core count
