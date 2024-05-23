@@ -20,7 +20,7 @@
 use frame_benchmarking::v1::{account, whitelist_account};
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
-	assert_noop, assert_ok, ensure,
+	assert_ok, ensure,
 	traits::{
 		fungible::{Inspect, Mutate, Unbalanced},
 		tokens::Preservation,
@@ -31,7 +31,7 @@ use frame_system::RawOrigin as RuntimeOrigin;
 use pallet_nomination_pools::{
 	adapter::{MemberAccount, PoolAccount, StakeStrategy, StakeStrategyType},
 	BalanceOf, BondExtra, BondedPoolInner, BondedPools, ClaimPermission, ClaimPermissions,
-	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp, Error,
+	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp,
 	GlobalMaxCommission, MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond,
 	MinJoinBond, Pallet as Pools, PoolId, PoolMembers, PoolRoles, PoolState, RewardPools,
 	SubPoolsStorage,

@@ -429,8 +429,11 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 sp_api::mock_impl_runtime_apis! {
 	impl XcmPaymentApi<Block> for RuntimeApi {
 		fn query_acceptable_payment_assets(xcm_version: XcmVersion) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			if xcm_version != 4 { return Err(XcmPaymentApiError::UnhandledXcmVersion) };
-			Ok(vec![VersionedAssetId::V4(HereLocation::get().into())])
+			Ok(vec![
+				VersionedAssetId::from(AssetId(HereLocation::get()))
+					.into_version(xcm_version)
+					.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?
+			])
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -438,14 +441,25 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let local_asset = VersionedAssetId::V4(HereLocation::get().into());
-			let asset = asset
-				.into_version(4)
-				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
-
-			if asset != local_asset { return Err(XcmPaymentApiError::AssetNotFound); }
-
-			Ok(WeightToFee::weight_to_fee(&weight))
+			match asset.try_as::<AssetId>() {
+				Ok(asset_id) if asset_id.0 == HereLocation::get() => {
+					Ok(WeightToFee::weight_to_fee(&weight))
+				},
+				Ok(asset_id) => {
+					log::trace!(
+						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
+						"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"
+					);
+					Err(XcmPaymentApiError::AssetNotFound)
+				},
+				Err(_) => {
+					log::trace!(
+						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
+						"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"
+					);
+					Err(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
 		}
 
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
@@ -471,12 +485,12 @@ sp_api::mock_impl_runtime_apis! {
 			let forwarded_xcms = sent_xcm()
 				.into_iter()
 				.map(|(location, message)| (
-					VersionedLocation::V4(location),
-					vec![VersionedXcm::V4(message)],
+					VersionedLocation::from(location),
+					vec![VersionedXcm::from(message)],
 				)).collect();
 			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::V4),
+				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,
@@ -511,8 +525,8 @@ sp_api::mock_impl_runtime_apis! {
 			let forwarded_xcms = sent_xcm()
 				.into_iter()
 				.map(|(location, message)| (
-					VersionedLocation::V4(location),
-					vec![VersionedXcm::V4(message)],
+					VersionedLocation::from(location),
+					vec![VersionedXcm::from(message)],
 				)).collect();
 			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
 			Ok(XcmDryRunEffects {
