@@ -17,12 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 serde = { optional = true, workspace = true, default-features = true }
 serde_json = { optional = true, workspace = true, default-features = true }
-codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+codec = { version = "3.6.12", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-ssz_rs = { version = "0.9.0", default-features = false }
-ssz_rs_derive = { version = "0.9.0", default-features = false }
-byte-slice-cast = { version = "1.2.1", default-features = false }
-rlp = { version = "0.5.2", default-features = false }
 hex-literal = { version = "0.4.1", optional = true }
 log = { workspace = true }
 
@@ -39,7 +35,6 @@ snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = f
 snowbridge-pallet-ethereum-client-fixtures = { path = "fixtures", default-features = false, optional = true }
 primitives = { package = "snowbridge-beacon-primitives", path = "../../primitives/beacon", default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
-bp-runtime = { path = "../../../primitives/runtime", default-features = false }
 pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-features = false, optional = true }
 
 [dev-dependencies]
@@ -62,15 +57,12 @@ fuzzing = [
 	"sp-io",
 ]
 std = [
-	"bp-runtime/std",
-	"byte-slice-cast/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"pallet-timestamp/std",
 	"primitives/std",
-	"rlp/std",
 	"scale-info/std",
 	"serde",
 	"snowbridge-core/std",
@@ -80,7 +72,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"ssz_rs/std",
 	'frame-benchmarking/std',
 ]
 runtime-benchmarks = [

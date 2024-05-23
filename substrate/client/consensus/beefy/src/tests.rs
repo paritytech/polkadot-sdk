@@ -23,8 +23,9 @@ use crate::{
 	beefy_block_import_and_links,
 	communication::{
 		gossip::{
-			proofs_topic, tests::sign_commitment, votes_topic, GossipFilterCfg, GossipMessage,
-			GossipValidator,
+			proofs_topic,
+			tests::{sign_commitment, TestNetwork},
+			votes_topic, GossipFilterCfg, GossipMessage, GossipValidator,
 		},
 		request_response::{on_demand_justifications_protocol_config, BeefyJustifsRequestHandler},
 	},
@@ -58,7 +59,7 @@ use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
 	test_utils::Keyring as BeefyKeyring,
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, MmrRootHash, OpaqueKeyOwnershipProof,
+	BeefyApi, Commitment, ConsensusLog, DoubleVotingProof, MmrRootHash, OpaqueKeyOwnershipProof,
 	Payload, SignedCommitment, ValidatorSet, ValidatorSetId, VersionedFinalityProof, VoteMessage,
 	BEEFY_ENGINE_ID,
 };
@@ -124,7 +125,11 @@ impl BeefyTestNet {
 		let mut net = BeefyTestNet { peers: Vec::with_capacity(n_authority), beefy_genesis };
 
 		for i in 0..n_authority {
-			let (rx, cfg) = on_demand_justifications_protocol_config(GENESIS_HASH, None);
+			let (rx, cfg) = on_demand_justifications_protocol_config::<
+				_,
+				Block,
+				sc_network::NetworkWorker<_, _>,
+			>(GENESIS_HASH, None);
 			let justif_protocol_name = cfg.name.clone();
 
 			net.add_authority_peer(vec![cfg]);
@@ -254,7 +259,7 @@ pub(crate) struct TestApi {
 	pub validator_set: Option<BeefyValidatorSet>,
 	pub mmr_root_hash: MmrRootHash,
 	pub reported_equivocations:
-		Option<Arc<Mutex<Vec<EquivocationProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
+		Option<Arc<Mutex<Vec<DoubleVotingProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
 }
 
 impl TestApi {
@@ -308,7 +313,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			proof: EquivocationProof<NumberFor<Block>, AuthorityId, Signature>,
+			proof: DoubleVotingProof<NumberFor<Block>, AuthorityId, Signature>,
 			_dummy: OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			if let Some(equivocations_buf) = self.inner.reported_equivocations.as_ref() {
@@ -1450,7 +1455,7 @@ async fn gossipped_finality_proofs() {
 	let charlie = &mut net.peers[2];
 	let known_peers = Arc::new(Mutex::new(KnownPeers::<Block>::new()));
 	// Charlie will run just the gossip engine and not the full voter.
-	let (gossip_validator, _) = GossipValidator::new(known_peers);
+	let gossip_validator = GossipValidator::new(known_peers, Arc::new(TestNetwork::new().0));
 	let charlie_gossip_validator = Arc::new(gossip_validator);
 	charlie_gossip_validator.update_filter(GossipFilterCfg::<Block> {
 		start: 1,

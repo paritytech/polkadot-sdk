@@ -67,6 +67,8 @@ pub const PARAS_PALLET_NAME: &str = "Paras";
 
 /// Name of the With-Westend GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_WESTEND_GRANDPA_PALLET_NAME: &str = "BridgeWestendGrandpa";
+/// Name of the With-Westend parachains pallet instance that is deployed at bridged chains.
+pub const WITH_WESTEND_BRIDGE_PARACHAINS_PALLET_NAME: &str = "BridgeWestendParachains";
 
 /// Maximal size of encoded `bp_parachains::ParaStoredHeaderData` structure among all Westend
 /// parachains.

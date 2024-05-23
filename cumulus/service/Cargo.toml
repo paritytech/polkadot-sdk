@@ -56,7 +56,7 @@ sp-wasm-interface = { path = "../../substrate/primitives/wasm-interface" }
 
 pallet-transaction-payment-rpc = { path = "../../substrate/frame/transaction-payment/rpc" }
 
-frame = { path = "../../substrate/frame", features = [
+frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = [
 	"experimental",
 	"runtime",
 ] }

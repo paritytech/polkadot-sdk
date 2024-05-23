@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{Block, Error, Hash, IsParachainNode, Registry};
+use super::{Error, IsParachainNode, Registry};
 use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 use sp_core::traits::SpawnNamed;
@@ -80,7 +80,7 @@ where
 	/// Runtime client generic, providing the `ProvideRuntimeApi` trait besides others.
 	pub runtime_client: Arc<RuntimeClient>,
 	/// Underlying network service implementation.
-	pub network_service: Arc<sc_network::NetworkService<Block, Hash>>,
+	pub network_service: Arc<dyn sc_network::service::traits::NetworkService>,
 	/// Underlying syncing service implementation.
 	pub sync_service: Arc<dyn consensus_common::SyncOracle + Send + Sync>,
 	/// Underlying authority discovery service.
@@ -183,11 +183,11 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		RuntimeApiSubsystem<RuntimeClient>,
 		AvailabilityStoreSubsystem,
 		NetworkBridgeRxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		NetworkBridgeTxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
@@ -369,11 +369,11 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		RuntimeApiSubsystem<RuntimeClient>,
 		DummySubsystem,
 		NetworkBridgeRxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		NetworkBridgeTxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
@@ -385,7 +385,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
-		ProspectiveParachainsSubsystem,
+		DummySubsystem,
 	>,
 	Error,
 >
@@ -462,7 +462,7 @@ where
 		.dispute_coordinator(DummySubsystem)
 		.dispute_distribution(DummySubsystem)
 		.chain_selection(DummySubsystem)
-		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
+		.prospective_parachains(DummySubsystem)
 		.activation_external_listeners(Default::default())
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())

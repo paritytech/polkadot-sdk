@@ -32,7 +32,7 @@ cumulus-primitives-core = { path = "../../cumulus/primitives/core" }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../substrate/frame/transaction-payment/rpc/runtime-api" }
 pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
 substrate-frame-rpc-system = { path = "../../substrate/utils/frame/rpc/system" }
-frame = { path = "../../substrate/frame", features = [
+frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = [
 	"experimental",
 	"runtime",
 ] }

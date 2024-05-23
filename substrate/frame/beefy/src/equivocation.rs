@@ -38,7 +38,7 @@ use codec::{self as codec, Decode, Encode};
 use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::BlockNumberFor;
 use log::{error, info};
-use sp_consensus_beefy::{EquivocationProof, ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE};
+use sp_consensus_beefy::{DoubleVotingProof, ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE};
 use sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -123,7 +123,7 @@ pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, 
 
 /// Equivocation evidence convenience alias.
 pub type EquivocationEvidenceFor<T> = (
-	EquivocationProof<
+	DoubleVotingProof<
 		BlockNumberFor<T>,
 		<T as Config>::BeefyId,
 		<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,

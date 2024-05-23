@@ -15,12 +15,10 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { version = "3.1.5", package = "parity-scale-codec", features = ["derive"], default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
+codec = { version = "3.6.12", package = "parity-scale-codec", features = ["derive"], default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 snowbridge-outbound-queue-merkle-tree = { path = "../merkle-tree", default-features = false }
 snowbridge-core = { path = "../../../primitives/core", default-features = false }
 
@@ -32,7 +30,5 @@ std = [
 	"snowbridge-core/std",
 	"snowbridge-outbound-queue-merkle-tree/std",
 	"sp-api/std",
-	"sp-core/std",
 	"sp-std/std",
-	"xcm/std",
 ]

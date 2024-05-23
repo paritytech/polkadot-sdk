@@ -27,7 +27,7 @@ use std::{
 	time::Duration,
 };
 
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -44,7 +44,7 @@ impl<B: BlockT> NeighborPacketSender<B> {
 	/// Send a neighbor packet for the background worker to gossip to peers.
 	pub fn send(
 		&self,
-		who: Vec<sc_network::PeerId>,
+		who: Vec<sc_network_types::PeerId>,
 		neighbor_packet: NeighborPacket<NumberFor<B>>,
 	) {
 		if let Err(err) = self.0.unbounded_send((who, neighbor_packet)) {

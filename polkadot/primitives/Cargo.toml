@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "0.4.1"
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive", "serde"] }
 log = { workspace = true, default-features = false }
 serde = { features = ["alloc", "derive"], workspace = true }
@@ -26,7 +26,7 @@ sp-arithmetic = { path = "../../substrate/primitives/arithmetic", default-featur
 sp-authority-discovery = { path = "../../substrate/primitives/authority-discovery", default-features = false, features = ["serde"] }
 sp-consensus-slots = { path = "../../substrate/primitives/consensus/slots", default-features = false, features = ["serde"] }
 sp-io = { path = "../../substrate/primitives/io", default-features = false }
-sp-keystore = { path = "../../substrate/primitives/keystore", optional = true }
+sp-keystore = { path = "../../substrate/primitives/keystore", optional = true, default-features = false }
 sp-staking = { path = "../../substrate/primitives/staking", default-features = false, features = ["serde"] }
 sp-std = { package = "sp-std", path = "../../substrate/primitives/std", default-features = false }
 
@@ -53,6 +53,7 @@ std = [
 	"sp-consensus-slots/std",
 	"sp-io/std",
 	"sp-keystore",
+	"sp-keystore?/std",
 	"sp-staking/std",
 	"sp-std/std",
 ]
