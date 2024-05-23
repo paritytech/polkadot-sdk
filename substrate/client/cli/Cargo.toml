@@ -43,6 +43,7 @@ sc-network = { path = "../network" }
 sc-service = { path = "../service", default-features = false }
 sc-telemetry = { path = "../telemetry" }
 sc-tracing = { path = "../tracing" }
+sc-transaction-pool = { path = "../transaction-pool" }
 sc-utils = { path = "../utils" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
