@@ -87,7 +87,7 @@ jobs:
       - name: install python deps
         run: |
           sudo apt-get update && sudo apt-get install -y python3-pip python3
-          pip3 install toml
+          pip3 install toml "cargo-workspace>=1.2.5"
       - name: check integrity
         run: >
           python3 .github/scripts/check-workspace.py .
