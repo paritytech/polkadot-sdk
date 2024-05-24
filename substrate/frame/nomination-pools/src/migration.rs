@@ -179,15 +179,12 @@ pub mod unversioned {
 			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
 			BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).for_each(|id| {
 				let pool_account = Pallet::<T>::generate_bonded_account(id);
-				let current_strategy =
-					T::StakeAdapter::pool_strategy(PoolAccount(pool_account.clone()));
 
 				// we ensure migration is idempotent.
-				let pool_balance = if current_strategy == adapter::StakeStrategyType::Transfer {
-					T::Currency::total_balance(&pool_account)
-				} else {
-					T::StakeAdapter::total_balance(PoolAccount(pool_account))
-				};
+				let pool_balance =
+					T::StakeAdapter::total_balance(PoolAccount(pool_account.clone()))
+						// we check actual account balance if pool has not migrated yet.
+						.unwrap_or(T::Currency::total_balance(&pool_account));
 
 				pool_balances.push(pool_balance);
 			});
@@ -211,7 +208,8 @@ pub mod unversioned {
 				}
 
 				let actual_balance =
-					T::StakeAdapter::total_balance(PoolAccount(pool_account.clone()));
+					T::StakeAdapter::total_balance(PoolAccount(pool_account.clone()))
+						.expect("after migration, this should return a value");
 				let expected_balance = expected_pool_balances.get(index).unwrap();
 
 				if actual_balance != *expected_balance {
