@@ -117,7 +117,7 @@ impl Default for Limits {
 			subject_len: 32,
 			payload_len: 16 * 1024,
 			runtime_memory: 1024 * 1024 * 128,
-			transient_storage: 448 * 1024,
+			transient_storage: 736 * 1024,
 		}
 	}
 }
