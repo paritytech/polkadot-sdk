@@ -146,6 +146,8 @@ fn legacy_adapter_used<T: pallet_nomination_pools::Config>() -> bool {
 	T::StakeAdapter::strategy_type() != StakeStrategyType::Delegate
 }
 
+/// `assertion` should strictly be true if the adapter is using `Delegate` strategy and strictly
+/// false if the adapter is not using `Delegate` strategy.
 fn assert_if_delegate<T: pallet_nomination_pools::Config>(assertion: bool) {
 	// one and only one of the two should be true.
 	assert!(assertion ^ legacy_adapter_used::<T>());
