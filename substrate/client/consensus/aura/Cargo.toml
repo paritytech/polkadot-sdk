@@ -24,7 +24,7 @@ thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
 sc-block-builder = { version = "0.39.0", path = "../../block-builder" }
 sc-client-api = { version = "34.0.0", path = "../../api" }
-sc-consensus = { version = "0.39.0", path = "../common" }
+sc-consensus = { version = "0.39.1", path = "../common" }
 sc-consensus-slots = { version = "0.39.0", path = "../slots" }
 sc-telemetry = { version = "20.0.0", path = "../../telemetry" }
 sp-api = { version = "32.0.0", path = "../../../primitives/api" }

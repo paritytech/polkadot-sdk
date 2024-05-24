@@ -29,7 +29,7 @@ sc-service = { version = "0.41.0", path = "../../../substrate/client/service" }
 sc-telemetry = { version = "20.0.0", path = "../../../substrate/client/telemetry" }
 sc-transaction-pool = { version = "34.0.0", path = "../../../substrate/client/transaction-pool" }
 sc-transaction-pool-api = { version = "34.0.0", path = "../../../substrate/client/transaction-pool/api" }
-sc-consensus = { version = "0.39.0", path = "../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../substrate/client/consensus/common" }
 sc-consensus-manual-seal = { version = "0.41.0", path = "../../../substrate/client/consensus/manual-seal" }
 sc-rpc-api = { version = "0.39.0", path = "../../../substrate/client/rpc-api" }
 sc-basic-authorship = { version = "0.40.0", path = "../../../substrate/client/basic-authorship" }

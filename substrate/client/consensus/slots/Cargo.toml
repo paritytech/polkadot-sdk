@@ -23,7 +23,7 @@ futures = "0.3.30"
 futures-timer = "3.0.1"
 log = { workspace = true, default-features = true }
 sc-client-api = { version = "34.0.0", path = "../../api" }
-sc-consensus = { version = "0.39.0", path = "../common" }
+sc-consensus = { version = "0.39.1", path = "../common" }
 sc-telemetry = { version = "20.0.0", path = "../../telemetry" }
 sp-arithmetic = { version = "26.0.0", path = "../../../primitives/arithmetic" }
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }

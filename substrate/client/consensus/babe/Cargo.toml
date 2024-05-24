@@ -29,7 +29,7 @@ thiserror = { workspace = true }
 fork-tree = { version = "13.0.0", path = "../../../utils/fork-tree" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
 sc-client-api = { version = "34.0.0", path = "../../api" }
-sc-consensus = { version = "0.39.0", path = "../common" }
+sc-consensus = { version = "0.39.1", path = "../common" }
 sc-consensus-epochs = { version = "0.39.0", path = "../epochs" }
 sc-consensus-slots = { version = "0.39.0", path = "../slots" }
 sc-telemetry = { version = "20.0.0", path = "../../telemetry" }

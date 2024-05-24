@@ -16,7 +16,7 @@ futures = "0.3.28"
 tracing = "0.1.37"
 schnellru = "0.2.1"
 sc-client-api = { version = "34.0.0", path = "../../../../substrate/client/api" }
-sc-consensus = { version = "0.39.0", path = "../../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../../substrate/client/consensus/common" }
 sc-consensus-aura = { version = "0.40.0", path = "../../../../substrate/client/consensus/aura" }
 sc-consensus-babe = { version = "0.40.0", path = "../../../../substrate/client/consensus/babe" }
 sc-consensus-slots = { version = "0.39.0", path = "../../../../substrate/client/consensus/slots" }

@@ -21,7 +21,7 @@ sc-block-builder = { version = "0.39.0", path = "../../../substrate/client/block
 sc-chain-spec = { version = "33.0.0", path = "../../../substrate/client/chain-spec" }
 sc-client-api = { version = "34.0.0", path = "../../../substrate/client/api" }
 sc-client-db = { version = "0.41.0", path = "../../../substrate/client/db" }
-sc-consensus = { version = "0.39.0", path = "../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../substrate/client/consensus/common" }
 sc-consensus-slots = { version = "0.39.0", path = "../../../substrate/client/consensus/slots" }
 sc-executor = { version = "0.38.0", path = "../../../substrate/client/executor" }
 sc-network = { version = "0.40.0", path = "../../../substrate/client/network" }

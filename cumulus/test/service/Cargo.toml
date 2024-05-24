@@ -32,7 +32,7 @@ pallet-transaction-payment = { version = "34.0.0", path = "../../../substrate/fr
 sc-basic-authorship = { version = "0.40.0", path = "../../../substrate/client/basic-authorship" }
 sc-chain-spec = { version = "33.0.0", path = "../../../substrate/client/chain-spec" }
 sc-client-api = { version = "34.0.0", path = "../../../substrate/client/api" }
-sc-consensus = { version = "0.39.0", path = "../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../substrate/client/consensus/common" }
 sc-consensus-aura = { version = "0.40.0", path = "../../../substrate/client/consensus/aura" }
 sc-executor = { version = "0.38.0", path = "../../../substrate/client/executor" }
 sc-network = { version = "0.40.0", path = "../../../substrate/client/network" }

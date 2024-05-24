@@ -33,7 +33,7 @@ sc-transaction-pool-api = { version = "34.0.0", path = "../../../substrate/clien
 sc-offchain = { version = "35.0.0", path = "../../../substrate/client/offchain" }
 sc-consensus-aura = { version = "0.40.0", path = "../../../substrate/client/consensus/aura" }
 sp-consensus-aura = { version = "0.38.0", path = "../../../substrate/primitives/consensus/aura" }
-sc-consensus = { version = "0.39.0", path = "../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../substrate/client/consensus/common" }
 sc-consensus-grandpa = { version = "0.25.0", path = "../../../substrate/client/consensus/grandpa" }
 sp-consensus-grandpa = { version = "19.0.0", path = "../../../substrate/primitives/consensus/grandpa" }
 sc-client-api = { version = "34.0.0", path = "../../../substrate/client/api" }

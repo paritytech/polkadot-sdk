@@ -24,7 +24,7 @@ thiserror = { workspace = true }
 wasm-timer = "0.2.5"
 prometheus = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
 sc-client-api = { version = "34.0.0", path = "../../api" }
-sc-consensus = { version = "0.39.0", path = "../common" }
+sc-consensus = { version = "0.39.1", path = "../common" }
 sc-network = { version = "0.40.0", path = "../../network" }
 sc-network-gossip = { version = "0.40.0", path = "../../network-gossip" }
 sc-network-sync = { version = "0.39.0", path = "../../network/sync" }

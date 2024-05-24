@@ -25,7 +25,7 @@ parking_lot = "0.12.1"
 thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
 sc-client-api = { version = "34.0.0", path = "../../api" }
-sc-consensus = { version = "0.39.0", path = "../common" }
+sc-consensus = { version = "0.39.1", path = "../common" }
 sp-api = { version = "32.0.0", path = "../../../primitives/api" }
 sp-block-builder = { version = "32.0.0", path = "../../../primitives/block-builder" }
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }

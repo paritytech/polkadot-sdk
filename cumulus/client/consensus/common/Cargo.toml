@@ -17,7 +17,7 @@ futures = "0.3.28"
 log = { workspace = true, default-features = true }
 tracing = "0.1.37"
 sc-client-api = { version = "34.0.0", path = "../../../../substrate/client/api" }
-sc-consensus = { version = "0.39.0", path = "../../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../../substrate/client/consensus/common" }
 sc-consensus-babe = { version = "0.40.0", path = "../../../../substrate/client/consensus/babe" }
 sp-blockchain = { version = "34.0.0", path = "../../../../substrate/primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../../substrate/primitives/consensus/common" }

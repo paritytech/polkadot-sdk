@@ -27,7 +27,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
 sc-client-api = { version = "34.0.0", path = "../../api" }
-sc-consensus = { version = "0.39.0", path = "../common" }
+sc-consensus = { version = "0.39.1", path = "../common" }
 sc-consensus-aura = { version = "0.40.0", path = "../aura" }
 sc-consensus-babe = { version = "0.40.0", path = "../babe" }
 sc-consensus-epochs = { version = "0.39.0", path = "../epochs" }

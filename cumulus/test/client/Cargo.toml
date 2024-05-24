@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 sc-service = { version = "0.41.0", path = "../../../substrate/client/service" }
-sc-consensus = { version = "0.39.0", path = "../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../substrate/client/consensus/common" }
 sc-consensus-aura = { version = "0.40.0", path = "../../../substrate/client/consensus/aura" }
 sc-block-builder = { version = "0.39.0", path = "../../../substrate/client/block-builder" }
 sc-executor = { version = "0.38.0", path = "../../../substrate/client/executor" }

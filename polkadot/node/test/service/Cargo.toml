@@ -44,7 +44,7 @@ pallet-transaction-payment = { version = "34.0.0", path = "../../../../substrate
 sc-chain-spec = { version = "33.0.0", path = "../../../../substrate/client/chain-spec" }
 sc-cli = { version = "0.42.0", path = "../../../../substrate/client/cli" }
 sc-client-api = { version = "34.0.0", path = "../../../../substrate/client/api" }
-sc-consensus = { version = "0.39.0", path = "../../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../../substrate/client/consensus/common" }
 sc-network = { version = "0.40.0", path = "../../../../substrate/client/network" }
 sc-tracing = { version = "34.0.0", path = "../../../../substrate/client/tracing" }
 sc-transaction-pool = { version = "34.0.0", path = "../../../../substrate/client/transaction-pool" }

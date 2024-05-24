@@ -36,7 +36,7 @@ sc-block-builder = { version = "0.39.0", path = "../../block-builder" }
 sc-chain-spec = { version = "33.0.0", path = "../../chain-spec" }
 sc-client-api = { version = "34.0.0", path = "../../api" }
 sc-transaction-pool-api = { version = "34.0.0", path = "../../transaction-pool/api" }
-sc-consensus = { version = "0.39.0", path = "../common" }
+sc-consensus = { version = "0.39.1", path = "../common" }
 sc-network = { version = "0.40.0", path = "../../network" }
 sc-network-gossip = { version = "0.40.0", path = "../../network-gossip" }
 sc-network-common = { version = "0.39.0", path = "../../network/common" }

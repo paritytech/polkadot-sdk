@@ -34,7 +34,7 @@ sc-chain-spec = { version = "33.0.0", path = "../../../substrate/client/chain-sp
 sc-cli = { version = "0.42.0", path = "../../../substrate/client/cli" }
 sc-client-api = { version = "34.0.0", path = "../../../substrate/client/api" }
 sc-offchain = { version = "35.0.0", path = "../../../substrate/client/offchain" }
-sc-consensus = { version = "0.39.0", path = "../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../substrate/client/consensus/common" }
 sc-executor = { version = "0.38.0", path = "../../../substrate/client/executor" }
 sc-network = { version = "0.40.0", path = "../../../substrate/client/network" }
 sc-network-sync = { version = "0.39.0", path = "../../../substrate/client/network/sync" }

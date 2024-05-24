@@ -33,7 +33,7 @@ pallet-skip-feeless-payment = { version = "9.0.0", path = "../../../frame/transa
 sc-block-builder = { version = "0.39.0", path = "../../../client/block-builder" }
 sc-client-api = { version = "34.0.0", path = "../../../client/api" }
 sc-client-db = { path = "../../../client/db", features = ["rocksdb"], version = "0.41.0" }
-sc-consensus = { version = "0.39.0", path = "../../../client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../client/consensus/common" }
 sc-executor = { version = "0.38.0", path = "../../../client/executor" }
 sc-service = { path = "../../../client/service", features = ["rocksdb", "test-helpers"], version = "0.41.0" }
 sp-api = { version = "32.0.0", path = "../../../primitives/api" }

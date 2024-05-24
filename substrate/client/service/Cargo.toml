@@ -51,7 +51,7 @@ sp-keystore = { version = "0.39.0", path = "../../primitives/keystore" }
 sp-session = { version = "33.0.0", path = "../../primitives/session" }
 sp-state-machine = { version = "0.41.0", path = "../../primitives/state-machine" }
 sp-consensus = { version = "0.38.0", path = "../../primitives/consensus/common" }
-sc-consensus = { version = "0.39.0", path = "../consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../consensus/common" }
 sp-storage = { version = "21.0.0", path = "../../primitives/storage" }
 sc-network = { version = "0.40.0", path = "../network" }
 sc-network-common = { version = "0.39.0", path = "../network/common" }

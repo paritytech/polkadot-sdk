@@ -14,7 +14,7 @@ async-trait = "0.1.79"
 futures = "0.3.28"
 parking_lot = "0.12.1"
 tracing = "0.1.37"
-sc-consensus = { version = "0.39.0", path = "../../../../substrate/client/consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../../../substrate/client/consensus/common" }
 sp-api = { version = "32.0.0", path = "../../../../substrate/primitives/api" }
 sp-block-builder = { version = "32.0.0", path = "../../../../substrate/primitives/block-builder" }
 sp-blockchain = { version = "34.0.0", path = "../../../../substrate/primitives/blockchain" }

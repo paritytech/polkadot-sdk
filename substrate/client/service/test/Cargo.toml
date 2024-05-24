@@ -28,7 +28,7 @@ tokio = { version = "1.22.0", features = ["time"] }
 sc-block-builder = { version = "0.39.0", path = "../../block-builder" }
 sc-client-api = { version = "34.0.0", path = "../../api" }
 sc-client-db = { path = "../../db", default-features = false, version = "0.41.0" }
-sc-consensus = { version = "0.39.0", path = "../../consensus/common" }
+sc-consensus = { version = "0.39.1", path = "../../consensus/common" }
 sc-executor = { version = "0.38.0", path = "../../executor" }
 sc-network = { version = "0.40.0", path = "../../network" }
 sc-network-sync = { version = "0.39.0", path = "../../network/sync" }
