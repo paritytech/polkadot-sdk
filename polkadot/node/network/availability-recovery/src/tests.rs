@@ -906,6 +906,7 @@ fn recovers_from_only_chunks_if_pov_large() {
 	let test_state = TestState::default();
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
+		Some(FETCH_CHUNKS_THRESHOLD),
 		request_receiver(&req_protocol_names),
 		Metrics::new_dummy(),
 	);
@@ -1015,6 +1016,7 @@ fn fast_path_backing_group_recovers_if_pov_small() {
 	let test_state = TestState::default();
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
+		Some(FETCH_CHUNKS_THRESHOLD),
 		request_receiver(&req_protocol_names),
 		Metrics::new_dummy(),
 	);
