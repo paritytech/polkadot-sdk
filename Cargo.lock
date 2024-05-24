@@ -2606,15 +2606,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ckb-merkle-mountain-range"
-version = "0.6.0"
-source = "git+https://github.com/paritytech/merkle-mountain-range.git?branch=master#537f0e3f67c5adf7afff0800bbb81f02f17570a1"
-dependencies = [
- "cfg-if",
- "itertools 0.10.5",
-]
-
-[[package]]
 name = "clang-sys"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9797,7 +9788,7 @@ dependencies = [
  "bp-beefy",
  "bp-runtime",
  "bp-test-utils",
- "ckb-merkle-mountain-range 0.5.2",
+ "ckb-merkle-mountain-range",
  "frame-support",
  "frame-system",
  "log",
@@ -12759,6 +12750,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-ckb-merkle-mountain-range"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4b44320e5f7ce2c18227537a3032ae5b2c476a7e8eddba45333e1011fc31b92"
+dependencies = [
+ "cfg-if",
+ "itertools 0.10.5",
+]
+
+[[package]]
 name = "polkadot-cli"
 version = "7.0.0"
 dependencies = [
@@ -13985,6 +13986,7 @@ dependencies = [
  "staging-xcm",
  "subkey",
  "substrate-wasm-builder",
+ "xcm-docs",
 ]
 
 [[package]]
@@ -19674,9 +19676,9 @@ name = "sp-mmr-primitives"
 version = "26.0.0"
 dependencies = [
  "array-bytes",
- "ckb-merkle-mountain-range 0.6.0",
  "log",
  "parity-scale-codec",
+ "polkadot-ckb-merkle-mountain-range",
  "scale-info",
  "serde",
  "sp-api",
