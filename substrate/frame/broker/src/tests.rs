@@ -1483,31 +1483,47 @@ fn enable_auto_renewal_with_end_hint_works() {
 		};
 		// Each lease-holding task should be allowed to renew. Although the `when` field will
 		// likely be set to a later timeslice.
-		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 1, when: 10 }, &record);
+		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 0, when: 10 }, &record);
 
 		endow(1001, 1000);
 
 		// Will fail if we don't provide the end hint since it expects it to be at next sale start
 		// or end.
-		assert_noop!(Broker::do_enable_auto_renew(1001, 1, None), Error::<Test>::NotAllowed);
+		assert_noop!(Broker::do_enable_auto_renew(1001, 0, None), Error::<Test>::NotAllowed);
 
-		assert_ok!(Broker::do_enable_auto_renew(1001, 1, Some(10)));
+		assert_ok!(Broker::do_enable_auto_renew(1001, 0, Some(10)));
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
-			vec![AutoRenewalRecord { core: 1, task: 1001, begin: 10 },]
+			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 10 },]
 		);
-		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 1, task: 1001 }.into());
+		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 0, task: 1001 }.into());
 
 		// Next cycle starting at 7.
 		advance_to(7);
 
-		// Ensure that the renewal didn't happen by checking that the balance remained the same, as
-		// the task has a lease until ts 13.
+		// Ensure that the renewal didn't happen by checking that the balance remained the same
+		// since it still has a lease.
 		assert_eq!(balance(1001), 1000);
 
 		// The next sale starts at 13. The renewal should happen now and the task should be charged.
 		advance_to(13);
 		assert_eq!(balance(1001), 900);
+
+		System::assert_has_event(
+			Event::<Test>::Renewed {
+				who: 1001, // sovereign account
+				old_core: 0,
+				core: 0,
+				price: 100,
+				begin: 10,
+				duration: 3,
+				workload: Schedule::truncate_from(vec![ScheduleItem {
+					assignment: Task(1001),
+					mask: CoreMask::complete(),
+				}]),
+			}
+			.into(),
+		);
 	});
 }
 
