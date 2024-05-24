@@ -77,8 +77,10 @@ const LRU_SIZE: u32 = 16;
 
 const COST_INVALID_REQUEST: Rep = Rep::CostMajor("Peer sent unparsable request");
 
-/// PoV size limit in bytes for which prefer fetching from backers.
-pub(crate) const FETCH_CHUNKS_THRESHOLD: usize = 4 * 1024 * 1024;
+/// PoV size limit in bytes for which prefer fetching from backers. (conservative, Polkadot for now)
+pub(crate) const CONSERVATIVE_FETCH_CHUNKS_THRESHOLD: usize = 1 * 1024 * 1024;
+/// PoV size limit in bytes for which prefer fetching from backers. (Kusama and all testnets)
+pub const FETCH_CHUNKS_THRESHOLD: usize = 4 * 1024 * 1024;
 
 #[derive(Clone, PartialEq)]
 /// The strategy we use to recover the PoV.
@@ -547,12 +549,13 @@ impl AvailabilityRecoverySubsystem {
 	/// which never requests the `AvailabilityStoreSubsystem` subsystem and only checks the POV hash
 	/// instead of reencoding the available data.
 	pub fn for_collator(
+		fetch_chunks_threshold: Option<usize>,
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 		metrics: Metrics,
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(
-				FETCH_CHUNKS_THRESHOLD,
+				fetch_chunks_threshold.unwrap_or(CONSERVATIVE_FETCH_CHUNKS_THRESHOLD),
 			),
 			bypass_availability_store: true,
 			post_recovery_check: PostRecoveryCheck::PovHash,
@@ -593,12 +596,13 @@ impl AvailabilityRecoverySubsystem {
 	/// Create a new instance of `AvailabilityRecoverySubsystem` which requests chunks if PoV is
 	/// above a threshold.
 	pub fn with_chunks_if_pov_large(
+		fetch_chunks_threshold: Option<usize>,
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 		metrics: Metrics,
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(
-				FETCH_CHUNKS_THRESHOLD,
+				fetch_chunks_threshold.unwrap_or(CONSERVATIVE_FETCH_CHUNKS_THRESHOLD),
 			),
 			bypass_availability_store: false,
 			post_recovery_check: PostRecoveryCheck::Reencode,
