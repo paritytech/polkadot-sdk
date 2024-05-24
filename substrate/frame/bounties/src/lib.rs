@@ -837,18 +837,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		ensure!(
 			<BountyCount<T, I>>::get() >= bounties_length,
-			"Number of Bounties in storage must be the same as the Bounty count."
+			"`BountyCount` must be grater or equals the number of `Bounties` in storage"
 		);
 
 		let bounties_description_length = Self::get_bounties_description_count();
 		ensure!(
 			<BountyCount<T, I>>::get() >= bounties_description_length,
-			"Number of Bounties description in storage must be the same as the Bounty count."
+			"`BountyCount` must be grater or equals the number of `BountiesDescriptions` in storage."
 		);
 
 		ensure!(
 				bounties_length == bounties_description_length,
-				"Number of Bounties in storage must be the same as the Number of Bounties description in storage."
+				"Number of `Bounties` in storage must be the same as the Number of `BountiesDescription` in storage."
 		);
 		Ok(())
 	}
