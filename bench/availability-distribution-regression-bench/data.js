@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716551418344,
+  "lastUpdate": 1716557514622,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -11179,6 +11179,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15953374737333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "49bd6a6e94b8b6f4ef3497e930cfb493b8ec0fd0",
+          "message": "Remove litep2p git dependency (#4560)\n\n@serban300 could you please do the same for the MMR crate? Am not sure\nwhat commit was released since there are no release tags in the repo.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-05-24T11:55:58Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/49bd6a6e94b8b6f4ef3497e930cfb493b8ec0fd0"
+        },
+        "date": 1716557486928,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.89333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012146325219999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15935638152,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022265146533333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010172919926666676,
             "unit": "seconds"
           }
         ]
