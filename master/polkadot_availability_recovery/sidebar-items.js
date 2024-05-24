@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ErasureTask","PostRecoveryCheck","RecoveryStrategyKind"],"struct":["AvailabilityRecoverySubsystem","Metrics"]};
+window.SIDEBAR_ITEMS = {"constant":["FETCH_CHUNKS_THRESHOLD"],"enum":["ErasureTask","PostRecoveryCheck","RecoveryStrategyKind"],"struct":["AvailabilityRecoverySubsystem","Metrics"]};

@@ -690,6 +690,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -825,6 +832,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>dispute_coordinator_config: DisputeCoordinatorConfig,
 	<span class="doccomment">/// Configuration for the chain selection subsystem.
 	</span><span class="kw">pub </span>chain_selection_config: ChainSelectionConfig,
+	<span class="doccomment">/// Optional availability recovery fetch chunks threshold. If PoV size size is lower
+	/// than the value put in here we always try to recovery availability from backers.
+	/// The presence of this parameter here is needed to have different values per chain.
+	</span><span class="kw">pub </span>fetch_chunks_threshold: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
 
 <span class="doccomment">/// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -858,6 +869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		dispute_req_receiver,
 		dispute_coordinator_config,
 		chain_selection_config,
+		fetch_chunks_threshold,
 	}: ExtendedOverseerGenArgs,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
 	InitializedOverseerBuilder&lt;
@@ -932,6 +944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Metrics::register(registry)<span class="question-mark">?</span>,
 		))
 		.availability_recovery(AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
+			fetch_chunks_threshold,
 			available_data_req_receiver,
 			Metrics::register(registry)<span class="question-mark">?</span>,
 		))
@@ -1113,6 +1126,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		))
 		.availability_distribution(DummySubsystem)
 		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
+			<span class="prelude-val">None</span>,
 			available_data_req_receiver,
 			Metrics::register(registry)<span class="question-mark">?</span>,
 		))

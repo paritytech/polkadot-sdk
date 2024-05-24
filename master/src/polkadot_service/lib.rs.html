@@ -1661,6 +1661,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1510" id="1510">1510</a>
 <a href="#1511" id="1511">1511</a>
 <a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2413,6 +2420,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prepare_workers_hard_max_num,
 	}: NewFullParams&lt;OverseerGenerator&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NewFull, Error&gt; {
+	<span class="kw">use </span>polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	<span class="kw">use </span>polkadot_node_network_protocol::request_response::IncomingRequest;
 	<span class="kw">use </span>sc_network_sync::WarpSyncParams;
 
@@ -2651,6 +2659,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			stagnant_check_interval: Default::default(),
 			stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
 		};
+
+		<span class="comment">// Kusama + testnets get a higher threshold, we are conservative on Polkadot for now.
+		</span><span class="kw">let </span>fetch_chunks_threshold =
+			<span class="kw">if </span>config.chain_spec.is_polkadot() { <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="prelude-val">Some</span>(FETCH_CHUNKS_THRESHOLD) };
+
 		<span class="prelude-val">Some</span>(ExtendedOverseerGenArgs {
 			keystore,
 			parachains_db,
@@ -2664,6 +2677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			dispute_req_receiver,
 			dispute_coordinator_config,
 			chain_selection_config,
+			fetch_chunks_threshold,
 		})
 	};
 

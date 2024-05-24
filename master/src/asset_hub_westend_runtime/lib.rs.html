@@ -2181,8 +2181,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">use </span>xcm::latest::prelude::{
-	Asset, Fungible, Here, InteriorLocation, Junction, Junction::<span class="kw-2">*</span>, Location, NetworkId,
-	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	Asset, Assets <span class="kw">as </span>XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::<span class="kw-2">*</span>, Location,
+	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
 <span class="kw">use </span>xcm_fee_payment_runtime_api::{
@@ -3715,7 +3715,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 
 				<span class="kw">fn </span>set_up_complex_asset_transfer(
-				) -&gt; <span class="prelude-ty">Option</span>&lt;(xcm::v4::Assets, u32, Location, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
+				) -&gt; <span class="prelude-ty">Option</span>&lt;(XcmAssets, u32, Location, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
 					<span class="comment">// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
@@ -3746,7 +3746,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					);
 					<span class="kw">let </span>transfer_asset: Asset = (asset_location, asset_amount).into();
 
-					<span class="kw">let </span>assets: xcm::v4::Assets = <span class="macro">vec!</span>[fee_asset.clone(), transfer_asset].into();
+					<span class="kw">let </span>assets: XcmAssets = <span class="macro">vec!</span>[fee_asset.clone(), transfer_asset].into();
 					<span class="kw">let </span>fee_index = <span class="kw">if </span>assets.get(<span class="number">0</span>).unwrap().eq(<span class="kw-2">&amp;</span>fee_asset) { <span class="number">0 </span>} <span class="kw">else </span>{ <span class="number">1 </span>};
 
 					<span class="comment">// verify transferred successfully
@@ -3819,7 +3819,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>(WestendLocation::get())
 				}
-				<span class="kw">fn </span>worst_case_holding(depositable_count: u32) -&gt; xcm::v4::Assets {
+				<span class="kw">fn </span>worst_case_holding(depositable_count: u32) -&gt; XcmAssets {
 					<span class="comment">// A mix of fungible, non-fungible, and concrete assets.
 					</span><span class="kw">let </span>holding_non_fungibles = MaxAssetsIntoHolding::get() / <span class="number">2 </span>- depositable_count;
 					<span class="kw">let </span>holding_fungibles = holding_non_fungibles - <span class="number">2</span>; <span class="comment">// -2 for two `iter::once` bellow
@@ -3880,7 +3880,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					(<span class="number">0u64</span>, Response::Version(Default::default()))
 				}
 
-				<span class="kw">fn </span>worst_case_asset_exchange() -&gt; <span class="prelude-ty">Result</span>&lt;(xcm::v4::Assets, xcm::v4::Assets), BenchmarkError&gt; {
+				<span class="kw">fn </span>worst_case_asset_exchange() -&gt; <span class="prelude-ty">Result</span>&lt;(XcmAssets, XcmAssets), BenchmarkError&gt; {
 					<span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 
@@ -3899,9 +3899,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(WestendLocation::get())
 				}
 
-				<span class="kw">fn </span>claimable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, xcm::v4::Assets), BenchmarkError&gt; {
+				<span class="kw">fn </span>claimable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, XcmAssets), BenchmarkError&gt; {
 					<span class="kw">let </span>origin = WestendLocation::get();
-					<span class="kw">let </span>assets: xcm::v4::Assets = (AssetId(WestendLocation::get()), <span class="number">1_000 </span>* UNITS).into();
+					<span class="kw">let </span>assets: XcmAssets = (AssetId(WestendLocation::get()), <span class="number">1_000 </span>* UNITS).into();
 					<span class="kw">let </span>ticket = Location { parents: <span class="number">0</span>, interior: Here };
 					<span class="prelude-val">Ok</span>((origin, ticket, assets))
 				}
