@@ -290,6 +290,7 @@ impl pallet_asset_conversion::Config for Runtime {
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AssetId = NativeOrWithId<u32>;
 	type OnChargeAssetTransaction =
 		SwapAssetAdapter<Native, NativeAndAssets, AssetConversion, DealWithFee, DealWithTip>;
 }

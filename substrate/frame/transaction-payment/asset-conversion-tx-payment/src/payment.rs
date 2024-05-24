@@ -88,19 +88,19 @@ pub struct SwapAssetAdapter<A, F, S, OUF, OUT>(PhantomData<(A, F, S, OUF, OUT)>)
 
 impl<A, F, S, OUF, OUT, T> OnChargeAssetTransaction<T> for SwapAssetAdapter<A, F, S, OUF, OUT>
 where
-	A: Get<F::AssetId>,
-	F: fungibles::Balanced<T::AccountId, Balance = BalanceOf<T>>,
+	A: Get<T::AssetId>,
+	F: fungibles::Balanced<T::AccountId, Balance = BalanceOf<T>, AssetId = T::AssetId>,
 	S: SwapCredit<
 			T::AccountId,
 			Balance = BalanceOf<T>,
-			AssetKind = F::AssetId,
+			AssetKind = T::AssetId,
 			Credit = fungibles::Credit<T::AccountId, F>,
-		> + QuotePrice<Balance = BalanceOf<T>, AssetKind = F::AssetId>,
+		> + QuotePrice<Balance = BalanceOf<T>, AssetKind = T::AssetId>,
 	OUF: OnUnbalanced<fungibles::Credit<T::AccountId, F>>,
 	OUT: OnUnbalanced<fungibles::Credit<T::AccountId, F>>,
 	T: Config,
 {
-	type AssetId = F::AssetId;
+	type AssetId = T::AssetId;
 	type Balance = BalanceOf<T>;
 	type LiquidityInfo = (fungibles::Credit<T::AccountId, F>, BalanceOf<T>);
 
@@ -173,11 +173,24 @@ where
 	) -> Result<BalanceOf<T>, TransactionValidityError> {
 		let (fee_paid, initial_asset_consumed) = already_withdrawn;
 		let refund_amount = fee_paid.peek().saturating_sub(corrected_fee);
-		let (adjusted_paid, fee_in_asset) = if refund_amount.is_zero() ||
+		let (fee_in_asset, adjusted_paid) = if refund_amount.is_zero() ||
 			F::total_balance(asset_id.clone(), who).is_zero()
 		{
 			// Nothing to refund or the account was removed be the dispatched function.
-			(fee_paid, initial_asset_consumed)
+			(initial_asset_consumed, fee_paid)
+		} else if asset_id == A::get() {
+			// The `asset_id` is the target asset, we do not need to swap.
+			let (refund, fee_paid) = fee_paid.split(refund_amount);
+			if let Err(refund) = F::resolve(who, refund) {
+				let fee_paid = fee_paid.merge(refund).map_err(|_| {
+					// The error should never occur since `fee_paid` and `refund` are
+					// credits of the same asset.
+					InvalidTransaction::Payment
+				})?;
+				(initial_asset_consumed, fee_paid)
+			} else {
+				(fee_paid.peek().saturating_sub(refund_amount), fee_paid)
+			}
 		} else {
 			// Check if the refund amount can be swapped back into the asset used by `who` for fee
 			// payment.
@@ -204,7 +217,7 @@ where
 
 			if debt.peek().is_zero() {
 				// No refund given.
-				(fee_paid, initial_asset_consumed)
+				(initial_asset_consumed, fee_paid)
 			} else {
 				let (refund, fee_paid) = fee_paid.split(refund_amount);
 				match S::swap_exact_tokens_for_tokens(
@@ -223,8 +236,8 @@ where
 							},
 						};
 						(
-							fee_paid,
 							initial_asset_consumed.saturating_sub(refund_asset_amount.into()),
+							fee_paid,
 						)
 					},
 					// The error should not occur since swap was quoted before.
@@ -243,7 +256,7 @@ where
 							// credits of the same asset.
 							InvalidTransaction::Payment
 						})?;
-						(fee_paid, initial_asset_consumed)
+						(initial_asset_consumed, fee_paid)
 					},
 				}
 			}

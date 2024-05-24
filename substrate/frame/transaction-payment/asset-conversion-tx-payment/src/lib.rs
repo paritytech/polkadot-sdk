@@ -66,10 +66,6 @@ mod payment;
 use frame_support::traits::tokens::AssetId;
 pub use payment::*;
 
-/// Type alias for Asset IDs in their interaction with `OnChargeAssetTransaction`.
-pub(crate) type AssetIdOf<T> =
-	<<T as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<T>>::AssetId;
-
 /// Balance type alias for balances of the chain's native asset.
 pub(crate) type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
 
@@ -94,7 +90,7 @@ pub enum InitialPayment<T: Config> {
 	/// The initial fee was paid in the native currency.
 	Native(NativeLiquidityInfoOf<T>),
 	/// The initial fee was paid in an asset.
-	Asset((AssetIdOf<T>, AssetLiquidityInfoOf<T>)),
+	Asset((T::AssetId, AssetLiquidityInfoOf<T>)),
 }
 
 pub use pallet::*;
@@ -107,8 +103,15 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// The asset ID type that can be used for transaction payments in addition to a
+		/// native asset.
+		type AssetId: AssetId;
 		/// The actual transaction charging logic that charges the fees.
-		type OnChargeAssetTransaction: OnChargeAssetTransaction<Self, Balance = BalanceOf<Self>>;
+		type OnChargeAssetTransaction: OnChargeAssetTransaction<
+			Self,
+			Balance = BalanceOf<Self>,
+			AssetId = Self::AssetId,
+		>;
 	}
 
 	#[pallet::pallet]
@@ -123,7 +126,7 @@ pub mod pallet {
 			who: T::AccountId,
 			actual_fee: BalanceOf<T>,
 			tip: BalanceOf<T>,
-			asset_id: AssetIdOf<T>,
+			asset_id: T::AssetId,
 		},
 		/// A swap of the refund in native currency back to asset failed.
 		AssetRefundFailed { native_amount_kept: BalanceOf<T> },
@@ -131,27 +134,32 @@ pub mod pallet {
 }
 
 /// Require payment for transaction inclusion and optionally include a tip to gain additional
-/// priority in the queue. Allows paying via both `Currency` as well as `fungibles::Balanced`.
+/// priority in the queue.
 ///
 /// Wraps the transaction logic in [`pallet_transaction_payment`] and extends it with assets.
 /// An asset ID of `None` falls back to the underlying transaction payment logic via the native
 /// currency.
+///
+/// Transaction payments are processed using different handlers based on the asset type:
+/// - Payments with a native asset are charged by
+///   [pallet_transaction_payment::Config::OnChargeTransaction].
+/// - Payments with other assets are charged by [Config::OnChargeAssetTransaction].
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeAssetTxPayment<T: Config> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
-	asset_id: Option<AssetIdOf<T>>,
+	asset_id: Option<T::AssetId>,
 }
 
 impl<T: Config> ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync,
-	AssetIdOf<T>: Send + Sync,
+	T::AssetId: Send + Sync,
 {
 	/// Utility constructor. Used only in client/factory code.
-	pub fn from(tip: BalanceOf<T>, asset_id: Option<AssetIdOf<T>>) -> Self {
+	pub fn from(tip: BalanceOf<T>, asset_id: Option<T::AssetId>) -> Self {
 		Self { tip, asset_id }
 	}
 
@@ -200,7 +208,7 @@ impl<T: Config> SignedExtension for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync,
-	AssetIdOf<T>: Send + Sync,
+	T::AssetId: Send + Sync,
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type AccountId = T::AccountId;

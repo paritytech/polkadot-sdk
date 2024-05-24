@@ -730,3 +730,47 @@ fn post_dispatch_fee_is_zero_if_unsigned_pre_dispatch_fee_is_zero() {
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 		});
 }
+
+#[test]
+fn fee_with_native_asset_passed_with_id() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let caller = 1;
+			let caller_balance = 1000;
+			// native asset
+			let asset_id = NativeOrWithId::Native;
+			// assert that native balance is not necessary
+			assert_eq!(Balances::free_balance(caller), caller_balance);
+
+			let tip = 10;
+			let weight = 100;
+			let len = 5;
+			let initial_fee = base_weight + weight + len as u64 + tip;
+
+			let pre = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()))
+				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_100), len)
+				.unwrap();
+			assert_eq!(Balances::free_balance(caller), caller_balance - initial_fee);
+
+			let final_weight = 50;
+			let expected_fee = initial_fee - final_weight;
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				Some(pre),
+				&info_from_weight(WEIGHT_100),
+				&post_info_from_weight(WEIGHT_50),
+				len,
+				&Ok(())
+			));
+
+			assert_eq!(Balances::free_balance(caller), caller_balance - expected_fee);
+
+			assert_eq!(TipUnbalancedAmount::get(), tip);
+			assert_eq!(FeeUnbalancedAmount::get(), expected_fee - tip);
+		});
+}
