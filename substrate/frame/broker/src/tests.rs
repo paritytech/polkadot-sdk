@@ -1476,37 +1476,38 @@ fn enable_auto_renewal_with_end_hint_works() {
 		let record = AllowedRenewalRecord {
 			price: 100,
 			completion: CompletionStatus::Complete(
-				vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
+				vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(1001) }]
 					.try_into()
 					.unwrap(),
 			),
 		};
-		// Each lease-holding parachain should be allowed to renew. Although the `when` field will
+		// Each lease-holding task should be allowed to renew. Although the `when` field will
 		// likely be set to a later timeslice.
-		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 1, when: 20 }, &record);
+		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 1, when: 10 }, &record);
+
+		endow(1001, 1000);
 
 		// Will fail if we don't provide the end hint since it expects it to be at next sale start
 		// or end.
-		assert_noop!(Broker::do_enable_auto_renew(2001, 1, None), Error::<Test>::NotAllowed);
+		assert_noop!(Broker::do_enable_auto_renew(1001, 1, None), Error::<Test>::NotAllowed);
 
-		assert_ok!(Broker::do_enable_auto_renew(2001, 1, Some(20)),);
+		assert_ok!(Broker::do_enable_auto_renew(1001, 1, Some(10)));
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
-			vec![AutoRenewalRecord { core: 1, task: 2001, begin: 20 },]
+			vec![AutoRenewalRecord { core: 1, task: 1001, begin: 10 },]
 		);
-		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 1, task: 2001 }.into());
-
-		// Even though we enabled auto renewal it shouldn't renew until ts 20.
+		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 1, task: 1001 }.into());
 
 		// Next cycle starting at 7.
 		advance_to(7);
 
-		// Assert that it doesn't have this event:
-		/*
-		System::assert_has_event(
-			Event::<Test>::AutoRenewalFailed { core: 1, payer: Some(2001) }.into(),
-		);
-		*/
+		// Ensure that the renewal didn't happen by checking that the balance remained the same, as
+		// the task has a lease until ts 13.
+		assert_eq!(balance(1001), 1000);
+
+		// The next sale starts at 13. The renewal should happen now and the task should be charged.
+		advance_to(13);
+		assert_eq!(balance(1001), 900);
 	});
 }
 

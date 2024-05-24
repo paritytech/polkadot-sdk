@@ -336,44 +336,45 @@ impl<T: Config> Pallet<T> {
 	/// Renews all the cores which have auto-renewal enabled.
 	pub(crate) fn renew_cores(sale: &SaleInfoRecordOf<T>) {
 		let renewals = AutoRenewals::<T>::get();
-		let mut successful_renewals: BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals> =
-			BoundedVec::new();
-		for record in renewals.into_iter() {
-			if sale.region_begin != record.begin {
-				// We skip the renewal for this core.
-				continue;
-			}
 
-			let Some(payer) = T::SovereignAccountOf::sovereign_account(record.task) else {
-				Self::deposit_event(Event::<T>::AutoRenewalFailed {
-					core: record.core,
-					payer: None,
-				});
-				continue;
-			};
+		let Ok(auto_renewals) = renewals
+			.into_iter()
+			.flat_map(|record| {
+				if sale.region_begin != record.begin {
+					// We skip the renewal for this core.
+					return Some(record)
+				}
 
-			// The core index can change when renewing for several reasons. Because of this, we will
-			// update the core indices in the auto-renewal vector with the new appropriate values.
-			if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
-				if successful_renewals
-					.try_push(AutoRenewalRecord {
+				let Some(payer) = T::SovereignAccountOf::sovereign_account(record.task) else {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: None,
+					});
+					return None
+				};
+
+				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
+					Some(AutoRenewalRecord {
 						core: new_core_index,
 						task: record.task,
 						begin: sale.region_end,
 					})
-					.is_err()
-				{
-					// This should never happen.
-					Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
-				}
-			} else {
-				Self::deposit_event(Event::<T>::AutoRenewalFailed {
-					core: record.core,
-					payer: Some(payer),
-				});
-			}
-		}
+				} else {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: Some(payer),
+					});
 
-		AutoRenewals::<T>::set(successful_renewals);
+					None
+				}
+			})
+			.collect::<Vec<AutoRenewalRecord>>()
+			.try_into()
+		else {
+			Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
+			return;
+		};
+
+		AutoRenewals::<T>::set(auto_renewals);
 	}
 }
