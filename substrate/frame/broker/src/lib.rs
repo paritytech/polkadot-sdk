@@ -187,7 +187,7 @@ pub mod pallet {
 	/// Sorted by `CoreIndex` to make the removal of cores from auto-renewal more efficient.
 	#[pallet::storage]
 	pub type AutoRenewals<T: Config> =
-		StorageValue<_, BoundedVec<(CoreIndex, TaskId), T::MaxAutoRenewals>, ValueQuery>;
+		StorageValue<_, BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

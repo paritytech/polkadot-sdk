@@ -259,7 +259,7 @@ impl<T: Config> Pallet<T> {
 		};
 		SaleInfo::<T>::put(&new_sale);
 
-		Self::renew_cores();
+		Self::renew_cores(&new_sale);
 
 		Self::deposit_event(Event::SaleInitialized {
 			sale_start,
@@ -334,25 +334,43 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Renews all the cores which have auto-renewal enabled.
-	pub(crate) fn renew_cores() {
+	pub(crate) fn renew_cores(sale: &SaleInfoRecordOf<T>) {
 		let renewals = AutoRenewals::<T>::get();
-		let mut successful_renewals: BoundedVec<(CoreIndex, TaskId), T::MaxAutoRenewals> =
+		let mut successful_renewals: BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals> =
 			BoundedVec::new();
-		for (core, task) in renewals.into_iter() {
-			let Some(payer) = T::SovereignAccountOf::sovereign_account(task) else {
-				Self::deposit_event(Event::<T>::AutoRenewalFailed { core, payer: None });
+		for record in renewals.into_iter() {
+			if sale.region_begin != record.begin {
+				// We skip the renewal for this core.
+				continue;
+			}
+
+			let Some(payer) = T::SovereignAccountOf::sovereign_account(record.task) else {
+				Self::deposit_event(Event::<T>::AutoRenewalFailed {
+					core: record.core,
+					payer: None,
+				});
 				continue;
 			};
 
 			// The core index can change when renewing for several reasons. Because of this, we will
 			// update the core indices in the auto-renewal vector with the new appropriate values.
-			if let Ok(new_core_index) = Self::do_renew(payer.clone(), core) {
-				if successful_renewals.try_push((new_core_index, task)).is_err() {
+			if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
+				if successful_renewals
+					.try_push(AutoRenewalRecord {
+						core: new_core_index,
+						task: record.task,
+						begin: sale.region_end,
+					})
+					.is_err()
+				{
 					// This should never happen.
 					Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
 				}
 			} else {
-				Self::deposit_event(Event::<T>::AutoRenewalFailed { core, payer: Some(payer) });
+				Self::deposit_event(Event::<T>::AutoRenewalFailed {
+					core: record.core,
+					payer: Some(payer),
+				});
 			}
 		}
 

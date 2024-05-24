@@ -1440,7 +1440,10 @@ fn enable_auto_renew_works() {
 
 		// Works when calling with the sovereign account:
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, None));
-		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001)]);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 7 }]
+		);
 		System::assert_has_event(
 			Event::<Test>::AutoRenewalEnabled { core: region_id.core, task: 1001 }.into(),
 		);
@@ -1453,7 +1456,14 @@ fn enable_auto_renew_works() {
 		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, None));
 		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, None));
 
-		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001), (1, 1002), (2, 1003)]);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![
+				AutoRenewalRecord { core: 0, task: 1001, begin: 7 },
+				AutoRenewalRecord { core: 1, task: 1002, begin: 7 },
+				AutoRenewalRecord { core: 2, task: 1003, begin: 7 },
+			]
+		);
 	});
 }
 
@@ -1472,7 +1482,7 @@ fn enable_auto_renewal_with_end_hint_works() {
 			),
 		};
 		// Each lease-holding parachain should be allowed to renew. Although the `when` field will
-		// likely be to a later timeslice.
+		// likely be set to a later timeslice.
 		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 1, when: 20 }, &record);
 
 		// Will fail if we don't provide the end hint since it expects it to be at next sale start
@@ -1480,8 +1490,23 @@ fn enable_auto_renewal_with_end_hint_works() {
 		assert_noop!(Broker::do_enable_auto_renew(2001, 1, None), Error::<Test>::NotAllowed);
 
 		assert_ok!(Broker::do_enable_auto_renew(2001, 1, Some(20)),);
-		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(1, 2001)]);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 1, task: 2001, begin: 20 },]
+		);
 		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 1, task: 2001 }.into());
+
+		// Even though we enabled auto renewal it shouldn't renew until ts 20.
+
+		// Next cycle starting at 7.
+		advance_to(7);
+
+		// Assert that it doesn't have this event:
+		/*
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalFailed { core: 1, payer: Some(2001) }.into(),
+		);
+		*/
 	});
 }
 
@@ -1508,7 +1533,10 @@ fn enable_auto_renew_renews() {
 		endow(1001, 1000);
 
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, None));
-		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001)]);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 10 }]
+		);
 		assert!(AllowedRenewals::<Test>::get(AllowedRenewalId {
 			core: region_id.core,
 			when: 10 // region end after renewal
@@ -1537,7 +1565,14 @@ fn auto_renewal_works() {
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, None));
 		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, None));
 		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, None));
-		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001), (1, 1002), (2, 1003)]);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![
+				AutoRenewalRecord { core: 0, task: 1001, begin: 7 },
+				AutoRenewalRecord { core: 1, task: 1002, begin: 7 },
+				AutoRenewalRecord { core: 2, task: 1003, begin: 7 },
+			]
+		);
 
 		// We have to fund the sovereign account:
 		endow(1001, 1000);
@@ -1583,7 +1618,13 @@ fn auto_renewal_works() {
 
 		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
 		// Task (1003) will now be assigned to that core instead of core #2.
-		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001), (1, 1003)]);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![
+				AutoRenewalRecord { core: 0, task: 1001, begin: 10 },
+				AutoRenewalRecord { core: 1, task: 1003, begin: 10 },
+			]
+		);
 	});
 }
 
@@ -1601,7 +1642,10 @@ fn disable_auto_renew_works() {
 		assert_noop!(Broker::do_disable_auto_renew(1001, 0), Error::<Test>::AutoRenewalNotEnabled);
 
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, None));
-		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![(0, 1001)]);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 7 }]
+		);
 
 		// Only the sovereign account can disable:
 		assert_noop!(Broker::do_disable_auto_renew(2001, 0), Error::<Test>::NoPermission);

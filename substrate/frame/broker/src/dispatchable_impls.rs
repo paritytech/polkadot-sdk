@@ -516,12 +516,13 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::NonTaskAutoRenewal.into())
 		};
 
+		let renewal_begin = workload_end_hint.unwrap_or(sale.region_end);
 		// We are keeping the auto-renewals sorted by `CoreIndex`.
 		AutoRenewals::<T>::try_mutate(|renewals| {
 			let pos = renewals
-				.binary_search_by(|r: &(CoreIndex, TaskId)| r.0.cmp(&core))
+				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
 				.unwrap_or_else(|e| e);
-			renewals.try_insert(pos, (core, task))
+			renewals.try_insert(pos, AutoRenewalRecord { core, task, begin: renewal_begin })
 		})
 		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
 
@@ -532,10 +533,15 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_disable_auto_renew(task: TaskId, core: CoreIndex) -> DispatchResult {
 		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
 			let pos = renewals
-				.binary_search_by(|r: &(CoreIndex, TaskId)| r.0.cmp(&core))
+				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
 				.map_err(|_| Error::<T>::AutoRenewalNotEnabled)?;
 
-			ensure!(Some(&(core, task)) == renewals.get(pos), Error::<T>::NoPermission);
+			let renewal_record = renewals.get(pos).ok_or(Error::<T>::AutoRenewalNotEnabled)?;
+
+			ensure!(
+				renewal_record.core == core && renewal_record.task == task,
+				Error::<T>::NoPermission
+			);
 			renewals.remove(pos);
 			Ok(())
 		})?;
