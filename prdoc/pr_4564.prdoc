@@ -10,3 +10,14 @@ doc:
 crates:
   - name: frame-support
     bump: major
+  - name: pallet-balances
+    bump: patch
+  - name: pallet-asset-conversion-tx-payment
+    bump: patch
+  - name: pallet-transaction-payment
+    bump: patch
+  - name: kitchensink-runtime
+    bump: patch
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: parachains-common
