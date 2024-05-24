@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
 	pub fn sale_price(sale: &SaleInfoRecordOf<T>, now: BlockNumberFor<T>) -> BalanceOf<T> {
 		let num = now.saturating_sub(sale.sale_start).min(sale.leadin_length).saturated_into();
 		let through = FixedU64::from_rational(num, sale.leadin_length.saturated_into());
-		T::PriceAdapter::leadin_factor_at(through).saturating_mul_int(sale.base_price)
+		T::PriceAdapter::leadin_factor_at(through).saturating_mul_int(sale.min_price)
 	}
 
 	pub(crate) fn charge(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
@@ -73,6 +73,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Buy a core at the specified price (price is to be determined by the caller).
+	///
+	/// Note: It is the responsibility of the caller to write back the changed `SaleInfoRecordOf` to
+	/// storage.
 	pub(crate) fn purchase_core(
 		who: &T::AccountId,
 		price: BalanceOf<T>,

@@ -152,7 +152,7 @@ impl CompletionStatus {
 	}
 }
 
-/// The identity of a possibly Core workload renewal.
+/// The identity of a possibly renewable Core workload.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct PotentialRenewalId {
 	/// The core whose workload at the sale ending with `when` may be renewed to begin at `when`.
@@ -214,7 +214,7 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 	/// The length in blocks of the Leadin Period (where the price is decreasing).
 	pub leadin_length: BlockNumber,
 	/// The price of Bulk Coretime after the Leadin Period.
-	pub base_price: Balance,
+	pub min_price: Balance,
 	/// The first timeslice of the Regions which are being sold in this sale.
 	pub region_begin: Timeslice,
 	/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e. One
@@ -269,7 +269,9 @@ pub struct ConfigRecord<BlockNumber, RelayBlockNumber> {
 	pub region_length: Timeslice,
 	/// The proportion of cores available for sale which should be sold.
 	///
-	/// If more cores are sold than this, then the price will not be adjusted downwards further.
+	/// If more cores are sold than this, then further sales will no longer be considered in
+	/// determining the sellout price. In other words the sellout price will be the last price
+	/// paid, without going over this limit.
 	pub ideal_bulk_proportion: Perbill,
 	/// An artificial limit to the number of cores which are allowed to be sold. If `Some` then
 	/// no more cores will be sold than this.

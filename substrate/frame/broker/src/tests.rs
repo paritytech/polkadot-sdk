@@ -1104,7 +1104,7 @@ fn purchase_requires_valid_status_and_sale_info() {
 		let mut dummy_sale = SaleInfoRecord {
 			sale_start: 0,
 			leadin_length: 0,
-			base_price: 200,
+			min_price: 200,
 			sellout_price: None,
 			region_begin: 0,
 			region_end: 3,
@@ -1146,7 +1146,7 @@ fn renewal_requires_valid_status_and_sale_info() {
 		let mut dummy_sale = SaleInfoRecord {
 			sale_start: 0,
 			leadin_length: 0,
-			base_price: 200,
+			min_price: 200,
 			sellout_price: None,
 			region_begin: 0,
 			region_end: 3,
