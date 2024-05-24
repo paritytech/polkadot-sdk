@@ -1069,6 +1069,11 @@ mod pool_integration {
 				BondedPools::<T>::get(1).unwrap().points,
 				creator_stake + delegator_stake * 6 - delegator_stake * 3
 			);
+
+			// pool has currently no pending slash
+			assert_eq!(Pools::api_pool_pending_slash(pool_id), 0);
+
+			// slash the pool partially
 			pallet_staking::slashing::do_slash::<T>(
 				&pool_acc,
 				500,
@@ -1076,6 +1081,9 @@ mod pool_integration {
 				&mut Default::default(),
 				3,
 			);
+
+			// pool has now pending slash of 500.
+			assert_eq!(Pools::api_pool_pending_slash(pool_id), 500);
 
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -1139,19 +1147,38 @@ mod pool_integration {
 
 			for i in 303..306 {
 				let pre_pending_slash = get_pool_agent(pool_id).ledger.pending_slash;
+				// pool api returns correct pending slash.
+				assert_eq!(Pools::api_pool_pending_slash(pool_id), pre_pending_slash);
+				// delegator has pending slash of 50.
+				assert_eq!(Pools::api_member_pending_slash(i), 50);
+				// apply slash
 				assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), i));
+				// nothing pending anymore.
+				assert_eq!(Pools::api_member_pending_slash(i), 0);
 
 				// each member is slashed 50% of 100 = 50.
 				assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, pre_pending_slash - 50);
+				// pool api returns correctly as well.
+				assert_eq!(Pools::api_pool_pending_slash(pool_id), pre_pending_slash - 50);
 				// left with 50.
 				assert_eq!(DelegatedStaking::held_balance_of(&i), 50);
 			}
+
+			// pool has still pending slash of creator.
+			assert_eq!(Pools::api_pool_pending_slash(pool_id), 250);
+
 			// reporter is paid SlashRewardFraction of the slash, i.e. 10% of 50 = 5
 			assert_eq!(Balances::free_balance(slash_reporter), 100 + 5 * 3);
+			// creator has pending slash.
+			assert_eq!(Pools::api_member_pending_slash(creator), 250);
 			// slash creator
 			assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), creator));
+			// no pending slash anymore.
+			assert_eq!(Pools::api_member_pending_slash(creator), 0);
+
 			// all slash should be applied now.
 			assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, 0);
+			assert_eq!(Pools::api_pool_pending_slash(pool_id), 0);
 			// for creator, 50% of stake should be slashed (250), 10% of which should go to reporter
 			// (25).
 			assert_eq!(Balances::free_balance(slash_reporter), 115 + 25);

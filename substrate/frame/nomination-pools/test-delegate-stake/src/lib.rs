@@ -666,6 +666,10 @@ fn pool_slash_proportional() {
 		// Apply a slash that happened in era 100. This is typically applied with a delay.
 		// Of the total 100, 50 is slashed.
 		assert_eq!(BondedPools::<T>::get(1).unwrap().points, 40);
+
+		// no pending slash yet.
+		assert_eq!(Pools::api_pool_pending_slash(1), 0);
+
 		pallet_staking::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			50,
@@ -673,6 +677,9 @@ fn pool_slash_proportional() {
 			&mut Default::default(),
 			100,
 		);
+
+		// Pools api returns correct slash amount.
+		assert_eq!(Pools::api_pool_pending_slash(1), 50);
 
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -695,10 +702,14 @@ fn pool_slash_proportional() {
 		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().total_balance(), 7);
 		// But their actual balance is still unslashed.
 		assert_eq!(Balances::total_balance_on_hold(&21), bond);
+		// 21 has pending slash
+		assert_eq!(Pools::api_member_pending_slash(21), bond - 7);
 		// apply slash permissionlessly.
 		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(10), 21));
 		// member balance is slashed.
 		assert_eq!(Balances::total_balance_on_hold(&21), 7);
+		// 21 has no pending slash anymore
+		assert_eq!(Pools::api_member_pending_slash(21), 0);
 
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
@@ -977,6 +988,7 @@ fn pool_migration_e2e() {
 		);
 
 		// with `TransferStake`, we can't migrate.
+		assert!(!Pools::api_pool_needs_delegate_migration(1));
 		assert_noop!(
 			Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
 			PoolsError::<Runtime>::NotSupported
@@ -986,15 +998,18 @@ fn pool_migration_e2e() {
 		LegacyAdapter::set(false);
 
 		// cannot migrate the member delegation unless pool is migrated first.
+		assert!(!Pools::api_member_needs_delegate_migration(20));
 		assert_noop!(
 			Pools::migrate_delegation(RuntimeOrigin::signed(10), 20),
 			PoolsError::<Runtime>::PoolNotMigrated
 		);
 
 		// migrate the pool.
+		assert!(Pools::api_pool_needs_delegate_migration(1));
 		assert_ok!(Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1));
 
 		// migrate again does not work.
+		assert!(!Pools::api_pool_needs_delegate_migration(1));
 		assert_noop!(
 			Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
 			PoolsError::<Runtime>::PoolAlreadyMigrated
@@ -1027,6 +1042,7 @@ fn pool_migration_e2e() {
 		assert_eq!(Balances::total_balance_on_hold(&20), 0);
 
 		// migrate delegation for 20. This is permissionless and can be called by anyone.
+		assert!(Pools::api_member_needs_delegate_migration(20));
 		assert_ok!(Pools::migrate_delegation(RuntimeOrigin::signed(10), 20));
 
 		// tokens moved to 20's account and held there.
@@ -1071,6 +1087,7 @@ fn pool_migration_e2e() {
 		assert_eq!(Balances::total_balance_on_hold(&21), 0);
 
 		// migrate delegation for 21.
+		assert!(Pools::api_member_needs_delegate_migration(21));
 		assert_ok!(Pools::migrate_delegation(RuntimeOrigin::signed(10), 21));
 
 		// tokens moved to 21's account and held there.
@@ -1098,7 +1115,15 @@ fn pool_migration_e2e() {
 		assert_eq!(Balances::total_balance_on_hold(&22), 0);
 
 		// migrate delegation for 22.
+		assert!(Pools::api_member_needs_delegate_migration(22));
 		assert_ok!(Pools::migrate_delegation(RuntimeOrigin::signed(10), 22));
+
+		// cannot migrate a pool member again.
+		assert!(!Pools::api_member_needs_delegate_migration(22));
+		assert_noop!(
+			Pools::migrate_delegation(RuntimeOrigin::signed(10), 22),
+			PoolsError::<Runtime>::NoDelegationToMigrate
+		);
 
 		// tokens moved to 22's account and held there.
 		assert_eq!(Balances::total_balance(&22), pre_migrate_balance_22 + 10);

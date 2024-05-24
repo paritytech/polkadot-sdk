@@ -236,11 +236,12 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		DelegateStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
 	}
 
-	fn has_pending_slash(pool_account: &Self::AccountId) -> bool {
+	fn pending_slash(pool_account: &Self::AccountId) -> Self::Balance {
 		if LegacyAdapter::get() {
-			return TransferStake::has_pending_slash(pool_account)
+			return TransferStake::pending_slash(pool_account)
 		}
-		DelegateStake::has_pending_slash(pool_account)
+
+		DelegateStake::pending_slash(pool_account)
 	}
 
 	fn member_slash(

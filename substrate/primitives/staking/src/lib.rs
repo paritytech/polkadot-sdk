@@ -527,11 +527,11 @@ pub trait DelegationInterface {
 		num_slashing_spans: u32,
 	) -> DispatchResult;
 
-	/// Returns true if there are pending slashes posted to the `Agent` account.
+	/// Returns pending slashes posted to the `Agent` account. None if not an `Agent`.
 	///
 	/// Slashes to `Agent` account are not immediate and are applied lazily. Since `Agent`
 	/// has an unbounded number of delegators, immediate slashing is not possible.
-	fn has_pending_slash(agent: &Self::AccountId) -> bool;
+	fn pending_slash(agent: &Self::AccountId) -> Option<Self::Balance>;
 
 	/// Apply a pending slash to an `Agent` by slashing `value` from `delegator`.
 	///

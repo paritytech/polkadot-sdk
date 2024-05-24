@@ -5021,6 +5021,10 @@ mod set_state {
 				Error::<Runtime>::NotSupported
 			);
 
+			// pending slash api should return zero as well.
+			assert_eq!(Pools::api_pool_pending_slash(1), 0);
+			assert_eq!(Pools::api_member_pending_slash(10), 0);
+
 			// When
 			assert_ok!(Pools::set_state(RuntimeOrigin::signed(11), 1, PoolState::Destroying));
 			// Then
@@ -7518,12 +7522,14 @@ mod delegate_stake {
 			);
 
 			// ensure pool 1 cannot be migrated.
+			assert!(!Pools::api_pool_needs_delegate_migration(1));
 			assert_noop!(
 				Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
 				Error::<Runtime>::NotSupported
 			);
 
 			// members cannot be migrated either.
+			assert!(!Pools::api_member_needs_delegate_migration(10));
 			assert_noop!(
 				Pools::migrate_delegation(RuntimeOrigin::signed(10), 11),
 				Error::<Runtime>::NotSupported

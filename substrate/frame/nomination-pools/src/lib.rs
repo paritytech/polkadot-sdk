@@ -3468,29 +3468,53 @@ impl<T: Config> Pallet<T> {
 		member_account: &T::AccountId,
 		reporter: Option<T::AccountId>,
 	) -> DispatchResult {
-		// calculate points to be slashed.
-		let member =
-			PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
+		let member = PoolMembers::<T>::get(member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
-		let pool_account = Pallet::<T>::generate_bonded_account(member.pool_id);
-		ensure!(T::StakeAdapter::has_pending_slash(&pool_account), Error::<T>::NothingToSlash);
-
-		let unslashed_balance = T::StakeAdapter::member_delegation_balance(&member_account);
-		let slashed_balance = member.total_balance();
-		defensive_assert!(
-			unslashed_balance >= slashed_balance,
-			"unslashed balance should always be greater or equal to the slashed"
-		);
+		let pending_slash =
+			Self::member_pending_slash(member_account, member.clone());
 
 		// if nothing to slash, return error.
-		ensure!(unslashed_balance > slashed_balance, Error::<T>::NothingToSlash);
+		ensure!(!pending_slash.is_zero(), Error::<T>::NothingToSlash);
 
 		T::StakeAdapter::member_slash(
-			&member_account,
-			&pool_account,
-			unslashed_balance.defensive_saturating_sub(slashed_balance),
+			member_account,
+			&Pallet::<T>::generate_bonded_account(member.pool_id),
+			pending_slash,
 			reporter,
 		)
+	}
+
+	/// Pending slash for a member.
+	///
+	/// Takes the pool_member object corresponding to the `member_account`.
+	fn member_pending_slash(
+		member_account: &T::AccountId,
+		pool_member: PoolMember<T>,
+	) -> BalanceOf<T> {
+		// only executed in tests: ensure the member account is correct.
+		debug_assert!(
+			PoolMembers::<T>::get(member_account).expect("member must exist") ==
+				pool_member
+		);
+
+		let pool_account = Pallet::<T>::generate_bonded_account(pool_member.pool_id);
+		// if the pool doesn't have any pending slash, it implies the member also does not have any
+		// pending slash.
+		if T::StakeAdapter::pending_slash(&pool_account).is_zero() {
+			return Zero::zero()
+		}
+
+		// this is their actual held balance that may or may not have been slashed.
+		let actual_balance = T::StakeAdapter::member_delegation_balance(member_account);
+		// this is their balance in the pool
+		let expected_balance = pool_member.total_balance();
+		defensive_assert!(
+			actual_balance >= expected_balance,
+			"actual balance should always be greater or equal to the expected"
+		);
+
+		// return the amount to be slashed.
+		actual_balance.defensive_saturating_sub(expected_balance)
 	}
 
 	/// Apply freeze on reward account to restrict it from going below ED.
@@ -3804,6 +3828,64 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Zero::zero()
 		}
+	}
+
+	/// Returns the unapplied slash of the pool.
+	///
+	/// Pending slash is only applicable with [`adapter::DelegateStake`] strategy.
+	pub fn api_pool_pending_slash(pool_id: PoolId) -> BalanceOf<T> {
+		T::StakeAdapter::pending_slash(&Self::generate_bonded_account(pool_id))
+	}
+
+	pub fn api_member_pending_slash(who: T::AccountId) -> BalanceOf<T> {
+		PoolMembers::<T>::get(who.clone())
+			.map(|pool_member| Self::member_pending_slash(&who, pool_member))
+			.unwrap_or_default()
+	}
+
+	/// Checks whether pool needs to be migrated to [`adapter::StakeStrategyType::Delegate`]. Only
+	/// applicable when the [`Config::StakeAdapter`] is [`adapter::DelegateStake`].
+	///
+	/// Useful to check this before calling [`Call::migrate_pool_to_delegate_stake`].
+	pub fn api_pool_needs_delegate_migration(pool_id: PoolId) -> bool {
+		// if the `Delegate` strategy is not used in the pallet, then no migration required.
+		if T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
+			return false
+		}
+
+		let pool_account = Self::generate_bonded_account(pool_id);
+		// true if pool is still not migrated to `DelegateStake`.
+		T::StakeAdapter::pool_strategy(&pool_account) !=
+			adapter::StakeStrategyType::Delegate
+	}
+
+	/// Checks whether member delegation needs to be migrated to
+	/// [`adapter::StakeStrategyType::Delegate`]. Only applicable when the [`Config::StakeAdapter`]
+	/// is [`adapter::DelegateStake`].
+	///
+	/// Useful to check this before calling [`Call::migrate_delegation`].
+	pub fn api_member_needs_delegate_migration(who: T::AccountId) -> bool {
+		// if the `Delegate` strategy is not used in the pallet, then no migration required.
+		if T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
+			return false
+		}
+
+		PoolMembers::<T>::get(&who)
+			.map(|pool_member| {
+				if Self::api_pool_needs_delegate_migration(pool_member.pool_id) {
+					// the pool needs to be migrated before members can be migrated.
+					return false
+				}
+
+				let member_balance = pool_member.total_balance();
+				let delegated_balance =
+					T::StakeAdapter::member_delegation_balance(&who);
+
+				// if the member has no delegation but has some balance in the pool, then it needs
+				// to be migrated.
+				delegated_balance.is_zero() && !member_balance.is_zero()
+			})
+			.unwrap_or_default()
 	}
 }
 
