@@ -1,10 +1,18 @@
 title: Add availability-recovery from systematic chunks
 
 doc:
+  - audience Node Operator
+    description: |
+      Implements https://github.com/polkadot-fellows/RFCs/pull/47. This optimisation is guarded by a configuration bit in
+      the runtime and will only be enabled once a supermajority of the validators have upgraded to this version.
+      It's strongly advised to upgrade to this version.
   - audience: Node Dev
     description: |
       Implements https://github.com/polkadot-fellows/RFCs/pull/47 and adds the logic for availability recovery from systematic chunks.
-      The /req_chunk/1 req-response protocol is now considered deprecated in favour of /req_chunk/2.
+      The /req_chunk/1 req-response protocol is now considered deprecated in favour of /req_chunk/2. Systematic recovery is guarded
+      by a configuration bit in the runtime (bit with index 2 of the node_features field from the HostConfiguration)
+      and must not be enabled until all (or almost all) validators have upgraded to the node version that includes
+      this PR.
 
 crates:
   - name: sc-network
