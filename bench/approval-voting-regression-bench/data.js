@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716562412298,
+  "lastUpdate": 1716589612177,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -4793,6 +4793,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.129949339759937,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e192b764971f99975e876380f9ebbf2c08f0c17d",
+          "message": "Avoid using `xcm::v4` and use latest instead for AssetHub benchmarks (#4567)",
+          "timestamp": "2024-05-24T20:59:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e192b764971f99975e876380f9ebbf2c08f0c17d"
+        },
+        "date": 1716589582995,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63546.15,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.62145459936006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.994705851280081,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.056886001400048,
             "unit": "seconds"
           }
         ]
