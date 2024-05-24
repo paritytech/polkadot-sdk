@@ -22,7 +22,7 @@ log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
 serde = { features = ["alloc", "derive"], workspace = true }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
-sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"], version = "33.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"], version = "33.0.1" }
 sp-io = { path = "../../primitives/io", default-features = false, version = "36.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "37.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }

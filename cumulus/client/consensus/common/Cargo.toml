@@ -22,7 +22,7 @@ sc-consensus-babe = { version = "0.40.0", path = "../../../../substrate/client/c
 sp-blockchain = { version = "34.0.0", path = "../../../../substrate/primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../../substrate/primitives/consensus/common" }
 sp-consensus-slots = { version = "0.38.0", path = "../../../../substrate/primitives/consensus/slots" }
-sp-core = { version = "33.0.0", path = "../../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../substrate/primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../../substrate/primitives/runtime" }
 sp-timestamp = { version = "32.0.0", path = "../../../../substrate/primitives/timestamp" }
 sp-trie = { version = "35.0.0", path = "../../../../substrate/primitives/trie" }

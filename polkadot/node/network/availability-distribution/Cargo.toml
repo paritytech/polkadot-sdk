@@ -19,7 +19,7 @@ polkadot-node-network-protocol = { version = "13.0.0", path = "../protocol" }
 polkadot-node-subsystem = { version = "13.0.0", path = "../../subsystem" }
 polkadot-node-subsystem-util = { version = "13.0.0", path = "../../subsystem-util" }
 polkadot-node-primitives = { version = "13.0.0", path = "../../primitives" }
-sp-core = { path = "../../../../substrate/primitives/core", features = ["std"], version = "33.0.0" }
+sp-core = { path = "../../../../substrate/primitives/core", features = ["std"], version = "33.0.1" }
 sp-keystore = { version = "0.39.0", path = "../../../../substrate/primitives/keystore" }
 thiserror = { workspace = true }
 rand = "0.8.5"

@@ -27,7 +27,7 @@ sp-io = { default-features = false, path = "../../primitives/io", version = "36.
 sc-network = { version = "0.40.0", path = "../network" }
 sc-telemetry = { version = "20.0.0", path = "../telemetry" }
 sp-blockchain = { version = "34.0.0", path = "../../primitives/blockchain" }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-crypto-hashing = { version = "0.1.0", path = "../../primitives/crypto/hashing" }
 sp-genesis-builder = { version = "0.13.0", path = "../../primitives/genesis-builder" }
 sp-runtime = { version = "37.0.0", path = "../../primitives/runtime" }

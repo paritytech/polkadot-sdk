@@ -26,7 +26,7 @@ pallet-authorship = { path = "../../../substrate/frame/authorship", default-feat
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, version = "35.0.0" }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false, version = "37.0.0" }
 sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false, version = "0.38.0" }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false, version = "36.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
@@ -34,7 +34,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false,
 # Polkadot
 pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false, version = "13.0.0" }
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "13.0.0" }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "13.0.0" }
 
 # Cumulus

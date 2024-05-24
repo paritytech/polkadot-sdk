@@ -26,12 +26,12 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
 sc-client-api = { version = "34.0.0", path = "../../api" }
-sc-network-types = { version = "0.10.0", path = "../../network/types" }
+sc-network-types = { version = "0.11.0", path = "../../network/types" }
 sc-utils = { version = "17.0.0", path = "../../utils" }
 sp-api = { version = "32.0.0", path = "../../../primitives/api" }
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../primitives/consensus/common" }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../primitives/runtime" }
 sp-state-machine = { version = "0.41.0", path = "../../../primitives/state-machine" }
 

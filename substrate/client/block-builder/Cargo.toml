@@ -22,7 +22,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", features = [
 sp-api = { version = "32.0.0", path = "../../primitives/api" }
 sp-block-builder = { version = "32.0.0", path = "../../primitives/block-builder" }
 sp-blockchain = { version = "34.0.0", path = "../../primitives/blockchain" }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-trie = { version = "35.0.0", path = "../../primitives/trie" }
 sp-inherents = { version = "32.0.0", path = "../../primitives/inherents" }
 sp-runtime = { version = "37.0.0", path = "../../primitives/runtime" }

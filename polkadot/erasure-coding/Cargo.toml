@@ -14,7 +14,7 @@ polkadot-primitives = { version = "13.0.0", path = "../primitives" }
 polkadot-node-primitives = { package = "polkadot-node-primitives", path = "../node/primitives", version = "13.0.0" }
 novelpoly = { package = "reed-solomon-novelpoly", version = "2.0.0" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "std"] }
-sp-core = { version = "33.0.0", path = "../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../substrate/primitives/core" }
 sp-trie = { version = "35.0.0", path = "../../substrate/primitives/trie" }
 thiserror = { workspace = true }
 

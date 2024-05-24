@@ -15,6 +15,6 @@ workspace = true
 clap = { version = "4.5.3", features = ["derive", "string"] }
 log = { workspace = true, default-features = true }
 fs4 = "0.7.0"
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 tokio = { version = "1.22.0", features = ["time"] }
 thiserror = { workspace = true }

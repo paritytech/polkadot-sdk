@@ -17,6 +17,6 @@ sc-cli = { version = "0.42.0", path = "../../../substrate/client/cli" }
 sc-client-api = { version = "34.0.0", path = "../../../substrate/client/api" }
 sc-chain-spec = { version = "33.0.0", path = "../../../substrate/client/chain-spec" }
 sc-service = { version = "0.41.0", path = "../../../substrate/client/service" }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../substrate/primitives/runtime" }
 sp-blockchain = { version = "34.0.0", path = "../../../substrate/primitives/blockchain" }

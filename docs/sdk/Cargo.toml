@@ -72,7 +72,7 @@ pallet-nfts = { version = "28.0.0", path = "../../substrate/frame/nfts" }
 pallet-scheduler = { version = "35.0.0", path = "../../substrate/frame/scheduler" }
 sp-io = { version = "36.0.0", path = "../../substrate/primitives/io" }
 sp-api = { version = "32.0.0", path = "../../substrate/primitives/api" }
-sp-core = { version = "33.0.0", path = "../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../substrate/primitives/core" }
 sp-keyring = { version = "37.0.0", path = "../../substrate/primitives/keyring" }
 sp-runtime = { version = "37.0.0", path = "../../substrate/primitives/runtime" }
 sp-arithmetic = { version = "26.0.0", path = "../../substrate/primitives/arithmetic" }
@@ -83,4 +83,4 @@ sp-offchain = { version = "32.0.0", path = "../../substrate/primitives/offchain"
 sp-version = { version = "35.0.0", path = "../../substrate/primitives/version" }
 
 # XCM
-xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "13.0.1" }

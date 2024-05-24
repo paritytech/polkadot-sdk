@@ -22,7 +22,7 @@ frame-election-provider-support = { version = "34.0.0", path = "../../election-p
 frame-system = { version = "34.0.0", path = "../../system" }
 frame-support = { version = "34.0.0", path = "../../support" }
 sp-storage = { version = "21.0.0", path = "../../../primitives/storage" }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-tracing = { version = "17.0.0", path = "../../../primitives/tracing" }
 sp-runtime = { version = "37.0.0", path = "../../../primitives/runtime" }
 sp-std = { version = "14.0.0", path = "../../../primitives/std" }

@@ -19,7 +19,7 @@ grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/c
 sp-authority-discovery = { version = "32.0.0", path = "../../../../../substrate/primitives/authority-discovery" }
 sp-runtime = { version = "37.0.0", path = "../../../../../substrate/primitives/runtime" }
 frame-support = { version = "34.0.0", path = "../../../../../substrate/frame/support" }
-sp-core = { version = "33.0.0", path = "../../../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../../substrate/primitives/core" }
 sp-consensus-babe = { version = "0.38.0", path = "../../../../../substrate/primitives/consensus/babe" }
 pallet-assets = { version = "35.0.0", path = "../../../../../substrate/frame/assets" }
 pallet-balances = { version = "35.0.0", path = "../../../../../substrate/frame/balances" }
@@ -27,7 +27,7 @@ pallet-message-queue = { version = "37.0.0", path = "../../../../../substrate/fr
 polkadot-primitives = { version = "13.0.0", path = "../../../../../polkadot/primitives" }
 polkadot-parachain-primitives = { version = "12.0.0", path = "../../../../../polkadot/parachain" }
 polkadot-runtime-parachains = { version = "13.0.0", path = "../../../../../polkadot/runtime/parachains" }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", version = "13.0.1" }
 pallet-xcm = { version = "13.0.0", path = "../../../../../polkadot/xcm/pallet-xcm" }
 parachains-common = { version = "13.0.0", path = "../../../common" }
 cumulus-primitives-core = { version = "0.13.0", path = "../../../../primitives/core" }

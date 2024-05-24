@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 
 # Substrate
-sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-authority-discovery = { path = "../../../../../../../substrate/primitives/authority-discovery", default-features = false, version = "32.0.0" }
 sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false, version = "0.38.0" }
@@ -25,7 +25,7 @@ pallet-staking = { path = "../../../../../../../substrate/frame/staking", defaul
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false, version = "13.0.0" }
 westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants", default-features = false, version = "13.0.0" }
 westend-runtime = { version = "13.0.0", path = "../../../../../../../polkadot/runtime/westend" }
-xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 xcm-fee-payment-runtime-api = { path = "../../../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false, version = "0.3.0" }
 parachains-common = { version = "13.0.0", path = "../../../../../common" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "9.0.0" }

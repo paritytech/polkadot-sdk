@@ -40,7 +40,7 @@ aquamarine = { version = "0.5.0" }
 # Optional imports for benchmarking
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "34.0.0" }
 pallet-balances = { path = "../balances", default-features = false, optional = true, version = "35.0.0" }
-sp-core = { path = "../../primitives/core", default-features = false, optional = true, version = "33.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, optional = true, version = "33.0.1" }
 sp-io = { path = "../../primitives/io", default-features = false, optional = true, version = "36.0.0" }
 sp-tracing = { path = "../../primitives/tracing", default-features = false, optional = true, version = "17.0.0" }
 

@@ -40,7 +40,7 @@ sp-api = { version = "32.0.0", path = "../../../primitives/api" }
 sp-block-builder = { version = "32.0.0", path = "../../../primitives/block-builder" }
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../primitives/consensus/common" }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-crypto-hashing = { version = "0.1.0", path = "../../../primitives/crypto/hashing" }
 sp-inherents = { version = "32.0.0", path = "../../../primitives/inherents" }
 sp-io = { version = "36.0.0", path = "../../../primitives/io" }

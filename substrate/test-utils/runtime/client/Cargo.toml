@@ -23,7 +23,7 @@ sc-consensus = { version = "0.39.0", path = "../../../client/consensus/common" }
 sp-api = { version = "32.0.0", path = "../../../primitives/api" }
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../primitives/consensus/common" }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../primitives/runtime" }
 substrate-test-client = { version = "0.1.0", path = "../../client" }
 substrate-test-runtime = { version = "0.1.0", path = ".." }

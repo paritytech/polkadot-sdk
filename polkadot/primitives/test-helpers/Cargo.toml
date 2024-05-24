@@ -14,6 +14,6 @@ workspace = true
 sp-keyring = { version = "37.0.0", path = "../../../substrate/primitives/keyring" }
 sp-application-crypto = { package = "sp-application-crypto", path = "../../../substrate/primitives/application-crypto", default-features = false, version = "36.0.0" }
 sp-runtime = { version = "37.0.0", path = "../../../substrate/primitives/runtime" }
-sp-core = { path = "../../../substrate/primitives/core", features = ["std"], version = "33.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", features = ["std"], version = "33.0.1" }
 polkadot-primitives = { version = "13.0.0", path = ".." }
 rand = "0.8.5"

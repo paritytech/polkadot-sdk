@@ -14,7 +14,7 @@ polkadot-overseer = { version = "13.0.0", path = "../../../polkadot/node/oversee
 cumulus-primitives-core = { version = "0.13.0", path = "../../primitives/core" }
 cumulus-relay-chain-interface = { version = "0.13.0", path = "../relay-chain-interface" }
 sp-api = { version = "32.0.0", path = "../../../substrate/primitives/api" }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sp-consensus-babe = { version = "0.38.0", path = "../../../substrate/primitives/consensus/babe" }
 sp-authority-discovery = { version = "32.0.0", path = "../../../substrate/primitives/authority-discovery" }
 sp-state-machine = { version = "0.41.0", path = "../../../substrate/primitives/state-machine" }

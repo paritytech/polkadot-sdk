@@ -25,7 +25,7 @@ sc-network-transactions = { version = "0.39.0", path = "../../../substrate/clien
 sp-api = { version = "32.0.0", path = "../../../substrate/primitives/api" }
 sp-blockchain = { version = "34.0.0", path = "../../../substrate/primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../substrate/primitives/consensus/common" }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../substrate/primitives/runtime" }
 sp-transaction-pool = { version = "32.0.0", path = "../../../substrate/primitives/transaction-pool" }
 sp-io = { version = "36.0.0", path = "../../../substrate/primitives/io" }

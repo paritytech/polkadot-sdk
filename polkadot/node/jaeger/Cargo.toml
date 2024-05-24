@@ -16,8 +16,8 @@ parking_lot = "0.12.1"
 polkadot-primitives = { version = "13.0.0", path = "../../primitives" }
 polkadot-node-primitives = { version = "13.0.0", path = "../primitives" }
 sc-network = { version = "0.40.0", path = "../../../substrate/client/network" }
-sc-network-types = { version = "0.10.0", path = "../../../substrate/client/network/types" }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sc-network-types = { version = "0.11.0", path = "../../../substrate/client/network/types" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 thiserror = { workspace = true }
 tokio = "1.37"
 log = { workspace = true, default-features = true }

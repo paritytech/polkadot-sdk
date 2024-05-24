@@ -23,7 +23,7 @@ mmr-rpc = { version = "34.0.0", path = "../../../client/merkle-mountain-range/rp
 sc-chain-spec = { version = "33.0.0", path = "../../../client/chain-spec" }
 sc-client-api = { version = "34.0.0", path = "../../../client/api" }
 sc-consensus-babe = { version = "0.40.0", path = "../../../client/consensus/babe" }
-sc-consensus-babe-rpc = { version = "0.40.0", path = "../../../client/consensus/babe/rpc" }
+sc-consensus-babe-rpc = { version = "0.40.1", path = "../../../client/consensus/babe/rpc" }
 sc-consensus-beefy = { version = "19.0.0", path = "../../../client/consensus/beefy" }
 sc-consensus-beefy-rpc = { version = "19.0.0", path = "../../../client/consensus/beefy/rpc" }
 sc-consensus-grandpa = { version = "0.25.0", path = "../../../client/consensus/grandpa" }

@@ -29,7 +29,7 @@ sp-arithmetic = { version = "26.0.0", path = "../../../primitives/arithmetic" }
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../primitives/consensus/common" }
 sp-consensus-slots = { version = "0.38.0", path = "../../../primitives/consensus/slots" }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-inherents = { version = "32.0.0", path = "../../../primitives/inherents" }
 sp-runtime = { version = "37.0.0", path = "../../../primitives/runtime" }
 sp-state-machine = { version = "0.41.0", path = "../../../primitives/state-machine" }

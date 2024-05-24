@@ -33,7 +33,7 @@ sp-std = { path = "../../primitives/std", default-features = false, version = "1
 sp-io = { path = "../../primitives/io", default-features = false, version = "36.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "37.0.0" }
 sp-tracing = { path = "../../primitives/tracing", default-features = false, version = "17.0.0" }
-sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.1" }
 sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false, version = "26.0.0" }
 sp-inherents = { path = "../../primitives/inherents", default-features = false, version = "32.0.0" }
 sp-staking = { path = "../../primitives/staking", default-features = false, version = "32.0.0" }
@@ -42,7 +42,7 @@ sp-debug-derive = { path = "../../primitives/debug-derive", default-features = f
 sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false, version = "0.7.0" }
 tt-call = "1.0.8"
 macro_magic = "0.5.0"
-frame-support-procedural = { path = "procedural", default-features = false, version = "29.0.0" }
+frame-support-procedural = { path = "procedural", default-features = false, version = "29.0.1" }
 paste = "1.0"
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false, optional = true, version = "0.41.0" }
 bitflags = "1.3"

@@ -16,7 +16,7 @@ frame-support = { version = "34.0.0", path = "../../../substrate/frame/support" 
 sp-io = { version = "36.0.0", path = "../../../substrate/primitives/io" }
 sp-std = { version = "14.0.0", path = "../../../substrate/primitives/std" }
 
-xcm = { package = "staging-xcm", path = "..", version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "..", version = "13.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", version = "13.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", version = "13.0.0" }
 polkadot-core-primitives = { version = "13.0.0", path = "../../core-primitives" }

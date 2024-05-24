@@ -17,7 +17,7 @@ assert_matches = "1.5.0"
 # Substrate
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-keyring = { path = "../../../../../../../substrate/primitives/keyring", default-features = false, version = "37.0.0" }
-sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
 frame-system = { path = "../../../../../../../substrate/frame/system", default-features = false, version = "34.0.0" }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false, version = "35.0.0" }
@@ -28,7 +28,7 @@ pallet-message-queue = { path = "../../../../../../../substrate/frame/message-qu
 pallet-transaction-payment = { path = "../../../../../../../substrate/frame/transaction-payment", default-features = false, version = "34.0.0" }
 pallet-asset-tx-payment = { path = "../../../../../../../substrate/frame/transaction-payment/asset-tx-payment", default-features = false, version = "34.0.0" }
 polkadot-runtime-common = { version = "13.0.0", path = "../../../../../../../polkadot/runtime/common" }
-xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "13.0.0" }
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "13.0.0" }
 xcm-fee-payment-runtime-api = { path = "../../../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false, version = "0.3.0" }

@@ -32,7 +32,7 @@ sc-state-db = { version = "0.35.0", path = "../state-db" }
 schnellru = "0.2.1"
 sp-arithmetic = { version = "26.0.0", path = "../../primitives/arithmetic" }
 sp-blockchain = { version = "34.0.0", path = "../../primitives/blockchain" }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-database = { version = "10.0.0", path = "../../primitives/database" }
 sp-runtime = { version = "37.0.0", path = "../../primitives/runtime" }
 sp-state-machine = { version = "0.41.0", path = "../../primitives/state-machine" }

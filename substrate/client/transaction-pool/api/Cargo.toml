@@ -19,7 +19,7 @@ log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }
-sp-core = { path = "../../../primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../primitives/core", default-features = false, version = "33.0.1" }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "37.0.0" }
 
 [dev-dependencies]

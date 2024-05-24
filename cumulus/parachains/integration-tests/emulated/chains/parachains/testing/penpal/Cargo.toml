@@ -13,11 +13,11 @@ workspace = true
 [dependencies]
 
 # Substrate
-sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 parachains-common = { version = "13.0.0", path = "../../../../../../common" }
 cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false, version = "0.13.0" }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false, version = "9.0.0" }

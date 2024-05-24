@@ -22,7 +22,7 @@ thiserror = { workspace = true }
 sc-consensus-beefy = { version = "19.0.0", path = ".." }
 sp-consensus-beefy = { version = "19.0.0", path = "../../../../primitives/consensus/beefy" }
 sc-rpc = { version = "35.0.0", path = "../../../rpc" }
-sp-core = { version = "33.0.0", path = "../../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../../primitives/runtime" }
 
 [dev-dependencies]

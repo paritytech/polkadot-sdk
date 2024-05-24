@@ -40,12 +40,12 @@ sc-client-api = { version = "34.0.0", path = "../../api" }
 sc-consensus = { version = "0.39.0", path = "../../consensus/common" }
 sc-network = { version = "0.40.0", path = ".." }
 sc-network-common = { version = "0.39.0", path = "../common" }
-sc-network-types = { version = "0.10.0", path = "../types" }
+sc-network-types = { version = "0.11.0", path = "../types" }
 sc-utils = { version = "17.0.0", path = "../../utils" }
 sp-arithmetic = { version = "26.0.0", path = "../../../primitives/arithmetic" }
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../primitives/consensus/common" }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-consensus-grandpa = { version = "19.0.0", path = "../../../primitives/consensus/grandpa" }
 sp-runtime = { version = "37.0.0", path = "../../../primitives/runtime" }
 

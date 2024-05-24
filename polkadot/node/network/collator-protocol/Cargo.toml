@@ -14,7 +14,7 @@ bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 futures = "0.3.30"
 futures-timer = "3"
 gum = { package = "tracing-gum", path = "../../gum", version = "13.0.0" }
-sp-core = { version = "33.0.0", path = "../../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../substrate/primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../../substrate/primitives/runtime" }
 sp-keystore = { version = "0.39.0", path = "../../../../substrate/primitives/keystore" }
 polkadot-primitives = { version = "13.0.0", path = "../../../primitives" }

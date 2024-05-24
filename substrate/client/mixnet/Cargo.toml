@@ -29,11 +29,11 @@ multiaddr = "0.17.1"
 parking_lot = "0.12.1"
 sc-client-api = { version = "34.0.0", path = "../api" }
 sc-network = { version = "0.40.0", path = "../network" }
-sc-network-types = { version = "0.10.0", path = "../network/types" }
+sc-network-types = { version = "0.11.0", path = "../network/types" }
 sc-transaction-pool-api = { version = "34.0.0", path = "../transaction-pool/api" }
 sp-api = { version = "32.0.0", path = "../../primitives/api" }
 sp-consensus = { version = "0.38.0", path = "../../primitives/consensus/common" }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-keystore = { version = "0.39.0", path = "../../primitives/keystore" }
 sp-mixnet = { version = "0.10.0", path = "../../primitives/mixnet" }
 sp-runtime = { version = "37.0.0", path = "../../primitives/runtime" }

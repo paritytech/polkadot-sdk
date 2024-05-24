@@ -16,7 +16,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["bit-ve
 
 # Substrate Dependencies
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 
 [features]
 default = ["std"]

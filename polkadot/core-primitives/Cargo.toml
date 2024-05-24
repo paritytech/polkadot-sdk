@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-sp-core = { path = "../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-std = { path = "../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }

@@ -29,7 +29,7 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 sp-runtime = { default-features = false, path = "../primitives/runtime", version = "37.0.0" }
 sp-std = { default-features = false, path = "../primitives/std", version = "14.0.0" }
 sp-io = { default-features = false, path = "../primitives/io", version = "36.0.0" }
-sp-core = { default-features = false, path = "../primitives/core", version = "33.0.0" }
+sp-core = { default-features = false, path = "../primitives/core", version = "33.0.1" }
 sp-arithmetic = { default-features = false, path = "../primitives/arithmetic", version = "26.0.0" }
 
 # frame deps, for developing FRAME pallets.

@@ -24,7 +24,7 @@ sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false
 sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false, version = "32.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "37.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
-sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.1" }
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["small_rng"] }

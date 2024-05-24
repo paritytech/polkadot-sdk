@@ -51,7 +51,7 @@ sc-transaction-pool = { version = "34.0.0", path = "../../../../substrate/client
 sc-service = { path = "../../../../substrate/client/service", default-features = false, version = "0.41.0" }
 sp-arithmetic = { version = "26.0.0", path = "../../../../substrate/primitives/arithmetic" }
 sp-blockchain = { version = "34.0.0", path = "../../../../substrate/primitives/blockchain" }
-sp-core = { version = "33.0.0", path = "../../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../substrate/primitives/core" }
 sp-keyring = { version = "37.0.0", path = "../../../../substrate/primitives/keyring" }
 sp-runtime = { version = "37.0.0", path = "../../../../substrate/primitives/runtime" }
 sp-state-machine = { version = "0.41.0", path = "../../../../substrate/primitives/state-machine" }

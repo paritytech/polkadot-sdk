@@ -35,7 +35,7 @@ polkadot-node-metrics = { version = "13.0.0", path = "../../metrics" }
 polkadot-node-primitives = { version = "13.0.0", path = "../../primitives" }
 polkadot-node-subsystem = { version = "13.0.0", path = "../../subsystem" }
 polkadot-primitives = { version = "13.0.0", path = "../../../primitives" }
-sp-core = { version = "33.0.0", path = "../../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../substrate/primitives/core" }
 sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-compressed-blob", optional = true, version = "11.0.0" }
 polkadot-node-core-pvf-prepare-worker = { path = "prepare-worker", optional = true, version = "13.0.0" }
 polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = true, version = "13.0.0" }

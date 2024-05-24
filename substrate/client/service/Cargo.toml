@@ -46,7 +46,7 @@ sp-externalities = { version = "0.28.0", path = "../../primitives/externalities"
 sc-utils = { version = "17.0.0", path = "../utils" }
 sp-version = { version = "35.0.0", path = "../../primitives/version" }
 sp-blockchain = { version = "34.0.0", path = "../../primitives/blockchain" }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-keystore = { version = "0.39.0", path = "../../primitives/keystore" }
 sp-session = { version = "33.0.0", path = "../../primitives/session" }
 sp-state-machine = { version = "0.41.0", path = "../../primitives/state-machine" }
@@ -57,7 +57,7 @@ sc-network = { version = "0.40.0", path = "../network" }
 sc-network-common = { version = "0.39.0", path = "../network/common" }
 sc-network-light = { version = "0.39.0", path = "../network/light" }
 sc-network-sync = { version = "0.39.0", path = "../network/sync" }
-sc-network-types = { version = "0.10.0", path = "../network/types" }
+sc-network-types = { version = "0.11.0", path = "../network/types" }
 sc-network-transactions = { version = "0.39.0", path = "../network/transactions" }
 sc-chain-spec = { version = "33.0.0", path = "../chain-spec" }
 sc-client-api = { version = "34.0.0", path = "../api" }
@@ -69,7 +69,7 @@ sc-transaction-pool = { version = "34.0.0", path = "../transaction-pool" }
 sp-transaction-pool = { version = "32.0.0", path = "../../primitives/transaction-pool" }
 sc-transaction-pool-api = { version = "34.0.0", path = "../transaction-pool/api" }
 sp-transaction-storage-proof = { version = "32.0.0", path = "../../primitives/transaction-storage-proof" }
-sc-rpc-server = { version = "16.0.0", path = "../rpc-servers" }
+sc-rpc-server = { version = "16.0.1", path = "../rpc-servers" }
 sc-rpc = { version = "35.0.0", path = "../rpc" }
 sc-rpc-spec-v2 = { version = "0.40.0", path = "../rpc-spec-v2" }
 sc-informant = { version = "0.39.0", path = "../informant" }

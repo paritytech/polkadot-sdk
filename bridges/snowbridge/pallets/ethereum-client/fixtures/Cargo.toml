@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 hex-literal = { version = "0.4.1" }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 snowbridge-core = { path = "../../../primitives/core", default-features = false, version = "0.6.0" }
 snowbridge-beacon-primitives = { path = "../../../primitives/beacon", default-features = false, version = "0.6.0" }

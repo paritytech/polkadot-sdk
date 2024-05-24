@@ -27,7 +27,7 @@ pyro = { package = "pyroscope", version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
 
 service = { package = "polkadot-service", path = "../node/service", default-features = false, optional = true, version = "13.0.0" }
-sp-core = { version = "33.0.0", path = "../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../substrate/primitives/core" }
 sp-io = { version = "36.0.0", path = "../../substrate/primitives/io" }
 sp-keyring = { version = "37.0.0", path = "../../substrate/primitives/keyring" }
 sp-maybe-compressed-blob = { version = "11.0.0", path = "../../substrate/primitives/maybe-compressed-blob" }

@@ -26,7 +26,7 @@ pallet-authorship = { path = "../authorship", default-features = false, version 
 pallet-session = { path = "../session", default-features = false, version = "34.0.0" }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"], version = "36.0.0" }
 sp-consensus-grandpa = { path = "../../primitives/consensus/grandpa", default-features = false, features = ["serde"], version = "19.0.0" }
-sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"], version = "33.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"], version = "33.0.1" }
 sp-io = { path = "../../primitives/io", default-features = false, version = "36.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "37.0.0" }
 sp-session = { path = "../../primitives/session", default-features = false, version = "33.0.0" }

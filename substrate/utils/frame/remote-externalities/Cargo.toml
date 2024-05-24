@@ -19,7 +19,7 @@ jsonrpsee = { version = "0.22", features = ["http-client"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 log = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-crypto-hashing = { version = "0.1.0", path = "../../../primitives/crypto/hashing" }
 sp-state-machine = { version = "0.41.0", path = "../../../primitives/state-machine" }
 sp-io = { version = "36.0.0", path = "../../../primitives/io" }

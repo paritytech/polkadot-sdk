@@ -53,7 +53,7 @@ sp-consensus-babe = { version = "0.38.0", path = "../../../primitives/consensus/
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../primitives/consensus/beefy", version = "19.0.0" }
 grandpa-primitives = { package = "sp-consensus-grandpa", path = "../../../primitives/consensus/grandpa", version = "19.0.0" }
 sp-api = { version = "32.0.0", path = "../../../primitives/api" }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../primitives/runtime" }
 sp-timestamp = { version = "32.0.0", path = "../../../primitives/timestamp" }
 sp-genesis-builder = { version = "0.13.0", path = "../../../primitives/genesis-builder" }

@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 sp-application-crypto = { version = "36.0.0", path = "../../../../substrate/primitives/application-crypto" }
 sp-keystore = { version = "0.39.0", path = "../../../../substrate/primitives/keystore" }
-sp-core = { version = "33.0.0", path = "../../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../substrate/primitives/core" }
 sp-crypto-hashing = { version = "0.1.0", path = "../../../../substrate/primitives/crypto/hashing" }
 sc-network = { version = "0.40.0", path = "../../../../substrate/client/network" }
 sc-network-common = { version = "0.39.0", path = "../../../../substrate/client/network/common" }

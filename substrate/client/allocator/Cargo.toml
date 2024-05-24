@@ -19,5 +19,5 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-wasm-interface = { version = "21.0.0", path = "../../primitives/wasm-interface" }

@@ -17,7 +17,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic", default-features = false, version = "26.0.0" }
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false, version = "13.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false, version = "13.0.0" }
 

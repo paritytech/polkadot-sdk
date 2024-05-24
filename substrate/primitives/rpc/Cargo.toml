@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 rustc-hash = "1.1.0"
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-core = { version = "33.0.0", path = "../core" }
+sp-core = { version = "33.0.1", path = "../core" }
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }

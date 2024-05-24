@@ -41,7 +41,7 @@ sc-network = { version = "0.40.0", path = "../../network" }
 sc-network-gossip = { version = "0.40.0", path = "../../network-gossip" }
 sc-network-common = { version = "0.39.0", path = "../../network/common" }
 sc-network-sync = { version = "0.39.0", path = "../../network/sync" }
-sc-network-types = { version = "0.10.0", path = "../../network/types" }
+sc-network-types = { version = "0.11.0", path = "../../network/types" }
 sc-telemetry = { version = "20.0.0", path = "../../telemetry" }
 sc-utils = { version = "17.0.0", path = "../../utils" }
 sp-api = { version = "32.0.0", path = "../../../primitives/api" }
@@ -49,7 +49,7 @@ sp-application-crypto = { version = "36.0.0", path = "../../../primitives/applic
 sp-arithmetic = { version = "26.0.0", path = "../../../primitives/arithmetic" }
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../primitives/consensus/common" }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-crypto-hashing = { version = "0.1.0", path = "../../../primitives/crypto/hashing" }
 sp-consensus-grandpa = { version = "19.0.0", path = "../../../primitives/consensus/grandpa" }
 sp-keystore = { version = "0.39.0", path = "../../../primitives/keystore" }

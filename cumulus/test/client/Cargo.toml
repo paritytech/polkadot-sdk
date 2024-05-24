@@ -20,7 +20,7 @@ sc-executor-common = { version = "0.34.0", path = "../../../substrate/client/exe
 substrate-test-client = { version = "0.1.0", path = "../../../substrate/test-utils/client" }
 sp-application-crypto = { version = "36.0.0", path = "../../../substrate/primitives/application-crypto" }
 sp-runtime = { version = "37.0.0", path = "../../../substrate/primitives/runtime" }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sp-api = { version = "32.0.0", path = "../../../substrate/primitives/api" }
 sp-keyring = { version = "37.0.0", path = "../../../substrate/primitives/keyring" }
 sp-keystore = { version = "0.39.0", path = "../../../substrate/primitives/keystore" }

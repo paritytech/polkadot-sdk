@@ -40,14 +40,14 @@ frame-system = { path = "../../../substrate/frame/system", default-features = fa
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "34.0.0" }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false, version = "34.0.0" }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "32.0.0" }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false, version = "36.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "35.0.0" }
 
 # Polkadot dependencies
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "13.0.0" }
 
 [dev-dependencies]

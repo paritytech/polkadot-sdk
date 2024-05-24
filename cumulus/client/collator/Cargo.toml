@@ -17,7 +17,7 @@ tracing = "0.1.25"
 sc-client-api = { version = "34.0.0", path = "../../../substrate/client/api" }
 sp-consensus = { version = "0.38.0", path = "../../../substrate/primitives/consensus/common" }
 sp-api = { version = "32.0.0", path = "../../../substrate/primitives/api" }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../substrate/primitives/runtime" }
 polkadot-node-primitives = { version = "13.0.0", path = "../../../polkadot/node/primitives" }
 polkadot-node-subsystem = { version = "13.0.0", path = "../../../polkadot/node/subsystem" }

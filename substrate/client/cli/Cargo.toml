@@ -45,7 +45,7 @@ sc-telemetry = { version = "20.0.0", path = "../telemetry" }
 sc-tracing = { version = "34.0.0", path = "../tracing" }
 sc-utils = { version = "17.0.0", path = "../utils" }
 sp-blockchain = { version = "34.0.0", path = "../../primitives/blockchain" }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-keyring = { version = "37.0.0", path = "../../primitives/keyring" }
 sp-keystore = { version = "0.39.0", path = "../../primitives/keystore" }
 sp-panic-handler = { version = "13.0.0", path = "../../primitives/panic-handler" }

@@ -17,9 +17,9 @@ primitives = { package = "polkadot-primitives", path = "../../../primitives", de
 runtime-common = { package = "polkadot-runtime-common", path = "../../common", default-features = false, version = "13.0.0" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-weights = { path = "../../../../substrate/primitives/weights", default-features = false, version = "31.0.0" }
-sp-core = { path = "../../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 
-xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false, version = "13.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../xcm/xcm-builder", default-features = false, version = "13.0.0" }
 
 [features]

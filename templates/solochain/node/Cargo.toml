@@ -23,7 +23,7 @@ futures = { version = "0.3.30", features = ["thread-pool"] }
 serde_json = { workspace = true, default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
 sc-cli = { version = "0.42.0", path = "../../../substrate/client/cli" }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sc-executor = { version = "0.38.0", path = "../../../substrate/client/executor" }
 sc-network = { version = "0.40.0", path = "../../../substrate/client/network" }
 sc-service = { version = "0.41.0", path = "../../../substrate/client/service" }

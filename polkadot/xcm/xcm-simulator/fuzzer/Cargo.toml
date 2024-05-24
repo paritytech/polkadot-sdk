@@ -22,11 +22,11 @@ frame-try-runtime = { version = "0.40.0", path = "../../../../substrate/frame/tr
 pallet-balances = { version = "35.0.0", path = "../../../../substrate/frame/balances" }
 pallet-message-queue = { version = "37.0.0", path = "../../../../substrate/frame/message-queue" }
 sp-std = { version = "14.0.0", path = "../../../../substrate/primitives/std" }
-sp-core = { version = "33.0.0", path = "../../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../substrate/primitives/core" }
 sp-runtime = { version = "37.0.0", path = "../../../../substrate/primitives/runtime" }
 sp-io = { version = "36.0.0", path = "../../../../substrate/primitives/io" }
 
-xcm = { package = "staging-xcm", path = "../..", version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../..", version = "13.0.1" }
 xcm-simulator = { version = "13.0.0", path = ".." }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm-executor", version = "13.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder", version = "13.0.0" }

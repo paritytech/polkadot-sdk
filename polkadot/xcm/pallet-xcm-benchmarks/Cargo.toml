@@ -22,7 +22,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false,
 sp-io = { path = "../../../substrate/primitives/io", default-features = false, version = "36.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false, version = "13.0.0" }
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, version = "34.0.0" }
-xcm = { package = "staging-xcm", path = "..", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "..", default-features = false, version = "13.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false, version = "13.0.0" }
 log = { workspace = true, default-features = true }
 

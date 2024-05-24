@@ -27,7 +27,7 @@ sp-io = { path = "../../../substrate/primitives/io", default-features = false, v
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"], version = "37.0.0" }
 sp-session = { path = "../../../substrate/primitives/session", default-features = false, version = "33.0.0" }
 sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, features = ["serde"], version = "32.0.0" }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"], version = "33.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"], version = "33.0.1" }
 sp-keystore = { path = "../../../substrate/primitives/keystore", optional = true, default-features = false, version = "0.39.0" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, optional = true, version = "36.0.0" }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false, optional = true, version = "17.0.0" }
@@ -47,7 +47,7 @@ frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-f
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "34.0.0" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.0" }
 
-xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "13.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "13.0.0" }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false, version = "13.0.0" }
 

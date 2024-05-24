@@ -23,7 +23,7 @@ sc-chain-spec = { version = "33.0.0", path = "../../substrate/client/chain-spec"
 sc-rpc = { version = "35.0.0", path = "../../substrate/client/rpc" }
 sc-rpc-spec-v2 = { version = "0.40.0", path = "../../substrate/client/rpc-spec-v2" }
 sc-consensus-babe = { version = "0.40.0", path = "../../substrate/client/consensus/babe" }
-sc-consensus-babe-rpc = { version = "0.40.0", path = "../../substrate/client/consensus/babe/rpc" }
+sc-consensus-babe-rpc = { version = "0.40.1", path = "../../substrate/client/consensus/babe/rpc" }
 sc-consensus-beefy = { version = "19.0.0", path = "../../substrate/client/consensus/beefy" }
 sc-consensus-beefy-rpc = { version = "19.0.0", path = "../../substrate/client/consensus/beefy/rpc" }
 sc-consensus-epochs = { version = "0.39.0", path = "../../substrate/client/consensus/epochs" }

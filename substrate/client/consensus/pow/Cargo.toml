@@ -31,6 +31,6 @@ sp-block-builder = { version = "32.0.0", path = "../../../primitives/block-build
 sp-blockchain = { version = "34.0.0", path = "../../../primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../primitives/consensus/common" }
 sp-consensus-pow = { version = "0.38.0", path = "../../../primitives/consensus/pow" }
-sp-core = { version = "33.0.0", path = "../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../primitives/core" }
 sp-inherents = { version = "32.0.0", path = "../../../primitives/inherents" }
 sp-runtime = { version = "37.0.0", path = "../../../primitives/runtime" }

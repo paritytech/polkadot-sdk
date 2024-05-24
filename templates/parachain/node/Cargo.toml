@@ -49,7 +49,7 @@ sp-api = { version = "32.0.0", path = "../../../substrate/primitives/api" }
 sp-block-builder = { version = "32.0.0", path = "../../../substrate/primitives/block-builder" }
 sp-blockchain = { version = "34.0.0", path = "../../../substrate/primitives/blockchain" }
 sp-consensus-aura = { version = "0.38.0", path = "../../../substrate/primitives/consensus/aura" }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sp-keystore = { version = "0.39.0", path = "../../../substrate/primitives/keystore" }
 sp-io = { version = "36.0.0", path = "../../../substrate/primitives/io" }
 sp-runtime = { version = "37.0.0", path = "../../../substrate/primitives/runtime" }
@@ -60,7 +60,7 @@ substrate-prometheus-endpoint = { version = "0.17.0", path = "../../../substrate
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"], version = "13.0.0" }
 polkadot-primitives = { version = "13.0.0", path = "../../../polkadot/primitives" }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 cumulus-client-cli = { version = "0.13.0", path = "../../../cumulus/client/cli" }
 cumulus-client-collator = { version = "0.13.0", path = "../../../cumulus/client/collator" }
 cumulus-client-consensus-aura = { version = "0.13.0", path = "../../../cumulus/client/consensus/aura" }

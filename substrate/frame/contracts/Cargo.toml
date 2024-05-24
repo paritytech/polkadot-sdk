@@ -47,12 +47,12 @@ pallet-balances = { path = "../balances", default-features = false, optional = t
 pallet-contracts-uapi = { version = "10.0.1", path = "uapi" }
 pallet-contracts-proc-macro = { version = "21.0.0", path = "proc-macro" }
 sp-api = { path = "../../primitives/api", default-features = false, version = "32.0.0" }
-sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.1" }
 sp-io = { path = "../../primitives/io", default-features = false, version = "36.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "37.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
 
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "13.0.0" }
 
 [dev-dependencies]

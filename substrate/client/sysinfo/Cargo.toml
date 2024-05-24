@@ -27,7 +27,7 @@ regex = "1"
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sc-telemetry = { version = "20.0.0", path = "../telemetry" }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-crypto-hashing = { version = "0.1.0", path = "../../primitives/crypto/hashing" }
 sp-io = { version = "36.0.0", path = "../../primitives/io" }
 sp-std = { version = "14.0.0", path = "../../primitives/std" }

@@ -45,7 +45,7 @@ frame-benchmarking = { version = "34.0.0", path = "../../substrate/frame/benchma
 frame-benchmarking-cli = { version = "38.0.0", path = "../../substrate/utils/frame/benchmarking-cli" }
 sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-io = { version = "36.0.0", path = "../../substrate/primitives/io" }
-sp-core = { version = "33.0.0", path = "../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../substrate/primitives/core" }
 sp-session = { version = "33.0.0", path = "../../substrate/primitives/session" }
 frame-try-runtime = { path = "../../substrate/frame/try-runtime", optional = true, version = "0.40.0" }
 sc-consensus = { version = "0.39.0", path = "../../substrate/client/consensus/common" }
@@ -90,7 +90,7 @@ substrate-state-trie-migration-rpc = { version = "33.0.0", path = "../../substra
 polkadot-cli = { path = "../../polkadot/cli", features = ["rococo-native"], version = "13.0.0" }
 polkadot-primitives = { version = "13.0.0", path = "../../polkadot/primitives" }
 polkadot-service = { version = "13.0.0", path = "../../polkadot/node/service" }
-xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "13.0.1" }
 cumulus-client-cli = { version = "0.13.0", path = "../client/cli" }
 cumulus-client-collator = { version = "0.13.0", path = "../client/collator" }
 cumulus-client-consensus-aura = { version = "0.13.0", path = "../client/consensus/aura" }

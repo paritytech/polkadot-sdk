@@ -40,7 +40,7 @@ sc-chain-spec = { version = "33.0.0", path = "../../../substrate/client/chain-sp
 sc-rpc-api = { version = "0.39.0", path = "../../../substrate/client/rpc-api" }
 sc-transaction-pool-api = { version = "34.0.0", path = "../../../substrate/client/transaction-pool/api" }
 sp-consensus-grandpa = { version = "19.0.0", path = "../../../substrate/primitives/consensus/grandpa" }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sp-rpc = { version = "31.0.0", path = "../../../substrate/primitives/rpc" }
 sp-runtime = { version = "37.0.0", path = "../../../substrate/primitives/runtime" }
 sp-std = { version = "14.0.0", path = "../../../substrate/primitives/std" }
@@ -49,7 +49,7 @@ sp-version = { version = "35.0.0", path = "../../../substrate/primitives/version
 
 # Polkadot Dependencies
 
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", version = "13.0.1" }
 
 [features]
 default = []

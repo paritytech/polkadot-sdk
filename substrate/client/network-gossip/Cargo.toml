@@ -28,7 +28,7 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../..
 sc-network = { version = "0.40.0", path = "../network" }
 sc-network-common = { version = "0.39.0", path = "../network/common" }
 sc-network-sync = { version = "0.39.0", path = "../network/sync" }
-sc-network-types = { version = "0.10.0", path = "../network/types" }
+sc-network-types = { version = "0.11.0", path = "../network/types" }
 sp-runtime = { version = "37.0.0", path = "../../primitives/runtime" }
 
 [dev-dependencies]

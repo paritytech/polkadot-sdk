@@ -27,7 +27,7 @@ sp-block-builder = { version = "32.0.0", path = "../../../../substrate/primitive
 sp-blockchain = { version = "34.0.0", path = "../../../../substrate/primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../../../substrate/primitives/consensus/common" }
 sp-consensus-aura = { version = "0.38.0", path = "../../../../substrate/primitives/consensus/aura" }
-sp-core = { version = "33.0.0", path = "../../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../substrate/primitives/core" }
 sp-inherents = { version = "32.0.0", path = "../../../../substrate/primitives/inherents" }
 sp-keystore = { version = "0.39.0", path = "../../../../substrate/primitives/keystore" }
 sp-runtime = { version = "37.0.0", path = "../../../../substrate/primitives/runtime" }

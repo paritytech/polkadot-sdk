@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 
 # Substrate
-sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-authority-discovery = { path = "../../../../../../../substrate/primitives/authority-discovery", default-features = false, version = "32.0.0" }
 sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false, version = "0.38.0" }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy", version = "19.0.0" }

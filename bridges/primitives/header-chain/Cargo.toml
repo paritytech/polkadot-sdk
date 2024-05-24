@@ -23,7 +23,7 @@ bp-runtime = { path = "../runtime", default-features = false, version = "0.13.0"
 # Substrate Dependencies
 
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"], version = "33.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"], version = "33.0.1" }
 sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa", default-features = false, features = ["serde"], version = "19.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"], version = "37.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }

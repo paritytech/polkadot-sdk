@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-core = { version = "33.0.0", path = "../../../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../../primitives/core" }
 sp-state-machine = { version = "0.41.0", path = "../../../../primitives/state-machine" }
 sp-trie = { version = "35.0.0", path = "../../../../primitives/trie" }
 trie-db = "0.29.0"

@@ -30,7 +30,7 @@ sc-offchain = { version = "35.0.0", path = "../../client/offchain" }
 sc-service = { path = "../../client/service", default-features = false, features = ["test-helpers"], version = "0.41.0" }
 sp-blockchain = { version = "34.0.0", path = "../../primitives/blockchain" }
 sp-consensus = { version = "0.38.0", path = "../../primitives/consensus/common" }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-keyring = { version = "37.0.0", path = "../../primitives/keyring" }
 sp-keystore = { version = "0.39.0", path = "../../primitives/keystore" }
 sp-runtime = { version = "37.0.0", path = "../../primitives/runtime" }

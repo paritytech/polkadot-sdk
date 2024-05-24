@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 sp-api = { path = "../api", default-features = false, version = "32.0.0" }
-sp-core = { path = "../core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../core", default-features = false, version = "33.0.1" }
 sp-runtime = { path = "../runtime", default-features = false, version = "37.0.0" }
 
 [features]

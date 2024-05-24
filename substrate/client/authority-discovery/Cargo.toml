@@ -34,11 +34,11 @@ thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.17.0" }
 sc-client-api = { version = "34.0.0", path = "../api" }
 sc-network = { version = "0.40.0", path = "../network" }
-sc-network-types = { version = "0.10.0", path = "../network/types" }
+sc-network-types = { version = "0.11.0", path = "../network/types" }
 sp-api = { version = "32.0.0", path = "../../primitives/api" }
 sp-authority-discovery = { version = "32.0.0", path = "../../primitives/authority-discovery" }
 sp-blockchain = { version = "34.0.0", path = "../../primitives/blockchain" }
-sp-core = { version = "33.0.0", path = "../../primitives/core" }
+sp-core = { version = "33.0.1", path = "../../primitives/core" }
 sp-keystore = { version = "0.39.0", path = "../../primitives/keystore" }
 sp-runtime = { version = "37.0.0", path = "../../primitives/runtime" }
 async-trait = "0.1.79"

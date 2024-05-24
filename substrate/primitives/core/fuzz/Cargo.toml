@@ -15,7 +15,7 @@ cargo-fuzz = true
 lazy_static = "1.4.0"
 libfuzzer-sys = "0.4"
 regex = "1.10.2"
-sp-core = { version = "33.0.0", path = ".." }
+sp-core = { version = "33.0.1", path = ".." }
 
 [[bin]]
 name = "fuzz_address_uri"

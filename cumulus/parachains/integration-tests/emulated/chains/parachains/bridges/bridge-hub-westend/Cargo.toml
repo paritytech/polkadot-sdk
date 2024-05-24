@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 
 # Substrate
-sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
 parachains-common = { version = "13.0.0", path = "../../../../../../common" }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false, version = "9.0.0" }

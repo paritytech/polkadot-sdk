@@ -20,7 +20,7 @@ ed25519-dalek = { version = "2.1", default-features = false }
 finality-grandpa = { version = "0.16.2", default-features = false }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, version = "36.0.0" }
 sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa", default-features = false, version = "19.0.0" }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "35.0.0" }

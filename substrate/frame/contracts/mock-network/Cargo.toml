@@ -32,13 +32,13 @@ polkadot-primitives = { version = "13.0.0", path = "../../../../polkadot/primiti
 polkadot-runtime-parachains = { version = "13.0.0", path = "../../../../polkadot/runtime/parachains" }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 sp-api = { path = "../../../primitives/api", default-features = false, version = "32.0.0" }
-sp-core = { path = "../../../primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../primitives/core", default-features = false, version = "33.0.1" }
 sp-io = { path = "../../../primitives/io", default-features = false, version = "36.0.0" }
 sp-keystore = { version = "0.39.0", path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "37.0.0" }
 sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
 sp-tracing = { version = "17.0.0", path = "../../../primitives/tracing" }
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", version = "13.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false, version = "13.0.0" }
 xcm-simulator = { version = "13.0.0", path = "../../../../polkadot/xcm/xcm-simulator" }

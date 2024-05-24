@@ -23,7 +23,7 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-weights = { path = "../../../substrate/primitives/weights", default-features = false, version = "31.0.0" }
-xcm = { package = "staging-xcm", path = "..", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "..", default-features = false, version = "13.0.1" }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "34.0.0" }
 
 [dev-dependencies]

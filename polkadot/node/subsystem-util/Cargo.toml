@@ -32,7 +32,7 @@ polkadot-primitives = { version = "13.0.0", path = "../../primitives" }
 polkadot-node-primitives = { version = "13.0.0", path = "../primitives" }
 polkadot-overseer = { version = "13.0.0", path = "../overseer" }
 metered = { package = "prioritized-metered-channel", version = "0.6.1", default-features = false, features = ["futures_channel"] }
-sp-core = { version = "33.0.0", path = "../../../substrate/primitives/core" }
+sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sp-application-crypto = { version = "36.0.0", path = "../../../substrate/primitives/application-crypto" }
 sp-keystore = { version = "0.39.0", path = "../../../substrate/primitives/keystore" }
 sc-client-api = { version = "34.0.0", path = "../../../substrate/client/api" }

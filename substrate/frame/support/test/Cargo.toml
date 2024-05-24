@@ -28,7 +28,7 @@ sp-state-machine = { path = "../../../primitives/state-machine", optional = true
 frame-support = { path = "..", default-features = false, features = ["experimental"], version = "34.0.0" }
 frame-benchmarking = { path = "../../benchmarking", default-features = false, version = "34.0.0" }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "37.0.0" }
-sp-core = { path = "../../../primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../primitives/core", default-features = false, version = "33.0.1" }
 sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
 sp-version = { path = "../../../primitives/version", default-features = false, version = "35.0.0" }
 sp-metadata-ir = { path = "../../../primitives/metadata-ir", default-features = false, version = "0.7.0" }

@@ -17,7 +17,7 @@ log = { workspace = true }
 # Substrate
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "34.0.0" }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-io = { path = "../../../../../substrate/primitives/io", default-features = false, version = "36.0.0" }
 sp-keyring = { version = "37.0.0", path = "../../../../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
@@ -33,7 +33,7 @@ parachains-common = { path = "../../../common", default-features = false, versio
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "13.0.0" }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "13.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "13.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "13.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "13.0.0" }
 

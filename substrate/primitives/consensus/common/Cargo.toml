@@ -21,7 +21,7 @@ async-trait = "0.1.79"
 futures = { version = "0.3.30", features = ["thread-pool"] }
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-sp-core = { version = "33.0.0", path = "../../core" }
+sp-core = { version = "33.0.1", path = "../../core" }
 sp-inherents = { version = "32.0.0", path = "../../inherents" }
 sp-runtime = { version = "37.0.0", path = "../../runtime" }
 sp-state-machine = { version = "0.41.0", path = "../../state-machine" }

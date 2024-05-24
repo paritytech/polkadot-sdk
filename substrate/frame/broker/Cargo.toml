@@ -22,7 +22,7 @@ bitvec = { version = "1.0.0", default-features = false }
 sp-api = { path = "../../primitives/api", default-features = false, version = "32.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
 sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false, version = "26.0.0" }
-sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.1" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "37.0.0" }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
