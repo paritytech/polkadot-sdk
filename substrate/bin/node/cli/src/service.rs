@@ -20,6 +20,8 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
+use polkadot_sdk::{sc_consensus_beefy as beefy, sc_consensus_grandpa as grandpa, *};
+
 use crate::Cli;
 use codec::Encode;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -670,7 +672,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let beefy_params = beefy::BeefyParams {
 		client: client.clone(),
 		backend: backend.clone(),
-		payload_provider: beefy_primitives::mmr::MmrRootProvider::new(client.clone()),
+		payload_provider: sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone()),
 		runtime: client.clone(),
 		key_store: keystore.clone(),
 		network_params,
@@ -844,6 +846,7 @@ mod tests {
 		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
+	use polkadot_sdk::*;
 	use sc_client_api::BlockBackend;
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
