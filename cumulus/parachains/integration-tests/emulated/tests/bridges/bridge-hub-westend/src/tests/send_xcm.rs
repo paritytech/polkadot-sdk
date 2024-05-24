@@ -109,7 +109,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	// set version for remote BridgeHub on BridgeHubWestend
 	BridgeHubWestend::force_xcm_version(
 		bridge_hub_rococo_location(),
-		xcm::v4::prelude::XCM_VERSION,
+		newer_xcm_version,
 	);
 	// set version for AssetHubRococo on BridgeHubRococo
 	BridgeHubRococo::force_xcm_version(
