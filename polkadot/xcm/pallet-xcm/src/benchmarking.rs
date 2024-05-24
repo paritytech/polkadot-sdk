@@ -312,11 +312,8 @@ benchmarks! {
 	}
 
 	notify_target_migration_fail {
-		let bad_loc: v3::Location = v3::Junction::Plurality {
-			id: v3::BodyId::Unit,
-			part: v3::BodyPart::Voice,
-		}
-		.into();
+		// introduce artificial error in sending outbound XCM
+		crate::mock::set_send_xcm_artificial_failure(true);
 		let loc = VersionedLocation::from(Location::from(Parent));
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), current_version));
