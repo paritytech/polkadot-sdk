@@ -38,8 +38,8 @@ jobs:
           sudo apt update
           sudo apt install -y protobuf-compiler
 
-          cargo build --locked --release -p frame-omni-bencher
-          target/release/frame-omni-bencher --version
+          cargo build --locked --profile=production -p frame-omni-bencher
+          target/production/frame-omni-bencher --version
 
       - name: Upload frame-omni-bencher binary
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
