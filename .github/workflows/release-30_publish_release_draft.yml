@@ -43,11 +43,13 @@ jobs:
 
       - name: Build ${{ matrix.binary }} binary
         run: |
-          package=${{ matrix.binary }}
-          [[ ${{ matrix.binary }} =~ chain-spec-builder ]] &&  package=staging-${{ matrix.binary }}
-
-          cargo build --locked --profile=production -p ${package} --bin ${{ matrix.binary }}
-          target/production/${{ matrix.binary }} --version
+          if [[ ${{ matrix.binary }} =~ chain-spec-builder ]]; then
+            cargo build --locked --profile=production -p staging-${{ matrix.binary }} --bin ${{ matrix.binary }}
+            target/production/${{ matrix.binary }} -h
+          else
+            cargo build --locked --profile=production -p ${{ matrix.binary }}
+            target/production/${{ matrix.binary }} --version
+          fi
 
       - name: Upload ${{ matrix.binary }} binary
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
