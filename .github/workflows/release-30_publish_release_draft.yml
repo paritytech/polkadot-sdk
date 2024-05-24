@@ -170,7 +170,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
-          asset_path: polkadot-sdk/${{ matrix.binary }}/${{ matrix.binary }}
+          asset_path:  ${{ github.workspace}}/${{ matrix.binary }}/${{ matrix.binary }}
           asset_name:  ${{ matrix.binary }}
           asset_content_type: application/octet-stream
 
