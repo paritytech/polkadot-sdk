@@ -187,7 +187,6 @@ impl Config<Instance1> for Test {
 type TreasuryError = pallet_treasury::Error<Test>;
 type TreasuryError1 = pallet_treasury::Error<Test, Instance1>;
 
-
 pub struct ExtBuilder {}
 
 impl Default for ExtBuilder {
@@ -203,9 +202,10 @@ impl ExtBuilder {
 			balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)] },
 			treasury: Default::default(),
 			treasury_1: Default::default(),
-		}.build_storage()
-			.unwrap()
-			.into();
+		}
+		.build_storage()
+		.unwrap()
+		.into();
 		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}

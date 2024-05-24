@@ -815,7 +815,7 @@ pub mod pallet {
 }
 
 #[cfg(any(feature = "try-runtime", test))]
-impl<T: Config<I>, I: 'static> Pallet<T, I>  {
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Ensure the correctness of the state of this pallet.
 	///
 	/// This should be valid before or after each state transition of this pallet.
@@ -827,21 +827,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I>  {
 
 	/// # Invariants
 	///
-	/// *  `BountyCount` should be greater or equals to the length of the number of items in `Bounties`.
-	/// *  `BountyCount` should be greater or equals to the length of the number of items in `BountyDescriptions`.
+	/// * `BountyCount` should be greater or equals to the length of the number of items in
+	///   `Bounties`.
+	/// * `BountyCount` should be greater or equals to the length of the number of items in
+	///   `BountyDescriptions`.
 	/// * Number of items in `Bounties` should be the same as `BountyDescriptions` length.
 	fn try_state_bounties_count() -> Result<(), sp_runtime::TryRuntimeError> {
 		let bounties_length = Self::get_bounties_count();
 
 		ensure!(
-				<BountyCount<T, I>>::get() >= bounties_length,
-				"Number of Bounties in storage must be the same as the Bounty count."
+			<BountyCount<T, I>>::get() >= bounties_length,
+			"Number of Bounties in storage must be the same as the Bounty count."
 		);
 
 		let bounties_description_length = Self::get_bounties_description_count();
 		ensure!(
-				<BountyCount<T, I>>::get() >= bounties_description_length ,
-				"Number of Bounties description in storage must be the same as the Bounty count."
+			<BountyCount<T, I>>::get() >= bounties_description_length,
+			"Number of Bounties description in storage must be the same as the Bounty count."
 		);
 
 		ensure!(
@@ -866,7 +868,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I>  {
 		}
 		count as u32
 	}
-
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
