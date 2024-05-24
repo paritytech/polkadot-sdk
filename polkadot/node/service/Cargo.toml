@@ -67,6 +67,7 @@ sp-version = { path = "../../../substrate/primitives/version" }
 pallet-babe = { path = "../../../substrate/frame/babe" }
 pallet-staking = { path = "../../../substrate/frame/staking" }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api" }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", optional = true }
 frame-system = { path = "../../../substrate/frame/system" }
 
 # Substrate Other
@@ -90,7 +91,7 @@ thiserror = { workspace = true }
 kvdb = "0.13.0"
 kvdb-rocksdb = { version = "0.19.0", optional = true }
 parity-db = { version = "0.4.12", optional = true }
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 parking_lot = "0.12.1"
 bitvec = { version = "1.0.1", optional = true }
 
@@ -187,8 +188,18 @@ full-node = [
 ]
 
 # Configure the native runtimes to use.
-westend-native = ["bitvec", "westend-runtime", "westend-runtime-constants"]
-rococo-native = ["bitvec", "rococo-runtime", "rococo-runtime-constants"]
+westend-native = [
+	"bitvec",
+	"frame-metadata-hash-extension",
+	"westend-runtime",
+	"westend-runtime-constants",
+]
+rococo-native = [
+	"bitvec",
+	"frame-metadata-hash-extension",
+	"rococo-runtime",
+	"rococo-runtime-constants",
+]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
@@ -206,6 +217,7 @@ runtime-benchmarks = [
 	"service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
+	"xcm-fee-payment-runtime-api/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
