@@ -39,7 +39,7 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 // of the inner member.
 mod imbalances {
 	use super::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
-	use frame_support::traits::SameOrOther;
+	use frame_support::traits::{tokens::imbalance::TryMerge, SameOrOther};
 	use sp_std::mem;
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
@@ -132,6 +132,12 @@ mod imbalances {
 		}
 	}
 
+	impl<T: Config<I>, I: 'static> TryMerge for PositiveImbalance<T, I> {
+		fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+			Ok(self.merge(other))
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> TryDrop for NegativeImbalance<T, I> {
 		fn try_drop(self) -> result::Result<(), Self> {
 			self.drop_zero()
@@ -193,6 +199,12 @@ mod imbalances {
 		}
 		fn peek(&self) -> T::Balance {
 			self.0
+		}
+	}
+
+	impl<T: Config<I>, I: 'static> TryMerge for NegativeImbalance<T, I> {
+		fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+			Ok(self.merge(other))
 		}
 	}
 
