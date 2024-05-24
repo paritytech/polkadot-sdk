@@ -1977,11 +1977,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1826" id="1826">1826</a>
 <a href="#1827" id="1827">1827</a>
 <a href="#1828" id="1828">1828</a>
-<a href="#1829" id="1829">1829</a>
-<a href="#1830" id="1830">1830</a>
-<a href="#1831" id="1831">1831</a>
-<a href="#1832" id="1832">1832</a>
-<a href="#1833" id="1833">1833</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3087,11 +3082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>mock {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate as </span>pallet_state_trie_migration;
-	<span class="kw">use </span>frame_support::{
-		derive_impl, parameter_types,
-		traits::{ConstU32, Hooks},
-		weights::Weight,
-	};
+	<span class="kw">use </span>frame_support::{derive_impl, parameter_types, traits::Hooks, weights::Weight};
 	<span class="kw">use </span>frame_system::{EnsureRoot, EnsureSigned};
 	<span class="kw">use </span>sp_core::{
 		storage::{ChildInfo, StateVersion},
@@ -3118,7 +3109,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>Block = Block;
-		<span class="kw">type </span>BlockHashCount = ConstU32&lt;<span class="number">250</span>&gt;;
 		<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;u64&gt;;
 	}
 

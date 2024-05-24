@@ -1827,8 +1827,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1676" id="1676">1676</a>
 <a href="#1677" id="1677">1677</a>
 <a href="#1678" id="1678">1678</a>
-<a href="#1679" id="1679">1679</a>
-<a href="#1680" id="1680">1680</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2592,7 +2590,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">const </span>NORMAL_RATIO: Perbill = Perbill::from_percent(<span class="number">75</span>);
 	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>BlockHashCount: u32 = <span class="number">250</span>;
 		<span class="kw">pub </span>BlockWeights: limits::BlockWeights =
 			frame_system::limits::BlockWeights::simple_max(Weight::from_parts(<span class="number">1024</span>, u64::MAX));
 		<span class="kw">pub </span>BlockLength: limits::BlockLength =
@@ -2611,7 +2608,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>Lookup = IdentityLookup&lt;u64&gt;;
 		<span class="kw">type </span>Block = Block;
 		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>BlockHashCount = BlockHashCount;
 		<span class="kw">type </span>DbWeight = ();
 		<span class="kw">type </span>BlockWeights = BlockWeights;
 		<span class="kw">type </span>BlockLength = BlockLength;

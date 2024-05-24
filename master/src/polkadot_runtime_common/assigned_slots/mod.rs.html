@@ -1615,11 +1615,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1464" id="1464">1464</a>
 <a href="#1465" id="1465">1465</a>
 <a href="#1466" id="1466">1466</a>
-<a href="#1467" id="1467">1467</a>
-<a href="#1468" id="1468">1468</a>
-<a href="#1469" id="1469">1469</a>
-<a href="#1470" id="1470">1470</a>
-<a href="#1471" id="1471">1471</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2293,10 +2288,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>OverarchingCall = RuntimeCall;
 	}
 
-	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>BlockHashCount: u32 = <span class="number">250</span>;
-	}
-
 	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
@@ -2311,7 +2302,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>Lookup = IdentityLookup&lt;<span class="self">Self</span>::AccountId&gt;;
 		<span class="kw">type </span>Block = Block;
 		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>BlockHashCount = BlockHashCount;
 		<span class="kw">type </span>DbWeight = ();
 		<span class="kw">type </span>Version = ();
 		<span class="kw">type </span>PalletInfo = PalletInfo;

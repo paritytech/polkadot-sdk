@@ -2414,6 +2414,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2263" id="2263">2263</a>
 <a href="#2264" id="2264">2264</a>
 <a href="#2265" id="2265">2265</a>
+<a href="#2266" id="2266">2266</a>
+<a href="#2267" id="2267">2267</a>
+<a href="#2268" id="2268">2268</a>
+<a href="#2269" id="2269">2269</a>
+<a href="#2270" id="2270">2270</a>
+<a href="#2271" id="2271">2271</a>
+<a href="#2272" id="2272">2272</a>
+<a href="#2273" id="2273">2273</a>
+<a href="#2274" id="2274">2274</a>
+<a href="#2275" id="2275">2275</a>
+<a href="#2276" id="2276">2276</a>
+<a href="#2277" id="2277">2277</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2678,7 +2690,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	</span><span class="kw">pub mod </span>config_preludes {
 		<span class="kw">use super</span>::{inject_runtime_type, DefaultConfig};
-		<span class="kw">use </span>frame_support::derive_impl;
+		<span class="kw">use </span>frame_support::{derive_impl, traits::Get};
+
+		<span class="doccomment">/// A predefined adapter that covers `BlockNumberFor&lt;T&gt;` for `Config::Block::BlockNumber` of
+		/// the types `u32`, `u64`, and `u128`.
+		///
+		/// NOTE: Avoids overriding `BlockHashCount` when using `mocking::{MockBlock, MockBlockU32,
+		/// MockBlockU128}`.
+		</span><span class="kw">pub struct </span>TestBlockHashCount&lt;C: Get&lt;u32&gt;&gt;(sp_std::marker::PhantomData&lt;C&gt;);
+		<span class="kw">impl</span>&lt;I: From&lt;u32&gt;, C: Get&lt;u32&gt;&gt; Get&lt;I&gt; <span class="kw">for </span>TestBlockHashCount&lt;C&gt; {
+			<span class="kw">fn </span>get() -&gt; I {
+				C::get().into()
+			}
+		}
 
 		<span class="doccomment">/// Provides a viable default config that can be used with
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
@@ -2716,7 +2740,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>RuntimeTask = ();
 			<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-			<span class="kw">type </span>BlockHashCount = frame_support::traits::ConstU64&lt;<span class="number">10</span>&gt;;
+			<span class="kw">type </span>BlockHashCount = TestBlockHashCount&lt;frame_support::traits::ConstU32&lt;<span class="number">10</span>&gt;&gt;;
 			<span class="kw">type </span>OnSetCode = ();
 			<span class="kw">type </span>SingleBlockMigrations = ();
 			<span class="kw">type </span>MultiBlockMigrator = ();
@@ -2813,7 +2837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="doccomment">/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 			/// Using 256 as default.
-			</span><span class="kw">type </span>BlockHashCount = frame_support::traits::ConstU32&lt;<span class="number">256</span>&gt;;
+			</span><span class="kw">type </span>BlockHashCount = TestBlockHashCount&lt;frame_support::traits::ConstU32&lt;<span class="number">256</span>&gt;&gt;;
 
 			<span class="doccomment">/// The set code logic, just the default since we're not a parachain.
 			</span><span class="kw">type </span>OnSetCode = ();
