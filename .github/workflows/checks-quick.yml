@@ -94,6 +94,8 @@ jobs:
           --exclude
           "substrate/frame/contracts/fixtures/build"
           "substrate/frame/contracts/fixtures/contracts/common"
+      - name: deny git deps
+        run: python3 .github/scripts/deny-git-deps.py .
   check-markdown:
     runs-on: ubuntu-latest
     timeout-minutes: 10
