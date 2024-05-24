@@ -12,3 +12,11 @@ doc:
 crates:
   - name: pallet-asset-conversion-tx-payment
     bump: major
+  - name: pallet-transaction-payment
+    bump: patch
+  - name: pallet-asset-conversion
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
