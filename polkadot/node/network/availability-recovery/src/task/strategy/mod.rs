@@ -384,6 +384,7 @@ impl State {
 					let res = match res.await {
 						Ok((bytes, protocol)) =>
 							if v2_protocol_name == protocol {
+								params.metrics.on_chunk_response_v2();
 								match req_res::v2::ChunkFetchingResponse::decode(&mut &bytes[..]) {
 									Ok(req_res::v2::ChunkFetchingResponse::Chunk(chunk)) =>
 										Ok(Some(chunk.into())),
@@ -391,6 +392,7 @@ impl State {
 									Err(e) => Err(RequestError::InvalidResponse(e)),
 								}
 							} else if v1_protocol_name == protocol {
+								params.metrics.on_chunk_response_v1();
 								// V1 protocol version must not be used when chunk mapping node
 								// feature is enabled, because we can't know the real index of the
 								// returned chunk.
@@ -398,7 +400,7 @@ impl State {
 								// `AvailabilityChunkMapping` feature is only enabled after the
 								// v1 version is removed. Still, log this.
 								if chunk_mapping_enabled {
-									gum::warn!(
+									gum::info!(
 										target: LOG_TARGET,
 										?candidate_hash,
 										authority_id = ?authority_id_clone,

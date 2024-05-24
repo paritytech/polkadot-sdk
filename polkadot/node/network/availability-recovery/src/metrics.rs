@@ -55,6 +55,9 @@ struct MetricsInner {
 	/// - `success`
 	chunk_requests_finished: CounterVec<U64>,
 
+	/// A counter for successful chunk requests, split by the network protocol version.
+	chunk_request_protocols: CounterVec<U64>,
+
 	/// Number of sent available data requests.
 	full_data_requests_issued: Counter<U64>,
 
@@ -202,6 +205,20 @@ impl Metrics {
 		}
 	}
 
+	/// A chunk response was received on the v1 protocol.
+	pub fn on_chunk_response_v1(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.chunk_request_protocols.with_label_values(&["v1"]).inc()
+		}
+	}
+
+	/// A chunk response was received on the v2 protocol.
+	pub fn on_chunk_response_v2(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.chunk_request_protocols.with_label_values(&["v2"]).inc()
+		}
+	}
+
 	/// A full data request succeeded.
 	pub fn on_full_request_succeeded(&self) {
 		if let Some(metrics) = &self.0 {
@@ -311,6 +328,16 @@ impl metrics::Metrics for Metrics {
 						"Total number of chunk requests finished.",
 					),
 					&["result", "type"],
+				)?,
+				registry,
+			)?,
+			chunk_request_protocols: prometheus::register(
+				CounterVec::new(
+					Opts::new(
+						"polkadot_parachain_availability_recovery_chunk_request_protocols",
+						"Total number of successful chunk requests, mapped by the protocol version (v1 or v2).",
+					),
+					&["protocol"],
 				)?,
 				registry,
 			)?,
