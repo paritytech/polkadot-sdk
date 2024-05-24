@@ -95,7 +95,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	// set version with `ExportMessage` for BridgeHubRococo
 	AssetHubRococo::force_xcm_version(
 		ParentThen(Parachain(BridgeHubRococo::para_id().into()).into()).into(),
-		xcm::v4::prelude::XCM_VERSION,
+		newer_xcm_version,
 	);
 	// send XCM from AssetHubRococo - ok
 	assert_ok!(send_asset_from_asset_hub_rococo(
