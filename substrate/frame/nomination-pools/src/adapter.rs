@@ -335,15 +335,21 @@ impl<
 
 	fn transferable_balance(pool_account: PoolAccount<Self::AccountId>) -> BalanceOf<T> {
 		Delegation::agent_balance(pool_account.clone().into())
+			// pool should always be an agent.
+			.defensive_unwrap_or_default()
 			.saturating_sub(Self::active_stake(pool_account))
 	}
 
 	fn total_balance(pool_account: PoolAccount<Self::AccountId>) -> BalanceOf<T> {
 		Delegation::agent_balance(pool_account.into())
+			// pool should always be an agent.
+			.defensive_unwrap_or_default()
 	}
 
 	fn member_delegation_balance(member_account: MemberAccount<T::AccountId>) -> BalanceOf<T> {
 		Delegation::delegator_balance(member_account.into())
+			// pool member should always be a delegator.
+			.defensive_unwrap_or_default()
 	}
 
 	fn pledge_bond(

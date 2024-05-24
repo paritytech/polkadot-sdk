@@ -28,14 +28,12 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	/// Effective balance of the `Agent` account.
-	fn agent_balance(who: AgentAccount<Self::AccountId>) -> Self::Balance {
-		Agent::<T>::get(&who.0)
-			.map(|agent| agent.ledger.effective_balance())
-			.unwrap_or_default()
+	fn agent_balance(who: AgentAccount<Self::AccountId>) -> Option<Self::Balance> {
+		Agent::<T>::get(&who.0).map(|agent| agent.ledger.effective_balance()).ok()
 	}
 
-	fn delegator_balance(delegator: DelegatorAccount<Self::AccountId>) -> Self::Balance {
-		Delegation::<T>::get(&delegator.0).map(|d| d.amount).unwrap_or_default()
+	fn delegator_balance(delegator: DelegatorAccount<Self::AccountId>) -> Option<Self::Balance> {
+		Delegation::<T>::get(&delegator.0).map(|d| d.amount)
 	}
 
 	/// Delegate funds to an `Agent`.

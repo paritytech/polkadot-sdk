@@ -497,13 +497,13 @@ pub trait DelegationInterface {
 	/// AccountId type used by the staking system.
 	type AccountId: Clone + core::fmt::Debug;
 
-	/// Effective balance of the `Agent` account.
+	/// Returns effective balance of the `Agent` account. `None` if not an `Agent`.
 	///
-	/// This takes into account any pending slashes to `Agent`.
-	fn agent_balance(agent: AgentAccount<Self::AccountId>) -> Self::Balance;
+	/// This takes into account any pending slashes to `Agent` against the delegated balance.
+	fn agent_balance(agent: AgentAccount<Self::AccountId>) -> Option<Self::Balance>;
 
-	/// Returns the total amount of funds delegated by a `delegator`.
-	fn delegator_balance(delegator: DelegatorAccount<Self::AccountId>) -> Self::Balance;
+	/// Returns the total amount of funds delegated. `None` if not a `Delegator`.
+	fn delegator_balance(delegator: DelegatorAccount<Self::AccountId>) -> Option<Self::Balance>;
 
 	/// Delegate funds to `Agent`.
 	///
