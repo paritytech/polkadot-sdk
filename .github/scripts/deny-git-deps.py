@@ -18,14 +18,23 @@ KNOWN_BAD_GIT_DEPS = {
 }
 
 root = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
+workspace = Workspace.from_path(root)
 
-for crate in Workspace.from_path(root).crates:
+def check_dep(dep, used_by):
+	if dep.location != DependencyLocation.GIT:
+		return
+	
+	if used_by in KNOWN_BAD_GIT_DEPS.get(dep.name, []):
+		print(f'🤨 Ignoring git dependency {dep.name} in {used_by}')
+	else:
+		print(f'🚫 Found git dependency {dep.name} in {used_by}')
+		sys.exit(1)	
+
+# Check the workspace dependencies that can be inherited:
+for dep in workspace.dependencies:
+	check_dep(dep, "workspace")
+
+# And the dependencies of each crate:
+for crate in workspace.crates:
 	for dep in crate.dependencies:
-		if dep.location != DependencyLocation.GIT:
-			continue
-		
-		if crate.name in KNOWN_BAD_GIT_DEPS.get(dep.name, []):
-			print(f'🤨 Ignoring bad git dependency {dep.name} of {crate.name}')
-		else:
-			print(f'🚫 Found git dependency {dep.name} of {crate.name}')
-			sys.exit(1)				
+		check_dep(dep, crate.name)
