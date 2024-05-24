@@ -312,11 +312,17 @@ benchmarks! {
 	}
 
 	notify_target_migration_fail {
-		// introduce artificial error in sending outbound XCM
-		crate::mock::set_send_xcm_artificial_failure(true);
-		let loc = VersionedLocation::from(Location::from(Parent));
+		let newer_xcm_version = xcm::prelude::XCM_VERSION;
+		let older_xcm_version = newer_xcm_version - 1;
+		let bad_location: Location = Plurality {
+			id: BodyId::Unit,
+			part: BodyPart::Voice,
+		}.into();
+		let bad_location = VersionedLocation::from(bad_location)
+			.into_version(older_xcm_version)
+			.expect("Version convertion should work");
 		let current_version = T::AdvertisedXcmVersion::get();
-		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), current_version));
+		VersionNotifyTargets::<T>::insert(current_version, bad_location, (0, Weight::zero(), current_version));
 	}: {
 		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}
