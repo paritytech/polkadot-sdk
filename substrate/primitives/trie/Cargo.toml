@@ -44,7 +44,6 @@ criterion = "0.5.1"
 trie-bench = "0.39.0"
 trie-standardmap = "0.16.0"
 sp-runtime = { path = "../runtime" }
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "e9782f9", default-features = false, features = ["substrate-curves"], optional = true }
 
 [features]
 default = ["std"]
