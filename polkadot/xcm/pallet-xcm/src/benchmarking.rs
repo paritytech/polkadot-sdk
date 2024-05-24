@@ -317,9 +317,9 @@ benchmarks! {
 			part: v3::BodyPart::Voice,
 		}
 		.into();
-		let bad_loc = VersionedLocation::V3(bad_loc);
+		let loc = VersionedLocation::from(Location::from(Parent));
 		let current_version = T::AdvertisedXcmVersion::get();
-		VersionNotifyTargets::<T>::insert(current_version, bad_loc, (0, Weight::zero(), current_version));
+		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), current_version));
 	}: {
 		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}
