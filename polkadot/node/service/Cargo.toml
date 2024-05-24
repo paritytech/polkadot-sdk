@@ -96,7 +96,7 @@ polkadot-rpc = { version = "8.0.0", path = "../../rpc" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../subsystem" }
 polkadot-node-subsystem-util = { version = "8.0.0", path = "../subsystem-util" }
 polkadot-node-subsystem-types = { version = "8.0.0", path = "../subsystem-types" }
-polkadot-runtime-parachains = { version = "8.0.1", path = "../../runtime/parachains" }
+polkadot-runtime-parachains = { version = "8.0.2", path = "../../runtime/parachains" }
 polkadot-node-network-protocol = { version = "8.0.0", path = "../network/protocol" }
 
 # Polkadot Runtime Constants
