@@ -61,9 +61,9 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 #[test]
 fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	// Initially set only default version on all runtimes
-    let newer_xcm_version = xcm::prelude::XCM_VERSION;
-    let older_xcm_version = newer_xcm_version - 1;
-    
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
+
 	AssetHubRococo::force_default_xcm_version(Some(older_xcm_version));
 	BridgeHubRococo::force_default_xcm_version(Some(older_xcm_version));
 	BridgeHubWestend::force_default_xcm_version(Some(older_xcm_version));
@@ -107,10 +107,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	assert_bridge_hub_westend_message_accepted(false);
 
 	// set version for remote BridgeHub on BridgeHubWestend
-	BridgeHubWestend::force_xcm_version(
-		bridge_hub_rococo_location(),
-		newer_xcm_version,
-	);
+	BridgeHubWestend::force_xcm_version(bridge_hub_rococo_location(), newer_xcm_version);
 	// set version for AssetHubRococo on BridgeHubRococo
 	BridgeHubRococo::force_xcm_version(
 		ParentThen(Parachain(AssetHubRococo::para_id().into()).into()).into(),
