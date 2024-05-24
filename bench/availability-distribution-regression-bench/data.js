@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716562710763,
+  "lastUpdate": 1716589915122,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -11283,6 +11283,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15952021767333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e192b764971f99975e876380f9ebbf2c08f0c17d",
+          "message": "Avoid using `xcm::v4` and use latest instead for AssetHub benchmarks (#4567)",
+          "timestamp": "2024-05-24T20:59:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e192b764971f99975e876380f9ebbf2c08f0c17d"
+        },
+        "date": 1716589885656,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02206091735333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012122788266666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1582996468466667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00996092410000001,
             "unit": "seconds"
           }
         ]
