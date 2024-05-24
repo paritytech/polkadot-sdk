@@ -1,7 +1,7 @@
 title: Add availability-recovery from systematic chunks
 
 doc:
-  - audience Node Operator
+  - audience: Node Operator
     description: |
       Implements https://github.com/polkadot-fellows/RFCs/pull/47. This optimisation is guarded by a configuration bit in
       the runtime and will only be enabled once a supermajority of the validators have upgraded to this version.
