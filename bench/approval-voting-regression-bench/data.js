@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716503363977,
+  "lastUpdate": 1716542048339,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -4605,6 +4605,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.400572957699922,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Serban Iorga",
+            "username": "serban300",
+            "email": "serban@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "700d5910580fdc17a0737925d4fe2472eb265f82",
+          "message": "Use polkadot-ckb-merkle-mountain-range dependency (#4562)\n\nWe need to use the `polkadot-ckb-merkle-mountain-range` dependency\npublished on `crates.io` in order to unblock the release of the\n`sp-mmr-primitives` crate",
+          "timestamp": "2024-05-24T07:43:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/700d5910580fdc17a0737925d4fe2472eb265f82"
+        },
+        "date": 1716542019623,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63547.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.230676135610021,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.955009803420065,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0941640435500823,
             "unit": "seconds"
           }
         ]
