@@ -46,7 +46,7 @@
 //! The umbrella crate can be added to your runtime crate like this:
 //!
 //! `polkadot-sdk = { path = "../../../../umbrella", features = ["runtime"], default-features =
-//! false}`
+//! false }`
 //!
 //! or for a node:
 //!

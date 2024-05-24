@@ -14230,6 +14230,7 @@ dependencies = [
  "pallet-uniques",
  "pallet-utility",
  "parity-scale-codec",
+ "polkadot-sdk",
  "polkadot-sdk-frame",
  "sc-cli",
  "sc-client-db",
