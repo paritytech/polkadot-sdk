@@ -772,6 +772,7 @@ parameter_types! {
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AssetId = xcm::v3::Location;
 	type OnChargeAssetTransaction = SwapAssetAdapter<
 		TokenLocationV3,
 		NativeAndAssets,

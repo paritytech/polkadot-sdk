@@ -573,6 +573,7 @@ impl pallet_transaction_payment::Config for Runtime {
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AssetId = NativeOrWithId<u32>;
 	type OnChargeAssetTransaction = SwapAssetAdapter<
 		Native,
 		NativeAndAssets,
