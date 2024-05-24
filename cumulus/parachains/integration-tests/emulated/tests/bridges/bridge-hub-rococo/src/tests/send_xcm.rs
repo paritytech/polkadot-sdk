@@ -114,7 +114,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	// set version for AssetHubWestend on BridgeHubWestend
 	BridgeHubWestend::force_xcm_version(
 		ParentThen(Parachain(AssetHubWestend::para_id().into()).into()).into(),
-		xcm::v4::prelude::XCM_VERSION,
+		newer_xcm_version,
 	);
 
 	// send XCM from AssetHubRococo - ok
