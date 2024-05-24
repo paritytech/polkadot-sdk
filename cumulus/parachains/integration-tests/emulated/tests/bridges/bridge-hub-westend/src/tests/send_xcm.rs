@@ -61,10 +61,13 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 #[test]
 fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	// Initially set only default version on all runtimes
-	AssetHubRococo::force_default_xcm_version(Some(xcm::v3::prelude::XCM_VERSION));
-	BridgeHubRococo::force_default_xcm_version(Some(xcm::v3::prelude::XCM_VERSION));
-	BridgeHubWestend::force_default_xcm_version(Some(xcm::v3::prelude::XCM_VERSION));
-	AssetHubWestend::force_default_xcm_version(Some(xcm::v3::prelude::XCM_VERSION));
+    let newer_xcm_version = xcm::prelude::XCM_VERSION;
+    let older_xcm_version = newer_xcm_version - 1;
+    
+	AssetHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubWestend::force_default_xcm_version(Some(older_xcm_version));
+	AssetHubWestend::force_default_xcm_version(Some(older_xcm_version));
 
 	// prepare data
 	let destination = asset_hub_rococo_location();
