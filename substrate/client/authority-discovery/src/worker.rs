@@ -35,7 +35,6 @@ use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
-use multihash::{Code, Multihash, MultihashDigest};
 
 use log::{debug, error, log_enabled};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
@@ -46,7 +45,10 @@ use sc_network::{
 	event::DhtEvent, multiaddr, KademliaKey, Multiaddr, NetworkDHTProvider, NetworkSigner,
 	NetworkStateInfo,
 };
-use sc_network_types::PeerId;
+use sc_network_types::{
+	multihash::{Code, Multihash},
+	PeerId,
+};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
