@@ -1002,7 +1002,7 @@ fn pool_migration_e2e() {
 		assert!(!Pools::api_member_needs_delegate_migration(20));
 		assert_noop!(
 			Pools::migrate_delegation(RuntimeOrigin::signed(10), 20),
-			PoolsError::<Runtime>::PoolNotMigrated
+			PoolsError::<Runtime>::NotMigrated
 		);
 
 		// migrate the pool.
@@ -1013,7 +1013,7 @@ fn pool_migration_e2e() {
 		assert!(!Pools::api_pool_needs_delegate_migration(1));
 		assert_noop!(
 			Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
-			PoolsError::<Runtime>::PoolAlreadyMigrated
+			PoolsError::<Runtime>::AlreadyMigrated
 		);
 
 		// unclaimed delegations to the pool are stored in this account.
@@ -1124,7 +1124,7 @@ fn pool_migration_e2e() {
 		assert!(!Pools::api_member_needs_delegate_migration(22));
 		assert_noop!(
 			Pools::migrate_delegation(RuntimeOrigin::signed(10), 22),
-			PoolsError::<Runtime>::NoDelegationToMigrate
+			PoolsError::<Runtime>::AlreadyMigrated
 		);
 
 		// tokens moved to 22's account and held there.

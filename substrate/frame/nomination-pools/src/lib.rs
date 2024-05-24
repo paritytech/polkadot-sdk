@@ -1940,12 +1940,10 @@ pub mod pallet {
 		NothingToAdjust,
 		/// No slash pending that can be applied to the member.
 		NothingToSlash,
-		/// No delegation to migrate.
-		NoDelegationToMigrate,
-		/// The pool has already migrated to enable delegation.
-		PoolAlreadyMigrated,
-		/// The pool has not migrated yet to enable delegation.
-		PoolNotMigrated,
+		/// The pool or member delegation has already migrated to delegate stake.
+		AlreadyMigrated,
+		/// The pool or member delegation has not migrated yet to delegate stake.
+		NotMigrated,
 		/// This call is not allowed in the current state of the pallet.
 		NotSupported,
 	}
@@ -2926,24 +2924,23 @@ pub mod pallet {
 				T::StakeAdapter::pool_strategy(PoolAccount(Self::generate_bonded_account(
 					member.pool_id
 				))) == adapter::StakeStrategyType::Delegate,
-				Error::<T>::PoolNotMigrated
+				Error::<T>::NotMigrated
 			);
 
 			let pool_contribution = member.total_balance();
 			ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// the member must have some contribution to be migrated.
-			ensure!(pool_contribution > Zero::zero(), Error::<T>::NoDelegationToMigrate);
+			ensure!(pool_contribution > Zero::zero(), Error::<T>::AlreadyMigrated);
 
 			let delegation =
 				T::StakeAdapter::member_delegation_balance(MemberAccount(member_account.clone()));
-			// delegation can be claimed only once.
-			ensure!(delegation == Zero::zero(), Error::<T>::NoDelegationToMigrate);
+			// delegation should not exist.
+			ensure!(delegation.is_none(), Error::<T>::AlreadyMigrated);
 
-			let diff = pool_contribution.defensive_saturating_sub(delegation);
 			T::StakeAdapter::migrate_delegation(
 				PoolAccount(Pallet::<T>::generate_bonded_account(member.pool_id)),
 				MemberAccount(member_account),
-				diff,
+				pool_contribution,
 			)?;
 
 			// if successful, we refund the fee.
@@ -2977,7 +2974,7 @@ pub mod pallet {
 			ensure!(
 				T::StakeAdapter::pool_strategy(PoolAccount(bonded_pool.bonded_account())) ==
 					adapter::StakeStrategyType::Transfer,
-				Error::<T>::PoolAlreadyMigrated
+				Error::<T>::AlreadyMigrated
 			);
 
 			Self::migrate_to_delegate_stake(pool_id)?;
@@ -3075,7 +3072,8 @@ impl<T: Config> Pallet<T> {
 			"could not transfer all amount to depositor while dissolving pool"
 		);
 		defensive_assert!(
-			T::StakeAdapter::total_balance(PoolAccount(bonded_pool.bonded_account())) ==
+			T::StakeAdapter::total_balance(PoolAccount(bonded_pool.bonded_account()))
+				.unwrap_or_default() ==
 				Zero::zero(),
 			"dissolving pool should not have any balance"
 		);
@@ -3479,7 +3477,7 @@ impl<T: Config> Pallet<T> {
 		let member = PoolMembers::<T>::get(member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
 		let pending_slash =
-			Self::member_pending_slash(MemberAccount(member_account.clone()), member.clone());
+			Self::member_pending_slash(MemberAccount(member_account.clone()), member.clone())?;
 
 		// if nothing to slash, return error.
 		ensure!(!pending_slash.is_zero(), Error::<T>::NothingToSlash);
@@ -3498,7 +3496,7 @@ impl<T: Config> Pallet<T> {
 	fn member_pending_slash(
 		member_account: MemberAccount<T::AccountId>,
 		pool_member: PoolMember<T>,
-	) -> BalanceOf<T> {
+	) -> Result<BalanceOf<T>, DispatchError> {
 		// only executed in tests: ensure the member account is correct.
 		debug_assert!(
 			PoolMembers::<T>::get(member_account.0.clone()).expect("member must exist") ==
@@ -3509,20 +3507,24 @@ impl<T: Config> Pallet<T> {
 		// if the pool doesn't have any pending slash, it implies the member also does not have any
 		// pending slash.
 		if T::StakeAdapter::pending_slash(PoolAccount(pool_account.clone())).is_zero() {
-			return Zero::zero()
+			return Ok(Zero::zero())
 		}
 
 		// this is their actual held balance that may or may not have been slashed.
-		let actual_balance = T::StakeAdapter::member_delegation_balance(member_account);
+		let actual_balance = T::StakeAdapter::member_delegation_balance(member_account)
+			// no delegation implies the member delegation is not migrated yet to `DelegateStake`.
+			.ok_or(Error::<T>::NotMigrated)?;
+
 		// this is their balance in the pool
 		let expected_balance = pool_member.total_balance();
+
 		defensive_assert!(
 			actual_balance >= expected_balance,
 			"actual balance should always be greater or equal to the expected"
 		);
 
 		// return the amount to be slashed.
-		actual_balance.defensive_saturating_sub(expected_balance)
+		Ok(actual_balance.defensive_saturating_sub(expected_balance))
 	}
 
 	/// Apply freeze on reward account to restrict it from going below ED.
@@ -3718,7 +3720,10 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::StakeAdapter::active_stake(PoolAccount(pool_account.clone()));
-			let total_balance = T::StakeAdapter::total_balance(PoolAccount(pool_account));
+			let total_balance = T::StakeAdapter::total_balance(PoolAccount(pool_account.clone()))
+				// At the time when StakeAdapter is changed to `DelegateStake` but pool is not yet
+				// migrated, the total balance would be none.
+				.unwrap_or(T::Currency::total_balance(&pool_account));
 
 			assert!(
 				total_balance >= bonded_balance + sum_unbonding_balance,
@@ -3838,7 +3843,9 @@ impl<T: Config> Pallet<T> {
 
 	pub fn api_member_pending_slash(who: T::AccountId) -> BalanceOf<T> {
 		PoolMembers::<T>::get(who.clone())
-			.map(|pool_member| Self::member_pending_slash(MemberAccount(who), pool_member))
+			.map(|pool_member| {
+				Self::member_pending_slash(MemberAccount(who), pool_member).unwrap_or_default()
+			})
 			.unwrap_or_default()
 	}
 
@@ -3882,7 +3889,7 @@ impl<T: Config> Pallet<T> {
 
 				// if the member has no delegation but has some balance in the pool, then it needs
 				// to be migrated.
-				delegated_balance.is_zero() && !member_balance.is_zero()
+				delegated_balance.is_none() && !member_balance.is_zero()
 			})
 			.unwrap_or_default()
 	}

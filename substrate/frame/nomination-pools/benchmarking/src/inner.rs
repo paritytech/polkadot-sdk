@@ -139,8 +139,11 @@ fn vote_to_balance<T: pallet_nomination_pools::Config>(
 	vote.try_into().map_err(|_| "could not convert u64 to Balance")
 }
 
-fn is_transfer_stake_strategy<T: pallet_nomination_pools::Config>() -> bool {
-	T::StakeAdapter::strategy_type() == StakeStrategyType::Transfer
+/// Returns `true` if the adapter is not using `Delegate` strategy.
+///
+/// Some extrinsics would only succeed with `Delegate` strategy, so we need to check this.
+fn legacy_adapter_used<T: pallet_nomination_pools::Config>() -> bool {
+	T::StakeAdapter::strategy_type() != StakeStrategyType::Delegate
 }
 
 #[allow(unused)]
@@ -522,7 +525,7 @@ frame_benchmarking::benchmarks! {
 		);
 		assert_eq!(
 			T::StakeAdapter::total_balance(PoolAccount(pool_account.clone())),
-			min_create_bond
+			Some(min_create_bond)
 		);
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
 
@@ -891,7 +894,7 @@ frame_benchmarking::benchmarks! {
 		// verify user balance in the pool.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 		// verify delegated balance.
-		assert!(is_transfer_stake_strategy::<T>() || T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())) == deposit_amount);
+		assert!(legacy_adapter_used::<T>() || T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())) == Some(deposit_amount));
 
 		// ugly type conversion between balances of pallet staking and pools (which really are same
 		// type). Maybe there is a better way?
@@ -909,7 +912,7 @@ frame_benchmarking::benchmarks! {
 		// verify user balance is slashed in the pool.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount/2u32.into());
 		// verify delegated balance are not yet slashed.
-		assert!(is_transfer_stake_strategy::<T>() || T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())) == deposit_amount);
+		assert!(legacy_adapter_used::<T>() || T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())) == Some(deposit_amount));
 
 		// Fill member's sub pools for the worst case.
 		for i in 1..(T::MaxUnbonding::get() + 1) {
@@ -924,13 +927,13 @@ frame_benchmarking::benchmarks! {
 	}:
 	{
 		let res = Pools::<T>::apply_slash(RuntimeOrigin::Signed(slash_reporter.clone()).into(), depositor_lookup.clone());
-		// for transfer stake strategy, apply slash would error, otherwise success.
-		assert!(is_transfer_stake_strategy::<T>() ^ res.is_ok());
+		// this is expected to work only for delegate stake strategy.
+		assert!(legacy_adapter_used::<T>() ^ res.is_ok());
 	}
 	verify {
 		// verify balances are correct and slash applied.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount/2u32.into());
-		assert!(is_transfer_stake_strategy::<T>() || T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())) == deposit_amount/2u32.into());
+		assert!(legacy_adapter_used::<T>() || T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())) == Some(deposit_amount/2u32.into()));
 	}
 
 	apply_slash_fail {
@@ -984,11 +987,11 @@ frame_benchmarking::benchmarks! {
 	}: {
 		// Try migrate to `DelegateStake`. Would succeed only if `DelegateStake` strategy is used.
 		let res = Pools::<T>::migrate_pool_to_delegate_stake(RuntimeOrigin::Signed(depositor.clone()).into(), 1u32.into());
-		assert!(is_transfer_stake_strategy::<T>() ^ res.is_ok());
+		assert!(legacy_adapter_used::<T>() ^ res.is_ok());
 	}
 	verify {
 		// this queries agent balance if `DelegateStake` strategy.
-		assert!(T::StakeAdapter::total_balance(PoolAccount(pool_account.clone())) == deposit_amount);
+		assert!(T::StakeAdapter::total_balance(PoolAccount(pool_account.clone())) == Some(deposit_amount));
 	}
 
 	migrate_delegation {
@@ -1002,21 +1005,22 @@ frame_benchmarking::benchmarks! {
 
 		// Now migrate pool to delegate stake keeping delegators unmigrated.
 		let migration_res = Pools::<T>::migrate_pool_to_delegate_stake(RuntimeOrigin::Signed(depositor.clone()).into(), 1u32.into());
-		assert!(is_transfer_stake_strategy::<T>() ^ migration_res.is_ok());
+		assert!(legacy_adapter_used::<T>() ^ migration_res.is_ok());
 
-		// verify balances that we will check again later.
-		assert!(T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())) == Zero::zero());
+		// delegation does not exist.
+		assert!(T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())).is_none());
+		// contribution exists in the pool.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 
 		whitelist_account!(depositor);
 	}: {
 		let res = Pools::<T>::migrate_delegation(RuntimeOrigin::Signed(depositor.clone()).into(), depositor_lookup.clone());
 		// for transfer stake strategy, apply slash would error, otherwise success.
-		assert!(is_transfer_stake_strategy::<T>() ^ res.is_ok());
+		assert!(legacy_adapter_used::<T>() ^ res.is_ok());
 	}
 	verify {
 		// verify balances once more.
-		assert!(is_transfer_stake_strategy::<T>() || T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())) == deposit_amount);
+		assert!(legacy_adapter_used::<T>() || T::StakeAdapter::member_delegation_balance(MemberAccount(depositor.clone())) == Some(deposit_amount));
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 	}
 

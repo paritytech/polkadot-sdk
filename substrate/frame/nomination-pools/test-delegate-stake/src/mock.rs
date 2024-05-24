@@ -207,7 +207,9 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		DelegateStake::total_balance(pool_account)
 	}
 
-	fn member_delegation_balance(member_account: MemberAccount<Self::AccountId>) -> Self::Balance {
+	fn member_delegation_balance(
+		member_account: MemberAccount<Self::AccountId>,
+	) -> Option<Self::Balance> {
 		if LegacyAdapter::get() {
 			return TransferStake::member_delegation_balance(member_account)
 		}

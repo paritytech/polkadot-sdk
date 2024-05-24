@@ -86,10 +86,12 @@ pub trait StakeStrategy {
 	fn transferable_balance(pool_account: PoolAccount<Self::AccountId>) -> Self::Balance;
 
 	/// Total balance of the pool including amount that is actively staked.
-	fn total_balance(pool_account: PoolAccount<Self::AccountId>) -> Self::Balance;
+	fn total_balance(pool_account: PoolAccount<Self::AccountId>) -> Option<Self::Balance>;
 
 	/// Amount of tokens delegated by the member.
-	fn member_delegation_balance(member_account: MemberAccount<Self::AccountId>) -> Self::Balance;
+	fn member_delegation_balance(
+		member_account: MemberAccount<Self::AccountId>,
+	) -> Option<Self::Balance>;
 
 	/// See [`StakingInterface::active_stake`].
 	fn active_stake(pool_account: PoolAccount<Self::AccountId>) -> Self::Balance {
@@ -232,13 +234,15 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		T::Currency::balance(&pool_account.0).saturating_sub(Self::active_stake(pool_account))
 	}
 
-	fn total_balance(pool_account: PoolAccount<Self::AccountId>) -> BalanceOf<T> {
-		T::Currency::total_balance(&pool_account.0)
+	fn total_balance(pool_account: PoolAccount<Self::AccountId>) -> Option<BalanceOf<T>> {
+		Some(T::Currency::total_balance(&pool_account.0))
 	}
 
-	fn member_delegation_balance(_member_account: MemberAccount<T::AccountId>) -> Staking::Balance {
-		// for transfer stake, delegation balance is always zero.
-		Zero::zero()
+	fn member_delegation_balance(
+		_member_account: MemberAccount<T::AccountId>,
+	) -> Option<Staking::Balance> {
+		// for transfer stake, no delegation exists.
+		None
 	}
 
 	fn pledge_bond(
@@ -340,16 +344,14 @@ impl<
 			.saturating_sub(Self::active_stake(pool_account))
 	}
 
-	fn total_balance(pool_account: PoolAccount<Self::AccountId>) -> BalanceOf<T> {
+	fn total_balance(pool_account: PoolAccount<Self::AccountId>) -> Option<BalanceOf<T>> {
 		Delegation::agent_balance(pool_account.into())
-			// pool should always be an agent.
-			.defensive_unwrap_or_default()
 	}
 
-	fn member_delegation_balance(member_account: MemberAccount<T::AccountId>) -> BalanceOf<T> {
+	fn member_delegation_balance(
+		member_account: MemberAccount<T::AccountId>,
+	) -> Option<BalanceOf<T>> {
 		Delegation::delegator_balance(member_account.into())
-			// pool member should always be a delegator.
-			.defensive_unwrap_or_default()
 	}
 
 	fn pledge_bond(
