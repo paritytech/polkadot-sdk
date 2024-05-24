@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use inflector::Inflector;
 use syn::spanned::Spanned;
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -99,6 +100,9 @@ impl TryFrom<syn::ImplItemFn> for ViewFunctionDef {
 
 impl ViewFunctionDef {
 	pub fn query_struct_ident(&self) -> syn::Ident {
-		syn::Ident::new(&format!("{}Query", self.name), self.name.span())
+		syn::Ident::new(
+			&format!("{}Query", self.name.to_string().to_pascal_case()),
+			self.name.span(),
+		)
 	}
 }

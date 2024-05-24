@@ -60,7 +60,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SomeValue<T: Config> = StorageValue<_, u32>;
 
-	/// Numbers to be added into the total.
 	#[pallet::storage]
 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
 

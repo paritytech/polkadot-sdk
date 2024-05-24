@@ -40,6 +40,7 @@ pub struct QueryId {
 
 /// implemented for each pallet view function method
 pub trait Query {
+	const ID: QueryId;
 	type ReturnType: codec::Codec;
 
 	fn query(self) -> Self::ReturnType;

@@ -65,7 +65,7 @@ fn expand_view_function(
 		#[scale_info(skip_type_params(#type_use_gen), capture_docs = #capture_docs)]
 		#[allow(non_camel_case_types)]
 		pub struct #query_struct_ident<#type_decl_bounded_gen> #where_clause {
-
-		};
+			_marker: ::core::marker::PhantomData<(#type_use_gen,)>,
+		}
 	}
 }

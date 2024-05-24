@@ -18,14 +18,25 @@
 //! Tests for `pallet-example-tasks`.
 #![cfg(test)]
 
-use crate::mock::*;
-use frame_support::traits::Task;
+use crate::{
+	mock::*,
+	pallet::{self, Pallet},
+};
+use frame_support::traits::{DispatchQuery, Query};
 use sp_runtime::BuildStorage;
 
 #[test]
-fn task_enumerate_works() {
+fn pallet_get_value_query() {
 	new_test_ext().execute_with(|| {
-		// Numbers::<Runtime>::insert(0, 1);
-		// assert_eq!(crate::pallet::Task::<Runtime>::iter().collect::<Vec<_>>().len(), 1);
+		let some_value = Some(99);
+		pallet::SomeValue::<Runtime>::set(some_value);
+		assert_eq!(some_value, Pallet::<Runtime>::get_value());
+		assert_eq!(
+			some_value,
+			<Pallet<Runtime> as DispatchQuery>::dispatch_query(
+				&<pallet::GetValueQuery<Runtime> as Query>::ID,
+				vec![],
+			)
+		);
 	});
 }
