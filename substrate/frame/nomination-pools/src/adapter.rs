@@ -157,7 +157,7 @@ pub trait StakeStrategy {
 	) -> DispatchResult;
 
 	/// Check if there is any pending slash for the pool.
-	fn has_pending_slash(pool_account: PoolAccount<Self::AccountId>) -> bool;
+	fn pending_slash(pool_account: PoolAccount<Self::AccountId>) -> Self::Balance;
 
 	/// Slash the member account with `amount` against pending slashes for the pool.
 	fn member_slash(
@@ -273,9 +273,9 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		Ok(())
 	}
 
-	fn has_pending_slash(_: PoolAccount<Self::AccountId>) -> bool {
+	fn pending_slash(_: PoolAccount<Self::AccountId>) -> Self::Balance {
 		// for transfer stake strategy, slashing is greedy and never deferred.
-		false
+		Zero::zero()
 	}
 
 	fn member_slash(
@@ -374,8 +374,8 @@ impl<
 		Delegation::withdraw_delegation(who.into(), pool_account.into(), amount, num_slashing_spans)
 	}
 
-	fn has_pending_slash(pool_account: PoolAccount<Self::AccountId>) -> bool {
-		Delegation::has_pending_slash(pool_account.into())
+	fn pending_slash(pool_account: PoolAccount<Self::AccountId>) -> Self::Balance {
+		Delegation::pending_slash(pool_account.into()).defensive_unwrap_or_default()
 	}
 
 	fn member_slash(

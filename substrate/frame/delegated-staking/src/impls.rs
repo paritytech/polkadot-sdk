@@ -81,11 +81,9 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		)
 	}
 
-	/// Returns true if the `Agent` have any slash pending to be applied.
-	fn has_pending_slash(agent: AgentAccount<Self::AccountId>) -> bool {
-		Agent::<T>::get(&agent.0)
-			.map(|d| !d.ledger.pending_slash.is_zero())
-			.unwrap_or(false)
+	/// Returns pending slash of the `agent`.
+	fn pending_slash(agent: AgentAccount<Self::AccountId>) -> Option<Self::Balance> {
+		Agent::<T>::get(&agent.0).map(|d| d.ledger.pending_slash).ok()
 	}
 
 	fn delegator_slash(
