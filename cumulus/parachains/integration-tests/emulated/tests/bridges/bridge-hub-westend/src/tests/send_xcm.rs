@@ -90,7 +90,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	);
 
 	// set destination version
-	AssetHubWestend::force_xcm_version(destination.clone(), xcm::v4::prelude::XCM_VERSION);
+	AssetHubWestend::force_xcm_version(destination.clone(), newer_xcm_version);
 
 	// set version with `ExportMessage` for BridgeHubWestend
 	AssetHubWestend::force_xcm_version(
