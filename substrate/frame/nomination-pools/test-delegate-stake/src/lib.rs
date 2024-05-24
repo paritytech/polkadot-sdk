@@ -1009,7 +1009,7 @@ fn pool_migration_e2e() {
 			delegated_staking_events_since_last_call(),
 			vec![DelegatedStakingEvent::Delegated {
 				agent: POOL1_BONDED,
-				delegator: proxy_delegator_1.0.clone(),
+				delegator: proxy_delegator_1.0,
 				amount: 50 + 10 * 3
 			}]
 		);

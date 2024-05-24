@@ -309,7 +309,7 @@ pub(crate) fn setup_delegation_stake(
 	}
 
 	// sanity checks
-	assert_eq!(DelegatedStaking::stakeable_balance(AgentAccount(agent.clone())), delegated_amount);
+	assert_eq!(DelegatedStaking::stakeable_balance(AgentAccount(agent)), delegated_amount);
 	assert_eq!(Agent::<T>::get(&agent).unwrap().available_to_bond(), 0);
 
 	delegated_amount
