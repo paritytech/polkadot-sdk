@@ -45,13 +45,18 @@ fn expand_view_function(
 ) -> TokenStream {
 	let span = view_fns_impl.attr_span;
 	let frame_support = &def.frame_support;
+	let frame_system = &def.frame_system;
 	let type_impl_gen = &def.type_impl_generics(span);
 	let type_decl_bounded_gen = &def.type_decl_bounded_generics(span);
 	let type_use_gen = &def.type_use_generics(span);
+	let trait_use_gen = &def.trait_use_generics(span);
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
 	let where_clause = &view_fns_impl.where_clause;
 
 	let query_struct_ident = view_fn.query_struct_ident();
+	// let args = todo!();
+	let return_type = &view_fn.return_type;
+
 	quote::quote! {
 		#[derive(
 			#frame_support::RuntimeDebugNoBound,
@@ -73,6 +78,22 @@ fn expand_view_function(
 		impl<#type_impl_gen> #query_struct_ident<#type_use_gen> #where_clause {
 			pub fn new() -> Self {
 				Self { _marker: ::core::default::Default::default() }
+			}
+		}
+
+		impl<#type_impl_gen> #frame_support::traits::QueryIdSuffix for #query_struct_ident<#type_use_gen> #where_clause {
+			const SUFFIX: [u8; 16] = [0u8; 16];
+		}
+
+		impl<#type_impl_gen> #frame_support::traits::Query for #query_struct_ident<#type_use_gen> #where_clause {
+			const ID: #frame_support::traits::QueryId = #frame_support::traits::QueryId {
+				prefix: <<T as #frame_system::Config #trait_use_gen>::RuntimeQuery as #frame_support::traits::QueryIdPrefix>::PREFIX,
+				suffix: <Self as #frame_support::traits::QueryIdSuffix>::SUFFIX, // todo: [AJ] handle instantiatable pallet suffix
+			};
+			type ReturnType = #return_type;
+
+			fn query(self) -> Self::ReturnType {
+				todo!()
 			}
 		}
 	}

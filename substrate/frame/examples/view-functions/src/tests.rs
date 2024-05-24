@@ -34,7 +34,7 @@ fn pallet_get_value_query() {
 
 		let query = pallet::GetValueQuery::<Runtime>::new();
 
-		let query_result = <Pallet<Runtime> as DispatchQuery>::dispatch_query(
+		let query_result = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<_, Vec<u8>>(
 			&<pallet::GetValueQuery<Runtime> as Query>::ID,
 			&*query.encode(),
 		).unwrap();

@@ -299,6 +299,7 @@ pub mod pallet {
 			type PalletInfo = ();
 			#[inject_runtime_type]
 			type RuntimeTask = ();
+			type RuntimeQuery = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
@@ -388,6 +389,10 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeTask = ();
 
+			/// The query dispatch type, injected by `construct_runtime!`.
+			#[inject_runtime_type]
+			type RuntimeQuery = ();
+
 			/// Converts a module to the index of the module, injected by `construct_runtime!`.
 			#[inject_runtime_type]
 			type PalletInfo = ();
@@ -476,6 +481,11 @@ pub mod pallet {
 		/// The aggregated `RuntimeTask` type.
 		#[pallet::no_default_bounds]
 		type RuntimeTask: Task;
+
+		/// Type for dispatching queries.
+		#[pallet::no_default_bounds]
+		type RuntimeQuery: frame_support::traits::QueryIdPrefix
+			+ frame_support::traits::DispatchQuery;
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter

@@ -24,6 +24,19 @@ pub trait DispatchQuery {
 	fn dispatch_query<I: Input, O: Output>(id: &QueryId, input: I) -> Result<O, codec::Error>;
 }
 
+impl DispatchQuery for () {
+	fn dispatch_query<I: Input, O: Output>(
+		_id: &QueryId,
+		_input: I,
+	) -> Result<O, codec::Error> {
+		Err(codec::Error::from("DispatchQuery not implemented")) // todo: return "query not found" error?
+	}
+}
+
+impl QueryIdPrefix for () {
+	const PREFIX: [u8; 16] = [0u8; 16];
+}
+
 pub trait QueryIdPrefix {
 	const PREFIX: [u8; 16]; // same as `PalletInfo::name_hash` twox_128
 }
@@ -34,8 +47,8 @@ pub trait QueryIdSuffix {
 
 #[derive(Encode, Decode)]
 pub struct QueryId {
-	prefix: [u8; 16],
-	suffix: [u8; 16],
+	pub prefix: [u8; 16],
+	pub suffix: [u8; 16],
 }
 
 /// implemented for each pallet view function method
