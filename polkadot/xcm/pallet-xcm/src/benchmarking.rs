@@ -19,7 +19,7 @@ use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, Benchma
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
-use xcm::{latest::prelude::*, v3};
+use xcm::latest::prelude::*;
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::FeeReason;
 
