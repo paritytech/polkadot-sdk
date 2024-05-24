@@ -34,7 +34,7 @@ use frame_support::dispatch::RawOrigin;
 use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
 use sp_core::U256;
 use sp_runtime::traits::Convert;
-use sp_staking::{Stake, StakingInterface};
+use sp_staking::{AgentAccount, Stake, StakingInterface};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -309,7 +309,7 @@ pub(crate) fn setup_delegation_stake(
 	}
 
 	// sanity checks
-	assert_eq!(DelegatedStaking::stakeable_balance(&agent), delegated_amount);
+	assert_eq!(DelegatedStaking::stakeable_balance(AgentAccount(agent.clone())), delegated_amount);
 	assert_eq!(Agent::<T>::get(&agent).unwrap().available_to_bond(), 0);
 
 	delegated_amount
