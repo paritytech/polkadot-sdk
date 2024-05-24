@@ -51,5 +51,6 @@ exclude = [
 	"https://www.reddit.com/r/rust/comments/3spfh1/does_collect_allocate_more_than_once_while/",
 	# 403 rate limited:
 	"https://etherscan.io/block/11090290",
+	"https://subscan.io/",
 	"https://substrate.stackexchange.com/.*",
 ]
