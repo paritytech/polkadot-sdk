@@ -690,6 +690,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -710,8 +712,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Substrate chain configurations.
 
-</span><span class="kw">use </span>beefy_primitives::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
-<span class="kw">use </span>grandpa_primitives::AuthorityId <span class="kw">as </span>GrandpaId;
+</span><span class="kw">use </span>polkadot_sdk::<span class="kw-2">*</span>;
+
 <span class="kw">use </span>kitchensink_runtime::{
 	constants::currency::<span class="kw-2">*</span>, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };
@@ -722,6 +724,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
 <span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;
+<span class="kw">use </span>sp_consensus_beefy::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
+<span class="kw">use </span>sp_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 <span class="kw">use </span>sp_mixnet::types::AuthorityId <span class="kw">as </span>MixnetId;
 <span class="kw">use </span>sp_runtime::{

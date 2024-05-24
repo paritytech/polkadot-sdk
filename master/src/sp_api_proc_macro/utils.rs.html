@@ -478,6 +478,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -518,6 +522,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				crate_name(<span class="kw-2">&amp;</span><span class="string">"polkadot-sdk-frame"</span>).or_else(|<span class="kw">_</span>| crate_name(<span class="kw-2">&amp;</span><span class="string">"frame"</span>))
 			{
 				<span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">"{}::deps::sp_api::__private"</span>, name);
+				<span class="kw">let </span>path = syn::parse_str::&lt;syn::Path&gt;(<span class="kw-2">&amp;</span>path).expect(<span class="string">"is a valid path; qed"</span>);
+				<span class="macro">quote!</span>( #path )
+			} <span class="kw">else if let </span><span class="prelude-val">Ok</span>(FoundCrate::Name(name)) = crate_name(<span class="kw-2">&amp;</span><span class="string">"polkadot-sdk"</span>) {
+				<span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">"{}::sp_api::__private"</span>, name);
 				<span class="kw">let </span>path = syn::parse_str::&lt;syn::Path&gt;(<span class="kw-2">&amp;</span>path).expect(<span class="string">"is a valid path; qed"</span>);
 				<span class="macro">quote!</span>( #path )
 			} <span class="kw">else </span>{

@@ -1513,6 +1513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1362" id="1362">1362</a>
 <a href="#1363" id="1363">1363</a>
 <a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1936,6 +1937,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// An error returned by [`Pallet::check_upward_messages`] that indicates a violation of one of
 /// acceptance criteria rules.
 </span><span class="attr">#[cfg_attr(test, derive(PartialEq))]
+#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>UmpAcceptanceCheckErr {
 	<span class="doccomment">/// The maximal number of messages that can be submitted in one batch was exceeded.
 	</span>MoreMessagesThanPermitted { sent: u32, permitted: u32 },

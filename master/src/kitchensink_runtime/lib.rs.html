@@ -3442,6 +3442,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3291" id="3291">3291</a>
 <a href="#3292" id="3292">3292</a>
 <a href="#3293" id="3293">3293</a>
+<a href="#3294" id="3294">3294</a>
+<a href="#3295" id="3295">3295</a>
+<a href="#3296" id="3296">3296</a>
+<a href="#3297" id="3297">3297</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3466,7 +3470,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 </span><span class="attr">#![recursion_limit = <span class="string">"1024"</span>]
 
-</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+</span><span class="kw">use </span>polkadot_sdk::<span class="kw-2">*</span>;
+
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
@@ -5673,6 +5679,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[frame_support::runtime]
 </span><span class="kw">mod </span>runtime {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
 	<span class="attr">#[runtime::runtime]
 	#[runtime::derive(
 		RuntimeCall,
@@ -6015,7 +6023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// MMR helper types.
 </span><span class="kw">mod </span>mmr {
-	<span class="kw">use </span><span class="kw">super</span>::Runtime;
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">pub use </span>pallet_mmr::primitives::<span class="kw-2">*</span>;
 
 	<span class="kw">pub type </span>Leaf = &lt;&lt;Runtime <span class="kw">as </span>pallet_mmr::Config&gt;::LeafData <span class="kw">as </span>LeafDataProvider&gt;::LeafData;
@@ -6025,7 +6033,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benches {
-	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
+	<span class="macro">polkadot_sdk::frame_benchmarking::define_benchmarks!</span>(
 		[frame_benchmarking, BaselineBench::&lt;Runtime&gt;]
 		[frame_benchmarking_pallet_pov, Pov]
 		[pallet_alliance, Alliance]

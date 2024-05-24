@@ -378,6 +378,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -396,7 +398,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">super</span>::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
+</span><span class="kw">use </span>polkadot_sdk::<span class="kw-2">*</span>;
+
+<span class="kw">use </span><span class="kw">super</span>::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
 <span class="kw">use crate</span>::{
 	chain_spec, service,
 	service::{new_partial, FullClient},
@@ -595,7 +599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="kw">let </span>aux_revert = Box::new(|client: Arc&lt;FullClient&gt;, backend, blocks| {
 					sc_consensus_babe::revert(client.clone(), backend, blocks)<span class="question-mark">?</span>;
-					grandpa::revert(client, blocks)<span class="question-mark">?</span>;
+					sc_consensus_grandpa::revert(client, blocks)<span class="question-mark">?</span>;
 					<span class="prelude-val">Ok</span>(())
 				});
 				<span class="prelude-val">Ok</span>((cmd.run(client, backend, <span class="prelude-val">Some</span>(aux_revert)), task_manager))

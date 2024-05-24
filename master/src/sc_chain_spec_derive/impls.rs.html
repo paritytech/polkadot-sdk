@@ -371,6 +371,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -392,7 +395,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>proc_macro2::{Span, TokenStream};
 <span class="kw">use </span>proc_macro_crate::{crate_name, FoundCrate};
 <span class="kw">use </span>quote::quote;
-<span class="kw">use </span>syn::{DeriveInput, Error, Ident};
+<span class="kw">use </span>syn::{DeriveInput, Error, Ident, Path};
 
 <span class="kw">const </span>CRATE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"sc-chain-spec"</span>;
 <span class="kw">const </span>ATTRIBUTE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"forks"</span>;
@@ -516,7 +519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub fn </span>derive(
 	ast: <span class="kw-2">&amp;</span>DeriveInput,
 	derive: <span class="kw">impl </span>Fn(
-		<span class="kw-2">&amp;</span>Ident,
+		<span class="kw-2">&amp;</span>Path,
 		<span class="kw-2">&amp;</span>Ident,
 		<span class="kw-2">&amp;</span>syn::Generics,
 		Vec&lt;<span class="kw-2">&amp;</span>Ident&gt;,
@@ -544,25 +547,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>name = <span class="kw-2">&amp;</span>ast.ident;
-	<span class="kw">let </span>crate_name = <span class="kw">match </span>crate_name(CRATE_NAME) {
+	<span class="kw">let </span>crate_path = <span class="kw">match </span>crate_name(CRATE_NAME) {
 		<span class="prelude-val">Ok</span>(FoundCrate::Itself) =&gt; CRATE_NAME.replace(<span class="string">"-"</span>, <span class="string">"_"</span>),
 		<span class="prelude-val">Ok</span>(FoundCrate::Name(chain_spec_name)) =&gt; chain_spec_name,
-		<span class="prelude-val">Err</span>(e) =&gt; {
-			<span class="kw">let </span>err = Error::new(Span::call_site(), <span class="kw-2">&amp;</span>e).to_compile_error();
-			<span class="kw">return </span><span class="macro">quote!</span>( #err ).into()
+		<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">match </span>crate_name(<span class="string">"polkadot-sdk"</span>) {
+			<span class="prelude-val">Ok</span>(FoundCrate::Name(sdk)) =&gt; <span class="macro">format!</span>(<span class="string">"{sdk}::{CRATE_NAME}"</span>).replace(<span class="string">"-"</span>, <span class="string">"_"</span>),
+			<span class="kw">_ </span>=&gt; {
+				<span class="kw">return </span>Error::new(Span::call_site(), <span class="kw-2">&amp;</span>e).to_compile_error().into();
+			},
 		},
 	};
-	<span class="kw">let </span>crate_name = Ident::new(<span class="kw-2">&amp;</span>crate_name, Span::call_site());
+	<span class="kw">let </span>crate_path =
+		syn::parse_str::&lt;Path&gt;(<span class="kw-2">&amp;</span>crate_path).expect(<span class="string">"crate_name returns valid path; qed"</span>);
 	<span class="kw">let </span>field_names = fields.named.iter().flat_map(|x| x.ident.as_ref()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 	<span class="kw">let </span>field_types = fields.named.iter().map(|x| <span class="kw-2">&amp;</span>x.ty).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-	derive(<span class="kw-2">&amp;</span>crate_name, name, <span class="kw-2">&amp;</span>ast.generics, field_names, field_types, fields).into()
+	derive(<span class="kw-2">&amp;</span>crate_path, name, <span class="kw-2">&amp;</span>ast.generics, field_names, field_types, fields).into()
 }
 
-<span class="kw">fn </span>generate_fork_fields(crate_name: <span class="kw-2">&amp;</span>Ident, names: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Ident], types: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>syn::Type]) -&gt; TokenStream {
-	<span class="kw">let </span>crate_name = std::iter::repeat(crate_name);
+<span class="kw">fn </span>generate_fork_fields(crate_path: <span class="kw-2">&amp;</span>Path, names: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Ident], types: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>syn::Type]) -&gt; TokenStream {
+	<span class="kw">let </span>crate_path = std::iter::repeat(crate_path);
 	<span class="macro">quote! </span>{
-		#( <span class="kw">pub </span>#names: <span class="prelude-ty">Option</span>&lt;&lt;#types <span class="kw">as </span>#crate_name::Group&gt;::Fork&gt;, )*
+		#( <span class="kw">pub </span>#names: <span class="prelude-ty">Option</span>&lt;&lt;#types <span class="kw">as </span>#crate_path::Group&gt;::Fork&gt;, )*
 	}
 }
 

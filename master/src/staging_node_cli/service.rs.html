@@ -1257,6 +1257,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1106" id="1106">1106</a>
 <a href="#1107" id="1107">1107</a>
 <a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1279,7 +1282,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Service implementation. Specialized wrapper over substrate service.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::Cli;
+</span><span class="kw">use </span>polkadot_sdk::{sc_consensus_beefy <span class="kw">as </span>beefy, sc_consensus_grandpa <span class="kw">as </span>grandpa, <span class="kw-2">*</span>};
+
+<span class="kw">use </span><span class="kw">crate</span>::Cli;
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 <span class="kw">use </span>frame_system_rpc_runtime_api::AccountNonceApi;
@@ -1929,7 +1934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>beefy_params = beefy::BeefyParams {
 		client: client.clone(),
 		backend: backend.clone(),
-		payload_provider: beefy_primitives::mmr::MmrRootProvider::new(client.clone()),
+		payload_provider: sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone()),
 		runtime: client.clone(),
 		key_store: keystore.clone(),
 		network_params,
@@ -2103,6 +2108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
 	};
 	<span class="kw">use </span>node_primitives::{Block, DigestItem, Signature};
+	<span class="kw">use </span>polkadot_sdk::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sc_client_api::BlockBackend;
 	<span class="kw">use </span>sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	<span class="kw">use </span>sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
