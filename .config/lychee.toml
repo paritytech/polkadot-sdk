@@ -52,4 +52,5 @@ exclude = [
 	# 403 rate limited:
 	"https://etherscan.io/block/11090290",
 	"https://substrate.stackexchange.com/.*",
+	"https://subscan.io/",
 ]
