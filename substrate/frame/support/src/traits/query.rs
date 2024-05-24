@@ -17,11 +17,11 @@
 
 //! Traits for querying pallet view functions.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, Input, Output};
 
 /// implemented by the runtime dispatching by prefix and then the pallet dispatching by suffix
 pub trait DispatchQuery {
-	fn dispatch_query(id: &QueryId, input: Vec<u8>) -> Result<Vec<u8>, codec::Error>;
+	fn dispatch_query<I: Input, O: Output>(id: &QueryId, input: I) -> Result<O, codec::Error>;
 }
 
 pub trait QueryIdPrefix {

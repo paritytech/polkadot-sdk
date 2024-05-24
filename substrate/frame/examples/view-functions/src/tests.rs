@@ -23,7 +23,7 @@ use crate::{
 	pallet::{self, Pallet},
 };
 use frame_support::traits::{DispatchQuery, Query};
-use sp_runtime::BuildStorage;
+use codec::{Encode, Decode};
 
 #[test]
 fn pallet_get_value_query() {
@@ -31,12 +31,19 @@ fn pallet_get_value_query() {
 		let some_value = Some(99);
 		pallet::SomeValue::<Runtime>::set(some_value);
 		assert_eq!(some_value, Pallet::<Runtime>::get_value());
+
+		let query = pallet::GetValueQuery::<Runtime>::new();
+
+		let query_result = <Pallet<Runtime> as DispatchQuery>::dispatch_query(
+			&<pallet::GetValueQuery<Runtime> as Query>::ID,
+			&*query.encode(),
+		).unwrap();
+
+		let query_result = <Option<u32>>::decode(&mut &query_result[..]).unwrap();
+
 		assert_eq!(
 			some_value,
-			<Pallet<Runtime> as DispatchQuery>::dispatch_query(
-				&<pallet::GetValueQuery<Runtime> as Query>::ID,
-				vec![],
-			)
+			query_result,
 		);
 	});
 }

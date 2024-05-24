@@ -30,9 +30,11 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 		.view_functions
 		.iter()
 		.map(|view_fn| expand_view_function(def, &view_fns_def, view_fn));
+	let impl_dispatch_query = impl_dispatch_query(def, view_fns_def);
 
 	quote::quote! {
 		#( #view_fn_impls )*
+		#impl_dispatch_query
 	}
 }
 
@@ -66,6 +68,36 @@ fn expand_view_function(
 		#[allow(non_camel_case_types)]
 		pub struct #query_struct_ident<#type_decl_bounded_gen> #where_clause {
 			_marker: ::core::marker::PhantomData<(#type_use_gen,)>,
+		}
+
+		impl<#type_impl_gen> #query_struct_ident<#type_use_gen> #where_clause {
+			pub fn new() -> Self {
+				Self { _marker: ::core::default::Default::default() }
+			}
+		}
+	}
+}
+
+fn impl_dispatch_query(def: &Def, view_fns_impl: &ViewFunctionsImplDef) -> TokenStream {
+	let span = view_fns_impl.attr_span;
+	let frame_support = &def.frame_support;
+	let pallet_ident = &def.pallet_struct.pallet;
+	let type_impl_gen = &def.type_impl_generics(span);
+	let type_decl_bounded_gen = &def.type_decl_bounded_generics(span);
+	let type_use_gen = &def.type_use_generics(span);
+
+	quote::quote! {
+		impl<#type_impl_gen> #frame_support::traits::DispatchQuery
+			for #pallet_ident<#type_use_gen>
+		{
+			fn dispatch_query<
+				I: #frame_support::__private::codec::Input,
+				O: #frame_support::__private::codec::Output,
+			>
+				(id: & #frame_support::traits::QueryId, input: I) -> Result<O, #frame_support::__private::codec::Error>
+			{
+				todo!()
+			}
 		}
 	}
 }
