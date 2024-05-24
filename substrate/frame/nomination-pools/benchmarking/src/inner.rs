@@ -139,18 +139,12 @@ fn vote_to_balance<T: pallet_nomination_pools::Config>(
 	vote.try_into().map_err(|_| "could not convert u64 to Balance")
 }
 
-/// Returns `true` if the adapter is not using `Delegate` strategy.
-///
-/// Some extrinsics would only succeed with `Delegate` strategy, so we need to check this.
-fn legacy_adapter_used<T: pallet_nomination_pools::Config>() -> bool {
-	T::StakeAdapter::strategy_type() != StakeStrategyType::Delegate
-}
-
 /// `assertion` should strictly be true if the adapter is using `Delegate` strategy and strictly
 /// false if the adapter is not using `Delegate` strategy.
 fn assert_if_delegate<T: pallet_nomination_pools::Config>(assertion: bool) {
+	let legacy_adapter_used = T::StakeAdapter::strategy_type() != StakeStrategyType::Delegate;
 	// one and only one of the two should be true.
-	assert!(assertion ^ legacy_adapter_used::<T>());
+	assert!(assertion ^ legacy_adapter_used);
 }
 
 #[allow(unused)]
