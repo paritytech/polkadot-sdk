@@ -884,13 +884,11 @@ benchmarks! {
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 	}
 
-	// NOTE: This benchmark will not work as intended as controller is now stash. Remove this once
-	// restore_ledger is removed.
 	restore_ledger {
 		let stash = create_stash::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
 		Ledger::<T>::remove(stash.clone());
-	}: _(RawOrigin::Root, stash.clone(), None, None, None)
+	}: _(RawOrigin::Root, stash.clone(), None, None)
 	verify {
 		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
 	}
