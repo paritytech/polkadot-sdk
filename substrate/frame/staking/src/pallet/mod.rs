@@ -1136,17 +1136,17 @@ pub mod pallet {
 			Ok(Some(actual_weight).into())
 		}
 
-		/// Declare the desire to validate for the origin controller.
+		/// Declare the desire to validate for the given stash.
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::validate())]
 		pub fn validate(origin: OriginFor<T>, prefs: ValidatorPrefs) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
+			let stash = ensure_signed(origin)?;
 
-			let ledger = Self::ledger(Controller(controller))?;
+			let ledger = Self::ledger(Stash(stash))?;
 
 			ensure!(ledger.active >= MinValidatorBond::<T>::get(), Error::<T>::InsufficientBond);
 			let stash = &ledger.stash;
