@@ -237,7 +237,7 @@ benchmarks! {
 		let _ = T::Currency::deposit_into_existing(&stash, max_additional).unwrap();
 
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash), max_additional)
+	}: _(RawOrigin::Signed(stash.clone()), max_additional)
 	verify {
 		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
