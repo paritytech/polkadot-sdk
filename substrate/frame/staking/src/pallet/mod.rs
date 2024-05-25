@@ -796,8 +796,6 @@ pub mod pallet {
 		SnapshotTargetsSizeExceeded { size: u32 },
 		/// A new force era mode was set.
 		ForceEra { mode: Forcing },
-		/// Report of a controller batch deprecation.
-		ControllerBatchDeprecated { failures: u32 },
 	}
 
 	#[pallet::error]
