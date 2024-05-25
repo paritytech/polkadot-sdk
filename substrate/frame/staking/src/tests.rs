@@ -239,52 +239,6 @@ fn basic_setup_works() {
 }
 
 #[test]
-fn change_controller_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
-			0,
-			100,
-			RewardDestination::Staked,
-			false,
-		)
-		.unwrap();
-
-		// ensure `stash` and `controller` are bonded as stash controller pair.
-		assert_eq!(Staking::bonded(&stash), Some(controller));
-
-		// `controller` can control `stash` who is initially a validator.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(stash)));
-
-		// sets controller back to `stash`.
-		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(stash)));
-		assert_eq!(Staking::bonded(&stash), Some(stash));
-		mock::start_active_era(1);
-
-		// fetch the ledger from storage and check if the controller is correct.
-		let ledger = Staking::ledger(StakingAccount::Stash(stash)).unwrap();
-		assert_eq!(ledger.controller(), Some(stash));
-
-		// same if we fetch the ledger by controller.
-		let ledger = Staking::ledger(StakingAccount::Controller(stash)).unwrap();
-		assert_eq!(ledger.controller, Some(stash));
-		assert_eq!(ledger.controller(), Some(stash));
-
-		// the raw storage ledger's controller is always `None`. however, we can still fetch the
-		// correct controller with `ledger.controller()`.
-		let raw_ledger = <Ledger<Test>>::get(&stash).unwrap();
-		assert_eq!(raw_ledger.controller, None);
-
-		// `controller` is no longer in control. `stash` is now controller.
-		// TODO: Remove this test once controller logic is removed.
-		assert_noop!(
-			Staking::validate(RuntimeOrigin::signed(controller), ValidatorPrefs::default()),
-			Error::<Test>::NotStash, // NOTE: was `SetController`.
-		);
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(stash), ValidatorPrefs::default()));
-	})
-}
-
-#[test]
 fn rewards_should_work() {
 	ExtBuilder::default().nominate(true).session_per_era(3).build_and_execute(|| {
 		let init_balance_11 = Balances::total_balance(&11);
@@ -7560,37 +7514,6 @@ mod ledger {
 				Error::<Test>::NotController
 			);
 			assert_eq!(Payee::<Test>::get(&21), Some(RewardDestination::Stash));
-		})
-	}
-
-	#[test]
-	fn set_controller_with_bad_state_ok() {
-		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// in this case, setting controller works due to the ordering of the calls.
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(444)));
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(555)));
-		})
-	}
-
-	#[test]
-	fn set_controller_with_bad_state_fails() {
-		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// setting the controller of ledger associated with stash 555 fails since its stash is a
-			// controller of another ledger.
-			assert_noop!(
-				Staking::set_controller(RuntimeOrigin::signed(555)),
-				Error::<Test>::BadState
-			);
-			assert_noop!(
-				Staking::set_controller(RuntimeOrigin::signed(444)),
-				Error::<Test>::BadState
-			);
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
 		})
 	}
 }

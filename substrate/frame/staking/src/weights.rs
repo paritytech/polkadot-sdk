@@ -62,7 +62,6 @@ pub trait WeightInfo {
 	fn chill() -> Weight;
 	fn set_payee() -> Weight;
 	fn update_payee() -> Weight;
-	fn set_controller() -> Weight;
 	fn set_validator_count() -> Weight;
 	fn force_no_eras() -> Weight;
 	fn force_new_era() -> Weight;
@@ -361,19 +360,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(24_409_000, 4556)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Staking::Bonded` (r:1 w:1)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Ledger` (r:2 w:2)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
-	fn set_controller() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `902`
-		//  Estimated: `8122`
-		// Minimum execution time: 23_479_000 picoseconds.
-		Weight::from_parts(24_502_000, 8122)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Staking::ValidatorCount` (r:0 w:1)
 	/// Proof: `Staking::ValidatorCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
@@ -1092,19 +1078,6 @@ impl WeightInfo for () {
 		Weight::from_parts(24_409_000, 4556)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Staking::Bonded` (r:1 w:1)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Ledger` (r:2 w:2)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
-	fn set_controller() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `902`
-		//  Estimated: `8122`
-		// Minimum execution time: 23_479_000 picoseconds.
-		Weight::from_parts(24_502_000, 8122)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Staking::ValidatorCount` (r:0 w:1)
 	/// Proof: `Staking::ValidatorCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)

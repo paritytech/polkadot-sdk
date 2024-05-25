@@ -67,10 +67,6 @@
 //!
 //! An account can become a bonded stash account using the [`bond`](Call::bond) call.
 //!
-//! In the event stash accounts registered a unique controller account before the controller account
-//! deprecation, they can update their associated controller back to the stash account using the
-//! [`set_controller`](Call::set_controller) call.
-//!
 //! There are three possible roles that any staked account pair can be in: `Validator`, `Nominator`
 //! and `Idle` (defined in [`StakerStatus`]). There are three corresponding instructions to change
 //! between roles, namely: [`validate`](Call::validate), [`nominate`](Call::nominate), and

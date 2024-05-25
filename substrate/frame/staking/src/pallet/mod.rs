@@ -1303,40 +1303,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// (Re-)sets the controller of a stash to the stash itself. This function previously
-		/// accepted a `controller` argument to set the controller to an account other than the
-		/// stash itself. This functionality has now been removed, now only setting the controller
-		/// to the stash, if it is not already.
-		///
-		/// Effects will be felt instantly (as soon as this function is completed successfully).
-		///
-		/// The dispatch origin for this call must be _Signed_ by the stash, not the controller.
-		///
-		/// ## Complexity
-		/// O(1)
-		/// - Independent of the arguments. Insignificant complexity.
-		/// - Contains a limited number of reads.
-		/// - Writes are limited to the `origin` account key.
-		#[pallet::call_index(8)]
-		#[pallet::weight(T::WeightInfo::set_controller())]
-		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
-			let stash = ensure_signed(origin)?;
-
-			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
-				let controller = ledger.controller()
-                    .defensive_proof("Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.")
-                    .ok_or(Error::<T>::NotController)?;
-
-				if controller == stash {
-					// Stash is already its own controller.
-					return Err(Error::<T>::AlreadyPaired.into())
-				}
-
-				let _ = ledger.set_controller_to_stash()?;
-				Ok(())
-			})?
-		}
-
 		/// Sets the ideal number of validators.
 		///
 		/// The dispatch origin must be Root.

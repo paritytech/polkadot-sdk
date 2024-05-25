@@ -484,19 +484,6 @@ benchmarks! {
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(controller)));
 	}
 
-	set_controller {
-		let (stash, ctlr) = create_unique_stash_controller::<T>(9000, 100, RewardDestination::Staked, false)?;
-		// ensure `ctlr` is the currently stored controller.
-		assert!(!Ledger::<T>::contains_key(&stash));
-		assert!(Ledger::<T>::contains_key(&ctlr));
-		assert_eq!(Bonded::<T>::get(&stash), Some(ctlr.clone()));
-
-		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash.clone()))
-	verify {
-		assert!(Ledger::<T>::contains_key(&stash));
-	}
-
 	set_validator_count {
 		let validator_count = MaxValidators::<T>::get();
 	}: _(RawOrigin::Root, validator_count)
