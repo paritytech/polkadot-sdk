@@ -25,7 +25,6 @@ use codec::Decode;
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
 	pallet_prelude::*,
-	storage::bounded_vec::BoundedVec,
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 };
 use sp_runtime::{
@@ -347,7 +346,7 @@ benchmarks! {
 
 		let prefs = ValidatorPrefs::default();
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash), prefs)
+	}: _(RawOrigin::Signed(stash.clone()), prefs)
 	verify {
 		assert!(Validators::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash));
@@ -408,7 +407,7 @@ benchmarks! {
 			.collect::<Vec<_>>();
 
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash), kicks)
+	}: _(RawOrigin::Signed(stash.clone()), kicks)
 	verify {
 		// all nominators now should *not* be nominating our validator...
 		for n in nominator_stashes.iter() {
@@ -439,7 +438,7 @@ benchmarks! {
 
 		let validators = create_validators::<T>(n, 100).unwrap();
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash), validators)
+	}: _(RawOrigin::Signed(stash.clone()), validators)
 	verify {
 		assert!(Nominators::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash))
@@ -458,7 +457,7 @@ benchmarks! {
 		assert!(T::VoterList::contains(&stash));
 
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash))
+	}: _(RawOrigin::Signed(stash.clone()))
 	verify {
 		assert!(!T::VoterList::contains(&stash));
 	}
