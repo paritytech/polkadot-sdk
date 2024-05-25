@@ -1527,7 +1527,7 @@ pub mod pallet {
 
 		/// Rebond a portion of the stash scheduled to be unlocked.
 		///
-		/// The dispatch origin must be signed by the controller.
+		/// The dispatch origin must be signed by the stash.
 		///
 		/// ## Complexity
 		/// - Time complexity: O(L), where L is unlocking chunks
@@ -1538,8 +1538,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] value: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller))?;
+			let stash = ensure_signed(origin)?;
+			let ledger = Self::ledger(Stash(stash))?;
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;

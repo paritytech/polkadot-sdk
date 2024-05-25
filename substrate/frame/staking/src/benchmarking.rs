@@ -627,8 +627,8 @@ benchmarks! {
 		Ledger::<T>::insert(controller.clone(), staking_ledger.clone());
 		let original_bonded: BalanceOf<T> = staking_ledger.active;
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), rebond_amount)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash.clone()), rebond_amount)
 	verify {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
