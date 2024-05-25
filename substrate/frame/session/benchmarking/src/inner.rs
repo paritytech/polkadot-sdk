@@ -51,7 +51,6 @@ benchmarks! {
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
 			MaxNominationsOf::<T>::get(),
-			true,
 			RewardDestination::Staked,
 		)?;
 		let v_stash = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
@@ -68,7 +67,6 @@ benchmarks! {
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
 			MaxNominationsOf::<T>::get(),
-			true,
 			RewardDestination::Staked,
 		)?;
 		let v_stash = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
