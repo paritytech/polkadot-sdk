@@ -188,11 +188,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(super) fn do_withdraw_unbonded(
-		controller: &T::AccountId,
+		stash: &T::AccountId,
 		num_slashing_spans: u32,
 	) -> Result<Weight, DispatchError> {
-		let mut ledger = Self::ledger(Controller(controller.clone()))?;
-		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
+		let mut ledger = Self::ledger(Stash(stash.clone()))?;
+		let old_total = ledger.total;
 		if let Some(current_era) = Self::current_era() {
 			ledger = ledger.consolidate_unlocked(current_era)
 		}
@@ -220,10 +220,10 @@ impl<T: Config> Pallet<T> {
 		if new_total < old_total {
 			// Already checked that this won't overflow by entry condition.
 			let value = old_total.defensive_saturating_sub(new_total);
-			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: value });
+			Self::deposit_event(Event::<T>::Withdrawn { stash: stash.clone(), amount: value });
 
 			// notify listeners.
-			T::EventListeners::on_withdraw(controller, value);
+			T::EventListeners::on_withdraw(stash, value);
 		}
 
 		Ok(used_weight)

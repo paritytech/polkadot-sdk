@@ -971,7 +971,7 @@ pub mod pallet {
 		/// Add some extra amount that have appeared in the stash `free_balance` into the balance up
 		/// for staking.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the stash, not the controller.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// Use this if there are additional funds in your stash account that you wish to bond.
 		/// Unlike [`bond`](Self::bond) or [`unbond`](Self::unbond) this function does not impose
@@ -996,7 +996,7 @@ pub mod pallet {
 		/// period ends. If this leaves an amount actively bonded less than
 		/// T::Currency::minimum_balance(), then it is increased to the full amount.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// Once the unlock period is done, you can call `withdraw_unbonded` to actually move
 		/// the funds out of management ready for transfer.
@@ -1019,17 +1019,16 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] value: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let controller = ensure_signed(origin)?;
-			let unlocking =
-				Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
+			let stash = ensure_signed(origin)?;
+			let unlocking = Self::ledger(Stash(stash.clone())).map(|l| l.unlocking.len())?;
 
 			// if there are no unlocking chunks available, try to withdraw chunks older than
 			// `BondingDuration` to proceed with the unbonding.
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					let real_num_slashing_spans =
-						Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+						Self::slashing_spans(&stash).map_or(0, |s| s.iter().count());
+					Some(Self::do_withdraw_unbonded(&stash, real_num_slashing_spans as u32)?)
 				} else {
 					None
 				}
@@ -1037,7 +1036,7 @@ pub mod pallet {
 
 			// we need to fetch the ledger again because it may have been mutated in the call
 			// to `Self::do_withdraw_unbonded` above.
-			let mut ledger = Self::ledger(Controller(controller))?;
+			let mut ledger = Self::ledger(Stash(stash))?;
 			let mut value = value.min(ledger.active);
 			let stash = ledger.stash.clone();
 
