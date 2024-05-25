@@ -421,6 +421,7 @@ impl From<hrmp::OutboundHrmpAcceptanceErr> for AcceptanceCheckErr {
 /// An error returned by [`Pallet::check_upward_messages`] that indicates a violation of one of
 /// acceptance criteria rules.
 #[cfg_attr(test, derive(PartialEq))]
+#[allow(dead_code)]
 pub(crate) enum UmpAcceptanceCheckErr {
 	/// The maximal number of messages that can be submitted in one batch was exceeded.
 	MoreMessagesThanPermitted { sent: u32, permitted: u32 },

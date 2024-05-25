@@ -199,8 +199,9 @@ impl<T: Config> Pallet<T> {
 		}
 		let new_total = ledger.total;
 
+		let ed = T::Currency::minimum_balance();
 		let used_weight =
-			if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
+			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
@@ -1963,6 +1964,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 				Err(Error::<T>::BadState.into())
 			},
 		}
+	}
+
+	/// Whether `who` is a virtual staker whose funds are managed by another pallet.
+	fn is_virtual_staker(who: &T::AccountId) -> bool {
+		VirtualStakers::<T>::contains_key(who)
 	}
 
 	fn slash_reward_fraction() -> Perbill {
