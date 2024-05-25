@@ -220,8 +220,9 @@ pub mod pallet {
 				Self::update_spot_traffic(&config, queue_status);
 			});
 
-			// 2 reads in config and queuestatus, at maximum 1 write to queuestatus.
-			T::DbWeight::get().reads_writes(2, 1)
+			// Reads: `Revenue`, `ActiveConfig`, `QueueStatus`
+			// Writes: `Revenue`, `QueueStatus`
+			T::DbWeight::get().reads_writes(3, 2)
 		}
 	}
 
@@ -357,7 +358,7 @@ where
 
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
 	/// with a keep alive check or to allow the account to be reaped. The amount charged is
-	/// burnt from the `Currency` and stored to
+	/// burnt from the `Currency` and stored to the pallet account.
 	///
 	/// Parameters:
 	/// - `sender`: The sender of the call, funds will be withdrawn from this account.
