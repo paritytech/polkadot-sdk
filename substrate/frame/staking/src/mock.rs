@@ -483,6 +483,7 @@ impl ExtBuilder {
 		if self.has_stakers {
 			stakers = vec![
 				// (stash, ctrl, stake, status)
+				// TODO: Remove `ctrl` from stakers.
 				// these two will be elected in the default test where we elect 2.
 				(11, 11, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
 				(21, 21, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),

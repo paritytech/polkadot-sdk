@@ -1174,11 +1174,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Declare the desire to nominate `targets` for the origin controller.
+		/// Declare the desire to nominate `targets` for a stash.
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// ## Complexity
 		/// - The transaction's complexity is proportional to the size of `targets` (N)
@@ -1190,9 +1190,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			targets: Vec<AccountIdLookupOf<T>>,
 		) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
+			let stash = ensure_signed(origin)?;
 
-			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
+			let ledger = Self::ledger(Stash(stash))?;
 
 			ensure!(ledger.active >= MinNominatorBond::<T>::get(), Error::<T>::InsufficientBond);
 			let stash = &ledger.stash;

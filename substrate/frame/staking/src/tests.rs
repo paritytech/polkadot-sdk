@@ -757,7 +757,6 @@ fn double_staking_should_fail() {
 	// should test (in the same order):
 	// * an account already bonded as stash cannot be be stashed again.
 	// * an account already bonded as stash cannot nominate.
-	// * an account already bonded as controller can nominate.
 	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		let arbitrary_value = 5;
 		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
@@ -777,13 +776,13 @@ fn double_staking_should_fail() {
 			),
 			Error::<Test>::AlreadyBonded,
 		);
-		// stash => attempting to nominate should fail.
+		// controller => attempting to nominate should fail.
 		assert_noop!(
-			Staking::nominate(RuntimeOrigin::signed(stash), vec![1]),
-			Error::<Test>::NotController
+			Staking::nominate(RuntimeOrigin::signed(controller), vec![1]),
+			Error::<Test>::NotStash // TODO: Remove this assert once controller is gone.
 		);
-		// controller => nominating should work.
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(controller), vec![1]));
+		// stash => nominating should work.
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(stash), vec![1]));
 	});
 }
 
@@ -5812,14 +5811,14 @@ fn capped_stakers_works() {
 		// same with nominators
 		let mut some_existing_nominator = AccountId::default();
 		for i in 0..max - nominator_count {
-			let (_, controller) = testing_utils::create_stash_controller::<Test>(
+			let (stash, _) = testing_utils::create_stash_controller::<Test>(
 				i + 20_000_000,
 				100,
 				RewardDestination::Stash,
 			)
 			.unwrap();
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(controller), vec![1]));
-			some_existing_nominator = controller;
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(stash), vec![1]));
+			some_existing_nominator = stash;
 		}
 
 		// one more is too many.
@@ -6415,8 +6414,8 @@ fn reducing_max_unlocking_chunks_abrupt() {
 		// when max unlocking chunks is reduced abruptly to a low value
 		MaxUnlockingChunks::set(1);
 		// then unbond, rebond ops are blocked with ledger in corrupt state
-		assert_noop!(Staking::unbond(RuntimeOrigin::signed(3), 20), Error::<Test>::NotController);
-		assert_noop!(Staking::rebond(RuntimeOrigin::signed(3), 100), Error::<Test>::NotController);
+		assert_noop!(Staking::unbond(RuntimeOrigin::signed(3), 20), Error::<Test>::NotController); // TODO: use `NotStash` once variant is removed from ledeger.
+		assert_noop!(Staking::rebond(RuntimeOrigin::signed(3), 100), Error::<Test>::NotController); // TODO: use `NotStash` once variant is removed from ledeger.
 
 		// reset the ledger corruption
 		MaxUnlockingChunks::set(2);
