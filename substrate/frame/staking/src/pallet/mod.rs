@@ -1267,11 +1267,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// (Re-)set the payment target for a controller.
+		/// (Re-)set the payment target for a stash.
 		///
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// ## Complexity
 		/// - O(1)
@@ -1285,8 +1285,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller.clone()))?;
+			let stash = ensure_signed(origin)?;
+			let ledger = Self::ledger(Stash(stash.clone()))?;
 
 			ensure!(
 				(payee != {
