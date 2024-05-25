@@ -213,7 +213,7 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
 	#[pallet::storage]
-	pub(super) type IdentityOf<T: Config> = StorageMap<
+	pub type IdentityOf<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -224,7 +224,7 @@ pub mod pallet {
 	/// The super-identity of an alternative "sub" identity together with its name, within that
 	/// context. If the account is not some other account's sub-identity, then just `None`.
 	#[pallet::storage]
-	pub(super) type SuperOf<T: Config> =
+	pub type SuperOf<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, (T::AccountId, Data), OptionQuery>;
 
 	/// Alternative "sub" identities of this account.
@@ -233,7 +233,7 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
 	#[pallet::storage]
-	pub(super) type SubsOf<T: Config> = StorageMap<
+	pub type SubsOf<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -246,7 +246,7 @@ pub mod pallet {
 	///
 	/// The index into this can be cast to `RegistrarIndex` to get a valid value.
 	#[pallet::storage]
-	pub(super) type Registrars<T: Config> = StorageValue<
+	pub type Registrars<T: Config> = StorageValue<
 		_,
 		BoundedVec<
 			Option<
@@ -263,7 +263,7 @@ pub mod pallet {
 
 	/// A map of the accounts who are authorized to grant usernames.
 	#[pallet::storage]
-	pub(super) type UsernameAuthorities<T: Config> =
+	pub type UsernameAuthorities<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, AuthorityPropertiesOf<T>, OptionQuery>;
 
 	/// Reverse lookup from `username` to the `AccountId` that has registered it. The value should
@@ -272,7 +272,7 @@ pub mod pallet {
 	/// Multiple usernames may map to the same `AccountId`, but `IdentityOf` will only map to one
 	/// primary username.
 	#[pallet::storage]
-	pub(super) type AccountOfUsername<T: Config> =
+	pub type AccountOfUsername<T: Config> =
 		StorageMap<_, Blake2_128Concat, Username<T>, T::AccountId, OptionQuery>;
 
 	/// Usernames that an authority has granted, but that the account controller has not confirmed
