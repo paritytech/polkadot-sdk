@@ -272,7 +272,6 @@ pub mod pallet {
 	/// Multiple usernames may map to the same `AccountId`, but `IdentityOf` will only map to one
 	/// primary username.
 	#[pallet::storage]
-	#[pallet::getter(fn username)]
 	pub(super) type AccountOfUsername<T: Config> =
 		StorageMap<_, Blake2_128Concat, Username<T>, T::AccountId, OptionQuery>;
 
