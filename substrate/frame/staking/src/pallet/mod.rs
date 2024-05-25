@@ -301,7 +301,7 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub type Invulnerables<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
-	/// Map from all locked "stash" accounts to the controller account.
+	/// Map from all locked "stash" accounts to the now-deprecated controller account.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
@@ -326,6 +326,7 @@ pub mod pallet {
 	pub type MinCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
 	/// Map from all (unlocked) "controller" accounts to the info regarding the staking.
+	/// TODO: Map ledgers from "stash" accounts instead of controllers.
 	///
 	/// Note: All the reads and mutations to this storage *MUST* be done through the methods exposed
 	/// by [`StakingLedger`] to ensure data and lock consistency.
