@@ -1708,19 +1708,19 @@ pub mod pallet {
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			Ok(())
 		}
-		/// Declare a `controller` to stop participating as either a validator or nominator.
+		/// Declare a `stash` to stop participating as either a validator or nominator.
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
 		/// The dispatch origin for this call must be _Signed_, but can be called by anyone.
 		///
-		/// If the caller is the same as the controller being targeted, then no further checks are
+		/// If the caller is the same as the stash being targeted, then no further checks are
 		/// enforced, and this function behaves just like `chill`.
 		///
-		/// If the caller is different than the controller being targeted, the following conditions
+		/// If the caller is different than the stash being targeted, the following conditions
 		/// must be met:
 		///
-		/// * `controller` must belong to a nominator who has become non-decodable,
+		/// * `stash` must belong to a nominator who has become non-decodable,
 		///
 		/// Or:
 		///
@@ -1740,16 +1740,10 @@ pub mod pallet {
 			// Anyone can call this function.
 			let caller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let controller = ledger
-				.controller()
-				.defensive_proof(
-					"Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.",
-				)
-				.ok_or(Error::<T>::NotController)?;
 
 			// In order for one user to chill another user, the following conditions must be met:
 			//
-			// * `controller` belongs to a nominator who has become non-decodable,
+			// * `stash` belongs to a nominator who has become non-decodable,
 			//
 			// Or
 			//
@@ -1761,14 +1755,14 @@ pub mod pallet {
 			//   determine this is a person that should be chilled because they have not met the
 			//   threshold bond required.
 			//
-			// Otherwise, if caller is the same as the controller, this is just like `chill`.
+			// Otherwise, if caller is the same as the stash, this is just like `chill`.
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
 				return Ok(())
 			}
 
-			if caller != controller {
+			if caller != stash {
 				let threshold = ChillThreshold::<T>::get().ok_or(Error::<T>::CannotChillOther)?;
 				let min_active_bond = if Nominators::<T>::contains_key(&stash) {
 					let max_nominator_count =
