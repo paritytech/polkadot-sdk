@@ -282,7 +282,6 @@ pub mod pallet {
 	///
 	/// First tuple item is the account and second is the acceptance deadline.
 	#[pallet::storage]
-	#[pallet::getter(fn preapproved_usernames)]
 	pub type PendingUsernames<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
