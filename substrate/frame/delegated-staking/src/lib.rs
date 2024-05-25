@@ -494,7 +494,7 @@ impl<T: Config> Pallet<T> {
 		T::Currency::transfer(who, &proxy_delegator, amount_to_transfer, Preservation::Expendable)?;
 
 		T::CoreStaking::update_payee(who, reward_account)?; // NOTE: Not sure why this is being used.
-		// delegate all transferred funds back to agent.
+													// delegate all transferred funds back to agent.
 		Self::do_delegate(&proxy_delegator, who, amount_to_transfer)?;
 
 		// if the transferred/delegated amount was greater than the stake, mark the extra as
