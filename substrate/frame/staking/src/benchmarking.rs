@@ -373,14 +373,14 @@ benchmarks! {
 		let stash_lookup = T::Lookup::unlookup(stash.clone());
 
 		// they start validating.
-		Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), Default::default())?;
+		Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into(), Default::default())?;
 
 		// we now create the nominators. there will be `k` of them; each will nominate all
 		// validators. we will then kick each of the `k` nominators from the main validator.
 		let mut nominator_stashes = Vec::with_capacity(k as usize);
 		for i in 0 .. k {
 			// create a nominator stash.
-			let (n_stash, n_controller) = create_stash_controller::<T>(
+			let (n_stash, _) = create_stash_controller::<T>(
 				MaxNominationsOf::<T>::get() + i,
 				100,
 				RewardDestination::Staked,
@@ -392,7 +392,7 @@ benchmarks! {
 			// optimisations/pessimisations.
 			nominations.insert(i as usize % (nominations.len() + 1), stash_lookup.clone());
 			// then we nominate.
-			Staking::<T>::nominate(RawOrigin::Signed(n_controller.clone()).into(), nominations)?;
+			Staking::<T>::nominate(RawOrigin::Signed(n_stash.clone()).into(), nominations)?;
 
 			nominator_stashes.push(n_stash);
 		}
@@ -407,8 +407,8 @@ benchmarks! {
 			.map(|n| T::Lookup::unlookup(n.clone()))
 			.collect::<Vec<_>>();
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), kicks)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash), kicks)
 	verify {
 		// all nominators now should *not* be nominating our validator...
 		for n in nominator_stashes.iter() {

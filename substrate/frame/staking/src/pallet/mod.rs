@@ -38,7 +38,7 @@ use sp_runtime::{
 
 use sp_staking::{
 	EraIndex, Page, SessionIndex,
-	StakingAccount::{self, Controller, Stash},
+	StakingAccount::{self, Stash},
 	StakingInterface,
 };
 use sp_std::prelude::*;
@@ -1617,7 +1617,7 @@ pub mod pallet {
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// - `who`: A list of nominator stash accounts who are nominating this validator which
 		///   should no longer be nominating this validator.
@@ -1627,8 +1627,8 @@ pub mod pallet {
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::kick(who.len() as u32))]
 		pub fn kick(origin: OriginFor<T>, who: Vec<AccountIdLookupOf<T>>) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller))?;
+			let signed = ensure_signed(origin)?;
+			let ledger = &Self::ledger(Stash(signed))?;
 			let stash = &ledger.stash;
 
 			for nom_stash in who
