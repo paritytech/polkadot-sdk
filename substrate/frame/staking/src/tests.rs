@@ -7279,7 +7279,7 @@ mod staking_unchecked {
 
 			// recover the ledger won't work for virtual staker
 			assert_noop!(
-				Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None),
+				Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None),
 				Error::<Test>::VirtualStakerNotAllowed
 			);
 
@@ -7287,7 +7287,7 @@ mod staking_unchecked {
 			<VirtualStakers<Test>>::remove(333);
 
 			// try restore again
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
 		})
 	}
 }
@@ -7679,7 +7679,7 @@ mod ledger_recovery {
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
 
 			// try-state checks are ok now.
 			assert_ok!(Staking::do_try_state(System::block_number()));
@@ -7723,20 +7723,19 @@ mod ledger_recovery {
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
 
 			// for the try-state checks to pass, we also need to recover the stash 444 which is
 			// corrupted too by proxy of kill(333). Currently, both the lock and the ledger of 444
 			// have been cleared so we need to provide the new amount to restore the ledger.
 			assert_noop!(
-				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None, None),
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None),
 				Error::<Test>::CannotRestoreLedger
 			);
 
 			assert_ok!(Staking::restore_ledger(
 				RuntimeOrigin::root(),
 				444,
-				None,
 				Some(total_444_before_corruption),
 				None,
 			));
@@ -7779,7 +7778,7 @@ mod ledger_recovery {
 			assert_ok!(StakingLedger::<Test>::kill(&444));
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
 
 			// 444 does not need recover in this case since it's been killed successfully.
 			assert_eq!(Staking::inspect_bond_state(&444), Err(Error::<Test>::NotStash));
@@ -7835,7 +7834,6 @@ mod ledger_recovery {
 			assert_ok!(Staking::restore_ledger(
 				RuntimeOrigin::root(),
 				333,
-				None,
 				Some(lock_333_before + 30),
 				None
 			));
@@ -7844,7 +7842,7 @@ mod ledger_recovery {
 			// of sync. in which case, we need to explicitly set the ledger's lock and amount,
 			// otherwise the ledger recover will fail.
 			assert_noop!(
-				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None, None),
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None),
 				Error::<Test>::CannotRestoreLedger
 			);
 
@@ -7852,7 +7850,6 @@ mod ledger_recovery {
 			assert_ok!(Staking::restore_ledger(
 				RuntimeOrigin::root(),
 				444,
-				None,
 				Some(lock_444_before + 40),
 				None
 			));

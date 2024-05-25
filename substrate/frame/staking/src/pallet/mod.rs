@@ -1903,7 +1903,6 @@ pub mod pallet {
 		pub fn restore_ledger(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
-			maybe_controller: Option<T::AccountId>,
 			maybe_total: Option<BalanceOf<T>>,
 			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
 		) -> DispatchResult {
@@ -1917,7 +1916,7 @@ pub mod pallet {
 
 			let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
 				Ok(LedgerIntegrityState::Corrupted) => {
-					let new_controller = maybe_controller.unwrap_or(stash.clone());
+					let new_controller = stash.clone();
 
 					let new_total = if let Some(total) = maybe_total {
 						let new_total = total.min(stash_balance);
