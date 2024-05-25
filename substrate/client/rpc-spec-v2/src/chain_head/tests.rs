@@ -16,13 +16,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use super::*;
 use crate::{
 	chain_head::{api::ChainHeadApiClient, event::MethodResponse, test_utils::ChainHeadMockClient},
 	common::events::{StorageQuery, StorageQueryType, StorageResultType},
 	hex_string,
 };
-
-use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use futures::Future;
@@ -32,7 +31,6 @@ use jsonrpsee::{
 	},
 	rpc_params, MethodsError as Error, RpcModule,
 };
-
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sc_service::client::new_in_mem;
@@ -2489,6 +2487,7 @@ async fn follow_report_multiple_pruned_block() {
 	client.finalize_block(block_3_hash, None).unwrap();
 
 	// Finalizing block 3 directly will also result in block 1 and 2 being finalized.
+	// It will also mark block 2 and block 3 from the fork as pruned.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
@@ -2496,7 +2495,7 @@ async fn follow_report_multiple_pruned_block() {
 			format!("{:?}", block_2_hash),
 			format!("{:?}", block_3_hash),
 		],
-		pruned_block_hashes: vec![],
+		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
 	});
 	assert_eq!(event, expected);
 
@@ -2506,7 +2505,6 @@ async fn follow_report_multiple_pruned_block() {
 	//                                                  ^^^ finalized
 	//           -> block 1 -> block 2_f -> block 3_f
 	//
-	// Mark block 4 as finalized to force block 2_f and 3_f to get pruned.
 
 	let block_4 = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(block_3.hash())
@@ -2537,11 +2535,11 @@ async fn follow_report_multiple_pruned_block() {
 	});
 	assert_eq!(event, expected);
 
-	// Block 4 and 5 be reported as pruned, not just the stale head (block 5).
+	// Blocks from the fork were pruned earlier.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_4_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 }
@@ -2550,7 +2548,7 @@ async fn follow_report_multiple_pruned_block() {
 async fn pin_block_references() {
 	// Manually construct an in-memory backend and client.
 	let backend = Arc::new(sc_client_api::in_mem::Backend::new());
-	let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
+	let executor = substrate_test_runtime_client::WasmExecutor::default();
 	let client_config = sc_service::ClientConfig::default();
 
 	let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
@@ -3716,16 +3714,8 @@ async fn follow_unique_pruned_blocks() {
 	// The chainHead will see block 5 as the best block. However, the
 	// client will finalize the block 6, which is on another fork.
 	//
-	// When the block 6 is finalized, block 2 block 3 block 4 and block 5 are placed on an invalid
-	// fork. However, pruning of blocks happens on level N - 1.
-	// Therefore, no pruned blocks are reported yet.
+	// When the block 6 is finalized all blocks from the stale forks (2, 3, 4, 5) are pruned.
 	//
-	// When the block 7 is finalized, block 3 is detected as stale. At this step, block 2 and 3
-	// are reported as pruned.
-	//
-	// When the block 8 is finalized, block 5 block 4 and block 2 are detected as stale. However,
-	// only blocks 5 and 4 are reported as pruned. This is because the block 2 was previously
-	// reported.
 
 	// Initial setup steps:
 	let block_1_hash =
@@ -3778,16 +3768,33 @@ async fn follow_unique_pruned_blocks() {
 	});
 	assert_eq!(event, expected);
 
-	// Block 2 must be reported as pruned, even if it was the previous best.
-	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	// All blocks from stale forks are pruned when we finalize block 6.
+	let mut event: FollowEvent<String> = get_next_event(&mut sub).await;
+
+	// Sort pruned block hashes to counter flaky test caused by event generation (get_pruned_hashes)
+	if let FollowEvent::Finalized(Finalized { pruned_block_hashes, .. }) = &mut event {
+		pruned_block_hashes.sort();
+	}
+	let expected_pruned_block_hashes = {
+		let mut hashes = vec![
+			format!("{:?}", block_2_hash),
+			format!("{:?}", block_3_hash),
+			format!("{:?}", block_4_hash),
+			format!("{:?}", block_5_hash),
+		];
+		hashes.sort();
+		hashes
+	};
+
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
 			format!("{:?}", block_1_hash),
 			format!("{:?}", block_2_f_hash),
 			format!("{:?}", block_6_hash),
 		],
-		pruned_block_hashes: vec![],
+		pruned_block_hashes: expected_pruned_block_hashes,
 	});
+
 	assert_eq!(event, expected);
 
 	// Pruned hash can be unpinned.
@@ -3804,9 +3811,10 @@ async fn follow_unique_pruned_blocks() {
 	client.finalize_block(block_7_hash, None).unwrap();
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	// All necessary blocks were pruned on block 6 finalization.
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_7_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_2_hash), format!("{:?}", block_3_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 
@@ -3817,10 +3825,11 @@ async fn follow_unique_pruned_blocks() {
 	// Finalize the block 8.
 	client.finalize_block(block_8_hash, None).unwrap();
 
+	// All necessary blocks were pruned on block 6 finalization.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_8_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_4_hash), format!("{:?}", block_5_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 }

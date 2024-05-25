@@ -180,7 +180,7 @@ where
 				self.left_relay.clone(),
 				self.common.right.client.clone(),
 				self.common.right.tx_params.clone(),
-				self.common.shared.only_mandatory_headers,
+				self.common.shared.headers_to_relay(),
 				Some(self.common.metrics_params.clone()),
 			);
 		let right_relay_to_left_on_demand_headers =
@@ -188,7 +188,7 @@ where
 				self.right_relay.clone(),
 				self.common.left.client.clone(),
 				self.common.left.tx_params.clone(),
-				self.common.shared.only_mandatory_headers,
+				self.common.shared.headers_to_relay(),
 				Some(self.common.metrics_params.clone()),
 			);
 

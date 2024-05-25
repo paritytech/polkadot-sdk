@@ -25,7 +25,9 @@ use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{Balance, BlockNumber, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_std::{prelude::*, result};
-use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
+use xcm::prelude::{
+	send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm,
+};
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
@@ -115,12 +117,17 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The runtime's definition of a Currency.
 		type Currency: Currency<Self::AccountId>;
-		/// The ParaId of the broker system parachain.
+		/// The ParaId of the coretime chain.
 		#[pallet::constant]
 		type BrokerId: Get<u32>;
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 		type SendXcm: SendXcm;
+
+		/// Maximum weight for any XCM transact call that should be executed on the coretime chain.
+		///
+		/// Basically should be `max_weight(set_leases, reserve, notify_core_count)`.
+		type MaxXcmTransactWeight: Get<Weight>;
 	}
 
 	#[pallet::event]
@@ -146,10 +153,16 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Request the configuration to be updated with the specified number of cores. Warning:
+		/// Since this only schedules a configuration update, it takes two sessions to come into
+		/// effect.
+		///
+		/// - `origin`: Root or the Coretime Chain
+		/// - `count`: total number of cores
 		#[pallet::weight(<T as Config>::WeightInfo::request_core_count())]
 		#[pallet::call_index(1)]
 		pub fn request_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
-			// Ignore requests not coming from the broker parachain or root.
+			// Ignore requests not coming from the coretime chain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 
 			configuration::Pallet::<T>::set_coretime_cores_unchecked(u32::from(count))
@@ -179,7 +192,7 @@ pub mod pallet {
 		//	_who: T::AccountId,
 		//	_amount: BalanceOf<T>,
 		//) -> DispatchResult {
-		//	// Ignore requests not coming from the broker parachain or root.
+		//	// Ignore requests not coming from the coretime chain or root.
 		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 		//	Ok(())
 		//}
@@ -188,7 +201,7 @@ pub mod pallet {
 		/// to be used.
 		///
 		/// Parameters:
-		/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the Broker system parachain.
+		/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the coretime chain.
 		/// -`core`: The core that should be scheduled.
 		/// -`begin`: The starting blockheight of the instruction.
 		/// -`assignment`: How the blockspace should be utilised.
@@ -204,7 +217,7 @@ pub mod pallet {
 			assignment: Vec<(CoreAssignment, PartsOf57600)>,
 			end_hint: Option<BlockNumberFor<T>>,
 		) -> DispatchResult {
-			// Ignore requests not coming from the broker parachain or root.
+			// Ignore requests not coming from the coretime chain or root.
 			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
 
 			let core = u32::from(core).into();
@@ -243,7 +256,7 @@ impl<T: Config> Pallet<T> {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_coretime_call(crate::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
+				mk_coretime_call::<T>(crate::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
 			]);
 			if let Err(err) = send_xcm::<T::SendXcm>(
 				Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
@@ -298,7 +311,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	// Handle legacy swaps in coretime. Notifies broker parachain that a lease swap has occurred via
+	// Handle legacy swaps in coretime. Notifies coretime chain that a lease swap has occurred via
 	// XCM message. This function is meant to be used in an implementation of `OnSwap` trait.
 	pub fn on_legacy_lease_swap(one: ParaId, other: ParaId) {
 		let message = Xcm(vec![
@@ -306,7 +319,7 @@ impl<T: Config> Pallet<T> {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
 			},
-			mk_coretime_call(crate::coretime::CoretimeCalls::SwapLeases(one, other)),
+			mk_coretime_call::<T>(crate::coretime::CoretimeCalls::SwapLeases(one, other)),
 		]);
 		if let Err(err) = send_xcm::<T::SendXcm>(
 			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
@@ -323,12 +336,10 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 	}
 }
 
-fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
+fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		// Largest call is set_lease with 1526 byte:
-		// Longest call is reserve() with 31_000_000
-		require_weight_at_most: Weight::from_parts(170_000_000, 20_000),
+		require_weight_at_most: T::MaxXcmTransactWeight::get(),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }

@@ -16,17 +16,16 @@
 
 //! A mock runtime for XCM benchmarking.
 
-use crate::{fungible as xcm_balances_benchmark, mock::*};
+use crate::{fungible as xcm_balances_benchmark, generate_holding_assets, mock::*};
 use frame_benchmarking::BenchmarkError;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, Everything, Nothing},
-	weights::Weight,
+	traits::{Everything, Nothing},
 };
-use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 use xcm::latest::prelude::*;
-use xcm_builder::{AllowUnpaidExecutionFrom, FrameTransactionalProcessor, MintLocation};
+use xcm_builder::{
+	AllowUnpaidExecutionFrom, EnsureDecodableXcm, FrameTransactionalProcessor, MintLocation,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -40,37 +39,10 @@ frame_support::construct_runtime!(
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub BlockWeights: frame_system::limits::BlockWeights =
-		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -121,7 +93,7 @@ parameter_types! {
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = DevNull;
+	type XcmSender = EnsureDecodableXcm<DevNull>;
 	type AssetTransactor = AssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = TrustedReserves;
@@ -148,6 +120,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 impl crate::Config for Test {
@@ -160,9 +133,8 @@ impl crate::Config for Test {
 		Ok(valid_destination)
 	}
 	fn worst_case_holding(depositable_count: u32) -> Assets {
-		crate::mock_worst_case_holding(
-			depositable_count,
-			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get(),
+		generate_holding_assets(
+			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get() - depositable_count,
 		)
 	}
 }

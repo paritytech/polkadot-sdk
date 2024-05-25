@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod foreign_assets_transfers;
+mod hybrid_transfers;
 mod reserve_transfer;
 mod send;
 mod set_xcm_versions;
