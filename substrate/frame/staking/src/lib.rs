@@ -400,7 +400,7 @@ impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum RewardDestination<AccountId> {
 	/// Pay into the stash account, increasing the amount at stake accordingly.
-	Staked,
+Staked,
 	/// Pay into the stash account, not increasing the amount at stake.
 	Stash,
 	#[deprecated(
