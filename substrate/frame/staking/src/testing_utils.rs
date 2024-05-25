@@ -110,15 +110,15 @@ pub fn create_unique_stash_controller<T: Config>(
 	Ok((stash, controller))
 }
 
-/// Create a stash and controller pair with fixed balance.
-pub fn create_stash_controller_with_balance<T: Config>(
+/// Create a stash account with a fixed balance.
+pub fn create_stash_with_balance<T: Config>(
 	n: u32,
 	balance: crate::BalanceOf<T>,
 	destination: RewardDestination<T::AccountId>,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
+) -> Result<T::AccountId, &'static str> {
 	let staker = create_funded_user_with_balance::<T>("stash", n, balance);
 	Staking::<T>::bond(RawOrigin::Signed(staker.clone()).into(), balance, destination)?;
-	Ok((staker.clone(), staker))
+	Ok(staker)
 }
 
 /// Create a stash and controller pair, where payouts go to a dead payee account. This is used to

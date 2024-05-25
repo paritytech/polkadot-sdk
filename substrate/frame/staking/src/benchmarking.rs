@@ -143,8 +143,6 @@ pub fn create_validator_with_nominators<T: Config>(
 struct ListScenario<T: Config> {
 	/// Stash that is expected to be moved.
 	origin_stash1: T::AccountId,
-	/// Controller of the Stash that is expected to be moved.
-	origin_controller1: T::AccountId,
 	dest_weight: BalanceOf<T>,
 }
 
@@ -172,24 +170,24 @@ impl<T: Config> ListScenario<T> {
 
 		// create accounts with the origin weight
 
-		let (origin_stash1, origin_controller1) = create_stash_controller_with_balance::<T>(
+		let origin_stash1 = create_stash_with_balance::<T>(
 			USER_SEED + 2,
 			origin_weight,
 			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
-			RawOrigin::Signed(origin_controller1.clone()).into(),
+			RawOrigin::Signed(origin_stash1.clone()).into(),
 			// NOTE: these don't really need to be validators.
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
 
-		let (_origin_stash2, origin_controller2) = create_stash_controller_with_balance::<T>(
+		let origin_stash2 = create_stash_with_balance::<T>(
 			USER_SEED + 3,
 			origin_weight,
 			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
-			RawOrigin::Signed(origin_controller2).into(),
+			RawOrigin::Signed(origin_stash2).into(),
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
 
@@ -203,17 +201,14 @@ impl<T: Config> ListScenario<T> {
 			T::CurrencyToVote::to_currency(dest_weight_as_vote as u128, total_issuance);
 
 		// create an account with the worst case destination weight
-		let (_dest_stash1, dest_controller1) = create_stash_controller_with_balance::<T>(
-			USER_SEED + 1,
-			dest_weight,
-			RewardDestination::Staked,
-		)?;
+		let dest_stash1 =
+			create_stash_with_balance::<T>(USER_SEED + 1, dest_weight, RewardDestination::Staked)?;
 		Staking::<T>::nominate(
-			RawOrigin::Signed(dest_controller1).into(),
+			RawOrigin::Signed(dest_stash1).into(),
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
 
-		Ok(ListScenario { origin_stash1, origin_controller1, dest_weight })
+		Ok(ListScenario { origin_stash1, dest_weight })
 	}
 }
 
@@ -245,16 +240,15 @@ benchmarks! {
 		let max_additional = scenario.dest_weight - origin_weight;
 
 		let stash = scenario.origin_stash1.clone();
-		let controller = scenario.origin_controller1;
 		let original_bonded: BalanceOf<T>
-			= Ledger::<T>::get(&controller).map(|l| l.active).ok_or("ledger not created after")?;
+			= Ledger::<T>::get(&stash).map(|l| l.active).ok_or("ledger not created after")?;
 
 		let _ = T::Currency::deposit_into_existing(&stash, max_additional).unwrap();
 
 		whitelist_account!(stash);
 	}: _(RawOrigin::Signed(stash), max_additional)
 	verify {
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
 		assert!(original_bonded < new_bonded);
 	}
@@ -273,15 +267,14 @@ benchmarks! {
 		let scenario = ListScenario::<T>::new(origin_weight, false)?;
 
 		let stash = scenario.origin_stash1.clone();
-		let controller = scenario.origin_controller1.clone();
 		let amount = origin_weight - scenario.dest_weight;
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
 
 		whitelist_account!(stash);
 	}: _(RawOrigin::Signed(stash.clone()), amount)
 	verify {
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
 		assert!(original_bonded > new_bonded);
 	}
@@ -317,21 +310,20 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		add_slashing_spans::<T>(&stash, s);
 		assert!(T::VoterList::contains(&stash));
 
 		let ed = T::Currency::minimum_balance();
-		let mut ledger = Ledger::<T>::get(&controller).unwrap();
+		let mut ledger = Ledger::<T>::get(&stash).unwrap();
 		ledger.active = ed - One::one();
-		Ledger::<T>::insert(&controller, ledger);
+		Ledger::<T>::insert(&stash, ledger);
 		CurrentEra::<T>::put(EraIndex::max_value());
 
-		whitelist_account!(controller);
+		whitelist_account!(stash);
 	}: withdraw_unbonded(RawOrigin::Signed(stash.clone()), s)
 	verify {
-		assert!(!Ledger::<T>::contains_key(controller));
+		assert!(!Ledger::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
 	}
 
@@ -427,7 +419,7 @@ benchmarks! {
 		// setup a worst case list scenario. Note we don't care about the destination position, because
 		// we are just doing an insert into the origin position.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let (stash,_) = create_stash_controller_with_balance::<T>(
+		let stash = create_stash_with_balance::<T>(
 			SEED + MaxNominationsOf::<T>::get() + 1, // make sure the account does not conflict with others
 			origin_weight,
 			RewardDestination::Staked,
@@ -522,14 +514,13 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		assert!(T::VoterList::contains(&stash));
 		add_slashing_spans::<T>(&stash, s);
 
 	}: _(RawOrigin::Root, stash.clone(), s)
 	verify {
-		assert!(!Ledger::<T>::contains_key(&controller));
+		assert!(!Ledger::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
 	}
 
@@ -617,19 +608,18 @@ benchmarks! {
 		};
 
 		let stash = scenario.origin_stash1.clone();
-		let controller = scenario.origin_controller1;
-		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
+		let mut staking_ledger = Ledger::<T>::get(stash.clone()).unwrap();
 
 		for _ in 0 .. l {
 			staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap()
 		}
-		Ledger::<T>::insert(controller.clone(), staking_ledger.clone());
+		Ledger::<T>::insert(stash.clone(), staking_ledger.clone());
 		let original_bonded: BalanceOf<T> = staking_ledger.active;
 
 		whitelist_account!(stash);
 	}: _(RawOrigin::Signed(stash.clone()), rebond_amount)
 	verify {
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
 		assert!(original_bonded < new_bonded);
 	}
@@ -644,7 +634,6 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 
 		add_slashing_spans::<T>(&stash, s);
@@ -652,13 +641,13 @@ benchmarks! {
 			stash.clone(),
 			T::Currency::minimum_balance() - One::one(),
 		);
-		Ledger::<T>::insert(&controller, l);
+		Ledger::<T>::insert(&stash, l);
 
 		assert!(Bonded::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash));
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), stash.clone(), s)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash.clone()), stash.clone(), s)
 	verify {
 		assert!(!Bonded::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
@@ -848,7 +837,6 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		assert!(T::VoterList::contains(&stash));
 
