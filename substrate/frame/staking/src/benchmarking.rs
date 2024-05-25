@@ -77,7 +77,7 @@ pub fn create_validator_with_nominators<T: Config>(
 	let mut points_total = 0;
 	let mut points_individual = Vec::new();
 
-	let (v_stash, _) = create_stash_controller::<T>(0, 100, destination.clone())?;
+	let v_stash = create_stash::<T>(0, 100, destination.clone())?;
 
 	let validator_prefs =
 		ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
@@ -92,7 +92,7 @@ pub fn create_validator_with_nominators<T: Config>(
 
 	// Give the validator n nominators, but keep total users in the system the same.
 	for i in 0..upper_bound {
-		let (n_stash, _) = create_stash_controller::<T>(u32::MAX - i, 100, destination.clone())?;
+		let n_stash = create_stash::<T>(u32::MAX - i, 100, destination.clone())?;
 
 		if i < n {
 			Staking::<T>::nominate(
@@ -274,7 +274,7 @@ benchmarks! {
 	withdraw_unbonded_update {
 		// Slashing Spans
 		let s in 0 .. MAX_SPANS;
-		let (stash, _) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
+		let stash = create_stash::<T>(0, 100, RewardDestination::Staked)?;
 		add_slashing_spans::<T>(&stash, s);
 		let amount = T::Currency::minimum_balance() * 5u32.into(); // Half of total
 		Staking::<T>::unbond(RawOrigin::Signed(stash.clone()).into(), amount)?;
@@ -319,7 +319,7 @@ benchmarks! {
 	}
 
 	validate {
-		let (stash,_) = create_stash_controller::<T>(
+		let stash = create_stash::<T>(
 			MaxNominationsOf::<T>::get() - 1,
 			100,
 			RewardDestination::Staked,
@@ -347,7 +347,7 @@ benchmarks! {
 		let rest_of_validators = create_validators_with_seed::<T>(MaxNominationsOf::<T>::get() - 1, 100, 415)?;
 
 		// this is the validator that will be kicking.
-		let (stash, _) = create_stash_controller::<T>(
+		let stash = create_stash::<T>(
 			MaxNominationsOf::<T>::get() - 1,
 			100,
 			RewardDestination::Staked,
@@ -362,7 +362,7 @@ benchmarks! {
 		let mut nominator_stashes = Vec::with_capacity(k as usize);
 		for i in 0 .. k {
 			// create a nominator stash.
-			let (n_stash, _) = create_stash_controller::<T>(
+			let n_stash = create_stash::<T>(
 				MaxNominationsOf::<T>::get() + i,
 				100,
 				RewardDestination::Staked,
@@ -446,7 +446,7 @@ benchmarks! {
 	}
 
 	set_payee {
-		let (stash, _) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+		let stash = create_stash::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Staked));
 		whitelist_account!(stash);
 	}: _(RawOrigin::Signed(stash.clone()), RewardDestination::Account(101u32.into()))
@@ -457,7 +457,7 @@ benchmarks! {
 	// NOTE: This benchmark will not be worst case as stash is now the same as controller. Remove this
 	// once <https://github.com/paritytech/polkadot-sdk/pull/4574#discussion_r1614429680> is resolved.
 	update_payee {
-		let (stash, _) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+		let (stash, _) = create_stash::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		Payee::<T>::insert(&stash, {
 			#[allow(deprecated)]
 			RewardDestination::Controller
@@ -716,7 +716,7 @@ benchmarks! {
 	#[extra]
 	do_slash {
 		let l in 1 .. T::MaxUnlockingChunks::get() as u32;
-		let (stash, _) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
+		let (stash, _) = create_stash::<T>(0, 100, RewardDestination::Staked)?;
 		let mut staking_ledger = Ledger::<T>::get(stash.clone()).unwrap();
 		let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
 			value: 1u32.into(),
@@ -853,8 +853,8 @@ benchmarks! {
 		clear_validators_and_nominators::<T>();
 
 		// Create a validator with a commission of 50%
-		let (stash, _) =
-			create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+		let stash =
+			create_stash::<T>(1, 1, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
 		Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into(), validator_prefs)?;
@@ -887,7 +887,7 @@ benchmarks! {
 	// NOTE: This benchmark will not work as intended as controller is now stash. Remove this once
 	// restore_ledger is removed.
 	restore_ledger {
-		let (stash, _) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
+		let stash = create_stash::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
 		Ledger::<T>::remove(stash.clone());
 	}: _(RawOrigin::Root, stash.clone(), None, None, None)

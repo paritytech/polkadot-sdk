@@ -70,17 +70,17 @@ pub fn create_funded_user_with_balance<T: Config>(
 	user
 }
 
-/// Create a stash and controller pair.
-pub fn create_stash_controller<T: Config>(
+/// Create a stash.
+pub fn create_stash<T: Config>(
 	n: u32,
 	balance_factor: u32,
 	destination: RewardDestination<T::AccountId>,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
+) -> Result<T::AccountId, &'static str> {
 	let staker = create_funded_user::<T>("stash", n, balance_factor);
 	let amount =
 		T::Currency::minimum_balance().max(1u64.into()) * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(RawOrigin::Signed(staker.clone()).into(), amount, destination)?;
-	Ok((staker.clone(), staker))
+	Ok(staker)
 }
 
 /// Create a unique stash and controller pair.
@@ -155,8 +155,7 @@ pub fn create_validators_with_seed<T: Config>(
 ) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
 	let mut validators: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(max as usize);
 	for i in 0..max {
-		let (stash, _) =
-			create_stash_controller::<T>(i + seed, balance_factor, RewardDestination::Staked)?;
+		let stash = create_stash::<T>(i + seed, balance_factor, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
 		Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into(), validator_prefs)?;
@@ -196,8 +195,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 	// Create validators
 	for i in 0..validators {
 		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
-		let (v_stash, _) =
-			create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
+		let v_stash = create_stash::<T>(i, balance_factor, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
 		Staking::<T>::validate(RawOrigin::Signed(v_stash.clone()).into(), validator_prefs)?;
@@ -211,8 +209,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 	// Create nominators
 	for j in 0..nominators {
 		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
-		let (n_stash, _) =
-			create_stash_controller::<T>(u32::MAX - j, balance_factor, RewardDestination::Staked)?;
+		let n_stash = create_stash::<T>(u32::MAX - j, balance_factor, RewardDestination::Staked)?;
 
 		// Have them randomly validate
 		let mut available_validators = validator_chosen.clone();

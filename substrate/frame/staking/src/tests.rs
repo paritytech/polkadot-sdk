@@ -5739,20 +5739,16 @@ fn capped_stakers_works() {
 		// can create `max - validator_count` validators
 		let mut some_existing_validator = AccountId::default();
 		for i in 0..max - validator_count {
-			let (stash, _) = testing_utils::create_stash_controller::<Test>(
-				i + 10_000_000,
-				100,
-				RewardDestination::Stash,
-			)
-			.unwrap();
+			let stash =
+				testing_utils::create_stash::<Test>(i + 10_000_000, 100, RewardDestination::Stash)
+					.unwrap();
 			assert_ok!(Staking::validate(RuntimeOrigin::signed(stash), ValidatorPrefs::default()));
 			some_existing_validator = stash;
 		}
 
 		// but no more
-		let (last_validator, _) =
-			testing_utils::create_stash_controller::<Test>(1337, 100, RewardDestination::Stash)
-				.unwrap();
+		let last_validator =
+			testing_utils::create_stash::<Test>(1337, 100, RewardDestination::Stash).unwrap();
 
 		assert_noop!(
 			Staking::validate(RuntimeOrigin::signed(last_validator), ValidatorPrefs::default()),
@@ -5762,23 +5758,16 @@ fn capped_stakers_works() {
 		// same with nominators
 		let mut some_existing_nominator = AccountId::default();
 		for i in 0..max - nominator_count {
-			let (stash, _) = testing_utils::create_stash_controller::<Test>(
-				i + 20_000_000,
-				100,
-				RewardDestination::Stash,
-			)
-			.unwrap();
+			let stash =
+				testing_utils::create_stash::<Test>(i + 20_000_000, 100, RewardDestination::Stash)
+					.unwrap();
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(stash), vec![1]));
 			some_existing_nominator = stash;
 		}
 
 		// one more is too many.
-		let (last_nominator, _) = testing_utils::create_stash_controller::<Test>(
-			30_000_000,
-			100,
-			RewardDestination::Stash,
-		)
-		.unwrap();
+		let last_nominator =
+			testing_utils::create_stash::<Test>(30_000_000, 100, RewardDestination::Stash).unwrap();
 		assert_noop!(
 			Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![1]),
 			Error::<Test>::TooManyNominators
