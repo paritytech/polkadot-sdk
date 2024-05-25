@@ -1,0 +1,10 @@
+title: Remove controller logic from staking pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+       Removes controller account logic from the staking pallet.
+
+crates:
+  - name: pallet-staking
+    bump: major
