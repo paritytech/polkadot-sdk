@@ -275,37 +275,12 @@ fn change_controller_works() {
 		assert_eq!(raw_ledger.controller, None);
 
 		// `controller` is no longer in control. `stash` is now controller.
+		// TODO: Remove this test once controller logic is removed.
 		assert_noop!(
 			Staking::validate(RuntimeOrigin::signed(controller), ValidatorPrefs::default()),
-			Error::<Test>::NotController,
+			Error::<Test>::NotStash, // NOTE: was `SetController`.
 		);
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(stash), ValidatorPrefs::default()));
-	})
-}
-
-#[test]
-fn change_controller_already_paired_once_stash() {
-	ExtBuilder::default().build_and_execute(|| {
-		// 11 and 11 are bonded as controller and stash respectively.
-		assert_eq!(Staking::bonded(&11), Some(11));
-
-		// 11 is initially a validator.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
-
-		// Controller cannot change once matching with stash.
-		assert_noop!(
-			Staking::set_controller(RuntimeOrigin::signed(11)),
-			Error::<Test>::AlreadyPaired
-		);
-		assert_eq!(Staking::bonded(&11), Some(11));
-		mock::start_active_era(1);
-
-		// 10 is no longer in control.
-		assert_noop!(
-			Staking::validate(RuntimeOrigin::signed(10), ValidatorPrefs::default()),
-			Error::<Test>::NotController,
-		);
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(11), ValidatorPrefs::default()));
 	})
 }
 
@@ -435,7 +410,7 @@ fn staking_should_work() {
 
 		// --- Block 2:
 		start_session(2);
-		// add a new candidate for being a validator. account 3 controlled by 4.
+		// add a new candidate for being a validator.
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 1500, RewardDestination::Account(3)));
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()));
 		assert_ok!(Session::set_keys(
