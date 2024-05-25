@@ -457,7 +457,7 @@ benchmarks! {
 	// NOTE: This benchmark will not be worst case as stash is now the same as controller. Remove this
 	// once <https://github.com/paritytech/polkadot-sdk/pull/4574#discussion_r1614429680> is resolved.
 	update_payee {
-		let (stash, _) = create_stash::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+		let stash = create_stash::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		Payee::<T>::insert(&stash, {
 			#[allow(deprecated)]
 			RewardDestination::Controller
@@ -716,7 +716,7 @@ benchmarks! {
 	#[extra]
 	do_slash {
 		let l in 1 .. T::MaxUnlockingChunks::get() as u32;
-		let (stash, _) = create_stash::<T>(0, 100, RewardDestination::Staked)?;
+		let stash = create_stash::<T>(0, 100, RewardDestination::Staked)?;
 		let mut staking_ledger = Ledger::<T>::get(stash.clone()).unwrap();
 		let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
 			value: 1u32.into(),
