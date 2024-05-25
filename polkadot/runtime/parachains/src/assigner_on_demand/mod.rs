@@ -626,7 +626,7 @@ where
 		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
 		Revenue::<T>::mutate(|revenue| {
 			revenue.into_iter().enumerate().for_each(|(index, block_revenue)| {
-				if when >= now.saturating_sub((index as u32).into()) {
+				if when > now.saturating_sub((index as u32).into()) {
 					amount = amount.saturating_add(*block_revenue);
 					*block_revenue = BalanceOf::<T>::zero();
 				}
