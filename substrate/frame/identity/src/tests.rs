@@ -376,7 +376,7 @@ fn adding_registrar_should_work() {
 		let fields = IdentityField::Display | IdentityField::Legal;
 		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(three.clone()), 0, fields.bits()));
 		assert_eq!(
-			Identity::registrars(),
+			Registrars::<Test::get(),
 			vec![Some(RegistrarInfo { account: three, fee: 10, fields: fields.bits() })]
 		);
 	});

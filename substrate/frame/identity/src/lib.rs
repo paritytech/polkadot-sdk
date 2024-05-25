@@ -246,7 +246,6 @@ pub mod pallet {
 	///
 	/// The index into this can be cast to `RegistrarIndex` to get a valid value.
 	#[pallet::storage]
-	#[pallet::getter(fn registrars)]
 	pub(super) type Registrars<T: Config> = StorageValue<
 		_,
 		BoundedVec<
@@ -599,7 +598,7 @@ pub mod pallet {
 		/// - `max_fee`: The maximum fee that may be paid. This should just be auto-populated as:
 		///
 		/// ```nocompile
-		/// Self::registrars().get(reg_index).unwrap().fee
+		/// Registrars::<T>::get().get(reg_index).unwrap().fee
 		/// ```
 		///
 		/// Emits `JudgementRequested` if successful.
