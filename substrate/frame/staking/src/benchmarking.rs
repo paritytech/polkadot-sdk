@@ -66,11 +66,10 @@ pub fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
 
 // This function clears all existing validators and nominators from the set, and generates one new
 // validator being nominated by n nominators, and returns the validator stash account and the
-// nominators' stash and controller. It also starts an era and creates pending payouts.
+// nominators' stash. It also starts an era and creates pending payouts.
 pub fn create_validator_with_nominators<T: Config>(
 	n: u32,
 	upper_bound: u32,
-	dead_controller: bool,
 	unique_controller: bool,
 	destination: RewardDestination<T::AccountId>,
 ) -> Result<(T::AccountId, Vec<(T::AccountId, T::AccountId)>), &'static str> {
@@ -98,11 +97,9 @@ pub fn create_validator_with_nominators<T: Config>(
 
 	// Give the validator n nominators, but keep total users in the system the same.
 	for i in 0..upper_bound {
-		let (n_stash, n_controller) = if !dead_controller {
-			create_stash_controller::<T>(u32::MAX - i, 100, destination.clone())?
-		} else {
-			create_unique_stash_controller::<T>(u32::MAX - i, 100, destination.clone(), true)?
-		};
+		let (n_stash, n_controller) =
+			create_stash_controller::<T>(u32::MAX - i, 100, destination.clone())?;
+
 		if i < n {
 			Staking::<T>::nominate(
 				RawOrigin::Signed(n_controller.clone()).into(),
@@ -545,7 +542,6 @@ benchmarks! {
 		let (validator, nominators) = create_validator_with_nominators::<T>(
 			n,
 			T::MaxExposurePageSize::get() as u32,
-			false,
 			true,
 			RewardDestination::Staked,
 		)?;
@@ -951,7 +947,6 @@ mod tests {
 				n,
 				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
 				false,
-				false,
 				RewardDestination::Staked,
 			)
 			.unwrap();
@@ -981,7 +976,6 @@ mod tests {
 			let (validator_stash, _nominators) = create_validator_with_nominators::<Test>(
 				n,
 				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
-				false,
 				false,
 				RewardDestination::Staked,
 			)
