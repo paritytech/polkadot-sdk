@@ -921,8 +921,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Take the origin account as a stash and lock up `value` of its balance. `controller` will
-		/// be the account that controls it.
+		/// Take the origin account as a stash and lock up `value` of its balance.
 		///
 		/// `value` must be more than the `minimum_balance` specified by `T::Currency`.
 		///
@@ -948,11 +947,6 @@ pub mod pallet {
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
-			}
-
-			// An existing controller cannot become a stash.
-			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
-				return Err(Error::<T>::AlreadyPaired.into())
 			}
 
 			// Reject a bond which is considered to be _dust_.
