@@ -493,7 +493,7 @@ impl<T: Config> Pallet<T> {
 		// This should never fail but if it does, it indicates bad state and we abort.
 		T::Currency::transfer(who, &proxy_delegator, amount_to_transfer, Preservation::Expendable)?;
 
-		T::CoreStaking::update_payee(who, reward_account)?;
+		T::CoreStaking::update_payee(who, reward_account)?; // NOTE: Not sure why this is being used.
 		// delegate all transferred funds back to agent.
 		Self::do_delegate(&proxy_delegator, who, amount_to_transfer)?;
 
