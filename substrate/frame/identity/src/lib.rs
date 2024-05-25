@@ -224,7 +224,6 @@ pub mod pallet {
 	/// The super-identity of an alternative "sub" identity together with its name, within that
 	/// context. If the account is not some other account's sub-identity, then just `None`.
 	#[pallet::storage]
-	#[pallet::getter(fn super_of)]
 	pub(super) type SuperOf<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, (T::AccountId, Data), OptionQuery>;
 
