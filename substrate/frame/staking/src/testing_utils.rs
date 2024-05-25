@@ -155,11 +155,11 @@ pub fn create_validators_with_seed<T: Config>(
 ) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
 	let mut validators: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(max as usize);
 	for i in 0..max {
-		let (stash, controller) =
+		let (stash, _) =
 			create_stash_controller::<T>(i + seed, balance_factor, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
+		Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into(), validator_prefs)?;
 		let stash_lookup = T::Lookup::unlookup(stash);
 		validators.push(stash_lookup);
 	}
@@ -196,11 +196,11 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 	// Create validators
 	for i in 0..validators {
 		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
-		let (v_stash, v_controller) =
+		let (v_stash, _) =
 			create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-		Staking::<T>::validate(RawOrigin::Signed(v_controller.clone()).into(), validator_prefs)?;
+		Staking::<T>::validate(RawOrigin::Signed(v_stash.clone()).into(), validator_prefs)?;
 		let stash_lookup = T::Lookup::unlookup(v_stash.clone());
 		validators_stash.push(stash_lookup.clone());
 	}
@@ -211,7 +211,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 	// Create nominators
 	for j in 0..nominators {
 		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
-		let (_n_stash, n_controller) =
+		let (n_stash, _) =
 			create_stash_controller::<T>(u32::MAX - j, balance_factor, RewardDestination::Staked)?;
 
 		// Have them randomly validate
@@ -224,10 +224,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 			let validator = available_validators.remove(selected);
 			selected_validators.push(validator);
 		}
-		Staking::<T>::nominate(
-			RawOrigin::Signed(n_controller.clone()).into(),
-			selected_validators,
-		)?;
+		Staking::<T>::nominate(RawOrigin::Signed(n_stash.clone()).into(), selected_validators)?;
 	}
 
 	ValidatorCount::<T>::put(validators);

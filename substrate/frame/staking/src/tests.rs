@@ -5739,21 +5739,18 @@ fn capped_stakers_works() {
 		// can create `max - validator_count` validators
 		let mut some_existing_validator = AccountId::default();
 		for i in 0..max - validator_count {
-			let (_, controller) = testing_utils::create_stash_controller::<Test>(
+			let (stash, _) = testing_utils::create_stash_controller::<Test>(
 				i + 10_000_000,
 				100,
 				RewardDestination::Stash,
 			)
 			.unwrap();
-			assert_ok!(Staking::validate(
-				RuntimeOrigin::signed(controller),
-				ValidatorPrefs::default()
-			));
-			some_existing_validator = controller;
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(stash), ValidatorPrefs::default()));
+			some_existing_validator = stash;
 		}
 
 		// but no more
-		let (_, last_validator) =
+		let (last_validator, _) =
 			testing_utils::create_stash_controller::<Test>(1337, 100, RewardDestination::Stash)
 				.unwrap();
 
@@ -5776,7 +5773,7 @@ fn capped_stakers_works() {
 		}
 
 		// one more is too many.
-		let (_, last_nominator) = testing_utils::create_stash_controller::<Test>(
+		let (last_nominator, _) = testing_utils::create_stash_controller::<Test>(
 			30_000_000,
 			100,
 			RewardDestination::Stash,
