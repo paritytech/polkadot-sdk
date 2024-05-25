@@ -94,24 +94,6 @@ pub fn create_stash_with_balance<T: Config>(
 	Ok(staker)
 }
 
-/// Create a stash and controller pair, where payouts go to a dead payee account. This is used to
-/// test worst case payout scenarios.
-pub fn create_stash_and_dead_payee<T: Config>(
-	n: u32,
-	balance_factor: u32,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-	let staker = create_funded_user::<T>("stash", n, 0);
-	// payee has no funds
-	let payee = create_funded_user::<T>("payee", n, 0);
-	let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
-	Staking::<T>::bond(
-		RawOrigin::Signed(staker.clone()).into(),
-		amount,
-		RewardDestination::Account(payee),
-	)?;
-	Ok((staker.clone(), staker))
-}
-
 /// create `max` validators.
 pub fn create_validators<T: Config>(
 	max: u32,
