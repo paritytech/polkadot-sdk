@@ -337,7 +337,7 @@ benchmarks! {
 	}
 
 	validate {
-		let (stash,) = create_stash_controller::<T>(
+		let (stash,_) = create_stash_controller::<T>(
 			MaxNominationsOf::<T>::get() - 1,
 			100,
 			RewardDestination::Staked,
@@ -428,7 +428,7 @@ benchmarks! {
 		// setup a worst case list scenario. Note we don't care about the destination position, because
 		// we are just doing an insert into the origin position.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let (stash, controller) = create_stash_controller_with_balance::<T>(
+		let (stash,_) = create_stash_controller_with_balance::<T>(
 			SEED + MaxNominationsOf::<T>::get() + 1, // make sure the account does not conflict with others
 			origin_weight,
 			RewardDestination::Staked,
@@ -438,8 +438,8 @@ benchmarks! {
 		assert!(!T::VoterList::contains(&stash));
 
 		let validators = create_validators::<T>(n, 100).unwrap();
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), validators)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash), validators)
 	verify {
 		assert!(Nominators::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash))
