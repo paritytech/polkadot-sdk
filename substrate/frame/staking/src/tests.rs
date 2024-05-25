@@ -713,13 +713,9 @@ fn double_staking_should_fail() {
 	// * an account already bonded as stash cannot nominate.
 	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		let arbitrary_value = 5;
-		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
-			0,
-			arbitrary_value,
-			RewardDestination::Staked,
-			false,
-		)
-		.unwrap();
+		let stash =
+			testing_utils::create_stash::<Test>(0, arbitrary_value, RewardDestination::Staked)
+				.unwrap();
 
 		// 4 = not used so far,  stash => not allowed.
 		assert_noop!(
@@ -730,32 +726,23 @@ fn double_staking_should_fail() {
 			),
 			Error::<Test>::AlreadyBonded,
 		);
-		// controller => attempting to nominate should fail.
-		assert_noop!(
-			Staking::nominate(RuntimeOrigin::signed(controller), vec![1]),
-			Error::<Test>::NotStash // TODO: Remove this assert once controller is gone.
-		);
+
 		// stash => nominating should work.
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(stash), vec![1]));
 	});
 }
 
 #[test]
-fn double_controlling_attempt_should_fail() {
+fn double_stash_attempt_should_fail() {
 	// should test (in the same order):
-	// * an account already bonded as controller CANNOT be reused as the controller of another
-	//   account.
+	// * a stash already bonded CANNOT be reused as the stash of another account.
 	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		let arbitrary_value = 5;
-		let (stash, _) = testing_utils::create_unique_stash_controller::<Test>(
-			0,
-			arbitrary_value,
-			RewardDestination::Staked,
-			false,
-		)
-		.unwrap();
+		let stash =
+			testing_utils::create_stash::<Test>(0, arbitrary_value, RewardDestination::Staked)
+				.unwrap();
 
-		// Note that controller (same as stash) is reused => no-op.
+		// Note that stash is reused => no-op.
 		assert_noop!(
 			Staking::bond(
 				RuntimeOrigin::signed(stash),
