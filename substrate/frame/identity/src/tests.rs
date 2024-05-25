@@ -556,7 +556,7 @@ fn setting_subaccounts_should_work() {
 		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
 		assert_eq!(
-			Identity::subs_of(ten.clone()),
+			SubsOf::<Test>::get(ten.clone()),
 			(sub_deposit, vec![twenty.clone()].try_into().unwrap())
 		);
 		assert_eq!(
@@ -569,7 +569,7 @@ fn setting_subaccounts_should_work() {
 		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
 		assert_eq!(
-			Identity::subs_of(ten.clone()),
+			SubsOf::<Test>::get(ten.clone()),
 			(2 * sub_deposit, vec![twenty.clone(), thirty.clone()].try_into().unwrap())
 		);
 		assert_eq!(
@@ -587,7 +587,7 @@ fn setting_subaccounts_should_work() {
 		// no change in the balance
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
 		assert_eq!(
-			Identity::subs_of(ten.clone()),
+			SubsOf::<Test>::get(ten.clone()),
 			(2 * sub_deposit, vec![forty.clone(), thirty.clone()].try_into().unwrap())
 		);
 		assert_eq!(SuperOf::<Test>::get(twenty.clone()), None);
@@ -603,7 +603,7 @@ fn setting_subaccounts_should_work() {
 		// clear
 		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), vec![]));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
-		assert_eq!(Identity::subs_of(ten.clone()), (0, BoundedVec::default()));
+		assert_eq!(SubsOf::<Test>::get(ten.clone()), (0, BoundedVec::default()));
 		assert_eq!(SuperOf::<Test>::get(thirty.clone()), None);
 		assert_eq!(SuperOf::<Test>::get(forty), None);
 
@@ -928,7 +928,7 @@ fn poke_deposit_works() {
 			))
 		);
 		// new subs deposit is 10           vvvvvvvvvvvv
-		assert_eq!(Identity::subs_of(ten), (subs_deposit, vec![twenty].try_into().unwrap()));
+		assert_eq!(SubsOf::<Test>::get(ten), (subs_deposit, vec![twenty].try_into().unwrap()));
 	});
 }
 

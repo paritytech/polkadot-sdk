@@ -233,7 +233,6 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
 	#[pallet::storage]
-	#[pallet::getter(fn subs_of)]
 	pub(super) type SubsOf<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
