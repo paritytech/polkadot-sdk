@@ -495,7 +495,10 @@ fn uninvited_judgement_should_work() {
 			Judgement::Reasonable,
 			identity_hash
 		));
-		assert_eq!(IdentityOf::<Test>::get(ten).unwrap().0.judgements, vec![(0, Judgement::Reasonable)]);
+		assert_eq!(
+			IdentityOf::<Test>::get(ten).unwrap().0.judgements,
+			vec![(0, Judgement::Reasonable)]
+		);
 	});
 }
 
