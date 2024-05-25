@@ -1106,7 +1106,7 @@ pub mod pallet {
 		/// This essentially frees up that balance to be used by the stash account to do whatever
 		/// it wants.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// Emits `Withdrawn`.
 		///
@@ -1130,9 +1130,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			num_slashing_spans: u32,
 		) -> DispatchResultWithPostInfo {
-			let controller = ensure_signed(origin)?;
+			let stash = ensure_signed(origin)?;
 
-			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans)?;
+			let actual_weight = Self::do_withdraw_unbonded(&stash, num_slashing_spans)?;
 			Ok(Some(actual_weight).into())
 		}
 
