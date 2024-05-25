@@ -1250,7 +1250,7 @@ pub mod pallet {
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// ## Complexity
 		/// - Independent of the arguments. Insignificant complexity.
@@ -1259,9 +1259,9 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
+			let stash = ensure_signed(origin)?;
 
-			let ledger = Self::ledger(StakingAccount::Controller(controller))?;
+			let ledger = Self::ledger(StakingAccount::Stash(stash))?;
 
 			Self::chill_stash(&ledger.stash);
 			Ok(())

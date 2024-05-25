@@ -253,7 +253,7 @@ fn change_controller_works() {
 		assert_eq!(Staking::bonded(&stash), Some(controller));
 
 		// `controller` can control `stash` who is initially a validator.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(controller)));
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(stash)));
 
 		// sets controller back to `stash`.
 		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(stash)));

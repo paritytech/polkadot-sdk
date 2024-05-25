@@ -454,12 +454,11 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		assert!(T::VoterList::contains(&stash));
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller))
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash))
 	verify {
 		assert!(!T::VoterList::contains(&stash));
 	}
