@@ -263,7 +263,6 @@ pub mod pallet {
 
 	/// A map of the accounts who are authorized to grant usernames.
 	#[pallet::storage]
-	#[pallet::getter(fn authority)]
 	pub(super) type UsernameAuthorities<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, AuthorityPropertiesOf<T>, OptionQuery>;
 
