@@ -279,8 +279,8 @@ benchmarks! {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), amount)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash.clone()), amount)
 	verify {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
@@ -299,7 +299,7 @@ benchmarks! {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_total: BalanceOf<T> = ledger.total;
 		whitelist_account!(controller);
-	}: withdraw_unbonded(RawOrigin::Signed(controller.clone()), s)
+	}: withdraw_unbonded(RawOrigin::Signed(stash.clone()), s)
 	verify {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_total: BalanceOf<T> = ledger.total;
@@ -330,14 +330,14 @@ benchmarks! {
 		CurrentEra::<T>::put(EraIndex::max_value());
 
 		whitelist_account!(controller);
-	}: withdraw_unbonded(RawOrigin::Signed(controller.clone()), s)
+	}: withdraw_unbonded(RawOrigin::Signed(stash.clone()), s)
 	verify {
 		assert!(!Ledger::<T>::contains_key(controller));
 		assert!(!T::VoterList::contains(&stash));
 	}
 
 	validate {
-		let (stash, controller) = create_stash_controller::<T>(
+		let (stash,) = create_stash_controller::<T>(
 			MaxNominationsOf::<T>::get() - 1,
 			100,
 			RewardDestination::Staked,
@@ -346,8 +346,8 @@ benchmarks! {
 		assert!(!T::VoterList::contains(&stash));
 
 		let prefs = ValidatorPrefs::default();
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), prefs)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash), prefs)
 	verify {
 		assert!(Validators::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash));
