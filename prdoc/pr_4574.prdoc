@@ -1,8 +1,8 @@
-title: Remove controller logic from staking pallet
+title: Remove controller logic from staking pallet.
 
 doc:
   - audience: Runtime Dev
-    description: |
+    description:
        Removes controller account logic from the staking pallet.
 
 crates:
