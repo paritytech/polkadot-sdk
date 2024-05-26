@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Contains functionality related to PVFs that is shared by the PVF host and the PVF workers.
+#![deny(unused_crate_dependencies)]
 
 pub mod error;
 pub mod execute;
@@ -85,4 +86,34 @@ pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> 
 	let mut buf = vec![0; len];
 	r.read_exact(&mut buf)?;
 	Ok(buf)
+}
+
+#[cfg(all(test, not(feature = "test-utils")))]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn default_secure_status() {
+		let status = SecurityStatus::default();
+		assert!(
+			!status.secure_validator_mode,
+			"secure_validator_mode is false for default security status"
+		);
+		assert!(
+			!status.can_enable_landlock,
+			"can_enable_landlock is false for default security status"
+		);
+		assert!(
+			!status.can_enable_seccomp,
+			"can_enable_seccomp is false for default security status"
+		);
+		assert!(
+			!status.can_unshare_user_namespace_and_change_root,
+			"can_unshare_user_namespace_and_change_root is false for default security status"
+		);
+		assert!(
+			!status.can_do_secure_clone,
+			"can_do_secure_clone is false for default security status"
+		);
+	}
 }

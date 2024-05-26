@@ -1,13 +1,12 @@
 [package]
-name = "frame"
-version = "0.0.1-dev"
+name = "polkadot-sdk-frame"
+version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
-homepage = "paritytech.github.io"
+homepage = "https://paritytech.github.io"
 repository.workspace = true
-description = "The single package to get you started with building frame pallets and runtimes"
-publish = false
+description = "Experimental: The single package to get you started with building frame pallets and runtimes"
 
 [lints]
 workspace = true
@@ -19,8 +18,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # external deps
-parity-scale-codec = { version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = { version = "2.6.0", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = [
+	"derive",
+] }
+scale-info = { version = "2.11.1", default-features = false, features = [
+	"derive",
+] }
 
 # primitive deps, used for developing FRAME pallets.
 sp-runtime = { default-features = false, path = "../primitives/runtime" }
@@ -43,13 +46,20 @@ sp-session = { default-features = false, path = "../primitives/session", optiona
 sp-consensus-aura = { default-features = false, path = "../primitives/consensus/aura", optional = true }
 sp-consensus-grandpa = { default-features = false, path = "../primitives/consensus/grandpa", optional = true }
 sp-inherents = { default-features = false, path = "../primitives/inherents", optional = true }
+sp-storage = { default-features = false, path = "../primitives/storage", optional = true }
 
 frame-executive = { default-features = false, path = "../frame/executive", optional = true }
 frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
 
-docify = "0.2.7"
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
-log = { version = "0.4.20", default-features = false }
+# Used for runtime benchmarking
+frame-benchmarking = { default-features = false, path = "../frame/benchmarking", optional = true }
+frame-system-benchmarking = { default-features = false, path = "../frame/system/benchmarking", optional = true }
+
+# Used for try-runtime
+frame-try-runtime = { default-features = false, path = "../frame/try-runtime", optional = true }
+
+docify = "0.2.8"
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-examples = { path = "./examples" }
@@ -58,8 +68,6 @@ pallet-examples = { path = "./examples" }
 default = ["runtime", "std"]
 experimental = ["frame-support/experimental"]
 runtime = [
-	"frame-executive",
-	"frame-system-rpc-runtime-api",
 	"sp-api",
 	"sp-block-builder",
 	"sp-consensus-aura",
@@ -67,18 +75,24 @@ runtime = [
 	"sp-inherents",
 	"sp-offchain",
 	"sp-session",
+	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
+
+	"frame-executive",
+	"frame-system-rpc-runtime-api",
 ]
 std = [
+	"frame-benchmarking?/std",
 	"frame-executive?/std",
 	"frame-support/std",
+	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api?/std",
 	"frame-system/std",
+	"frame-try-runtime?/std",
 	"log/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
-	"simple-mermaid",
 	"sp-api?/std",
 	"sp-arithmetic/std",
 	"sp-block-builder?/std",
@@ -91,6 +105,22 @@ std = [
 	"sp-runtime/std",
 	"sp-session?/std",
 	"sp-std/std",
+	"sp-storage/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-examples/try-runtime",
+	"sp-runtime/try-runtime",
 ]

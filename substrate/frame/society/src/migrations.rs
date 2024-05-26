@@ -19,7 +19,7 @@
 
 use super::*;
 use codec::{Decode, Encode};
-use frame_support::traits::{Defensive, DefensiveOption, Instance, OnRuntimeUpgrade};
+use frame_support::traits::{Defensive, DefensiveOption, Instance, UncheckedOnRuntimeUpgrade};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -29,22 +29,22 @@ const TARGET: &'static str = "runtime::society::migration";
 
 /// This migration moves all the state to v2 of Society.
 pub struct VersionUncheckedMigrateToV2<T: Config<I>, I: 'static, PastPayouts>(
-	sp_std::marker::PhantomData<(T, I, PastPayouts)>,
+	core::marker::PhantomData<(T, I, PastPayouts)>,
 );
 
 impl<
 		T: Config<I>,
 		I: Instance + 'static,
 		PastPayouts: Get<Vec<(<T as frame_system::Config>::AccountId, BalanceOf<T, I>)>>,
-	> OnRuntimeUpgrade for VersionUncheckedMigrateToV2<T, I, PastPayouts>
+	> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV2<T, I, PastPayouts>
 {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-		let current = Pallet::<T, I>::current_storage_version();
-		let onchain = Pallet::<T, I>::on_chain_storage_version();
-		ensure!(onchain == 0 && current == 2, "pallet_society: invalid version");
+		let in_code = Pallet::<T, I>::in_code_storage_version();
+		let on_chain = Pallet::<T, I>::on_chain_storage_version();
+		ensure!(on_chain == 0 && in_code == 2, "pallet_society: invalid version");
 
-		Ok((old::Candidates::<T, I>::get(), old::Members::<T, I>::get()).encode())
+		Ok((v0::Candidates::<T, I>::get(), v0::Members::<T, I>::get()).encode())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
@@ -103,7 +103,7 @@ pub type MigrateToV2<T, I, PastPayouts> = frame_support::migrations::VersionedMi
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub(crate) mod old {
+pub(crate) mod v0 {
 	use super::*;
 	use frame_support::storage_alias;
 
@@ -230,37 +230,37 @@ pub fn assert_internal_consistency<T: Config<I>, I: Instance + 'static>() {
 	}
 
 	// We don't use these - make sure they don't exist.
-	assert_eq!(old::SuspendedCandidates::<T, I>::iter().count(), 0);
-	assert_eq!(old::Strikes::<T, I>::iter().count(), 0);
-	assert_eq!(old::Vouching::<T, I>::iter().count(), 0);
-	assert!(!old::Defender::<T, I>::exists());
-	assert!(!old::Members::<T, I>::exists());
+	assert_eq!(v0::SuspendedCandidates::<T, I>::iter().count(), 0);
+	assert_eq!(v0::Strikes::<T, I>::iter().count(), 0);
+	assert_eq!(v0::Vouching::<T, I>::iter().count(), 0);
+	assert!(!v0::Defender::<T, I>::exists());
+	assert!(!v0::Members::<T, I>::exists());
 }
 
 pub fn from_original<T: Config<I>, I: Instance + 'static>(
 	past_payouts: &mut [(<T as frame_system::Config>::AccountId, BalanceOf<T, I>)],
 ) -> Result<Weight, &'static str> {
-	// Migrate Bids from old::Bids (just a trunctation).
-	Bids::<T, I>::put(BoundedVec::<_, T::MaxBids>::truncate_from(old::Bids::<T, I>::take()));
+	// Migrate Bids from old::Bids (just a truncation).
+	Bids::<T, I>::put(BoundedVec::<_, T::MaxBids>::truncate_from(v0::Bids::<T, I>::take()));
 
 	// Initialise round counter.
 	RoundCount::<T, I>::put(0);
 
 	// Migrate Candidates from old::Candidates
-	for Bid { who: candidate, kind, value } in old::Candidates::<T, I>::take().into_iter() {
+	for Bid { who: candidate, kind, value } in v0::Candidates::<T, I>::take().into_iter() {
 		let mut tally = Tally::default();
 		// Migrate Votes from old::Votes
 		// No need to drain, since we're overwriting values.
-		for (voter, vote) in old::Votes::<T, I>::iter_prefix(&candidate) {
+		for (voter, vote) in v0::Votes::<T, I>::iter_prefix(&candidate) {
 			Votes::<T, I>::insert(
 				&candidate,
 				&voter,
-				Vote { approve: vote == old::Vote::Approve, weight: 1 },
+				Vote { approve: vote == v0::Vote::Approve, weight: 1 },
 			);
 			match vote {
-				old::Vote::Approve => tally.approvals.saturating_inc(),
-				old::Vote::Reject => tally.rejections.saturating_inc(),
-				old::Vote::Skeptic => Skeptic::<T, I>::put(&voter),
+				v0::Vote::Approve => tally.approvals.saturating_inc(),
+				v0::Vote::Reject => tally.rejections.saturating_inc(),
+				v0::Vote::Skeptic => Skeptic::<T, I>::put(&voter),
 			}
 		}
 		Candidates::<T, I>::insert(
@@ -271,9 +271,9 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 
 	// Migrate Members from old::Members old::Strikes old::Vouching
 	let mut member_count = 0;
-	for member in old::Members::<T, I>::take() {
-		let strikes = old::Strikes::<T, I>::take(&member);
-		let vouching = old::Vouching::<T, I>::take(&member);
+	for member in v0::Members::<T, I>::take() {
+		let strikes = v0::Strikes::<T, I>::take(&member);
+		let vouching = v0::Vouching::<T, I>::take(&member);
 		let record = MemberRecord { index: member_count, rank: 0, strikes, vouching };
 		Members::<T, I>::insert(&member, record);
 		MemberByIndex::<T, I>::insert(member_count, &member);
@@ -287,13 +287,13 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 				.defensive_ok_or("member_count > 0, we must have at least 1 member")?;
 			// Swap the founder with the first member in MemberByIndex.
 			MemberByIndex::<T, I>::swap(0, member_count);
-			// Update the indicies of the swapped member MemberRecords.
+			// Update the indices of the swapped member MemberRecords.
 			Members::<T, I>::mutate(&member, |m| {
 				if let Some(member) = m {
 					member.index = 0;
 				} else {
 					frame_support::defensive!(
-						"Member somehow disapeared from storage after it was inserted"
+						"Member somehow disappeared from storage after it was inserted"
 					);
 				}
 			});
@@ -302,7 +302,7 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 					member.index = member_count;
 				} else {
 					frame_support::defensive!(
-						"Member somehow disapeared from storage after it was queried"
+						"Member somehow disappeared from storage after it was queried"
 					);
 				}
 			});
@@ -314,7 +314,7 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 	// Migrate Payouts from: old::Payouts and raw info (needed since we can't query old chain
 	// state).
 	past_payouts.sort();
-	for (who, mut payouts) in old::Payouts::<T, I>::iter() {
+	for (who, mut payouts) in v0::Payouts::<T, I>::iter() {
 		payouts.truncate(T::MaxPayouts::get() as usize);
 		// ^^ Safe since we already truncated.
 		let paid = past_payouts
@@ -329,19 +329,19 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 	}
 
 	// Migrate SuspendedMembers from old::SuspendedMembers old::Strikes old::Vouching.
-	for who in old::SuspendedMembers::<T, I>::iter_keys() {
-		let strikes = old::Strikes::<T, I>::take(&who);
-		let vouching = old::Vouching::<T, I>::take(&who);
+	for who in v0::SuspendedMembers::<T, I>::iter_keys() {
+		let strikes = v0::Strikes::<T, I>::take(&who);
+		let vouching = v0::Vouching::<T, I>::take(&who);
 		let record = MemberRecord { index: 0, rank: 0, strikes, vouching };
 		SuspendedMembers::<T, I>::insert(&who, record);
 	}
 
 	// Any suspended candidates remaining are rejected.
-	let _ = old::SuspendedCandidates::<T, I>::clear(u32::MAX, None);
+	let _ = v0::SuspendedCandidates::<T, I>::clear(u32::MAX, None);
 
 	// We give the current defender the benefit of the doubt.
-	old::Defender::<T, I>::kill();
-	let _ = old::DefenderVotes::<T, I>::clear(u32::MAX, None);
+	v0::Defender::<T, I>::kill();
+	let _ = v0::DefenderVotes::<T, I>::clear(u32::MAX, None);
 
 	Ok(T::BlockWeights::get().max_block)
 }

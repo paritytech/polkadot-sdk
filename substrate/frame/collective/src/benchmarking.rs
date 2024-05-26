@@ -20,8 +20,8 @@
 use super::*;
 use crate::Pallet as Collective;
 
+use core::mem::size_of;
 use sp_runtime::traits::Bounded;
-use sp_std::mem::size_of;
 
 use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelisted_caller};
 use frame_system::{
@@ -105,7 +105,7 @@ benchmarks_instance_pallet! {
 	}: _(SystemOrigin::Root, new_members.clone(), new_members.last().cloned(), T::MaxMembers::get())
 	verify {
 		new_members.sort();
-		assert_eq!(Collective::<T, I>::members(), new_members);
+		assert_eq!(Members::<T, I>::get(), new_members);
 	}
 
 	execute {
@@ -199,14 +199,14 @@ benchmarks_instance_pallet! {
 			)?;
 		}
 
-		assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 
 		let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(p, b as usize) }.into();
 
 	}: propose(SystemOrigin::Signed(caller.clone()), threshold, Box::new(proposal.clone()), bytes_in_storage)
 	verify {
 		// New proposal is recorded
-		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 		let proposal_hash = T::Hashing::hash_of(&proposal);
 		assert_last_event::<T, I>(Event::Proposed { account: caller, proposal_index: p - 1, proposal_hash, threshold }.into());
 	}
@@ -269,7 +269,7 @@ benchmarks_instance_pallet! {
 			approve,
 		)?;
 
-		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 
 		// Voter switches vote to nay, but does not kill the vote, just updates + inserts
 		let approve = false;
@@ -280,8 +280,8 @@ benchmarks_instance_pallet! {
 	}: _(SystemOrigin::Signed(voter), last_hash, index, approve)
 	verify {
 		// All proposals exist and the last proposal has just been updated.
-		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
-		let voting = Collective::<T, I>::voting(&last_hash).ok_or("Proposal Missing")?;
+		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
+		let voting = Voting::<T, I>::get(&last_hash).ok_or("Proposal Missing")?;
 		assert_eq!(voting.ayes.len(), (m - 3) as usize);
 		assert_eq!(voting.nays.len(), 1);
 	}
@@ -344,7 +344,7 @@ benchmarks_instance_pallet! {
 			approve,
 		)?;
 
-		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 
 		// Voter switches vote to nay, which kills the vote
 		let approve = false;
@@ -361,7 +361,7 @@ benchmarks_instance_pallet! {
 	}: close(SystemOrigin::Signed(voter), last_hash, index, Weight::MAX, bytes_in_storage)
 	verify {
 		// The last proposal is removed.
-		assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 		assert_last_event::<T, I>(Event::Disapproved { proposal_hash: last_hash }.into());
 	}
 
@@ -428,7 +428,7 @@ benchmarks_instance_pallet! {
 			true,
 		)?;
 
-		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 
 		// Caller switches vote to aye, which passes the vote
 		let index = p - 1;
@@ -442,7 +442,7 @@ benchmarks_instance_pallet! {
 	}: close(SystemOrigin::Signed(caller), last_hash, index, Weight::MAX, bytes_in_storage)
 	verify {
 		// The last proposal is removed.
-		assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 		assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Ok(()) }.into());
 	}
 
@@ -519,12 +519,12 @@ benchmarks_instance_pallet! {
 		)?;
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
-		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 
 		// Prime nay will close it as disapproved
 	}: close(SystemOrigin::Signed(caller), last_hash, index, Weight::MAX, bytes_in_storage)
 	verify {
-		assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 		assert_last_event::<T, I>(Event::Disapproved { proposal_hash: last_hash }.into());
 	}
 
@@ -591,12 +591,12 @@ benchmarks_instance_pallet! {
 
 		// caller is prime, prime already votes aye by creating the proposal
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
-		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 
 		// Prime aye will close it as approved
 	}: close(SystemOrigin::Signed(caller), last_hash, p - 1, Weight::MAX, bytes_in_storage)
 	verify {
-		assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 		assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Ok(()) }.into());
 	}
 
@@ -640,11 +640,11 @@ benchmarks_instance_pallet! {
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
-		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 
 	}: _(SystemOrigin::Root, last_hash)
 	verify {
-		assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
+		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 		assert_last_event::<T, I>(Event::Disapproved { proposal_hash: last_hash }.into());
 	}
 

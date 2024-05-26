@@ -54,7 +54,7 @@ pub mod v1 {
 	use super::*;
 
 	/// Migration for translating bare `Hash`es into `Bounded<Call>`s.
-	pub struct Migration<T>(sp_std::marker::PhantomData<T>);
+	pub struct Migration<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config + frame_system::Config<Hash = H256>> OnRuntimeUpgrade for Migration<T> {
 		#[cfg(feature = "try-runtime")]
@@ -108,7 +108,7 @@ pub mod v1 {
 				.collect::<Vec<_>>();
 			let bounded = BoundedVec::<_, T::MaxProposals>::truncate_from(props.clone());
 			PublicProps::<T>::put(bounded);
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
 			if props.len() as u32 > T::MaxProposals::get() {
 				log::error!(
@@ -126,7 +126,7 @@ pub mod v1 {
 
 			StorageVersion::new(1).put::<Pallet<T>>();
 
-			weight.saturating_add(T::DbWeight::get().reads_writes(1, 2))
+			weight.saturating_add(T::DbWeight::get().reads_writes(1, 3))
 		}
 
 		#[cfg(feature = "try-runtime")]

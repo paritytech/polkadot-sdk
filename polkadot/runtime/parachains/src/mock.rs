@@ -23,7 +23,7 @@ use crate::{
 	initializer, origin, paras,
 	paras::ParaKind,
 	paras_inherent, scheduler,
-	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::AssignmentProvider,
 	session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
@@ -50,9 +50,16 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	BuildStorage, FixedU128, Perbill, Permill,
 };
-use sp_std::collections::vec_deque::VecDeque;
-use std::{cell::RefCell, collections::HashMap};
-use xcm::v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
+use sp_std::{
+	cell::RefCell,
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+};
+use std::collections::HashMap;
+use xcm::{
+	prelude::XcmVersion,
+	v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
+	IntoVersion, VersionedXcm, WrapVersion,
+};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -93,7 +100,6 @@ where
 }
 
 parameter_types! {
-	pub const BlockHashCount: u32 = 250;
 	pub static BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
@@ -103,7 +109,7 @@ parameter_types! {
 
 pub type AccountId = u64;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -118,7 +124,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<u64>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
@@ -247,7 +252,32 @@ impl crate::paras::Config for Test {
 impl crate::dmp::Config for Test {}
 
 parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);
+}
+
+thread_local! {
+	pub static VERSION_WRAPPER: RefCell<BTreeMap<Location, Option<XcmVersion>>> = RefCell::new(BTreeMap::new());
+}
+/// Mock implementation of the [`WrapVersion`] trait which wraps XCM only for known/stored XCM
+/// versions in the `VERSION_WRAPPER`.
+pub struct TestUsesOnlyStoredVersionWrapper;
+impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
+	fn wrap_version<RuntimeCall>(
+		dest: &Location,
+		xcm: impl Into<VersionedXcm<RuntimeCall>>,
+	) -> Result<VersionedXcm<RuntimeCall>, ()> {
+		match VERSION_WRAPPER.with(|r| r.borrow().get(dest).map_or(None, |v| *v)) {
+			Some(v) => xcm.into().into_version(v),
+			None => return Err(()),
+		}
+	}
+}
+impl TestUsesOnlyStoredVersionWrapper {
+	pub fn set_version(location: Location, version: Option<XcmVersion>) {
+		VERSION_WRAPPER.with(|r| {
+			let _ = r.borrow_mut().entry(location).and_modify(|v| *v = version).or_insert(version);
+		});
+	}
 }
 
 impl crate::hrmp::Config for Test {
@@ -255,6 +285,8 @@ impl crate::hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
+	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
 
@@ -365,6 +397,7 @@ impl pallet_message_queue::Config for Test {
 	type HeapSize = ConstU32<65536>;
 	type MaxStale = ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = ();
 }
 
 parameter_types! {
@@ -384,6 +417,7 @@ impl assigner_coretime::Config for Test {}
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 impl coretime::Config for Test {
@@ -393,6 +427,7 @@ impl coretime::Config for Test {
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 pub struct DummyXcmSender;
@@ -464,10 +499,6 @@ pub mod mock_assigner {
 			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
 
 		#[pallet::storage]
-		pub(super) type MockProviderConfig<T: Config> =
-			StorageValue<_, AssignmentProviderConfig<BlockNumber>, OptionQuery>;
-
-		#[pallet::storage]
 		pub(super) type MockCoreCount<T: Config> = StorageValue<_, u32, OptionQuery>;
 	}
 
@@ -476,12 +507,6 @@ pub mod mock_assigner {
 		/// scheduler when filling the claim queue for tests.
 		pub fn add_test_assignment(assignment: Assignment) {
 			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
-		}
-
-		// This configuration needs to be customized to service `get_provider_config` in
-		// scheduler tests.
-		pub fn set_assignment_provider_config(config: AssignmentProviderConfig<BlockNumber>) {
-			MockProviderConfig::<T>::set(Some(config));
 		}
 
 		// Allows for customized core count in scheduler tests, rather than a core count
@@ -512,17 +537,6 @@ pub mod mock_assigner {
 		// in the mock assigner.
 		fn push_back_assignment(_assignment: Assignment) {}
 
-		// Gets the provider config we set earlier using `set_assignment_provider_config`, falling
-		// back to the on demand parachain configuration if none was set.
-		fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
-			match MockProviderConfig::<T>::get() {
-				Some(config) => config,
-				None => AssignmentProviderConfig {
-					max_availability_timeouts: 1,
-					ttl: BlockNumber::from(5u32),
-				},
-			}
-		}
 		#[cfg(any(feature = "runtime-benchmarks", test))]
 		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
 			Assignment::Bulk(para_id)

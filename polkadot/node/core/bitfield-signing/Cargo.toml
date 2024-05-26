@@ -10,14 +10,14 @@ description = "Bitfield signing subsystem for the Polkadot node"
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 wasm-timer = "0.2.5"
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }

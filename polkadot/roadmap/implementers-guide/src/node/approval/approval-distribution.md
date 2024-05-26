@@ -101,7 +101,7 @@ struct State {
 }
 
 enum MessageFingerprint {
-  Assigment(Hash, u32, ValidatorIndex),
+  Assignment(Hash, u32, ValidatorIndex),
   Approval(Hash, u32, ValidatorIndex),
 }
 
@@ -203,7 +203,7 @@ For all peers:
   * Compute `view_intersection` as the intersection of the peer's view blocks with the hashes of the new blocks.
   * Invoke `unify_with_peer(peer, view_intersection)`.
 
-#### `ApprovalDistributionMessage::DistributeAsignment`
+#### `ApprovalDistributionMessage::DistributeAssignment`
 
 Call `import_and_circulate_assignment` with `MessageSource::Local`.
 

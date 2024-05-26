@@ -18,9 +18,6 @@
 //! # Primitives for transaction weighting.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// TODO remove once `OldWeight` is gone. I dont know why this is needed, maybe by one of the macros
-// of `OldWeight`.
-#![allow(deprecated)]
 
 extern crate self as sp_weights;
 
@@ -28,7 +25,7 @@ mod weight_meter;
 mod weight_v2;
 
 use bounded_collections::Get;
-use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -51,28 +48,6 @@ pub mod constants {
 	pub const WEIGHT_PROOF_SIZE_PER_MB: u64 = 1024 * 1024;
 	pub const WEIGHT_PROOF_SIZE_PER_KB: u64 = 1024;
 }
-
-/// The old weight type.
-///
-/// NOTE: This type exists purely for compatibility purposes! Use [`weight_v2::Weight`] in all other
-/// cases.
-#[derive(
-	Decode,
-	Encode,
-	CompactAs,
-	PartialEq,
-	Eq,
-	Clone,
-	Copy,
-	RuntimeDebug,
-	Default,
-	MaxEncodedLen,
-	TypeInfo,
-)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
-#[deprecated(note = "Will be removed soon; use `Weight` instead.")]
-pub struct OldWeight(pub u64);
 
 /// The weight of database operations that the runtime can invoke.
 ///
@@ -235,7 +210,7 @@ where
 }
 
 /// Implementor of `WeightToFee` that maps one unit of weight to one unit of fee.
-pub struct IdentityFee<T>(sp_std::marker::PhantomData<T>);
+pub struct IdentityFee<T>(core::marker::PhantomData<T>);
 
 impl<T> WeightToFee for IdentityFee<T>
 where
@@ -249,7 +224,7 @@ where
 }
 
 /// Implementor of [`WeightToFee`] such that it maps any unit of weight to a fixed fee.
-pub struct FixedFee<const F: u32, T>(sp_std::marker::PhantomData<T>);
+pub struct FixedFee<const F: u32, T>(core::marker::PhantomData<T>);
 
 impl<const F: u32, T> WeightToFee for FixedFee<F, T>
 where
@@ -275,7 +250,7 @@ pub type NoFee<T> = FixedFee<0, T>;
 /// // Results in a multiplier of 10 for each unit of weight (or length)
 /// type LengthToFee = ConstantMultiplier::<u128, ConstU128<10u128>>;
 /// ```
-pub struct ConstantMultiplier<T, M>(sp_std::marker::PhantomData<(T, M)>);
+pub struct ConstantMultiplier<T, M>(core::marker::PhantomData<(T, M)>);
 
 impl<T, M> WeightToFee for ConstantMultiplier<T, M>
 where

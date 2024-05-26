@@ -1,4 +1,4 @@
-error: `#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, `RuntimeTask`, `RuntimeOrigin` or `PalletInfo`
+error: `#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, `RuntimeTask`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`
   --> tests/derive_impl_ui/inject_runtime_type_invalid.rs:32:5
    |
 32 |     type RuntimeInfo = ();

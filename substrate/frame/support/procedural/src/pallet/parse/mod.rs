@@ -321,7 +321,7 @@ impl Def {
 		Ok(())
 	}
 
-	/// Tries to locate a manual tasks impl (an impl impling a trait whose last path segment is
+	/// Tries to locate a manual tasks impl (an impl implementing a trait whose last path segment is
 	/// `Task`) in the event that one has not been found already via the attribute macro
 	pub fn resolve_manual_tasks_impl(
 		tasks: &mut Option<tasks::TasksDef>,
@@ -558,8 +558,6 @@ mod keyword {
 	syn::custom_keyword!(validate_unsigned);
 	syn::custom_keyword!(type_value);
 	syn::custom_keyword!(pallet);
-	syn::custom_keyword!(generate_store);
-	syn::custom_keyword!(Store);
 	syn::custom_keyword!(extra_constants);
 	syn::custom_keyword!(composite_enum);
 }

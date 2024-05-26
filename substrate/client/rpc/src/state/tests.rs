@@ -21,7 +21,7 @@ use super::*;
 use crate::testing::{test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use futures::executor;
-use jsonrpsee::core::{EmptyServerParams as EmptyParams, Error as RpcError};
+use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError};
 use sc_block_builder::BlockBuilderBuilder;
 use sc_rpc_api::DenyUnsafe;
 use sp_consensus::BlockOrigin;
@@ -475,7 +475,7 @@ async fn should_return_runtime_version() {
 
 	// it is basically json-encoded substrate_test_runtime_client::runtime::VERSION
 	let result = "{\"specName\":\"test\",\"implName\":\"parity-test\",\"authoringVersion\":1,\
-		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",4],\
+		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",5],\
 		[\"0x37e397fc7c91f5e4\",2],[\"0xd2bc9897eed08f15\",3],[\"0x40fe3ad401f8959a\",6],\
 		[\"0xbc9d89904f5b923f\",1],[\"0xc6e9a76309f39b09\",2],[\"0xdd718d5cc53262d4\",1],\
 		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",1],\
@@ -525,7 +525,7 @@ async fn wildcard_storage_subscriptions_are_rpc_unsafe() {
 
 	let api_rpc = api.into_rpc();
 	let err = api_rpc.subscribe_unbounded("state_subscribeStorage", EmptyParams::new()).await;
-	assert_matches!(err, Err(RpcError::Call(e)) if e.message() == "RPC call is unsafe to be called externally");
+	assert_matches!(err, Err(RpcError::JsonRpc(e)) if e.message() == "RPC call is unsafe to be called externally");
 }
 
 #[tokio::test]

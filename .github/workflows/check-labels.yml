@@ -9,14 +9,6 @@ jobs:
   check-labels:
     runs-on: ubuntu-latest
     steps:
-      - name: Skip merge queue
-        if: ${{ contains(github.ref, 'gh-readonly-queue') }}
-        run: exit 0
-      - name: Pull image
-        env:
-          IMAGE: paritytech/ruled_labels:0.4.0
-        run: docker pull $IMAGE
-
       - name: Check labels
         env:
           IMAGE: paritytech/ruled_labels:0.4.0
@@ -28,6 +20,16 @@ jobs:
           RULES_PATH: labels/ruled_labels
           CHECK_SPECS: "specs_polkadot-sdk.yaml"
         run: |
+          if [ ${{ github.ref }} == "refs/heads/master" ]; then
+            echo "Skipping master"
+            exit 0
+          fi
+          if [ $(echo ${{ github.ref }} | grep -c "gh-readonly-queue") -eq 1 ]; then
+            echo "Skipping merge queue"
+            exit 0
+          fi
+
+          docker pull $IMAGE
           echo "REPO: ${REPO}"
           echo "GITHUB_PR: ${GITHUB_PR}"
 

@@ -33,7 +33,7 @@ use sp_runtime::{
 	BuildStorage,
 };
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = InsideBoth<Everything, SafeMode>;
 	type BlockWeights = ();
@@ -47,7 +47,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;

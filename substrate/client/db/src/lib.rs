@@ -68,8 +68,8 @@ use sc_client_api::{
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{
-	Backend as _, CachedHeaderMetadata, Error as ClientError, HeaderBackend, HeaderMetadata,
-	HeaderMetadataCache, Result as ClientResult,
+	Backend as _, CachedHeaderMetadata, DisplacedLeavesAfterFinalization, Error as ClientError,
+	HeaderBackend, HeaderMetadata, HeaderMetadataCache, Result as ClientResult,
 };
 use sp_core::{
 	offchain::OffchainOverlayedChange,
@@ -101,14 +101,11 @@ pub use bench::BenchmarkingState;
 const CACHE_HEADERS: usize = 8;
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
-pub type DbState<B> =
-	sp_state_machine::TrieBackend<Arc<dyn sp_state_machine::Storage<HashingFor<B>>>, HashingFor<B>>;
+pub type DbState<H> = sp_state_machine::TrieBackend<Arc<dyn sp_state_machine::Storage<H>>, H>;
 
 /// Builder for [`DbState`].
-pub type DbStateBuilder<B> = sp_state_machine::TrieBackendBuilder<
-	Arc<dyn sp_state_machine::Storage<HashingFor<B>>>,
-	HashingFor<B>,
->;
+pub type DbStateBuilder<Hasher> =
+	sp_state_machine::TrieBackendBuilder<Arc<dyn sp_state_machine::Storage<Hasher>>, Hasher>;
 
 /// Length of a [`DbHash`].
 const DB_HASH_LEN: usize = 32;
@@ -135,13 +132,17 @@ enum DbExtrinsic<B: BlockT> {
 /// It makes sure that the hash we are using stays pinned in storage
 /// until this structure is dropped.
 pub struct RefTrackingState<Block: BlockT> {
-	state: DbState<Block>,
+	state: DbState<HashingFor<Block>>,
 	storage: Arc<StorageDb<Block>>,
 	parent_hash: Option<Block::Hash>,
 }
 
 impl<B: BlockT> RefTrackingState<B> {
-	fn new(state: DbState<B>, storage: Arc<StorageDb<B>>, parent_hash: Option<B::Hash>) -> Self {
+	fn new(
+		state: DbState<HashingFor<B>>,
+		storage: Arc<StorageDb<B>>,
+		parent_hash: Option<B::Hash>,
+	) -> Self {
 		RefTrackingState { state, parent_hash, storage }
 	}
 }
@@ -162,12 +163,12 @@ impl<Block: BlockT> std::fmt::Debug for RefTrackingState<Block> {
 
 /// A raw iterator over the `RefTrackingState`.
 pub struct RawIter<B: BlockT> {
-	inner: <DbState<B> as StateBackend<HashingFor<B>>>::RawIter,
+	inner: <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::RawIter,
 }
 
 impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
 	type Backend = RefTrackingState<B>;
-	type Error = <DbState<B> as StateBackend<HashingFor<B>>>::Error;
+	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
 
 	fn next_key(&mut self, backend: &Self::Backend) -> Option<Result<StorageKey, Self::Error>> {
 		self.inner.next_key(&backend.state)
@@ -186,8 +187,9 @@ impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
 }
 
 impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
-	type Error = <DbState<B> as StateBackend<HashingFor<B>>>::Error;
-	type TrieBackendStorage = <DbState<B> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
+	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
+	type TrieBackendStorage =
+		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
 	type RawIter = RawIter<B>;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
@@ -284,7 +286,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 }
 
 impl<B: BlockT> AsTrieBackend<HashingFor<B>> for RefTrackingState<B> {
-	type TrieBackendStorage = <DbState<B> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
+	type TrieBackendStorage =
+		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
 
 	fn as_trie_backend(
 		&self,
@@ -742,19 +745,6 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 
 	fn leaves(&self) -> ClientResult<Vec<Block::Hash>> {
 		Ok(self.leaves.read().hashes())
-	}
-
-	fn displaced_leaves_after_finalizing(
-		&self,
-		block_number: NumberFor<Block>,
-	) -> ClientResult<Vec<Block::Hash>> {
-		Ok(self
-			.leaves
-			.read()
-			.displaced_by_finalize_height(block_number)
-			.leaves()
-			.cloned()
-			.collect::<Vec<_>>())
 	}
 
 	fn children(&self, parent_hash: Block::Hash) -> ClientResult<Vec<Block::Hash>> {
@@ -1810,14 +1800,13 @@ impl<Block: BlockT> Backend<Block> {
 			apply_state_commit(transaction, commit);
 		}
 
-		let new_displaced = self.blockchain.leaves.write().finalize_height(f_num);
-		self.prune_blocks(
-			transaction,
-			f_num,
-			f_hash,
-			&new_displaced,
-			current_transaction_justifications,
-		)?;
+		let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
+		let finalization_outcome =
+			FinalizationOutcome::new(new_displaced.displaced_leaves.clone().into_iter());
+
+		self.blockchain.leaves.write().remove_displaced_leaves(&finalization_outcome);
+
+		self.prune_blocks(transaction, f_num, &new_displaced, current_transaction_justifications)?;
 
 		Ok(())
 	}
@@ -1826,8 +1815,7 @@ impl<Block: BlockT> Backend<Block> {
 		&self,
 		transaction: &mut Transaction<DbHash>,
 		finalized_number: NumberFor<Block>,
-		finalized_hash: Block::Hash,
-		displaced: &FinalizationOutcome<Block::Hash, NumberFor<Block>>,
+		displaced: &DisplacedLeavesAfterFinalization<Block>,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
 	) -> ClientResult<()> {
 		match self.blocks_pruning {
@@ -1855,10 +1843,10 @@ impl<Block: BlockT> Backend<Block> {
 
 					self.prune_block(transaction, BlockId::<Block>::number(number))?;
 				}
-				self.prune_displaced_branches(transaction, finalized_hash, displaced)?;
+				self.prune_displaced_branches(transaction, displaced)?;
 			},
 			BlocksPruning::KeepFinalized => {
-				self.prune_displaced_branches(transaction, finalized_hash, displaced)?;
+				self.prune_displaced_branches(transaction, displaced)?;
 			},
 		}
 		Ok(())
@@ -1867,21 +1855,13 @@ impl<Block: BlockT> Backend<Block> {
 	fn prune_displaced_branches(
 		&self,
 		transaction: &mut Transaction<DbHash>,
-		finalized: Block::Hash,
-		displaced: &FinalizationOutcome<Block::Hash, NumberFor<Block>>,
+		displaced: &DisplacedLeavesAfterFinalization<Block>,
 	) -> ClientResult<()> {
 		// Discard all blocks from displaced branches
-		for h in displaced.leaves() {
-			match sp_blockchain::tree_route(&self.blockchain, *h, finalized) {
-				Ok(tree_route) =>
-					for r in tree_route.retracted() {
-						self.blockchain.insert_persisted_body_if_pinned(r.hash)?;
-						self.prune_block(transaction, BlockId::<Block>::hash(r.hash))?;
-					},
-				Err(sp_blockchain::Error::UnknownBlock(_)) => {
-					// Sometimes routes can't be calculated. E.g. after warp sync.
-				},
-				Err(e) => Err(e)?,
+		for (_, tree_route) in displaced.tree_routes.iter() {
+			for r in tree_route.retracted() {
+				self.blockchain.insert_persisted_body_if_pinned(r.hash)?;
+				self.prune_block(transaction, BlockId::<Block>::hash(r.hash))?;
 			}
 		}
 		Ok(())
@@ -1936,7 +1916,7 @@ impl<Block: BlockT> Backend<Block> {
 
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
-		let db_state = DbStateBuilder::<Block>::new(self.storage.clone(), root)
+		let db_state = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
 			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
 			.build();
 		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
@@ -2428,9 +2408,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
-				let db_state = DbStateBuilder::<Block>::new(genesis_state.clone(), root)
-					.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
-					.build();
+				let db_state =
+					DbStateBuilder::<HashingFor<Block>>::new(genesis_state.clone(), root)
+						.with_optional_cache(
+							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+						)
+						.build();
 
 				let state = RefTrackingState::new(db_state, self.storage.clone(), None);
 				return Ok(RecordStatsState::new(state, None, self.state_usage.clone()))
@@ -2449,11 +2432,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 				{
 					let root = hdr.state_root;
-					let db_state = DbStateBuilder::<Block>::new(self.storage.clone(), root)
-						.with_optional_cache(
-							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-						)
-						.build();
+					let db_state =
+						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
+							.with_optional_cache(
+								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+							)
+							.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
 				} else {
@@ -2524,7 +2508,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			self.storage.state_db.pin(&hash, number.saturated_into::<u64>(), hint).map_err(
 				|_| {
 					sp_blockchain::Error::UnknownBlock(format!(
-						"State already discarded for `{:?}`",
+						"Unable to pin: state already discarded for `{:?}`",
 						hash
 					))
 				},
@@ -3183,6 +3167,9 @@ pub(crate) mod tests {
 
 	#[test]
 	fn test_leaves_pruned_on_finality() {
+		//   / 1b - 2b - 3b
+		// 0 - 1a - 2a
+		//   \ 1c
 		let backend: Backend<Block> = Backend::new_test(10, 10);
 		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
 
@@ -3194,18 +3181,16 @@ pub(crate) mod tests {
 
 		let block2_a = insert_header(&backend, 2, block1_a, None, Default::default());
 		let block2_b = insert_header(&backend, 2, block1_b, None, Default::default());
-		let block2_c = insert_header(&backend, 2, block1_b, None, [1; 32].into());
 
-		assert_eq!(
-			backend.blockchain().leaves().unwrap(),
-			vec![block2_a, block2_b, block2_c, block1_c]
-		);
+		let block3_b = insert_header(&backend, 3, block2_b, None, [3; 32].into());
+
+		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block3_b, block2_a, block1_c]);
 
 		backend.finalize_block(block1_a, None).unwrap();
 		backend.finalize_block(block2_a, None).unwrap();
 
-		// leaves at same height stay. Leaves at lower heights pruned.
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a, block2_b, block2_c]);
+		// All leaves are pruned that are known to not belong to canonical branch
+		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a]);
 	}
 
 	#[test]

@@ -47,6 +47,7 @@
 mod block_rules;
 mod call_executor;
 mod client;
+mod notification_pinning;
 mod wasm_override;
 mod wasm_substitutes;
 

@@ -243,7 +243,7 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
 								&[0u8; 0]
 							} else {
 								unsafe {
-									#c::slice::from_raw_parts(input_data, input_len)
+									::core::slice::from_raw_parts(input_data, input_len)
 								}
 							};
 
@@ -345,7 +345,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					&self,
 					backend: &B,
 					parent_hash: Block::Hash,
-				) -> core::result::Result<
+				) -> ::core::result::Result<
 					#crate_::StorageChanges<Block>,
 				String
 					> where Self: Sized {
@@ -797,7 +797,7 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 	}
 
 	Ok(quote!(
-		const RUNTIME_API_VERSIONS: #c::ApisVec = #c::create_apis_vec!([ #( #result ),* ]);
+		pub const RUNTIME_API_VERSIONS: #c::ApisVec = #c::create_apis_vec!([ #( #result ),* ]);
 
 		#( #sections )*
 	))
@@ -821,10 +821,7 @@ fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
 	let wasm_interface = generate_wasm_interface(api_impls)?;
 	let api_impls_for_runtime_api = generate_api_impl_for_runtime_api(api_impls)?;
 
-	#[cfg(feature = "frame-metadata")]
 	let runtime_metadata = crate::runtime_metadata::generate_impl_runtime_metadata(api_impls)?;
-	#[cfg(not(feature = "frame-metadata"))]
-	let runtime_metadata = quote!();
 
 	let impl_ = quote!(
 		#base_runtime_api

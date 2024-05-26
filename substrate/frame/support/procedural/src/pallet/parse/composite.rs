@@ -171,7 +171,7 @@ impl CompositeDef {
 				#[doc(hidden)]
 				#[codec(skip)]
 				__Ignore(
-					#scrate::__private::sp_std::marker::PhantomData<I>,
+					::core::marker::PhantomData<I>,
 				)
 			});
 		}

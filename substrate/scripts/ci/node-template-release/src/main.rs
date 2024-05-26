@@ -18,6 +18,7 @@
 
 use std::{
 	collections::HashMap,
+	ffi::OsString,
 	fs::{self, File, OpenOptions},
 	path::{Path, PathBuf},
 	process::Command,
@@ -56,9 +57,24 @@ struct Options {
 }
 
 /// Copy the `node-template` to the given path.
-fn copy_node_template(node_template: &Path, dest_path: &Path) {
+fn copy_node_template(node_template: &Path, node_template_folder: &OsString, dest_path: &Path) {
 	let options = CopyOptions::new();
 	dir::copy(node_template, dest_path, &options).expect("Copies node-template to tmp dir");
+
+	let dest_path = dest_path.join(node_template_folder);
+
+	dir::get_dir_content(dest_path.join("env-setup"))
+		.expect("`env-setup` directory should exist")
+		.files
+		.iter()
+		.for_each(|f| {
+			fs::copy(
+				f,
+				dest_path.join(PathBuf::from(f).file_name().expect("File has a file name.")),
+			)
+			.expect("Copying from `env-setup` directory works");
+		});
+	dir::remove(dest_path.join("env-setup")).expect("Deleting `env-setup works`");
 }
 
 /// Find all `Cargo.toml` files in the given path.
@@ -195,6 +211,9 @@ fn update_root_cargo_toml(
 	commit_id: &str,
 ) {
 	let mut workspace = Table::new();
+
+	workspace.insert("resolver", value("2"));
+
 	workspace.insert("members", value(Array::from_iter(members.iter())));
 	let mut workspace_dependencies = Table::new();
 	deps.values()
@@ -216,6 +235,8 @@ fn update_root_cargo_toml(
 	workspace.insert("package", Item::Table(package));
 
 	workspace.insert("dependencies", Item::Table(workspace_dependencies));
+
+	workspace.insert("lints", Item::Table(Table::new()));
 	cargo_toml.insert("workspace", Item::Table(workspace));
 
 	let mut panic_unwind = Table::new();
@@ -294,7 +315,7 @@ fn main() {
 		.file_name()
 		.expect("Node template folder is last element of path")
 		.to_owned();
-	copy_node_template(&options.node_template, build_dir.path());
+	copy_node_template(&options.node_template, &node_template_folder, build_dir.path());
 
 	// The path to the node-template in the build dir.
 	let node_template_path = build_dir.path().join(node_template_folder);
@@ -429,6 +450,7 @@ frame-system = { workspace = true }
 		);
 
 		let expected_toml = r#"[workspace]
+resolver = "2"
 members = ["node", "pallets/template", "runtime"]
 
 [workspace.package]
@@ -437,6 +459,8 @@ edition = "2021"
 [workspace.dependencies]
 frame-system = { version = "4.0.0-dev", default-features = true, git = "https://github.com/paritytech/polkadot-sdk.git", rev = "commit_id" }
 sp-io = { version = "7.0.0", git = "https://github.com/paritytech/polkadot-sdk.git", rev = "commit_id" }
+
+[workspace.lints]
 
 [profile]
 

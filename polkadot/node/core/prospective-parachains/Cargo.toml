@@ -10,11 +10,11 @@ description = "The Prospective Parachains subsystem. Tracks and handles prospect
 workspace = true
 
 [dependencies]
-futures = "0.3.19"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
-parity-scale-codec = "3.6.4"
-thiserror = "1.0.48"
-fatality = "0.0.6"
+parity-scale-codec = "3.6.12"
+thiserror = { workspace = true }
+fatality = "0.1.1"
 bitvec = "1"
 
 polkadot-primitives = { path = "../../../primitives" }

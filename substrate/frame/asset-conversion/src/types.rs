@@ -17,8 +17,9 @@
 
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use scale_info::TypeInfo;
-use sp_std::marker::PhantomData;
+use sp_runtime::traits::TryConvert;
 
 /// Represents a swap path with associated asset amounts indicating how much of the asset needs to
 /// be deposited to get the following asset's amount withdrawn (this is inclusive of fees).
@@ -68,49 +69,59 @@ pub trait PoolLocator<AccountId, AssetKind, PoolId> {
 ///
 /// The `PoolId` is represented as a tuple of `AssetKind`s with `FirstAsset` always positioned as
 /// the first element.
-pub struct WithFirstAsset<FirstAsset, AccountId, AssetKind>(
-	PhantomData<(FirstAsset, AccountId, AssetKind)>,
+pub struct WithFirstAsset<FirstAsset, AccountId, AssetKind, AccountIdConverter>(
+	PhantomData<(FirstAsset, AccountId, AssetKind, AccountIdConverter)>,
 );
-impl<FirstAsset, AccountId, AssetKind> PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
-	for WithFirstAsset<FirstAsset, AccountId, AssetKind>
+impl<FirstAsset, AccountId, AssetKind, AccountIdConverter>
+	PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
+	for WithFirstAsset<FirstAsset, AccountId, AssetKind, AccountIdConverter>
 where
 	AssetKind: Eq + Clone + Encode,
 	AccountId: Decode,
 	FirstAsset: Get<AssetKind>,
+	AccountIdConverter: for<'a> TryConvert<&'a (AssetKind, AssetKind), AccountId>,
 {
 	fn pool_id(asset1: &AssetKind, asset2: &AssetKind) -> Result<(AssetKind, AssetKind), ()> {
+		if asset1 == asset2 {
+			return Err(());
+		}
 		let first = FirstAsset::get();
-		match true {
-			_ if asset1 == asset2 => Err(()),
-			_ if first == *asset1 => Ok((first, asset2.clone())),
-			_ if first == *asset2 => Ok((first, asset1.clone())),
-			_ => Err(()),
+		if first == *asset1 {
+			Ok((first, asset2.clone()))
+		} else if first == *asset2 {
+			Ok((first, asset1.clone()))
+		} else {
+			Err(())
 		}
 	}
 	fn address(id: &(AssetKind, AssetKind)) -> Result<AccountId, ()> {
-		let encoded = sp_io::hashing::blake2_256(&Encode::encode(id)[..]);
-		Decode::decode(&mut TrailingZeroInput::new(encoded.as_ref())).map_err(|_| ())
+		AccountIdConverter::try_convert(id).map_err(|_| ())
 	}
 }
 
 /// Pool locator where the `PoolId` is a tuple of `AssetKind`s arranged in ascending order.
-pub struct Ascending<AccountId, AssetKind>(PhantomData<(AccountId, AssetKind)>);
-impl<AccountId, AssetKind> PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
-	for Ascending<AccountId, AssetKind>
+pub struct Ascending<AccountId, AssetKind, AccountIdConverter>(
+	PhantomData<(AccountId, AssetKind, AccountIdConverter)>,
+);
+impl<AccountId, AssetKind, AccountIdConverter>
+	PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
+	for Ascending<AccountId, AssetKind, AccountIdConverter>
 where
 	AssetKind: Ord + Clone + Encode,
 	AccountId: Decode,
+	AccountIdConverter: for<'a> TryConvert<&'a (AssetKind, AssetKind), AccountId>,
 {
 	fn pool_id(asset1: &AssetKind, asset2: &AssetKind) -> Result<(AssetKind, AssetKind), ()> {
-		match true {
-			_ if asset1 > asset2 => Ok((asset2.clone(), asset1.clone())),
-			_ if asset1 < asset2 => Ok((asset1.clone(), asset2.clone())),
-			_ => Err(()),
+		if asset1 > asset2 {
+			Ok((asset2.clone(), asset1.clone()))
+		} else if asset1 < asset2 {
+			Ok((asset1.clone(), asset2.clone()))
+		} else {
+			Err(())
 		}
 	}
 	fn address(id: &(AssetKind, AssetKind)) -> Result<AccountId, ()> {
-		let encoded = sp_io::hashing::blake2_256(&Encode::encode(id)[..]);
-		Decode::decode(&mut TrailingZeroInput::new(encoded.as_ref())).map_err(|_| ())
+		AccountIdConverter::try_convert(id).map_err(|_| ())
 	}
 }
 
@@ -129,5 +140,32 @@ where
 	}
 	fn address(id: &(AssetKind, AssetKind)) -> Result<AccountId, ()> {
 		First::address(id).or(Second::address(id))
+	}
+}
+
+/// `PoolId` to `AccountId` conversion.
+pub struct AccountIdConverter<Seed, PoolId>(PhantomData<(Seed, PoolId)>);
+impl<Seed, PoolId, AccountId> TryConvert<&PoolId, AccountId> for AccountIdConverter<Seed, PoolId>
+where
+	PoolId: Encode,
+	AccountId: Decode,
+	Seed: Get<PalletId>,
+{
+	fn try_convert(id: &PoolId) -> Result<AccountId, &PoolId> {
+		sp_io::hashing::blake2_256(&Encode::encode(&(Seed::get(), id))[..])
+			.using_encoded(|e| Decode::decode(&mut TrailingZeroInput::new(e)).map_err(|_| id))
+	}
+}
+
+/// `PoolId` to `AccountId` conversion without an addition arguments to the seed.
+pub struct AccountIdConverterNoSeed<PoolId>(PhantomData<PoolId>);
+impl<PoolId, AccountId> TryConvert<&PoolId, AccountId> for AccountIdConverterNoSeed<PoolId>
+where
+	PoolId: Encode,
+	AccountId: Decode,
+{
+	fn try_convert(id: &PoolId) -> Result<AccountId, &PoolId> {
+		sp_io::hashing::blake2_256(&Encode::encode(id)[..])
+			.using_encoded(|e| Decode::decode(&mut TrailingZeroInput::new(e)).map_err(|_| id))
 	}
 }

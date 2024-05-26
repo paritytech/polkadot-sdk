@@ -1134,7 +1134,10 @@ impl<RuntimeCall> TryFrom<NewInstruction<RuntimeCall>> for Instruction<RuntimeCa
 				max_response_weight: max_response_weight.ref_time(),
 			},
 			UnsubscribeVersion => Self::UnsubscribeVersion,
-			_ => return Err(()),
+			i => {
+				log::debug!(target: "xcm::v3tov2", "`{i:?}` not supported by v2");
+				return Err(());
+			},
 		})
 	}
 }

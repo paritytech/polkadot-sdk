@@ -130,11 +130,13 @@ use frame_support::{
 		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	migrations::MultiStepMigrator,
 	pallet_prelude::Pays,
 	storage::{self, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
-		OnKilledAccount, OnNewAccount, OriginTrait, PalletInfo, SortedMembers, StoredMap, TypedGet,
+		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
+		StoredMap, TypedGet,
 	},
 	Parameter,
 };
@@ -148,6 +150,7 @@ use sp_io::TestExternalities;
 pub mod limits;
 #[cfg(test)]
 pub(crate) mod mock;
+
 pub mod offchain;
 
 mod extensions;
@@ -168,6 +171,7 @@ pub use extensions::{
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
+use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::system";
@@ -258,7 +262,19 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
-		use frame_support::derive_impl;
+		use frame_support::{derive_impl, traits::Get};
+
+		/// A predefined adapter that covers `BlockNumberFor<T>` for `Config::Block::BlockNumber` of
+		/// the types `u32`, `u64`, and `u128`.
+		///
+		/// NOTE: Avoids overriding `BlockHashCount` when using `mocking::{MockBlock, MockBlockU32,
+		/// MockBlockU128}`.
+		pub struct TestBlockHashCount<C: Get<u32>>(sp_std::marker::PhantomData<C>);
+		impl<I: From<u32>, C: Get<u32>> Get<I> for TestBlockHashCount<C> {
+			fn get() -> I {
+				C::get().into()
+			}
+		}
 
 		/// Provides a viable default config that can be used with
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
@@ -296,11 +312,16 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeTask = ();
 			type BaseCallFilter = frame_support::traits::Everything;
-			type BlockHashCount = frame_support::traits::ConstU64<10>;
+			type BlockHashCount = TestBlockHashCount<frame_support::traits::ConstU32<10>>;
 			type OnSetCode = ();
+			type SingleBlockMigrations = ();
+			type MultiBlockMigrator = ();
+			type PreInherents = ();
+			type PostInherents = ();
+			type PostTransactions = ();
 		}
 
-		/// Default configurations of this pallet in a solo-chain environment.
+		/// Default configurations of this pallet in a solochain environment.
 		///
 		/// ## Considerations:
 		///
@@ -388,10 +409,15 @@ pub mod pallet {
 
 			/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 			/// Using 256 as default.
-			type BlockHashCount = frame_support::traits::ConstU32<256>;
+			type BlockHashCount = TestBlockHashCount<frame_support::traits::ConstU32<256>>;
 
 			/// The set code logic, just the default since we're not a parachain.
 			type OnSetCode = ();
+			type SingleBlockMigrations = ();
+			type MultiBlockMigrator = ();
+			type PreInherents = ();
+			type PostInherents = ();
+			type PostTransactions = ();
 		}
 
 		/// Default configurations of this pallet in a relay-chain environment.
@@ -451,6 +477,7 @@ pub mod pallet {
 			+ Clone
 			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>;
 
+		#[docify::export(system_runtime_call)]
 		/// The aggregated `RuntimeCall` type.
 		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
@@ -523,7 +550,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type DbWeight: Get<RuntimeDbWeight>;
 
-		/// Get the chain's current version.
+		/// Get the chain's in-code version.
 		#[pallet::constant]
 		type Version: Get<RuntimeVersion>;
 
@@ -570,6 +597,35 @@ pub mod pallet {
 
 		/// The maximum number of consumers allowed on a single account.
 		type MaxConsumers: ConsumerLimits;
+
+		/// All migrations that should run in the next runtime upgrade.
+		///
+		/// These used to be formerly configured in `Executive`. Parachains need to ensure that
+		/// running all these migrations in one block will not overflow the weight limit of a block.
+		/// The migrations are run *before* the pallet `on_runtime_upgrade` hooks, just like the
+		/// `OnRuntimeUpgrade` migrations.
+		type SingleBlockMigrations: OnRuntimeUpgrade;
+
+		/// The migrator that is used to run Multi-Block-Migrations.
+		///
+		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
+		type MultiBlockMigrator: MultiStepMigrator;
+
+		/// A callback that executes in *every block* directly before all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		type PreInherents: PreInherents;
+
+		/// A callback that executes in *every block* directly after all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		type PostInherents: PostInherents;
+
+		/// A callback that executes in *every block* directly after all transactions were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		type PostTransactions: PostTransactions;
 	}
 
 	#[pallet::pallet]
@@ -617,6 +673,9 @@ pub mod pallet {
 		}
 
 		/// Set the new runtime code without doing any checks of the given `code`.
+		///
+		/// Note that runtime upgrades will not run if this is called with a not-increasing spec
+		/// version!
 		#[pallet::call_index(3)]
 		#[pallet::weight((T::SystemWeightInfo::set_code(), DispatchClass::Operational))]
 		pub fn set_code_without_checks(
@@ -694,9 +753,7 @@ pub mod pallet {
 		#[cfg(feature = "experimental")]
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight())]
-		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-
+		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
 				return Err(Error::<T>::InvalidTask.into())
 			}
@@ -812,6 +869,8 @@ pub mod pallet {
 		NonZeroRefCount,
 		/// The origin filter prevent the call to be dispatched.
 		CallFiltered,
+		/// A multi-block migration is ongoing and prevents the current code from being replaced.
+		MultiBlockMigrationsOngoing,
 		#[cfg(feature = "experimental")]
 		/// The specified [`Task`] is not valid.
 		InvalidTask,
@@ -843,11 +902,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
 
+	/// Whether all inherents have been applied.
+	#[pallet::storage]
+	pub type InherentsApplied<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// The current weight for the block.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn block_weight)]
-	pub(super) type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
+	pub type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
 
 	/// Total length (in bytes) for all extrinsics put together, for the current block.
 	#[pallet::storage]
@@ -892,6 +955,7 @@ pub mod pallet {
 	/// just in case someone still reads them from within the runtime.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
+	#[pallet::disable_try_decode_storage]
 	#[pallet::unbounded]
 	pub(super) type Events<T: Config> =
 		StorageValue<_, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, ValueQuery>;
@@ -973,6 +1037,18 @@ pub mod pallet {
 						priority: 100,
 						requires: Vec::new(),
 						provides: vec![hash.as_ref().to_vec()],
+						longevity: TransactionLongevity::max_value(),
+						propagate: true,
+					})
+				}
+			}
+			#[cfg(feature = "experimental")]
+			if let Call::do_task { ref task } = call {
+				if task.is_valid() {
+					return Ok(ValidTransaction {
+						priority: u64::max_value(),
+						requires: Vec::new(),
+						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
 						longevity: TransactionLongevity::max_value(),
 						propagate: true,
 					})
@@ -1370,6 +1446,19 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::CodeUpdated);
 	}
 
+	/// Whether all inherents have been applied.
+	pub fn inherents_applied() -> bool {
+		InherentsApplied::<T>::get()
+	}
+
+	/// Note that all inherents have been applied.
+	///
+	/// Should be called immediately after all inherents have been applied. Must be called at least
+	/// once per block.
+	pub fn note_inherents_applied() {
+		InherentsApplied::<T>::put(true);
+	}
+
 	/// Increment the reference counter on an account.
 	#[deprecated = "Use `inc_consumers` instead"]
 	pub fn inc_ref(who: &T::AccountId) {
@@ -1689,6 +1778,7 @@ impl<T: Config> Pallet<T> {
 		<Digest<T>>::put(digest);
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
+		<InherentsApplied<T>>::kill();
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
@@ -1702,7 +1792,7 @@ impl<T: Config> Pallet<T> {
 			"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
 			 {} ({}%) op weight {} ({}%) / mandatory weight {} ({}%)",
 			Self::block_number(),
-			Self::extrinsic_index().unwrap_or_default(),
+			Self::extrinsic_count(),
 			Self::all_extrinsics_len(),
 			sp_runtime::Percent::from_rational(
 				Self::all_extrinsics_len(),
@@ -1735,6 +1825,7 @@ impl<T: Config> Pallet<T> {
 		ExecutionPhase::<T>::kill();
 		AllExtrinsicsLen::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
+		InherentsApplied::<T>::kill();
 
 		// The following fields
 		//
@@ -1978,10 +2069,14 @@ impl<T: Config> Pallet<T> {
 
 	/// Determine whether or not it is possible to update the code.
 	///
-	/// Checks the given code if it is a valid runtime wasm blob by instantianting
+	/// Checks the given code if it is a valid runtime wasm blob by instantiating
 	/// it and extracting the runtime version of it. It checks that the runtime version
 	/// of the old and new runtime has the same spec name and that the spec version is increasing.
 	pub fn can_set_code(code: &[u8]) -> Result<(), sp_runtime::DispatchError> {
+		if T::MultiBlockMigrator::ongoing() {
+			return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+		}
+
 		let current_version = T::Version::get();
 		let new_version = sp_io::misc::runtime_version(code)
 			.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())

@@ -1,0 +1,11 @@
+error: Two pallets with the same name!
+  --> tests/runtime_ui/conflicting_pallet_name.rs:37:14
+   |
+37 |     pub type System = frame_system;
+   |              ^^^^^^
+
+error: Two pallets with the same name!
+  --> tests/runtime_ui/conflicting_pallet_name.rs:40:14
+   |
+40 |     pub type System = pallet;
+   |              ^^^^^^

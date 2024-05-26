@@ -17,21 +17,23 @@
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
-use frame_support::{traits::Currency, weights::Weight};
+use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, v2};
+use xcm_builder::EnsureDelivery;
+use xcm_executor::traits::FeeReason;
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
-
-// existential deposit multiplier
-const ED_MULTIPLIER: u32 = 100;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config>(crate::Pallet<T>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
 pub trait Config: crate::Config {
+	/// Helper that ensures successful delivery for extrinsics/benchmarks which need `SendXcm`.
+	type DeliveryHelper: EnsureDelivery;
+
 	/// A `Location` that can be reached via `XcmRouter`. Used only in benchmarks.
 	///
 	/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
@@ -74,14 +76,16 @@ pub trait Config: crate::Config {
 	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		None
 	}
+
+	/// Gets an asset that can be handled by the AssetTransactor.
+	///
+	/// Used only in benchmarks.
+	///
+	/// Used, for example, in the benchmark for `claim_assets`.
+	fn get_asset() -> Asset;
 }
 
 benchmarks! {
-	where_clause {
-		where
-			T: pallet_balances::Config,
-			<T as pallet_balances::Config>::Balance: From<u128> + Into<u128>,
-	}
 	send {
 		let send_origin =
 			T::SendXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -101,28 +105,43 @@ benchmarks! {
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
-		let transferred_amount = match &asset.fun {
-			Fungible(amount) => *amount,
-			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
-		}.into();
-		let assets: Assets = asset.into();
+		let assets: Assets = asset.clone().into();
 
-		let existential_deposit = T::ExistentialDeposit::get();
-		let caller = whitelisted_caller();
-
-		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		assert!(balance >= transferred_amount);
-		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
-		// verify initial balance
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
-
+		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		if !T::XcmTeleportFilter::contains(&(origin_location, assets.clone().into_inner())) {
+		if !T::XcmTeleportFilter::contains(&(origin_location.clone(), assets.clone().into_inner())) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&origin_location,
+			&destination,
+			FeeReason::ChargeFees,
+		);
+
+		match &asset.fun {
+			Fungible(amount) => {
+				// Add transferred_amount to origin
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					&Asset { fun: Fungible(*amount), id: asset.id },
+					&origin_location,
+					None,
+				).map_err(|error| {
+				  log::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+			},
+			NonFungible(instance) => {
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
+					.map_err(|error| {
+						log::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+					})?;
+			}
+		};
 
 		let recipient = [0u8; 32];
 		let versioned_dest: VersionedLocation = destination.into();
@@ -130,48 +149,73 @@ benchmarks! {
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
-	verify {
-		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
-	}
 
 	reserve_transfer_assets {
 		let (asset, destination) = T::reserve_transferable_asset_and_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
-		let transferred_amount = match &asset.fun {
-			Fungible(amount) => *amount,
-			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
-		}.into();
-		let assets: Assets = asset.into();
+		let assets: Assets = asset.clone().into();
 
-		let existential_deposit = T::ExistentialDeposit::get();
-		let caller = whitelisted_caller();
-
-		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		assert!(balance >= transferred_amount);
-		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
-		// verify initial balance
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
-
+		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		if !T::XcmReserveTransferFilter::contains(&(origin_location, assets.clone().into_inner())) {
+		if !T::XcmReserveTransferFilter::contains(&(origin_location.clone(), assets.clone().into_inner())) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&origin_location,
+			&destination,
+			FeeReason::ChargeFees,
+		);
+
+		match &asset.fun {
+			Fungible(amount) => {
+				// Add transferred_amount to origin
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					&Asset { fun: Fungible(*amount), id: asset.id.clone() },
+					&origin_location,
+					None,
+				).map_err(|error| {
+				  log::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+			},
+			NonFungible(instance) => {
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
+					.map_err(|error| {
+						log::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+					})?;
+			}
+		};
+
 		let recipient = [0u8; 32];
-		let versioned_dest: VersionedLocation = destination.into();
+		let versioned_dest: VersionedLocation = destination.clone().into();
 		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
 	verify {
-		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+		match &asset.fun {
+			Fungible(amount) => {
+				assert_ok!(<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::withdraw_asset(
+					&Asset { fun: Fungible(*amount), id: asset.id },
+					&destination,
+					None,
+				));
+			},
+			NonFungible(instance) => {
+				assert_ok!(<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::withdraw_asset(
+					&asset,
+					&destination,
+					None,
+				));
+			}
+		};
 	}
 
 	transfer_assets {
@@ -324,10 +368,22 @@ benchmarks! {
 			u32::MAX,
 		).unwrap()).collect::<Vec<_>>();
 		crate::Pallet::<T>::expect_response(query_id, Response::PalletsInfo(infos.try_into().unwrap()));
-
 	}: {
 		<crate::Pallet::<T> as QueryHandler>::take_response(query_id);
 	}
+
+	claim_assets {
+		let claim_origin = RawOrigin::Signed(whitelisted_caller());
+		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into()).map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let asset: Asset = T::get_asset();
+		// Trap assets for claiming later
+		crate::Pallet::<T>::drop_assets(
+			&claim_location,
+			asset.clone().into(),
+			&XcmContext { origin: None, message_id: [0u8; 32], topic: None }
+		);
+		let versioned_assets = VersionedAssets::V4(asset.into());
+	}: _<RuntimeOrigin<T>>(claim_origin.into(), Box::new(versioned_assets), Box::new(VersionedLocation::V4(claim_location)))
 
 	impl_benchmark_test_suite!(
 		Pallet,

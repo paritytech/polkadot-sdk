@@ -31,9 +31,8 @@ use frame_support::{
 	PalletId,
 };
 
-use sp_core::H256;
 use sp_runtime::{
-	traits::{BadOrigin, BlakeTwo256, IdentityLookup},
+	traits::{BadOrigin, IdentityLookup},
 	BuildStorage, Perbill, Storage,
 };
 
@@ -59,31 +58,12 @@ parameter_types! {
 
 type Balance = u64;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = u128; // u64 is not enough to hold bytes used to generate bounty account
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -554,7 +534,7 @@ fn propose_bounty_works() {
 		assert_eq!(Balances::free_balance(0), 100 - deposit);
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee: 0,
@@ -565,9 +545,12 @@ fn propose_bounty_works() {
 			}
 		);
 
-		assert_eq!(Bounties::bounty_descriptions(0).unwrap(), b"1234567890".to_vec());
+		assert_eq!(
+			pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(),
+			b"1234567890".to_vec()
+		);
 
-		assert_eq!(Bounties::bounty_count(), 1);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
 	});
 }
 
@@ -618,10 +601,10 @@ fn close_bounty_works() {
 		assert_eq!(Balances::reserved_balance(0), 0);
 		assert_eq!(Balances::free_balance(0), 100 - deposit);
 
-		assert_eq!(Bounties::bounties(0), None);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
 		assert!(!pallet_treasury::Proposals::<Test>::contains_key(0));
 
-		assert_eq!(Bounties::bounty_descriptions(0), None);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
 	});
 }
 
@@ -642,7 +625,7 @@ fn approve_bounty_works() {
 		let deposit: u64 = 80 + 5;
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee: 0,
@@ -652,7 +635,7 @@ fn approve_bounty_works() {
 				status: BountyStatus::Approved,
 			}
 		);
-		assert_eq!(Bounties::bounty_approvals(), vec![0]);
+		assert_eq!(pallet_bounties::BountyApprovals::<Test>::get(), vec![0]);
 
 		assert_noop!(
 			Bounties::close_bounty(RuntimeOrigin::root(), 0),
@@ -670,7 +653,7 @@ fn approve_bounty_works() {
 		assert_eq!(Balances::free_balance(0), 100);
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee: 0,
@@ -713,7 +696,7 @@ fn assign_curator_works() {
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, fee));
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee,
@@ -740,7 +723,7 @@ fn assign_curator_works() {
 		let expected_deposit = Bounties::calculate_curator_deposit(&fee);
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee,
@@ -775,7 +758,7 @@ fn unassign_curator_works() {
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(4), 0));
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee,
@@ -793,7 +776,7 @@ fn unassign_curator_works() {
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), 0));
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee,
@@ -837,7 +820,7 @@ fn award_and_claim_bounty_works() {
 		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(4), 0, 3));
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee,
@@ -871,8 +854,8 @@ fn award_and_claim_bounty_works() {
 		assert_eq!(Balances::free_balance(3), 56);
 		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0)), 0);
 
-		assert_eq!(Bounties::bounties(0), None);
-		assert_eq!(Bounties::bounty_descriptions(0), None);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
 	});
 }
 
@@ -912,8 +895,8 @@ fn claim_handles_high_fee() {
 		assert_eq!(Balances::free_balance(3), 0);
 		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0)), 0);
 
-		assert_eq!(Bounties::bounties(0), None);
-		assert_eq!(Bounties::bounty_descriptions(0), None);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
 	});
 }
 
@@ -938,7 +921,7 @@ fn cancel_and_refund() {
 		));
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee: 0,
@@ -998,8 +981,8 @@ fn award_and_cancel() {
 		assert_eq!(Balances::free_balance(0), 95);
 		assert_eq!(Balances::reserved_balance(0), 0);
 
-		assert_eq!(Bounties::bounties(0), None);
-		assert_eq!(Bounties::bounty_descriptions(0), None);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
 	});
 }
 
@@ -1035,7 +1018,7 @@ fn expire_and_unassign() {
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(0), 0));
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee: 10,
@@ -1085,7 +1068,7 @@ fn extend_expiry() {
 		assert_ok!(Bounties::extend_bounty_expiry(RuntimeOrigin::signed(4), 0, Vec::new()));
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee: 10,
@@ -1099,7 +1082,7 @@ fn extend_expiry() {
 		assert_ok!(Bounties::extend_bounty_expiry(RuntimeOrigin::signed(4), 0, Vec::new()));
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee: 10,
@@ -1210,7 +1193,7 @@ fn unassign_curator_self() {
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(1), 0));
 
 		assert_eq!(
-			Bounties::bounties(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
 				proposer: 0,
 				fee: 10,

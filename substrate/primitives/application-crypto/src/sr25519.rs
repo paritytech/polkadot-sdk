@@ -27,9 +27,7 @@ mod app {
 	crate::app_crypto!(super, sp_core::testing::SR25519);
 }
 
-#[cfg(feature = "full_crypto")]
-pub use app::Pair as AppPair;
-pub use app::{Public as AppPublic, Signature as AppSignature};
+pub use app::{Pair as AppPair, Public as AppPublic, Signature as AppSignature};
 
 impl RuntimePublic for Public {
 	type Signature = Signature;

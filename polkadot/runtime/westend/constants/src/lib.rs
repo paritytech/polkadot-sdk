@@ -52,7 +52,7 @@ pub mod time {
 	// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 	// The choice of is done in accordance to the slot duration and expected target
 	// block time, for safely resisting network delays of maximum two seconds.
-	// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+	// <https://research.web3.foundation/Polkadot/protocols/block-production/Babe#6-practical-results>
 	pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 }
 
@@ -107,6 +107,8 @@ pub mod system_parachain {
 	pub const COLLECTIVES_ID: u32 = 1001;
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1002;
+	/// Encointer parachain ID.
+	pub const ENCOINTER_ID: u32 = 1003;
 	/// People Chain parachain ID.
 	pub const PEOPLE_ID: u32 = 1004;
 	/// Brokerage parachain ID.
@@ -128,6 +130,8 @@ pub mod xcm {
 		const ROOT_INDEX: u32 = 0;
 		// The bodies corresponding to the Polkadot OpenGov Origins.
 		pub const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
+		#[deprecated = "Will be removed after August 2024; Use `xcm::latest::BodyId::Treasury` \
+			instead"]
 		pub const TREASURER_INDEX: u32 = 2;
 	}
 }

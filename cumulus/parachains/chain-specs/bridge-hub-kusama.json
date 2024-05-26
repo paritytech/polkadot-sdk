@@ -11,8 +11,8 @@
     "/dns/boot.stake.plus/tcp/41334/wss/p2p/12D3KooWBzbs2jsXjG5dipktGPKaUm9XWvkmeJFsEAGkVt946Aa7",
     "/dns/boot.metaspan.io/tcp/26032/p2p/12D3KooWKfuSaZrLNz43PDgM4inMALXRHTSh2WBuqQtZRq8zmT1Z",
     "/dns/boot.metaspan.io/tcp/26036/wss/p2p/12D3KooWKfuSaZrLNz43PDgM4inMALXRHTSh2WBuqQtZRq8zmT1Z",
-    "/dns/boot-cr.gatotech.network/tcp/33230/p2p/12D3KooWFQFmg8UqAYLDNc2onySB6o5LLvpbx3eXZVqz9YFxAmXs",
-    "/dns/boot-cr.gatotech.network/tcp/35230/wss/p2p/12D3KooWFQFmg8UqAYLDNc2onySB6o5LLvpbx3eXZVqz9YFxAmXs",
+    "/dns/boot.gatotech.network/tcp/33230/p2p/12D3KooWFQFmg8UqAYLDNc2onySB6o5LLvpbx3eXZVqz9YFxAmXs",
+    "/dns/boot.gatotech.network/tcp/35230/wss/p2p/12D3KooWFQFmg8UqAYLDNc2onySB6o5LLvpbx3eXZVqz9YFxAmXs",
     "/dns/bridge-hub-kusama-bootnode.turboflakes.io/tcp/30615/p2p/12D3KooWE3dJXbwA5SQqbDNxHfj7BXJRcy2KiXWjJY4VUMKoa7S2",
     "/dns/bridge-hub-kusama-bootnode.turboflakes.io/tcp/30715/wss/p2p/12D3KooWE3dJXbwA5SQqbDNxHfj7BXJRcy2KiXWjJY4VUMKoa7S2",
     "/dns/boot-node.helikon.io/tcp/10250/p2p/12D3KooWDJLkhqQdXcVKWX7CqJHnpAY6PzrPc4ZG2CUWnARbmguy",
@@ -25,7 +25,10 @@
     "/dns/bridgehub-kusama-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWQMWofXj8v3RroDNnrhv1iURqm8vnaG98AdGnCn2YoDcW",
     "/dns/kbr13.rotko.net/tcp/33553/p2p/12D3KooWAmBp54mUEYtvsk2kxNEsDbAvdUMcaghxKXgUQxmPEQ66",
     "/dns/kbr13.rotko.net/tcp/34553/ws/p2p/12D3KooWAmBp54mUEYtvsk2kxNEsDbAvdUMcaghxKXgUQxmPEQ66",
-    "/dns/kbr13.rotko.net/tcp/35553/wss/p2p/12D3KooWAmBp54mUEYtvsk2kxNEsDbAvdUMcaghxKXgUQxmPEQ66"
+    "/dns/kbr13.rotko.net/tcp/35553/wss/p2p/12D3KooWAmBp54mUEYtvsk2kxNEsDbAvdUMcaghxKXgUQxmPEQ66",
+    "/dns/bridge-hub-kusama.bootnodes.polkadotters.com/tcp/30520/p2p/12D3KooWH3pucezRRS5esoYyzZsUkKWcPSByQxEvmM819QL1HPLV",
+    "/dns/bridge-hub-kusama.bootnodes.polkadotters.com/tcp/30522/wss/p2p/12D3KooWH3pucezRRS5esoYyzZsUkKWcPSByQxEvmM819QL1HPLV",
+    "/dns/boot-kusama-bridgehub.luckyfriday.io/tcp/443/wss/p2p/12D3KooWQybw6AFmAvrFfwUQnNxUpS12RovapD6oorh2mAJr4xyd"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

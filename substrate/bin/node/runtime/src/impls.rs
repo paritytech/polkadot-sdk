@@ -17,6 +17,8 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
+use polkadot_sdk::*;
+
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -30,8 +32,8 @@ use pallet_identity::legacy::IdentityField;
 use sp_std::prelude::*;
 
 use crate::{
-	AccountId, AllianceMotion, Assets, Authorship, Balances, Hash, NegativeImbalance, Runtime,
-	RuntimeCall,
+	AccountId, AllianceCollective, AllianceMotion, Assets, Authorship, Balances, Hash,
+	NegativeImbalance, Runtime, RuntimeCall,
 };
 
 pub struct Author;
@@ -107,7 +109,7 @@ impl ProposalProvider<AccountId, Hash, RuntimeCall> for AllianceProposalProvider
 	}
 
 	fn proposal_of(proposal_hash: Hash) -> Option<RuntimeCall> {
-		AllianceMotion::proposal_of(proposal_hash)
+		pallet_collective::ProposalOf::<Runtime, AllianceCollective>::get(proposal_hash)
 	}
 }
 
@@ -118,6 +120,7 @@ mod multiplier_tests {
 		weights::{Weight, WeightToFee},
 	};
 	use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+	use polkadot_sdk::*;
 	use sp_runtime::{
 		assert_eq_error_rate,
 		traits::{Convert, One, Zero},
@@ -276,7 +279,7 @@ mod multiplier_tests {
 				let next = runtime_multiplier_update(fm);
 				fm = next;
 				if fm == min_multiplier() {
-					break
+					break;
 				}
 				iterations += 1;
 			}

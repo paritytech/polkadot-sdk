@@ -148,6 +148,7 @@ enum ApprovalEntryError {
 	InvalidCandidateIndex,
 	DuplicateApproval,
 	UnknownAssignment,
+	#[allow(dead_code)]
 	AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
 }
 
@@ -230,7 +231,7 @@ impl ApprovalEntry {
 		Ok(())
 	}
 
-	// Get the assignment certiticate and claimed candidates.
+	// Get the assignment certificate and claimed candidates.
 	pub fn assignment(&self) -> (IndirectAssignmentCertV2, CandidateBitfield) {
 		(self.assignment.clone(), self.assignment_claimed_candidates.clone())
 	}
@@ -404,7 +405,7 @@ impl Knowledge {
 			},
 		};
 
-		// In case of succesful insertion of multiple candidate assignments create additional
+		// In case of successful insertion of multiple candidate assignments create additional
 		// entries for each assigned candidate. This fakes knowledge of individual assignments, but
 		// we need to share the same `MessageSubject` with the followup approval candidate index.
 		if kind == MessageKind::Assignment && success && message.1.count_ones() > 1 {
@@ -1897,10 +1898,10 @@ impl State {
 					_ => break,
 				};
 
-				// Any peer which is in the `known_by` see and we know its peer_id authorithy id
+				// Any peer which is in the `known_by` see and we know its peer_id authority id
 				// mapping has already been sent all messages it's meant to get for that block and
 				// all in-scope prior blocks. In case, we just learnt about its peer_id
-				// authorithy-id mapping we have to retry sending the messages that should be sent
+				// authority-id mapping we have to retry sending the messages that should be sent
 				// to it for all un-finalized blocks.
 				if entry.known_by.contains_key(&peer_id) && !retry_known_blocks {
 					break
@@ -2199,7 +2200,7 @@ impl State {
 		sanitized_assignments
 	}
 
-	// Filter out obviously invalid candidate indicies.
+	// Filter out obviously invalid candidate indices.
 	async fn sanitize_v1_approvals(
 		&mut self,
 		peer_id: PeerId,
@@ -2226,7 +2227,7 @@ impl State {
 		sanitized_approvals
 	}
 
-	// Filter out obviously invalid candidate indicies.
+	// Filter out obviously invalid candidate indices.
 	async fn sanitize_v2_approvals(
 		&mut self,
 		peer_id: PeerId,
@@ -2260,7 +2261,7 @@ impl State {
 // The modifier accepts as inputs the current required-routing state, whether
 // the message is locally originating, and the validator index of the message issuer.
 //
-// Then, if the topology is known, this progates messages to all peers in the required
+// Then, if the topology is known, this propagates messages to all peers in the required
 // routing set which are aware of the block. Peers which are unaware of the block
 // will have the message sent when it enters their view in `unify_with_peer`.
 //
@@ -2440,7 +2441,7 @@ impl ApprovalDistribution {
 							gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 							// the relay chain blocks relevant to the approval subsystems
 							// are those that are available, but not finalized yet
-							// actived and deactivated heads hence are irrelevant to this subsystem, other than
+							// activated and deactivated heads hence are irrelevant to this subsystem, other than
 							// for tracing purposes.
 							if let Some(activated) = update.activated {
 								let head = activated.hash;

@@ -118,13 +118,6 @@ impl WeightMeter {
 		debug_assert!(self.consumed.all_lte(self.limit), "Weight counter overflow");
 	}
 
-	/// Consume the given weight after checking that it can be consumed and return `true`. Otherwise
-	/// do nothing and return `false`.
-	#[deprecated(note = "Use `try_consume` instead. Will be removed after December 2023.")]
-	pub fn check_accrue(&mut self, w: Weight) -> bool {
-		self.try_consume(w).is_ok()
-	}
-
 	/// Consume the given weight after checking that it can be consumed.
 	///
 	/// Returns `Ok` if the weight can be consumed or otherwise an `Err`.
@@ -140,14 +133,13 @@ impl WeightMeter {
 	}
 
 	/// Check if the given weight can be consumed.
-	#[deprecated(note = "Use `can_consume` instead. Will be removed after December 2023.")]
-	pub fn can_accrue(&self, w: Weight) -> bool {
-		self.can_consume(w)
-	}
-
-	/// Check if the given weight can be consumed.
 	pub fn can_consume(&self, w: Weight) -> bool {
 		self.consumed.checked_add(&w).map_or(false, |t| t.all_lte(self.limit))
+	}
+
+	/// Reclaim the given weight.
+	pub fn reclaim_proof_size(&mut self, s: u64) {
+		self.consumed.saturating_reduce(Weight::from_parts(0, s));
 	}
 }
 
@@ -160,80 +152,80 @@ mod tests {
 	fn weight_meter_remaining_works() {
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(10, 20));
 
-		assert!(meter.check_accrue(Weight::from_parts(5, 0)));
+		assert_eq!(meter.try_consume(Weight::from_parts(5, 0)), Ok(()));
 		assert_eq!(meter.consumed, Weight::from_parts(5, 0));
 		assert_eq!(meter.remaining(), Weight::from_parts(5, 20));
 
-		assert!(meter.check_accrue(Weight::from_parts(2, 10)));
+		assert_eq!(meter.try_consume(Weight::from_parts(2, 10)), Ok(()));
 		assert_eq!(meter.consumed, Weight::from_parts(7, 10));
 		assert_eq!(meter.remaining(), Weight::from_parts(3, 10));
 
-		assert!(meter.check_accrue(Weight::from_parts(3, 10)));
+		assert_eq!(meter.try_consume(Weight::from_parts(3, 10)), Ok(()));
 		assert_eq!(meter.consumed, Weight::from_parts(10, 20));
 		assert_eq!(meter.remaining(), Weight::from_parts(0, 0));
 	}
 
 	#[test]
-	fn weight_meter_can_accrue_works() {
+	fn weight_meter_can_consume_works() {
 		let meter = WeightMeter::with_limit(Weight::from_parts(1, 1));
 
-		assert!(meter.can_accrue(Weight::from_parts(0, 0)));
-		assert!(meter.can_accrue(Weight::from_parts(1, 1)));
-		assert!(!meter.can_accrue(Weight::from_parts(0, 2)));
-		assert!(!meter.can_accrue(Weight::from_parts(2, 0)));
-		assert!(!meter.can_accrue(Weight::from_parts(2, 2)));
+		assert!(meter.can_consume(Weight::from_parts(0, 0)));
+		assert!(meter.can_consume(Weight::from_parts(1, 1)));
+		assert!(!meter.can_consume(Weight::from_parts(0, 2)));
+		assert!(!meter.can_consume(Weight::from_parts(2, 0)));
+		assert!(!meter.can_consume(Weight::from_parts(2, 2)));
 	}
 
 	#[test]
-	fn weight_meter_check_accrue_works() {
+	fn weight_meter_try_consume_works() {
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(2, 2));
 
-		assert!(meter.check_accrue(Weight::from_parts(0, 0)));
-		assert!(meter.check_accrue(Weight::from_parts(1, 1)));
-		assert!(!meter.check_accrue(Weight::from_parts(0, 2)));
-		assert!(!meter.check_accrue(Weight::from_parts(2, 0)));
-		assert!(!meter.check_accrue(Weight::from_parts(2, 2)));
-		assert!(meter.check_accrue(Weight::from_parts(0, 1)));
-		assert!(meter.check_accrue(Weight::from_parts(1, 0)));
+		assert_eq!(meter.try_consume(Weight::from_parts(0, 0)), Ok(()));
+		assert_eq!(meter.try_consume(Weight::from_parts(1, 1)), Ok(()));
+		assert_eq!(meter.try_consume(Weight::from_parts(0, 2)), Err(()));
+		assert_eq!(meter.try_consume(Weight::from_parts(2, 0)), Err(()));
+		assert_eq!(meter.try_consume(Weight::from_parts(2, 2)), Err(()));
+		assert_eq!(meter.try_consume(Weight::from_parts(0, 1)), Ok(()));
+		assert_eq!(meter.try_consume(Weight::from_parts(1, 0)), Ok(()));
 	}
 
 	#[test]
-	fn weight_meter_check_and_can_accrue_works() {
+	fn weight_meter_check_and_can_consume_works() {
 		let mut meter = WeightMeter::new();
 
-		assert!(meter.can_accrue(Weight::from_parts(u64::MAX, 0)));
-		assert!(meter.check_accrue(Weight::from_parts(u64::MAX, 0)));
+		assert!(meter.can_consume(Weight::from_parts(u64::MAX, 0)));
+		assert_eq!(meter.try_consume(Weight::from_parts(u64::MAX, 0)), Ok(()));
 
-		assert!(meter.can_accrue(Weight::from_parts(0, u64::MAX)));
-		assert!(meter.check_accrue(Weight::from_parts(0, u64::MAX)));
+		assert!(meter.can_consume(Weight::from_parts(0, u64::MAX)));
+		assert_eq!(meter.try_consume(Weight::from_parts(0, u64::MAX)), Ok(()));
 
-		assert!(!meter.can_accrue(Weight::from_parts(0, 1)));
-		assert!(!meter.check_accrue(Weight::from_parts(0, 1)));
+		assert!(!meter.can_consume(Weight::from_parts(0, 1)));
+		assert_eq!(meter.try_consume(Weight::from_parts(0, 1)), Err(()));
 
-		assert!(!meter.can_accrue(Weight::from_parts(1, 0)));
-		assert!(!meter.check_accrue(Weight::from_parts(1, 0)));
+		assert!(!meter.can_consume(Weight::from_parts(1, 0)));
+		assert_eq!(meter.try_consume(Weight::from_parts(1, 0)), Err(()));
 
-		assert!(meter.can_accrue(Weight::zero()));
-		assert!(meter.check_accrue(Weight::zero()));
+		assert!(meter.can_consume(Weight::zero()));
+		assert_eq!(meter.try_consume(Weight::zero()), Ok(()));
 	}
 
 	#[test]
 	fn consumed_ratio_works() {
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(10, 20));
 
-		assert!(meter.check_accrue(Weight::from_parts(5, 0)));
+		assert_eq!(meter.try_consume(Weight::from_parts(5, 0)), Ok(()));
 		assert_eq!(meter.consumed_ratio(), Perbill::from_percent(50));
-		assert!(meter.check_accrue(Weight::from_parts(0, 12)));
+		assert_eq!(meter.try_consume(Weight::from_parts(0, 12)), Ok(()));
 		assert_eq!(meter.consumed_ratio(), Perbill::from_percent(60));
 
-		assert!(meter.check_accrue(Weight::from_parts(2, 0)));
+		assert_eq!(meter.try_consume(Weight::from_parts(2, 0)), Ok(()));
 		assert_eq!(meter.consumed_ratio(), Perbill::from_percent(70));
-		assert!(meter.check_accrue(Weight::from_parts(0, 4)));
+		assert_eq!(meter.try_consume(Weight::from_parts(0, 4)), Ok(()));
 		assert_eq!(meter.consumed_ratio(), Perbill::from_percent(80));
 
-		assert!(meter.check_accrue(Weight::from_parts(3, 0)));
+		assert_eq!(meter.try_consume(Weight::from_parts(3, 0)), Ok(()));
 		assert_eq!(meter.consumed_ratio(), Perbill::from_percent(100));
-		assert!(meter.check_accrue(Weight::from_parts(0, 4)));
+		assert_eq!(meter.try_consume(Weight::from_parts(0, 4)), Ok(()));
 		assert_eq!(meter.consumed_ratio(), Perbill::from_percent(100));
 	}
 
@@ -275,6 +267,21 @@ mod tests {
 		assert_eq!(meter.remaining(), Weight::from_parts(0, 10));
 		meter.consume(Weight::from_parts(0, 10));
 		assert_eq!(meter.consumed(), Weight::from_parts(5, 10));
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	fn reclaim_works() {
+		let mut meter = WeightMeter::with_limit(Weight::from_parts(5, 10));
+
+		meter.consume(Weight::from_parts(5, 10));
+		assert_eq!(meter.consumed(), Weight::from_parts(5, 10));
+
+		meter.reclaim_proof_size(3);
+		assert_eq!(meter.consumed(), Weight::from_parts(5, 7));
+
+		meter.reclaim_proof_size(10);
+		assert_eq!(meter.consumed(), Weight::from_parts(5, 0));
 	}
 
 	#[test]

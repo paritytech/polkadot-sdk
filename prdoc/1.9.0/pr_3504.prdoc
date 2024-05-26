@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: add prometheus label "is_rate_limited" to rpc calls
+
+doc:
+  - audience: Node Operator
+    description: |
+      This PR adds a label "is_rate_limited" to the prometheus metrics "substrate_rpc_calls_time" and "substrate_rpc_calls_finished"
+      than can be used to distinguish rate-limited RPC calls from other RPC calls. Because rate-limited RPC calls may take
+      tens of seconds.
+
+crates: [ ]

@@ -16,11 +16,8 @@
 
 use crate::{Junctions::Here, Xcm};
 use core::result;
-use frame_support::{
-	pallet_prelude::{Get, TypeInfo},
-	parameter_types,
-};
-use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use frame_support::{pallet_prelude::Get, parameter_types};
+use parity_scale_codec::{Decode, Encode};
 use sp_arithmetic::traits::Zero;
 use sp_std::fmt::Debug;
 use xcm::latest::{
@@ -115,15 +112,6 @@ pub enum QueryResponseStatus<BlockNumber> {
 
 /// Provides methods to expect responses from XCMs and query their status.
 pub trait QueryHandler {
-	type QueryId: From<u64>
-		+ FullCodec
-		+ MaxEncodedLen
-		+ TypeInfo
-		+ Clone
-		+ Eq
-		+ PartialEq
-		+ Debug
-		+ Copy;
 	type BlockNumber: Zero + Encode;
 	type Error;
 	type UniversalLocation: Get<InteriorLocation>;
@@ -151,14 +139,14 @@ pub trait QueryHandler {
 		message: &mut Xcm<()>,
 		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
-	) -> result::Result<Self::QueryId, Self::Error>;
+	) -> result::Result<QueryId, Self::Error>;
 
 	/// Attempt to remove and return the response of query with ID `query_id`.
-	fn take_response(id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber>;
+	fn take_response(id: QueryId) -> QueryResponseStatus<Self::BlockNumber>;
 
 	/// Makes sure to expect a response with the given id.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn expect_response(id: Self::QueryId, response: Response);
+	fn expect_response(id: QueryId, response: Response);
 }
 
 parameter_types! {
@@ -168,17 +156,16 @@ parameter_types! {
 impl QueryHandler for () {
 	type BlockNumber = u64;
 	type Error = ();
-	type QueryId = u64;
 	type UniversalLocation = UniversalLocation;
 
-	fn take_response(_query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+	fn take_response(_query_id: QueryId) -> QueryResponseStatus<Self::BlockNumber> {
 		QueryResponseStatus::NotFound
 	}
 	fn new_query(
 		_responder: impl Into<Location>,
 		_timeout: Self::BlockNumber,
 		_match_querier: impl Into<Location>,
-	) -> Self::QueryId {
+	) -> QueryId {
 		0u64
 	}
 
@@ -186,10 +173,10 @@ impl QueryHandler for () {
 		_message: &mut Xcm<()>,
 		_responder: impl Into<Location>,
 		_timeout: Self::BlockNumber,
-	) -> Result<Self::QueryId, Self::Error> {
+	) -> Result<QueryId, Self::Error> {
 		Err(())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn expect_response(_id: Self::QueryId, _response: crate::Response) {}
+	fn expect_response(_id: QueryId, _response: crate::Response) {}
 }

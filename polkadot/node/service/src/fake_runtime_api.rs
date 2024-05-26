@@ -30,6 +30,7 @@ use polkadot_primitives::{
 	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
 	traits::Block as BlockT,
@@ -39,7 +40,7 @@ use sp_runtime::{
 use sp_version::RuntimeVersion;
 use sp_weights::Weight;
 use std::collections::BTreeMap;
-
+use xcm::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 sp_api::decl_runtime_apis! {
 	/// This runtime API is only implemented for the test runtime!
 	pub trait GetLastTimestamp {
@@ -60,7 +61,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn initialize_block(_: &<Block as BlockT>::Header) {
+		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			unimplemented!()
 		}
 	}
@@ -241,7 +242,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			_: beefy_primitives::EquivocationProof<
+			_: beefy_primitives::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
@@ -271,11 +272,11 @@ sp_api::impl_runtime_apis! {
 		fn generate_proof(
 			_: Vec<BlockNumber>,
 			_: Option<BlockNumber>,
-		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::Proof<Hash>), sp_mmr_primitives::Error> {
+		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::LeafProof<Hash>), sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
 
-		fn verify_proof(_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, _: sp_mmr_primitives::Proof<Hash>)
+		fn verify_proof(_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, _: sp_mmr_primitives::LeafProof<Hash>)
 			-> Result<(), sp_mmr_primitives::Error>
 		{
 			unimplemented!()
@@ -284,7 +285,7 @@ sp_api::impl_runtime_apis! {
 		fn verify_proof_stateless(
 			_: Hash,
 			_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>,
-			_: sp_mmr_primitives::Proof<Hash>
+			_: sp_mmr_primitives::LeafProof<Hash>
 		) -> Result<(), sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
@@ -393,6 +394,34 @@ sp_api::impl_runtime_apis! {
 
 	impl crate::fake_runtime_api::GetLastTimestamp<Block> for Runtime {
 		fn get_last_timestamp() -> u64 {
+			unimplemented!()
+		}
+	}
+
+	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
+		fn query_acceptable_payment_assets(_: xcm::Version) -> Result<Vec<VersionedAssetId>, xcm_fee_payment_runtime_api::fees::Error> {
+			unimplemented!()
+		}
+
+		fn query_weight_to_asset_fee(_: Weight, _: VersionedAssetId) -> Result<u128, xcm_fee_payment_runtime_api::fees::Error> {
+			unimplemented!()
+		}
+
+		fn query_xcm_weight(_: VersionedXcm<()>) -> Result<Weight, xcm_fee_payment_runtime_api::fees::Error> {
+			unimplemented!()
+		}
+
+		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>) -> Result<VersionedAssets, xcm_fee_payment_runtime_api::fees::Error> {
+			unimplemented!()
+		}
+	}
+
+	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, (), ()> for Runtime {
+		fn dry_run_extrinsic(_: <Block as BlockT>::Extrinsic) -> Result<xcm_fee_payment_runtime_api::dry_run::ExtrinsicDryRunEffects<()>, xcm_fee_payment_runtime_api::dry_run::Error> {
+			unimplemented!()
+		}
+
+		fn dry_run_xcm(_: VersionedLocation, _: VersionedXcm<()>) -> Result<xcm_fee_payment_runtime_api::dry_run::XcmDryRunEffects<()>, xcm_fee_payment_runtime_api::dry_run::Error> {
 			unimplemented!()
 		}
 	}

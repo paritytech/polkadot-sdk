@@ -1,0 +1,63 @@
+[package]
+name = "pallet-bridge-beefy"
+version = "0.1.0"
+description = "Module implementing BEEFY on-chain light client used for bridging consensus of substrate-based chains."
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+log = { workspace = true }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { optional = true, workspace = true }
+
+# Bridge Dependencies
+
+bp-beefy = { path = "../../primitives/beefy", default-features = false }
+bp-runtime = { path = "../../primitives/runtime", default-features = false }
+
+# Substrate Dependencies
+
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+
+[dev-dependencies]
+sp-consensus-beefy = { path = "../../../substrate/primitives/consensus/beefy" }
+mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.5.2" }
+pallet-beefy-mmr = { path = "../../../substrate/frame/beefy-mmr" }
+pallet-mmr = { path = "../../../substrate/frame/merkle-mountain-range" }
+rand = "0.8.5"
+sp-io = { path = "../../../substrate/primitives/io" }
+bp-test-utils = { path = "../../primitives/test-utils" }
+
+[features]
+default = ["std"]
+std = [
+	"bp-beefy/std",
+	"bp-runtime/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-beefy-mmr/try-runtime",
+	"pallet-mmr/try-runtime",
+	"sp-runtime/try-runtime",
+]

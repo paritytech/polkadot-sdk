@@ -19,10 +19,10 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 cfg-if = "1.0"
-clap = { version = "4.4.18", features = ["derive"], optional = true }
-log = "0.4.17"
-thiserror = "1.0.48"
-futures = "0.3.21"
+clap = { version = "4.5.3", features = ["derive"], optional = true }
+log = { workspace = true, default-features = true }
+thiserror = { workspace = true }
+futures = "0.3.30"
 pyro = { package = "pyroscope", version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
 
@@ -33,7 +33,6 @@ sp-io = { path = "../../substrate/primitives/io" }
 sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-maybe-compressed-blob = { path = "../../substrate/primitives/maybe-compressed-blob" }
 frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli", optional = true }
-try-runtime-cli = { path = "../../substrate/utils/frame/try-runtime/cli", optional = true }
 sc-cli = { path = "../../substrate/client/cli", optional = true }
 sc-service = { path = "../../substrate/client/service", optional = true }
 polkadot-node-metrics = { path = "../node/metrics" }
@@ -42,6 +41,7 @@ sc-tracing = { path = "../../substrate/client/tracing", optional = true }
 sc-sysinfo = { path = "../../substrate/client/sysinfo" }
 sc-executor = { path = "../../substrate/client/executor" }
 sc-storage-monitor = { path = "../../substrate/client/storage-monitor" }
+sp-runtime = { path = "../../substrate/primitives/runtime" }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }
@@ -56,16 +56,19 @@ cli = [
 	"sc-service",
 	"sc-tracing",
 	"service",
-	"try-runtime-cli",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
 	"service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 full-node = ["service/full-node"]
-try-runtime = ["service/try-runtime", "try-runtime-cli/try-runtime"]
+try-runtime = [
+	"service/try-runtime",
+	"sp-runtime/try-runtime",
+]
 fast-runtime = ["service/fast-runtime"]
 pyroscope = ["pyro", "pyroscope_pprofrs"]
 
