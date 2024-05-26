@@ -229,10 +229,6 @@ fn basic_setup_works() {
 		// Initial Era and session
 		assert_eq!(active_era(), 0);
 
-		// Account 10 has `balance_factor` free balance
-		assert_eq!(Balances::free_balance(10), 1);
-		assert_eq!(Balances::free_balance(10), 1);
-
 		// New era is not being forced
 		assert_eq!(Staking::force_era(), Forcing::NotForcing);
 	});
@@ -972,8 +968,6 @@ fn reward_destination_works() {
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		// Check that account 11 is a validator
 		assert!(Session::validators().contains(&11));
-		// Check the balance of the validator account
-		assert_eq!(Balances::free_balance(10), 1);
 		// Check the balance of the stash account
 		assert_eq!(Balances::free_balance(11), 1000);
 		// Check how much is at stake
@@ -7256,17 +7250,17 @@ mod ledger {
 	fn paired_account_works() {
 		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(10),
+				RuntimeOrigin::signed(61),
 				100,
-				RewardDestination::Account(10)
+				RewardDestination::Account(61)
 			));
 
-			assert_eq!(<Bonded<Test>>::get(&10), Some(10));
+			assert_eq!(<Bonded<Test>>::get(&61), Some(61));
 			assert_eq!(
-				StakingLedger::<Test>::paired_account(StakingAccount::Controller(10)),
-				Some(10)
+				StakingLedger::<Test>::paired_account(StakingAccount::Controller(61)),
+				Some(61)
 			);
-			assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(10)), Some(10));
+			assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(61)), Some(61));
 
 			assert_eq!(<Bonded<Test>>::get(&42), None);
 			assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Controller(42)), None);

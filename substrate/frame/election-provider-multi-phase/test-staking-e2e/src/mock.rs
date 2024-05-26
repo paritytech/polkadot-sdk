@@ -492,19 +492,6 @@ impl Default for BalancesExtBuilder {
 			(2, 20),
 			(3, 300),
 			(4, 400),
-			// controllers (still used in some tests. Soon to be deprecated).
-			// TODO: Ensure these are not being used in tests & remove.
-			(10, 100),
-			(20, 100),
-			(30, 100),
-			(40, 100),
-			(50, 100),
-			(60, 100),
-			(70, 100),
-			(80, 100),
-			(90, 100),
-			(100, 100),
-			(200, 100),
 			// stashes
 			(11, 1000),
 			(21, 2000),

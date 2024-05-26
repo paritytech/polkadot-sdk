@@ -448,12 +448,6 @@ impl ExtBuilder {
 				(2, 20 * self.balance_factor),
 				(3, 300 * self.balance_factor),
 				(4, 400 * self.balance_factor),
-				// controllers (still used in some tests. Soon to be deprecated).
-				(10, self.balance_factor),
-				(20, self.balance_factor),
-				(30, self.balance_factor),
-				(40, self.balance_factor),
-				(50, self.balance_factor),
 				// stashes
 				(11, self.balance_factor * 1000),
 				(21, self.balance_factor * 2000),
@@ -466,6 +460,9 @@ impl ExtBuilder {
 				(100, self.balance_factor * 2000),
 				(101, self.balance_factor * 2000),
 				// aux accounts
+				(10, self.balance_factor),
+				(30, self.balance_factor),
+				(50, self.balance_factor),
 				(60, self.balance_factor),
 				(61, self.balance_factor * 2000),
 				(70, self.balance_factor),
