@@ -1947,7 +1947,6 @@ fn wrong_vote_is_moot() {
 	ExtBuilder::default()
 		.add_staker(
 			61,
-			61,
 			500,
 			StakerStatus::Nominator(vec![
 				11, 21, // good votes
@@ -5044,9 +5043,9 @@ mod election_data_provider {
 	fn set_minimum_active_stake_is_correct() {
 		ExtBuilder::default()
 			.nominate(false)
-			.add_staker(61, 61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21]))
-			.add_staker(71, 71, 10, StakerStatus::<AccountId>::Nominator(vec![21]))
-			.add_staker(81, 81, 50, StakerStatus::<AccountId>::Nominator(vec![21]))
+			.add_staker(61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21]))
+			.add_staker(71, 10, StakerStatus::<AccountId>::Nominator(vec![21]))
+			.add_staker(81, 50, StakerStatus::<AccountId>::Nominator(vec![21]))
 			.build_and_execute(|| {
 				// default bounds are unbounded.
 				assert_ok!(<Staking as ElectionDataProvider>::electing_voters(
@@ -5111,7 +5110,7 @@ mod election_data_provider {
 		ExtBuilder::default()
 			.has_stakers(true)
 			.nominate(true)
-			.add_staker(61, 61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21]))
+			.add_staker(61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21]))
 			.build_and_execute(|| {
 				assert_eq!(Staking::weight_of(&101), 500);
 				let voters = <Staking as ElectionDataProvider>::electing_voters(
@@ -5170,24 +5169,9 @@ mod election_data_provider {
 			.nominate(false)
 			// the best way to invalidate a bunch of nominators is to have them nominate a lot of
 			// ppl, but then lower the MaxNomination limit.
-			.add_staker(
-				61,
-				61,
-				2_000,
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
-			)
-			.add_staker(
-				71,
-				71,
-				2_000,
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
-			)
-			.add_staker(
-				81,
-				81,
-				2_000,
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
-			)
+			.add_staker(61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]))
+			.add_staker(71, 2_000, StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]))
+			.add_staker(81, 2_000, StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]))
 			.build_and_execute(|| {
 				let bounds_builder = ElectionBoundsBuilder::default();
 				// all voters ordered by stake,
@@ -5335,7 +5319,6 @@ mod election_data_provider {
 			.nominate(false)
 			.add_staker(
 				61,
-				60,
 				300, // 300 bond has 16 nomination quota.
 				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
 			)
@@ -5364,7 +5347,6 @@ mod election_data_provider {
 			.nominate(false)
 			.add_staker(
 				71,
-				70,
 				333,
 				StakerStatus::<AccountId>::Nominator(vec![16, 15, 14, 13, 12, 11, 10]),
 			)
@@ -5842,8 +5824,8 @@ fn min_commission_works() {
 fn change_of_absolute_max_nominations() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
-		.add_staker(61, 61, 10, StakerStatus::Nominator(vec![1]))
-		.add_staker(71, 71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
+		.add_staker(61, 10, StakerStatus::Nominator(vec![1]))
+		.add_staker(71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// pre-condition
@@ -5940,10 +5922,10 @@ fn change_of_absolute_max_nominations() {
 fn nomination_quota_max_changes_decoding() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
-		.add_staker(60, 61, 10, StakerStatus::Nominator(vec![1]))
-		.add_staker(70, 71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
-		.add_staker(30, 330, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
-		.add_staker(50, 550, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
+		.add_staker(60, 10, StakerStatus::Nominator(vec![1]))
+		.add_staker(70, 10, StakerStatus::Nominator(vec![1, 2, 3]))
+		.add_staker(30, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
+		.add_staker(50, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// pre-condition.
