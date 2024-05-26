@@ -167,7 +167,6 @@ pub mod validators {
 
 	pub fn initial_authorities() -> Vec<(
 		AccountId,
-		AccountId,
 		BabeId,
 		GrandpaId,
 		ValidatorId,
