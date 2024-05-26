@@ -63,6 +63,10 @@ use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
 use sp_consensus::SyncOracle;
 use sp_consensus_slots::Slot;
+use std::time::Instant;
+
+// The maximum time we keep track of assignments gathering times times.
+const MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS: u32 = 100;
 
 use futures::{
 	channel::oneshot,
@@ -182,6 +186,8 @@ struct MetricsInner {
 	time_recover_and_approve: prometheus::Histogram,
 	candidate_signatures_requests_total: prometheus::Counter<prometheus::U64>,
 	unapproved_candidates_in_unfinalized_chain: prometheus::Gauge<prometheus::U64>,
+	// The time it takes in each stage to gather enough assignments.
+	assignments_gathering_time_by_stage: prometheus::HistogramVec,
 }
 
 /// Approval Voting metrics.
@@ -300,6 +306,16 @@ impl Metrics {
 	fn on_unapproved_candidates_in_unfinalized_chain(&self, count: usize) {
 		if let Some(metrics) = &self.0 {
 			metrics.unapproved_candidates_in_unfinalized_chain.set(count as u64);
+		}
+	}
+
+	pub fn observe_assignment_gathering_time(&self, stage: usize, elapsed_as_millis: usize) {
+		if let Some(metrics) = &self.0 {
+			let stage_string = stage.to_string();
+			metrics
+				.assignments_gathering_time_by_stage
+				.with_label_values(&[if stage < 10 { stage_string.as_str() } else { "inf" }])
+				.observe(elapsed_as_millis as f64);
 		}
 	}
 }
@@ -428,6 +444,17 @@ impl metrics::Metrics for Metrics {
 				prometheus::Gauge::new(
 					"polkadot_parachain_approval_unapproved_candidates_in_unfinalized_chain",
 					"Number of unapproved candidates in unfinalized chain",
+				)?,
+				registry,
+			)?,
+			assignments_gathering_time_by_stage: prometheus::register(
+				prometheus::HistogramVec::new(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_assignments_gather_time_by_stage",
+						"The time it takes for each stage to gather enough assignments needed for approval",
+					)
+					.buckets(vec![0.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0, 32000.0]),
+					&["stage"],
 				)?,
 				registry,
 			)?,
@@ -788,6 +815,28 @@ struct State {
 	clock: Box<dyn Clock + Send + Sync>,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
 	spans: HashMap<Hash, jaeger::PerLeafSpan>,
+	// Per block, candidate records about how long we take until we gather enough
+	// assignments, this is relevant because it gives us a good idea about how many
+	// tranches we trigger and why.
+	time_started_gathering_assignments:
+		HashMap<BlockNumber, HashMap<(Hash, CandidateHash), AssignmentGatheringRecord>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AssignmentGatheringRecord {
+	// The stage we are in.
+	// Candidate assignment gathering goes in stages, first we wait for needed_approvals(stage 0)
+	// Then if we have no-shows, we move into stage 1 and wait for enough tranches to cover all
+	// no-shows.
+	stage: usize,
+	// The time we started the stage.
+	stage_start: Option<Instant>,
+}
+
+impl Default for AssignmentGatheringRecord {
+	fn default() -> Self {
+		AssignmentGatheringRecord { stage: 0, stage_start: Some(Instant::now()) }
+	}
 }
 
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
@@ -893,6 +942,86 @@ impl State {
 			},
 		}
 	}
+
+	fn mark_begining_of_gathering_assignments(
+		&mut self,
+		block_number: BlockNumber,
+		block_hash: Hash,
+		candidate: CandidateHash,
+	) {
+		let record = self
+			.time_started_gathering_assignments
+			.entry(block_number)
+			.or_default()
+			.entry((block_hash, candidate))
+			.or_default();
+
+		if record.stage_start.is_none() {
+			record.stage += 1;
+			record.stage_start = Some(Instant::now());
+		}
+
+		// Make sure we always cleanup if we have too many records.
+		if self.time_started_gathering_assignments.len() >
+			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize &&
+			block_number >= MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS
+		{
+			self.cleanup_assignments_gathering_timestamp(
+				block_number - MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+			)
+		}
+	}
+
+	fn mark_gathered_enough_assignments(
+		&mut self,
+		block_number: BlockNumber,
+		block_hash: Hash,
+		candidate: CandidateHash,
+	) -> AssignmentGatheringRecord {
+		let record = self
+			.time_started_gathering_assignments
+			.get_mut(&block_number)
+			.and_then(|entry| entry.get_mut(&(block_hash, candidate)));
+		let stage = record.as_ref().map(|record| record.stage).unwrap_or_default();
+		AssignmentGatheringRecord {
+			stage,
+			stage_start: record.and_then(|record| record.stage_start.take()),
+		}
+	}
+
+	fn cleanup_assignments_gathering_timestamp(&mut self, keep_greater_than: BlockNumber) {
+		self.time_started_gathering_assignments
+			.retain(|block_number, _| *block_number > keep_greater_than)
+	}
+
+	fn observe_assignment_gathering_status(
+		&mut self,
+		metrics: &Metrics,
+		required_tranches: &RequiredTranches,
+		block_hash: Hash,
+		block_number: BlockNumber,
+		candidate_hash: CandidateHash,
+	) {
+		match required_tranches {
+			RequiredTranches::All | RequiredTranches::Pending { .. } => {
+				self.mark_begining_of_gathering_assignments(
+					block_number,
+					block_hash,
+					candidate_hash,
+				);
+			},
+			RequiredTranches::Exact { .. } => {
+				let time_to_gather =
+					self.mark_gathered_enough_assignments(block_number, block_hash, candidate_hash);
+				if let Some(gathering_started) = time_to_gather.stage_start {
+					metrics.observe_assignment_gathering_time(
+						time_to_gather.stage,
+						gathering_started.elapsed().as_millis() as usize,
+					)
+				}
+			},
+		}
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -941,6 +1070,7 @@ where
 		clock: subsystem.clock,
 		assignment_criteria,
 		spans: HashMap::new(),
+		time_started_gathering_assignments: Default::default(),
 	};
 
 	// `None` on start-up. Gets initialized/updated on leaf update
@@ -972,7 +1102,7 @@ where
 				subsystem.metrics.on_wakeup();
 				process_wakeup(
 					&mut ctx,
-					&state,
+					&mut state,
 					&mut overlayed_db,
 					&mut session_info_provider,
 					woken_block,
@@ -1628,6 +1758,7 @@ async fn handle_from_overseer<Context>(
 			// `prune_finalized_wakeups` prunes all finalized block hashes. We prune spans
 			// accordingly.
 			wakeups.prune_finalized_wakeups(block_number, &mut state.spans);
+			state.cleanup_assignments_gathering_timestamp(block_number);
 
 			// // `prune_finalized_wakeups` prunes all finalized block hashes. We prune spans
 			// accordingly. let hash_set =
@@ -2474,7 +2605,7 @@ where
 
 async fn check_and_import_approval<T, Sender>(
 	sender: &mut Sender,
-	state: &State,
+	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	metrics: &Metrics,
@@ -2706,7 +2837,7 @@ impl ApprovalStateTransition {
 // as necessary and schedules any further wakeups.
 async fn advance_approval_state<Sender>(
 	sender: &mut Sender,
-	state: &State,
+	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	metrics: &Metrics,
@@ -2756,6 +2887,13 @@ where
 			&candidate_entry,
 			approval_entry,
 			status.required_tranches.clone(),
+		);
+		state.observe_assignment_gathering_status(
+			&metrics,
+			&status.required_tranches,
+			block_hash,
+			block_entry.block_number(),
+			candidate_hash,
 		);
 
 		// Check whether this is approved, while allowing a maximum
@@ -2937,7 +3075,7 @@ fn should_trigger_assignment(
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
 async fn process_wakeup<Context>(
 	ctx: &mut Context,
-	state: &State,
+	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	relay_block: Hash,
