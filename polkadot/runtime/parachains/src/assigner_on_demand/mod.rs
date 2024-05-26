@@ -625,6 +625,18 @@ where
 		let now = <frame_system::Pallet<T>>::block_number();
 		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
 		Revenue::<T>::mutate(|revenue| {
+			//
+			// TODO: Proposed implementation, decide which is better
+			//
+			// while !revenue.is_empty() {
+			// 	let index = (revenue.len() - 1) as u32;
+			// 	if when > now.saturating_sub(index.into()) {
+			// 		amount = amount.saturating_add(revenue.pop().expect("Checked to contain at least one element; qed"));
+			// 	} else {
+			// 		break
+			// 	}
+			// }
+
 			revenue.into_iter().enumerate().for_each(|(index, block_revenue)| {
 				if when > now.saturating_sub((index as u32).into()) {
 					amount = amount.saturating_add(*block_revenue);
