@@ -719,7 +719,7 @@ pub(crate) fn reward_all_elected() {
 	<Pallet<Test>>::reward_by_ids(rewards)
 }
 
-pub(crate) fn validator_controllers() -> Vec<AccountId> {
+pub(crate) fn validator_stashes() -> Vec<AccountId> {
 	Session::validators()
 		.into_iter()
 		.map(|s| Staking::bonded(&s).expect("no controller for validator"))
