@@ -65,7 +65,6 @@ pub fn genesis() -> Storage {
 				.map(|x| {
 					(
 						x.0.clone(),
-						x.0.clone(),
 						session_keys(
 							x.2.clone(),
 							x.3.clone(),
@@ -84,7 +83,7 @@ pub fn genesis() -> Storage {
 			stakers: validators::initial_authorities()
 				.iter()
 				.map(|x| {
-					(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::Validator)
+					(x.0.clone(), STASH, westend_runtime::StakerStatus::Validator)
 				})
 				.collect(),
 			invulnerables: validators::initial_authorities().iter().map(|x| x.0.clone()).collect(),
