@@ -171,7 +171,6 @@ pub mod validators {
 		let seed = "Alice";
 		vec![(
 			get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
-			get_account_id_from_seed::<sr25519::Public>(seed),
 			get_from_seed::<BabeId>(seed),
 			get_from_seed::<GrandpaId>(seed),
 			get_from_seed::<ValidatorId>(seed),
