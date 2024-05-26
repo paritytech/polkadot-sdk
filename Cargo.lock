@@ -11236,7 +11236,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "29.0.0"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
