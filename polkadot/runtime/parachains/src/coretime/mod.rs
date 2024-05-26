@@ -293,7 +293,7 @@ impl<T: Config> Pallet<T> {
 						weight_limit: WeightLimit::Unlimited,
 						check_origin: None,
 					},
-					mk_coretime_call(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
+					mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
 				]);
 				if let Err(err) = send_xcm::<T::SendXcm>(
 					Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
