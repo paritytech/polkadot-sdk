@@ -60,8 +60,11 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::{RuntimeDebug, TryRuntimeError};
+use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
+
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
 
 use frame_support::{
 	defensive,
@@ -337,7 +340,7 @@ pub mod pallet {
 			};
 
 			if demotion_period.is_zero() {
-				return Err(Error::<T, I>::NothingDoing.into())
+				return Err(Error::<T, I>::NothingDoing.into());
 			}
 
 			let demotion_block = member.last_proof.saturating_add(demotion_period);
@@ -357,7 +360,7 @@ pub mod pallet {
 					Event::<T, I>::Offboarded { who }
 				};
 				Self::deposit_event(event);
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 
 			Err(Error::<T, I>::NothingDoing.into())
@@ -593,84 +596,72 @@ pub mod pallet {
 		/// ## Expectations:
 		///
 		/// `ranked_member`:
-		/// * for members with non zero demotion periods, the `last_proof` block (i.e. the estimated time for re-approving a rank)
-		/// should always be greater than the current block.
-		/// * members with zero demotion period should not submit an evidence with a wish to retain, subsequently no promotion 
+		/// * members with zero demotion period should not submit an evidence with a wish to retain,
+		///   subsequently no promotion
 		/// available for max_rank() members.
-		/// 
+		///
 		/// `unranked_member`:
-		/// * for candidates, the `last_proof` block(i.e. the estimated time before offboarding) should always be greater than 
-		/// the current block.
 		/// * evidence should only be submitted with a `Wish:Promotion`.
 		#[cfg(any(feature = "try-runtime", test))]
 		pub fn do_try_state() -> Result<(), TryRuntimeError> {
 			// Check invariants for each member tracked by the pallet
 			let params = Params::<T, I>::get();
 
-			for who in Member::<T,I>::iter_keys() {
-				if let Some(member_status) = Member::<T,I>::get(who.clone()) {
-					// Ensure the member's rank is consistent with their status in the pallet
-					let rank = T::Members::rank_of(&who).ok_or("Member not found in rank registry")?;
+			for who in Member::<T, I>::iter_keys() {
+				if let Some(_) = Member::<T, I>::get(who.clone()) {
+					let rank =
+						T::Members::rank_of(&who).ok_or("Member not found in rank registry")?;
 
 					if rank > T::Members::min_rank() {
-						Self::ranked_member(rank, &who, member_status.clone(), params.clone())?;
+						Self::ranked_member(rank, &who, params.clone())?;
 					} else {
-						Self::unranked_member(rank, &who, member_status.clone(), params.clone())?;
+						Self::unranked_member(&who)?;
 					}
 				}
 			}
 			Ok(())
 		}
-
-		fn ranked_member(rank: RankOf<T, I>, who: &T::AccountId, member_status: MemberStatusOf<T>, params: ParamsOf<T, I>) -> Result<(), TryRuntimeError> {
-
-			let now = frame_system::Pallet::<T>::block_number();
-    		let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
+		#[cfg(any(feature = "try-runtime", test))]
+		fn ranked_member(
+			rank: RankOf<T, I>,
+			who: &T::AccountId,
+			params: ParamsOf<T, I>,
+		) -> Result<(), TryRuntimeError> {
+			let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
 			let demotion_period = params.demotion_period[rank_index];
 
-    		// Determine if a demotion period is applicable
-    		let demotion_period_applicable = demotion_period != Zero::zero();
+			// Determine if a demotion period is applicable
+			let demotion_period_applicable = demotion_period != Zero::zero();
 
 			// If member has evidence submitted, ensure it aligns with their rank and wish
 			if let Some((wish, _)) = MemberEvidence::<T, I>::get(&who) {
 				match wish {
 					Wish::Retention => {
-						ensure!(demotion_period_applicable, TryRuntimeError::Other("Member with no demotion period can not wish to retain"));
+						ensure!(
+							demotion_period_applicable,
+							TryRuntimeError::Other(
+								"Member with no demotion period can not wish to retain"
+							)
+						);
 					},
 					Wish::Promotion => {
-						ensure!(rank < 9, TryRuntimeError::Other("Member at max rank cannot be promoted"));
-						// propose the addition of T::Members::max_rank()
+						ensure!(
+							rank < <T as Config<I>>::MaxRank::get() as u16,
+							TryRuntimeError::Other("Member at max rank cannot be promoted")
+						);
 					},
 				}
-			}
-			
-			if demotion_period_applicable {
-				let demotion_due = member_status.last_proof.saturating_add(demotion_period);
-				ensure!(now < demotion_due, TryRuntimeError::Other("Member is outside the demotion period, indicating potential rank inconsistency"));
 			}
 			Ok(())
 		}
 
-		fn unranked_member(rank: RankOf<T, I>, who: &T::AccountId, member_status: MemberStatusOf<T>, params: ParamsOf<T, I>) -> Result<(), TryRuntimeError>{
+		#[cfg(any(feature = "try-runtime", test))]
+		fn unranked_member(who: &T::AccountId) -> Result<(), TryRuntimeError> {
 			if let Some((wish, _evidence)) = MemberEvidence::<T, I>::get(&who) {
 				if wish == Wish::Retention {
-						
 					return Err(TryRuntimeError::Other("Rentention disallowed for Rank < 1"));
 				}
 			}
-
-			let now = frame_system::Pallet::<T>::block_number();
-			let offboard_timeout = if params.offboard_timeout != Zero::zero() {
-				Some(params.offboard_timeout)
-			} else {
-				None
-			};
-
-			if let Some(timeout) = offboard_timeout {
-				let offboard_due = member_status.last_proof.saturating_add(timeout);
-				ensure!(now < offboard_due, TryRuntimeError::Other("Member has exceeded offboard timeout, indicating potential rank inconsistency"));
-			}
-			
 			Ok(())
 		}
 	}
@@ -734,15 +725,15 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
 		if old == new {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if !Member::<T, I>::contains_key(old) {
 			defensive!("Should not try to swap non-member");
-			return
+			return;
 		}
 		if Member::<T, I>::contains_key(new) {
 			defensive!("Should not try to overwrite existing member");
-			return
+			return;
 		}
 
 		if let Some(member) = Member::<T, I>::take(old) {

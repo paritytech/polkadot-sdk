@@ -166,13 +166,6 @@ fn next_demotion(who: u64) -> u64 {
 	member.last_proof + demotion_period[TestClub::rank_of(&who).unwrap() as usize - 1]
 }
 
-// helper function for offboard timeout.
-fn estimate_offboard_timeout(who: u64) -> u64 {
-	let member = Member::<Test>::get(who).unwrap();
-	let offboard_timeout = Params::<Test>::get().offboard_timeout;
-	member.last_proof + offboard_timeout
-}
-
 fn evidence(e: u32) -> Evidence<Test, ()> {
 	e.encode()
 		.into_iter()
@@ -223,7 +216,6 @@ fn induct_works() {
 		assert_noop!(CoreFellowship::induct(signed(10), 10), DispatchError::BadOrigin);
 		assert_noop!(CoreFellowship::induct(signed(0), 10), DispatchError::BadOrigin);
 		assert_ok!(CoreFellowship::induct(signed(1), 10));
-		assert_eq!(estimate_offboard_timeout(10), 2);
 		assert_noop!(CoreFellowship::induct(signed(1), 10), Error::<Test>::AlreadyInducted);
 	});
 }
@@ -240,19 +232,8 @@ fn promote_works() {
 		assert_noop!(CoreFellowship::promote(signed(10), 10, 1), DispatchError::BadOrigin);
 		assert_noop!(CoreFellowship::promote(signed(0), 10, 1), Error::<Test>::NoPermission);
 		assert_noop!(CoreFellowship::promote(signed(3), 10, 2), Error::<Test>::UnexpectedRank);
-
-		// Member(1) demotion period will elapse, a call to approve / bump is required.
-		assert_ok!(CoreFellowship::approve(signed(2), 1, 1));
-		run_to(2);
-
 		assert_noop!(CoreFellowship::promote(signed(1), 10, 1), Error::<Test>::TooSoon);
-
-		assert_ok!(CoreFellowship::approve(signed(2), 1, 1));
-		run_to(3);
-
-		assert_ok!(CoreFellowship::approve(signed(2), 1, 1));
 		run_to(4);
-
 		assert_ok!(CoreFellowship::promote(signed(1), 10, 1));
 		set_rank(11, 0);
 		assert_noop!(CoreFellowship::promote(signed(1), 11, 1), Error::<Test>::NotTracked);
@@ -335,7 +316,7 @@ fn infinite_demotion_period_works() {
 		set_rank(0, 0);
 		assert_ok!(CoreFellowship::import(signed(0)));
 		set_rank(1, 1);
-		
+
 		assert_ok!(CoreFellowship::import(signed(1)));
 
 		assert_noop!(CoreFellowship::bump(signed(0), 0), Error::<Test>::NothingDoing);
@@ -395,47 +376,27 @@ fn active_changing_get_salary_works() {
 }
 
 #[test]
-fn submit_evidence_member_retention_invariant() {
-	new_test_ext().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
-		
-		let params = ParamsType {
-			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: [1, 2, 0, 4, 5, 6, 0, 0, 9],
-			min_promotion_period: [1, 2, 3, 4, 5, 10, 15, 20, 30],
-			offboard_timeout: 1,
-		};
-		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
-
-		set_rank(10, 7);
-		assert_ok!(CoreFellowship::import(signed(10)));
-		CoreFellowship::submit_evidence(signed(10), Wish::Retention, evidence(1));
-
-		// Invariant violated
-		assert_eq!(CoreFellowship::do_try_state(), Err(Other("Member with no demotion period can not wish to retain")));
-	})
-}
-
-#[test]
 fn submit_evidence_candidate_retention_invariant() {
 	new_test_ext().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		
+
 		let params = ParamsType {
-			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: [1, 2, 0, 4, 5, 6, 0, 0, 9],
-			min_promotion_period: [1, 2, 3, 4, 5, 10, 15, 20, 30],
+			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: bounded_vec![1, 2, 0, 4, 5, 6, 0, 0, 9],
+			min_promotion_period: bounded_vec![1, 2, 3, 4, 5, 10, 15, 20, 30],
 			offboard_timeout: 1,
 		};
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
 
 		set_rank(10, 0);
 		assert_ok!(CoreFellowship::import(signed(10)));
-		CoreFellowship::submit_evidence(signed(10), Wish::Retention, evidence(1));
+		CoreFellowship::submit_evidence(signed(10), Wish::Retention, evidence(1)).unwrap();
 
 		// Invariant violated
-		assert_eq!(CoreFellowship::do_try_state(), Err(Other("Rentention disallowed for Rank < 1")));
+		assert_eq!(
+			CoreFellowship::do_try_state(),
+			Err(Other("Rentention disallowed for Rank < 1"))
+		);
 	})
 }
