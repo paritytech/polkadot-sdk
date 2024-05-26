@@ -449,7 +449,7 @@ benchmarks! {
 		let stash = create_stash::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Staked));
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash.clone()), RewardDestination::Account(101u32.into()))
+	}: _(RawOrigin::Signed(stash.clone()), RewardDestination::Account(101u64))
 	verify {
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(stash)));
 	}
