@@ -33,6 +33,15 @@ use sp_std::prelude::*;
 pub mod migrations;
 pub mod weights;
 
+#[cfg(any(feature = "mock", test))]
+pub mod mock;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
+#[cfg(test)]
+mod tests;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 

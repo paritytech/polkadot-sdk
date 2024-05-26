@@ -56,7 +56,7 @@ benchmarks_instance_pallet! {
         ));
     } verify {
         assert!(<Members<T, I>>::get().contains(&new_member));
-        #[cfg(test)] crate::tests::clean();
+        #[cfg(test)] crate::mock::clean();
     }
 
     // the case of no prime or the prime being removed is surely cheaper than the case of
@@ -78,7 +78,7 @@ benchmarks_instance_pallet! {
         assert!(!<Members<T, I>>::get().contains(&to_remove));
         // prime is rejigged
         assert!(<Prime<T, I>>::get().is_some() && T::MembershipChanged::get_prime().is_some());
-        #[cfg(test)] crate::tests::clean();
+        #[cfg(test)] crate::mock::clean();
     }
 
     // we remove a non-prime to make sure it needs to be set again.
@@ -102,7 +102,7 @@ benchmarks_instance_pallet! {
         assert!(<Members<T, I>>::get().contains(&add));
         // prime is rejigged
         assert!(<Prime<T, I>>::get().is_some() && T::MembershipChanged::get_prime().is_some());
-        #[cfg(test)] crate::tests::clean();
+        #[cfg(test)] crate::mock::clean();
     }
 
     // er keep the prime common between incoming and outgoing to make sure it is rejigged.
@@ -122,7 +122,7 @@ benchmarks_instance_pallet! {
         assert_eq!(<Members<T, I>>::get(), new_members);
         // prime is rejigged
         assert!(<Prime<T, I>>::get().is_some() && T::MembershipChanged::get_prime().is_some());
-        #[cfg(test)] crate::tests::clean();
+        #[cfg(test)] crate::mock::clean();
     }
 
     change_key {
@@ -143,7 +143,7 @@ benchmarks_instance_pallet! {
         assert!(<Members<T, I>>::get().contains(&add));
         // prime is rejigged
         assert_eq!(<Prime<T, I>>::get().unwrap(), add);
-        #[cfg(test)] crate::tests::clean();
+        #[cfg(test)] crate::mock::clean();
     }
 
     set_prime {
@@ -160,7 +160,7 @@ benchmarks_instance_pallet! {
     } verify {
         assert!(<Prime<T, I>>::get().is_some());
         assert!(<T::MembershipChanged>::get_prime().is_some());
-        #[cfg(test)] crate::tests::clean();
+        #[cfg(test)] crate::mock::clean();
     }
 
     clear_prime {
@@ -174,8 +174,8 @@ benchmarks_instance_pallet! {
     } verify {
         assert!(<Prime<T, I>>::get().is_none());
         assert!(<T::MembershipChanged>::get_prime().is_none());
-        #[cfg(test)] crate::tests::clean();
+        #[cfg(test)] crate::mock::clean();
     }
 
-    impl_benchmark_test_suite!(Membership, crate::tests::new_bench_ext(), crate::tests::Test);
+    impl_benchmark_test_suite!(Membership, crate::mock::new_bench_ext(), crate::mock::Test);
 }
