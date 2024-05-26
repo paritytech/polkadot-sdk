@@ -281,6 +281,7 @@ pub fn authority_keys_from_seed(
 fn configure_accounts(
 	initial_authorities: Vec<(
 		AccountId,
+		AccountId,
 		GrandpaId,
 		BabeId,
 		ImOnlineId,
@@ -292,7 +293,16 @@ fn configure_accounts(
 	endowed_accounts: Option<Vec<AccountId>>,
 	stash: Balance,
 ) -> (
-	Vec<(AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId, BeefyId)>,
+	Vec<(
+		AccountId,
+		AccountId,
+		GrandpaId,
+		BabeId,
+		ImOnlineId,
+		AuthorityDiscoveryId,
+		MixnetId,
+		BeefyId,
+	)>,
 	Vec<AccountId>,
 	usize,
 	Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
@@ -339,7 +349,7 @@ fn configure_accounts(
 				.into_iter()
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
-			(x.clone(), x.clone(), stash, StakerStatus::Nominator(nominations))
+			(x.clone(), stash, StakerStatus::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
 
@@ -351,6 +361,7 @@ fn configure_accounts(
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
 pub fn testnet_genesis(
 	initial_authorities: Vec<(
+		AccountId,
 		AccountId,
 		GrandpaId,
 		BabeId,
@@ -375,6 +386,7 @@ pub fn testnet_genesis(
 				.iter()
 				.map(|x| {
 					(
+						x.0.clone(),
 						x.0.clone(),
 						session_keys(
 							x.2.clone(),
