@@ -43,7 +43,7 @@ const LOG_TARGET: &str = "runtime::parachains::coretime";
 
 pub trait WeightInfo {
 	fn request_core_count() -> Weight;
-	fn request_revenue_info_at() -> Weight;
+	fn request_revenue_at() -> Weight;
 	//fn credit_account() -> Weight;
 	fn assign_core(s: u32) -> Weight;
 }
@@ -55,7 +55,7 @@ impl WeightInfo for TestWeightInfo {
 	fn request_core_count() -> Weight {
 		Weight::MAX
 	}
-	fn request_revenue_info_at() -> Weight {
+	fn request_revenue_at() -> Weight {
 		Weight::MAX
 	}
 	// TODO: Add real benchmarking functionality for each of these to
@@ -176,9 +176,9 @@ pub mod pallet {
 		/// In the case that the request cannot be serviced because when is too old a block
 		/// then a `notify_revenue`` message must still be returned, but its `revenue` field
 		/// may be `None``.
-		#[pallet::weight(<T as Config>::WeightInfo::request_revenue_info_at())]
+		#[pallet::weight(<T as Config>::WeightInfo::request_revenue_at())]
 		#[pallet::call_index(2)]
-		pub fn request_revenue_info_at(origin: OriginFor<T>, when: BlockNumber) -> DispatchResult {
+		pub fn request_revenue_at(origin: OriginFor<T>, when: BlockNumber) -> DispatchResult {
 			// Ignore requests not coming from the broker parachain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 			Self::notify_revenue(when)
