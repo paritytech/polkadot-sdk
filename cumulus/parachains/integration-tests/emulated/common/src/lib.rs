@@ -165,12 +165,20 @@ pub mod collators {
 pub mod validators {
 	use super::*;
 
-	pub fn initial_authorities(
-	) -> Vec<(AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId, BeefyId)>
-	{
+	pub fn initial_authorities() -> Vec<(
+		AccountId,
+		AccountId,
+		BabeId,
+		GrandpaId,
+		ValidatorId,
+		AssignmentId,
+		AuthorityDiscoveryId,
+		BeefyId,
+	)> {
 		let seed = "Alice";
 		vec![(
 			get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+			get_account_id_from_seed::<sr25519::Public>(seed),
 			get_from_seed::<BabeId>(seed),
 			get_from_seed::<GrandpaId>(seed),
 			get_from_seed::<ValidatorId>(seed),
