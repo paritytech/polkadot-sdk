@@ -681,9 +681,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -720,7 +717,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			identify::{Config <span class="kw">as </span>IdentifyConfig, IdentifyEvent},
 			kademlia::{
 				Config <span class="kw">as </span>KademliaConfig, ConfigBuilder <span class="kw">as </span>KademliaConfigBuilder, KademliaEvent,
-				KademliaHandle, QueryId, Quorum, Record, RecordKey,
+				KademliaHandle, QueryId, Quorum, Record, RecordKey, RecordsType,
 			},
 			ping::{Config <span class="kw">as </span>PingConfig, PingEvent},
 		},
@@ -809,8 +806,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Query ID.
 		</span>query_id: QueryId,
 
-		<span class="doccomment">/// Record.
-		</span>record: Record,
+		<span class="doccomment">/// Records.
+		</span>records: RecordsType,
 	},
 
 	<span class="doccomment">/// Record was successfully stored on the DHT.
@@ -1146,16 +1143,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					peers: peers.into_iter().collect(),
 				}))
 			},
-			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::GetRecordSuccess { query_id, record })) =&gt; {
+			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::GetRecordSuccess { query_id, records })) =&gt; {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">"`GET_RECORD` succeeded for {query_id:?}: {record:?}"</span>,
+					<span class="string">"`GET_RECORD` succeeded for {query_id:?}: {records:?}"</span>,
 				);
 
-				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordSuccess {
-					query_id,
-					record: record.record,
-				}));
+				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordSuccess { query_id, records }));
 			},
 			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::PutRecordSucess { query_id, key: <span class="kw">_ </span>})) =&gt;
 				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::PutRecordSuccess { query_id })),
