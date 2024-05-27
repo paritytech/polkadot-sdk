@@ -123,7 +123,7 @@ macro_rules! impl_runtime_weights {
 		use frame_support::{dispatch::DispatchClass, weights::Weight};
 		use frame_system::limits;
 		use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
-		pub use runtime_common::{
+		pub use polkadot_runtime_common::{
 			impl_elections_weights, AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT,
 			NORMAL_DISPATCH_RATIO,
 		};
