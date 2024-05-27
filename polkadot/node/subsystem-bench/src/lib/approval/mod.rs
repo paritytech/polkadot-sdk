@@ -30,7 +30,7 @@ use crate::{
 	mock::{
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::MockRuntimeApi,
+		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains, TestSyncOracle,
 	},
 	network::{
@@ -465,8 +465,9 @@ impl ApprovalTestState {
 	}
 }
 
+#[async_trait::async_trait]
 impl HandleNetworkMessage for ApprovalTestState {
-	fn handle(
+	async fn handle(
 		&self,
 		_message: crate::network::NetworkMessage,
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<crate::network::NetworkMessage>,
@@ -807,6 +808,7 @@ fn build_overseer(
 		state.candidate_events_by_block(),
 		Some(state.babe_epoch.clone()),
 		1,
+		MockRuntimeApiCoreState::Occupied,
 	);
 	let mock_tx_bridge = MockNetworkBridgeTx::new(
 		network.clone(),
@@ -915,7 +917,9 @@ pub async fn bench_approvals_run(
 
 	// First create the initialization messages that make sure that then node under
 	// tests receives notifications about the topology used and the connected peers.
-	let mut initialization_messages = env.network().generate_peer_connected();
+	let mut initialization_messages = env.network().generate_peer_connected(|e| {
+		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(e))
+	});
 	initialization_messages.extend(generate_new_session_topology(
 		&state.test_authorities,
 		ValidatorIndex(NODE_UNDER_TEST),
