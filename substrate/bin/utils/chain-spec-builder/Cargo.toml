@@ -28,3 +28,7 @@ log = { workspace = true, default-features = true }
 sc-chain-spec = { path = "../../../client/chain-spec" }
 serde_json = { workspace = true, default-features = true }
 sp-tracing = { path = "../../../primitives/tracing" }
+serde = { features = ["derive"], workspace = true, default-features = true }
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-core = { path = "../../../primitives/core" }
+sc-service = { path = "../../../client/service", default-features = false }

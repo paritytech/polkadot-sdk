@@ -120,7 +120,10 @@
 use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
-use sc_chain_spec::{GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
+use sc_chain_spec::{
+	ChainSpecExtension, ChainSpecGroup, GenericChainSpec, GenesisConfigBuilderRuntimeCaller,
+};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// A utility to easily create a chain spec definition.
@@ -143,6 +146,7 @@ pub enum ChainSpecBuilderCmd {
 	ConvertToRaw(ConvertToRawCmd),
 	ListPresets(ListPresetsCmd),
 	DisplayPreset(DisplayPresetCmd),
+	AddCodeSubstitute(AddCodeSubstituteCmd),
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
@@ -214,6 +218,20 @@ pub struct UpdateCodeCmd {
 	pub runtime_wasm_path: PathBuf,
 }
 
+/// Add a code substitute in the chain spec.
+///
+/// The `codeSubstitute` object of the chain spec will be updated with the block height as key and
+/// runtime code as value. This operation supports both plain and raw formats.
+#[derive(Parser, Debug, Clone)]
+pub struct AddCodeSubstituteCmd {
+	/// Chain spec to be updated.
+	pub input_chain_spec: PathBuf,
+	/// New runtime wasm blob that should replace the existing code.
+	pub runtime_wasm_path: PathBuf,
+	/// The block height at which the code should be substituted.
+	pub block_height: u64,
+}
+
 /// Converts the given chain spec into the raw format.
 #[derive(Parser, Debug, Clone)]
 pub struct ConvertToRawCmd {
@@ -240,6 +258,29 @@ pub struct DisplayPresetCmd {
 	pub preset_name: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+pub struct Extensions {
+	/// The relay chain of the Parachain.
+	#[serde(alias = "relayChain", alias = "RelayChain")]
+	pub relay_chain: String,
+	/// The id of the Parachain.
+	#[serde(alias = "paraId", alias = "ParaId")]
+	pub para_id: u32,
+}
+
+impl Extensions {
+	/// Try to get the extension from the given `ChainSpec`.
+	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
+		sc_chain_spec::get_extension(chain_spec.extensions())
+	}
+}
+
+impl sp_runtime::BuildStorage for Extensions {
+	/// Assimilate the storage for this module into pre-existing overlays.
+	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
+		unimplemented!();
+	}
+}
 /// Verifies the provided input chain spec.
 ///
 /// Silently checks if given input chain spec can be converted to raw. It allows to check if all
