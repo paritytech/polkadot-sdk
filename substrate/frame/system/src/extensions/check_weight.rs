@@ -140,10 +140,6 @@ pub fn check_combined_proof_size<Call>(
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	if matches!(info.class, DispatchClass::Mandatory) {
-		// Allow mandatory extrinsics
-		return Ok(());
-	}
 
 	// This extra check ensures that the extrinsic length does not push the
 	// PoV over the limit.
@@ -151,11 +147,16 @@ where
 	if total_pov_size > maximum_weight.max_block.proof_size() {
 		log::debug!(
 			target: LOG_TARGET,
-			"Extrinsic exceeds total pov size: {}kb, limit: {}kb",
+			"Extrinsic exceeds total pov size. Still including if mandatory. size: {}kb, limit: {}kb, is_mandatory: {}",
 			total_pov_size as f64/1024.0,
-			maximum_weight.max_block.proof_size() as f64/1024.0
+			maximum_weight.max_block.proof_size() as f64/1024.0,
+			info.class == DispatchClass::Mandatory
 		);
-		return Err(InvalidTransaction::ExhaustsResources.into());
+		return match info.class {
+			// Allow mandatory extrinsics
+			DispatchClass::Mandatory => Ok(()),
+			_ => Err(InvalidTransaction::ExhaustsResources.into())
+		};
 	}
 	Ok(())
 }
