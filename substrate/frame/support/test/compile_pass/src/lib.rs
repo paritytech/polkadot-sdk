@@ -84,6 +84,6 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Sign
 
 construct_runtime!(
 	pub enum Runtime {
-		System: renamed_frame_system,
+		System: frame_system,
 	}
 );
