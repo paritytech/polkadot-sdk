@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "4.0.0"
+version = "5.0.0"
 authors.workspace = true
 build = "build.rs"
 edition.workspace = true
