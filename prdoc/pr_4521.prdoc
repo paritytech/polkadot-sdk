@@ -1,4 +1,4 @@
-title: Broker pallet: AdaptPrice price controller is now price controlled.
+title: AdaptPrice trait is now price controlled
 
 doc:
   - audience: Runtime Dev
