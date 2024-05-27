@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716801389568,
+  "lastUpdate": 1716810460841,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -4934,6 +4934,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.2348093536701086,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2352982717edc8976b55525274b1f9c9aa01aadd",
+          "message": "Make markdown lint CI job pass (#4593)\n\nWas constantly failing, so here a fix.",
+          "timestamp": "2024-05-27T09:39:56Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2352982717edc8976b55525274b1f9c9aa01aadd"
+        },
+        "date": 1716810432720,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63546.76000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9301640552101595,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.0080454660000076,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.637758977209918,
             "unit": "seconds"
           }
         ]
