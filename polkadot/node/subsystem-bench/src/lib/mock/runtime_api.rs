@@ -250,8 +250,8 @@ impl MockRuntimeApi {
 							RuntimeApiRequest::AsyncBackingParams(sender),
 						) => {
 							let _ = sender.send(Ok(AsyncBackingParams {
-								max_candidate_depth: 3,
-								allowed_ancestry_len: 2,
+								max_candidate_depth: self.config.max_candidate_depth,
+								allowed_ancestry_len: self.config.allowed_ancestry_len,
 							}));
 						},
 						RuntimeApiMessage::Request(_parent, RuntimeApiRequest::Version(tx)) => {

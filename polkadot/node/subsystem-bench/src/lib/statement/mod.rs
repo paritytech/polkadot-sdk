@@ -265,7 +265,7 @@ pub async fn benchmark_statement_distribution(
 	}
 
 	let test_start = Instant::now();
-	let mut total_messages_count = 0;
+	let mut candidates_advertised = 0;
 	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
 		gum::info!(target: LOG_TARGET, "Current block {}/{} {:?}", block_num, config.num_blocks, block_info.hash);
@@ -303,9 +303,12 @@ pub async fn benchmark_statement_distribution(
 			)),
 		);
 		env.send_message(message).await;
+
+		let max_messages_per_candidate = state.config.max_candidate_depth + 1;
 		// One was just sent for the own backing group
-		let mut messages_tracker =
-			(0..groups.len()).map(|i| i == own_backing_group_index).collect_vec();
+		let mut messages_tracker = (0..groups.len())
+			.map(|i| if i == own_backing_group_index { max_messages_per_candidate } else { 0 })
+			.collect_vec();
 
 		let neighbors =
 			topology.compute_grid_neighbors_for(ValidatorIndex(NODE_UNDER_TEST)).unwrap();
@@ -379,10 +382,10 @@ pub async fn benchmark_statement_distribution(
 			.chain(two_hop_y_peers_and_groups)
 		{
 			let messages_sent_count = messages_tracker.get_mut(group_index).unwrap();
-			if *messages_sent_count {
+			if *messages_sent_count == max_messages_per_candidate {
 				continue
 			}
-			*messages_sent_count = true;
+			*messages_sent_count += 1;
 
 			let candidate_hash = state
 				.candidate_receipts
@@ -417,7 +420,7 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(message).await;
 		}
 
-		total_messages_count += messages_tracker.iter().filter(|&&v| v).collect_vec().len();
+		candidates_advertised += messages_tracker.iter().filter(|&&v| v > 0).collect_vec().len();
 
 		loop {
 			let manifests_count = state
@@ -426,9 +429,9 @@ pub async fn benchmark_statement_distribution(
 				.filter(|v| v.load(Ordering::SeqCst))
 				.collect::<Vec<_>>()
 				.len();
-			gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifests_count, total_messages_count);
+			gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifests_count, candidates_advertised);
 
-			if manifests_count == total_messages_count {
+			if manifests_count == candidates_advertised {
 				break;
 			}
 			tokio::time::sleep(Duration::from_millis(50)).await;

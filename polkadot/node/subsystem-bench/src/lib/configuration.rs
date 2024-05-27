@@ -93,6 +93,12 @@ fn default_no_show_slots() -> usize {
 fn default_minimum_backing_votes() -> u32 {
 	2
 }
+fn default_max_candidate_depth() -> u32 {
+	3
+}
+fn default_allowed_ancestry_len() -> u32 {
+	2
+}
 
 /// The test input parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -144,6 +150,12 @@ pub struct TestConfiguration {
 	/// Number of minimum backing votes
 	#[serde(default = "default_minimum_backing_votes")]
 	pub minimum_backing_votes: u32,
+	/// Async Backing max_candidate_depth
+	#[serde(default = "default_max_candidate_depth")]
+	pub max_candidate_depth: u32,
+	/// Async Backing allowed_ancestry_len
+	#[serde(default = "default_allowed_ancestry_len")]
+	pub allowed_ancestry_len: u32,
 }
 
 impl Default for TestConfiguration {
@@ -166,6 +178,8 @@ impl Default for TestConfiguration {
 			connectivity: default_connectivity(),
 			num_blocks: Default::default(),
 			minimum_backing_votes: default_minimum_backing_votes(),
+			max_candidate_depth: default_max_candidate_depth(),
+			allowed_ancestry_len: default_allowed_ancestry_len(),
 		}
 	}
 }
