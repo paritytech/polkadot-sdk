@@ -10,6 +10,7 @@ doc:
 			- Remove deprecated calls `propose_spend`, `reject_proposal`, `approve_proposal`.
 			- Replace the code flow of `propose_spend` then `approve_proposal` with `spend_local`
 			- Remove deprecated calls' related weight functions and test cases.
+      - Remove deprecated parameter types: ProposalBond, ProposalBondMaximum, ProposalBondMinimum
 
 crates:
   - name: pallet-treasury
