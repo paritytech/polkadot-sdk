@@ -322,6 +322,26 @@ pub trait GetStorageVersion {
 	fn on_chain_storage_version() -> StorageVersion;
 }
 
+pub trait StaticPartialEq<Rhs>
+where
+	Rhs: ?Sized,
+{
+	fn eq(_other: &Rhs) -> bool;
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl<Rhs> StaticPartialEq<Rhs> for Tuple
+where
+	Rhs: ?Sized,
+{
+	fn eq(other: &Rhs) -> bool {
+		for_tuples!( #( if Tuple::eq(other) { return true; } )* );
+		return false;
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

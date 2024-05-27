@@ -175,7 +175,7 @@ use frame_support::{
 	traits::{
 		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
 		OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents,
-		PostTransactions, PreInherents,
+		PostTransactions, PreInherents, StaticPartialEq,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -258,9 +258,17 @@ impl<
 			+ OffchainWorker<BlockNumberFor<System>>
 			+ OnPoll<BlockNumberFor<System>>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
+		CTryState,
 	> ExecuteBlock<Block>
-	for Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
-where
+	for Executive<
+		System,
+		Block,
+		Context,
+		UnsignedValidator,
+		AllPalletsWithSystem,
+		COnRuntimeUpgrade,
+		CTryState,
+	> where
 	Block::Extrinsic: Checkable<Context> + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
@@ -297,9 +305,10 @@ impl<
 			+ OffchainWorker<BlockNumberFor<System>>
 			+ OnPoll<BlockNumberFor<System>>
 			+ TryState<BlockNumberFor<System>>
-			+ TryDecodeEntireStorage,
+			+ TryDecodeEntireStorage
+			+ StaticPartialEq<[u8]>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-		CTryState: frame_support::traits::TryState<BlockNumberFor<System>>,
+		CTryState: frame_support::traits::TryState<BlockNumberFor<System>> + StaticPartialEq<[u8]>,
 	>
 	Executive<
 		System,
@@ -484,10 +493,9 @@ impl<
 
 		// Check all storage invariants:
 		if checks.try_state() {
-			<(CTryState, AllPalletsWithSystem)>::try_state(
-				frame_system::Pallet::<System>::block_number(),
-				TryStateSelect::All,
-			)?;
+			<(CTryState, AllPalletsWithSystem) as frame_support::traits::TryState<
+				BlockNumberFor<System>,
+			>>::try_state(frame_system::Pallet::<System>::block_number(), TryStateSelect::All)?;
 		}
 
 		Ok(before_all_weight.saturating_add(try_on_runtime_upgrade_weight))
@@ -542,8 +550,17 @@ impl<
 			+ OffchainWorker<BlockNumberFor<System>>
 			+ OnPoll<BlockNumberFor<System>>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
-where
+		CTryState,
+	>
+	Executive<
+		System,
+		Block,
+		Context,
+		UnsignedValidator,
+		AllPalletsWithSystem,
+		COnRuntimeUpgrade,
+		CTryState,
+	> where
 	Block::Extrinsic: Checkable<Context> + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
