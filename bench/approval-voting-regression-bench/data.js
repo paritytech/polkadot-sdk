@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716589612177,
+  "lastUpdate": 1716795805240,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -4840,6 +4840,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.056886001400048,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre",
+            "email": "franciscoaguirreperez@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9201f9abbe0b63abbeabc1f6e6799cca030c8c46",
+          "message": "Deprecate XCMv2 (#4131)\n\nMarked XCMv2 as deprecated now that we have XCMv4.\nIt will be removed sometime around June 2024.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2024-05-27T06:12:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9201f9abbe0b63abbeabc1f6e6799cca030c8c46"
+        },
+        "date": 1716795776808,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63548.04,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52945.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.849268507330008,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.157376561160122,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.363124233650007,
             "unit": "seconds"
           }
         ]
