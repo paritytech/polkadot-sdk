@@ -1389,8 +1389,7 @@ pub trait ExtrinsicMetadata {
 	const VERSION: u8;
 
 	/// Signed extensions attached to this `Extrinsic`.
-	// TODO: metadata-v16: rename to `Extension`.
-	type Extra;
+	type SignedExtensions;
 }
 
 /// Extract the hashing type for a block.

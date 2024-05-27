@@ -298,7 +298,7 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	const VERSION: u8 = EXTRINSIC_FORMAT_VERSION;
-	type Extra = Extension;
+	type SignedExtensions = Extension;
 }
 
 impl<Address, Call, Signature, Extension> Decode
