@@ -3833,7 +3833,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-service"
-version = "0.8.0"
+version = "0.7.0"
 dependencies = [
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -4371,7 +4371,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-test-service"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "clap 4.5.3",
@@ -8981,7 +8981,7 @@ dependencies = [
 
 [[package]]
 name = "node-rpc"
-version = "3.1.0-dev"
+version = "3.0.0-dev"
 dependencies = [
  "jsonrpsee",
  "mmr-rpc",
@@ -13607,7 +13607,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "4.1.0"
+version = "4.0.0"
 dependencies = [
  "assert_cmd",
  "asset-hub-rococo-runtime",
@@ -13758,7 +13758,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-rpc"
-version = "7.1.0"
+version = "7.0.0"
 dependencies = [
  "jsonrpsee",
  "mmr-rpc",
@@ -16345,7 +16345,7 @@ dependencies = [
 
 [[package]]
 name = "sc-basic-authorship"
-version = "0.35.0"
+version = "0.34.0"
 dependencies = [
  "futures",
  "futures-timer",
@@ -16426,7 +16426,7 @@ dependencies = [
 
 [[package]]
 name = "sc-cli"
-version = "0.37.0"
+version = "0.36.0"
 dependencies = [
  "array-bytes",
  "chrono",
@@ -16816,7 +16816,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-manual-seal"
-version = "0.36.0"
+version = "0.35.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -17017,7 +17017,7 @@ dependencies = [
 
 [[package]]
 name = "sc-mixnet"
-version = "0.5.0"
+version = "0.4.0"
 dependencies = [
  "array-bytes",
  "arrayvec 0.7.4",
@@ -17349,7 +17349,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc"
-version = "29.1.0"
+version = "29.0.0"
 dependencies = [
  "assert_matches",
  "env_logger 0.11.3",
@@ -17429,7 +17429,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-spec-v2"
-version = "0.35.0"
+version = "0.34.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -17484,7 +17484,7 @@ dependencies = [
 
 [[package]]
 name = "sc-service"
-version = "0.36.0"
+version = "0.35.0"
 dependencies = [
  "async-trait",
  "directories",
@@ -17549,7 +17549,7 @@ dependencies = [
 
 [[package]]
 name = "sc-service-test"
-version = "2.1.0"
+version = "2.0.0"
 dependencies = [
  "array-bytes",
  "async-channel",
@@ -17725,7 +17725,7 @@ dependencies = [
 
 [[package]]
 name = "sc-transaction-pool"
-version = "28.1.0"
+version = "28.0.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -17759,7 +17759,7 @@ dependencies = [
 
 [[package]]
 name = "sc-transaction-pool-api"
-version = "28.1.0"
+version = "28.0.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -20225,7 +20225,7 @@ dependencies = [
 
 [[package]]
 name = "staging-node-cli"
-version = "3.1.0-dev"
+version = "3.0.0-dev"
 dependencies = [
  "array-bytes",
  "assert_cmd",
@@ -20673,7 +20673,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-frame-rpc-system"
-version = "28.1.0"
+version = "28.0.0"
 dependencies = [
  "assert_matches",
  "frame-system-rpc-runtime-api",
