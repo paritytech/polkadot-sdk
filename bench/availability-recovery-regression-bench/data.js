@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716590212811,
+  "lastUpdate": 1716796400222,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -9071,6 +9071,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17248071203333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f6cca7ee187d0946e4f3d1fa33928beacfce6e40",
+          "message": "Bridge: check submit_finality_proof limits before submission (#4549)\n\ncloses https://github.com/paritytech/parity-bridges-common/issues/2982\ncloses https://github.com/paritytech/parity-bridges-common/issues/2730\n\nThe main change is in the\nbridges/relays/lib-substrate-relay/src/finality/target.rs, changes in\nother files are just moving the code\n\n~I haven't been able to run zn tests locally - don't know why, but it\nkeeps failing for me locally with: `\nError running script:\n/home/svyatonik/dev/polkadot-sdk/bridges/testing/framework/js-helpers/wait-hrmp-channel-opened.js\nError: Timeout(300), \"custom-js\n/home/svyatonik/dev/polkadot-sdk/bridges/testing/framework/js-helpers/wait-hrmp-channel-opened.js\nwithin 300 secs\" didn't complete on time.`~ The issue was an obsolete\n`polkadot-js-api` binary - did `yarn global upgrade` and it is ok now",
+          "timestamp": "2024-05-27T07:23:40Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6cca7ee187d0946e4f3d1fa33928beacfce6e40"
+        },
+        "date": 1716796371980,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.67797875913333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.188685635,
             "unit": "seconds"
           }
         ]
