@@ -24,7 +24,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	CandidateHash, PersistedValidationData, SigningContext, ValidatorIndex, ValidatorPair,
+	CandidateHash, Hash, PersistedValidationData, SigningContext, ValidatorIndex, ValidatorPair,
 };
 use sp_core::Pair;
 use std::collections::HashMap;
@@ -50,6 +50,78 @@ impl MockCandidateBacking {
 		own_backing_group: Vec<ValidatorIndex>,
 	) -> Self {
 		Self { config, state: MockCandidateBackingState { pair, pvd, own_backing_group } }
+	}
+
+	fn handle_statement(
+		&self,
+		relay_parent: Hash,
+		statement: SignedFullStatementWithPVD,
+		statements_tracker: &mut HashMap<CandidateHash, u32>,
+	) -> Vec<polkadot_node_subsystem::messages::StatementDistributionMessage> {
+		let mut messages = vec![];
+		let validator_id = statement.validator_index();
+		let is_own_backing_group = self.state.own_backing_group.contains(&validator_id);
+
+		match statement.payload() {
+			StatementWithPVD::Seconded(receipt, _pvd) => {
+				let candidate_hash = receipt.hash();
+				statements_tracker
+					.entry(candidate_hash)
+					.and_modify(|v| {
+						*v += 1;
+					})
+					.or_insert(1);
+
+				let statements_received_count = *statements_tracker.get(&candidate_hash).unwrap();
+				if statements_received_count == (self.config.minimum_backing_votes - 1) &&
+					is_own_backing_group
+				{
+					let statement = Statement::Valid(candidate_hash);
+					let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+					let payload = statement.to_compact().signing_payload(&context);
+					let message =
+						polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
+							relay_parent,
+							SignedFullStatementWithPVD::new(
+								statement.supply_pvd(self.state.pvd.clone()),
+								ValidatorIndex(NODE_UNDER_TEST),
+								self.state.pair.sign(&payload[..]),
+								&context,
+								&self.state.pair.public(),
+							)
+							.unwrap(),
+						);
+					messages.push(message);
+				}
+
+				if statements_received_count == self.config.minimum_backing_votes {
+					let message =
+						polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(
+							candidate_hash,
+						);
+					messages.push(message);
+				}
+			},
+			StatementWithPVD::Valid(candidate_hash) => {
+				statements_tracker
+					.entry(*candidate_hash)
+					.and_modify(|v| {
+						*v += 1;
+					})
+					.or_insert(1);
+
+				let statements_received_count = *statements_tracker.get(candidate_hash).unwrap();
+				if statements_received_count == self.config.minimum_backing_votes {
+					let message =
+						polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(
+							*candidate_hash,
+						);
+					messages.push(message);
+				}
+			},
+		}
+
+		messages
 	}
 }
 
@@ -79,75 +151,13 @@ impl MockCandidateBacking {
 
 					match msg {
 						CandidateBackingMessage::Statement(relay_parent, statement) => {
-							let validator_id = statement.validator_index();
-							let is_own_backing_group =
-								self.state.own_backing_group.contains(&validator_id);
-							match statement.payload() {
-								StatementWithPVD::Seconded(receipt, _pvd) => {
-									let candidate_hash = receipt.hash();
-									statements_tracker
-										.entry(candidate_hash)
-										.and_modify(|v| {
-											*v += 1;
-										})
-										.or_insert(1);
-
-									let statements_received_count =
-										*statements_tracker.get(&candidate_hash).unwrap();
-									if statements_received_count ==
-										(self.config.minimum_backing_votes - 1) &&
-										is_own_backing_group
-									{
-										let statement = Statement::Valid(candidate_hash);
-										let context = SigningContext {
-											parent_hash: relay_parent,
-											session_index: 0,
-										};
-										let payload =
-											statement.to_compact().signing_payload(&context);
-										let message =
-    										polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
-    											relay_parent,
-    											SignedFullStatementWithPVD::new(
-    												statement.supply_pvd(self.state.pvd.clone()),
-    												ValidatorIndex(NODE_UNDER_TEST),
-    												self.state.pair.sign(&payload[..]),
-    												&context,
-    												&self.state.pair.public(),
-    											)
-    											.unwrap()
-										);
-										ctx.send_message(message).await;
-									}
-
-									if statements_received_count ==
-										self.config.minimum_backing_votes
-									{
-										let message =
-											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(candidate_hash
-										);
-										ctx.send_message(message).await;
-									}
-								},
-								StatementWithPVD::Valid(candidate_hash) => {
-									statements_tracker
-										.entry(*candidate_hash)
-										.and_modify(|v| {
-											*v += 1;
-										})
-										.or_insert(1);
-
-									let statements_received_count =
-										*statements_tracker.get(candidate_hash).unwrap();
-									if statements_received_count ==
-										self.config.minimum_backing_votes
-									{
-										let message =
-											polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(*candidate_hash
-										);
-										ctx.send_message(message).await;
-									}
-								},
+							let messages = self.handle_statement(
+								relay_parent,
+								statement,
+								&mut statements_tracker,
+							);
+							for message in messages {
+								ctx.send_message(message).await;
 							}
 						},
 						_ => {
