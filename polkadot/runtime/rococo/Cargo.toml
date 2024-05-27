@@ -50,7 +50,7 @@ pallet-beefy-mmr = { path = "../../../substrate/frame/beefy-mmr", default-featur
 pallet-bounties = { path = "../../../substrate/frame/bounties", default-features = false, version = "28.0.0" }
 pallet-child-bounties = { path = "../../../substrate/frame/child-bounties", default-features = false, version = "28.0.0" }
 pallet-state-trie-migration = { path = "../../../substrate/frame/state-trie-migration", default-features = false, version = "30.0.0" }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.0" }
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.1" }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false, version = "29.0.0" }
 pallet-collective = { path = "../../../substrate/frame/collective", default-features = false, version = "29.0.0" }
 pallet-conviction-voting = { path = "../../../substrate/frame/conviction-voting", default-features = false, version = "29.0.0" }
@@ -83,7 +83,7 @@ frame-system = { path = "../../../substrate/frame/system", default-features = fa
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "27.0.0" }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false, version = "28.0.0" }
 pallet-tips = { path = "../../../substrate/frame/tips", default-features = false, version = "28.0.0" }
-pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false, version = "28.0.0" }
+pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false, version = "28.0.1" }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false, version = "29.0.0" }
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false, version = "29.0.0" }
 pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-features = false, version = "28.0.0" }
@@ -96,7 +96,7 @@ frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-fea
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true, version = "29.0.0" }
 hex-literal = { version = "0.4.1" }
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, version = "8.0.1" }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, version = "8.0.2" }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false, version = "8.0.3" }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false, version = "8.0.1" }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false, version = "7.0.0" }

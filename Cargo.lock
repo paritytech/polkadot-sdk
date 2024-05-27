@@ -10777,7 +10777,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-transaction-payment"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10841,7 +10841,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-treasury"
-version = "28.0.0"
+version = "28.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -12992,7 +12992,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-common"
-version = "8.0.1"
+version = "8.0.2"
 dependencies = [
  "bitvec",
  "frame-benchmarking",

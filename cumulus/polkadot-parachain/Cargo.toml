@@ -72,7 +72,7 @@ sp-version = { version = "30.0.0", path = "../../substrate/primitives/version" }
 sc-tracing = { version = "29.0.0", path = "../../substrate/client/tracing" }
 sp-offchain = { version = "27.0.0", path = "../../substrate/primitives/offchain" }
 frame-system-rpc-runtime-api = { version = "27.0.0", path = "../../substrate/frame/system/rpc/runtime-api" }
-pallet-transaction-payment = { version = "29.0.0", path = "../../substrate/frame/transaction-payment" }
+pallet-transaction-payment = { version = "29.0.1", path = "../../substrate/frame/transaction-payment" }
 pallet-transaction-payment-rpc-runtime-api = { version = "29.0.0", path = "../../substrate/frame/transaction-payment/rpc/runtime-api" }
 sp-std = { version = "14.0.0", path = "../../substrate/primitives/std" }
 sp-inherents = { version = "27.0.0", path = "../../substrate/primitives/inherents" }
