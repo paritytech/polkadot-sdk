@@ -384,6 +384,65 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -412,8 +471,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_node_subsystem_types::OverseerSignal;
 <span class="kw">use </span>polkadot_primitives::{
-	CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec, NodeFeatures,
-	OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
+	AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, GroupRotationInfo,
+	IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex, SessionInfo,
+	ValidatorIndex,
 };
 <span class="kw">use </span>sp_consensus_babe::Epoch <span class="kw">as </span>BabeEpoch;
 <span class="kw">use </span>sp_core::H256;
@@ -435,11 +495,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>session_index: SessionIndex,
 }
 
+<span class="attr">#[derive(Clone)]
+</span><span class="kw">pub enum </span>MockRuntimeApiCoreState {
+	Occupied,
+	Scheduled,
+	<span class="attr">#[allow(dead_code)]
+	</span>Free,
+}
+
 <span class="doccomment">/// A mocked `runtime-api` subsystem.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>MockRuntimeApi {
 	state: RuntimeApiState,
 	config: TestConfiguration,
+	core_state: MockRuntimeApiCoreState,
 }
 
 <span class="kw">impl </span>MockRuntimeApi {
@@ -450,6 +519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		included_candidates: HashMap&lt;H256, Vec&lt;CandidateEvent&gt;&gt;,
 		babe_epoch: <span class="prelude-ty">Option</span>&lt;BabeEpoch&gt;,
 		session_index: SessionIndex,
+		core_state: MockRuntimeApiCoreState,
 	) -&gt; MockRuntimeApi {
 		<span class="self">Self </span>{
 			state: RuntimeApiState {
@@ -460,6 +530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				session_index,
 			},
 			config,
+			core_state,
 		}
 	}
 
@@ -584,16 +655,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="comment">// Ensure test breaks if badly configured.
 									</span><span class="macro">assert!</span>(index &lt; validator_group_count);
 
-									CoreState::Occupied(OccupiedCore {
-										next_up_on_available: <span class="prelude-val">None</span>,
-										occupied_since: <span class="number">0</span>,
-										time_out_at: <span class="number">0</span>,
-										next_up_on_time_out: <span class="prelude-val">None</span>,
-										availability: BitVec::default(),
-										group_responsible: GroupIndex(index <span class="kw">as </span>u32),
-										candidate_hash: candidate_receipt.hash(),
-										candidate_descriptor: candidate_receipt.descriptor.clone(),
-									})
+									<span class="kw">use </span>MockRuntimeApiCoreState::<span class="kw-2">*</span>;
+									<span class="kw">match </span><span class="self">self</span>.core_state {
+										Occupied =&gt; CoreState::Occupied(OccupiedCore {
+											next_up_on_available: <span class="prelude-val">None</span>,
+											occupied_since: <span class="number">0</span>,
+											time_out_at: <span class="number">0</span>,
+											next_up_on_time_out: <span class="prelude-val">None</span>,
+											availability: BitVec::default(),
+											group_responsible: GroupIndex(index <span class="kw">as </span>u32),
+											candidate_hash: candidate_receipt.hash(),
+											candidate_descriptor: candidate_receipt
+												.descriptor
+												.clone(),
+										}),
+										Scheduled =&gt; CoreState::Scheduled(ScheduledCore {
+											para_id: (index + <span class="number">1</span>).into(),
+											collator: <span class="prelude-val">None</span>,
+										}),
+										Free =&gt; <span class="macro">todo!</span>(),
+									}
 								})
 								.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
@@ -608,6 +689,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								.babe_epoch
 								.clone()
 								.expect(<span class="string">"Babe epoch unpopulated"</span>)));
+						},
+						RuntimeApiMessage::Request(
+							_block_hash,
+							RuntimeApiRequest::AsyncBackingParams(sender),
+						) =&gt; {
+							<span class="kw">let _ </span>= sender.send(<span class="prelude-val">Ok</span>(AsyncBackingParams {
+								max_candidate_depth: <span class="self">self</span>.config.max_candidate_depth,
+								allowed_ancestry_len: <span class="self">self</span>.config.allowed_ancestry_len,
+							}));
+						},
+						RuntimeApiMessage::Request(_parent, RuntimeApiRequest::Version(tx)) =&gt; {
+							tx.send(<span class="prelude-val">Ok</span>(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT))
+								.unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::DisabledValidators(tx),
+						) =&gt; {
+							tx.send(<span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[])).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::MinimumBackingVotes(_session_index, tx),
+						) =&gt; {
+							tx.send(<span class="prelude-val">Ok</span>(<span class="self">self</span>.config.minimum_backing_votes)).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::ValidatorGroups(tx),
+						) =&gt; {
+							<span class="kw">let </span>groups = <span class="self">self</span>.session_info().validator_groups.to_vec();
+							<span class="kw">let </span>group_rotation_info = GroupRotationInfo {
+								session_start_block: <span class="number">1</span>,
+								group_rotation_frequency: <span class="number">12</span>,
+								now: <span class="number">1</span>,
+							};
+							tx.send(<span class="prelude-val">Ok</span>((groups, group_rotation_info))).unwrap();
 						},
 						<span class="comment">// Long term TODO: implement more as needed.
 						</span>message =&gt; {

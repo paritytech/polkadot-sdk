@@ -361,6 +361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -412,8 +413,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Implement access to the state.
+</span><span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>HandleNetworkMessage <span class="kw">for </span>NetworkAvailabilityState {
-	<span class="kw">fn </span>handle(
+	<span class="kw">async fn </span>handle(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		message: NetworkMessage,
 		_node_sender: <span class="kw-2">&amp;mut </span>futures::channel::mpsc::UnboundedSender&lt;NetworkMessage&gt;,

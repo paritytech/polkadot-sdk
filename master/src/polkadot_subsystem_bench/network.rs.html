@@ -1219,6 +1219,58 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1068" id="1068">1068</a>
 <a href="#1069" id="1069">1069</a>
 <a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1272,13 +1324,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>itertools::Itertools;
 <span class="kw">use </span>net_protocol::{
-	peer_set::{ProtocolVersion, ValidationVersion},
+	peer_set::ValidationVersion,
 	request_response::{Recipient, Requests, ResponseSender},
-	ObservedRole, VersionedValidationProtocol,
+	ObservedRole, VersionedValidationProtocol, View,
 };
 <span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>polkadot_node_network_protocol::{<span class="self">self </span><span class="kw">as </span>net_protocol, Versioned};
-<span class="kw">use </span>polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, NetworkBridgeEvent};
+<span class="kw">use </span>polkadot_node_subsystem::messages::StatementDistributionMessage;
+<span class="kw">use </span>polkadot_node_subsystem_types::messages::NetworkBridgeEvent;
 <span class="kw">use </span>polkadot_node_subsystem_util::metrics::prometheus::{
 	<span class="self">self</span>, CounterVec, Opts, PrometheusError, Registry,
 };
@@ -1658,6 +1711,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Send actions to be performed by the peer.
 	</span>actions_tx: UnboundedSender&lt;NetworkMessage&gt;,
 	peer_id: PeerId,
+	authority_id: AuthorityDiscoveryId,
 }
 
 <span class="kw">impl </span>EmulatedPeerHandle {
@@ -1717,30 +1771,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Interceptor pattern for handling messages.
+</span><span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>HandleNetworkMessage {
 	<span class="doccomment">/// Returns `None` if the message was handled, or the `message`
 	/// otherwise.
 	///
 	/// `node_sender` allows sending of messages to the node in response
 	/// to the handled message.
-	</span><span class="kw">fn </span>handle(
+	</span><span class="kw">async fn </span>handle(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		message: NetworkMessage,
 		node_sender: <span class="kw-2">&amp;mut </span>UnboundedSender&lt;NetworkMessage&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;NetworkMessage&gt;;
 }
 
-<span class="kw">impl</span>&lt;T&gt; HandleNetworkMessage <span class="kw">for </span>Arc&lt;T&gt;
+<span class="attr">#[async_trait::async_trait]
+</span><span class="kw">impl</span>&lt;T&gt; HandleNetworkMessage <span class="kw">for </span>Arc&lt;T&gt;
 <span class="kw">where
-	</span>T: HandleNetworkMessage,
+	</span>T: HandleNetworkMessage + Sync + Send,
 {
-	<span class="kw">fn </span>handle(
+	<span class="kw">async fn </span>handle(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		message: NetworkMessage,
 		node_sender: <span class="kw-2">&amp;mut </span>UnboundedSender&lt;NetworkMessage&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;NetworkMessage&gt; {
-		<span class="self">self</span>.as_ref().handle(message, node_sender)
-	}
+		T::handle(<span class="self">self</span>, message, node_sender).<span class="kw">await
+	</span>}
 }
 
 <span class="comment">// This loop is responsible for handling of messages/requests between the peer and the node.
@@ -1772,7 +1828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="kw">for </span>handler <span class="kw">in </span>handlers.iter() {
 						<span class="comment">// The check below guarantees that message is always `Some`: we are still
 						// inside the loop.
-						</span>message = handler.handle(message.unwrap(), <span class="kw-2">&amp;mut </span>to_network_interface);
+						</span>message = handler.handle(message.unwrap(), <span class="kw-2">&amp;mut </span>to_network_interface).<span class="kw">await</span>;
 						<span class="kw">if </span>message.is_none() {
 							<span class="kw">break
 						</span>}
@@ -1834,6 +1890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Creates a new peer emulator task and returns a handle to it.
+</span><span class="attr">#[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub fn </span>new_peer(
 	bandwidth: usize,
 	spawn_task_handle: SpawnTaskHandle,
@@ -1842,6 +1899,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	to_network_interface: UnboundedSender&lt;NetworkMessage&gt;,
 	latency_ms: usize,
 	peer_id: PeerId,
+	authority_id: AuthorityDiscoveryId,
 ) -&gt; EmulatedPeerHandle {
 	<span class="kw">let </span>(messages_tx, messages_rx) = mpsc::unbounded::&lt;NetworkMessage&gt;();
 	<span class="kw">let </span>(actions_tx, actions_rx) = mpsc::unbounded::&lt;NetworkMessage&gt;();
@@ -1870,7 +1928,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.boxed(),
 	);
 
-	EmulatedPeerHandle { messages_tx, actions_tx, peer_id }
+	EmulatedPeerHandle { messages_tx, actions_tx, peer_id, authority_id }
 }
 
 <span class="doccomment">/// Book keeping of sent and received bytes.
@@ -1935,6 +1993,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Peer::Disconnected(<span class="kw-2">ref </span>emulator) =&gt; emulator,
 		}
 	}
+
+	<span class="kw">pub fn </span>authority_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; AuthorityDiscoveryId {
+		<span class="kw">match </span><span class="self">self </span>{
+			Peer::Connected(handle) | Peer::Disconnected(handle) =&gt; handle.authority_id.clone(),
+		}
+	}
+
+	<span class="kw">pub fn </span>peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PeerId {
+		<span class="kw">match </span><span class="self">self </span>{
+			Peer::Connected(handle) | Peer::Disconnected(handle) =&gt; handle.peer_id,
+		}
+	}
 }
 
 <span class="doccomment">/// A ha emulated network implementation.
@@ -1949,21 +2019,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>NetworkEmulatorHandle {
-	<span class="doccomment">/// Generates peer_connected messages for all peers in `test_authorities`
-	</span><span class="kw">pub fn </span>generate_peer_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;AllMessages&gt; {
+	<span class="kw">pub fn </span>generate_statement_distribution_peer_view_change(<span class="kw-2">&amp;</span><span class="self">self</span>, view: View) -&gt; Vec&lt;AllMessages&gt; {
 		<span class="self">self</span>.peers
 			.iter()
 			.filter(|peer| peer.is_connected())
 			.map(|peer| {
-				<span class="kw">let </span>network = NetworkBridgeEvent::PeerConnected(
-					peer.handle().peer_id,
-					ObservedRole::Full,
-					ProtocolVersion::from(ValidationVersion::V3),
-					<span class="prelude-val">None</span>,
-				);
+				AllMessages::StatementDistribution(
+					StatementDistributionMessage::NetworkBridgeUpdate(
+						NetworkBridgeEvent::PeerViewChange(peer.peer_id(), view.clone()),
+					),
+				)
+			})
+			.collect_vec()
+	}
 
-				AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
-					network,
+	<span class="doccomment">/// Generates peer_connected messages for all peers in `test_authorities`
+	</span><span class="kw">pub fn </span>generate_peer_connected&lt;F, T&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, mapper: F) -&gt; Vec&lt;AllMessages&gt;
+	<span class="kw">where
+		</span>F: Fn(NetworkBridgeEvent&lt;T&gt;) -&gt; AllMessages,
+	{
+		<span class="self">self</span>.peers
+			.iter()
+			.filter(|peer| peer.is_connected())
+			.map(|peer| {
+				mapper(NetworkBridgeEvent::PeerConnected(
+					peer.handle().peer_id,
+					ObservedRole::Authority,
+					ValidationVersion::V3.into(),
+					<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[peer.authority_id()].into_iter().collect()),
 				))
 			})
 			.collect_vec()
@@ -1993,7 +2076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>(stats, <span class="kw-2">mut </span>peers): (<span class="kw">_</span>, Vec&lt;<span class="kw">_</span>&gt;) = (<span class="number">0</span>..n_peers)
 		.zip(authorities.validator_authority_id.clone())
 		.map(|(peer_index, authority_id)| {
-			validator_authority_id_mapping.insert(authority_id, peer_index);
+			validator_authority_id_mapping.insert(authority_id.clone(), peer_index);
 			<span class="kw">let </span>stats = Arc::new(PeerEmulatorStats::new(peer_index, metrics.clone()));
 			(
 				stats.clone(),
@@ -2005,6 +2088,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					to_network_interface.clone(),
 					random_latency(config.latency.as_ref()),
 					<span class="kw-2">*</span>authorities.peer_ids.get(peer_index).unwrap(),
+					authority_id,
 				)),
 			)
 		})
@@ -2192,6 +2276,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>RequestExt {
 	<span class="doccomment">/// Get the authority id if any from the request.
 	</span><span class="kw">fn </span>authority_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>AuthorityDiscoveryId&gt;;
+	<span class="doccomment">/// Get the peer id if any from the request.
+	</span><span class="kw">fn </span>peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PeerId&gt;;
 	<span class="doccomment">/// Consume self and return the response sender.
 	</span><span class="kw">fn </span>into_response_sender(<span class="self">self</span>) -&gt; ResponseSender;
 	<span class="doccomment">/// Allows to change the `ResponseSender` in place.
@@ -2217,8 +2303,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">None
 				</span>}
 			},
+			<span class="comment">// Requested by PeerId
+			</span>Requests::AttestedCandidateV2(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
 			request =&gt; {
 				<span class="macro">unimplemented!</span>(<span class="string">"RequestAuthority not implemented for {:?}"</span>, request)
+			},
+		}
+	}
+
+	<span class="kw">fn </span>peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PeerId&gt; {
+		<span class="kw">match </span><span class="self">self </span>{
+			Requests::AttestedCandidateV2(request) =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>request.peer {
+				Recipient::Authority(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+				Recipient::Peer(peer_id) =&gt; <span class="prelude-val">Some</span>(peer_id),
+			},
+			request =&gt; {
+				<span class="macro">unimplemented!</span>(<span class="string">"peer_id() is not implemented for {:?}"</span>, request)
 			},
 		}
 	}
@@ -2239,6 +2339,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				std::mem::replace(<span class="kw-2">&amp;mut </span>outgoing_request.pending_response, new_sender),
 			Requests::AvailableDataFetchingV1(outgoing_request) =&gt;
 				std::mem::replace(<span class="kw-2">&amp;mut </span>outgoing_request.pending_response, new_sender),
+			Requests::AttestedCandidateV2(outgoing_request) =&gt;
+				std::mem::replace(<span class="kw-2">&amp;mut </span>outgoing_request.pending_response, new_sender),
 			<span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"unsupported request type"</span>),
 		}
 	}
@@ -2248,6 +2350,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">self </span>{
 			Requests::ChunkFetchingV1(outgoing_request) =&gt; outgoing_request.payload.encoded_size(),
 			Requests::AvailableDataFetchingV1(outgoing_request) =&gt;
+				outgoing_request.payload.encoded_size(),
+			Requests::AttestedCandidateV2(outgoing_request) =&gt;
 				outgoing_request.payload.encoded_size(),
 			<span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"received an unexpected request"</span>),
 		}

@@ -1221,6 +1221,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1070" id="1070">1070</a>
 <a href="#1071" id="1071">1071</a>
 <a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1253,7 +1257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	mock::{
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::MockRuntimeApi,
+		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains, TestSyncOracle,
 	},
 	network::{
@@ -1688,8 +1692,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>HandleNetworkMessage <span class="kw">for </span>ApprovalTestState {
-	<span class="kw">fn </span>handle(
+<span class="attr">#[async_trait::async_trait]
+</span><span class="kw">impl </span>HandleNetworkMessage <span class="kw">for </span>ApprovalTestState {
+	<span class="kw">async fn </span>handle(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		_message: <span class="kw">crate</span>::network::NetworkMessage,
 		_node_sender: <span class="kw-2">&amp;mut </span>futures::channel::mpsc::UnboundedSender&lt;<span class="kw">crate</span>::network::NetworkMessage&gt;,
@@ -2030,6 +2035,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state.candidate_events_by_block(),
 		<span class="prelude-val">Some</span>(state.babe_epoch.clone()),
 		<span class="number">1</span>,
+		MockRuntimeApiCoreState::Occupied,
 	);
 	<span class="kw">let </span>mock_tx_bridge = MockNetworkBridgeTx::new(
 		network.clone(),
@@ -2138,7 +2144,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// First create the initialization messages that make sure that then node under
 	// tests receives notifications about the topology used and the connected peers.
-	</span><span class="kw">let </span><span class="kw-2">mut </span>initialization_messages = env.network().generate_peer_connected();
+	</span><span class="kw">let </span><span class="kw-2">mut </span>initialization_messages = env.network().generate_peer_connected(|e| {
+		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(e))
+	});
 	initialization_messages.extend(generate_new_session_topology(
 		<span class="kw-2">&amp;</span>state.test_authorities,
 		ValidatorIndex(NODE_UNDER_TEST),

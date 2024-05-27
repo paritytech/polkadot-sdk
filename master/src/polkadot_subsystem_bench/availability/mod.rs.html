@@ -615,6 +615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -639,7 +640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		av_store::{<span class="self">self</span>, MockAvailabilityStore, NetworkAvailabilityState},
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{<span class="self">self</span>, MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::{<span class="self">self</span>, MockRuntimeApi},
+		runtime_api::{<span class="self">self</span>, MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
@@ -806,6 +807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Default::default(),
 		Default::default(),
 		<span class="number">0</span>,
+		MockRuntimeApiCoreState::Occupied,
 	);
 
 	<span class="kw">let </span>(overseer, overseer_handle) = <span class="kw">match </span><span class="kw-2">&amp;</span>mode {
