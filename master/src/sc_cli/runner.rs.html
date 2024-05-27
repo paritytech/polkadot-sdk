@@ -563,6 +563,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
 <a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -817,12 +820,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				state_pruning: <span class="prelude-val">None</span>,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
 				chain_spec: Box::new(
-					GenericChainSpec::&lt;()&gt;::builder(Default::default(), NoExtension::None)
-						.with_name(<span class="string">"test"</span>)
-						.with_id(<span class="string">"test_id"</span>)
-						.with_chain_type(ChainType::Development)
-						.with_genesis_config_patch(Default::default())
-						.build(),
+					GenericChainSpec::&lt;NoExtension, ()&gt;::builder(
+						Default::default(),
+						NoExtension::None,
+					)
+					.with_name(<span class="string">"test"</span>)
+					.with_id(<span class="string">"test_id"</span>)
+					.with_chain_type(ChainType::Development)
+					.with_genesis_config_patch(Default::default())
+					.build(),
 				),
 				wasm_method: Default::default(),
 				wasm_runtime_overrides: <span class="prelude-val">None</span>,

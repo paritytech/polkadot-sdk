@@ -936,11 +936,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Generic chain spec, in case when we don't have the native runtime.
-</span><span class="kw">pub type </span>GenericChainSpec = service::GenericChainSpec&lt;(), Extensions&gt;;
+</span><span class="kw">pub type </span>GenericChainSpec = service::GenericChainSpec&lt;Extensions&gt;;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the westend runtime.
 </span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
-</span><span class="kw">pub type </span>WestendChainSpec = service::GenericChainSpec&lt;(), Extensions&gt;;
+</span><span class="kw">pub type </span>WestendChainSpec = service::GenericChainSpec&lt;Extensions&gt;;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the westend runtime.
 </span><span class="comment">// Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -949,7 +949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the rococo runtime.
 </span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-</span><span class="kw">pub type </span>RococoChainSpec = service::GenericChainSpec&lt;(), Extensions&gt;;
+</span><span class="kw">pub type </span>RococoChainSpec = service::GenericChainSpec&lt;Extensions&gt;;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the rococo runtime.
 </span><span class="comment">// Dummy chain spec, but that is fine when we don't have the native runtime.

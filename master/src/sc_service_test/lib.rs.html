@@ -717,13 +717,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -757,7 +750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	client::Client,
 	config::{BasePath, DatabaseSource, KeystoreConfig, RpcBatchRequestConfig},
 	BlocksPruning, ChainSpecExtension, Configuration, Error, GenericChainSpec, Role,
-	RuntimeGenesis, SpawnTaskHandle, TaskManager,
+	SpawnTaskHandle, TaskManager,
 };
 <span class="kw">use </span>sc_transaction_pool_api::TransactionPool;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
@@ -772,16 +765,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Maximum duration of single wait call.
 </span><span class="kw">const </span>MAX_WAIT_TIME: Duration = Duration::from_secs(<span class="number">60 </span>* <span class="number">3</span>);
 
-<span class="kw">struct </span>TestNet&lt;G, E, F, U&gt; {
+<span class="kw">struct </span>TestNet&lt;E, F, U&gt; {
 	runtime: Runtime,
 	authority_nodes: Vec&lt;(usize, F, U, MultiaddrWithPeerId)&gt;,
 	full_nodes: Vec&lt;(usize, F, U, MultiaddrWithPeerId)&gt;,
-	chain_spec: GenericChainSpec&lt;G, E&gt;,
+	chain_spec: GenericChainSpec&lt;E&gt;,
 	base_port: u16,
 	nodes: usize,
 }
 
-<span class="kw">impl</span>&lt;G, E, F, U&gt; Drop <span class="kw">for </span>TestNet&lt;G, E, F, U&gt; {
+<span class="kw">impl</span>&lt;E, F, U&gt; Drop <span class="kw">for </span>TestNet&lt;E, F, U&gt; {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="comment">// Drop the nodes before dropping the runtime, as the runtime otherwise waits for all
 		// futures to be ended and we run into a dead lock.
@@ -888,7 +881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;G, E, F, U&gt; TestNet&lt;G, E, F, U&gt;
+<span class="kw">impl</span>&lt;E, F, U&gt; TestNet&lt;E, F, U&gt;
 <span class="kw">where
 	</span>F: Clone + Send + <span class="lifetime">'static</span>,
 	U: Clone + Send + <span class="lifetime">'static</span>,
@@ -919,12 +912,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>node_config&lt;
-	G: RuntimeGenesis + <span class="lifetime">'static</span>,
-	E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
-&gt;(
+<span class="kw">fn </span>node_config&lt;E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync&gt;(
 	index: usize,
-	spec: <span class="kw-2">&amp;</span>GenericChainSpec&lt;G, E&gt;,
+	spec: <span class="kw-2">&amp;</span>GenericChainSpec&lt;E&gt;,
 	role: Role,
 	tokio_handle: tokio::runtime::Handle,
 	key_seed: <span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -998,19 +988,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;G, E, F, U&gt; TestNet&lt;G, E, F, U&gt;
+<span class="kw">impl</span>&lt;E, F, U&gt; TestNet&lt;E, F, U&gt;
 <span class="kw">where
 	</span>F: TestNetNode,
 	E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
-	G: RuntimeGenesis + <span class="lifetime">'static</span>,
 {
 	<span class="kw">fn </span>new(
 		temp: <span class="kw-2">&amp;</span>TempDir,
-		spec: GenericChainSpec&lt;G, E&gt;,
+		spec: GenericChainSpec&lt;E&gt;,
 		full: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw">impl </span>FnOnce(Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;(F, U), Error&gt;&gt;,
 		authorities: <span class="kw">impl </span>Iterator&lt;Item = (String, <span class="kw">impl </span>FnOnce(Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;(F, U), Error&gt;)&gt;,
 		base_port: u16,
-	) -&gt; TestNet&lt;G, E, F, U&gt; {
+	) -&gt; TestNet&lt;E, F, U&gt; {
 		sp_tracing::try_init_simple();
 		fdlimit::raise_fd_limit().unwrap();
 		<span class="kw">let </span>runtime = Runtime::new().expect(<span class="string">"Error creating tokio runtime"</span>);
@@ -1091,10 +1080,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.expect(<span class="string">"Error creating test dir"</span>)
 }
 
-<span class="kw">pub fn </span>connectivity&lt;G, E, Fb, F&gt;(spec: GenericChainSpec&lt;G, E&gt;, full_builder: Fb)
+<span class="kw">pub fn </span>connectivity&lt;E, Fb, F&gt;(spec: GenericChainSpec&lt;E&gt;, full_builder: Fb)
 <span class="kw">where
 	</span>E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
-	G: RuntimeGenesis + <span class="lifetime">'static</span>,
 	Fb: Fn(Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;F, Error&gt;,
 	F: TestNetNode,
 {
@@ -1168,8 +1156,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">pub fn </span>sync&lt;G, E, Fb, F, B, ExF, U&gt;(
-	spec: GenericChainSpec&lt;G, E&gt;,
+<span class="kw">pub fn </span>sync&lt;E, Fb, F, B, ExF, U&gt;(
+	spec: GenericChainSpec&lt;E&gt;,
 	full_builder: Fb,
 	<span class="kw-2">mut </span>make_block_and_import: B,
 	<span class="kw-2">mut </span>extrinsic_factory: ExF,
@@ -1180,7 +1168,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ExF: FnMut(<span class="kw-2">&amp;</span>F, <span class="kw-2">&amp;</span>U) -&gt; &lt;F::Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
 	U: Clone + Send + <span class="lifetime">'static</span>,
 	E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
-	G: RuntimeGenesis + <span class="lifetime">'static</span>,
 {
 	<span class="kw">const </span>NUM_FULL_NODES: usize = <span class="number">10</span>;
 	<span class="kw">const </span>NUM_BLOCKS: usize = <span class="number">512</span>;
@@ -1239,15 +1226,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	network.run_until_all_full(|_index, service| service.transaction_pool().ready().count() == <span class="number">1</span>);
 }
 
-<span class="kw">pub fn </span>consensus&lt;G, E, Fb, F&gt;(
-	spec: GenericChainSpec&lt;G, E&gt;,
+<span class="kw">pub fn </span>consensus&lt;E, Fb, F&gt;(
+	spec: GenericChainSpec&lt;E&gt;,
 	full_builder: Fb,
 	authorities: <span class="kw">impl </span>IntoIterator&lt;Item = String&gt;,
 ) <span class="kw">where
 	</span>Fb: Fn(Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;F, Error&gt;,
 	F: TestNetNode,
 	E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
-	G: RuntimeGenesis + <span class="lifetime">'static</span>,
 {
 	<span class="kw">const </span>NUM_FULL_NODES: usize = <span class="number">10</span>;
 	<span class="kw">const </span>NUM_BLOCKS: usize = <span class="number">10</span>; <span class="comment">// 10 * 2 sec block production time = ~20 seconds

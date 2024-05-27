@@ -316,7 +316,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![allow(missing_docs)]
 
 </span><span class="kw">use </span>cumulus_primitives_core::ParaId;
-<span class="kw">use </span>cumulus_test_runtime::{AccountId, RuntimeGenesisConfig, Signature};
+<span class="kw">use </span>cumulus_test_runtime::{AccountId, Signature};
 <span class="kw">use </span>parachains_common::AuraId;
 <span class="kw">use </span>sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 <span class="kw">use </span>sc_service::ChainType;
@@ -325,7 +325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::{IdentifyAccount, Verify};
 
 <span class="doccomment">/// Specialized `ChainSpec` for the normal parachain runtime.
-</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;RuntimeGenesisConfig, Extensions&gt;;
+</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;Extensions&gt;;
 
 <span class="doccomment">/// Helper function to generate a crypto pair from seed
 </span><span class="kw">pub fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {

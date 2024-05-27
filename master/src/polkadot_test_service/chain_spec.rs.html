@@ -378,7 +378,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">const </span>DEFAULT_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">"dot"</span>;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for polkadot test runtime.
-</span><span class="kw">pub type </span>PolkadotChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
+</span><span class="kw">pub type </span>PolkadotChainSpec = sc_service::GenericChainSpec&lt;Extensions&gt;;
 
 <span class="doccomment">/// Returns the properties for the [`PolkadotChainSpec`].
 </span><span class="kw">pub fn </span>polkadot_chain_spec_properties() -&gt; serde_json::map::Map&lt;String, serde_json::Value&gt; {

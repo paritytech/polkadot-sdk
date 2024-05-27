@@ -227,7 +227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_keyring::AccountKeyring;
 
 <span class="doccomment">/// This is a specialization of the general Substrate ChainSpec type.
-</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;()&gt;;
+</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec;
 
 <span class="kw">fn </span>props() -&gt; Properties {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = Properties::new();

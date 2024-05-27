@@ -568,11 +568,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
 <a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -832,7 +827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! 	pub known_blocks: HashMap&lt;u64, String&gt;,
 //! }
 //!
-//! pub type MyChainSpec&lt;G&gt; = GenericChainSpec&lt;G, MyExtension&gt;;
+//! pub type MyChainSpec = GenericChainSpec&lt;MyExtension&gt;;
 //! ```
 //! Some parameters may require different values depending on the current blockchain height (a.k.a.
 //! forks). You can use the [`ChainSpecGroup`](macro@ChainSpecGroup) macro and the provided [`Forks`]
@@ -861,10 +856,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! pub type BlockNumber = u64;
 //!
 //! /// A chain spec supporting forkable `ClientParams`.
-//! pub type MyChainSpec1&lt;G&gt; = GenericChainSpec&lt;G, Forks&lt;BlockNumber, ClientParams&gt;&gt;;
+//! pub type MyChainSpec1 = GenericChainSpec&lt;Forks&lt;BlockNumber, ClientParams&gt;&gt;;
 //!
 //! /// A chain spec supporting forkable `Extension`.
-//! pub type MyChainSpec2&lt;G&gt; = GenericChainSpec&lt;G, Forks&lt;BlockNumber, Extension&gt;&gt;;
+//! pub type MyChainSpec2 = GenericChainSpec&lt;Forks&lt;BlockNumber, Extension&gt;&gt;;
 //! ```
 //! It's also possible to have a set of parameters that are allowed to change with block numbers
 //! (i.e., they are forkable), and another set that is not subject to changes. This can also be
@@ -891,7 +886,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! 	pub pool: Forks&lt;u64, PoolParams&gt;,
 //! }
 //!
-//! pub type MyChainSpec&lt;G&gt; = GenericChainSpec&lt;G, Extension&gt;;
+//! pub type MyChainSpec = GenericChainSpec&lt;Extension&gt;;
 //! ```
 //! The chain spec can be extended with other fields that are opaque to the default chain spec.
 //! Specific node implementations will need to be able to deserialize these extensions.
@@ -919,7 +914,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>sc_network::config::MultiaddrWithPeerId;
 <span class="kw">use </span>sc_telemetry::TelemetryEndpoints;
-<span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 <span class="kw">use </span>sp_core::storage::Storage;
 <span class="kw">use </span>sp_runtime::BuildStorage;
 
@@ -947,10 +941,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Arbitrary properties defined in chain spec as a JSON object
 </span><span class="kw">pub type </span>Properties = serde_json::map::Map&lt;String, serde_json::Value&gt;;
-
-<span class="doccomment">/// A set of traits for the runtime genesis config.
-</span><span class="kw">pub trait </span>RuntimeGenesis: Serialize + DeserializeOwned + BuildStorage {}
-<span class="kw">impl</span>&lt;T: Serialize + DeserializeOwned + BuildStorage&gt; RuntimeGenesis <span class="kw">for </span>T {}
 
 <span class="doccomment">/// Common interface of a chain specification.
 </span><span class="kw">pub trait </span>ChainSpec: BuildStorage + Send + Sync {

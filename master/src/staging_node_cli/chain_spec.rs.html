@@ -758,7 +758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Specialized `ChainSpec`.
-</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;RuntimeGenesisConfig, Extensions&gt;;
+</span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;Extensions&gt;;
 <span class="doccomment">/// Flaming Fir testnet generator
 </span><span class="kw">pub fn </span>flaming_fir_config() -&gt; <span class="prelude-ty">Result</span>&lt;ChainSpec, String&gt; {
 	ChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../res/flaming-fir.json"</span>)[..])
