@@ -252,7 +252,7 @@ impl<T: Config> Pallet<T> {
 			sale_start,
 			leadin_length,
 			start_price: Self::sale_price(&new_sale, now),
-			regular_price: new_prices.min_price,
+			end_price: new_prices.min_price,
 			region_begin,
 			region_end,
 			ideal_cores_sold,

@@ -292,7 +292,7 @@ pub mod pallet {
 			/// The price of Bulk Coretime at the beginning of the Leadin Period.
 			start_price: BalanceOf<T>,
 			/// The price of Bulk Coretime after the Leadin Period.
-			regular_price: BalanceOf<T>,
+			end_price: BalanceOf<T>,
 			/// The first timeslice of the Regions which are being sold in this sale.
 			region_begin: Timeslice,
 			/// The timeslice on which the Regions which are being sold in the sale terminate.
