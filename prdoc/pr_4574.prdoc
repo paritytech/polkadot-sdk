@@ -9,24 +9,28 @@ crates:
   - name: pallet-staking
     bump: minor
   - name: pallet-babe
-    bump: minor
-  - name: polkadot-runtime-common
-    bump: minor
+    bump: patch
   - name: pallet-fast-unstake
     bump: minor
   - name: pallet-grandpa
-    bump: minor
+    bump: patch
   - name: pallet-beefy 
-    bump: minor
-  - name: westend-runtime
-    bump: minor
+    bump: patch
   - name: pallet-delegated-staking
-    bump: minor
+    bump: patch
   - name: pallet-nomination-pools-benchmarking
-    bump: minor
+    bump: patch
   - name: pallet-offences-benchmarking
-    bump: minor
+    bump: patch
   - name: pallet-session-benchmarking
-    bump: minor
+    bump: patch
   - name: pallet-root-offences
-    bump: minor
+    bump: patch
+  - name: pallet-nomination-pools
+    bump: patch
+  - name: sp-staking
+    bump: patch
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: westend-runtime
+    bump: patch
