@@ -384,7 +384,7 @@ where
 
 		let mut input = CopyReader::new(input);
 		// We have to check that the function decodes correctly.
-		Call::decode(&mut input)?;
+		Call::skip(&mut input)?;
 
 		if let (Some(before_length), Some(after_length)) =
 			(maybe_before_length, input.remaining_len()?)
