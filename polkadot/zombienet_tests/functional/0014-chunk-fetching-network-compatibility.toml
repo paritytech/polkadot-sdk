@@ -37,7 +37,7 @@ cumulus_based = true
 chain = "glutton-westend-local-{{id}}"
     [parachains.genesis.runtimeGenesis.patch.glutton]
     compute = "50000000"
-    storage = "1310000000"
+    storage = "2500000000"
     trashDataCount = 5120
 
     [parachains.collator]
