@@ -89,8 +89,10 @@ const LRU_SIZE: u32 = 16;
 
 const COST_INVALID_REQUEST: Rep = Rep::CostMajor("Peer sent unparsable request");
 
-/// PoV size limit in bytes for which prefer fetching from backers.
-const SMALL_POV_LIMIT: usize = 128 * 1024;
+/// PoV size limit in bytes for which prefer fetching from backers. (conservative, Polkadot for now)
+pub(crate) const CONSERVATIVE_FETCH_CHUNKS_THRESHOLD: usize = 1 * 1024 * 1024;
+/// PoV size limit in bytes for which prefer fetching from backers. (Kusama and all testnets)
+pub const FETCH_CHUNKS_THRESHOLD: usize = 4 * 1024 * 1024;
 
 #[derive(Clone, PartialEq)]
 /// The strategy we use to recover the PoV.
@@ -422,23 +424,23 @@ async fn handle_recover<Context>(
 					let mut small_pov_size = true;
 
 					match recovery_strategy_kind {
-						RecoveryStrategyKind::BackersFirstIfSizeLower(small_pov_limit) |
+						RecoveryStrategyKind::BackersFirstIfSizeLower(fetch_chunks_threshold) |
 						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(
-							small_pov_limit,
+							fetch_chunks_threshold,
 						) => {
 							// Get our own chunk size to get an estimate of the PoV size.
 							let chunk_size: Result<Option<usize>> =
 								query_chunk_size(ctx, candidate_hash).await;
 							if let Ok(Some(chunk_size)) = chunk_size {
 								let pov_size_estimate = chunk_size * systematic_threshold;
-								small_pov_size = pov_size_estimate < small_pov_limit;
+								small_pov_size = pov_size_estimate < fetch_chunks_threshold;
 
 								if small_pov_size {
 									gum::trace!(
 										target: LOG_TARGET,
 										?candidate_hash,
 										pov_size_estimate,
-										small_pov_limit,
+										fetch_chunks_threshold,
 										"Prefer fetch from backing group",
 									);
 								}
@@ -599,12 +601,15 @@ impl AvailabilityRecoverySubsystem {
 	/// which never requests the `AvailabilityStoreSubsystem` subsystem and only checks the POV hash
 	/// instead of reencoding the available data.
 	pub fn for_collator(
+		fetch_chunks_threshold: Option<usize>,
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 		req_protocol_names: &ReqProtocolNames,
 		metrics: Metrics,
 	) -> Self {
 		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(
+				fetch_chunks_threshold.unwrap_or(CONSERVATIVE_FETCH_CHUNKS_THRESHOLD),
+			),
 			bypass_availability_store: true,
 			post_recovery_check: PostRecoveryCheck::PovHash,
 			req_receiver,
@@ -618,19 +623,23 @@ impl AvailabilityRecoverySubsystem {
 
 	/// Create an optimised new instance of `AvailabilityRecoverySubsystem` suitable for validator
 	/// nodes, which:
-	/// - for small POVs (over 128Kib), it attempts full recovery from backers, if backing group
-	///   supplied.
+	/// - for small POVs (over the `fetch_chunks_threshold` or the
+	///   `CONSERVATIVE_FETCH_CHUNKS_THRESHOLD`), it attempts full recovery from backers, if backing
+	///   group supplied.
 	/// - for large POVs, attempts systematic recovery, if core_index supplied and
 	///   AvailabilityChunkMapping node feature is enabled.
 	/// - as a last resort, attempt regular chunk recovery from all validators.
 	pub fn for_validator(
+		fetch_chunks_threshold: Option<usize>,
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 		req_protocol_names: &ReqProtocolNames,
 		metrics: Metrics,
 	) -> Self {
 		Self {
 			recovery_strategy_kind:
-				RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(SMALL_POV_LIMIT),
+				RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(
+					fetch_chunks_threshold.unwrap_or(CONSERVATIVE_FETCH_CHUNKS_THRESHOLD),
+				),
 			bypass_availability_store: false,
 			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,

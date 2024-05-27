@@ -92,7 +92,7 @@ fn with_chunks_if_pov_large(
 		req_receiver,
 		req_protocol_names,
 		metrics,
-		RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+		RecoveryStrategyKind::BackersFirstIfSizeLower(FETCH_CHUNKS_THRESHOLD),
 	)
 }
 
@@ -103,7 +103,12 @@ fn with_systematic_chunks_if_pov_large(
 	req_protocol_names: &ReqProtocolNames,
 	metrics: Metrics,
 ) -> AvailabilityRecoverySubsystem {
-	AvailabilityRecoverySubsystem::for_validator(req_receiver, req_protocol_names, metrics)
+	AvailabilityRecoverySubsystem::for_validator(
+		Some(FETCH_CHUNKS_THRESHOLD),
+		req_receiver,
+		req_protocol_names,
+		metrics,
+	)
 }
 
 /// Create a new instance of `AvailabilityRecoverySubsystem` which first requests full data
@@ -1269,6 +1274,7 @@ fn invalid_pov_hash_leads_to_invalid_error() {
 	let mut test_state = TestState::default();
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = AvailabilityRecoverySubsystem::for_collator(
+		None,
 		request_receiver(&req_protocol_names),
 		&req_protocol_names,
 		Metrics::new_dummy(),
@@ -1417,6 +1423,7 @@ fn recovers_from_only_chunks_if_pov_large(
 			test_state.candidate.descriptor.pov_hash = test_state.available_data.pov.hash();
 			(
 				AvailabilityRecoverySubsystem::for_collator(
+					None,
 					request_receiver(&req_protocol_names),
 					&req_protocol_names,
 					Metrics::new_dummy(),
@@ -1462,7 +1469,7 @@ fn recovers_from_only_chunks_if_pov_large(
 			AllMessages::AvailabilityStore(
 				AvailabilityStoreMessage::QueryChunkSize(_, tx)
 			) => {
-				let _ = tx.send(Some(1000000));
+				let _ = tx.send(Some(crate::FETCH_CHUNKS_THRESHOLD + 1));
 			}
 		);
 
@@ -1509,7 +1516,7 @@ fn recovers_from_only_chunks_if_pov_large(
 			AllMessages::AvailabilityStore(
 				AvailabilityStoreMessage::QueryChunkSize(_, tx)
 			) => {
-				let _ = tx.send(Some(1000000));
+				let _ = tx.send(Some(crate::FETCH_CHUNKS_THRESHOLD + 1));
 			}
 		);
 
@@ -1588,6 +1595,7 @@ fn fast_path_backing_group_recovers_if_pov_small(
 		(false, true) => {
 			test_state.candidate.descriptor.pov_hash = test_state.available_data.pov.hash();
 			AvailabilityRecoverySubsystem::for_collator(
+				None,
 				request_receiver(&req_protocol_names),
 				&req_protocol_names,
 				Metrics::new_dummy(),
@@ -3056,6 +3064,7 @@ fn test_systematic_recovery_skipped_if_mapping_disabled() {
 	let test_state = TestState::with_empty_node_features();
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = AvailabilityRecoverySubsystem::for_validator(
+		None,
 		request_receiver(&req_protocol_names),
 		&req_protocol_names,
 		Metrics::new_dummy(),
