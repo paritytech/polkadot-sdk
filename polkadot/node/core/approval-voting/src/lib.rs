@@ -997,10 +997,10 @@ impl State {
 		}
 	}
 
-	fn cleanup_assignments_gathering_timestamp(&mut self, keep_greater_than: BlockNumber) {
+	fn cleanup_assignments_gathering_timestamp(&mut self, remove_lower_than: BlockNumber) {
 		while let Some((block_number, _)) = self.per_block_assignments_gathering_times.peek_oldest()
 		{
-			if *block_number < keep_greater_than {
+			if *block_number < remove_lower_than {
 				self.per_block_assignments_gathering_times.pop_oldest();
 			} else {
 				break
