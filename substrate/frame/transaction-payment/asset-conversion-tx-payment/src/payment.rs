@@ -202,16 +202,16 @@ where
 			// No refund given if it cannot be swapped back.
 			.unwrap_or(Zero::zero());
 
-			// Deposit the refund before the swap to ensure it can be processed.
-			let debt = if !refund_asset_amount.is_zero() {
+			let debt = if refund_asset_amount.is_zero() {
+				fungibles::Debt::<T::AccountId, F>::zero(asset_id.clone())
+			} else {
+				// Deposit the refund before the swap to ensure it can be processed.
 				match F::deposit(asset_id.clone(), &who, refund_asset_amount, Precision::BestEffort)
 				{
 					Ok(debt) => debt,
 					// No refund given since it cannot be deposited.
 					Err(_) => fungibles::Debt::<T::AccountId, F>::zero(asset_id.clone()),
 				}
-			} else {
-				fungibles::Debt::<T::AccountId, F>::zero(asset_id.clone())
 			};
 
 			if debt.peek().is_zero() {
