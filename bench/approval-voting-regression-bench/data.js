@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716810460841,
+  "lastUpdate": 1716824162969,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -4981,6 +4981,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.637758977209918,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ce3e9b7c7099034e8ee30e4c7c912e3ed068bf8a",
+          "message": "network: Update litep2p to v0.5.0 (#4570)\n\n## [0.5.0] - 2023-05-24\n\nThis is a small patch release that makes the `FindNode` command a bit\nmore robst:\n\n- The `FindNode` command now retains the K (replication factor) best\nresults.\n- The `FindNode` command has been updated to handle errors and\nunexpected states without panicking.\n\n### Changed\n\n- kad: Refactor FindNode query, keep K best results and add tests\n([#114](https://github.com/paritytech/litep2p/pull/114))\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-05-27T13:55:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce3e9b7c7099034e8ee30e4c7c912e3ed068bf8a"
+        },
+        "date": 1716824135577,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63544.64,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.924206964580189,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.456111503100015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 11.120952072129963,
             "unit": "seconds"
           }
         ]
