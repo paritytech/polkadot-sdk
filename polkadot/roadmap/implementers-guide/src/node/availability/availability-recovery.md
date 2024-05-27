@@ -170,7 +170,7 @@ In the worst case, all validators will be tried.
 
 #### For validators
 
-If the estimated available data size is smaller than a configured constant (currently 1Mib for polkadot or 4Mib for
+If the estimated available data size is smaller than a configured constant (currently 1Mib for Polkadot or 4Mib for
 other networks), try doing `FetchFull` first.
 Next, if the preconditions described in `FetchSystematicChunks` above are met, try systematic recovery.
 As a last resort, do `FetchChunks`.
