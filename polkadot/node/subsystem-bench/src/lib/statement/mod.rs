@@ -255,7 +255,9 @@ pub async fn benchmark_statement_distribution(
 	env.metrics().set_n_cores(config.n_cores);
 
 	let topology = generate_topology(&state.test_authorities);
-	let peer_connected_messages = env.network().generate_statement_distribution_peer_connected();
+	let peer_connected_messages = env.network().generate_peer_connected(|e| {
+		AllMessages::StatementDistribution(StatementDistributionMessage::NetworkBridgeUpdate(e))
+	});
 	let new_session_topology_messages =
 		generate_new_session_topology(&topology, ValidatorIndex(NODE_UNDER_TEST));
 	for message in peer_connected_messages.into_iter().chain(new_session_topology_messages) {

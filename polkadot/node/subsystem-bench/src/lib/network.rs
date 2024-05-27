@@ -51,14 +51,14 @@ use futures::{
 };
 use itertools::Itertools;
 use net_protocol::{
-	peer_set::{ProtocolVersion, ValidationVersion},
+	peer_set::ValidationVersion,
 	request_response::{Recipient, Requests, ResponseSender},
 	ObservedRole, VersionedValidationProtocol, View,
 };
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{self as net_protocol, Versioned};
 use polkadot_node_subsystem::messages::StatementDistributionMessage;
-use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, NetworkBridgeEvent};
+use polkadot_node_subsystem_types::messages::NetworkBridgeEvent;
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, CounterVec, Opts, PrometheusError, Registry,
 };
@@ -759,41 +759,21 @@ impl NetworkEmulatorHandle {
 			})
 			.collect_vec()
 	}
+
 	/// Generates peer_connected messages for all peers in `test_authorities`
-	pub fn generate_statement_distribution_peer_connected(&self) -> Vec<AllMessages> {
+	pub fn generate_peer_connected<F, T>(&self, mapper: F) -> Vec<AllMessages>
+	where
+		F: Fn(NetworkBridgeEvent<T>) -> AllMessages,
+	{
 		self.peers
 			.iter()
 			.filter(|peer| peer.is_connected())
 			.map(|peer| {
-				let network = NetworkBridgeEvent::PeerConnected(
+				mapper(NetworkBridgeEvent::PeerConnected(
 					peer.handle().peer_id,
 					ObservedRole::Authority,
 					ValidationVersion::V3.into(),
 					Some(vec![peer.authority_id()].into_iter().collect()),
-				);
-
-				AllMessages::StatementDistribution(
-					StatementDistributionMessage::NetworkBridgeUpdate(network),
-				)
-			})
-			.collect_vec()
-	}
-
-	/// Generates peer_connected messages for all peers in `test_authorities`
-	pub fn generate_approval_distribution_peer_connected(&self) -> Vec<AllMessages> {
-		self.peers
-			.iter()
-			.filter(|peer| peer.is_connected())
-			.map(|peer| {
-				let network = NetworkBridgeEvent::PeerConnected(
-					peer.handle().peer_id,
-					ObservedRole::Full,
-					ProtocolVersion::from(ValidationVersion::V3),
-					None,
-				);
-
-				AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
-					network,
 				))
 			})
 			.collect_vec()
