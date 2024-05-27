@@ -327,8 +327,6 @@ mod genesis_block;
 mod genesis_config_builder;
 pub mod json_patch;
 
-use std::str::FromStr;
-
 pub use self::{
 	chain_spec::{
 		update_code_in_json_chain_spec, ChainSpec as GenericChainSpec, ChainSpecBuilder,
@@ -354,7 +352,7 @@ use sp_runtime::BuildStorage;
 ///
 /// This can be used by tools to determine the type of a chain for displaying
 /// additional information or enabling additional features.
-#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Clone)]
+#[derive(clap::ValueEnum, serde::Serialize, serde::Deserialize, Debug, PartialEq, Clone)]
 pub enum ChainType {
 	/// A development chain that runs mainly on one node.
 	Development,
@@ -363,25 +361,13 @@ pub enum ChainType {
 	/// A live chain.
 	Live,
 	/// Some custom chain type.
+	#[clap(skip)]
 	Custom(String),
 }
 
 impl Default for ChainType {
 	fn default() -> Self {
 		Self::Live
-	}
-}
-
-impl FromStr for ChainType {
-	type Err = ();
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Ok(match s {
-			"Development" => ChainType::Development,
-			"Local" => ChainType::Local,
-			"Live" => ChainType::Live,
-			_ => ChainType::Custom(s.to_string()),
-		})
 	}
 }
 
