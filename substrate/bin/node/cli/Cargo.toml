@@ -41,7 +41,7 @@ array-bytes = "6.1"
 clap = { version = "4.5.3", features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.12" }
 serde = { features = ["derive"], workspace = true, default-features = true }
-jsonrpsee = { version = "0.22", features = ["server"] }
+jsonrpsee = { version = "0.23", features = ["server"] }
 futures = "0.3.30"
 log = { workspace = true, default-features = true }
 rand = "0.8"

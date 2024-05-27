@@ -22,5 +22,5 @@ sc-client-api = { path = "../../../substrate/client/api" }
 futures = "0.3.28"
 async-trait = "0.1.79"
 thiserror = { workspace = true }
-jsonrpsee-core = "0.22"
+jsonrpsee-core = "0.23"
 parity-scale-codec = "3.6.12"

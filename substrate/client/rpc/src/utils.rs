@@ -130,7 +130,7 @@ async fn inner_pipe_from_stream<S, T>(
 						"Subscription buffer limit={} exceeded for subscription={} conn_id={}; dropping subscription",
 						buf.max_cap,
 						sink.method_name(),
-						sink.connection_id()
+						sink.connection_id().0
 					);
 					return
 				}

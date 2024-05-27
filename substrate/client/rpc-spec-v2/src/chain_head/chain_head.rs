@@ -36,7 +36,7 @@ use crate::{
 use codec::Encode;
 use futures::{channel::oneshot, future::FutureExt};
 use jsonrpsee::{
-	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionDetails,
+	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionId, Extensions,
 	MethodResponseFuture, PendingSubscriptionSink, SubscriptionSink,
 };
 use log::debug;
@@ -207,7 +207,8 @@ where
 			// The RAII `reserved_subscription` will clean up resources on drop:
 			// - free the reserved subscription for the connection ID.
 			// - remove the subscription ID from the subscription management.
-			let Some(mut reserved_subscription) = subscriptions.reserve_subscription(connection_id)
+			let Some(mut reserved_subscription) =
+				subscriptions.reserve_subscription(connection_id)
 			else {
 				pending.reject(ChainHeadRpcError::ReachedLimits).await;
 				return
@@ -251,14 +252,13 @@ where
 
 	async fn chain_head_unstable_body(
 		&self,
-		connection_details: ConnectionDetails,
+		ext: &Extensions,
 		follow_subscription: String,
 		hash: Block::Hash,
 	) -> ResponsePayload<'static, MethodResponse> {
-		if !self
-			.subscriptions
-			.contains_subscription(connection_details.id(), &follow_subscription)
-		{
+		let conn_id = *ext.get::<ConnectionId>().unwrap();
+
+		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
 			// stale.
 			return ResponsePayload::success(MethodResponse::LimitReached);
@@ -335,14 +335,13 @@ where
 
 	async fn chain_head_unstable_header(
 		&self,
-		connection_details: ConnectionDetails,
+		ext: &Extensions,
 		follow_subscription: String,
 		hash: Block::Hash,
 	) -> Result<Option<String>, ChainHeadRpcError> {
-		if !self
-			.subscriptions
-			.contains_subscription(connection_details.id(), &follow_subscription)
-		{
+		let conn_id = *ext.get::<ConnectionId>().unwrap();
+
+		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(None);
 		}
 
@@ -371,16 +370,15 @@ where
 
 	async fn chain_head_unstable_storage(
 		&self,
-		connection_details: ConnectionDetails,
+		ext: &Extensions,
 		follow_subscription: String,
 		hash: Block::Hash,
 		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
 	) -> ResponsePayload<'static, MethodResponse> {
-		if !self
-			.subscriptions
-			.contains_subscription(connection_details.id(), &follow_subscription)
-		{
+		let conn_id = *ext.get::<ConnectionId>().unwrap();
+
+		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
 			// stale.
 			return ResponsePayload::success(MethodResponse::LimitReached);
@@ -452,7 +450,7 @@ where
 
 	async fn chain_head_unstable_call(
 		&self,
-		connection_details: ConnectionDetails,
+		ext: &Extensions,
 		follow_subscription: String,
 		hash: Block::Hash,
 		function: String,
@@ -463,10 +461,9 @@ where
 			Err(err) => return ResponsePayload::error(err),
 		};
 
-		if !self
-			.subscriptions
-			.contains_subscription(connection_details.id(), &follow_subscription)
-		{
+		let conn_id = *ext.get::<ConnectionId>().unwrap();
+
+		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
 			// stale.
 			return ResponsePayload::success(MethodResponse::LimitReached);
@@ -530,14 +527,13 @@ where
 
 	async fn chain_head_unstable_unpin(
 		&self,
-		connection_details: ConnectionDetails,
+		ext: &Extensions,
 		follow_subscription: String,
 		hash_or_hashes: ListOrValue<Block::Hash>,
 	) -> Result<(), ChainHeadRpcError> {
-		if !self
-			.subscriptions
-			.contains_subscription(connection_details.id(), &follow_subscription)
-		{
+		let conn_id = *ext.get::<ConnectionId>().unwrap();
+
+		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(());
 		}
 
@@ -566,14 +562,13 @@ where
 
 	async fn chain_head_unstable_continue(
 		&self,
-		connection_details: ConnectionDetails,
+		ext: &Extensions,
 		follow_subscription: String,
 		operation_id: String,
 	) -> Result<(), ChainHeadRpcError> {
-		if !self
-			.subscriptions
-			.contains_subscription(connection_details.id(), &follow_subscription)
-		{
+		let conn_id = *ext.get::<ConnectionId>().unwrap();
+
+		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(())
 		}
 
@@ -592,14 +587,13 @@ where
 
 	async fn chain_head_unstable_stop_operation(
 		&self,
-		connection_details: ConnectionDetails,
+		ext: &Extensions,
 		follow_subscription: String,
 		operation_id: String,
 	) -> Result<(), ChainHeadRpcError> {
-		if !self
-			.subscriptions
-			.contains_subscription(connection_details.id(), &follow_subscription)
-		{
+		let conn_id = *ext.get::<ConnectionId>().unwrap();
+
+		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(())
 		}
 
