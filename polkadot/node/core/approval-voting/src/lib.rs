@@ -65,7 +65,7 @@ use sp_consensus::SyncOracle;
 use sp_consensus_slots::Slot;
 use std::time::Instant;
 
-// The maximum block we keep track of assignments gathering times, on normal operation
+// The max number of blocks we keep track of assignments gathering times. Normally,
 // this would never be reached because we prune the data on finalization, but we need
 // to also ensure the data is not growing unecessarily large.
 const MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS: u32 = 100;
