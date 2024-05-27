@@ -31,11 +31,15 @@ use std::collections::HashMap;
 
 const LOG_TARGET: &str = "subsystem-bench::candidate-backing-mock";
 
-pub struct MockCandidateBacking {
-	config: TestConfiguration,
+struct MockCandidateBackingState {
 	pair: ValidatorPair,
 	pvd: PersistedValidationData,
 	own_backing_group: Vec<ValidatorIndex>,
+}
+
+pub struct MockCandidateBacking {
+	config: TestConfiguration,
+	state: MockCandidateBackingState,
 }
 
 impl MockCandidateBacking {
@@ -45,7 +49,7 @@ impl MockCandidateBacking {
 		pvd: PersistedValidationData,
 		own_backing_group: Vec<ValidatorIndex>,
 	) -> Self {
-		Self { config, pair, pvd, own_backing_group }
+		Self { config, state: MockCandidateBackingState { pair, pvd, own_backing_group } }
 	}
 }
 
@@ -77,7 +81,7 @@ impl MockCandidateBacking {
 						CandidateBackingMessage::Statement(relay_parent, statement) => {
 							let validator_id = statement.validator_index();
 							let is_own_backing_group =
-								self.own_backing_group.contains(&validator_id);
+								self.state.own_backing_group.contains(&validator_id);
 							match statement.payload() {
 								StatementWithPVD::Seconded(receipt, _pvd) => {
 									let candidate_hash = receipt.hash();
@@ -105,11 +109,11 @@ impl MockCandidateBacking {
     										polkadot_node_subsystem::messages::StatementDistributionMessage::Share(
     											relay_parent,
     											SignedFullStatementWithPVD::new(
-    												statement.supply_pvd(self.pvd.clone()),
+    												statement.supply_pvd(self.state.pvd.clone()),
     												ValidatorIndex(NODE_UNDER_TEST),
-    												self.pair.sign(&payload[..]),
+    												self.state.pair.sign(&payload[..]),
     												&context,
-    												&self.pair.public(),
+    												&self.state.pair.public(),
     											)
     											.unwrap()
 										);
