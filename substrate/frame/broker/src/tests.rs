@@ -1481,14 +1481,14 @@ fn enable_auto_renewal_with_end_hint_works() {
 					.unwrap(),
 			),
 		};
-		// Each lease-holding task should be allowed to renew. Although the `when` field will
-		// likely be set to a later timeslice.
+		// Each lease-holding task should be allowed to auto renew. Although the `when` field will
+		// likely be set to a later timeslice. For this reason renewals will only begin later.
 		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 0, when: 10 }, &record);
 
 		endow(1001, 1000);
 
-		// Will fail if we don't provide the end hint since it expects it to be at next sale start
-		// or end.
+		// Will fail if we don't provide the end hint since it expects renewal record to be at next
+		// sale start or end.
 		assert_noop!(Broker::do_enable_auto_renew(1001, 0, None), Error::<Test>::NotAllowed);
 
 		assert_ok!(Broker::do_enable_auto_renew(1001, 0, Some(10)));
@@ -1501,14 +1501,16 @@ fn enable_auto_renewal_with_end_hint_works() {
 		// Next cycle starting at 7.
 		advance_to(7);
 
-		// Ensure that the renewal didn't happen by checking that the balance remained the same
-		// since it still has a lease.
+		// Ensure that the renewal didn't happen by checking that the balance remained the same, as
+		// there is still no need to renew.
 		assert_eq!(balance(1001), 1000);
 
-		// The next sale starts at 13. The renewal should happen now and the task should be charged.
+		// The next sale starts at 13. The renewal should happen now and the account should be
+		// charged.
 		advance_to(13);
 		assert_eq!(balance(1001), 900);
 
+		// Make sure that the renewal happened:
 		System::assert_has_event(
 			Event::<Test>::Renewed {
 				who: 1001, // sovereign account
@@ -1538,7 +1540,8 @@ fn enable_auto_renew_renews() {
 		// advance to next bulk sale:
 		advance_to(6);
 
-		// Since we didn't renew for the next bulk period, enabling auto-renewal will renew.
+		// Since we didn't renew for the next bulk period, enabling auto-renewal will renew,
+		// ensuring the task continues execution.
 
 		// Will fail because we didn't fund the sovereign account:
 		assert_noop!(
@@ -1554,11 +1557,8 @@ fn enable_auto_renew_renews() {
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 10 }]
 		);
-		assert!(AllowedRenewals::<Test>::get(AllowedRenewalId {
-			core: region_id.core,
-			when: 10 // region end after renewal
-		})
-		.is_some());
+		assert!(AllowedRenewals::<Test>::get(AllowedRenewalId { core: region_id.core, when: 10 })
+			.is_some());
 
 		System::assert_has_event(
 			Event::<Test>::AutoRenewalEnabled { core: region_id.core, task: 1001 }.into(),

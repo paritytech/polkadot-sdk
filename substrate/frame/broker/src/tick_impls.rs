@@ -340,7 +340,7 @@ impl<T: Config> Pallet<T> {
 		let Ok(auto_renewals) = renewals
 			.into_iter()
 			.flat_map(|record| {
-				if sale.region_begin != record.begin {
+				if sale.region_begin < record.begin {
 					// We skip the renewal for this core.
 					return Some(record)
 				}
