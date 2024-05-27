@@ -255,6 +255,10 @@ impl TestExt {
 		Self(new_config())
 	}
 
+	pub fn new_with_config(config: ConfigRecordOf<Test>) -> Self {
+		Self(config)
+	}
+
 	pub fn advance_notice(mut self, advance_notice: Timeslice) -> Self {
 		self.0.advance_notice = advance_notice as u64;
 		self

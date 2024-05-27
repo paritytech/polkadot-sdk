@@ -82,6 +82,7 @@ impl<T: Config> Pallet<T> {
 		sale: &mut SaleInfoRecordOf<T>,
 	) -> Result<CoreIndex, DispatchError> {
 		Self::charge(who, price)?;
+		log::debug!("Purchased core at: {:?}", price);
 		let core = sale.first_core.saturating_add(sale.cores_sold);
 		sale.cores_sold.saturating_inc();
 		if sale.cores_sold <= sale.ideal_cores_sold || sale.sellout_price.is_none() {

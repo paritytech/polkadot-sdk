@@ -167,11 +167,18 @@ impl<T: Config> Pallet<T> {
 		let price_cap = record.price + config.renewal_bump * record.price;
 		let now = frame_system::Pallet::<T>::block_number();
 		let price = Self::sale_price(&sale, now).min(price_cap);
+		log::debug!(
+			"Renew with: sale price: {:?}, price cap: {:?}, old price: {:?}",
+			price,
+			price_cap,
+			record.price
+		);
 		let new_record = PotentialRenewalRecord { price, completion: Complete(workload) };
 		PotentialRenewals::<T>::remove(renewal_id);
 		PotentialRenewals::<T>::insert(PotentialRenewalId { core, when: begin }, &new_record);
 		SaleInfo::<T>::put(&sale);
 		if let Some(workload) = new_record.completion.drain_complete() {
+			log::debug!("Recording renewable price for next run: {:?}", price);
 			Self::deposit_event(Event::Renewable { core, price, begin, workload });
 		}
 		Ok(core)

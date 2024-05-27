@@ -162,6 +162,12 @@ impl<T: Config> Pallet<T> {
 		// Calculate the start price for the upcoming sale.
 		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&old_sale));
 
+		log::debug!(
+			"Rotated sale, new prices: {:?}, {:?}",
+			new_prices.min_price,
+			new_prices.target_price
+		);
+
 		// Set workload for the reserved (system, probably) workloads.
 		let region_begin = old_sale.region_end;
 		let region_end = region_begin + config.region_length;

@@ -30,6 +30,7 @@ frame-system = { path = "../system", default-features = false }
 
 [dev-dependencies]
 sp-io = { path = "../../primitives/io" }
+sp-tracing = { path = "../../primitives/tracing" }
 pretty_assertions = "1.3.0"
 
 [features]
