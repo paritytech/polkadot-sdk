@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716801694498,
+  "lastUpdate": 1716810766175,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -11439,6 +11439,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1573213902,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2352982717edc8976b55525274b1f9c9aa01aadd",
+          "message": "Make markdown lint CI job pass (#4593)\n\nWas constantly failing, so here a fix.",
+          "timestamp": "2024-05-27T09:39:56Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2352982717edc8976b55525274b1f9c9aa01aadd"
+        },
+        "date": 1716810736924,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.953333333335,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012116699346666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022106360926666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009967452086666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15727604116000002,
             "unit": "seconds"
           }
         ]
