@@ -130,7 +130,7 @@ where
 		if self.0 > account.nonce {
 			return Err(InvalidTransaction::Future.into())
 		}
-		account.nonce.saturating_inc();
+		account.nonce += T::Nonce::one();
 		crate::Account::<T>::insert(who, account);
 		Ok(())
 	}

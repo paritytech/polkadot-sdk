@@ -17,6 +17,8 @@
 
 //! Traits and implementations for swap between the various asset classes.
 
+use frame_support::traits::tokens::WithdrawConsequence;
+
 use super::*;
 
 /// Trait for providing methods to swap between the various asset classes.
@@ -66,6 +68,24 @@ pub trait Swap<AccountId> {
 		send_to: AccountId,
 		keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError>;
+
+	/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[last]`. If an
+	/// `amount_in_max` is specified, it will return an error if acquiring `amount_out` would be
+	/// too costly.
+	///
+	/// Withdraws `path[0]` asset from `sender`, deposits `path[last]` asset to `send_to`,
+	/// respecting `keep_alive`.
+	///
+	/// If successful returns the amount of the `path[0]` taken to provide `path[last]`.
+	///
+	/// This operation is expected to be atomic.
+	fn can_swap_tokens_for_exact_tokens(
+		sender: AccountId,
+		path: Vec<Self::AssetKind>,
+		amount_out: Self::Balance,
+		amount_in_max: Option<Self::Balance>,
+		keep_alive: bool,
+	) -> bool;
 }
 
 /// Trait providing methods to swap between the various asset classes.
@@ -160,6 +180,40 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 			)
 		})?;
 		Ok(amount_in)
+	}
+
+	fn can_swap_tokens_for_exact_tokens(
+		sender: T::AccountId,
+		path: Vec<Self::AssetKind>,
+		amount_out: Self::Balance,
+		amount_in_max: Option<Self::Balance>,
+		keep_alive: bool,
+	) -> bool {
+		let (asset_in, asset_out) = match (path.first(), path.last()) {
+			(Some(asset_1), Some(asset_2)) => (asset_1.clone(), asset_2.clone()),
+			_ => return false,
+		};
+		let Some(amount_in) = Self::quote_price_tokens_for_exact_tokens(
+			asset_out,
+			asset_in.clone(),
+			amount_out,
+			true,
+		) else {
+			return false;
+		};
+
+		if let Some(threshold) = amount_in_max {
+			if amount_in > threshold {
+				return false;
+			}
+		}
+
+		match T::Assets::can_withdraw(asset_in, &sender, amount_in) {
+			WithdrawConsequence::Success => true,
+			WithdrawConsequence::WouldDie if !keep_alive => true,
+			WithdrawConsequence::ReducedToZero(_) if !keep_alive => true,
+			_ => false,
+		}
 	}
 }
 

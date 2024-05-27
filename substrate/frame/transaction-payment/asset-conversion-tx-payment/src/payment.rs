@@ -54,6 +54,15 @@ pub trait OnChargeAssetTransaction<T: Config> {
 		TransactionValidityError,
 	>;
 
+	/// Ensure payment of the transaction fees can be withdrawn.
+	///
+	/// Note: The `fee` already includes the tip.
+	fn can_withdraw_fee(
+		who: &T::AccountId,
+		asset_id: Self::AssetId,
+		fee: Self::Balance,
+	) -> Result<(), TransactionValidityError>;
+
 	/// Refund any overpaid fees and deposit the corrected amount.
 	/// The actual fee gets calculated once the transaction is executed.
 	///
@@ -130,6 +139,34 @@ where
 		// charge the fee in native currency
 		<T::OnChargeTransaction>::withdraw_fee(who, call, info, fee, tip)
 			.map(|r| (r, native_asset_required, asset_consumed.into()))
+	}
+
+	/// Dry run of swap & withdraw the predicted fee from the transaction origin.
+	///
+	/// Note: The `fee` already includes the tip.
+	///
+	/// Returns an error if the total amount in native currency can't be exchanged for `asset_id`.
+	fn can_withdraw_fee(
+		who: &T::AccountId,
+		asset_id: Self::AssetId,
+		fee: BalanceOf<T>,
+	) -> Result<(), TransactionValidityError> {
+		// convert the asset into native currency
+		let ed = C::minimum_balance();
+		let native_asset_required =
+			if C::balance(&who) >= ed.saturating_add(fee.into()) { fee } else { fee + ed.into() };
+
+		if !CON::can_swap_tokens_for_exact_tokens(
+			who.clone(),
+			vec![asset_id.into(), N::get()],
+			native_asset_required,
+			None,
+			false,
+		) {
+			return Err(TransactionValidityError::from(InvalidTransaction::Payment));
+		};
+
+		Ok(())
 	}
 
 	/// Correct the fee and swap the refund back to asset.

@@ -208,7 +208,7 @@ pub fn expand_outer_inherent(
 
 				let is_bare = #scrate::sp_runtime::traits::Extrinsic::is_bare(ext);
 				if !is_bare {
-					// Signed extrinsics are not inherents.
+					// Inherents must be bare extrinsics.
 					return false
 				}
 

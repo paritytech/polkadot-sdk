@@ -236,6 +236,28 @@ where
 			.map_err(|_| -> TransactionValidityError { InvalidTransaction::Payment.into() })
 		}
 	}
+
+	/// Fee withdrawal logic dry-run that dispatches to either `OnChargeAssetTransaction` or
+	/// `OnChargeTransaction`.
+	fn can_withdraw_fee(
+		&self,
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		fee: BalanceOf<T>,
+	) -> Result<(), TransactionValidityError> {
+		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
+		if fee.is_zero() {
+			Ok(())
+		} else if let Some(asset_id) = &self.asset_id {
+			T::OnChargeAssetTransaction::can_withdraw_fee(who, asset_id.clone(), fee.into())
+		} else {
+			<OnChargeTransactionOf<T> as OnChargeTransaction<T>>::can_withdraw_fee(
+				who, call, info, fee, self.tip,
+			)
+			.map_err(|_| -> TransactionValidityError { InvalidTransaction::Payment.into() })
+		}
+	}
 }
 
 impl<T: Config> sp_std::fmt::Debug for ChargeAssetTxPayment<T> {
@@ -307,7 +329,7 @@ where
 	fn validate(
 		&self,
 		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		_call: &T::RuntimeCall,
+		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_context: &mut Context,
@@ -317,6 +339,7 @@ where
 		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
+		self.can_withdraw_fee(&who, call, info, fee)?;
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
 		let validity = ValidTransaction { priority, ..Default::default() };
 		let val = (self.tip, who.clone(), fee);
