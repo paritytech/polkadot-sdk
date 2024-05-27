@@ -13,4 +13,4 @@ crates:
   - name: pallet-identity
     bump: major
   - name: kitchensink-runtime
-    bump: minor
+    bump: patch
