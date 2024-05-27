@@ -449,6 +449,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -491,8 +498,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
 };
 <span class="kw">use </span>relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, Client, Error <span class="kw">as </span>SubstrateError, HashOf,
-	TransactionEra, TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, Chain, Client, Error <span class="kw">as </span>SubstrateError,
+	HashOf, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 <span class="kw">use </span>relay_utils::relay_loop::Client <span class="kw">as </span>RelayClient;
 <span class="kw">use </span>sp_core::Pair;
@@ -508,7 +515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	source_client: Client&lt;P::SourceChain&gt;,
 	lane_id: LaneId,
 	relayer_id_at_source: AccountIdOf&lt;P::SourceChain&gt;,
-	transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
+	transaction_params: <span class="prelude-ty">Option</span>&lt;TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;&gt;,
 	source_to_target_headers_relay: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>OnDemandRelay&lt;P::SourceChain, P::TargetChain&gt;&gt;&gt;,
 }
 
@@ -519,7 +526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		source_client: Client&lt;P::SourceChain&gt;,
 		lane_id: LaneId,
 		relayer_id_at_source: AccountIdOf&lt;P::SourceChain&gt;,
-		transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
+		transaction_params: <span class="prelude-ty">Option</span>&lt;TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;&gt;,
 		source_to_target_headers_relay: <span class="prelude-ty">Option</span>&lt;
 			Arc&lt;<span class="kw">dyn </span>OnDemandRelay&lt;P::SourceChain, P::TargetChain&gt;&gt;,
 		&gt;,
@@ -700,11 +707,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; messages_proof_call,
 		};
 
-		<span class="kw">let </span>transaction_params = <span class="self">self</span>.transaction_params.clone();
+		<span class="kw">let </span>transaction_params = <span class="self">self</span>.transaction_params.clone().map(<span class="prelude-val">Ok</span>).unwrap_or_else(|| {
+			<span class="comment">// this error shall never happen in practice, so it not deserves
+			// a separate error variant
+			</span><span class="prelude-val">Err</span>(SubstrateError::Custom(<span class="macro">format!</span>(
+				<span class="string">"Cannot sign transaction of {} chain"</span>,
+				P::TargetChain::NAME,
+			)))
+		})<span class="question-mark">?</span>;
 		<span class="kw">let </span>tx_tracker = <span class="self">self
 			</span>.target_client
 			.submit_and_watch_signed_extrinsic(
-				<span class="kw-2">&amp;</span><span class="self">self</span>.transaction_params.signer,
+				<span class="kw-2">&amp;</span>transaction_params.signer,
 				<span class="kw">move </span>|best_block_id, transaction_nonce| {
 					<span class="prelude-val">Ok</span>(UnsignedTransaction::new(final_call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))

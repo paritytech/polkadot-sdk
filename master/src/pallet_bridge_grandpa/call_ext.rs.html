@@ -900,32 +900,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#749" id="749">749</a>
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -946,12 +920,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::WeightInfo, BestFinalized, BridgedBlockNumber, BridgedHeader, Config,
 	CurrentAuthoritySet, Error, FreeHeadersRemaining, Pallet,
 };
-<span class="kw">use </span>bp_header_chain::{
-	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
-	ChainWithGrandpa, GrandpaConsensusLogReader,
-};
+<span class="kw">use </span>bp_header_chain::{justification::GrandpaJustification, submit_finality_proof_limits_extras};
 <span class="kw">use </span>bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
-<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
@@ -1231,53 +1201,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	current_set_id: <span class="prelude-ty">Option</span>&lt;SetId&gt;,
 	is_free_execution_expected: bool,
 ) -&gt; SubmitFinalityProofInfo&lt;BridgedBlockNumber&lt;T, I&gt;&gt; {
-	<span class="kw">let </span>block_number = <span class="kw-2">*</span>finality_target.number();
-
-	<span class="comment">// the `submit_finality_proof` call will reject justifications with invalid, duplicate,
-	// unknown and extra signatures. It'll also reject justifications with less than necessary
-	// signatures. So we do not care about extra weight because of additional signatures here.
-	</span><span class="kw">let </span>precommits_len = justification.commit.precommits.len().saturated_into();
-	<span class="kw">let </span>required_precommits = precommits_len;
+	<span class="comment">// check if call exceeds limits. In other words - whether some size or weight is included
+	// in the call
+	</span><span class="kw">let </span>extras =
+		submit_finality_proof_limits_extras::&lt;T::BridgedChain&gt;(finality_target, justification);
 
 	<span class="comment">// We do care about extra weight because of more-than-expected headers in the votes
 	// ancestries. But we have problems computing extra weight for additional headers (weight of
 	// additional header is too small, so that our benchmarks aren't detecting that). So if there
 	// are more than expected headers in votes ancestries, we will treat the whole call weight
 	// as an extra weight.
-	</span><span class="kw">let </span>votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
-	<span class="kw">let </span>extra_weight =
-		<span class="kw">if </span>votes_ancestries_len &gt; T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY {
-			T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
-		} <span class="kw">else </span>{
-			Weight::zero()
-		};
-
-	<span class="comment">// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
-	// size
-	</span><span class="kw">let </span>is_mandatory_finality_target =
-		GrandpaConsensusLogReader::&lt;BridgedBlockNumber&lt;T, I&gt;&gt;::find_scheduled_change(
-			finality_target.digest(),
-		)
-		.is_some();
-
-	<span class="comment">// we can estimate extra call size easily, without any additional significant overhead
-	</span><span class="kw">let </span>actual_call_size: u32 = finality_target
-		.encoded_size()
-		.saturating_add(justification.encoded_size())
-		.saturated_into();
-	<span class="kw">let </span>max_expected_call_size = max_expected_submit_finality_proof_arguments_size::&lt;T::BridgedChain&gt;(
-		is_mandatory_finality_target,
-		required_precommits,
-	);
-	<span class="kw">let </span>extra_size = actual_call_size.saturating_sub(max_expected_call_size);
+	</span><span class="kw">let </span>extra_weight = <span class="kw">if </span>extras.is_weight_limit_exceeded {
+		<span class="kw">let </span>precommits_len = justification.commit.precommits.len().saturated_into();
+		<span class="kw">let </span>votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
+		T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
+	} <span class="kw">else </span>{
+		Weight::zero()
+	};
 
 	SubmitFinalityProofInfo {
-		block_number,
+		block_number: <span class="kw-2">*</span>finality_target.number(),
 		current_set_id,
-		is_mandatory: is_mandatory_finality_target,
+		is_mandatory: extras.is_mandatory_finality_target,
 		is_free_execution_expected,
 		extra_weight,
-		extra_size,
+		extra_size: extras.extra_size,
 	}
 }
 

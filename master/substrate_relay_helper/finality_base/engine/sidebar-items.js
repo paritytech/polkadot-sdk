@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MaxExpectedCallSizeCheck"],"struct":["Grandpa"],"trait":["Engine"]};
+window.SIDEBAR_ITEMS = {"struct":["Grandpa"],"trait":["Engine"]};

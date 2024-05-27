@@ -314,6 +314,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -333,6 +340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Substrate node RPC errors.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::SimpleRuntimeVersion;
+<span class="kw">use </span>bp_header_chain::SubmitFinalityProofCallExtras;
 <span class="kw">use </span>bp_polkadot_core::parachains::ParaId;
 <span class="kw">use </span>jsonrpsee::core::ClientError <span class="kw">as </span>RpcError;
 <span class="kw">use </span>relay_utils::MaybeConnectionError;
@@ -444,6 +452,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>expected: SimpleRuntimeVersion,
 		<span class="doccomment">/// Actual runtime version.
 		</span>actual: SimpleRuntimeVersion,
+	},
+	<span class="doccomment">/// Finality proof submission exceeds size and/or weight limits.
+	</span><span class="attr">#[error(<span class="string">"Finality proof submission exceeds limits: {extras:?}"</span>)]
+	</span>FinalityProofWeightLimitExceeded {
+		<span class="doccomment">/// Finality proof submission extras.
+		</span>extras: SubmitFinalityProofCallExtras,
 	},
 	<span class="doccomment">/// Custom logic error.
 	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]

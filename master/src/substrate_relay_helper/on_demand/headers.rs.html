@@ -696,9 +696,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#545" id="545">545</a>
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -717,9 +714,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! On-demand Substrate -&gt; Substrate header finality relay.
 
-</span><span class="kw">use crate</span>::{
-	finality::SubmitFinalityProofCallBuilder, finality_base::engine::MaxExpectedCallSizeCheck,
-};
+</span><span class="kw">use </span><span class="kw">crate</span>::finality::SubmitFinalityProofCallBuilder;
 
 <span class="kw">use </span>async_std::sync::{Arc, Mutex};
 <span class="kw">use </span>async_trait::async_trait;
@@ -857,22 +852,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// now we have the header and its proof, but we want to minimize our losses, so let's
 			// check if we'll get the full refund for submitting this header
-			</span><span class="kw">let </span>check_result = P::FinalityEngine::check_max_expected_call_size(<span class="kw-2">&amp;</span>header, <span class="kw-2">&amp;</span>proof);
-			<span class="kw">if let </span>MaxExpectedCallSizeCheck::Exceeds { call_size, max_call_size } = check_result {
+			</span><span class="kw">let </span>check_result = P::FinalityEngine::check_max_expected_call_limits(<span class="kw-2">&amp;</span>header, <span class="kw-2">&amp;</span>proof);
+			<span class="kw">if </span>check_result.is_weight_limit_exceeded || check_result.extra_size != <span class="number">0 </span>{
 				iterations += <span class="number">1</span>;
 				current_required_header = header_id.number().saturating_add(One::one());
 				<span class="kw">if </span>iterations &lt; MAX_ITERATIONS {
 					<span class="macro">log::debug!</span>(
 						target: <span class="string">"bridge"</span>,
-						<span class="string">"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?}. But it is too large: {} vs {}. \
+						<span class="string">"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?}. But it exceeds limits: {:?}. \
 						Going to select next header"</span>,
 						<span class="self">self</span>.relay_task_name,
 						P::SourceChain::NAME,
 						required_header,
 						P::SourceChain::NAME,
 						header_id,
-						call_size,
-						max_call_size,
+						check_result,
 					);
 
 					<span class="kw">continue</span>;
