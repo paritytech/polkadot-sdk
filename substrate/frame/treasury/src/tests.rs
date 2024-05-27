@@ -136,7 +136,6 @@ impl Pay for TestPay {
 }
 
 parameter_types! {
-	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub TreasuryAccount: u128 = Treasury::account_id();
@@ -179,9 +178,6 @@ impl Config for Test {
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU64<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -862,9 +858,9 @@ fn try_state_spends_invariant_1_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
-		assert_ok!({
-			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)
-		});
+		assert_ok!(
+			{ Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None) }
+		);
 		assert_eq!(Spends::<Test>::iter().count(), 1);
 		assert_eq!(SpendCount::<Test>::get(), 1);
 		// Check invariant 1 holds
@@ -913,9 +909,9 @@ fn try_state_spends_invariant_3_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
-		assert_ok!({
-			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)
-		});
+		assert_ok!(
+			{ Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None) }
+		);
 		assert_eq!(Spends::<Test>::iter().count(), 1);
 		let current_spend_count = SpendCount::<Test>::get();
 		assert_eq!(current_spend_count, 1);

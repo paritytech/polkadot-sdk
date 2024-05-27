@@ -218,19 +218,6 @@ pub mod pallet {
 		/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
 		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
 
-		/// Fraction of a proposal's value that should be bonded in order to place the proposal.
-		/// An accepted proposal gets these back. A rejected proposal does not.
-		#[pallet::constant]
-		type ProposalBond: Get<Permill>;
-
-		/// Minimum amount of funds that should be placed in a deposit for making a proposal.
-		#[pallet::constant]
-		type ProposalBondMinimum: Get<BalanceOf<Self, I>>;
-
-		/// Maximum amount of funds that should be placed in a deposit for making a proposal.
-		#[pallet::constant]
-		type ProposalBondMaximum: Get<Option<BalanceOf<Self, I>>>;
-
 		/// Period between successive spends.
 		#[pallet::constant]
 		type SpendPeriod: Get<BlockNumberFor<Self>>;
@@ -440,10 +427,9 @@ pub mod pallet {
 				T::Currency::reactivate(deactivated);
 				T::Currency::deactivate(pot);
 				Deactivated::<T, I>::put(&pot);
-				Self::deposit_event(Event::<T, I>::UpdatedInactive {
-					reactivated: deactivated,
-					deactivated: pot,
-				});
+				Self::deposit_event(
+					Event::<T, I>::UpdatedInactive { reactivated: deactivated, deactivated: pot }
+				);
 			}
 
 			// Check to see if we should spend some funds!
@@ -535,26 +521,6 @@ pub mod pallet {
 		}
 
 		/// Force a previously approved proposal to be removed from the approval queue.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::RejectOrigin`].
-		///
-		/// ## Details
-		///
-		/// The original deposit will no longer be returned.
-		///
-		/// ### Parameters
-		/// - `proposal_id`: The index of a proposal
-		///
-		/// ### Complexity
-		/// - O(A) where `A` is the number of approvals
-		///
-		/// ### Errors
-		/// - [`Error::ProposalNotApproved`]: The `proposal_id` supplied was not found in the
-		///   approval queue, i.e., the proposal has not been approved. This could also mean the
-		///   proposal does not exist altogether, thus there is no way it would have been approved
-		///   in the first place.
 		#[pallet::call_index(4)]
 		#[pallet::weight((T::WeightInfo::remove_approval(), DispatchClass::Operational))]
 		pub fn remove_approval(
@@ -670,22 +636,6 @@ pub mod pallet {
 		/// Claim a spend.
 		///
 		/// ## Dispatch Origin
-		///
-		/// Must be signed.
-		///
-		/// ## Details
-		///
-		/// Spends must be claimed within some temporal bounds. A spend may be claimed within one
-		/// [`Config::PayoutPeriod`] from the `valid_from` block.
-		/// In case of a payout failure, the spend status must be updated with the `check_status`
-		/// dispatchable before retrying with the current function.
-		///
-		/// ### Parameters
-		/// - `index`: The spend index.
-		///
-		/// ## Events
-		///
-		/// Emits [`Event::Paid`] if successful.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::payout())]
 		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResult {
@@ -804,9 +754,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Add public immutables and private mutables.
 
 	/// The account ID of the treasury pot.
-	///
-	/// This actually does computation. If you need to keep using it, then make sure you cache the
-	/// value and only call this once.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}
@@ -821,38 +768,40 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut missed_any = false;
 		let mut imbalance = <PositiveImbalanceOf<T, I>>::zero();
-		let proposals_len = Approvals::<T, I>::mutate(|v| {
-			let proposals_approvals_len = v.len() as u32;
-			v.retain(|&index| {
-				// Should always be true, but shouldn't panic if false or we're screwed.
-				if let Some(p) = Self::proposals(index) {
-					if p.value <= budget_remaining {
-						budget_remaining -= p.value;
-						<Proposals<T, I>>::remove(index);
+		let proposals_len =
+			Approvals::<T, I>::mutate(|v| {
+				let proposals_approvals_len = v.len() as u32;
+				v.retain(|&index| {
+					// Should always be true, but shouldn't panic if false or we're screwed.
+					if let Some(p) = Self::proposals(index) {
+						if p.value <= budget_remaining {
+							budget_remaining -= p.value;
+							<Proposals<T, I>>::remove(index);
 
-						// return their deposit.
-						let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
-						debug_assert!(err_amount.is_zero());
+							// return their deposit.
+							let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
+							debug_assert!(err_amount.is_zero());
 
-						// provide the allocation.
-						imbalance.subsume(T::Currency::deposit_creating(&p.beneficiary, p.value));
+							// provide the allocation.
+							imbalance
+								.subsume(T::Currency::deposit_creating(&p.beneficiary, p.value));
 
-						Self::deposit_event(Event::Awarded {
-							proposal_index: index,
-							award: p.value,
-							account: p.beneficiary,
-						});
-						false
+							Self::deposit_event(Event::Awarded {
+								proposal_index: index,
+								award: p.value,
+								account: p.beneficiary,
+							});
+							false
+						} else {
+							missed_any = true;
+							true
+						}
 					} else {
-						missed_any = true;
-						true
+						false
 					}
-				} else {
-					false
-				}
+				});
+				proposals_approvals_len
 			});
-			proposals_approvals_len
-		});
 
 		total_weight += T::WeightInfo::on_initialize_proposals(proposals_len);
 
@@ -946,12 +895,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// ## Invariants of spend storage items
-	///
-	/// 1. [`SpendCount`] >= Number of elements in [`Spends`].
-	/// 2. Each entry in [`Spends`] should be saved under a key strictly less than current
-	/// [`SpendCount`].
-	/// 3. For each spend entry contained in [`Spends`] we should have spend.expire_at
-	/// > spend.valid_from.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_spends() -> Result<(), sp_runtime::TryRuntimeError> {
 		let current_spend_count = SpendCount::<T, I>::get();

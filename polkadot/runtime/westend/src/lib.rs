@@ -153,16 +153,17 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version (Westend).
 #[sp_version::runtime_version]
-pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("westend"),
-	impl_name: create_runtime_str!("parity-westend"),
-	authoring_version: 2,
-	spec_version: 1_011_000,
-	impl_version: 0,
-	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 25,
-	state_version: 1,
-};
+pub const VERSION: RuntimeVersion =
+	RuntimeVersion {
+		spec_name: create_runtime_str!("westend"),
+		impl_name: create_runtime_str!("parity-westend"),
+		authoring_version: 2,
+		spec_version: 1_011_000,
+		impl_version: 0,
+		apis: RUNTIME_API_VERSIONS,
+		transaction_version: 25,
+		state_version: 1,
+	};
 
 /// The BABE epoch configuration at genesis.
 pub const BABE_GENESIS_EPOCH_CONFIG: babe_primitives::BabeEpochConfiguration =
@@ -362,9 +363,9 @@ impl BeefyDataProvider<H256> for ParaHeadsRootProvider {
 	fn extra_data() -> H256 {
 		let mut para_heads: Vec<(u32, Vec<u8>)> = parachains_paras::Parachains::<Runtime>::get()
 			.into_iter()
-			.filter_map(|id| {
-				parachains_paras::Heads::<Runtime>::get(&id).map(|head| (id.into(), head.0))
-			})
+			.filter_map(
+				|id| parachains_paras::Heads::<Runtime>::get(&id).map(|head| (id.into(), head.0))
+			)
 			.collect();
 		para_heads.sort_by_key(|k| k.0);
 		binary_merkle_tree::merkle_root::<mmr::Hashing, _>(
@@ -561,12 +562,10 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	#[cfg(any(feature = "fast-runtime", feature = "runtime-benchmarks"))]
 	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	#[cfg(not(any(feature = "fast-runtime", feature = "runtime-benchmarks")))]
-	type Fallback = frame_election_provider_support::NoElection<(
-		AccountId,
-		BlockNumber,
-		Staking,
-		MaxActiveValidators,
-	)>;
+	type Fallback =
+		frame_election_provider_support::NoElection<
+			(AccountId, BlockNumber, Staking, MaxActiveValidators)
+		>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<
 		AccountId,
@@ -664,9 +663,6 @@ impl pallet_fast_unstake::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ProposalBond: Permill = Permill::from_percent(5);
-	pub const ProposalBondMinimum: Balance = 2000 * CENTS;
-	pub const ProposalBondMaximum: Balance = 1 * GRAND;
 	pub const SpendPeriod: BlockNumber = 6 * DAYS;
 	pub const Burn: Permill = Permill::from_perthousand(2);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
@@ -693,9 +689,6 @@ impl pallet_treasury::Config for Runtime {
 	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = Treasury;
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ProposalBondMinimum;
-	type ProposalBondMaximum = ProposalBondMaximum;
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
 	type BurnDestination = ();
@@ -798,11 +791,12 @@ where
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 		);
-		let raw_payload = SignedPayload::new(call, extra)
-			.map_err(|e| {
-				log::warn!("Unable to create signed payload: {:?}", e);
-			})
-			.ok()?;
+		let raw_payload =
+			SignedPayload::new(call, extra)
+				.map_err(|e| {
+					log::warn!("Unable to create signed payload: {:?}", e);
+				})
+				.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
 		let (call, extra, _) = raw_payload.deconstruct();
 		let address = <Runtime as frame_system::Config>::Lookup::unlookup(account);

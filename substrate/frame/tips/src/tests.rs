@@ -105,7 +105,6 @@ impl ContainsLengthBound for TenToFourteen {
 	}
 }
 parameter_types! {
-	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const TreasuryPalletId2: PalletId = PalletId(*b"py/trsr2");
@@ -120,9 +119,6 @@ impl pallet_treasury::Config for Test {
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU64<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -147,9 +143,6 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU64<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.

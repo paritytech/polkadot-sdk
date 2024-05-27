@@ -84,19 +84,20 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	type Scheduler = Scheduler;
 	type Currency = Balances;
 	// Fellows can submit proposals.
-	type SubmitOrigin = EitherOf<
-		pallet_ranked_collective::EnsureMember<Runtime, FellowshipCollectiveInstance, 3>,
-		MapSuccess<
-			TryWithMorphedArg<
-				RuntimeOrigin,
-				<RuntimeOrigin as OriginTrait>::PalletsOrigin,
-				ToVoice,
-				EnsureOfRank<Runtime, FellowshipCollectiveInstance>,
-				(AccountId, u16),
+	type SubmitOrigin =
+		EitherOf<
+			pallet_ranked_collective::EnsureMember<Runtime, FellowshipCollectiveInstance, 3>,
+			MapSuccess<
+				TryWithMorphedArg<
+					RuntimeOrigin,
+					<RuntimeOrigin as OriginTrait>::PalletsOrigin,
+					ToVoice,
+					EnsureOfRank<Runtime, FellowshipCollectiveInstance>,
+					(AccountId, u16),
+				>,
+				TakeFirst,
 			>,
-			TakeFirst,
-		>,
-	>;
+		>;
 	type CancelOrigin = Architects;
 	type KillOrigin = Masters;
 	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
@@ -270,16 +271,6 @@ parameter_types! {
 	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	// Benchmark bond. Needed to make `propose_spend` work.
-	pub const TenPercent: Permill = Permill::from_percent(10);
-	// Benchmark minimum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMinimum: Balance = 1 * DOLLARS;
-	// Benchmark maximum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMaximum: Balance = 10 * DOLLARS;
-}
-
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.
 pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	FellowshipTreasuryInteriorLocation,
@@ -302,20 +293,6 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	// TODO: replace with `NeverEnsure` once polkadot-sdk 1.5 is released.
 	type ApproveOrigin = NeverEnsureOrigin<()>;
 	type OnSlash = ();
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBond = HundredPercent;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMinimum = MaxBalance;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMaximum = MaxBalance;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBond = TenPercent;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMinimum = BenchmarkProposalBondMinimum;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMaximum = BenchmarkProposalBondMaximum;
-	// end.
 
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type PalletId = FellowshipTreasuryPalletId;
@@ -350,15 +327,16 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type Paymaster = FellowshipTreasuryPaymaster;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Paymaster = PayWithEnsure<FellowshipTreasuryPaymaster, OpenHrmpChannel<ConstU32<1000>>>;
-	type BalanceConverter = UnityOrOuterConversion<
-		ContainsParts<
-			FromContains<
-				xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
-				xcm_builder::IsParentsOnly<ConstU8<1>>,
+	type BalanceConverter =
+		UnityOrOuterConversion<
+			ContainsParts<
+				FromContains<
+					xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
+					xcm_builder::IsParentsOnly<ConstU8<1>>,
+				>,
 			>,
-		>,
-		AssetRate,
-	>;
+			AssetRate,
+		>;
 	type PayoutPeriod = ConstU32<{ 30 * DAYS }>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<

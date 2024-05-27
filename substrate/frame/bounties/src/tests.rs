@@ -82,7 +82,6 @@ impl pallet_balances::Config for Test {
 	type RuntimeFreezeReason = ();
 }
 parameter_types! {
-	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub static Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const TreasuryPalletId2: PalletId = PalletId(*b"py/trsr2");
@@ -99,9 +98,6 @@ impl pallet_treasury::Config for Test {
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU64<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -126,9 +122,6 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU64<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -944,15 +937,16 @@ fn test_migration_v4() {
 		status: BountyStatus::<u128, u64>::Proposed,
 	};
 
-	let data = vec![
-		(pallet_bounties::BountyCount::<Test>::hashed_key().to_vec(), 10.encode().to_vec()),
-		(pallet_bounties::Bounties::<Test>::hashed_key_for(index), bounty.encode().to_vec()),
-		(pallet_bounties::BountyDescriptions::<Test>::hashed_key_for(index), vec![0, 0]),
-		(
-			pallet_bounties::BountyApprovals::<Test>::hashed_key().to_vec(),
-			vec![10 as u32].encode().to_vec(),
-		),
-	];
+	let data =
+		vec![
+			(pallet_bounties::BountyCount::<Test>::hashed_key().to_vec(), 10.encode().to_vec()),
+			(pallet_bounties::Bounties::<Test>::hashed_key_for(index), bounty.encode().to_vec()),
+			(pallet_bounties::BountyDescriptions::<Test>::hashed_key_for(index), vec![0, 0]),
+			(
+				pallet_bounties::BountyApprovals::<Test>::hashed_key().to_vec(),
+				vec![10 as u32].encode().to_vec(),
+			),
+		];
 
 	s.top = data.into_iter().collect();
 
