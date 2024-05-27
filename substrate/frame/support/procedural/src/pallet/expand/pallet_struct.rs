@@ -284,6 +284,16 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
+		// Implement `StaticPartialEq` for `Pallet`
+		impl<#type_impl_gen> #frame_support::traits::StaticPartialEq<[u8]>
+			for #pallet_ident<#type_use_gen>
+			#config_where_clause
+		{
+			fn eq(other: &[u8]) -> bool {
+				Self::name().as_bytes() == other
+			}
+		}
+
 		#storage_info
 		#whitelisted_storage_keys_impl
 	)

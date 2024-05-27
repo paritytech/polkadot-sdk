@@ -36,9 +36,9 @@ pub enum Select {
 	All,
 	/// Run a fixed number of them in a round robin manner.
 	RoundRobin(u32),
-	/// Run only pallets who's name matches the given list.
+	/// Run only logic whose identifier is included in the given list.
 	///
-	/// Pallet names are obtained from [`super::PalletInfoAccess`].
+	/// For pallets, their identifiers are obtained from [`super::PalletInfoAccess`].
 	Only(Vec<Vec<u8>>),
 }
 
@@ -79,7 +79,7 @@ impl sp_std::str::FromStr for Select {
 		match s {
 			"all" | "All" => Ok(Select::All),
 			"none" | "None" => Ok(Select::None),
-			_ =>
+			_ => {
 				if s.starts_with("rr-") {
 					let count = s
 						.split_once('-')
@@ -89,7 +89,8 @@ impl sp_std::str::FromStr for Select {
 				} else {
 					let pallets = s.split(',').map(|x| x.as_bytes().to_vec()).collect::<Vec<_>>();
 					Ok(Select::Only(pallets))
-				},
+				}
+			},
 		}
 	}
 }
@@ -156,7 +157,7 @@ pub trait TryState<BlockNumber> {
 impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber>
 	for Tuple
 {
-	for_tuples!( where #( Tuple: crate::traits::PalletInfoAccess )* );
+	for_tuples!( where #( Tuple: crate::traits::StaticPartialEq<[u8]> )* );
 	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
 		match targets {
 			Select::None => Ok(()),
@@ -187,7 +188,7 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 						"Detected errors while executing `try_state` checks. See logs for more \
 						info."
 							.into(),
-					)
+					);
 				}
 
 				Ok(())
@@ -207,24 +208,24 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 			},
 			Select::Only(ref pallet_names) => {
 				let try_state_fns: &[(
-					&'static str,
+					fn(&[u8]) -> bool,
 					fn(BlockNumber, Select) -> Result<(), TryRuntimeError>,
 				)] = &[for_tuples!(
-					#( (<Tuple as crate::traits::PalletInfoAccess>::name(), Tuple::try_state) ),*
+					#( (Tuple::eq, Tuple::try_state) ),*
 				)];
 				let mut result = Ok(());
-				pallet_names.iter().for_each(|pallet_name| {
-					if let Some((name, try_state_fn)) =
-						try_state_fns.iter().find(|(name, _)| name.as_bytes() == pallet_name)
-					{
-						result = result.and(try_state_fn(n.clone(), targets.clone()));
-					} else {
-						log::warn!(
-							"Pallet {:?} not found",
-							sp_std::str::from_utf8(pallet_name).unwrap_or_default()
-						);
-					}
-				});
+				// pallet_names.iter().for_each(|pallet_name| {
+				// 	if let Some((name, try_state_fn)) =
+				// 		try_state_fns.iter().find(|(name, _)| name.as_bytes() == pallet_name)
+				// 	{
+				// 		result = result.and(try_state_fn(n.clone(), targets.clone()));
+				// 	} else {
+				// 		log::warn!(
+				// 			"Pallet {:?} not found",
+				// 			sp_std::str::from_utf8(pallet_name).unwrap_or_default()
+				// 		);
+				// 	}
+				// });
 
 				result
 			},
