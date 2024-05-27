@@ -189,6 +189,12 @@ struct MetricsInner {
 	candidate_signatures_requests_total: prometheus::Counter<prometheus::U64>,
 	unapproved_candidates_in_unfinalized_chain: prometheus::Gauge<prometheus::U64>,
 	// The time it takes in each stage to gather enough assignments.
+	// We defined a `stage` as being the entire process of gathering enough assignments to
+	// be able to approve a candidate:
+	// E.g:
+	// - Stage 0: We wait for the needed_approvals assignments to be gathered.
+	// - Stage 1: We wait for enough tranches to cover all no-shows in stage 0.
+	// - Stage 2: We wait for enough tranches to cover all no-shows  of stage 1.
 	assignments_gathering_time_by_stage: prometheus::HistogramVec,
 }
 
@@ -314,6 +320,10 @@ impl Metrics {
 	pub fn observe_assignment_gathering_time(&self, stage: usize, elapsed_as_millis: usize) {
 		if let Some(metrics) = &self.0 {
 			let stage_string = stage.to_string();
+			// We don't want to have too many metrics entries with this label to not put unncessary
+			// pressure on the metrics infrastructure, so we cap the stage at 10, which is
+			// equivalent to having already a finalization lag to 10 * no_show_slots, so it should
+			// be more than enough.
 			metrics
 				.assignments_gathering_time_by_stage
 				.with_label_values(&[if stage < 10 { stage_string.as_str() } else { "inf" }])
@@ -453,7 +463,7 @@ impl metrics::Metrics for Metrics {
 				prometheus::HistogramVec::new(
 					prometheus::HistogramOpts::new(
 						"polkadot_parachain_assignments_gather_time_by_stage_ms",
-						"The time it takes in ms for each stage to gather enough assignments needed for approval",
+						"The time in ms it takes for each stage to gather enough assignments needed for approval",
 					)
 					.buckets(vec![0.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0, 32000.0]),
 					&["stage"],
