@@ -20,8 +20,8 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, *};
-use frame_support::storage::{StorageList, StoragePrefixedContainer};
+use crate::mock::*;
+use frame_support::storage::StorageList;
 
 #[docify::export]
 #[test]

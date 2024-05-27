@@ -76,10 +76,10 @@ pub trait StorageKeyedList<K, V: FullCodec> {
 	/// Append iterator for fast append operations.
 	type Appender: StorageListAppender<V>;
 
-	/// Number of elements in the list.
+	/// Number of elements in the list under `key`.
 	fn len(key: K) -> u64;
 
-	/// List the elements in append order.
+	/// Get the elements in append order.
 	fn iter(key: K) -> Self::Iterator;
 
 	/// Drain the elements in append order.
@@ -94,7 +94,7 @@ pub trait StorageKeyedList<K, V: FullCodec> {
 	/// Append a single element.
 	///
 	/// Should not be called repeatedly; use `append_many` instead.  
-	/// Worst case linear `O(len)` with `len` being the number if elements in the list.
+	/// Worst case linear `O(len)` with `len` being the number of elements in the map.
 	fn append_one<EncodeLikeValue>(key: K, item: EncodeLikeValue)
 	where
 		EncodeLikeValue: EncodeLike<V>,
@@ -105,8 +105,8 @@ pub trait StorageKeyedList<K, V: FullCodec> {
 	/// Append many elements.
 	///
 	/// Should not be called repeatedly; use `appender` instead.  
-	/// Worst case linear `O(len + items.count())` with `len` beings the number if elements in the
-	/// list.
+	/// Worst case linear `O(len + items.count())` with `len` beings the number of elements in the
+	/// map.
 	fn append_many<EncodeLikeValue, I>(key: K, items: I)
 	where
 		EncodeLikeValue: EncodeLike<V>,
