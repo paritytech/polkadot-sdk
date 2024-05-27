@@ -183,8 +183,7 @@ where
 			let (refund, fee_paid) = fee_paid.split(refund_amount);
 			if let Err(refund) = F::resolve(who, refund) {
 				let fee_paid = fee_paid.merge(refund).map_err(|_| {
-					// The error should never occur since `fee_paid` and `refund` are
-					// credits of the same asset.
+					defensive!("`fee_paid` and `refund` are credits of the same asset.");
 					InvalidTransaction::Payment
 				})?;
 				(initial_asset_consumed, fee_paid)

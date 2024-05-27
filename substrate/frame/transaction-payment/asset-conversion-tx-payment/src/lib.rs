@@ -155,8 +155,6 @@ pub struct ChargeAssetTxPayment<T: Config> {
 impl<T: Config> ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	BalanceOf<T>: Send + Sync,
-	T::AssetId: Send + Sync,
 {
 	/// Utility constructor. Used only in client/factory code.
 	pub fn from(tip: BalanceOf<T>, asset_id: Option<T::AssetId>) -> Self {
