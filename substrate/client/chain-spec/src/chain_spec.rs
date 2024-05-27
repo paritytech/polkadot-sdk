@@ -1028,10 +1028,10 @@ mod tests {
 
 	#[test]
 	fn chain_spec_as_json_fails_with_invalid_config() {
-		let expected_error_message =
-			include_str!("../res/chain_spec_as_json_fails_with_invalid_config.err");
-		let j =
-			include_str!("../../../test-utils/runtime/res/default_genesis_config_invalid_2.json");
+		let invalid_genesis_config = from_str::<Value>(include_str!(
+			"../../../test-utils/runtime/res/default_genesis_config_invalid_2.json"
+		))
+		.unwrap();
 		let output = ChainSpec::<()>::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
@@ -1039,12 +1039,25 @@ mod tests {
 		.with_name("TestName")
 		.with_id("test_id")
 		.with_chain_type(ChainType::Local)
-		.with_genesis_config(from_str(j).unwrap())
+		.with_genesis_config(invalid_genesis_config.clone())
 		.build();
 
-		let result = output.as_json(true);
+		let result = output.as_json(true).unwrap_err();
+		let mut result = result.lines();
 
-		assert_eq!(result.err().unwrap(), expected_error_message);
+		let result_header = result.next().unwrap();
+		let result_body = result.collect::<Vec<&str>>().join("\n");
+		let result_body: Value = serde_json::from_str(&result_body).unwrap();
+
+		let re = regex::Regex::new(concat!(
+			r"^Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, ",
+			r"`substrateTest`, `balances` at line \d+ column \d+ for blob:$"
+		))
+		.unwrap();
+
+		assert_eq!(json!({"a":1,"b":2}), json!({"b":2,"a":1}));
+		assert!(re.is_match(result_header));
+		assert_eq!(invalid_genesis_config, result_body);
 	}
 
 	#[test]
