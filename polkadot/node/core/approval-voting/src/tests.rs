@@ -5063,7 +5063,9 @@ fn test_gathering_assignments_statements() {
 		clock: Box::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
 		spans: HashMap::new(),
-		per_block_assignments_gathering_times: Default::default(),
+		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+		)),
 	};
 
 	for i in 0..200i32 {
@@ -5078,7 +5080,11 @@ fn test_gathering_assignments_statements() {
 		);
 
 		assert_eq!(
-			state.per_block_assignments_gathering_times.keys().min(),
+			state
+				.per_block_assignments_gathering_times
+				.iter()
+				.map(|(block_number, _)| block_number)
+				.min(),
 			Some(max(0, i - MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as i32 + 1) as u32).as_ref()
 		)
 	}
@@ -5087,7 +5093,12 @@ fn test_gathering_assignments_statements() {
 		MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize
 	);
 
-	let nothing_changes = state.per_block_assignments_gathering_times.clone();
+	let nothing_changes = state
+		.per_block_assignments_gathering_times
+		.iter()
+		.map(|(block_number, _)| *block_number)
+		.sorted()
+		.collect::<Vec<_>>();
 
 	for i in 150..200i32 {
 		state.mark_begining_of_gathering_assignments(
@@ -5095,7 +5106,15 @@ fn test_gathering_assignments_statements() {
 			Hash::repeat_byte(i as u8),
 			CandidateHash(Hash::repeat_byte(i as u8)),
 		);
-		assert_eq!(nothing_changes, state.per_block_assignments_gathering_times);
+		assert_eq!(
+			nothing_changes,
+			state
+				.per_block_assignments_gathering_times
+				.iter()
+				.map(|(block_number, _)| *block_number)
+				.sorted()
+				.collect::<Vec<_>>()
+		);
 	}
 
 	for i in 110..120 {
@@ -5123,6 +5142,9 @@ fn test_gathering_assignments_statements() {
 		assert!(record.stage_start.is_some());
 		assert_eq!(record.stage, 1);
 	}
+
+	state.cleanup_assignments_gathering_timestamp(200);
+	assert_eq!(state.per_block_assignments_gathering_times.len(), 0);
 }
 
 // Test we note the time we took to transition RequiredTranche  from Pending to Exact and
@@ -5135,7 +5157,9 @@ fn test_observe_assignment_gathering_status() {
 		clock: Box::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
 		spans: HashMap::new(),
-		per_block_assignments_gathering_times: Default::default(),
+		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+		)),
 	};
 
 	let metrics_inner = MetricsInner {

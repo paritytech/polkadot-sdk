@@ -65,7 +65,9 @@ use sp_consensus::SyncOracle;
 use sp_consensus_slots::Slot;
 use std::time::Instant;
 
-// The maximum block we keep track of assignments gathering times.
+// The maximum block we keep track of assignments gathering times, on normal operation
+// this would never be reached because we prune the data on finalization, but we need
+// to also ensure the data is not growing unecessarily large.
 const MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS: u32 = 100;
 
 use futures::{
@@ -819,7 +821,7 @@ struct State {
 	// assignments, this is relevant because it gives us a good idea about how many
 	// tranches we trigger and why.
 	per_block_assignments_gathering_times:
-		HashMap<BlockNumber, HashMap<(Hash, CandidateHash), AssignmentGatheringRecord>>,
+		LruMap<BlockNumber, HashMap<(Hash, CandidateHash), AssignmentGatheringRecord>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -949,33 +951,22 @@ impl State {
 		block_hash: Hash,
 		candidate: CandidateHash,
 	) {
-		let record = self
+		if let Some(record) = self
 			.per_block_assignments_gathering_times
-			.entry(block_number)
-			.or_default()
-			.entry((block_hash, candidate))
-			.or_default();
-
-		if record.stage_start.is_none() {
-			record.stage += 1;
-			gum::debug!(
-				target: LOG_TARGET,
-				stage = ?record.stage,
-				?block_hash,
-				?candidate,
-				"Started a new assignment gathering stage",
-			);
-			record.stage_start = Some(Instant::now());
-		}
-
-		// Make sure we always cleanup if we have too many records.
-		if self.per_block_assignments_gathering_times.len() >
-			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize &&
-			block_number >= MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS
+			.get_or_insert(block_number, HashMap::new)
+			.and_then(|records| Some(records.entry((block_hash, candidate)).or_default()))
 		{
-			self.cleanup_assignments_gathering_timestamp(
-				block_number - MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
-			)
+			if record.stage_start.is_none() {
+				record.stage += 1;
+				gum::debug!(
+					target: LOG_TARGET,
+					stage = ?record.stage,
+					?block_hash,
+					?candidate,
+					"Started a new assignment gathering stage",
+				);
+				record.stage_start = Some(Instant::now());
+			}
 		}
 	}
 
@@ -987,7 +978,7 @@ impl State {
 	) -> AssignmentGatheringRecord {
 		let record = self
 			.per_block_assignments_gathering_times
-			.get_mut(&block_number)
+			.get(&block_number)
 			.and_then(|entry| entry.get_mut(&(block_hash, candidate)));
 		let stage = record.as_ref().map(|record| record.stage).unwrap_or_default();
 		AssignmentGatheringRecord {
@@ -997,8 +988,14 @@ impl State {
 	}
 
 	fn cleanup_assignments_gathering_timestamp(&mut self, keep_greater_than: BlockNumber) {
-		self.per_block_assignments_gathering_times
-			.retain(|block_number, _| *block_number > keep_greater_than)
+		while let Some((block_number, _)) = self.per_block_assignments_gathering_times.peek_oldest()
+		{
+			if *block_number < keep_greater_than {
+				self.per_block_assignments_gathering_times.pop_oldest();
+			} else {
+				break
+			}
+		}
 	}
 
 	fn observe_assignment_gathering_status(
@@ -1077,7 +1074,9 @@ where
 		clock: subsystem.clock,
 		assignment_criteria,
 		spans: HashMap::new(),
-		per_block_assignments_gathering_times: Default::default(),
+		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+		)),
 	};
 
 	// `None` on start-up. Gets initialized/updated on leaf update
