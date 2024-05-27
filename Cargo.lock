@@ -4362,7 +4362,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-test-service"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "clap 4.5.3",
@@ -8336,7 +8336,7 @@ dependencies = [
 
 [[package]]
 name = "minimal-template-node"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "clap 4.5.3",
  "futures",
@@ -11675,7 +11675,7 @@ dependencies = [
 
 [[package]]
 name = "parachain-template-node"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "clap 4.5.3",
  "color-print",
@@ -13500,7 +13500,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "5.0.0"
+version = "4.0.0"
 dependencies = [
  "assert_cmd",
  "asset-hub-rococo-runtime",
@@ -14301,7 +14301,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "8.0.0"
+version = "7.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -14664,7 +14664,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-test-service"
-version = "2.0.0"
+version = "1.0.0"
 dependencies = [
  "frame-system",
  "futures",
@@ -16666,7 +16666,7 @@ dependencies = [
 
 [[package]]
 name = "sc-chain-spec"
-version = "29.0.0"
+version = "28.0.0"
 dependencies = [
  "array-bytes",
  "docify",
@@ -16706,7 +16706,7 @@ dependencies = [
 
 [[package]]
 name = "sc-cli"
-version = "0.36.1"
+version = "0.36.0"
 dependencies = [
  "array-bytes",
  "chrono",
@@ -17021,7 +17021,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-grandpa"
-version = "0.19.1"
+version = "0.19.0"
 dependencies = [
  "ahash 0.8.8",
  "array-bytes",
@@ -17763,7 +17763,7 @@ dependencies = [
 
 [[package]]
 name = "sc-service"
-version = "0.36.0"
+version = "0.35.0"
 dependencies = [
  "async-trait",
  "directories",
@@ -17828,7 +17828,7 @@ dependencies = [
 
 [[package]]
 name = "sc-service-test"
-version = "3.0.0"
+version = "2.0.0"
 dependencies = [
  "array-bytes",
  "async-channel",
@@ -19305,7 +19305,7 @@ dependencies = [
 
 [[package]]
 name = "solochain-template-node"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "clap 4.5.3",
  "frame-benchmarking-cli",
@@ -20504,7 +20504,7 @@ dependencies = [
 
 [[package]]
 name = "staging-node-cli"
-version = "4.0.0-dev"
+version = "3.0.0-dev"
 dependencies = [
  "array-bytes",
  "assert_cmd",
