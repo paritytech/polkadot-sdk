@@ -9,7 +9,7 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 # Substrate
@@ -41,9 +41,7 @@ sp-transaction-pool = { path = "../../../substrate/primitives/transaction-pool",
 sp-version = { path = "../../../substrate/primitives/version", default-features = false }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = [
-	"parameterized-consensus-hook",
-] }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false }
 cumulus-primitives-aura = { path = "../../primitives/aura", default-features = false }
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
 cumulus-pallet-aura-ext = { path = "../../pallets/aura-ext", default-features = false }

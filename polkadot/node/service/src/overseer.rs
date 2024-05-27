@@ -133,6 +133,10 @@ pub struct ExtendedOverseerGenArgs {
 	pub dispute_coordinator_config: DisputeCoordinatorConfig,
 	/// Configuration for the chain selection subsystem.
 	pub chain_selection_config: ChainSelectionConfig,
+	/// Optional availability recovery fetch chunks threshold. If PoV size size is lower
+	/// than the value put in here we always try to recovery availability from backers.
+	/// The presence of this parameter here is needed to have different values per chain.
+	pub fetch_chunks_threshold: Option<usize>,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -166,6 +170,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		dispute_req_receiver,
 		dispute_coordinator_config,
 		chain_selection_config,
+		fetch_chunks_threshold,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -240,6 +245,7 @@ where
 			Metrics::register(registry)?,
 		))
 		.availability_recovery(AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
+			fetch_chunks_threshold,
 			available_data_req_receiver,
 			Metrics::register(registry)?,
 		))
@@ -385,7 +391,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
-		ProspectiveParachainsSubsystem,
+		DummySubsystem,
 	>,
 	Error,
 >
@@ -421,6 +427,7 @@ where
 		))
 		.availability_distribution(DummySubsystem)
 		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
+			None,
 			available_data_req_receiver,
 			Metrics::register(registry)?,
 		))
@@ -462,7 +469,7 @@ where
 		.dispute_coordinator(DummySubsystem)
 		.dispute_distribution(DummySubsystem)
 		.chain_selection(DummySubsystem)
-		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
+		.prospective_parachains(DummySubsystem)
 		.activation_external_listeners(Default::default())
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())

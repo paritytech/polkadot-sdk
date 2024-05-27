@@ -643,6 +643,13 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub workers_path: Option<std::path::PathBuf>,
 	/// Optional custom names for the prepare and execute workers.
 	pub workers_names: Option<(String, String)>,
+	/// An optional number of the maximum number of pvf execute workers.
+	pub execute_workers_max_num: Option<usize>,
+	/// An optional maximum number of pvf workers that can be spawned in the pvf prepare pool for
+	/// tasks with the priority below critical.
+	pub prepare_workers_soft_max_num: Option<usize>,
+	/// An optional absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	pub prepare_workers_hard_max_num: Option<usize>,
 	pub overseer_gen: OverseerGenerator,
 	pub overseer_message_channel_capacity_override: Option<usize>,
 	#[allow(dead_code)]
@@ -738,8 +745,12 @@ pub fn new_full<
 		overseer_message_channel_capacity_override,
 		malus_finality_delay: _malus_finality_delay,
 		hwbench,
+		execute_workers_max_num,
+		prepare_workers_soft_max_num,
+		prepare_workers_hard_max_num,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
+	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	use polkadot_node_network_protocol::request_response::IncomingRequest;
 	use sc_network_sync::WarpSyncParams;
 
@@ -943,6 +954,16 @@ pub fn new_full<
 				secure_validator_mode,
 				prep_worker_path,
 				exec_worker_path,
+				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or_else(
+					|| match config.chain_spec.identify_chain() {
+						// The intention is to use this logic for gradual increasing from 2 to 4
+						// of this configuration chain by chain until it reaches production chain.
+						Chain::Polkadot | Chain::Kusama => 2,
+						Chain::Rococo | Chain::Westend | Chain::Unknown => 4,
+					},
+				),
+				pvf_prepare_workers_soft_max_num: prepare_workers_soft_max_num.unwrap_or(1),
+				pvf_prepare_workers_hard_max_num: prepare_workers_hard_max_num.unwrap_or(2),
 			})
 		} else {
 			None
@@ -968,6 +989,11 @@ pub fn new_full<
 			stagnant_check_interval: Default::default(),
 			stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
 		};
+
+		// Kusama + testnets get a higher threshold, we are conservative on Polkadot for now.
+		let fetch_chunks_threshold =
+			if config.chain_spec.is_polkadot() { None } else { Some(FETCH_CHUNKS_THRESHOLD) };
+
 		Some(ExtendedOverseerGenArgs {
 			keystore,
 			parachains_db,
@@ -981,6 +1007,7 @@ pub fn new_full<
 			dispute_req_receiver,
 			dispute_coordinator_config,
 			chain_selection_config,
+			fetch_chunks_threshold,
 		})
 	};
 

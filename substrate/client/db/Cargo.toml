@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", features = [
 	"derive",
 ] }
 hash-db = "0.16.0"
@@ -39,7 +39,7 @@ sp-state-machine = { path = "../../primitives/state-machine" }
 sp-trie = { path = "../../primitives/trie" }
 
 [dev-dependencies]
-criterion = "0.4.0"
+criterion = "0.5.1"
 kvdb-rocksdb = "0.19.0"
 rand = "0.8.5"
 tempfile = "3.1.0"
@@ -47,7 +47,7 @@ quickcheck = { version = "1.0.3", default-features = false }
 kitchensink-runtime = { path = "../../bin/node/runtime" }
 sp-tracing = { path = "../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 
 [features]
 default = []
