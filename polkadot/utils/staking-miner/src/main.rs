@@ -171,6 +171,7 @@ fn signed_ext_builder_westend(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 	)
 }
 
