@@ -21,34 +21,17 @@ env:
 
 jobs:
 
-  # track changed files
-  # https://github.com/dorny/paths-filter
   changes:
-    runs-on: ubuntu-latest
     permissions:
       pull-requests: read
-    # Set job outputs to values from filter step
-    outputs:
-      rust: ${{ steps.filter.outputs.rust }}
-    steps:
-    # For pull requests it's not necessary to checkout the code
-    - uses: dorny/paths-filter@v3
-      id: filter
-      with:
-        predicate-quantifier: 'every'
-        filters: |
-          rust:
-            - '**'
-            - '!prdoc/**/*'
-            - '!.github/**/*'
-
+    uses: ./.github/workflows/check-changed-files.yml
 
   set-image:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}      
+    if: ${{ needs.changes.outputs.rust }}      
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -59,10 +42,10 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   
   test-linux-stable-int:
-    if: ${{ needs.changes.outputs.rust == 'true' }}  
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}  
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
-    needs: [set-image, changes]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -80,10 +63,10 @@ jobs:
   
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
-    if: ${{ needs.changes.outputs.rust == 'true' }}    
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}    
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
-    needs: [set-image, changes]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
