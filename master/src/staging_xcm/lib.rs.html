@@ -943,6 +943,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#792" id="792">792</a>
 <a href="#793" id="793">793</a>
 <a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -966,6 +972,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //
 // Hence, `no_std` rather than sp-runtime.
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
+</span><span class="comment">// Because of XCMv2.
+</span><span class="attr">#![allow(deprecated)]
 
 </span><span class="kw">extern crate </span>alloc;
 
@@ -973,7 +981,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>parity_scale_codec::{Decode, DecodeLimit, Encode, Error <span class="kw">as </span>CodecError, Input, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
-<span class="kw">pub mod </span>v2;
+<span class="attr">#[deprecated(
+	note = <span class="string">"XCMv2 will be removed once XCMv5 is released. Please use XCMv3 or XCMv4 instead."
+</span>)]
+</span><span class="kw">pub mod </span>v2;
 <span class="kw">pub mod </span>v3;
 <span class="kw">pub mod </span>v4;
 
@@ -1370,6 +1381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub enum </span>VersionedXcm&lt;RuntimeCall&gt; {
 	<span class="attr">#[codec(index = <span class="number">2</span>)]
+	#[deprecated]
 	</span>V2(v2::Xcm&lt;RuntimeCall&gt;),
 	<span class="attr">#[codec(index = <span class="number">3</span>)]
 	</span>V3(v3::Xcm&lt;RuntimeCall&gt;),

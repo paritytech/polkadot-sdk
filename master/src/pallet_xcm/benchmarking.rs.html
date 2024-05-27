@@ -575,6 +575,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -592,12 +593,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span>bounded_collections::{ConstU32, WeakBoundedVec};
 <span class="kw">use </span>frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
 <span class="kw">use </span>frame_support::{assert_ok, weights::Weight};
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, v2};
+<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::EnsureDelivery;
 <span class="kw">use </span>xcm_executor::traits::FeeReason;
 
@@ -890,15 +890,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	notify_target_migration_fail {
-		<span class="kw">let </span>bad_loc: v2::MultiLocation = v2::Junction::Plurality {
-			id: v2::BodyId::Named(WeakBoundedVec::&lt;u8, ConstU32&lt;<span class="number">32</span>&gt;&gt;::try_from(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>])
-				.expect(<span class="string">"vec has a length of 32 bits; qed"</span>)),
-			part: v2::BodyPart::Voice,
-		}
-		.into();
-		<span class="kw">let </span>bad_loc = VersionedLocation::from(bad_loc);
+		<span class="kw">let </span>newer_xcm_version = xcm::prelude::XCM_VERSION;
+		<span class="kw">let </span>older_xcm_version = newer_xcm_version - <span class="number">1</span>;
+		<span class="kw">let </span>bad_location: Location = Plurality {
+			id: BodyId::Unit,
+			part: BodyPart::Voice,
+		}.into();
+		<span class="kw">let </span>bad_location = VersionedLocation::from(bad_location)
+			.into_version(older_xcm_version)
+			.expect(<span class="string">"Version convertion should work"</span>);
 		<span class="kw">let </span>current_version = T::AdvertisedXcmVersion::get();
-		VersionNotifyTargets::&lt;T&gt;::insert(current_version, bad_loc, (<span class="number">0</span>, Weight::zero(), current_version));
+		VersionNotifyTargets::&lt;T&gt;::insert(current_version, bad_location, (<span class="number">0</span>, Weight::zero(), current_version));
 	}: {
 		<span class="kw">crate</span>::Pallet::&lt;T&gt;::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}

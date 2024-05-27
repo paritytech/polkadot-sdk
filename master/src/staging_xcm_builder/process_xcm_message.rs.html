@@ -519,7 +519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>parity_scale_codec::Encode;
 	<span class="kw">use </span>polkadot_test_runtime::<span class="kw-2">*</span>;
-	<span class="kw">use </span>xcm::{v2, v3, VersionedXcm};
+	<span class="kw">use </span>xcm::{v3, v4, VersionedXcm};
 
 	<span class="kw">const </span>ORIGIN: Junction = Junction::OnlyChild;
 	<span class="doccomment">/// The processor to use for tests.
@@ -529,8 +529,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>process_message_trivial_works() {
 		<span class="comment">// ClearOrigin works.
-		</span><span class="macro">assert!</span>(process(v2_xcm(<span class="bool-val">true</span>)).unwrap());
-		<span class="macro">assert!</span>(process(v3_xcm(<span class="bool-val">true</span>)).unwrap());
+		</span><span class="macro">assert!</span>(process(v3_xcm(<span class="bool-val">true</span>)).unwrap());
+		<span class="macro">assert!</span>(process(v4_xcm(<span class="bool-val">true</span>)).unwrap());
 	}
 
 	<span class="attr">#[test]
@@ -589,7 +589,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>process_message_overweight_fails() {
-		<span class="kw">for </span>msg <span class="kw">in </span>[v3_xcm(<span class="bool-val">true</span>), v3_xcm(<span class="bool-val">false</span>), v3_xcm(<span class="bool-val">false</span>), v2_xcm(<span class="bool-val">false</span>)] {
+		<span class="kw">for </span>msg <span class="kw">in </span>[v4_xcm(<span class="bool-val">true</span>), v4_xcm(<span class="bool-val">false</span>), v4_xcm(<span class="bool-val">false</span>), v3_xcm(<span class="bool-val">false</span>)] {
 			<span class="kw">let </span>msg = <span class="kw-2">&amp;</span>msg.encode()[..];
 
 			<span class="comment">// Errors if we stay below a weight limit of 1000.
@@ -611,7 +611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>v2_xcm(success: bool) -&gt; VersionedXcm&lt;RuntimeCall&gt; {
+	<span class="kw">fn </span>v3_xcm(success: bool) -&gt; VersionedXcm&lt;RuntimeCall&gt; {
 		<span class="kw">let </span>instr = <span class="kw">if </span>success {
 			v3::Instruction::&lt;RuntimeCall&gt;::ClearOrigin
 		} <span class="kw">else </span>{
@@ -620,13 +620,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		VersionedXcm::V3(v3::Xcm::&lt;RuntimeCall&gt;(<span class="macro">vec!</span>[instr]))
 	}
 
-	<span class="kw">fn </span>v3_xcm(success: bool) -&gt; VersionedXcm&lt;RuntimeCall&gt; {
+	<span class="kw">fn </span>v4_xcm(success: bool) -&gt; VersionedXcm&lt;RuntimeCall&gt; {
 		<span class="kw">let </span>instr = <span class="kw">if </span>success {
-			v2::Instruction::&lt;RuntimeCall&gt;::ClearOrigin
+			v4::Instruction::&lt;RuntimeCall&gt;::ClearOrigin
 		} <span class="kw">else </span>{
-			v2::Instruction::&lt;RuntimeCall&gt;::Trap(<span class="number">1</span>)
+			v4::Instruction::&lt;RuntimeCall&gt;::Trap(<span class="number">1</span>)
 		};
-		VersionedXcm::V2(v2::Xcm::&lt;RuntimeCall&gt;(<span class="macro">vec!</span>[instr]))
+		VersionedXcm::V4(v4::Xcm::&lt;RuntimeCall&gt;(<span class="macro">vec!</span>[instr]))
 	}
 
 	<span class="kw">fn </span>process(msg: VersionedXcm&lt;RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ProcessMessageError&gt; {

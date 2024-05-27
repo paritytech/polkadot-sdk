@@ -1292,6 +1292,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1141" id="1141">1141</a>
 <a href="#1142" id="1142">1142</a>
 <a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1309,6 +1325,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="doccomment">//! # XCM Version 2
+//!
+//! WARNING: DEPRECATED, please use version 3 or 4.
+//!
 //! Version 2 of the Cross-Consensus Message format data structures. The comprehensive list of
 //! changes can be found in
 //! [this PR description](https://github.com/paritytech/polkadot/pull/3629#issue-968428279).
@@ -1346,8 +1365,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use super</span>::{
 	v3::{
 		BodyId <span class="kw">as </span>NewBodyId, BodyPart <span class="kw">as </span>NewBodyPart, Instruction <span class="kw">as </span>NewInstruction,
-		NetworkId <span class="kw">as </span>NewNetworkId, Response <span class="kw">as </span>NewResponse, WeightLimit <span class="kw">as </span>NewWeightLimit,
-		Xcm <span class="kw">as </span>NewXcm,
+		NetworkId <span class="kw">as </span>NewNetworkId, OriginKind <span class="kw">as </span>NewOriginKind, Response <span class="kw">as </span>NewResponse,
+		WeightLimit <span class="kw">as </span>NewWeightLimit, Xcm <span class="kw">as </span>NewXcm,
 	},
 	DoubleEncoded,
 };
@@ -1396,6 +1415,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
 	/// the `pallet_xcm::Origin::Xcm` type.
 	</span>Xcm,
+}
+
+<span class="kw">impl </span>From&lt;NewOriginKind&gt; <span class="kw">for </span>OriginKind {
+	<span class="kw">fn </span>from(new: NewOriginKind) -&gt; <span class="self">Self </span>{
+		<span class="kw">use </span>NewOriginKind::<span class="kw-2">*</span>;
+		<span class="kw">match </span>new {
+			Native =&gt; <span class="self">Self</span>::Native,
+			SovereignAccount =&gt; <span class="self">Self</span>::SovereignAccount,
+			Superuser =&gt; <span class="self">Self</span>::Superuser,
+			Xcm =&gt; <span class="self">Self</span>::Xcm,
+		}
+	}
 }
 
 <span class="doccomment">/// A global identifier of an account-bearing consensus system.
@@ -1556,7 +1587,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// An identifier for a query.
 </span><span class="kw">pub type </span>QueryId = u64;
 
-<span class="attr">#[derive(Derivative, Default, Encode, Decode, TypeInfo)]
+<span class="doccomment">/// DEPRECATED. Please use XCMv3 or XCMv4 instead.
+</span><span class="attr">#[derive(Derivative, Default, Encode, Decode, TypeInfo)]
 #[derivative(Clone(bound = <span class="string">""</span>), Eq(bound = <span class="string">""</span>), PartialEq(bound = <span class="string">""</span>), Debug(bound = <span class="string">""</span>))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
@@ -2359,7 +2391,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			HrmpChannelClosing { initiator, sender, recipient } =&gt;
 				<span class="self">Self</span>::HrmpChannelClosing { initiator, sender, recipient },
 			Transact { origin_kind, require_weight_at_most, call } =&gt; <span class="self">Self</span>::Transact {
-				origin_type: origin_kind,
+				origin_type: origin_kind.into(),
 				require_weight_at_most: require_weight_at_most.ref_time(),
 				call: call.into(),
 			},

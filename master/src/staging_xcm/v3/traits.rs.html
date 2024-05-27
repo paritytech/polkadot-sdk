@@ -702,6 +702,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#551" id="551">551</a>
 <a href="#552" id="552">552</a>
 <a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -728,6 +733,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>sp_weights::Weight;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+<span class="comment">// A simple trait to get the weight of some object.
+</span><span class="kw">pub trait </span>GetWeight&lt;W&gt; {
+	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_weights::Weight;
+}
 
 <span class="doccomment">/// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that

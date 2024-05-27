@@ -1788,83 +1788,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1637" id="1637">1637</a>
 <a href="#1638" id="1638">1638</a>
 <a href="#1639" id="1639">1639</a>
-<a href="#1640" id="1640">1640</a>
-<a href="#1641" id="1641">1641</a>
-<a href="#1642" id="1642">1642</a>
-<a href="#1643" id="1643">1643</a>
-<a href="#1644" id="1644">1644</a>
-<a href="#1645" id="1645">1645</a>
-<a href="#1646" id="1646">1646</a>
-<a href="#1647" id="1647">1647</a>
-<a href="#1648" id="1648">1648</a>
-<a href="#1649" id="1649">1649</a>
-<a href="#1650" id="1650">1650</a>
-<a href="#1651" id="1651">1651</a>
-<a href="#1652" id="1652">1652</a>
-<a href="#1653" id="1653">1653</a>
-<a href="#1654" id="1654">1654</a>
-<a href="#1655" id="1655">1655</a>
-<a href="#1656" id="1656">1656</a>
-<a href="#1657" id="1657">1657</a>
-<a href="#1658" id="1658">1658</a>
-<a href="#1659" id="1659">1659</a>
-<a href="#1660" id="1660">1660</a>
-<a href="#1661" id="1661">1661</a>
-<a href="#1662" id="1662">1662</a>
-<a href="#1663" id="1663">1663</a>
-<a href="#1664" id="1664">1664</a>
-<a href="#1665" id="1665">1665</a>
-<a href="#1666" id="1666">1666</a>
-<a href="#1667" id="1667">1667</a>
-<a href="#1668" id="1668">1668</a>
-<a href="#1669" id="1669">1669</a>
-<a href="#1670" id="1670">1670</a>
-<a href="#1671" id="1671">1671</a>
-<a href="#1672" id="1672">1672</a>
-<a href="#1673" id="1673">1673</a>
-<a href="#1674" id="1674">1674</a>
-<a href="#1675" id="1675">1675</a>
-<a href="#1676" id="1676">1676</a>
-<a href="#1677" id="1677">1677</a>
-<a href="#1678" id="1678">1678</a>
-<a href="#1679" id="1679">1679</a>
-<a href="#1680" id="1680">1680</a>
-<a href="#1681" id="1681">1681</a>
-<a href="#1682" id="1682">1682</a>
-<a href="#1683" id="1683">1683</a>
-<a href="#1684" id="1684">1684</a>
-<a href="#1685" id="1685">1685</a>
-<a href="#1686" id="1686">1686</a>
-<a href="#1687" id="1687">1687</a>
-<a href="#1688" id="1688">1688</a>
-<a href="#1689" id="1689">1689</a>
-<a href="#1690" id="1690">1690</a>
-<a href="#1691" id="1691">1691</a>
-<a href="#1692" id="1692">1692</a>
-<a href="#1693" id="1693">1693</a>
-<a href="#1694" id="1694">1694</a>
-<a href="#1695" id="1695">1695</a>
-<a href="#1696" id="1696">1696</a>
-<a href="#1697" id="1697">1697</a>
-<a href="#1698" id="1698">1698</a>
-<a href="#1699" id="1699">1699</a>
-<a href="#1700" id="1700">1700</a>
-<a href="#1701" id="1701">1701</a>
-<a href="#1702" id="1702">1702</a>
-<a href="#1703" id="1703">1703</a>
-<a href="#1704" id="1704">1704</a>
-<a href="#1705" id="1705">1705</a>
-<a href="#1706" id="1706">1706</a>
-<a href="#1707" id="1707">1707</a>
-<a href="#1708" id="1708">1708</a>
-<a href="#1709" id="1709">1709</a>
-<a href="#1710" id="1710">1710</a>
-<a href="#1711" id="1711">1711</a>
-<a href="#1712" id="1712">1712</a>
-<a href="#1713" id="1713">1713</a>
-<a href="#1714" id="1714">1714</a>
-<a href="#1715" id="1715">1715</a>
-<a href="#1716" id="1716">1716</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1883,15 +1806,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Version 3 of the Cross-Consensus Message format data structures.
 
-</span><span class="kw">use super</span>::{
-	v2::{
-		Instruction <span class="kw">as </span>OldInstruction, Response <span class="kw">as </span>OldResponse, WeightLimit <span class="kw">as </span>OldWeightLimit,
-		Xcm <span class="kw">as </span>OldXcm,
-	},
-	v4::{
-		Instruction <span class="kw">as </span>NewInstruction, PalletInfo <span class="kw">as </span>NewPalletInfo,
-		QueryResponseInfo <span class="kw">as </span>NewQueryResponseInfo, Response <span class="kw">as </span>NewResponse, Xcm <span class="kw">as </span>NewXcm,
-	},
+</span><span class="attr">#[allow(deprecated)]
+</span><span class="kw">use </span><span class="kw">super</span>::v2::{
+	Instruction <span class="kw">as </span>OldInstruction, OriginKind <span class="kw">as </span>OldOriginKind, Response <span class="kw">as </span>OldResponse,
+	WeightLimit <span class="kw">as </span>OldWeightLimit, Xcm <span class="kw">as </span>OldXcm,
+};
+<span class="kw">use </span><span class="kw">super</span>::v4::{
+	Instruction <span class="kw">as </span>NewInstruction, PalletInfo <span class="kw">as </span>NewPalletInfo,
+	QueryResponseInfo <span class="kw">as </span>NewQueryResponseInfo, Response <span class="kw">as </span>NewResponse, Xcm <span class="kw">as </span>NewXcm,
 };
 <span class="kw">use </span><span class="kw">crate</span>::DoubleEncoded;
 <span class="kw">use </span>alloc::{vec, vec::Vec};
@@ -1920,11 +1842,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Ancestor, AncestorThen, InteriorMultiLocation, Location, MultiLocation, Parent, ParentThen,
 };
 <span class="kw">pub use </span>traits::{
-	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, <span class="prelude-ty">Result</span>, SendError,
-	SendResult, SendXcm, Weight, XcmHash,
+	send_xcm, validate_send, Error, ExecuteXcm, GetWeight, Outcome, PreparedMessage, <span class="prelude-ty">Result</span>,
+	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
-<span class="comment">// These parts of XCM v2 are unchanged in XCM v3, and are re-imported here.
-</span><span class="kw">pub use </span><span class="kw">super</span>::v2::{GetWeight, OriginKind};
+
+<span class="doccomment">/// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
+</span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
+</span><span class="kw">pub enum </span>OriginKind {
+	<span class="doccomment">/// Origin should just be the native dispatch origin representation for the sender in the
+	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
+	/// if coming from a chain, though there may be others if the `MultiLocation` XCM origin has a
+	/// primary/native dispatch origin form.
+	</span>Native,
+
+	<span class="doccomment">/// Origin should just be the standard account-based origin with the sovereign account of
+	/// the sender. For Cumulus/Frame chains, this is the `Signed` origin.
+	</span>SovereignAccount,
+
+	<span class="doccomment">/// Origin should be the super-user. For Cumulus/Frame chains, this is the `Root` origin.
+	/// This will not usually be an available option.
+	</span>Superuser,
+
+	<span class="doccomment">/// Origin should be interpreted as an XCM native origin and the `MultiLocation` should be
+	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
+	/// the `pallet_xcm::Origin::Xcm` type.
+	</span>Xcm,
+}
+
+<span class="kw">impl </span>From&lt;OldOriginKind&gt; <span class="kw">for </span>OriginKind {
+	<span class="kw">fn </span>from(old: OldOriginKind) -&gt; <span class="self">Self </span>{
+		<span class="kw">use </span>OldOriginKind::<span class="kw-2">*</span>;
+		<span class="kw">match </span>old {
+			Native =&gt; <span class="self">Self</span>::Native,
+			SovereignAccount =&gt; <span class="self">Self</span>::SovereignAccount,
+			Superuser =&gt; <span class="self">Self</span>::Superuser,
+			Xcm =&gt; <span class="self">Self</span>::Xcm,
+		}
+	}
+}
 
 <span class="doccomment">/// This module's XCM version.
 </span><span class="kw">pub const </span>VERSION: <span class="kw">super</span>::Version = <span class="number">3</span>;
@@ -3177,6 +3134,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Convert from a v2 XCM to a v3 XCM.
+</span><span class="attr">#[allow(deprecated)]
 </span><span class="kw">impl</span>&lt;Call&gt; TryFrom&lt;OldXcm&lt;Call&gt;&gt; <span class="kw">for </span>Xcm&lt;Call&gt; {
 	<span class="kw">type </span>Error = ();
 	<span class="kw">fn </span>try_from(old_xcm: OldXcm&lt;Call&gt;) -&gt; result::Result&lt;<span class="self">Self</span>, ()&gt; {
@@ -3367,7 +3325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			HrmpChannelClosing { initiator, sender, recipient } =&gt;
 				<span class="self">Self</span>::HrmpChannelClosing { initiator, sender, recipient },
 			Transact { origin_type, require_weight_at_most, call } =&gt; <span class="self">Self</span>::Transact {
-				origin_kind: origin_type,
+				origin_kind: origin_type.into(),
 				require_weight_at_most: Weight::from_parts(
 					require_weight_at_most,
 					DEFAULT_PROOF_SIZE,
@@ -3439,118 +3397,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::{prelude::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
-	<span class="kw">use </span><span class="kw">crate</span>::v2::{
-		Junctions::Here <span class="kw">as </span>OldHere, MultiAssetFilter <span class="kw">as </span>OldMultiAssetFilter,
-		WildMultiAsset <span class="kw">as </span>OldWildMultiAsset,
-	};
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>basic_roundtrip_works() {
-		<span class="kw">let </span>xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[TransferAsset {
-			assets: (Here, <span class="number">1u128</span>).into(),
-			beneficiary: Here.into(),
-		}]);
-		<span class="kw">let </span>old_xcm = OldXcm::&lt;()&gt;(<span class="macro">vec!</span>[OldInstruction::TransferAsset {
-			assets: (OldHere, <span class="number">1</span>).into(),
-			beneficiary: OldHere.into(),
-		}]);
-		<span class="macro">assert_eq!</span>(old_xcm, OldXcm::&lt;()&gt;::try_from(xcm.clone()).unwrap());
-		<span class="kw">let </span>new_xcm: Xcm&lt;()&gt; = old_xcm.try_into().unwrap();
-		<span class="macro">assert_eq!</span>(new_xcm, xcm);
-	}
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>teleport_roundtrip_works() {
-		<span class="kw">let </span>xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
-			ReceiveTeleportedAsset((Here, <span class="number">1u128</span>).into()),
-			ClearOrigin,
-			DepositAsset { assets: Wild(AllCounted(<span class="number">1</span>)), beneficiary: Here.into() },
-		]);
-		<span class="kw">let </span>old_xcm: OldXcm&lt;()&gt; = OldXcm::&lt;()&gt;(<span class="macro">vec!</span>[
-			OldInstruction::ReceiveTeleportedAsset((OldHere, <span class="number">1</span>).into()),
-			OldInstruction::ClearOrigin,
-			OldInstruction::DepositAsset {
-				assets: <span class="kw">crate</span>::v2::MultiAssetFilter::Wild(<span class="kw">crate</span>::v2::WildMultiAsset::All),
-				max_assets: <span class="number">1</span>,
-				beneficiary: OldHere.into(),
-			},
-		]);
-		<span class="macro">assert_eq!</span>(old_xcm, OldXcm::&lt;()&gt;::try_from(xcm.clone()).unwrap());
-		<span class="kw">let </span>new_xcm: Xcm&lt;()&gt; = old_xcm.try_into().unwrap();
-		<span class="macro">assert_eq!</span>(new_xcm, xcm);
-	}
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>reserve_deposit_roundtrip_works() {
-		<span class="kw">let </span>xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
-			ReserveAssetDeposited((Here, <span class="number">1u128</span>).into()),
-			ClearOrigin,
-			BuyExecution {
-				fees: (Here, <span class="number">1u128</span>).into(),
-				weight_limit: <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">1</span>, DEFAULT_PROOF_SIZE)).into(),
-			},
-			DepositAsset { assets: Wild(AllCounted(<span class="number">1</span>)), beneficiary: Here.into() },
-		]);
-		<span class="kw">let </span>old_xcm = OldXcm::&lt;()&gt;(<span class="macro">vec!</span>[
-			OldInstruction::ReserveAssetDeposited((OldHere, <span class="number">1</span>).into()),
-			OldInstruction::ClearOrigin,
-			OldInstruction::BuyExecution {
-				fees: (OldHere, <span class="number">1</span>).into(),
-				weight_limit: <span class="prelude-val">Some</span>(<span class="number">1</span>).into(),
-			},
-			OldInstruction::DepositAsset {
-				assets: <span class="kw">crate</span>::v2::MultiAssetFilter::Wild(<span class="kw">crate</span>::v2::WildMultiAsset::All),
-				max_assets: <span class="number">1</span>,
-				beneficiary: OldHere.into(),
-			},
-		]);
-		<span class="macro">assert_eq!</span>(old_xcm, OldXcm::&lt;()&gt;::try_from(xcm.clone()).unwrap());
-		<span class="kw">let </span>new_xcm: Xcm&lt;()&gt; = old_xcm.try_into().unwrap();
-		<span class="macro">assert_eq!</span>(new_xcm, xcm);
-	}
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>deposit_asset_roundtrip_works() {
-		<span class="kw">let </span>xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
-			WithdrawAsset((Here, <span class="number">1u128</span>).into()),
-			DepositAsset { assets: Wild(AllCounted(<span class="number">1</span>)), beneficiary: Here.into() },
-		]);
-		<span class="kw">let </span>old_xcm = OldXcm::&lt;()&gt;(<span class="macro">vec!</span>[
-			OldInstruction::WithdrawAsset((OldHere, <span class="number">1</span>).into()),
-			OldInstruction::DepositAsset {
-				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::All),
-				max_assets: <span class="number">1</span>,
-				beneficiary: OldHere.into(),
-			},
-		]);
-		<span class="macro">assert_eq!</span>(old_xcm, OldXcm::&lt;()&gt;::try_from(xcm.clone()).unwrap());
-		<span class="kw">let </span>new_xcm: Xcm&lt;()&gt; = old_xcm.try_into().unwrap();
-		<span class="macro">assert_eq!</span>(new_xcm, xcm);
-	}
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>deposit_reserve_asset_roundtrip_works() {
-		<span class="kw">let </span>xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
-			WithdrawAsset((Here, <span class="number">1u128</span>).into()),
-			DepositReserveAsset {
-				assets: Wild(AllCounted(<span class="number">1</span>)),
-				dest: Here.into(),
-				xcm: Xcm::&lt;()&gt;(<span class="macro">vec!</span>[]),
-			},
-		]);
-		<span class="kw">let </span>old_xcm = OldXcm::&lt;()&gt;(<span class="macro">vec!</span>[
-			OldInstruction::WithdrawAsset((OldHere, <span class="number">1</span>).into()),
-			OldInstruction::DepositReserveAsset {
-				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::All),
-				max_assets: <span class="number">1</span>,
-				dest: OldHere.into(),
-				xcm: OldXcm::&lt;()&gt;(<span class="macro">vec!</span>[]),
-			},
-		]);
-		<span class="macro">assert_eq!</span>(old_xcm, OldXcm::&lt;()&gt;::try_from(xcm.clone()).unwrap());
-		<span class="kw">let </span>new_xcm: Xcm&lt;()&gt; = old_xcm.try_into().unwrap();
-		<span class="macro">assert_eq!</span>(new_xcm, xcm);
-	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>decoding_respects_limit() {

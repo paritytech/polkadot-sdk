@@ -305,7 +305,7 @@ is sent onwards to <code>dest</code>.</li>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.transact" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#383">source</a><h4 class="code-header">pub fn <a href="#method.transact" class="fn">transact</a>(
     self,
-    origin_kind: impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="../v2/enum.OriginKind.html" title="enum staging_xcm::v2::OriginKind">OriginKind</a>&gt;,
+    origin_kind: impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="../v3/enum.OriginKind.html" title="enum staging_xcm::v3::OriginKind">OriginKind</a>&gt;,
     require_weight_at_most: impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>&gt;,
     call: impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="../struct.DoubleEncoded.html" title="struct staging_xcm::DoubleEncoded">DoubleEncoded</a>&lt;Call&gt;&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Apply the encoded transaction <code>call</code>, whose dispatch-origin should be <code>origin</code> as expressed
