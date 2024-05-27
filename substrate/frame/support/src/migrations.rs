@@ -558,12 +558,6 @@ pub trait MultiStepMigrator {
 	///
 	/// Must gracefully handle the case that it is currently not upgrading.
 	fn step() -> Weight;
-
-	#[cfg(feature = "try-runtime")]
-	/// Repeatedly call [`Self::step`] until the migration is completed or in a fail state.
-	///
-	/// Runs pre/post upgrade hooks if they exist.
-	fn try_mbms() -> Result<(), sp_runtime::TryRuntimeError>;
 }
 
 impl MultiStepMigrator for () {
@@ -573,11 +567,6 @@ impl MultiStepMigrator for () {
 
 	fn step() -> Weight {
 		Weight::zero()
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn try_mbms() -> Result<(), sp_runtime::TryRuntimeError> {
-		Ok(())
 	}
 }
 
@@ -619,7 +608,7 @@ pub trait SteppedMigrations {
 	fn nth_pre_upgrade(n: u32) -> Result<Vec<u8>, sp_runtime::TryRuntimeError>;
 
 	#[cfg(feature = "try-runtime")]
-	/// Call the pre-upgrade hooks of the `n`th migration.
+	/// Call the post-upgrade hooks of the `n`th migration.
 	fn nth_post_upgrade(n: u32, _state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError>;
 
 	/// The maximal encoded length across all cursors.

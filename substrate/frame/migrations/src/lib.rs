@@ -267,6 +267,18 @@ pub trait MockedMigrations: SteppedMigrations {
 	fn set_success_after(n: u32);
 }
 
+#[cfg(feature = "try-runtime")]
+/// Wrapper for pre-upgrade bytes, allowing us to impl MEL on it.
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, Default)]
+pub struct PreUpgradeBytesWrapper(pub Vec<u8>);
+
+#[cfg(feature = "try-runtime")]
+impl MaxEncodedLen for PreUpgradeBytesWrapper {
+	fn max_encoded_len() -> usize {
+		0
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -377,6 +389,12 @@ pub mod pallet {
 	/// codebase yet. Governance can regularly clear this out via `clear_historic`.
 	#[pallet::storage]
 	pub type Historic<T: Config> = StorageMap<_, Twox64Concat, IdentifierOf<T>, (), OptionQuery>;
+
+	/// Data stored by the pre-upgrade hook of the MBM.
+	#[cfg(feature = "try-runtime")]
+	#[pallet::storage]
+	pub type PreUpgradeBytes<T: Config> =
+		StorageMap<_, Twox64Concat, IdentifierOf<T>, PreUpgradeBytesWrapper, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -698,6 +716,14 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let max_steps = T::Migrations::nth_max_steps(cursor.index);
+
+		// If this is the first time running this migration, exec the pre-upgrade hook.
+		#[cfg(feature = "try-runtime")]
+		if !PreUpgradeBytes::<T>::contains_key(&bounded_id) {
+			let bytes = T::Migrations::nth_pre_upgrade(cursor.index).expect("Pre-upgrade failed");
+			PreUpgradeBytes::<T>::insert(&bounded_id, PreUpgradeBytesWrapper(bytes));
+		}
+
 		let next_cursor = T::Migrations::nth_transactional_step(
 			cursor.index,
 			cursor.inner_cursor.clone().map(|c| c.into_inner()),
@@ -732,6 +758,15 @@ impl<T: Config> Pallet<T> {
 			},
 			Ok(None) => {
 				// A migration is done when it returns cursor `None`.
+
+				// Run post-upgrade checks.
+				#[cfg(feature = "try-runtime")]
+				T::Migrations::nth_post_upgrade(
+					cursor.index,
+					PreUpgradeBytes::<T>::get(&bounded_id).0,
+				)
+				.expect("Post-upgrade failed.");
+
 				Self::deposit_event(Event::MigrationCompleted { index: cursor.index, took });
 				Historic::<T>::insert(&bounded_id, ());
 				cursor.goto_next_migration(System::<T>::block_number());
@@ -756,9 +791,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Fail the current runtime upgrade, caused by `migration`.
+	///
+	/// When the `try-runtime` feature is enabled, this function will panic.
+	// Allow unreachable code so it can compile without warnings when `try-runtime` is enabled.
+	#[allow(unreachable_code)]
 	fn upgrade_failed(migration: Option<u32>) {
 		use FailedMigrationHandling::*;
 		Self::deposit_event(Event::UpgradeFailed);
+
+		#[cfg(feature = "try-runtime")]
+		{
+			log::error!("Migration at index {:?} failed.", migration);
+			panic!("A multi-block migration failed. Run with RUST_LOG=trace for all logs.");
+		}
 
 		match T::FailedMigrationHandler::failed(migration) {
 			KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
@@ -784,101 +829,5 @@ impl<T: Config> MultiStepMigrator for Pallet<T> {
 
 	fn step() -> Weight {
 		Self::progress_mbms(System::<T>::block_number())
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn try_mbms() -> Result<(), sp_runtime::TryRuntimeError> {
-		use sp_std::collections::btree_map::BTreeMap;
-
-		// Check if migrations were initiated.
-		if !Self::ongoing() {
-			return Ok(())
-		}
-
-		// Store pre_upgrade state for all migrations.
-		let mut pre_upgrade_state = BTreeMap::<u32, Vec<u8>>::new();
-		let mut errors = Vec::new();
-		for i in 0..T::Migrations::len() {
-			match T::Migrations::nth_pre_upgrade(i) {
-				Ok(state) => {
-					pre_upgrade_state.insert(i, state);
-				},
-				Err(e) => {
-					errors.push((i, "pre-upgrade", e));
-				},
-			}
-		}
-
-		// Run migrations to completion.
-		match Self::try_step_until_completion() {
-			Ok(blocks) => {
-				log::info!("ℹ️ MBMs executed in {} blocks", blocks);
-			},
-			Err((i, e)) => errors.push((i, "step", e)),
-		}
-
-		// Run post_upgrade for all migrations.
-		for i in 0..T::Migrations::len() {
-			if let Err(e) = T::Migrations::nth_post_upgrade(
-				i,
-				pre_upgrade_state.get(&i).unwrap_or(&vec![]).clone(),
-			) {
-				errors.push((i, "post-upgrade", e));
-			}
-		}
-
-		if !errors.is_empty() {
-			log::error!("❌ MBM errors occured:");
-			for (i, p, e) in errors {
-				log::error!(
-					"  - Migration at index {} errored during phase '{}' error: {:?}",
-					i,
-					p,
-					e
-				);
-			}
-			return Err("MBM failure/s. See error logs for info.".into())
-		}
-
-		Ok(())
-	}
-}
-
-impl<T: Config> Pallet<T> {
-	#[cfg(feature = "try-runtime")]
-	fn try_step_until_completion() -> Result<BlockNumberFor<T>, (u32, sp_runtime::TryRuntimeError)>
-	{
-		use frame_support::traits::Hooks;
-
-		let start_block = System::<T>::block_number();
-		loop {
-			let migration_index = match Cursor::<T>::get() {
-				Some(MigrationCursor::Active(active)) => active.index,
-				_ => unreachable!("migration must be active"),
-			};
-
-			// Simulate a step.
-			log::debug!("Block {}", System::<T>::block_number());
-			System::<T>::set_block_number(System::<T>::block_number() + 1u32.into());
-			System::<T>::on_initialize(System::<T>::block_number());
-			crate::Pallet::<T>::on_initialize(System::<T>::block_number());
-			Self::step();
-			<crate::Pallet<T>>::on_finalize(System::<T>::block_number());
-			<frame_system::Pallet<T>>::on_finalize(System::<T>::block_number());
-
-			// Check events for `UpgradeCompleted` or `UpgradeFailed`.
-			for e in System::<T>::events().iter() {
-				let e_success: <T as crate::Config>::RuntimeEvent =
-					Event::<T>::UpgradeCompleted.into();
-				let e_failed: <T as crate::Config>::RuntimeEvent = Event::<T>::UpgradeFailed.into();
-				if e.event == e_success.into() {
-					let end_block = System::<T>::block_number();
-					return Ok(end_block - start_block)
-				}
-				if e.event == e_failed.into() {
-					return Err((migration_index, "UpgradeFailed event emitted".into()))
-				}
-			}
-		}
 	}
 }

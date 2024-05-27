@@ -464,11 +464,6 @@ where
 			)?;
 		}
 
-		// Finally, try to run MBMs to completion.
-		if opts.mbms {
-			<System as frame_system::Config>::MultiBlockMigrator::try_mbms()?;
-		}
-
 		Ok(before_all_weight.saturating_add(try_on_runtime_upgrade_weight))
 	}
 
