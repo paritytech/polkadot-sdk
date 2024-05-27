@@ -75,10 +75,7 @@ pub(crate) enum RoundAction {
 /// Note: this is part of `PersistedState` so any changes here should also bump
 /// aux-db schema version.
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct VoterOracle<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
-{
+pub(crate) struct VoterOracle<B: Block, AuthorityId: AuthorityIdBound>{
 	/// Queue of known sessions. Keeps track of voting rounds (block numbers) within each session.
 	///
 	/// There are three voter states coresponding to three queue states:
@@ -101,7 +98,6 @@ where
 impl<B: Block, AuthorityId> VoterOracle<B, AuthorityId>
 where
 	AuthorityId: AuthorityIdBound,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// Verify provided `sessions` satisfies requirements, then build `VoterOracle`.
 	pub fn checked_new(
@@ -280,8 +276,6 @@ where
 /// Note: Any changes here should also bump aux-db schema version.
 #[derive(Debug, Decode, Encode, PartialEq)]
 pub(crate) struct PersistedState<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// Best block we voted on.
 	best_voted: NumberFor<B>,
@@ -293,8 +287,6 @@ where
 }
 
 impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub fn checked_new(
 		grandpa_header: <B as Block>::Header,
@@ -388,8 +380,6 @@ where
 
 /// A BEEFY worker/voter that follows the BEEFY protocol
 pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	// utilities
 	pub backend: Arc<BE>,
@@ -423,7 +413,6 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 	AuthorityId: AuthorityIdBound,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {
 		*self.persisted_state.voting_oracle.best_grandpa_block_header.number()
@@ -1145,7 +1134,6 @@ pub(crate) mod tests {
 
 	impl<B: super::Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId>
 	where
-		<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 	{
 		pub fn active_round(&self) -> Result<&Rounds<B, AuthorityId>, Error> {
 			self.voting_oracle.active_rounds()

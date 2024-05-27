@@ -71,23 +71,11 @@ pub type BeefySignatureHasher = sp_runtime::traits::Keccak256;
 /// A trait bound which lists all traits which are required to be implemented by
 /// a BEEFY AuthorityId type in order to be able to be used in BEEFY Keystore
 pub trait AuthorityIdBound:
-	Ord + AppPublic + Display + BeefyAuthorityId<BeefySignatureHasher>
+Ord + AppPublic + Display 
+    + BeefyAuthorityId<BeefySignatureHasher, Signature = Self::BoundedSignature>
 {
+    type BoundedSignature: Debug + Eq + PartialEq + Clone + TypeInfo + Codec + Send + Sync;
 }
-// pub trait AuthorityIdBound:
-// 	Codec
-// 	+ Debug
-// 	+ Clone
-// 	+ Ord
-// 	+ AsRef<[u8]>
-// 	+ ByteArray
-// 	+ AppPublic
-// 	+ AppCrypto
-// 	+ RuntimeAppPublic
-// 	+ Display
-// 	+ BeefyAuthorityId<BeefySignatureHasher>
-// {
-// }
 
 /// BEEFY cryptographic types for ECDSA crypto
 ///
@@ -127,7 +115,9 @@ pub mod ecdsa_crypto {
 			}
 		}
 	}
-	impl AuthorityIdBound for AuthorityId {}
+    impl AuthorityIdBound for AuthorityId {
+	type BoundedSignature = Signature;
+    }
 }
 
 /// BEEFY cryptographic types for BLS crypto
@@ -168,7 +158,8 @@ pub mod bls_crypto {
 			BlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())
 		}
 	}
-	impl AuthorityIdBound for AuthorityId {}
+	impl AuthorityIdBound for AuthorityId {	type BoundedSignature = Signature;
+}
 }
 
 /// BEEFY cryptographic types for (ECDSA,BLS) crypto pair
@@ -216,7 +207,8 @@ pub mod ecdsa_bls_crypto {
 		}
 	}
 
-	impl AuthorityIdBound for AuthorityId {}
+	impl AuthorityIdBound for AuthorityId {	type BoundedSignature = Signature;
+}
 }
 
 /// The `ConsensusEngineId` of BEEFY.
