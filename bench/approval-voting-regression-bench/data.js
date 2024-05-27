@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716843525652,
+  "lastUpdate": 1716850864673,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5122,6 +5122,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 8.199175188529946,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk",
+            "email": "1728078+michalkucharczyk@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2d3a6932de35fc53da4e4b6bc195b1cc69550300",
+          "message": "`sc-chain-spec`: deprecated code removed (#4410)\n\nThis PR removes deprecated code:\n- The `RuntimeGenesisConfig` generic type parameter in\n`GenericChainSpec` struct.\n- `ChainSpec::from_genesis` method allowing to create chain-spec using\nclosure providing runtime genesis struct\n- `GenesisSource::Factory` variant together with no longer needed\n`GenesisSource`'s generic parameter `G` (which was intended to be a\nruntime genesis struct).\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/17b56fae2d976a3df87f34076875de8c26da0355/substrate/client/chain-spec/src/chain_spec.rs#L559-L563",
+          "timestamp": "2024-05-27T21:29:50Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d3a6932de35fc53da4e4b6bc195b1cc69550300"
+        },
+        "date": 1716850837344,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63551.55,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.214670852160019,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.788088199590057,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.287202355520223,
             "unit": "seconds"
           }
         ]
