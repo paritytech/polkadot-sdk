@@ -20,9 +20,7 @@
 
 use crate::{
 	config::{NetworkConfiguration, ProtocolId},
-	multiaddr::Protocol,
 	peer_store::PeerStoreProvider,
-	Multiaddr,
 };
 
 use array_bytes::bytes2hex;
@@ -42,6 +40,7 @@ use litep2p::{
 		},
 		mdns::{Config as MdnsConfig, MdnsEvent},
 	},
+	types::multiaddr::{Multiaddr, Protocol},
 	PeerId, ProtocolName,
 };
 use parking_lot::RwLock;
@@ -227,7 +226,7 @@ impl Discovery {
 		let (identify_config, identify_event_stream) = IdentifyConfig::new(
 			"/substrate/1.0".to_string(),
 			Some(user_agent),
-			config.public_addresses.clone(),
+			config.public_addresses.clone().into_iter().map(Into::into).collect(),
 		);
 
 		let (mdns_config, mdns_event_stream) = match config.transport {
@@ -266,12 +265,12 @@ impl Discovery {
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(8)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
-				public_addresses: config.public_addresses.iter().cloned().collect(),
+				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: Some(Delay::new(KADEMLIA_QUERY_INTERVAL)),
-				local_protocols: HashSet::from_iter([
-					kademlia_protocol_name(genesis_hash, fork_id),
-					legacy_kademlia_protocol_name(protocol_id),
-				]),
+				local_protocols: HashSet::from_iter([kademlia_protocol_name(
+					genesis_hash,
+					fork_id,
+				)]),
 			},
 			ping_config,
 			identify_config,
@@ -295,6 +294,11 @@ impl Discovery {
 		addresses: Vec<Multiaddr>,
 	) {
 		if self.local_protocols.is_disjoint(&supported_protocols) {
+			log::trace!(
+				target: "sub-libp2p",
+				"Ignoring self-reported address of peer {peer} as remote node is not part of the \
+				 Kademlia DHT supported by the local node.",
+			);
 			return
 		}
 
