@@ -16702,6 +16702,7 @@ dependencies = [
  "log",
  "memmap2 0.9.3",
  "parity-scale-codec",
+ "regex",
  "sc-chain-spec-derive",
  "sc-client-api",
  "sc-executor",
