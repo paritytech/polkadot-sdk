@@ -222,6 +222,8 @@ pub mod pallet {
 
 	pub type ParamsOf<T, I> =
 		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
+	pub type PartialParamsOf<T, I> =
+		ParamsType<Option<<T as Config<I>>::Balance>, Option<BlockNumberFor<T>>, RANK_COUNT>;
 	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
 
