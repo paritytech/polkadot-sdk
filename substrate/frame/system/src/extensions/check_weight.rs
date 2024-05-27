@@ -140,7 +140,6 @@ pub fn check_combined_proof_size<Call>(
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-
 	// This extra check ensures that the extrinsic length does not push the
 	// PoV over the limit.
 	let total_pov_size = next_weight.total().proof_size().saturating_add(next_len as u64);
@@ -155,7 +154,7 @@ where
 		return match info.class {
 			// Allow mandatory extrinsics
 			DispatchClass::Mandatory => Ok(()),
-			_ => Err(InvalidTransaction::ExhaustsResources.into())
+			_ => Err(InvalidTransaction::ExhaustsResources.into()),
 		};
 	}
 	Ok(())
