@@ -1,0 +1,15 @@
+title: "Remove `elastic-scaling-experimental` feature flag"
+
+doc:
+  - audience: Node Dev
+    description: |
+      The feature was masking the ability of collators to respond with `CollationWithParentHeadData`
+      to validator collation fetch requests. This is no longer needed as validators 
+      have been upgraded to support the new response. `CollationWithParentHeadData` however
+      is only sent by collators of parachains with multiple cores assigned.
+
+crates:
+  - name: polkadot-collator-protocol
+    bump: minor
+  - name: polkadot-service
+    bump: minor
