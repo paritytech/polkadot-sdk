@@ -18,7 +18,7 @@ path = "src/paged_list.rs"
 
 [dependencies]
 arbitrary = "1.3.2"
-honggfuzz = "0.5.49"
+honggfuzz = "0.5.56"
 
 frame-support = { path = "../../support", default-features = false, features = ["std"] }
 sp-io = { path = "../../../primitives/io", default-features = false, features = ["std"] }

@@ -19,8 +19,12 @@
 
 #![cfg(feature = "std")]
 
-use crate::{paged_list::StoragePagedListMeta, Config, ListPrefix};
-use frame_support::{derive_impl, traits::ConstU16};
+use crate::{Config, ListPrefix};
+use frame_support::{
+	derive_impl,
+	storage::types::StoragePagedListMeta,
+	traits::{ConstU16, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -53,14 +57,9 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
+	type BlockHashCount = ConstU64<250>;
 	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
+	type PalletInfo = PalletInfo; // FAIL-CI remove more
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 

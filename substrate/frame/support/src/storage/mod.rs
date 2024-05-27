@@ -46,6 +46,7 @@ pub mod child;
 #[doc(hidden)]
 pub mod generator;
 pub mod hashed;
+pub mod lists;
 pub mod migration;
 pub mod storage_noop_guard;
 mod stream_iter;
@@ -53,6 +54,8 @@ pub mod transactional;
 pub mod types;
 pub mod unhashed;
 pub mod weak_bounded_vec;
+
+pub use lists::*;
 
 /// Utility type for converting a storage map into a `Get<u32>` impl which returns the maximum
 /// key size.
@@ -159,7 +162,7 @@ pub trait StorageValue<T: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	fn decode_len() -> Option<usize>
 	where
@@ -192,75 +195,6 @@ pub trait StorageValue<T: FullCodec> {
 		T: StorageDecodeNonDedupLength,
 	{
 		T::decode_non_dedup_len(&Self::hashed_key())
-	}
-}
-
-/// A non-continuous container type.
-pub trait StorageList<V: FullCodec> {
-	/// Iterator for normal and draining iteration.
-	type Iterator: Iterator<Item = V>;
-
-	/// Append iterator for fast append operations.
-	type Appender: StorageAppender<V>;
-
-	/// List the elements in append order.
-	fn iter() -> Self::Iterator;
-
-	/// Drain the elements in append order.
-	///
-	/// Note that this drains a value as soon as it is being inspected. For example `take_while(|_|
-	/// false)` still drains the first element. This also applies to `peek()`.
-	fn drain() -> Self::Iterator;
-
-	/// A fast append iterator.
-	fn appender() -> Self::Appender;
-
-	/// Append a single element.
-	///
-	/// Should not be called repeatedly; use `append_many` instead.
-	/// Worst case linear `O(len)` with `len` being the number if elements in the list.
-	fn append_one<EncodeLikeValue>(item: EncodeLikeValue)
-	where
-		EncodeLikeValue: EncodeLike<V>,
-	{
-		Self::append_many(core::iter::once(item));
-	}
-
-	/// Append many elements.
-	///
-	/// Should not be called repeatedly; use `appender` instead.
-	/// Worst case linear `O(len + items.count())` with `len` beings the number if elements in the
-	/// list.
-	fn append_many<EncodeLikeValue, I>(items: I)
-	where
-		EncodeLikeValue: EncodeLike<V>,
-		I: IntoIterator<Item = EncodeLikeValue>,
-	{
-		let mut ap = Self::appender();
-		ap.append_many(items);
-	}
-}
-
-/// Append iterator to append values to a storage struct.
-///
-/// Can be used in situations where appending does not have constant time complexity.
-pub trait StorageAppender<V: FullCodec> {
-	/// Append a single item in constant time `O(1)`.
-	fn append<EncodeLikeValue>(&mut self, item: EncodeLikeValue)
-	where
-		EncodeLikeValue: EncodeLike<V>;
-
-	/// Append many items in linear time `O(items.count())`.
-	// Note: a default impl is provided since `Self` is already assumed to be optimal for single
-	// append operations.
-	fn append_many<EncodeLikeValue, I>(&mut self, items: I)
-	where
-		EncodeLikeValue: EncodeLike<V>,
-		I: IntoIterator<Item = EncodeLikeValue>,
-	{
-		for item in items.into_iter() {
-			self.append(item);
-		}
 	}
 }
 
@@ -1342,7 +1276,7 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 
 /// Trait for storage types that store all its value after a unique prefix.
 pub trait StoragePrefixedContainer {
-	/// Pallet prefix. Used for generating final key.
+	/// Module prefix. Used for generating final key.
 	fn pallet_prefix() -> &'static [u8];
 
 	/// Storage prefix. Used for generating final key.
@@ -1469,7 +1403,8 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 /// This trait is sealed.
 pub trait StorageAppend<Item: Encode>: private::Sealed {}
 
-/// It is expected that the length is at the beginning of the encoded object
+/// Marker trait that will be implemented for types that support to decode their length in an
+/// efficient way. It is expected that the length is at the beginning of the encoded object
 /// and that the length is a `Compact<u32>`.
 ///
 /// This trait is sealed.
@@ -1791,7 +1726,7 @@ mod test {
 		});
 	}
 
-	// This test ensures that the Digest encoding does not change without being noticed.
+	// This test ensures that the Digest encoding does not change without being noticied.
 	#[test]
 	fn digest_storage_append_works_as_expected() {
 		TestExternalities::default().execute_with(|| {
