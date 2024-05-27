@@ -125,14 +125,13 @@ impl PrometheusParams {
 			None
 		};
 
-		let relay_version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
+		let relay_version = relay_utils::initialize::RELAYER_VERSION
+			.lock()
+			.clone()
+			.unwrap_or_else(|| "unknown".to_string());
 		let relay_commit = SubstrateRelayBuildInfo::get_git_commit();
-		relay_utils::metrics::MetricsParams::new(
-			metrics_address,
-			relay_version.into(),
-			relay_commit,
-		)
-		.map_err(|e| anyhow::format_err!("{:?}", e))
+		relay_utils::metrics::MetricsParams::new(metrics_address, relay_version, relay_commit)
+			.map_err(|e| anyhow::format_err!("{:?}", e))
 	}
 }
 

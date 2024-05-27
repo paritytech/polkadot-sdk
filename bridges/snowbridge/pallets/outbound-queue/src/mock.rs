@@ -33,10 +33,6 @@ frame_support::construct_runtime!(
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
@@ -48,7 +44,6 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type PalletInfo = PalletInfo;
 	type Nonce = u64;
 	type Block = Block;

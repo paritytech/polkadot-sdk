@@ -978,8 +978,12 @@ where
 
 			// The stale heads are the leaves that will be displaced after the
 			// block is finalized.
-			let stale_heads =
-				self.backend.blockchain().displaced_leaves_after_finalizing(block_number)?;
+			let stale_heads = self
+				.backend
+				.blockchain()
+				.displaced_leaves_after_finalizing(hash, block_number)?
+				.hashes()
+				.collect();
 
 			let header = self
 				.backend
