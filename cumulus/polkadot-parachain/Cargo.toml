@@ -172,4 +172,3 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 fast-runtime = ["bridge-hub-rococo-runtime/fast-runtime"]
-elastic-scaling-experimental = ["polkadot-service/elastic-scaling-experimental"]

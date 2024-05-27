@@ -238,7 +238,3 @@ runtime-metrics = [
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
 ]
-
-elastic-scaling-experimental = [
-	"polkadot-collator-protocol?/elastic-scaling-experimental",
-]
