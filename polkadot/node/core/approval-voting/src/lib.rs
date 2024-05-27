@@ -960,10 +960,10 @@ impl State {
 			record.stage += 1;
 			gum::debug!(
 				target: LOG_TARGET,
-				"Started a new assignment gathering stage",
 				stage = ?record.stage,
 				?block_hash,
 				?candidate,
+				"Started a new assignment gathering stage",
 			);
 			record.stage_start = Some(Instant::now());
 		}
