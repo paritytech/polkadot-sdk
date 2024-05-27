@@ -214,7 +214,7 @@ mod benches {
 			Event::SaleInitialized {
 				sale_start: 2u32.into(),
 				leadin_length: 1u32.into(),
-				start_price: 20u32.into(),
+				start_price: 1000u32.into(),
 				end_price: 10u32.into(),
 				region_begin: latest_region_begin + config.region_length,
 				region_end: latest_region_begin + config.region_length * 2,
@@ -815,7 +815,7 @@ mod benches {
 			Event::SaleInitialized {
 				sale_start: 2u32.into(),
 				leadin_length: 1u32.into(),
-				start_price: 20u32.into(),
+				start_price: 1000u32.into(),
 				end_price: 10u32.into(),
 				region_begin: sale.region_begin + config.region_length,
 				region_end: sale.region_end + config.region_length,
