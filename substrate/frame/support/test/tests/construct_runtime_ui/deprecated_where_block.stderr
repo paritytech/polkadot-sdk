@@ -348,7 +348,7 @@ note: required because it appears within the type `RuntimeCall`
 28 | | }
    | |_^
 note: required by a bound in `frame_support::sp_runtime::traits::Dispatchable::Config`
-  --> $WORKSPACE/substrate/primitives/runtime/src/traits.rs
+  --> $WORKSPACE/substrate/primitives/runtime/src/traits/mod.rs
    |
    |     type Config;
    |     ^^^^^^^^^^^^ required by this bound in `Dispatchable::Config`
