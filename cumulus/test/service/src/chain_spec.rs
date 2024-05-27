@@ -17,7 +17,7 @@
 #![allow(missing_docs)]
 
 use cumulus_primitives_core::ParaId;
-use cumulus_test_runtime::{AccountId, RuntimeGenesisConfig, Signature};
+use cumulus_test_runtime::{AccountId, Signature};
 use parachains_common::AuraId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
