@@ -658,7 +658,7 @@ pub(crate) mod tests {
 			clock: Box::new(MockClock::default()),
 			assignment_criteria: Box::new(MockAssignmentCriteria::default()),
 			spans: HashMap::new(),
-			time_started_gathering_assignments: Default::default(),
+			per_block_assignments_gathering_times: Default::default(),
 		}
 	}
 

@@ -65,7 +65,7 @@ use sp_consensus::SyncOracle;
 use sp_consensus_slots::Slot;
 use std::time::Instant;
 
-// The maximum time we keep track of assignments gathering times times.
+// The maximum block we keep track of assignments gathering times.
 const MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS: u32 = 100;
 
 use futures::{
@@ -450,8 +450,8 @@ impl metrics::Metrics for Metrics {
 			assignments_gathering_time_by_stage: prometheus::register(
 				prometheus::HistogramVec::new(
 					prometheus::HistogramOpts::new(
-						"polkadot_parachain_assignments_gather_time_by_stage",
-						"The time it takes for each stage to gather enough assignments needed for approval",
+						"polkadot_parachain_assignments_gather_time_by_stage_ms",
+						"The time it takes in ms for each stage to gather enough assignments needed for approval",
 					)
 					.buckets(vec![0.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0, 32000.0]),
 					&["stage"],
@@ -818,7 +818,7 @@ struct State {
 	// Per block, candidate records about how long we take until we gather enough
 	// assignments, this is relevant because it gives us a good idea about how many
 	// tranches we trigger and why.
-	time_started_gathering_assignments:
+	per_block_assignments_gathering_times:
 		HashMap<BlockNumber, HashMap<(Hash, CandidateHash), AssignmentGatheringRecord>>,
 }
 
@@ -950,7 +950,7 @@ impl State {
 		candidate: CandidateHash,
 	) {
 		let record = self
-			.time_started_gathering_assignments
+			.per_block_assignments_gathering_times
 			.entry(block_number)
 			.or_default()
 			.entry((block_hash, candidate))
@@ -969,7 +969,7 @@ impl State {
 		}
 
 		// Make sure we always cleanup if we have too many records.
-		if self.time_started_gathering_assignments.len() >
+		if self.per_block_assignments_gathering_times.len() >
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize &&
 			block_number >= MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS
 		{
@@ -986,7 +986,7 @@ impl State {
 		candidate: CandidateHash,
 	) -> AssignmentGatheringRecord {
 		let record = self
-			.time_started_gathering_assignments
+			.per_block_assignments_gathering_times
 			.get_mut(&block_number)
 			.and_then(|entry| entry.get_mut(&(block_hash, candidate)));
 		let stage = record.as_ref().map(|record| record.stage).unwrap_or_default();
@@ -997,7 +997,7 @@ impl State {
 	}
 
 	fn cleanup_assignments_gathering_timestamp(&mut self, keep_greater_than: BlockNumber) {
-		self.time_started_gathering_assignments
+		self.per_block_assignments_gathering_times
 			.retain(|block_number, _| *block_number > keep_greater_than)
 	}
 
@@ -1077,7 +1077,7 @@ where
 		clock: subsystem.clock,
 		assignment_criteria,
 		spans: HashMap::new(),
-		time_started_gathering_assignments: Default::default(),
+		per_block_assignments_gathering_times: Default::default(),
 	};
 
 	// `None` on start-up. Gets initialized/updated on leaf update

@@ -5063,7 +5063,7 @@ fn test_gathering_assignments_statements() {
 		clock: Box::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
 		spans: HashMap::new(),
-		time_started_gathering_assignments: Default::default(),
+		per_block_assignments_gathering_times: Default::default(),
 	};
 
 	for i in 0..200i32 {
@@ -5073,21 +5073,21 @@ fn test_gathering_assignments_statements() {
 			CandidateHash(Hash::repeat_byte(i as u8)),
 		);
 		assert!(
-			state.time_started_gathering_assignments.len() <=
+			state.per_block_assignments_gathering_times.len() <=
 				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize
 		);
 
 		assert_eq!(
-			state.time_started_gathering_assignments.keys().min(),
+			state.per_block_assignments_gathering_times.keys().min(),
 			Some(max(0, i - MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as i32 + 1) as u32).as_ref()
 		)
 	}
 	assert_eq!(
-		state.time_started_gathering_assignments.len(),
+		state.per_block_assignments_gathering_times.len(),
 		MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize
 	);
 
-	let nothing_changes = state.time_started_gathering_assignments.clone();
+	let nothing_changes = state.per_block_assignments_gathering_times.clone();
 
 	for i in 150..200i32 {
 		state.mark_begining_of_gathering_assignments(
@@ -5095,7 +5095,7 @@ fn test_gathering_assignments_statements() {
 			Hash::repeat_byte(i as u8),
 			CandidateHash(Hash::repeat_byte(i as u8)),
 		);
-		assert_eq!(nothing_changes, state.time_started_gathering_assignments);
+		assert_eq!(nothing_changes, state.per_block_assignments_gathering_times);
 	}
 
 	for i in 110..120 {
@@ -5105,7 +5105,7 @@ fn test_gathering_assignments_statements() {
 		state.mark_gathered_enough_assignments(i as u32, block_hash, candidate_hash);
 
 		assert!(state
-			.time_started_gathering_assignments
+			.per_block_assignments_gathering_times
 			.get(&i)
 			.unwrap()
 			.get(&(block_hash, candidate_hash))
@@ -5114,7 +5114,7 @@ fn test_gathering_assignments_statements() {
 			.is_none());
 		state.mark_begining_of_gathering_assignments(i as u32, block_hash, candidate_hash);
 		let record = state
-			.time_started_gathering_assignments
+			.per_block_assignments_gathering_times
 			.get(&i)
 			.unwrap()
 			.get(&(block_hash, candidate_hash))
@@ -5135,7 +5135,7 @@ fn test_observe_assignment_gathering_status() {
 		clock: Box::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
 		spans: HashMap::new(),
-		time_started_gathering_assignments: Default::default(),
+		per_block_assignments_gathering_times: Default::default(),
 	};
 
 	let metrics_inner = MetricsInner {
