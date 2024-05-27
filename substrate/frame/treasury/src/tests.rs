@@ -858,9 +858,9 @@ fn try_state_spends_invariant_1_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
-		assert_ok!(
-			{ Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None) }
-		);
+		assert_ok!({
+			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)
+		});
 		assert_eq!(Spends::<Test>::iter().count(), 1);
 		assert_eq!(SpendCount::<Test>::get(), 1);
 		// Check invariant 1 holds
@@ -909,9 +909,9 @@ fn try_state_spends_invariant_3_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
-		assert_ok!(
-			{ Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None) }
-		);
+		assert_ok!({
+			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)
+		});
 		assert_eq!(Spends::<Test>::iter().count(), 1);
 		let current_spend_count = SpendCount::<Test>::get();
 		assert_eq!(current_spend_count, 1);

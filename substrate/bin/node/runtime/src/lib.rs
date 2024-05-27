@@ -474,17 +474,16 @@ impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
-	type Consideration =
-		HoldConsideration<
-			AccountId,
-			Balances,
-			PreimageHoldReason,
-			LinearStoragePrice<
-				dynamic_params::storage::BaseDeposit,
-				dynamic_params::storage::ByteDeposit,
-				Balance,
-			>,
-		>;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<
+			dynamic_params::storage::BaseDeposit,
+			dynamic_params::storage::ByteDeposit,
+			Balance,
+		>,
+	>;
 }
 
 parameter_types! {
@@ -1437,12 +1436,11 @@ where
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		);
-		let raw_payload =
-			SignedPayload::new(call, extra)
-				.map_err(|e| {
-					log::warn!("Unable to create signed payload: {:?}", e);
-				})
-				.ok()?;
+		let raw_payload = SignedPayload::new(call, extra)
+			.map_err(|e| {
+				log::warn!("Unable to create signed payload: {:?}", e);
+			})
+			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
 		let address = Indices::unlookup(account);
 		let (call, extra, _) = raw_payload.deconstruct();
@@ -1799,14 +1797,13 @@ impl pallet_nis::BenchmarkSetup for SetupAsset {
 	fn create_counterpart_asset() {
 		let owner = AccountId::from([0u8; 32]);
 		// this may or may not fail depending on if the chain spec or runtime genesis is used.
-		let _ =
-			Assets::force_create(
-				RuntimeOrigin::root(),
-				9u32.into(),
-				sp_runtime::MultiAddress::Id(owner),
-				true,
-				1,
-			);
+		let _ = Assets::force_create(
+			RuntimeOrigin::root(),
+			9u32.into(),
+			sp_runtime::MultiAddress::Id(owner),
+			true,
+			1,
+		);
 	}
 }
 

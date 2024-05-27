@@ -334,17 +334,16 @@ impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
-	type Consideration =
-		HoldConsideration<
-			AccountId,
-			Balances,
-			PreimageHoldReason,
-			LinearStoragePrice<
-				dynamic_params::preimage::BaseDeposit,
-				dynamic_params::preimage::ByteDeposit,
-				Balance,
-			>,
-		>;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<
+			dynamic_params::preimage::BaseDeposit,
+			dynamic_params::preimage::ByteDeposit,
+			Balance,
+		>,
+	>;
 }
 
 parameter_types! {
@@ -1301,9 +1300,9 @@ impl BeefyDataProvider<H256> for ParaHeadsRootProvider {
 	fn extra_data() -> H256 {
 		let mut para_heads: Vec<(u32, Vec<u8>)> = parachains_paras::Parachains::<Runtime>::get()
 			.into_iter()
-			.filter_map(
-				|id| parachains_paras::Heads::<Runtime>::get(&id).map(|head| (id.into(), head.0))
-			)
+			.filter_map(|id| {
+				parachains_paras::Heads::<Runtime>::get(&id).map(|head| (id.into(), head.0))
+			})
 			.collect();
 		para_heads.sort();
 		binary_merkle_tree::merkle_root::<mmr::Hashing, _>(

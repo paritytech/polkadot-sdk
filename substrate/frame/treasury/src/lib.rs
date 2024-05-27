@@ -427,9 +427,10 @@ pub mod pallet {
 				T::Currency::reactivate(deactivated);
 				T::Currency::deactivate(pot);
 				Deactivated::<T, I>::put(&pot);
-				Self::deposit_event(
-					Event::<T, I>::UpdatedInactive { reactivated: deactivated, deactivated: pot }
-				);
+				Self::deposit_event(Event::<T, I>::UpdatedInactive {
+					reactivated: deactivated,
+					deactivated: pot,
+				});
 			}
 
 			// Check to see if we should spend some funds!
@@ -768,40 +769,38 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut missed_any = false;
 		let mut imbalance = <PositiveImbalanceOf<T, I>>::zero();
-		let proposals_len =
-			Approvals::<T, I>::mutate(|v| {
-				let proposals_approvals_len = v.len() as u32;
-				v.retain(|&index| {
-					// Should always be true, but shouldn't panic if false or we're screwed.
-					if let Some(p) = Self::proposals(index) {
-						if p.value <= budget_remaining {
-							budget_remaining -= p.value;
-							<Proposals<T, I>>::remove(index);
+		let proposals_len = Approvals::<T, I>::mutate(|v| {
+			let proposals_approvals_len = v.len() as u32;
+			v.retain(|&index| {
+				// Should always be true, but shouldn't panic if false or we're screwed.
+				if let Some(p) = Self::proposals(index) {
+					if p.value <= budget_remaining {
+						budget_remaining -= p.value;
+						<Proposals<T, I>>::remove(index);
 
-							// return their deposit.
-							let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
-							debug_assert!(err_amount.is_zero());
+						// return their deposit.
+						let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
+						debug_assert!(err_amount.is_zero());
 
-							// provide the allocation.
-							imbalance
-								.subsume(T::Currency::deposit_creating(&p.beneficiary, p.value));
+						// provide the allocation.
+						imbalance.subsume(T::Currency::deposit_creating(&p.beneficiary, p.value));
 
-							Self::deposit_event(Event::Awarded {
-								proposal_index: index,
-								award: p.value,
-								account: p.beneficiary,
-							});
-							false
-						} else {
-							missed_any = true;
-							true
-						}
-					} else {
+						Self::deposit_event(Event::Awarded {
+							proposal_index: index,
+							award: p.value,
+							account: p.beneficiary,
+						});
 						false
+					} else {
+						missed_any = true;
+						true
 					}
-				});
-				proposals_approvals_len
+				} else {
+					false
+				}
 			});
+			proposals_approvals_len
+		});
 
 		total_weight += T::WeightInfo::on_initialize_proposals(proposals_len);
 

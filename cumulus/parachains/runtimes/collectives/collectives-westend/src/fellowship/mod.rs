@@ -84,20 +84,19 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	type Scheduler = Scheduler;
 	type Currency = Balances;
 	// Fellows can submit proposals.
-	type SubmitOrigin =
-		EitherOf<
-			pallet_ranked_collective::EnsureMember<Runtime, FellowshipCollectiveInstance, 3>,
-			MapSuccess<
-				TryWithMorphedArg<
-					RuntimeOrigin,
-					<RuntimeOrigin as OriginTrait>::PalletsOrigin,
-					ToVoice,
-					EnsureOfRank<Runtime, FellowshipCollectiveInstance>,
-					(AccountId, u16),
-				>,
-				TakeFirst,
+	type SubmitOrigin = EitherOf<
+		pallet_ranked_collective::EnsureMember<Runtime, FellowshipCollectiveInstance, 3>,
+		MapSuccess<
+			TryWithMorphedArg<
+				RuntimeOrigin,
+				<RuntimeOrigin as OriginTrait>::PalletsOrigin,
+				ToVoice,
+				EnsureOfRank<Runtime, FellowshipCollectiveInstance>,
+				(AccountId, u16),
 			>,
-		>;
+			TakeFirst,
+		>,
+	>;
 	type CancelOrigin = Architects;
 	type KillOrigin = Masters;
 	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
@@ -327,16 +326,15 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type Paymaster = FellowshipTreasuryPaymaster;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Paymaster = PayWithEnsure<FellowshipTreasuryPaymaster, OpenHrmpChannel<ConstU32<1000>>>;
-	type BalanceConverter =
-		UnityOrOuterConversion<
-			ContainsParts<
-				FromContains<
-					xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
-					xcm_builder::IsParentsOnly<ConstU8<1>>,
-				>,
+	type BalanceConverter = UnityOrOuterConversion<
+		ContainsParts<
+			FromContains<
+				xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
+				xcm_builder::IsParentsOnly<ConstU8<1>>,
 			>,
-			AssetRate,
-		>;
+		>,
+		AssetRate,
+	>;
 	type PayoutPeriod = ConstU32<{ 30 * DAYS }>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<
