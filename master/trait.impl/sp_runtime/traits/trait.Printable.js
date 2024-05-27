@@ -3,6 +3,6 @@
 "polkadot_sdk_frame":[],
 "polkadot_service":[],
 "sp_runtime":[],
-"sp_staking":[["impl Printable for <a class=\"enum\" href=\"sp_staking/offence/enum.OffenceError.html\" title=\"enum sp_staking::offence::OffenceError\">OffenceError</a>"]],
+"sp_staking":[["impl <a class=\"trait\" href=\"sp_runtime/traits/trait.Printable.html\" title=\"trait sp_runtime::traits::Printable\">Printable</a> for <a class=\"enum\" href=\"sp_staking/offence/enum.OffenceError.html\" title=\"enum sp_staking::offence::OffenceError\">OffenceError</a>"]],
 "substrate_test_runtime":[["impl <a class=\"trait\" href=\"sp_runtime/traits/trait.Printable.html\" title=\"trait sp_runtime::traits::Printable\">Printable</a> for <a class=\"struct\" href=\"substrate_test_runtime/struct.CheckSubstrateCall.html\" title=\"struct substrate_test_runtime::CheckSubstrateCall\">CheckSubstrateCall</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

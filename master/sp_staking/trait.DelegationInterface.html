@@ -160,25 +160,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         agent: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
         reward_account: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
         amount: Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.Balance" title="type sp_staking::DelegationInterface::Balance">Balance</a>
-    ) -&gt; DispatchResult;
+    ) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.delegate_extra" class="fn">delegate_extra</a>(
         delegator: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
         agent: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
         amount: Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.Balance" title="type sp_staking::DelegationInterface::Balance">Balance</a>
-    ) -&gt; DispatchResult;
+    ) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.withdraw_delegation" class="fn">withdraw_delegation</a>(
         delegator: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
         agent: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
         amount: Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.Balance" title="type sp_staking::DelegationInterface::Balance">Balance</a>,
         num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-    ) -&gt; DispatchResult;
+    ) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.has_pending_slash" class="fn">has_pending_slash</a>(agent: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.delegator_slash" class="fn">delegator_slash</a>(
         agent: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
         delegator: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
         value: Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.Balance" title="type sp_staking::DelegationInterface::Balance">Balance</a>,
         maybe_reporter: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>&gt;
-    ) -&gt; DispatchResult;
+    ) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait to provide delegation functionality for stakers.</p>
 <p>Introduces two new terms to the staking system:</p>
 <ul>
@@ -200,20 +200,20 @@ have delegated funds to it.</p>
     agent: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
     reward_account: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
     amount: Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.Balance" title="type sp_staking::DelegationInterface::Balance">Balance</a>
-) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Delegate funds to <code>Agent</code>.</p>
+) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Delegate funds to <code>Agent</code>.</p>
 <p>Only used for the initial delegation. Use <a href="trait.DelegationInterface.html#tymethod.delegate_extra"><code>Self::delegate_extra</code></a> to add more delegation.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.delegate_extra" class="method"><a class="src rightside" href="../src/sp_staking/lib.rs.html#513-517">source</a><h4 class="code-header">fn <a href="#tymethod.delegate_extra" class="fn">delegate_extra</a>(
     delegator: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
     agent: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
     amount: Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.Balance" title="type sp_staking::DelegationInterface::Balance">Balance</a>
-) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Add more delegation to the <code>Agent</code>.</p>
+) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Add more delegation to the <code>Agent</code>.</p>
 <p>If this is the first delegation, use <a href="trait.DelegationInterface.html#tymethod.delegate"><code>Self::delegate</code></a> instead.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.withdraw_delegation" class="method"><a class="src rightside" href="../src/sp_staking/lib.rs.html#523-528">source</a><h4 class="code-header">fn <a href="#tymethod.withdraw_delegation" class="fn">withdraw_delegation</a>(
     delegator: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
     agent: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
     amount: Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.Balance" title="type sp_staking::DelegationInterface::Balance">Balance</a>,
     num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Withdraw or revoke delegation to <code>Agent</code>.</p>
+) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Withdraw or revoke delegation to <code>Agent</code>.</p>
 <p>If there are <code>Agent</code> funds upto <code>amount</code> available to withdraw, then those funds would
 be released to the <code>delegator</code></p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.has_pending_slash" class="method"><a class="src rightside" href="../src/sp_staking/lib.rs.html#534">source</a><h4 class="code-header">fn <a href="#tymethod.has_pending_slash" class="fn">has_pending_slash</a>(agent: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns true if there are pending slashes posted to the <code>Agent</code> account.</p>
@@ -224,7 +224,7 @@ has an unbounded number of delegators, immediate slashing is not possible.</p>
     delegator: &amp;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>,
     value: Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.Balance" title="type sp_staking::DelegationInterface::Balance">Balance</a>,
     maybe_reporter: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.DelegationInterface.html#associatedtype.AccountId" title="type sp_staking::DelegationInterface::AccountId">AccountId</a>&gt;
-) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Apply a pending slash to an <code>Agent</code> by slashing <code>value</code> from <code>delegator</code>.</p>
+) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Apply a pending slash to an <code>Agent</code> by slashing <code>value</code> from <code>delegator</code>.</p>
 <p>A reporter may be provided (if one exists) in order for the implementor to reward them,
 if applicable.</p>
 </div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sp_staking/trait.DelegationInterface.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

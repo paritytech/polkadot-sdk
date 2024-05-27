@@ -451,6 +451,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -659,9 +664,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// The code field of the chain spec will be updated with the runtime provided in the
 /// command line. This operation supports both plain and raw formats.
+///
+/// This command does not update chain-spec file in-place. The result of this command will be stored
+/// in a file given as `-c/--chain-spec-path` command line argument.
 </span><span class="attr">#[derive(Parser, Debug, Clone)]
 </span><span class="kw">pub struct </span>UpdateCodeCmd {
 	<span class="doccomment">/// Chain spec to be updated.
+	///
+	/// Please note that the file will not be updated in-place.
 	</span><span class="kw">pub </span>input_chain_spec: PathBuf,
 	<span class="doccomment">/// The path to new runtime wasm blob to be stored into chain-spec.
 	</span><span class="kw">pub </span>runtime_wasm_path: PathBuf,
