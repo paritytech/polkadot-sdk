@@ -155,7 +155,7 @@ pub struct CreateCmd {
 	#[arg(long, short = 'i', default_value = "custom")]
 	chain_id: String,
 	/// The chain type.
-	#[arg(value_enum, short = 't', default_value = "Live")]
+	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
 	/// The path to runtime wasm blob.
 	#[arg(long, short)]
