@@ -17,7 +17,7 @@
 
 #![deny(missing_docs)]
 
-use crate::SaleInfoRecord;
+use crate::{CoreIndex, SaleInfoRecord};
 use sp_arithmetic::{traits::One, FixedU64};
 use sp_runtime::{FixedPointNumber, FixedPointOperand, Saturating};
 
@@ -31,6 +31,15 @@ pub struct SalePerformance<Balance> {
 
 	/// The minimum price that was achieved in this sale.
 	pub min_price: Balance,
+
+	/// The number of cores we want to sell, ideally.
+	pub ideal_cores_sold: CoreIndex,
+
+	/// Number of cores which are/have been offered for sale.
+	pub cores_offered: CoreIndex,
+
+	/// Number of cores which have been sold; never more than cores_offered.
+	pub cores_sold: CoreIndex,
 }
 
 /// Result of `AdaptPrice::adapt_price`.
@@ -45,7 +54,18 @@ pub struct AdaptedPrices<Balance> {
 impl<Balance: Copy> SalePerformance<Balance> {
 	/// Construct performance via data from a `SaleInfoRecord`.
 	pub fn from_sale<BlockNumber>(record: &SaleInfoRecord<Balance, BlockNumber>) -> Self {
-		Self { sellout_price: record.sellout_price, min_price: record.min_price }
+		Self {
+			sellout_price: record.sellout_price,
+			min_price: record.min_price,
+			ideal_cores_sold: record.ideal_cores_sold,
+			cores_offered: record.cores_offered,
+			cores_sold: record.cores_sold,
+		}
+	}
+
+	#[cfg(test)]
+	fn new(sellout_price: Option<Balance>, min_price: Balance) -> Self {
+		Self { sellout_price, min_price, ideal_cores_sold: 0, cores_offered: 0, cores_sold: 0 }
 	}
 }
 
@@ -58,7 +78,7 @@ pub trait AdaptPrice<Balance> {
 
 	/// Return adapted prices for next sale.
 	///
-	/// Based on this sale's performance.
+	/// Based on the previous sale's performance.
 	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance>;
 }
 
@@ -72,11 +92,13 @@ impl<Balance: Copy> AdaptPrice<Balance> for () {
 	}
 }
 
-/// Simple implementation of `AdaptPrice` giving a monotonic leadin and a linear price change based
-/// on cores sold.
-pub struct Linear<Balance>(std::marker::PhantomData<Balance>);
+/// Simple implementation of `AdaptPrice` with two linear phases.
+///
+/// One steep one downwards to the target price, which is 1/10 of the maximum price and a more flat
+/// one down to the minimum price, which is 1/100 of the maximum price.
+pub struct CenterTargetPrice<Balance>(core::marker::PhantomData<Balance>);
 
-impl<Balance: FixedPointOperand> AdaptPrice<Balance> for Linear<Balance> {
+impl<Balance: FixedPointOperand> AdaptPrice<Balance> for CenterTargetPrice<Balance> {
 	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
 		if when <= FixedU64::from_rational(1, 2) {
 			FixedU64::from(100).saturating_sub(when.saturating_mul(180.into()))
@@ -114,14 +136,14 @@ mod tests {
 		for sellout in 0..11 {
 			for price in 0..10 {
 				let sellout_price = if sellout == 11 { None } else { Some(sellout) };
-				Linear::adapt_price(SalePerformance { sellout_price, min_price: price });
+				CenterTargetPrice::adapt_price(SalePerformance::new(sellout_price, price));
 			}
 		}
 	}
 
 	#[test]
 	fn no_op_sale_is_good() {
-		let prices = Linear::adapt_price(SalePerformance { sellout_price: None, min_price: 1 });
+		let prices = CenterTargetPrice::adapt_price(SalePerformance::new(None, 1));
 		assert_eq!(prices.target_price, 10);
 		assert_eq!(prices.min_price, 1);
 	}
@@ -129,9 +151,9 @@ mod tests {
 	#[test]
 	fn price_stays_stable_on_optimal_sale() {
 		// Check price stays stable if sold at the optimal price:
-		let mut performance = SalePerformance { sellout_price: Some(1000), min_price: 100 };
+		let mut performance = SalePerformance::new(Some(1000), 100);
 		for _ in 0..10 {
-			let prices = Linear::adapt_price(performance);
+			let prices = CenterTargetPrice::adapt_price(performance);
 			performance.sellout_price = Some(1000);
 			performance.min_price = prices.min_price;
 
@@ -144,16 +166,16 @@ mod tests {
 
 	#[test]
 	fn price_adjusts_correctly_upwards() {
-		let performance = SalePerformance { sellout_price: Some(10_000), min_price: 100 };
-		let prices = Linear::adapt_price(performance);
+		let performance = SalePerformance::new(Some(10_000), 100);
+		let prices = CenterTargetPrice::adapt_price(performance);
 		assert_eq!(prices.target_price, 10_000);
 		assert_eq!(prices.min_price, 1000);
 	}
 
 	#[test]
 	fn price_adjusts_correctly_downwards() {
-		let performance = SalePerformance { sellout_price: Some(100), min_price: 100 };
-		let prices = Linear::adapt_price(performance);
+		let performance = SalePerformance::new(Some(100), 100);
+		let prices = CenterTargetPrice::adapt_price(performance);
 		assert_eq!(prices.target_price, 100);
 		assert_eq!(prices.min_price, 10);
 	}
@@ -162,9 +184,9 @@ mod tests {
 	fn price_never_goes_to_zero_and_recovers() {
 		// Check price stays stable if sold at the optimal price:
 		let sellout_price = 1;
-		let mut performance = SalePerformance { sellout_price: Some(sellout_price), min_price: 1 };
+		let mut performance = SalePerformance::new(Some(sellout_price), 1);
 		for _ in 0..11 {
-			let prices = Linear::adapt_price(performance);
+			let prices = CenterTargetPrice::adapt_price(performance);
 			performance.sellout_price = Some(sellout_price);
 			performance.min_price = prices.min_price;
 
@@ -175,16 +197,16 @@ mod tests {
 
 	#[test]
 	fn renewal_price_is_correct_on_no_sale() {
-		let performance = SalePerformance { sellout_price: None, min_price: 100 };
-		let prices = Linear::adapt_price(performance);
+		let performance = SalePerformance::new(None, 100);
+		let prices = CenterTargetPrice::adapt_price(performance);
 		assert_eq!(prices.target_price, 1000);
 		assert_eq!(prices.min_price, 100);
 	}
 
 	#[test]
 	fn renewal_price_is_sell_out() {
-		let performance = SalePerformance { sellout_price: Some(1000), min_price: 100 };
-		let prices = Linear::adapt_price(performance);
+		let performance = SalePerformance::new(Some(1000), 100);
+		let prices = CenterTargetPrice::adapt_price(performance);
 		assert_eq!(prices.target_price, 1000);
 	}
 }
