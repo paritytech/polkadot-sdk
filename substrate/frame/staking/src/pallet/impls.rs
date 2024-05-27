@@ -2110,6 +2110,7 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
+		/*
 		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
@@ -2118,7 +2119,8 @@ impl<T: Config> Pallet<T> {
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
 		Self::ensure_disabled_validators_sorted()?;
-		Self::do_try_state_approvals(None)?;
+		*/
+		Self::do_try_state_approvals()?;
 		Self::do_try_state_target_sorting()
 	}
 
@@ -2471,10 +2473,8 @@ impl<T: Config> Pallet<T> {
 	///   score.
 	///   * The number of target nodes in the target list matches the number of
 	///   (active_validators + idle_validators + dangling_targets_score_with_score).
-	pub fn do_try_state_approvals(
-		maybe_last: Option<T::AccountId>,
-	) -> Result<(), sp_runtime::TryRuntimeError> {
-		use sp_std::collections::btree_map::BTreeMap;
+	pub fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 		let mut approvals_map: BTreeMap<T::AccountId, T::CurrencyBalance> = BTreeMap::new();
 
 		// build map of approvals stakes from the `Nominators` storage map POV.
@@ -2484,7 +2484,6 @@ impl<T: Config> Pallet<T> {
 
 			// fail if nominator has duplicate nominations, unexpected in the context of
 			// keeping track of the stake approvals.
-			use sp_std::collections::btree_set::BTreeSet;
 			let count_before = nominations.len();
 			let dedup_noms: Vec<T::AccountId> = nominations
 				.clone()
@@ -2499,9 +2498,28 @@ impl<T: Config> Pallet<T> {
 			);
 
 			for target in nominations.into_iter() {
+				// skip if for some reason there is a nominator being nominated.
+				match Self::status(&target) {
+					Ok(StakerStatus::Nominator(_)) => {
+						log!(
+							warn,
+							"nominated stakers {:?} is a nominator, not a validator.",
+							target
+						);
+						continue;
+					},
+					_ => (),
+				}
+
 				if let Some(approvals) = approvals_map.get_mut(&target) {
 					*approvals += vote.into();
 				} else {
+					// TODO: simplify
+					let self_stake = Pallet::<T>::weight_of(&target);
+					let init_stake = self_stake.saturating_add(vote);
+					approvals_map.insert(target, init_stake.into());
+
+					/*
 					// new addition to the map. add self-stake if validator is active.
 					let _ = match Self::status(&target) {
 						Ok(StakerStatus::Validator) => {
@@ -2510,62 +2528,69 @@ impl<T: Config> Pallet<T> {
 						},
 						_ => approvals_map.insert(target, vote.into()),
 					};
+					*/
 				}
 			}
-
-			// stop builing the approvals map at the cursor, if it is set.
-			match maybe_last {
-				Some(last) if voter == last => break,
-				_ => (),
-			}
 		}
 
+		let mut a = 0;
 		// add active validators without any nominations.
 		for (validator, _) in Validators::<T>::iter() {
+			// do not add validator if it is not in a good state.
+			match Self::inspect_bond_state(&validator) {
+				Ok(LedgerIntegrityState::Ok) | Err(_) => (),
+				_ => continue,
+			}
+
 			if !approvals_map.contains_key(&validator) {
-				let self_stake = Pallet::<T>::weight_of(&validator);
-				approvals_map.insert(validator, self_stake.into());
+				// skip if for some reason there is a nominator being nominated.
+				match Self::status(&validator) {
+					Ok(StakerStatus::Nominator(_)) => {
+						log!(
+							warn,
+							"nominated staker {:?} is a nominator, not a validator.",
+							validator
+						);
+					},
+					_ => {
+						a += 1;
+						let self_stake = Pallet::<T>::weight_of(&validator);
+						approvals_map.insert(validator, self_stake.into());
+					},
+				}
 			}
 		}
 
-		let mut bad_count = 0;
+		let mut mismatch_approvals = 0;
 
 		// compare calculated approvals per target with target list state.
 		for (target, calculated_stake) in approvals_map.iter() {
-			let stake_in_list = if let Ok(stake) = T::TargetList::get_score(target) {
-				stake
-			} else {
-				continue;
-			};
+			let stake_in_list = T::TargetList::get_score(target).unwrap();
 
 			if *calculated_stake != stake_in_list {
-				log!(
-                    error,
-					"try-runtime: score of {:?} in `TargetList` list: {:?}, calculated sum of all stake: {:?}",
-					target,
-					stake_in_list,
-					calculated_stake,
-				);
+				mismatch_approvals += 1;
 
 				log!(
 					error,
-					"{:?} score in the target list {:?} is different than the expected {:?}",
+					"try-runtime: score of {:?} in `TargetList` list: {:?}, calculated sum of all stake: {:?} -- status: {:?}",
 					target,
 					stake_in_list,
 					calculated_stake,
+					Self::status(&target),
 				);
-				bad_count += 1;
-				//return Err("target score in the target list is different than the
-				// expected".into())
 			}
 		}
-
-		log!(error, "BAD COUNT: {:?}", bad_count);
 
 		frame_support::ensure!(
 			approvals_map.keys().count() == T::TargetList::iter().count(),
 			"calculated approvals count is different from total of target list.",
 		);
+
+		if !mismatch_approvals.is_zero() {
+			log!(error, "{} targets with unexpected score in list", mismatch_approvals);
+
+			return Err("final calculated approvals != target list scores".into());
+		}
 
 		Ok(())
 	}

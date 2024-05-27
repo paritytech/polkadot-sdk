@@ -20,9 +20,9 @@
 //! sorted list of targets with a bags-list.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{log, weights, Config, Nominators, Pallet, StakerStatus};
+use crate::{log, weights, Config, Nominators, Pallet, StakerStatus, Validators};
 use core::marker::PhantomData;
-use frame_election_provider_support::SortedListProvider;
+use frame_election_provider_support::{SortedListProvider, VoteWeight};
 use frame_support::{
 	ensure,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
@@ -33,9 +33,6 @@ use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-const TRY_STATE_INTERVAL: usize = 10_000_000;
 
 /// V13 Multi-block migration to introduce the stake-tracker pallet.
 ///
@@ -50,8 +47,6 @@ const TRY_STATE_INTERVAL: usize = 10_000_000;
 /// - Ensure the new targets in the list are sorted per total stake (as per the underlying
 ///   [`SortedListProvider`]).
 pub struct MigrationV13<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
-
-// TODO: check bonds again.
 impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 	for MigrationV13<T, W>
 {
@@ -74,11 +69,12 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		#[cfg(test)]
-		let mut counter = 0;
+		let mut chilled = 0;
 
 		// do as much progress as possible per step.
 		while meter.try_consume(required).is_ok() {
+			//TODO:  only bench a sub-step function, e.g. Self::do_migrate_nominatior(who);
+
 			// fetch the next nominator to migrate.
 			let mut iter = if let Some(ref last_nom) = cursor {
 				Nominators::<T>::iter_from(Nominators::<T>::hashed_key_for(last_nom))
@@ -87,58 +83,28 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 			};
 
 			if let Some((nominator, _)) = iter.next() {
-				// try chill nominator. If chilled, skip migration of this nominator.
+				// try chill nominator. If chilled, skip migration of this nominator. The nominator
+				// is force-chilled because it may need to re-nominate with a different set of
+				// nominations (see below). Thus it is better to just chill the nominator and move
+				// on.
 				if Self::try_chill_nominator(&nominator) {
-					log!(info, "nominator {:?} chilled, skip it.", nominator);
+					//log!(info, "nominator {:?} chilled, skip it.", nominator);
+					chilled += 1;
+					cursor = Some(nominator);
 					continue;
 				}
 				// clean the nominations before migrating. This will ensure that the voter is not
 				// nominating duplicate and/or dangling targets.
 				let nominations = Self::clean_nominations(&nominator)?;
-
 				let nominator_stake = Pallet::<T>::weight_of(&nominator);
 
-				log!(
-					info,
-					"mmb: processing nominator {:?} with {} nominations. remaining {} nominators to migrate.",
-					nominator,
-                    nominations.len(),
-					iter.count()
-				);
-
-				// iter over up to `MaxNominationsOf<T>` targets of `nominator`.
+				// iter over up to `MaxNominationsOf<T>` targets of `nominator` and insert or
+				// update the target's approval's score.
 				for target in nominations.into_iter() {
-					if let Ok(current_stake) = <T as Config>::TargetList::get_score(&target) {
-						// target is in the target list. update with nominator's stake.
-						if let Some(total_stake) = current_stake.checked_add(nominator_stake.into())
-						{
-							let _ = <T as Config>::TargetList::on_update(&target, total_stake)
-								.defensive();
-						} else {
-							log!(error, "target stake overflow. exit.");
-							return Err(SteppedMigrationError::Failed)
-						}
+					if <T as Config>::TargetList::contains(&target) {
+						Self::update_target(&target, nominator_stake)?;
 					} else {
-						// target is not in the target list, insert new node and consider self
-						// stake.
-						let self_stake = Pallet::<T>::weight_of(&target);
-						if let Some(total_stake) = self_stake.checked_add(nominator_stake) {
-							let _ =
-								<T as Config>::TargetList::on_insert(target, total_stake.into())
-									.defensive();
-						} else {
-							log!(error, "target stake overflow. exit.");
-							return Err(SteppedMigrationError::Failed)
-						}
-					}
-				}
-
-				// enable partial checks for testing purposes only.
-				#[cfg(test)]
-				{
-					counter += 1;
-					if counter % TRY_STATE_INTERVAL == 0 {
-						Pallet::<T>::do_try_state_approvals(Some(nominator.clone())).unwrap();
+						Self::insert_target(&target, nominator_stake)?;
 					}
 				}
 
@@ -146,6 +112,25 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 				cursor = Some(nominator)
 			} else {
 				// done, return earlier.
+
+				// TODO: do this as the migration is performed -- not a large step at the end.
+
+				let mut a = 0;
+				// but before, add active validators without any nominations.
+				for (validator, _) in Validators::<T>::iter() {
+					if !<T as Config>::TargetList::contains(&validator) &&
+						<Pallet<T> as StakingInterface>::status(&validator) ==
+							Ok(StakerStatus::Validator)
+					{
+						a += 1;
+						let self_stake = Pallet::<T>::weight_of(&validator);
+						<T as Config>::TargetList::on_insert(validator, self_stake.into())
+							.expect("node does not exist, checked above; qed.");
+					}
+				}
+
+				log!(info, "Added validators with self stake: {:?}", a);
+				log!(info, "Chilled nominators: {:?}", chilled);
 				return Ok(None)
 			}
 		}
@@ -154,7 +139,59 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 	}
 }
 
-impl<T: Config, W: weights::WeightInfo> MigrationV13<T, W> {
+impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> MigrationV13<T, W> {
+	/// Inserts a new target in the list.
+	///
+	/// Note: the caller must ensure that the target node does not exist in the list yet.
+	/// Oterhwise, use [`Self::update_target`].
+	fn insert_target(
+		who: &T::AccountId,
+		nomination_stake: VoteWeight,
+	) -> Result<(), SteppedMigrationError> {
+		let init_stake = match <Pallet<T> as StakingInterface>::status(&who) {
+			Ok(StakerStatus::Validator) => {
+				let self_stake = Pallet::<T>::weight_of(&who);
+				if let Some(total_stake) = self_stake.checked_add(nomination_stake) {
+					total_stake
+				} else {
+					log!(error, "target stake overflow. exit.");
+					return Err(SteppedMigrationError::Failed)
+				}
+			},
+			_ => nomination_stake,
+		};
+
+		match <T as Config>::TargetList::on_insert(who.clone(), init_stake.into()) {
+			Err(e) => {
+				log!(error, "inserting {:?} in TL: {:?}", who, e);
+				Err(SteppedMigrationError::Failed)
+			},
+			Ok(_) => Ok(()),
+		}
+	}
+
+	/// Updates the target score in the target list.
+	///
+	/// Note: the caller must ensure that the target node already exists in the list. Otherwise,
+	/// use [`Self::insert_target`].
+	fn update_target(
+		who: &T::AccountId,
+		nomination_stake: VoteWeight,
+	) -> Result<(), SteppedMigrationError> {
+		let current_stake =
+			<T as Config>::TargetList::get_score(&who).expect("node is in the list");
+
+		if let Some(total_stake) = current_stake.checked_add(nomination_stake.into()) {
+			let _ = <T as Config>::TargetList::on_update(&who, total_stake)
+				.map_err(|e| log!(error, "updating TL score of {:?}: {:?}", who, e))
+				.defensive();
+			Ok(())
+		} else {
+			log!(error, "target stake overflow. exit.");
+			Err(SteppedMigrationError::Failed)
+		}
+	}
+
 	/// Chills a nominator if their active stake is below the minimum bond.
 	pub(crate) fn try_chill_nominator(who: &T::AccountId) -> bool {
 		if Pallet::<T>::active_stake(&who).unwrap_or_default() <
@@ -206,7 +243,12 @@ impl<T: Config, W: weights::WeightInfo> MigrationV13<T, W> {
 
 		// update `who`'s nominations in staking or chill voter, if necessary.
 		if nominations.len() == 0 {
-			let _ = <Pallet<T> as StakingInterface>::chill(&who).defensive();
+			let _ = <Pallet<T> as StakingInterface>::chill(&who)
+				.map_err(|e| {
+					log!(error, "ERROR when chilling {:?}", who);
+					e
+				})
+				.defensive();
 		} else if count_before > nominations.len() {
 			<Pallet<T> as StakingInterface>::nominate(who, nominations.clone()).map_err(|e| {
 				log!(error, "failed to migrate nominations {:?}.", e);
