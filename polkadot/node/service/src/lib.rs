@@ -751,6 +751,7 @@ pub fn new_full<
 		prepare_workers_hard_max_num,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
+	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	use polkadot_node_network_protocol::request_response::IncomingRequest;
 	use sc_network_sync::WarpSyncParams;
 
@@ -989,6 +990,11 @@ pub fn new_full<
 			stagnant_check_interval: Default::default(),
 			stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
 		};
+
+		// Kusama + testnets get a higher threshold, we are conservative on Polkadot for now.
+		let fetch_chunks_threshold =
+			if config.chain_spec.is_polkadot() { None } else { Some(FETCH_CHUNKS_THRESHOLD) };
+
 		Some(ExtendedOverseerGenArgs {
 			keystore,
 			parachains_db,
@@ -1002,6 +1008,7 @@ pub fn new_full<
 			dispute_req_receiver,
 			dispute_coordinator_config,
 			chain_selection_config,
+			fetch_chunks_threshold,
 		})
 	};
 
