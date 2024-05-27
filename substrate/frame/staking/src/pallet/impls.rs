@@ -45,7 +45,7 @@ use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
-	StakingAccount::{self, Controller, Stash},
+	StakingAccount::{self, Stash},
 	StakingInterface,
 };
 use sp_std::prelude::*;
@@ -1748,10 +1748,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		MinValidatorBond::<T>::get()
 	}
 
-	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
-		Self::ledger(Controller(controller.clone()))
-			.map(|l| l.stash)
-			.map_err(|e| e.into())
+	fn stash(who: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
+		Self::ledger(Stash(who.clone())).map(|l| l.stash).map_err(|e| e.into())
 	}
 
 	fn bonding_duration() -> EraIndex {
