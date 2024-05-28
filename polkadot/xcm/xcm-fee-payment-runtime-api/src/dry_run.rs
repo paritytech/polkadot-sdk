@@ -19,8 +19,7 @@
 //! that need to be paid.
 
 use codec::{Decode, Encode};
-use frame_support::pallet_prelude::{DispatchResult, TypeInfo};
-use sp_runtime::traits::Block as BlockT;
+use frame_support::pallet_prelude::{DispatchResultWithPostInfo, TypeInfo};
 use sp_std::vec::Vec;
 use xcm::prelude::*;
 
@@ -28,7 +27,7 @@ use xcm::prelude::*;
 #[derive(Encode, Decode, Debug, TypeInfo)]
 pub struct ExtrinsicDryRunEffects<Event> {
 	/// The result of executing the extrinsic.
-	pub execution_result: DispatchResult,
+	pub execution_result: DispatchResultWithPostInfo,
 	/// The list of events fired by the extrinsic.
 	pub emitted_events: Vec<Event>,
 	/// The local XCM that was attempted to be executed, if any.
@@ -58,9 +57,9 @@ sp_api::decl_runtime_apis! {
 	/// Extrinsics or XCMs might fail when executed, this doesn't mean the result of these calls will be an `Err`.
 	/// In those cases, there might still be a valid result, with the execution error inside it.
 	/// The only reasons why these calls might return an error are listed in the [`Error`] enum.
-	pub trait XcmDryRunApi<Call, Event: Decode> {
-		/// Dry run extrinsic.
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<Event>, Error>;
+	pub trait XcmDryRunApi<Call: Encode, Event: Decode, OriginCaller: Encode> {
+		/// Dry run call.
+		fn dry_run_call(origin: OriginCaller, call: Call) -> Result<ExtrinsicDryRunEffects<Event>, Error>;
 
 		/// Dry run XCM program
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>) -> Result<XcmDryRunEffects<Event>, Error>;
