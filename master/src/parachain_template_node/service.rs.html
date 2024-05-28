@@ -560,6 +560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
 <a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="comment">// std
@@ -722,7 +723,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 }
 
-<span class="kw">fn </span>start_consensus(
+<span class="attr">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">fn </span>start_consensus(
 	client: Arc&lt;ParachainClient&gt;,
 	backend: Arc&lt;ParachainBackend&gt;,
 	block_import: ParachainBlockImport,

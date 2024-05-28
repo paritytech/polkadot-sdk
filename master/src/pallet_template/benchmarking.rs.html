@@ -199,7 +199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>do_something() {
-		<span class="kw">let </span>value = <span class="number">100u32</span>.into();
+		<span class="kw">let </span>value = <span class="number">100u32</span>;
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="attr">#[extrinsic_call]
 		</span>do_something(RawOrigin::Signed(caller), value);

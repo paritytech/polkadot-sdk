@@ -534,8 +534,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
 <a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::net::SocketAddr;
 
 <span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
@@ -732,13 +730,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					cmd.run(partials.client)
 				}),
 				<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
-				</span>BenchmarkCmd::Storage(<span class="kw">_</span>) =&gt;
-					<span class="kw">return </span><span class="prelude-val">Err</span>(sc_cli::Error::Input(
-						<span class="string">"Compile with --features=runtime-benchmarks \
+				</span>BenchmarkCmd::Storage(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(sc_cli::Error::Input(
+					<span class="string">"Compile with --features=runtime-benchmarks \
 						to enable storage benchmarks."
-							</span>.into(),
-					)
-					.into()),
+						</span>.into(),
+				)),
 				<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 				</span>BenchmarkCmd::Storage(cmd) =&gt; runner.sync_run(|config| {
 					<span class="kw">let </span>partials = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
