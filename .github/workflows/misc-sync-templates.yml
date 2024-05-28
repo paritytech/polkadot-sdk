@@ -122,12 +122,13 @@ jobs:
         run: |
           echo -e "\n[workspace.dependencies]" >> Cargo.toml
           set +e
+          # If a workspace dependency is required..
           while cargo tree --depth 1 --prefix none --no-dedupe 2>&1 | grep 'was not found in `workspace.dependencies`'; do
+            # Get its name..
             missing_dep=$(cargo tree --depth 1 --prefix none --no-dedupe 2>&1 | grep 'was not found in `workspace.dependencies`' | sed -E 's/(.*)`dependency.(.*)` was not found in `workspace.dependencies`/\2/')
+            # And copy the dependency from the monorepo.
             toml get ../polkadot-sdk/Cargo.toml 'workspace.dependencies' --output-toml | grep "^${missing_dep} = " >> Cargo.toml
           done;
-          set -e
-          cargo tree --depth 1 --no-dedupe
         working-directory: "${{ env.template-path }}"
 
       # 3. Verify the build. Push the changes or create a PR.
