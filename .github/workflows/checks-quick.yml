@@ -87,13 +87,15 @@ jobs:
       - name: install python deps
         run: |
           sudo apt-get update && sudo apt-get install -y python3-pip python3
-          pip3 install toml
+          pip3 install toml "cargo-workspace>=1.2.6"
       - name: check integrity
         run: >
           python3 .github/scripts/check-workspace.py .
           --exclude
           "substrate/frame/contracts/fixtures/build"
           "substrate/frame/contracts/fixtures/contracts/common"
+      - name: deny git deps
+        run: python3 .github/scripts/deny-git-deps.py .
   check-markdown:
     runs-on: ubuntu-latest
     timeout-minutes: 10
