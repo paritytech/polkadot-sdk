@@ -367,6 +367,15 @@ async fn assert_validation_requests(
 			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 		}
 	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(sess_idx, tx))
+		) if sess_idx == 1 => {
+			tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+		}
+	);
 }
 
 async fn assert_validate_from_exhaustive(
@@ -2084,7 +2093,7 @@ fn retry_works() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		// Not deterministic which message comes first:
-		for _ in 0u32..5 {
+		for _ in 0u32..6 {
 			match virtual_overseer.recv().await {
 				AllMessages::Provisioner(ProvisionerMessage::ProvisionableData(
 					_,
@@ -2114,6 +2123,12 @@ fn retry_works() {
 					RuntimeApiRequest::SessionExecutorParams(1, tx),
 				)) => {
 					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::NodeFeatures(1, tx),
+				)) => {
+					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				},
 				msg => {
 					assert!(false, "Unexpected message: {:?}", msg);
@@ -2662,32 +2677,7 @@ fn validator_ignores_statements_from_disabled_validators() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement_3 }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Sending a `Statement::Seconded` for our assignment will start
 		// validation process. The first thing requested is the PoV.
