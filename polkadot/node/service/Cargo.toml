@@ -68,6 +68,7 @@ pallet-babe = { path = "../../../substrate/frame/babe" }
 pallet-im-online = { path = "../../../substrate/frame/im-online" }
 pallet-staking = { path = "../../../substrate/frame/staking" }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api" }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", optional = true }
 frame-system = { path = "../../../substrate/frame/system" }
 
 # Substrate Other
@@ -184,8 +185,16 @@ full-node = [
 ]
 
 # Configure the native runtimes to use.
-westend-native = ["westend-runtime", "westend-runtime-constants"]
-rococo-native = ["rococo-runtime", "rococo-runtime-constants"]
+westend-native = [
+	"frame-metadata-hash-extension",
+	"westend-runtime",
+	"westend-runtime-constants",
+]
+rococo-native = [
+	"frame-metadata-hash-extension",
+	"rococo-runtime",
+	"rococo-runtime-constants",
+]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",

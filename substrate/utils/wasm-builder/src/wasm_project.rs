@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "metadata-hash")]
+use crate::builder::MetadataExtraInfo;
 use crate::{write_file_if_changed, CargoCommandVersioned, OFFLINE};
 
 use build_helper::rerun_if_changed;
@@ -112,80 +114,86 @@ fn crate_metadata(cargo_manifest: &Path) -> Metadata {
 ///
 /// The path to the compact runtime binary and the bloaty runtime binary.
 pub(crate) fn create_and_compile(
-	project_cargo_toml: &Path,
+	orig_project_cargo_toml: &Path,
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
 	features_to_enable: Vec<String>,
-	bloaty_blob_out_name_override: Option<String>,
+	blob_out_name_override: Option<String>,
 	check_for_runtime_version_section: bool,
+	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty) {
 	let runtime_workspace_root = get_wasm_workspace_root();
 	let runtime_workspace = runtime_workspace_root.join("wbuild");
 
-	let crate_metadata = crate_metadata(project_cargo_toml);
+	let crate_metadata = crate_metadata(orig_project_cargo_toml);
 
 	let project = create_project(
-		project_cargo_toml,
+		orig_project_cargo_toml,
 		&runtime_workspace,
 		&crate_metadata,
 		crate_metadata.workspace_root.as_ref(),
 		features_to_enable,
 	);
+	let wasm_project_cargo_toml = project.join("Cargo.toml");
 
 	let build_config = BuildConfiguration::detect(&project);
 
-	// Build the bloaty runtime blob
+	let raw_blob_path = project
+		.join("target/wasm32-unknown-unknown")
+		.join(build_config.blob_build_profile.directory())
+		.join(format!("{}.wasm", get_blob_name(&wasm_project_cargo_toml)));
+
+	#[cfg(feature = "metadata-hash")]
+	match enable_metadata_hash {
+		Some(extra_info) => {
+			// When the metadata hash is enabled we need to build the runtime twice.
+			build_bloaty_blob(
+				&build_config.blob_build_profile,
+				&project,
+				default_rustflags,
+				cargo_cmd.clone(),
+				None,
+			);
+
+			let hash = crate::metadata_hash::generate_metadata_hash(&raw_blob_path, extra_info);
+
+			build_bloaty_blob(
+				&build_config.blob_build_profile,
+				&project,
+				default_rustflags,
+				cargo_cmd,
+				Some(hash),
+			)
+		},
+		None => build_bloaty_blob(
+			&build_config.blob_build_profile,
+			&project,
+			default_rustflags,
+			cargo_cmd,
+			None,
+		),
+	};
+
+	// If the feature is not enabled, we only need to do it once.
+	#[cfg(not(feature = "metadata-hash"))]
 	build_bloaty_blob(&build_config.blob_build_profile, &project, default_rustflags, cargo_cmd);
 
-	// Get the name of the bloaty runtime blob.
-	let bloaty_blob_default_name = get_blob_name(project_cargo_toml);
-	let bloaty_blob_out_name =
-		bloaty_blob_out_name_override.unwrap_or_else(|| bloaty_blob_default_name.clone());
+	let blob_name =
+		blob_out_name_override.unwrap_or_else(|| get_blob_name(&wasm_project_cargo_toml));
+	let out_path = project.join(format!("{blob_name}.wasm"));
+	fs::copy(dbg!(raw_blob_path), &out_path).expect("copying the runtime blob should never fail");
 
-	let bloaty_blob_binary = copy_bloaty_blob(
+	let (final_blob_binary, bloaty_blob_binary) = maybe_compact_and_compress_wasm(
+		&wasm_project_cargo_toml,
 		&project,
-		&build_config.blob_build_profile,
-		&bloaty_blob_default_name,
-		&bloaty_blob_out_name,
+		WasmBinaryBloaty(out_path),
+		&blob_name,
+		check_for_runtime_version_section,
+		&build_config,
 	);
 
-	// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
-	//
-	// This is because, by default the inner profile will be set to `Release` even when the outer
-	// profile is `Debug`, because the blob built in `Debug` profile is too slow for normal
-	// development activities.
-	let (compact_blob_path, compact_compressed_blob_path) =
-		if build_config.outer_build_profile.wants_compact() {
-			let compact_blob_path = compact_wasm(
-				&project,
-				&build_config.blob_build_profile,
-				project_cargo_toml,
-				&bloaty_blob_out_name,
-			);
-			let compact_compressed_blob_path = compact_blob_path
-				.as_ref()
-				.and_then(|p| try_compress_blob(&p.0, &bloaty_blob_out_name));
-			(compact_blob_path, compact_compressed_blob_path)
-		} else {
-			(None, None)
-		};
-
-	if check_for_runtime_version_section {
-		ensure_runtime_version_wasm_section_exists(bloaty_blob_binary.bloaty_path());
-	}
-
-	compact_blob_path
-		.as_ref()
-		.map(|wasm_binary| copy_blob_to_target_directory(project_cargo_toml, wasm_binary));
-
-	compact_compressed_blob_path.as_ref().map(|wasm_binary_compressed| {
-		copy_blob_to_target_directory(project_cargo_toml, wasm_binary_compressed)
-	});
-
-	let final_blob_binary = compact_compressed_blob_path.or(compact_blob_path);
-
 	generate_rerun_if_changed_instructions(
-		project_cargo_toml,
+		orig_project_cargo_toml,
 		&project,
 		&runtime_workspace,
 		final_blob_binary.as_ref(),
@@ -195,6 +203,42 @@ pub(crate) fn create_and_compile(
 	if let Err(err) = adjust_mtime(&bloaty_blob_binary, final_blob_binary.as_ref()) {
 		build_helper::warning!("Error while adjusting the mtime of the blob binaries: {}", err)
 	}
+
+	(final_blob_binary, bloaty_blob_binary)
+}
+
+fn maybe_compact_and_compress_wasm(
+	wasm_project_cargo_toml: &Path,
+	project: &Path,
+	bloaty_blob_binary: WasmBinaryBloaty,
+	blob_name: &str,
+	check_for_runtime_version_section: bool,
+	build_config: &BuildConfiguration,
+) -> (Option<WasmBinary>, WasmBinaryBloaty) {
+	// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
+	//
+	// This is because, by default the inner profile will be set to `Release` even when the outer
+	// profile is `Debug`, because the blob built in `Debug` profile is too slow for normal
+	// development activities.
+	let (compact_blob_path, compact_compressed_blob_path) =
+		if build_config.outer_build_profile.wants_compact() {
+			let compact_blob_path = compact_wasm(&project, blob_name, &bloaty_blob_binary);
+			let compact_compressed_blob_path =
+				compact_blob_path.as_ref().and_then(|p| try_compress_blob(&p.0, blob_name));
+			(compact_blob_path, compact_compressed_blob_path)
+		} else {
+			(None, None)
+		};
+
+	if check_for_runtime_version_section {
+		ensure_runtime_version_wasm_section_exists(bloaty_blob_binary.bloaty_path());
+	}
+
+	let final_blob_binary = compact_compressed_blob_path.or(compact_blob_path);
+
+	final_blob_binary
+		.as_ref()
+		.map(|binary| copy_blob_to_target_directory(wasm_project_cargo_toml, binary));
 
 	(final_blob_binary, bloaty_blob_binary)
 }
@@ -313,9 +357,23 @@ fn get_crate_name(cargo_manifest: &Path) -> String {
 		.expect("Package name exists; qed")
 }
 
+/// Extract the `lib.name` from the given `Cargo.toml`.
+fn get_lib_name(cargo_manifest: &Path) -> Option<String> {
+	let cargo_toml: Table = toml::from_str(
+		&fs::read_to_string(cargo_manifest).expect("File exists as checked before; qed"),
+	)
+	.expect("Cargo manifest is a valid toml file; qed");
+
+	let lib = cargo_toml.get("lib").and_then(|t| t.as_table())?;
+
+	lib.get("name").and_then(|p| p.as_str()).map(ToOwned::to_owned)
+}
+
 /// Returns the name for the blob binary.
 fn get_blob_name(cargo_manifest: &Path) -> String {
-	get_crate_name(cargo_manifest).replace('-', "_")
+	get_lib_name(cargo_manifest)
+		.expect("The wasm project should have a `lib.name`; qed")
+		.replace('-', "_")
 }
 
 /// Returns the root path of the wasm workspace.
@@ -340,7 +398,6 @@ fn create_project_cargo_toml(
 	workspace_root_path: &Path,
 	crate_name: &str,
 	crate_path: &Path,
-	wasm_binary: &str,
 	enabled_features: impl Iterator<Item = String>,
 ) {
 	let mut workspace_toml: Table = toml::from_str(
@@ -403,7 +460,7 @@ fn create_project_cargo_toml(
 	wasm_workspace_toml.insert("package".into(), package.into());
 
 	let mut lib = Table::new();
-	lib.insert("name".into(), wasm_binary.into());
+	lib.insert("name".into(), crate_name.replace("-", "_").into());
 	lib.insert("crate-type".into(), vec!["cdylib".to_string()].into());
 
 	wasm_workspace_toml.insert("lib".into(), lib.into());
@@ -535,7 +592,6 @@ fn create_project(
 ) -> PathBuf {
 	let crate_name = get_crate_name(project_cargo_toml);
 	let crate_path = project_cargo_toml.parent().expect("Parent path exists; qed");
-	let wasm_binary = get_blob_name(project_cargo_toml);
 	let wasm_project_folder = wasm_workspace.join(&crate_name);
 
 	fs::create_dir_all(wasm_project_folder.join("src"))
@@ -556,7 +612,6 @@ fn create_project(
 		workspace_root_path,
 		&crate_name,
 		crate_path,
-		&wasm_binary,
 		enabled_features.into_iter(),
 	);
 
@@ -710,11 +765,14 @@ fn offline_build() -> bool {
 }
 
 /// Build the project and create the bloaty runtime blob.
+///
+/// Returns the path to the generated bloaty runtime blob.
 fn build_bloaty_blob(
 	blob_build_profile: &Profile,
 	project: &Path,
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
+	#[cfg(feature = "metadata-hash")] metadata_hash: Option<[u8; 32]>,
 ) {
 	let manifest_path = project.join("Cargo.toml");
 	let mut build_cmd = cargo_cmd.command();
@@ -739,6 +797,11 @@ fn build_bloaty_blob(
 		.env_remove("CARGO_ENCODED_RUSTFLAGS")
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
+
+	#[cfg(feature = "metadata-hash")]
+	if let Some(hash) = metadata_hash {
+		build_cmd.env("RUNTIME_METADATA_HASH", array_bytes::bytes2hex("0x", &hash));
+	}
 
 	if super::color_output_enabled() {
 		build_cmd.arg("--color=always");
@@ -782,23 +845,16 @@ fn build_bloaty_blob(
 
 fn compact_wasm(
 	project: &Path,
-	inner_profile: &Profile,
-	cargo_manifest: &Path,
-	out_name: &str,
+	blob_name: &str,
+	bloaty_binary: &WasmBinaryBloaty,
 ) -> Option<WasmBinary> {
-	let default_out_name = get_blob_name(cargo_manifest);
-	let in_path = project
-		.join("target/wasm32-unknown-unknown")
-		.join(inner_profile.directory())
-		.join(format!("{}.wasm", default_out_name));
-
-	let wasm_compact_path = project.join(format!("{}.compact.wasm", out_name));
+	let wasm_compact_path = project.join(format!("{blob_name}.compact.wasm"));
 	let start = std::time::Instant::now();
 	wasm_opt::OptimizationOptions::new_opt_level_0()
 		.mvp_features_only()
 		.debug_info(true)
 		.add_pass(wasm_opt::Pass::StripDwarf)
-		.run(&in_path, &wasm_compact_path)
+		.run(bloaty_binary.bloaty_path(), &wasm_compact_path)
 		.expect("Failed to compact generated WASM binary.");
 	println!(
 		"{} {}",
@@ -806,22 +862,6 @@ fn compact_wasm(
 		colorize_info_message(format!("{:?}", start.elapsed()).as_str())
 	);
 	Some(WasmBinary(wasm_compact_path))
-}
-
-fn copy_bloaty_blob(
-	project: &Path,
-	inner_profile: &Profile,
-	in_name: &str,
-	out_name: &str,
-) -> WasmBinaryBloaty {
-	let in_path = project
-		.join("target/wasm32-unknown-unknown")
-		.join(inner_profile.directory())
-		.join(format!("{}.wasm", in_name));
-
-	let bloaty_path = project.join(format!("{}.wasm", out_name));
-	fs::copy(in_path, &bloaty_path).expect("Copying the bloaty file to the project dir.");
-	WasmBinaryBloaty(bloaty_path)
 }
 
 fn try_compress_blob(compact_blob_path: &Path, out_name: &str) -> Option<WasmBinary> {
