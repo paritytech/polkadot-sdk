@@ -104,8 +104,6 @@ jobs:
 
           toml set templates/${{ matrix.template }}/Cargo.toml 'workspace.package.edition' "$(toml get --raw Cargo.toml 'workspace.package.edition')" > Cargo.temp
           mv Cargo.temp ./templates/${{ matrix.template }}/Cargo.toml
-
-          toml get Cargo.toml 'workspace.lints' --output-toml >> ./templates/${{ matrix.template }}/Cargo.toml
         working-directory: polkadot-sdk
       - name: Print the result Cargo.tomls for debugging
         if: runner.debug == '1'
