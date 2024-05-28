@@ -1,0 +1,10 @@
+title: "Include events for vote and remove vote"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Includes event for vote and remove_vote
+
+crates:
+  - name: pallet-conviction-voting
+    bump: patch
