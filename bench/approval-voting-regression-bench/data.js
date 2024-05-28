@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716887650141,
+  "lastUpdate": 1716900952675,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5216,6 +5216,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.641507654750183,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6ed020037f4c2b6a6b542be6e5a15e86b0b7587b",
+          "message": "[CI] Deny adding git deps (#4572)\n\nAdds a small CI check to match the existing Git deps agains a known-bad\nlist.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-05-28T11:23:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ed020037f4c2b6a6b542be6e5a15e86b0b7587b"
+        },
+        "date": 1716900925347,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63544.46,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.282869301339998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.764633096330009,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.5715553056102465,
             "unit": "seconds"
           }
         ]
