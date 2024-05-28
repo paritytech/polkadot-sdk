@@ -26,8 +26,9 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec, NodeFeatures,
-	OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
+	node_features, AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex,
+	GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex,
+	SessionInfo, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
@@ -40,6 +41,8 @@ const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
 pub struct RuntimeApiState {
 	// All authorities in the test,
 	authorities: TestAuthorities,
+	// Node features state in the runtime
+	node_features: NodeFeatures,
 	// Candidate hashes per block
 	candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
 	// Included candidates per bock
@@ -49,11 +52,20 @@ pub struct RuntimeApiState {
 	session_index: SessionIndex,
 }
 
+#[derive(Clone)]
+pub enum MockRuntimeApiCoreState {
+	Occupied,
+	Scheduled,
+	#[allow(dead_code)]
+	Free,
+}
+
 /// A mocked `runtime-api` subsystem.
 #[derive(Clone)]
 pub struct MockRuntimeApi {
 	state: RuntimeApiState,
 	config: TestConfiguration,
+	core_state: MockRuntimeApiCoreState,
 }
 
 impl MockRuntimeApi {
@@ -64,7 +76,11 @@ impl MockRuntimeApi {
 		included_candidates: HashMap<H256, Vec<CandidateEvent>>,
 		babe_epoch: Option<BabeEpoch>,
 		session_index: SessionIndex,
+		core_state: MockRuntimeApiCoreState,
 	) -> MockRuntimeApi {
+		// Enable chunk mapping feature to make systematic av-recovery possible.
+		let node_features = node_features_with_chunk_mapping_enabled();
+
 		Self {
 			state: RuntimeApiState {
 				authorities,
@@ -72,8 +88,10 @@ impl MockRuntimeApi {
 				included_candidates,
 				babe_epoch,
 				session_index,
+				node_features,
 			},
 			config,
+			core_state,
 		}
 	}
 
@@ -156,15 +174,15 @@ impl MockRuntimeApi {
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
+							RuntimeApiRequest::NodeFeatures(_session_index, sender),
+						) => {
+							let _ = sender.send(Ok(self.state.node_features.clone()));
+						},
+						RuntimeApiMessage::Request(
+							_block_hash,
 							RuntimeApiRequest::SessionExecutorParams(_session_index, sender),
 						) => {
 							let _ = sender.send(Ok(Some(Default::default())));
-						},
-						RuntimeApiMessage::Request(
-							_request,
-							RuntimeApiRequest::NodeFeatures(_session_index, sender),
-						) => {
-							let _ = sender.send(Ok(NodeFeatures::EMPTY));
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
@@ -198,16 +216,26 @@ impl MockRuntimeApi {
 									// Ensure test breaks if badly configured.
 									assert!(index < validator_group_count);
 
-									CoreState::Occupied(OccupiedCore {
-										next_up_on_available: None,
-										occupied_since: 0,
-										time_out_at: 0,
-										next_up_on_time_out: None,
-										availability: BitVec::default(),
-										group_responsible: GroupIndex(index as u32),
-										candidate_hash: candidate_receipt.hash(),
-										candidate_descriptor: candidate_receipt.descriptor.clone(),
-									})
+									use MockRuntimeApiCoreState::*;
+									match self.core_state {
+										Occupied => CoreState::Occupied(OccupiedCore {
+											next_up_on_available: None,
+											occupied_since: 0,
+											time_out_at: 0,
+											next_up_on_time_out: None,
+											availability: BitVec::default(),
+											group_responsible: GroupIndex(index as u32),
+											candidate_hash: candidate_receipt.hash(),
+											candidate_descriptor: candidate_receipt
+												.descriptor
+												.clone(),
+										}),
+										Scheduled => CoreState::Scheduled(ScheduledCore {
+											para_id: (index + 1).into(),
+											collator: None,
+										}),
+										Free => todo!(),
+									}
 								})
 								.collect::<Vec<_>>();
 
@@ -223,6 +251,43 @@ impl MockRuntimeApi {
 								.clone()
 								.expect("Babe epoch unpopulated")));
 						},
+						RuntimeApiMessage::Request(
+							_block_hash,
+							RuntimeApiRequest::AsyncBackingParams(sender),
+						) => {
+							let _ = sender.send(Ok(AsyncBackingParams {
+								max_candidate_depth: self.config.max_candidate_depth,
+								allowed_ancestry_len: self.config.allowed_ancestry_len,
+							}));
+						},
+						RuntimeApiMessage::Request(_parent, RuntimeApiRequest::Version(tx)) => {
+							tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT))
+								.unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::DisabledValidators(tx),
+						) => {
+							tx.send(Ok(vec![])).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::MinimumBackingVotes(_session_index, tx),
+						) => {
+							tx.send(Ok(self.config.minimum_backing_votes)).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::ValidatorGroups(tx),
+						) => {
+							let groups = self.session_info().validator_groups.to_vec();
+							let group_rotation_info = GroupRotationInfo {
+								session_start_block: 1,
+								group_rotation_frequency: 12,
+								now: 1,
+							};
+							tx.send(Ok((groups, group_rotation_info))).unwrap();
+						},
 						// Long term TODO: implement more as needed.
 						message => {
 							unimplemented!("Unexpected runtime-api message: {:?}", message)
@@ -232,4 +297,11 @@ impl MockRuntimeApi {
 			}
 		}
 	}
+}
+
+pub fn node_features_with_chunk_mapping_enabled() -> NodeFeatures {
+	let mut node_features = NodeFeatures::new();
+	node_features.resize(node_features::FeatureIndex::AvailabilityChunkMapping as usize + 1, false);
+	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as u8 as usize, true);
+	node_features
 }

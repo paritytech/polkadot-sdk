@@ -157,10 +157,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_011_000,
+	spec_version: 1_012_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 25,
+	transaction_version: 26,
 	state_version: 1,
 };
 
@@ -647,7 +647,7 @@ impl pallet_staking::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
-	type EventListeners = NominationPools;
+	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
@@ -797,6 +797,7 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -1359,7 +1360,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = Staking;
+	type StakeAdapter =
+		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type PostUnbondingPoolsWindow = ConstU32<4>;
 	type MaxMetadataLen = ConstU32<256>;
 	// we use the same number of allowed unlocking chunks as with staking.
@@ -1367,6 +1369,21 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
+}
+
+parameter_types! {
+	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"py/dlstk");
+	pub const SlashRewardFraction: Perbill = Perbill::from_percent(1);
+}
+
+impl pallet_delegated_staking::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = DelegatedStakingPalletId;
+	type Currency = Balances;
+	type OnSlash = ();
+	type SlashRewardFraction = SlashRewardFraction;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CoreStaking = Staking;
 }
 
 impl pallet_root_testing::Config for Runtime {
@@ -1517,6 +1534,10 @@ mod runtime {
 	#[runtime::pallet_index(37)]
 	pub type Treasury = pallet_treasury;
 
+	// Staking extension for delegation
+	#[runtime::pallet_index(38)]
+	pub type DelegatedStaking = pallet_delegated_staking;
+
 	// Parachains pallets. Start indices at 40 to leave room.
 	#[runtime::pallet_index(41)]
 	pub type ParachainsOrigin = parachains_origin;
@@ -1617,13 +1638,15 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-pub struct NominationPoolsMigrationV4OldPallet;
-impl Get<Perbill> for NominationPoolsMigrationV4OldPallet {
-	fn get() -> Perbill {
-		Perbill::from_percent(100)
-	}
+parameter_types! {
+	// This is the max pools that will be migrated in the runtime upgrade. Westend has more pools
+	// than this, but we want to emulate some non migrated pools. In prod runtimes, if weight is not
+	// a concern, it is recommended to set to (existing pools + 10) to also account for any new
+	// pools getting created before the migration is actually executed.
+	pub const MaxPoolsToMigrate: u32 = 250;
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -1656,7 +1679,15 @@ pub mod migrations {
 	}
 
 	/// Unreleased migrations. Add new ones here:
-	pub type Unreleased = (pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,);
+	pub type Unreleased = (
+		// Migrate NominationPools to `DelegateStake` adapter. This is unversioned upgrade and
+		// should not be applied yet in Kusama/Polkadot.
+		pallet_nomination_pools::migration::unversioned::DelegationStakeMigration<
+			Runtime,
+			MaxPoolsToMigrate,
+		>,
+		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+	);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -2257,7 +2288,7 @@ sp_api::impl_runtime_apis! {
 			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::V4),
+				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,

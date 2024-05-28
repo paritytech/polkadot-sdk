@@ -1,0 +1,30 @@
+title: "Introduce Polkadot-SDK umbrella crate"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces a new "umbrella" crate that re-exports all published crates of the Polkadot-SDK.
+      This helps developers to select a valid set of versions for all underlying dependencies.
+
+      You can now use this create and remove lots of dependencies from your runtime and node crates.
+      The `staging-node-cli` and `kitchensink-runtime` both adopt this pattern as an example.
+
+      Full docs in `docs/sdk/src/reference_docs/umbrella_crate.rs`.
+
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: patch
+  - name: sc-chain-spec-derive
+    bump: patch
+  - name: frame-election-provider-solution-type
+    bump: patch
+  - name: pallet-staking-reward-curve
+    bump: patch
+  - name: frame-support-procedural-tools
+    bump: patch
+  - name: sp-api-proc-macro
+    bump: patch
+  - name: polkadot-runtime-parachains
+    bump: patch
+  - name: polkadot-sdk
+    bump: major

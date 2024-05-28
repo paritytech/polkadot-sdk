@@ -61,7 +61,7 @@ fn main() -> Result<(), String> {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
 			let (mut env, state) = prepare_test(config.clone(), options.clone(), false);
-			env.runtime().block_on(bench_approvals("approvals_throughput", &mut env, state))
+			env.runtime().block_on(bench_approvals(&mut env, state))
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
@@ -81,8 +81,8 @@ fn main() -> Result<(), String> {
 		("Sent to peers", 63547.0330, 0.001),
 	]));
 	messages.extend(average_usage.check_cpu_usage(&[
-		("approval-distribution", 7.0317, 0.1),
-		("approval-voting", 9.5751, 0.1),
+		("approval-distribution", 7.4075, 0.1),
+		("approval-voting", 9.9873, 0.1),
 	]));
 
 	if messages.is_empty() {

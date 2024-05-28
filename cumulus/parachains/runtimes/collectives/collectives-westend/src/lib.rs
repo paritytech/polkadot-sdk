@@ -44,8 +44,9 @@ pub mod xcm_config;
 pub mod fellowship;
 pub use ambassador::pallet_ambassador_origins;
 
+use ambassador::AmbassadorCoreInstance;
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use fellowship::{pallet_fellowship_origins, Fellows};
+use fellowship::{pallet_fellowship_origins, Fellows, FellowshipCoreInstance};
 use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -117,7 +118,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("collectives-westend"),
 	impl_name: create_runtime_str!("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_011_000,
+	spec_version: 1_012_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -739,6 +740,10 @@ type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	// unreleased
+	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, FellowshipCoreInstance>,
+	// unreleased
+	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, AmbassadorCoreInstance>,
 );
 
 /// Executive: handles dispatch to the various modules.
