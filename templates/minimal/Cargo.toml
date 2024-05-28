@@ -9,9 +9,6 @@ repository.workspace = true
 edition.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [dependencies]
 minimal-template-node = { path = "./node" }
 minimal-template-runtime = { path = "./runtime" }

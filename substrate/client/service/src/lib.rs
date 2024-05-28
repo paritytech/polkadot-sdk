@@ -54,10 +54,11 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, new_client, new_db_backend, new_full_client, new_full_parts,
-		new_full_parts_record_import, new_full_parts_with_genesis_builder, new_wasm_executor,
-		spawn_tasks, BuildNetworkParams, KeystoreContainer, NetworkStarter, SpawnTasksParams,
-		TFullBackend, TFullCallExecutor, TFullClient,
+		build_network, gen_rpc_module, init_telemetry, new_client, new_db_backend, new_full_client,
+		new_full_parts, new_full_parts_record_import, new_full_parts_with_genesis_builder,
+		new_wasm_executor, propagate_transaction_notifications, spawn_tasks, BuildNetworkParams,
+		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
+		TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -75,7 +76,7 @@ pub use config::{
 };
 pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
-	Properties, RuntimeGenesis,
+	Properties,
 };
 
 pub use sc_consensus::ImportQueue;
