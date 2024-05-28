@@ -51,31 +51,38 @@ jobs:
         with:
           name: short-benchmark-artifacts
           path: ./artifacts
-  # build-short-benchmark-cumulus:
-  #   runs-on: arc-runners-polkadot-sdk-beefy
-  #   timeout-minutes: 30
-  #   needs: [set-image]
-  #   container:
-  #     image: ${{ needs.set-image.outputs.IMAGE }}
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     - name: script
-  #       run: exit 0
+  build-short-benchmark-cumulus:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 30
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          forklift cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
+          mkdir -p artifacts
+          ./target/release/polkadot-parachain --version
+          cp mv ./target/release/polkadot-parachain ./artifacts/
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: short-benchmark-cumulus-artifacts
+          path: ./artifacts
   short-benchmark-westend:
     runs-on: arc-runners-polkadot-sdk-benchmark
-    timeout-minutes: 30
+    timeout-minutes: 10
     needs: [set-image, build-short-benchmark]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
       RUNTIME: westend
-      # Enable debug assertions since we are running optimized builds for testing
-      # but still want to have debug assertions.
-      RUSTFLAGS: "-C debug-assertions -D warnings"
-      RUST_BACKTRACE: "full"
-      WASM_BUILD_NO_COLOR: 1
-      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
@@ -83,6 +90,35 @@ jobs:
           name: short-benchmark-artifacts
       - name: script
         run: |
-          ls -la
           chmod +x polkadot
           ./polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    short-benchmark-parachain:
+      runs-on: arc-runners-polkadot-sdk-benchmark
+      timeout-minutes: 10
+      strategy:
+        matrix:
+          runtime:
+            [
+              asset-hub-rococo-dev,
+              asset-hub-westend-dev,
+              bridge-hub-rococo-dev,
+              bridge-hub-westend-dev,
+              collectives-westend-dev,
+              coretime-rococo-dev,
+              coretime-westend-dev,
+              people-rococo-dev,
+              people-westend-dev,
+              glutton-westend-dev-1300,
+            ]
+      needs: [set-image, build-short-benchmark-cumulus]
+      container:
+        image: ${{ needs.set-image.outputs.IMAGE }}
+      steps:
+        - name: Download a single artifact
+          uses: actions/download-artifact@v4
+          with:
+            name: short-benchmark-cumulus-artifacts
+        - name: script
+          run: |
+            chmod +x polkadot-parachain
+            ./polkadot-parachain benchmark pallet --chain ${{ matrix.runtime }} --pallet "*" --extrinsic "*" --steps 2 --repeat 1
