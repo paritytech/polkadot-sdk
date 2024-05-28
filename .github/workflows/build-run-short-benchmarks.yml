@@ -92,33 +92,33 @@ jobs:
         run: |
           chmod +x polkadot
           ./polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
-    short-benchmark-parachain:
-      runs-on: arc-runners-polkadot-sdk-benchmark
-      timeout-minutes: 10
-      strategy:
-        matrix:
-          runtime:
-            [
-              asset-hub-rococo-dev,
-              asset-hub-westend-dev,
-              bridge-hub-rococo-dev,
-              bridge-hub-westend-dev,
-              collectives-westend-dev,
-              coretime-rococo-dev,
-              coretime-westend-dev,
-              people-rococo-dev,
-              people-westend-dev,
-              glutton-westend-dev-1300,
-            ]
-      needs: [set-image, build-short-benchmark-cumulus]
-      container:
-        image: ${{ needs.set-image.outputs.IMAGE }}
-      steps:
-        - name: Download a single artifact
-          uses: actions/download-artifact@v4
-          with:
-            name: short-benchmark-cumulus-artifacts
-        - name: script
-          run: |
-            chmod +x polkadot-parachain
-            ./polkadot-parachain benchmark pallet --chain ${{ matrix.runtime }} --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+  short-benchmark-parachain:
+    runs-on: arc-runners-polkadot-sdk-benchmark
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        runtime:
+          [
+            asset-hub-rococo-dev,
+            asset-hub-westend-dev,
+            bridge-hub-rococo-dev,
+            bridge-hub-westend-dev,
+            collectives-westend-dev,
+            coretime-rococo-dev,
+            coretime-westend-dev,
+            people-rococo-dev,
+            people-westend-dev,
+            glutton-westend-dev-1300,
+          ]
+    needs: [set-image, build-short-benchmark-cumulus]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: short-benchmark-cumulus-artifacts
+      - name: script
+        run: |
+          chmod +x polkadot-parachain
+          ./polkadot-parachain benchmark pallet --chain ${{ matrix.runtime }} --pallet "*" --extrinsic "*" --steps 2 --repeat 1
