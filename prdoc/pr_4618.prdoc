@@ -1,0 +1,19 @@
+title: Unify logic for fetching the `:code` of a block
+
+doc:
+  - audience: Node Operator
+    description: |
+      Fixes an issue on parachains when running with a custom `override` or `substitute` of the on chain wasm code.
+      The relay chain was rejecting blocks build this way, because the collator was reporting an incorrect code hash to the relay chain.
+      This is now fixed by always sending the code hash as found in the state of the relay chain. Still a warning is printed when
+      the code hash doesn't match to inform the operator about the mismatch and its potential impact on the validation.
+  - audience: Node Dev
+    description: |
+      `Client::code_at` will now use the same `overrides`/`substitute` to determine the code for a given block as it is
+      done when executing any runtime call.
+
+crates:
+  - name: cumulus-client-consensus-aura
+    bump: patch
+  - name: sc-service
+    bump: minor
