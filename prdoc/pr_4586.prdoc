@@ -14,3 +14,7 @@ crates:
     bump: major
   - name: kitchensink-runtime
     bump: patch
+  - name: people-rococo-integration-tests
+    bump: patch
+  - name: people-westend-integration-tests
+    bump: patch
