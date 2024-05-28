@@ -100,8 +100,8 @@ pub use sc_executor::NativeExecutionDispatch;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 pub use service::{
 	config::{DatabaseSource, PrometheusConfig},
-	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, RuntimeGenesis,
-	TFullBackend, TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
+	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, TFullBackend,
+	TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
 pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_runtime::{
@@ -915,7 +915,10 @@ pub fn new_full<
 	let (pov_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (chunk_req_receiver, cfg) =
+	let (chunk_req_v1_receiver, cfg) =
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
+	net_config.add_request_response_protocol(cfg);
+	let (chunk_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
@@ -1000,7 +1003,8 @@ pub fn new_full<
 			candidate_validation_config,
 			availability_config: AVAILABILITY_CONFIG,
 			pov_req_receiver,
-			chunk_req_receiver,
+			chunk_req_v1_receiver,
+			chunk_req_v2_receiver,
 			statement_req_receiver,
 			candidate_req_v2_receiver,
 			approval_voting_config,
