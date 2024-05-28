@@ -973,6 +973,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#822" id="822">822</a>
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1148,8 +1158,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>consume_index(<span class="kw-2">&amp;mut </span><span class="self">self</span>, removed_index: QueueIndex) {
 		<span class="kw">if </span>removed_index != <span class="self">self</span>.smallest_index {
 			<span class="self">self</span>.freed_indices.push(removed_index.reverse());
-			<span class="kw">return
-		</span>}
+			<span class="kw">return</span>;
+		}
 		<span class="kw">let </span><span class="kw-2">mut </span>index = <span class="self">self</span>.smallest_index.<span class="number">0</span>.overflowing_add(<span class="number">1</span>).<span class="number">0</span>;
 		<span class="comment">// Even more to advance?
 		</span><span class="kw">while </span><span class="self">self</span>.freed_indices.peek() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ReverseQueueIndex(index)) {
@@ -1343,10 +1353,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
-		<span class="doccomment">/// An order was placed at some spot price amount.
-		</span>OnDemandOrderPlaced { para_id: ParaId, spot_price: BalanceOf&lt;T&gt; },
-		<span class="doccomment">/// The value of the spot traffic multiplier changed.
-		</span>SpotTrafficSet { traffic: FixedU128 },
+		<span class="doccomment">/// An order was placed at some spot price amount by orderer ordered_by
+		</span>OnDemandOrderPlaced { para_id: ParaId, spot_price: BalanceOf&lt;T&gt;, ordered_by: T::AccountId },
+		<span class="doccomment">/// The value of the spot price has likely changed
+		</span>SpotPriceSet { spot_price: BalanceOf&lt;T&gt; },
 	}
 
 	<span class="attr">#[pallet::error]
@@ -1385,12 +1395,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// Errors:
 		/// - `InsufficientBalance`: from the Currency implementation
-		/// - `InvalidParaId`
 		/// - `QueueFull`
 		/// - `SpotPriceHigherThanMaxAmount`
 		///
 		/// Events:
-		/// - `SpotOrderPlaced`
+		/// - `OnDemandOrderPlaced`
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::place_order_allow_death(QueueStatus::&lt;T&gt;::get().size()))]
 		</span><span class="kw">pub fn </span>place_order_allow_death(
@@ -1412,12 +1421,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// Errors:
 		/// - `InsufficientBalance`: from the Currency implementation
-		/// - `InvalidParaId`
 		/// - `QueueFull`
 		/// - `SpotPriceHigherThanMaxAmount`
 		///
 		/// Events:
-		/// - `SpotOrderPlaced`
+		/// - `OnDemandOrderPlaced`
 		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
 		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::place_order_keep_alive(QueueStatus::&lt;T&gt;::get().size()))]
 		</span><span class="kw">pub fn </span>place_order_keep_alive(
@@ -1514,12 +1522,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Errors:
 	/// - `InsufficientBalance`: from the Currency implementation
-	/// - `InvalidParaId`
 	/// - `QueueFull`
 	/// - `SpotPriceHigherThanMaxAmount`
 	///
 	/// Events:
-	/// - `SpotOrderPlaced`
+	/// - `OnDemandOrderPlaced`
 	</span><span class="kw">fn </span>do_place_order(
 		sender: &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
 		max_amount: BalanceOf&lt;T&gt;,
@@ -1553,6 +1560,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T&gt;::QueueFull
 			);
 			Pallet::&lt;T&gt;::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
+			Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::OnDemandOrderPlaced {
+				para_id,
+				spot_price,
+				ordered_by: sender,
+			});
+
 			<span class="prelude-val">Ok</span>(())
 		})
 	}
@@ -1574,7 +1587,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Only update storage on change
 				</span><span class="kw">if </span>new_traffic != old_traffic {
 					queue_status.traffic = new_traffic;
-					Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::SpotTrafficSet { traffic: new_traffic });
+
+					<span class="comment">// calculate the new spot price
+					</span><span class="kw">let </span>spot_price: BalanceOf&lt;T&gt; = new_traffic.saturating_mul_int(
+						config.scheduler_params.on_demand_base_fee.saturated_into::&lt;BalanceOf&lt;T&gt;&gt;(),
+					);
+
+					<span class="comment">// emit the event for updated new price
+					</span>Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::SpotPriceSet { spot_price });
 				}
 			},
 			<span class="prelude-val">Err</span>(err) =&gt; {
@@ -1696,8 +1716,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"Decreased affinity for a para that has not been served on a core?"
 		</span>);
 		<span class="kw">if </span>affinity != <span class="prelude-val">Some</span>(<span class="number">0</span>) {
-			<span class="kw">return
-		</span>}
+			<span class="kw">return</span>;
+		}
 		<span class="comment">// No affinity more for entries on this core, free any entries:
 		//
 		// This is necessary to ensure them being served as the core might no longer exist at all.
@@ -1729,7 +1749,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				} <span class="kw">else </span>{
 					<span class="kw-2">*</span>maybe_affinity = <span class="prelude-val">None</span>;
 				}
-				<span class="kw">return </span><span class="prelude-val">Some</span>(new_count)
+				<span class="kw">return </span><span class="prelude-val">Some</span>(new_count);
 			} <span class="kw">else </span>{
 				<span class="prelude-val">None
 			</span>}

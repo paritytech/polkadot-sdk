@@ -1661,6 +1661,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1510" id="1510">1510</a>
 <a href="#1511" id="1511">1511</a>
 <a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2270,7 +2274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{
 		approval_db::common::{load_block_entry, DbBackend},
-		RuntimeInfo, RuntimeInfoConfig,
+		RuntimeInfo, RuntimeInfoConfig, MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 	};
 	<span class="kw">use </span>::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	<span class="kw">use </span>assert_matches::assert_matches;
@@ -2285,6 +2289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		node_features::FeatureIndex, ExecutorParams, Id <span class="kw">as </span>ParaId, IndexedVec, NodeFeatures,
 		SessionInfo, ValidatorId, ValidatorIndex,
 	};
+	<span class="kw">use </span>schnellru::{ByLength, LruMap};
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
 		AllowedSlots, BabeEpochConfiguration, Epoch <span class="kw">as </span>BabeEpoch,
@@ -2321,6 +2326,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			clock: Box::new(MockClock::default()),
 			assignment_criteria: Box::new(MockAssignmentCriteria::default()),
 			spans: HashMap::new(),
+			per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+			)),
 		}
 	}
 

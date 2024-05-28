@@ -170,13 +170,12 @@ Will use the spot price for the current block and will reap the account if neede
 <p>Errors:</p>
 <ul>
 <li><code>InsufficientBalance</code>: from the Currency implementation</li>
-<li><code>InvalidParaId</code></li>
 <li><code>QueueFull</code></li>
 <li><code>SpotPriceHigherThanMaxAmount</code></li>
 </ul>
 <p>Events:</p>
 <ul>
-<li><code>SpotOrderPlaced</code></li>
+<li><code>OnDemandOrderPlaced</code></li>
 </ul>
 </div><section id="variant.place_order_keep_alive" class="variant"><a href="#variant.place_order_keep_alive" class="anchor">§</a><h3 class="code-header">place_order_keep_alive</h3></section><div class="sub-variant" id="variant.place_order_keep_alive.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.place_order_keep_alive.field.max_amount" class="section-header"><a href="#variant.place_order_keep_alive.field.max_amount" class="anchor field">§</a><code>max_amount: &lt;&lt;T as <a class="trait" href="trait.Config.html" title="trait polkadot_runtime_parachains::assigner_on_demand::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type polkadot_runtime_parachains::assigner_on_demand::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance</code></span></div><div class="sub-variant-field"><span id="variant.place_order_keep_alive.field.para_id" class="section-header"><a href="#variant.place_order_keep_alive.field.para_id" class="anchor field">§</a><code>para_id: Id</code></span></div></div><div class="docblock"><p>Same as the <a href="enum.Call.html#variant.place_order_allow_death" title="variant polkadot_runtime_parachains::assigner_on_demand::pallet::Call::place_order_allow_death"><code>place_order_allow_death</code></a> call , but with a
 check that placing the order will not reap the account.</p>
@@ -189,13 +188,12 @@ check that placing the order will not reap the account.</p>
 <p>Errors:</p>
 <ul>
 <li><code>InsufficientBalance</code>: from the Currency implementation</li>
-<li><code>InvalidParaId</code></li>
 <li><code>QueueFull</code></li>
 <li><code>SpotPriceHigherThanMaxAmount</code></li>
 </ul>
 <p>Events:</p>
 <ul>
-<li><code>SpotOrderPlaced</code></li>
+<li><code>OnDemandOrderPlaced</code></li>
 </ul>
 </div></div><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Call%3CT%3E" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/assigner_on_demand/mod.rs.html#401">source</a><a href="#impl-Call%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait polkadot_runtime_parachains::assigner_on_demand::pallet::Config">Config</a>&gt; <a class="enum" href="enum.Call.html" title="enum polkadot_runtime_parachains::assigner_on_demand::pallet::Call">Call</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_place_order_allow_death" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/assigner_on_demand/mod.rs.html#401">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_place_order_allow_death" class="fn">new_call_variant_place_order_allow_death</a>(
     max_amount: &lt;&lt;T as <a class="trait" href="trait.Config.html" title="trait polkadot_runtime_parachains::assigner_on_demand::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type polkadot_runtime_parachains::assigner_on_demand::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance,
