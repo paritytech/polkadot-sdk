@@ -260,6 +260,7 @@ pub type IdentifierOf<T> = BoundedVec<u8, <T as Config>::IdentifierMaxLen>;
 pub type ActiveCursorOf<T> = ActiveCursor<RawCursorOf<T>, BlockNumberFor<T>>;
 
 /// Trait for a tuple of No-OP migrations with one element.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait MockedMigrations: SteppedMigrations {
 	/// The migration should fail after `n` steps.
 	fn set_fail_after(n: u32);
