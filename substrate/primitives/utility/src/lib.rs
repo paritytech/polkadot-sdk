@@ -20,7 +20,9 @@
 
 //! A crate which contains primitives that are useful for the utility pallet.
 
-use codec::{Decode, Encode};
+use codec::{
+	decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+};
 use scale_info::TypeInfo;
 use sp_std::vec::Vec;
 
@@ -41,6 +43,26 @@ pub fn batched_calls_limit<Call>() -> u32 {
 	allocator_limit / margin_factor / call_size
 }
 
+environmental::environmental!(batch_call_count: u32);
+
 /// Helper struct containing a batch of calls.
-#[derive(Clone, Debug, Encode, Decode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Encode, PartialEq, TypeInfo)]
 pub struct CallsBatch<Call>(pub Vec<Call>);
+
+impl<Call: Decode> Decode for CallsBatch<Call> {
+	fn decode<I: CodecInput>(input: &mut I) -> Result<Self, CodecError> {
+		batch_call_count::using_once(&mut 0, || {
+			let call_count: u32 = <Compact<u32>>::decode(input)?.into();
+			batch_call_count::with(|count| {
+				*count = count.saturating_add(call_count);
+				if *count > batched_calls_limit::<Call>() {
+					return Err(CodecError::from("Max batched calls limit exceeded"))
+				}
+				Ok(())
+			})
+			.expect("Called in `using` context and thus can not return `None`; qed")?;
+			let decoded_calls = decode_vec_with_len(input, call_count as usize)?;
+			Ok(Self(decoded_calls))
+		})
+	}
+}
