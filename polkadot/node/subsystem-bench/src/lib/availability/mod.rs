@@ -22,7 +22,9 @@ use crate::{
 		av_store::{MockAvailabilityStore, NetworkAvailabilityState},
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::{node_features_with_chunk_mapping_enabled, MockRuntimeApi},
+		runtime_api::{
+			node_features_with_chunk_mapping_enabled, MockRuntimeApi, MockRuntimeApiCoreState,
+		},
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
@@ -217,6 +219,7 @@ pub fn prepare_test(
 		Default::default(),
 		Default::default(),
 		0,
+		MockRuntimeApiCoreState::Occupied,
 	);
 
 	let (overseer, overseer_handle) = match &mode {
