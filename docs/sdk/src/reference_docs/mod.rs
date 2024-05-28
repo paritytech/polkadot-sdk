@@ -109,3 +109,6 @@ pub mod frame_pallet_coupling;
 
 /// Learn about the Polkadot Umbrella crate that re-exports all other crates.
 pub mod umbrella_crate;
+
+/// Learn about how to create custom RPC endpoints.
+pub mod custom_rpc;
