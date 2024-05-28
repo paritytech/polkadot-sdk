@@ -262,7 +262,19 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
-		use frame_support::derive_impl;
+		use frame_support::{derive_impl, traits::Get};
+
+		/// A predefined adapter that covers `BlockNumberFor<T>` for `Config::Block::BlockNumber` of
+		/// the types `u32`, `u64`, and `u128`.
+		///
+		/// NOTE: Avoids overriding `BlockHashCount` when using `mocking::{MockBlock, MockBlockU32,
+		/// MockBlockU128}`.
+		pub struct TestBlockHashCount<C: Get<u32>>(sp_std::marker::PhantomData<C>);
+		impl<I: From<u32>, C: Get<u32>> Get<I> for TestBlockHashCount<C> {
+			fn get() -> I {
+				C::get().into()
+			}
+		}
 
 		/// Provides a viable default config that can be used with
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
@@ -300,7 +312,7 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeTask = ();
 			type BaseCallFilter = frame_support::traits::Everything;
-			type BlockHashCount = frame_support::traits::ConstU64<10>;
+			type BlockHashCount = TestBlockHashCount<frame_support::traits::ConstU32<10>>;
 			type OnSetCode = ();
 			type SingleBlockMigrations = ();
 			type MultiBlockMigrator = ();
@@ -397,7 +409,7 @@ pub mod pallet {
 
 			/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 			/// Using 256 as default.
-			type BlockHashCount = frame_support::traits::ConstU32<256>;
+			type BlockHashCount = TestBlockHashCount<frame_support::traits::ConstU32<256>>;
 
 			/// The set code logic, just the default since we're not a parachain.
 			type OnSetCode = ();
@@ -1780,7 +1792,7 @@ impl<T: Config> Pallet<T> {
 			"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
 			 {} ({}%) op weight {} ({}%) / mandatory weight {} ({}%)",
 			Self::block_number(),
-			Self::extrinsic_index().unwrap_or_default(),
+			Self::extrinsic_count(),
 			Self::all_extrinsics_len(),
 			sp_runtime::Percent::from_rational(
 				Self::all_extrinsics_len(),

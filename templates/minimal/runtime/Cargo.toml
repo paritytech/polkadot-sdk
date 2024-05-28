@@ -9,11 +9,8 @@ repository.workspace = true
 edition.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [dependencies]
-parity-scale-codec = { version = "3.0.0", default-features = false }
+parity-scale-codec = { version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
