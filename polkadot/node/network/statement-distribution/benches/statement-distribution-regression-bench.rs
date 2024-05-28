@@ -44,11 +44,7 @@ fn main() -> Result<(), String> {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
 			let (mut env, _cfgs) = prepare_test(&state, false);
-			env.runtime().block_on(benchmark_statement_distribution(
-				"statement-distribution",
-				&mut env,
-				&state,
-			))
+			env.runtime().block_on(benchmark_statement_distribution(&mut env, &state))
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
