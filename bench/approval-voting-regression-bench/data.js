@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716912209285,
+  "lastUpdate": 1716918933430,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5310,6 +5310,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.894941225920233,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2b1c606a338c80c5220c502c56a4b489f6d51488",
+          "message": "parachain-inherent: Make `para_id` more prominent (#4555)\n\nThis should make it more obvious that at instantiation of the\n`MockValidationDataInherentDataProvider` the `para_id` needs to be\npassed.",
+          "timestamp": "2024-05-28T16:08:31Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2b1c606a338c80c5220c502c56a4b489f6d51488"
+        },
+        "date": 1716918905127,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63544.68000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.721262702840079,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.20890958172,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1903572560101097,
             "unit": "seconds"
           }
         ]
