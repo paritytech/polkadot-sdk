@@ -106,8 +106,6 @@ jobs:
           mv Cargo.temp ./templates/${{ matrix.template }}/Cargo.toml
 
           toml get Cargo.toml 'workspace.lints' --output-toml >> ./templates/${{ matrix.template }}/Cargo.toml
-
-          toml get Cargo.toml 'workspace.dependencies' --output-toml >> ./templates/${{ matrix.template }}/Cargo.toml
         working-directory: polkadot-sdk
       - name: Print the result Cargo.tomls for debugging
         if: runner.debug == '1'
@@ -120,6 +118,17 @@ jobs:
       - name: Copy over the new changes
         run: |
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
+      - name: Copy over required workspace dependencies
+        run: |
+          echo -e "\n[workspace.dependencies]" >> Cargo.toml
+          set +e
+          while cargo tree --depth 1 --prefix none --no-dedupe 2>&1 | grep 'was not found in `workspace.dependencies`'; do
+            missing_dep=$(cargo tree --depth 1 --prefix none --no-dedupe 2>&1 | grep 'was not found in `workspace.dependencies`' | sed -E 's/(.*)`dependency.(.*)` was not found in `workspace.dependencies`/\2/')
+            toml get ../polkadot-sdk/Cargo.toml 'workspace.dependencies' --output-toml | grep "^${missing_dep} = " >> Cargo.toml
+          done;
+          set -e
+          cargo tree --depth 1 --no-dedupe
+        working-directory: "${{ env.template-path }}"
 
       # 3. Verify the build. Push the changes or create a PR.
 
