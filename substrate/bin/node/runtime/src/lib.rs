@@ -1341,6 +1341,9 @@ impl pallet_tips::Config for Runtime {
 }
 
 parameter_types! {
+	pub const DepositPerItem: Balance = deposit(1, 0);
+	pub const DepositPerByte: Balance = deposit(0, 1);
+	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
@@ -1358,9 +1361,9 @@ impl pallet_contracts::Config for Runtime {
 	/// change because that would break already deployed contracts. The `Call` structure itself
 	/// is not allowed to change the indices of existing pallets, too.
 	type CallFilter = Nothing;
-	type DepositPerItem = dynamic_params::contracts::DepositPerItem;
-	type DepositPerByte = dynamic_params::contracts::DepositPerByte;
-	type DefaultDepositLimit = dynamic_params::contracts::DefaultDepositLimit;
+	type DepositPerItem = DepositPerItem;
+	type DepositPerByte = DepositPerByte;
+	type DefaultDepositLimit = DefaultDepositLimit;
 	type CallStack = [pallet_contracts::Frame<Self>; 5];
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
@@ -1869,6 +1872,7 @@ impl pallet_core_fellowship::Config for Runtime {
 	type ApproveOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
 	type PromoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
 	type EvidenceSize = ConstU32<16_384>;
+	type MaxRank = ConstU32<9>;
 }
 
 parameter_types! {
@@ -2181,19 +2185,6 @@ pub mod dynamic_params {
 		#[codec(index = 1)]
 		pub static ByteDeposit: Balance = 1 * CENTS;
 	}
-
-	#[dynamic_pallet_params]
-	#[codec(index = 1)]
-	pub mod contracts {
-		#[codec(index = 0)]
-		pub static DepositPerItem: Balance = deposit(1, 0);
-
-		#[codec(index = 1)]
-		pub static DepositPerByte: Balance = deposit(0, 1);
-
-		#[codec(index = 2)]
-		pub static DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
-	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -2216,10 +2207,6 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 	) -> Result<Self::Success, RuntimeOrigin> {
 		match key {
 			RuntimeParametersKey::Storage(_) => {
-				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(())
-			},
-			RuntimeParametersKey::Contracts(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
 				return Ok(())
 			},
@@ -2791,6 +2778,10 @@ impl_runtime_apis! {
 		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
 			Staking::api_eras_stakers_page_count(era, account)
 		}
+
+		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
+			Staking::api_pending_rewards(era, account)
+		}
 	}
 
 	impl sp_consensus_babe::BabeApi<Block> for Runtime {
@@ -3049,7 +3040,7 @@ impl_runtime_apis! {
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: sp_consensus_beefy::EquivocationProof<
+			equivocation_proof: sp_consensus_beefy::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
@@ -3090,7 +3081,7 @@ impl_runtime_apis! {
 		fn generate_proof(
 			block_numbers: Vec<BlockNumber>,
 			best_known_block_number: Option<BlockNumber>,
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<mmr::Hash>), mmr::Error> {
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<mmr::Hash>), mmr::Error> {
 			Mmr::generate_proof(block_numbers, best_known_block_number).map(
 				|(leaves, proof)| {
 					(
@@ -3104,7 +3095,7 @@ impl_runtime_apis! {
 			)
 		}
 
-		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::Proof<mmr::Hash>)
+		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::LeafProof<mmr::Hash>)
 			-> Result<(), mmr::Error>
 		{
 			let leaves = leaves.into_iter().map(|leaf|
@@ -3117,7 +3108,7 @@ impl_runtime_apis! {
 		fn verify_proof_stateless(
 			root: mmr::Hash,
 			leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			proof: mmr::Proof<mmr::Hash>
+			proof: mmr::LeafProof<mmr::Hash>
 		) -> Result<(), mmr::Error> {
 			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)

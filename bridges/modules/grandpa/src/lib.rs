@@ -49,7 +49,7 @@ use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
 	SaturatedConversion,
 };
-use sp_std::{boxed::Box, convert::TryInto, prelude::*};
+use sp_std::{boxed::Box, prelude::*};
 
 mod call_ext;
 #[cfg(test)]
@@ -504,6 +504,9 @@ pub mod pallet {
 		/// The submitter wanted free execution, but the difference between best known and
 		/// bundled header numbers is below the `FreeHeadersInterval`.
 		BelowFreeHeaderInterval,
+		/// The header (and its finality) submission overflows hardcoded chain limits: size
+		/// and/or weight are larger than expected.
+		HeaderOverflowLimits,
 	}
 
 	/// Called when new free header is imported.

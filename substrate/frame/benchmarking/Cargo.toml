@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 linregress = { version = "0.5.1", optional = true }
 log = { workspace = true }
 paste = "1.0"
@@ -36,7 +36,7 @@ sp-storage = { path = "../../primitives/storage", default-features = false }
 static_assertions = "1.1.0"
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 rusty-fork = { version = "0.3.0", default-features = false }
 sp-keystore = { path = "../../primitives/keystore" }
 
