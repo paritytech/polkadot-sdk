@@ -347,6 +347,7 @@ members = [
 	"substrate/frame/membership",
 	"substrate/frame/merkle-mountain-range",
 	"substrate/frame/message-queue",
+	"substrate/frame/metadata-hash-extension",
 	"substrate/frame/mixnet",
 	"substrate/frame/multisig",
 	"substrate/frame/nft-fractionalization",

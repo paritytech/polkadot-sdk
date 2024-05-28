@@ -38,6 +38,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false, feat
 pallet-babe = { path = "../../frame/babe", default-features = false }
 pallet-balances = { path = "../../frame/balances", default-features = false }
 frame-executive = { path = "../../frame/executive", default-features = false }
+frame-metadata-hash-extension = { path = "../../frame/metadata-hash-extension", default-features = false }
 frame-system = { path = "../../frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../frame/system/rpc/runtime-api", default-features = false }
 pallet-timestamp = { path = "../../frame/timestamp", default-features = false }
@@ -66,7 +67,7 @@ serde = { version = "1.0.195", features = ["alloc", "derive"], default-features 
 serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true, features = ["metadata-hash"] }
 
 [features]
 default = ["std"]
@@ -75,6 +76,7 @@ std = [
 	"array-bytes",
 	"codec/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
@@ -112,5 +114,6 @@ std = [
 	"substrate-wasm-builder",
 	"trie-db/std",
 ]
+
 # Special feature to disable logging
 disable-logging = ["sp-api/disable-logging"]
