@@ -119,8 +119,10 @@ pub struct ExtendedOverseerGenArgs {
 	pub availability_config: AvailabilityConfig,
 	/// POV request receiver.
 	pub pov_req_receiver: IncomingRequestReceiver<request_v1::PoVFetchingRequest>,
-	/// Erasure chunks request receiver.
-	pub chunk_req_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
+	/// Erasure chunk request v1 receiver.
+	pub chunk_req_v1_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
+	/// Erasure chunk request v2 receiver.
+	pub chunk_req_v2_receiver: IncomingRequestReceiver<request_v2::ChunkFetchingRequest>,
 	/// Receiver for incoming large statement requests.
 	pub statement_req_receiver: IncomingRequestReceiver<request_v1::StatementFetchingRequest>,
 	/// Receiver for incoming candidate requests.
@@ -163,7 +165,8 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		candidate_validation_config,
 		availability_config,
 		pov_req_receiver,
-		chunk_req_receiver,
+		chunk_req_v1_receiver,
+		chunk_req_v2_receiver,
 		statement_req_receiver,
 		candidate_req_v2_receiver,
 		approval_voting_config,
@@ -226,7 +229,7 @@ where
 			network_service.clone(),
 			authority_discovery_service.clone(),
 			network_bridge_metrics.clone(),
-			req_protocol_names,
+			req_protocol_names.clone(),
 			peerset_protocol_names.clone(),
 			notification_sinks.clone(),
 		))
@@ -241,12 +244,18 @@ where
 		))
 		.availability_distribution(AvailabilityDistributionSubsystem::new(
 			keystore.clone(),
-			IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+			IncomingRequestReceivers {
+				pov_req_receiver,
+				chunk_req_v1_receiver,
+				chunk_req_v2_receiver,
+			},
+			req_protocol_names.clone(),
 			Metrics::register(registry)?,
 		))
-		.availability_recovery(AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
+		.availability_recovery(AvailabilityRecoverySubsystem::for_validator(
 			fetch_chunks_threshold,
 			available_data_req_receiver,
+			&req_protocol_names,
 			Metrics::register(registry)?,
 		))
 		.availability_store(AvailabilityStoreSubsystem::new(
@@ -412,7 +421,7 @@ where
 			network_service.clone(),
 			authority_discovery_service.clone(),
 			network_bridge_metrics.clone(),
-			req_protocol_names,
+			req_protocol_names.clone(),
 			peerset_protocol_names.clone(),
 			notification_sinks.clone(),
 		))
@@ -429,6 +438,7 @@ where
 		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
 			None,
 			available_data_req_receiver,
+			&req_protocol_names,
 			Metrics::register(registry)?,
 		))
 		.availability_store(DummySubsystem)

@@ -26,9 +26,9 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, GroupRotationInfo,
-	IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex, SessionInfo,
-	ValidatorIndex,
+	node_features, AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex,
+	GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex,
+	SessionInfo, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
@@ -41,6 +41,8 @@ const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
 pub struct RuntimeApiState {
 	// All authorities in the test,
 	authorities: TestAuthorities,
+	// Node features state in the runtime
+	node_features: NodeFeatures,
 	// Candidate hashes per block
 	candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
 	// Included candidates per bock
@@ -76,6 +78,9 @@ impl MockRuntimeApi {
 		session_index: SessionIndex,
 		core_state: MockRuntimeApiCoreState,
 	) -> MockRuntimeApi {
+		// Enable chunk mapping feature to make systematic av-recovery possible.
+		let node_features = node_features_with_chunk_mapping_enabled();
+
 		Self {
 			state: RuntimeApiState {
 				authorities,
@@ -83,6 +88,7 @@ impl MockRuntimeApi {
 				included_candidates,
 				babe_epoch,
 				session_index,
+				node_features,
 			},
 			config,
 			core_state,
@@ -168,15 +174,15 @@ impl MockRuntimeApi {
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
+							RuntimeApiRequest::NodeFeatures(_session_index, sender),
+						) => {
+							let _ = sender.send(Ok(self.state.node_features.clone()));
+						},
+						RuntimeApiMessage::Request(
+							_block_hash,
 							RuntimeApiRequest::SessionExecutorParams(_session_index, sender),
 						) => {
 							let _ = sender.send(Ok(Some(Default::default())));
-						},
-						RuntimeApiMessage::Request(
-							_request,
-							RuntimeApiRequest::NodeFeatures(_session_index, sender),
-						) => {
-							let _ = sender.send(Ok(NodeFeatures::EMPTY));
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
@@ -291,4 +297,11 @@ impl MockRuntimeApi {
 			}
 		}
 	}
+}
+
+pub fn node_features_with_chunk_mapping_enabled() -> NodeFeatures {
+	let mut node_features = NodeFeatures::new();
+	node_features.resize(node_features::FeatureIndex::AvailabilityChunkMapping as usize + 1, false);
+	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as u8 as usize, true);
+	node_features
 }

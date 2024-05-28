@@ -1,0 +1,48 @@
+[settings]
+timeout = 1000
+bootnode = true
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+  max_validators_per_core = 2
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config]
+  needed_approvals = 4
+
+[relaychain]
+default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+chain = "rococo-local"
+default_command = "polkadot"
+
+[relaychain.default_resources]
+limits = { memory = "4G", cpu = "2" }
+requests = { memory = "2G", cpu = "1" }
+
+  [[relaychain.node_groups]]
+  # Use an image that doesn't speak /req_chunk/2 protocol.
+  image = "{{POLKADOT_IMAGE}}:master-bde0bbe5"
+  name = "old"
+  count = 2
+  args = ["-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace"]
+
+  [[relaychain.node_groups]]
+  name = "new"
+  count = 2
+  args = ["-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace,sub-libp2p=trace"]
+
+{% for id in range(2000,2002) %}
+[[parachains]]
+id = {{id}}
+addToGenesis = true
+cumulus_based = true
+chain = "glutton-westend-local-{{id}}"
+    [parachains.genesis.runtimeGenesis.patch.glutton]
+    compute = "50000000"
+    storage = "2500000000"
+    trashDataCount = 5120
+
+    [parachains.collator]
+    name = "collator"
+    image = "{{CUMULUS_IMAGE}}"
+    args = ["-lparachain=debug"]
+
+{% endfor %}
