@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716901853477,
+  "lastUpdate": 1716912843190,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -167,6 +167,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04928162677200004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bolaji Ahmad",
+            "username": "bolajahmad",
+            "email": "56865496+bolajahmad@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "650b124fd81f4a438c212cb010cc0a730bac5c2d",
+          "message": "Improve On_demand_assigner events (#4339)\n\ntitle: Improving `on_demand_assigner` emitted events\n\ndoc:\n  - audience: Rutime User\ndescription: OnDemandOrderPlaced event that is useful for indexers to\nsave data related to on demand orders. Check [discussion\nhere](https://substrate.stackexchange.com/questions/11366/ondemandassignmentprovider-ondemandorderplaced-event-was-removed/11389#11389).\n\nCloses #4254 \n\ncrates: [ 'runtime-parachain]\n\n---------\n\nCo-authored-by: Maciej <maciej.zyszkiewicz@parity.io>",
+          "timestamp": "2024-05-28T14:44:58Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/650b124fd81f4a438c212cb010cc0a730bac5c2d"
+        },
+        "date": 1716912815140,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94999999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036255953064,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045810916002,
             "unit": "seconds"
           }
         ]
