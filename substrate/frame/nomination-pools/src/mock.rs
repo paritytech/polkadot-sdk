@@ -18,7 +18,8 @@
 use super::*;
 use crate::{self as pools};
 use frame_support::{
-	assert_ok, derive_impl, ord_parameter_types, parameter_types, traits::fungible::Mutate,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
+	traits::{fungible::Mutate, VariantCountOf},
 	PalletId,
 };
 use frame_system::{EnsureSignedBy, RawOrigin};
@@ -280,9 +281,9 @@ impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
 	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pub struct BalanceToU256;
