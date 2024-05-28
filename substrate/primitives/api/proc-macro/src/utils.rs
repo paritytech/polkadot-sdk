@@ -40,6 +40,10 @@ pub fn generate_crate_access() -> TokenStream {
 				let path = format!("{}::deps::sp_api::__private", name);
 				let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
 				quote!( #path )
+			} else if let Ok(FoundCrate::Name(name)) = crate_name(&"polkadot-sdk") {
+				let path = format!("{}::sp_api::__private", name);
+				let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
+				quote!( #path )
 			} else {
 				let err = Error::new(Span::call_site(), e).to_compile_error();
 				quote!( #err )

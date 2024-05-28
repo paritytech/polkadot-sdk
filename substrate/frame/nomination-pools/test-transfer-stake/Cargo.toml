@@ -1,5 +1,5 @@
 [package]
-name = "pallet-nomination-pools-test-staking"
+name = "pallet-nomination-pools-test-transfer-stake"
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
