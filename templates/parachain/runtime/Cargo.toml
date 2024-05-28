@@ -9,17 +9,15 @@ repository.workspace = true
 edition.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }
+docify = "0.2.8"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
 hex-literal = { version = "0.4.1", optional = true }
@@ -36,6 +34,7 @@ pallet-parachain-template = { path = "../pallets/template", default-features = f
 # Substrate / FRAME
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
@@ -77,9 +76,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../cumulus/pallets/aura-ext", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../cumulus/pallets/parachain-system", default-features = false, features = [
-	"parameterized-consensus-hook",
-] }
+cumulus-pallet-parachain-system = { path = "../../../cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "../../../cumulus/pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../cumulus/pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../cumulus/pallets/xcmp-queue", default-features = false }
@@ -106,6 +103,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -197,3 +195,16 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+# Enable the metadata hash generation.
+#
+# This is hidden behind a feature because it increases the compile time.
+# The wasm binary needs to be compiled twice, once to fetch the metadata,
+# generate the metadata hash and then a second time with the
+# `RUNTIME_METADATA_HASH` environment variable set for the `CheckMetadataHash`
+# extension.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
+# A convenience feature for enabling things when doing a build
+# for an on-chain release.
+on-chain-release-build = ["metadata-hash"]

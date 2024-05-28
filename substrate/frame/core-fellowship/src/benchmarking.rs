@@ -54,11 +54,12 @@ mod benchmarks {
 	}
 
 	fn set_benchmark_params<T: Config<I>, I: 'static>() -> Result<(), BenchmarkError> {
+		let max_rank = T::MaxRank::get().try_into().unwrap();
 		let params = ParamsType {
-			active_salary: [100u32.into(); 9],
-			passive_salary: [10u32.into(); 9],
-			demotion_period: [100u32.into(); 9],
-			min_promotion_period: [100u32.into(); 9],
+			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			offboard_timeout: 1u32.into(),
 		};
 
@@ -68,11 +69,12 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_params() -> Result<(), BenchmarkError> {
+		let max_rank = T::MaxRank::get().try_into().unwrap();
 		let params = ParamsType {
-			active_salary: [100u32.into(); 9],
-			passive_salary: [10u32.into(); 9],
-			demotion_period: [100u32.into(); 9],
-			min_promotion_period: [100u32.into(); 9],
+			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			offboard_timeout: 1u32.into(),
 		};
 
@@ -151,10 +153,14 @@ mod benchmarks {
 	fn promote() -> Result<(), BenchmarkError> {
 		// Ensure that the `min_promotion_period` wont get in our way.
 		let mut params = Params::<T, I>::get();
-		params.min_promotion_period = [Zero::zero(); RANK_COUNT];
+		let max_rank = T::MaxRank::get().try_into().unwrap();
+		params.min_promotion_period = BoundedVec::try_from(vec![Zero::zero(); max_rank]).unwrap();
 		Params::<T, I>::put(&params);
 
 		let member = make_member::<T, I>(1)?;
+
+		// Set it to the max value to ensure that any possible auto-demotion period has passed.
+		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
 
 		#[extrinsic_call]

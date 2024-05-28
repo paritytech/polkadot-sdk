@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"], default-features = false }
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
@@ -28,6 +28,7 @@ polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-f
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
@@ -46,11 +47,8 @@ sp-core = { path = "../../../substrate/primitives/core" }
 pallet-balances = { path = "../../../substrate/frame/balances" }
 frame-support = { path = "../../../substrate/frame/support", features = ["experimental"] }
 
-# Polkadot
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder" }
-
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../parachain-system", features = ["parameterized-consensus-hook"] }
+cumulus-pallet-parachain-system = { path = "../parachain-system" }
 
 [features]
 default = ["std"]
@@ -71,6 +69,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
