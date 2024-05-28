@@ -152,7 +152,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 		message: AvailabilityRecoveryMessage,
 		origin: &'static str,
 	) {
-		let AvailabilityRecoveryMessage::RecoverAvailableData(ref receipt, _, _, _) = message;
+		let AvailabilityRecoveryMessage::RecoverAvailableData(ref receipt, _, _, _, _) = message;
 		let candidate_hash = receipt.hash();
 
 		// For every 3rd block we immediately signal unavailability to trigger
@@ -160,7 +160,8 @@ impl RecoveryHandle for FailingRecoveryHandle {
 		if self.counter % 3 == 0 && self.failed_hashes.insert(candidate_hash) {
 			tracing::info!(target: LOG_TARGET, ?candidate_hash, "Failing pov recovery.");
 
-			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, back_sender) = message;
+			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, back_sender) =
+				message;
 			back_sender
 				.send(Err(RecoveryError::Unavailable))
 				.expect("Return channel should work here.");
