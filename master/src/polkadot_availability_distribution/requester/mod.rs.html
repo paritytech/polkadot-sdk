@@ -499,6 +499,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -519,10 +550,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! availability.
 
 </span><span class="kw">use </span>std::{
-	collections::{
-		hash_map::{Entry, HashMap},
-		hash_set::HashSet,
-	},
+	collections::{hash_map::HashMap, hash_set::HashSet},
 	iter::IntoIterator,
 	pin::Pin,
 };
@@ -533,13 +561,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Stream,
 };
 
+<span class="kw">use </span>polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 <span class="kw">use </span>polkadot_node_subsystem::{
 	jaeger,
 	messages::{ChainApiMessage, RuntimeApiMessage},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
-<span class="kw">use </span>polkadot_node_subsystem_util::runtime::{get_occupied_cores, RuntimeInfo};
-<span class="kw">use </span>polkadot_primitives::{CandidateHash, Hash, OccupiedCore, SessionIndex};
+<span class="kw">use </span>polkadot_node_subsystem_util::{
+	availability_chunks::availability_chunk_index,
+	runtime::{get_occupied_cores, RuntimeInfo},
+};
+<span class="kw">use </span>polkadot_primitives::{CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex};
 
 <span class="kw">use super</span>::{FatalError, Metrics, <span class="prelude-ty">Result</span>, LOG_TARGET};
 
@@ -578,6 +610,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Prometheus Metrics
 	</span>metrics: Metrics,
+
+	<span class="doccomment">/// Mapping of the req-response protocols to the full protocol names.
+	</span>req_protocol_names: ReqProtocolNames,
 }
 
 <span class="attr">#[overseer::contextbounds(AvailabilityDistribution, prefix = <span class="self">self</span>::overseer)]
@@ -589,9 +624,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// You must feed it with `ActiveLeavesUpdate` via `update_fetching_heads` and make it progress
 	/// by advancing the stream.
-	</span><span class="kw">pub fn </span>new(metrics: Metrics) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(req_protocol_names: ReqProtocolNames, metrics: Metrics) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>(tx, rx) = mpsc::channel(<span class="number">1</span>);
-		Requester { fetches: HashMap::new(), session_cache: SessionCache::new(), tx, rx, metrics }
+		Requester {
+			fetches: HashMap::new(),
+			session_cache: SessionCache::new(),
+			tx,
+			rx,
+			metrics,
+			req_protocol_names,
+		}
 	}
 
 	<span class="doccomment">/// Update heads that need availability distribution.
@@ -698,56 +740,76 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		runtime: <span class="kw-2">&amp;mut </span>RuntimeInfo,
 		leaf: Hash,
 		leaf_session_index: SessionIndex,
-		cores: <span class="kw">impl </span>IntoIterator&lt;Item = OccupiedCore&gt;,
+		cores: <span class="kw">impl </span>IntoIterator&lt;Item = (CoreIndex, OccupiedCore)&gt;,
 		span: jaeger::Span,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-		<span class="kw">for </span>core <span class="kw">in </span>cores {
+		<span class="kw">for </span>(core_index, core) <span class="kw">in </span>cores {
 			<span class="kw">let </span><span class="kw-2">mut </span>span = span
 				.child(<span class="string">"check-fetch-candidate"</span>)
 				.with_trace_id(core.candidate_hash)
 				.with_string_tag(<span class="string">"leaf"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, leaf))
 				.with_candidate(core.candidate_hash)
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
-			<span class="kw">match </span><span class="self">self</span>.fetches.entry(core.candidate_hash) {
-				Entry::Occupied(<span class="kw-2">mut </span>e) =&gt;
+
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.fetches.get_mut(<span class="kw-2">&amp;</span>core.candidate_hash) {
 				<span class="comment">// Just book keeping - we are already requesting that chunk:
-				</span>{
-					span.add_string_tag(<span class="string">"already-requested-chunk"</span>, <span class="string">"true"</span>);
-					e.get_mut().add_leaf(leaf);
-				},
-				Entry::Vacant(e) =&gt; {
-					span.add_string_tag(<span class="string">"already-requested-chunk"</span>, <span class="string">"false"</span>);
-					<span class="kw">let </span>tx = <span class="self">self</span>.tx.clone();
-					<span class="kw">let </span>metrics = <span class="self">self</span>.metrics.clone();
+				</span>span.add_string_tag(<span class="string">"already-requested-chunk"</span>, <span class="string">"true"</span>);
+				e.add_leaf(leaf);
+			} <span class="kw">else </span>{
+				span.add_string_tag(<span class="string">"already-requested-chunk"</span>, <span class="string">"false"</span>);
+				<span class="kw">let </span>tx = <span class="self">self</span>.tx.clone();
+				<span class="kw">let </span>metrics = <span class="self">self</span>.metrics.clone();
 
-					<span class="kw">let </span>task_cfg = <span class="self">self
-						</span>.session_cache
-						.with_session_info(
-							context,
-							runtime,
-							<span class="comment">// We use leaf here, the relay_parent must be in the same session as
-							// the leaf. This is guaranteed by runtime which ensures that cores are
-							// cleared at session boundaries. At the same time, only leaves are
-							// guaranteed to be fetchable by the state trie.
-							</span>leaf,
-							leaf_session_index,
-							|info| FetchTaskConfig::new(leaf, <span class="kw-2">&amp;</span>core, tx, metrics, info, span),
-						)
-						.<span class="kw">await
-						</span>.map_err(|err| {
-							<span class="macro">gum::warn!</span>(
-								target: LOG_TARGET,
-								error = <span class="question-mark">?</span>err,
-								<span class="string">"Failed to spawn a fetch task"
-							</span>);
-							err
+				<span class="kw">let </span>session_info = <span class="self">self
+					</span>.session_cache
+					.get_session_info(
+						context,
+						runtime,
+						<span class="comment">// We use leaf here, the relay_parent must be in the same session as
+						// the leaf. This is guaranteed by runtime which ensures that cores are
+						// cleared at session boundaries. At the same time, only leaves are
+						// guaranteed to be fetchable by the state trie.
+						</span>leaf,
+						leaf_session_index,
+					)
+					.<span class="kw">await
+					</span>.map_err(|err| {
+						<span class="macro">gum::warn!</span>(
+							target: LOG_TARGET,
+							error = <span class="question-mark">?</span>err,
+							<span class="string">"Failed to spawn a fetch task"
+						</span>);
+						err
+					})<span class="question-mark">?</span>;
+
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(session_info) = session_info {
+					<span class="kw">let </span>n_validators =
+						session_info.validator_groups.iter().fold(<span class="number">0usize</span>, |<span class="kw-2">mut </span>acc, group| {
+							acc = acc.saturating_add(group.len());
+							acc
 						});
+					<span class="kw">let </span>chunk_index = availability_chunk_index(
+						session_info.node_features.as_ref(),
+						n_validators,
+						core_index,
+						session_info.our_index,
+					)<span class="question-mark">?</span>;
 
-					<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(task_cfg)) = task_cfg {
-						e.insert(FetchTask::start(task_cfg, context).<span class="kw">await</span><span class="question-mark">?</span>);
-					}
-					<span class="comment">// Not a validator, nothing to do.
-				</span>},
+					<span class="kw">let </span>task_cfg = FetchTaskConfig::new(
+						leaf,
+						<span class="kw-2">&amp;</span>core,
+						tx,
+						metrics,
+						session_info,
+						chunk_index,
+						span,
+						<span class="self">self</span>.req_protocol_names.get_name(v1::ChunkFetchingRequest::PROTOCOL),
+						<span class="self">self</span>.req_protocol_names.get_name(v2::ChunkFetchingRequest::PROTOCOL),
+					);
+
+					<span class="self">self</span>.fetches
+						.insert(core.candidate_hash, FetchTask::start(task_cfg, context).<span class="kw">await</span><span class="question-mark">?</span>);
+				}
 			}
 		}
 		<span class="prelude-val">Ok</span>(())

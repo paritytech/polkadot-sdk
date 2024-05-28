@@ -1668,6 +1668,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1517" id="1517">1517</a>
 <a href="#1518" id="1518">1518</a>
 <a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2585,7 +2589,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>(pov_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>(chunk_req_receiver, cfg) =
+	<span class="kw">let </span>(chunk_req_v1_receiver, cfg) =
+		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
+	net_config.add_request_response_protocol(cfg);
+	<span class="kw">let </span>(chunk_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
@@ -2670,7 +2677,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			candidate_validation_config,
 			availability_config: AVAILABILITY_CONFIG,
 			pov_req_receiver,
-			chunk_req_receiver,
+			chunk_req_v1_receiver,
+			chunk_req_v2_receiver,
 			statement_req_receiver,
 			candidate_req_v2_receiver,
 			approval_voting_config,

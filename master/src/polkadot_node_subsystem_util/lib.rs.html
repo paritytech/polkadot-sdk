@@ -716,16 +716,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![warn(missing_docs)]
 
-</span><span class="kw">use </span>polkadot_node_subsystem::{
+</span><span class="kw">pub use </span>overseer::{
+	gen::{OrchestraError <span class="kw">as </span>OverseerError, Timeout},
+	Subsystem, TimeoutExt,
+};
+<span class="kw">use </span>polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
-};
-<span class="kw">use </span>polkadot_primitives::{async_backing::BackingState, slashing, CoreIndex, ExecutorParams};
-
-<span class="kw">pub use </span>overseer::{
-	gen::{OrchestraError <span class="kw">as </span>OverseerError, Timeout},
-	Subsystem, TimeoutExt,
 };
 
 <span class="kw">pub use </span>polkadot_node_metrics::{metrics, Metronome};
@@ -734,11 +732,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>parity_scale_codec::Encode;
 
 <span class="kw">use </span>polkadot_primitives::{
-	AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, EncodeAs, GroupIndex, GroupRotationInfo, Hash,
-	Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing::BackingState, slashing, AsyncBackingParams, AuthorityDiscoveryId,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	SigningContext, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 <span class="kw">pub use </span>rand;
 <span class="kw">use </span>sp_application_crypto::AppCrypto;
@@ -751,10 +750,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>vstaging::get_disabled_validators_with_fallback;
 
+<span class="kw">pub use </span>determine_new_blocks::determine_new_blocks;
 <span class="kw">pub use </span>metered;
 <span class="kw">pub use </span>polkadot_node_network_protocol::MIN_GOSSIP_PEERS;
-
-<span class="kw">pub use </span>determine_new_blocks::determine_new_blocks;
 
 <span class="doccomment">/// These reexports are required so that external crates can use the `delegated_subsystem` macro
 /// properly.
@@ -762,6 +760,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>polkadot_overseer::gen::{SpawnedSubsystem, Spawner, Subsystem, SubsystemContext};
 }
 
+<span class="doccomment">/// Helpers for the validator-&gt;chunk index mapping.
+</span><span class="kw">pub mod </span>availability_chunks;
 <span class="doccomment">/// A utility for managing the implicit view of the relay-chain derived from active
 /// leaves and the minimum allowed relay-parents that parachain candidates can have
 /// and be backed in those leaves' children.

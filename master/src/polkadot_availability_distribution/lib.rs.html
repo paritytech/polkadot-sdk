@@ -348,6 +348,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -368,7 +389,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>sp_keystore::KeystorePtr;
 
-<span class="kw">use </span>polkadot_node_network_protocol::request_response::{v1, IncomingRequestReceiver};
+<span class="kw">use </span>polkadot_node_network_protocol::request_response::{
+	v1, v2, IncomingRequestReceiver, ReqProtocolNames,
+};
 <span class="kw">use </span>polkadot_node_subsystem::{
 	jaeger, messages::AvailabilityDistributionMessage, overseer, FromOrchestra, OverseerSignal,
 	SpawnedSubsystem, SubsystemError,
@@ -391,7 +414,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Responding to erasure chunk requests:
 </span><span class="kw">mod </span>responder;
-<span class="kw">use </span>responder::{run_chunk_receiver, run_pov_receiver};
+<span class="kw">use </span>responder::{run_chunk_receivers, run_pov_receiver};
 
 <span class="kw">mod </span>metrics;
 <span class="doccomment">/// Prometheus `Metrics` for availability distribution.
@@ -408,6 +431,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>runtime: RuntimeInfo,
 	<span class="doccomment">/// Receivers to receive messages from.
 	</span>recvs: IncomingRequestReceivers,
+	<span class="doccomment">/// Mapping of the req-response protocols to the full protocol names.
+	</span>req_protocol_names: ReqProtocolNames,
 	<span class="doccomment">/// Prometheus metrics.
 	</span>metrics: Metrics,
 }
@@ -416,8 +441,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>IncomingRequestReceivers {
 	<span class="doccomment">/// Receiver for incoming PoV requests.
 	</span><span class="kw">pub </span>pov_req_receiver: IncomingRequestReceiver&lt;v1::PoVFetchingRequest&gt;,
-	<span class="doccomment">/// Receiver for incoming availability chunk requests.
-	</span><span class="kw">pub </span>chunk_req_receiver: IncomingRequestReceiver&lt;v1::ChunkFetchingRequest&gt;,
+	<span class="doccomment">/// Receiver for incoming v1 availability chunk requests.
+	</span><span class="kw">pub </span>chunk_req_v1_receiver: IncomingRequestReceiver&lt;v1::ChunkFetchingRequest&gt;,
+	<span class="doccomment">/// Receiver for incoming v2 availability chunk requests.
+	</span><span class="kw">pub </span>chunk_req_v2_receiver: IncomingRequestReceiver&lt;v2::ChunkFetchingRequest&gt;,
 }
 
 <span class="attr">#[overseer::subsystem(AvailabilityDistribution, error=SubsystemError, prefix=<span class="self">self</span>::overseer)]
@@ -435,18 +462,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[overseer::contextbounds(AvailabilityDistribution, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">impl </span>AvailabilityDistributionSubsystem {
 	<span class="doccomment">/// Create a new instance of the availability distribution.
-	</span><span class="kw">pub fn </span>new(keystore: KeystorePtr, recvs: IncomingRequestReceivers, metrics: Metrics) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(
+		keystore: KeystorePtr,
+		recvs: IncomingRequestReceivers,
+		req_protocol_names: ReqProtocolNames,
+		metrics: Metrics,
+	) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>runtime = RuntimeInfo::new(<span class="prelude-val">Some</span>(keystore));
-		<span class="self">Self </span>{ runtime, recvs, metrics }
+		<span class="self">Self </span>{ runtime, recvs, req_protocol_names, metrics }
 	}
 
 	<span class="doccomment">/// Start processing work as passed on from the Overseer.
 	</span><span class="kw">async fn </span>run&lt;Context&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>ctx: Context) -&gt; std::result::Result&lt;(), FatalError&gt; {
-		<span class="kw">let </span><span class="self">Self </span>{ <span class="kw-2">mut </span>runtime, recvs, metrics } = <span class="self">self</span>;
+		<span class="kw">let </span><span class="self">Self </span>{ <span class="kw-2">mut </span>runtime, recvs, metrics, req_protocol_names } = <span class="self">self</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>spans: HashMap&lt;Hash, jaeger::PerLeafSpan&gt; = HashMap::new();
 
-		<span class="kw">let </span>IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver } = recvs;
-		<span class="kw">let </span><span class="kw-2">mut </span>requester = Requester::new(metrics.clone()).fuse();
+		<span class="kw">let </span>IncomingRequestReceivers {
+			pov_req_receiver,
+			chunk_req_v1_receiver,
+			chunk_req_v2_receiver,
+		} = recvs;
+		<span class="kw">let </span><span class="kw-2">mut </span>requester = Requester::new(req_protocol_names, metrics.clone()).fuse();
 		<span class="kw">let </span><span class="kw-2">mut </span>warn_freq = gum::Freq::new();
 
 		{
@@ -459,7 +495,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			ctx.spawn(
 				<span class="string">"chunk-receiver"</span>,
-				run_chunk_receiver(sender, chunk_req_receiver, metrics.clone()).boxed(),
+				run_chunk_receivers(
+					sender,
+					chunk_req_v1_receiver,
+					chunk_req_v2_receiver,
+					metrics.clone(),
+				)
+				.boxed(),
 			)
 			.map_err(FatalError::SpawnTask)<span class="question-mark">?</span>;
 		}

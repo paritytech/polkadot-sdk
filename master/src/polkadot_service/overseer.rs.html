@@ -697,6 +697,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -818,8 +828,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>availability_config: AvailabilityConfig,
 	<span class="doccomment">/// POV request receiver.
 	</span><span class="kw">pub </span>pov_req_receiver: IncomingRequestReceiver&lt;request_v1::PoVFetchingRequest&gt;,
-	<span class="doccomment">/// Erasure chunks request receiver.
-	</span><span class="kw">pub </span>chunk_req_receiver: IncomingRequestReceiver&lt;request_v1::ChunkFetchingRequest&gt;,
+	<span class="doccomment">/// Erasure chunk request v1 receiver.
+	</span><span class="kw">pub </span>chunk_req_v1_receiver: IncomingRequestReceiver&lt;request_v1::ChunkFetchingRequest&gt;,
+	<span class="doccomment">/// Erasure chunk request v2 receiver.
+	</span><span class="kw">pub </span>chunk_req_v2_receiver: IncomingRequestReceiver&lt;request_v2::ChunkFetchingRequest&gt;,
 	<span class="doccomment">/// Receiver for incoming large statement requests.
 	</span><span class="kw">pub </span>statement_req_receiver: IncomingRequestReceiver&lt;request_v1::StatementFetchingRequest&gt;,
 	<span class="doccomment">/// Receiver for incoming candidate requests.
@@ -862,7 +874,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		candidate_validation_config,
 		availability_config,
 		pov_req_receiver,
-		chunk_req_receiver,
+		chunk_req_v1_receiver,
+		chunk_req_v2_receiver,
 		statement_req_receiver,
 		candidate_req_v2_receiver,
 		approval_voting_config,
@@ -925,7 +938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			network_service.clone(),
 			authority_discovery_service.clone(),
 			network_bridge_metrics.clone(),
-			req_protocol_names,
+			req_protocol_names.clone(),
 			peerset_protocol_names.clone(),
 			notification_sinks.clone(),
 		))
@@ -940,12 +953,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		))
 		.availability_distribution(AvailabilityDistributionSubsystem::new(
 			keystore.clone(),
-			IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+			IncomingRequestReceivers {
+				pov_req_receiver,
+				chunk_req_v1_receiver,
+				chunk_req_v2_receiver,
+			},
+			req_protocol_names.clone(),
 			Metrics::register(registry)<span class="question-mark">?</span>,
 		))
-		.availability_recovery(AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
+		.availability_recovery(AvailabilityRecoverySubsystem::for_validator(
 			fetch_chunks_threshold,
 			available_data_req_receiver,
+			<span class="kw-2">&amp;</span>req_protocol_names,
 			Metrics::register(registry)<span class="question-mark">?</span>,
 		))
 		.availability_store(AvailabilityStoreSubsystem::new(
@@ -1111,7 +1130,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			network_service.clone(),
 			authority_discovery_service.clone(),
 			network_bridge_metrics.clone(),
-			req_protocol_names,
+			req_protocol_names.clone(),
 			peerset_protocol_names.clone(),
 			notification_sinks.clone(),
 		))
@@ -1128,6 +1147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
 			<span class="prelude-val">None</span>,
 			available_data_req_receiver,
+			<span class="kw-2">&amp;</span>req_protocol_names,
 			Metrics::register(registry)<span class="question-mark">?</span>,
 		))
 		.availability_store(DummySubsystem)

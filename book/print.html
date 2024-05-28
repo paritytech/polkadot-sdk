@@ -5485,80 +5485,101 @@ this happens in the <code>responder</code> module.</p>
 <p>We rely on the backing subsystem to make available data available locally in the <code>Availability Store</code> after it has
 validated it.</p>
 <footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="availability-recovery"><a class="header" href="#availability-recovery">Availability Recovery</a></h1>
-<p>This subsystem is the inverse of the <a href="node/availability/availability-distribution.html">Availability Distribution</a> subsystem: validators
-will serve the availability chunks kept in the availability store to nodes who connect to them. And the subsystem will
-also implement the other side: the logic for nodes to connect to validators, request availability pieces, and
-reconstruct the <code>AvailableData</code>.</p>
-<p>This version of the availability recovery subsystem is based off of direct connections to validators. In order to
-recover any given <code>AvailableData</code>, we must recover at least <code>f + 1</code> pieces from validators of the session. Thus, we will
-connect to and query randomly chosen validators until we have received <code>f + 1</code> pieces.</p>
+<p>This subsystem is responsible for recovering the data made available via the
+<a href="node/availability/availability-distribution.html">Availability Distribution</a> subsystem, neccessary for candidate validation during the
+approval/disputes processes. Additionally, it is also being used by collators to recover PoVs in adversarial scenarios
+where the other collators of the para are censoring blocks.</p>
+<p>According to the Polkadot protocol, in order to recover any given <code>AvailableData</code>, we generally must recover at least
+<code>f + 1</code> pieces from validators of the session. Thus, we should connect to and query randomly chosen validators until we
+have received <code>f + 1</code> pieces.</p>
+<p>In practice, there are various optimisations implemented in this subsystem which avoid querying all chunks from
+different validators and/or avoid doing the chunk reconstruction altogether.</p>
 <h2 id="protocol-8"><a class="header" href="#protocol-8">Protocol</a></h2>
-<p><code>PeerSet</code>: <code>Validation</code></p>
+<p>This version of the availability recovery subsystem is based only on request-response network protocols.</p>
 <p>Input:</p>
 <ul>
-<li><code>NetworkBridgeUpdate(update)</code></li>
-<li><code>AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session, backing_group, response)</code></li>
+<li><code>AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session, backing_group, core_index, response)</code></li>
 </ul>
 <p>Output:</p>
 <ul>
-<li><code>NetworkBridge::SendValidationMessage</code></li>
-<li><code>NetworkBridge::ReportPeer</code></li>
-<li><code>AvailabilityStore::QueryChunk</code></li>
+<li><code>NetworkBridgeMessage::SendRequests</code></li>
+<li><code>AvailabilityStoreMessage::QueryAllChunks</code></li>
+<li><code>AvailabilityStoreMessage::QueryAvailableData</code></li>
+<li><code>AvailabilityStoreMessage::QueryChunkSize</code></li>
 </ul>
 <h2 id="functionality-5"><a class="header" href="#functionality-5">Functionality</a></h2>
-<p>We hold a state which tracks the currently ongoing recovery tasks, as well as which request IDs correspond to which
-task. A recovery task is a structure encapsulating all recovery tasks with the network necessary to recover the
-available data in respect to one candidate.</p>
+<p>We hold a state which tracks the currently ongoing recovery tasks. A <code>RecoveryTask</code> is a structure encapsulating all
+network tasks needed in order to recover the available data in respect to a candidate.</p>
+<p>Each <code>RecoveryTask</code> has a collection of ordered recovery strategies to try.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>struct State {
-    /// Each recovery is implemented as an independent async task, and the handles only supply information about the result.
-    ongoing_recoveries: FuturesUnordered&lt;RecoveryHandle&gt;,
-    /// A recent block hash for which state should be available.
-    live_block_hash: Hash,
-    // An LRU cache of recently recovered data.
-    availability_lru: LruMap&lt;CandidateHash, Result&lt;AvailableData, RecoveryError&gt;&gt;,
+</span>/// Subsystem state.
+struct State {
+  /// Each recovery task is implemented as its own async task,
+  /// and these handles are for communicating with them.
+  ongoing_recoveries: FuturesUnordered&lt;RecoveryHandle&gt;,
+  /// A recent block hash for which state should be available.
+  live_block: (BlockNumber, Hash),
+  /// An LRU cache of recently recovered data.
+  availability_lru: LruMap&lt;CandidateHash, CachedRecovery&gt;,
+  /// Cached runtime info.
+  runtime_info: RuntimeInfo,
 }
 
-/// This is a future, which concludes either when a response is received from the recovery tasks,
-/// or all the `awaiting` channels have closed.
-struct RecoveryHandle {
-    candidate_hash: CandidateHash,
-    interaction_response: RemoteHandle&lt;Concluded&gt;,
-    awaiting: Vec&lt;ResponseChannel&lt;Result&lt;AvailableData, RecoveryError&gt;&gt;&gt;,
+struct RecoveryParams {
+  /// Discovery ids of `validators`.
+  pub validator_authority_keys: Vec&lt;AuthorityDiscoveryId&gt;,
+  /// Number of validators.
+  pub n_validators: usize,
+  /// The number of regular chunks needed.
+  pub threshold: usize,
+  /// The number of systematic chunks needed.
+  pub systematic_threshold: usize,
+  /// A hash of the relevant candidate.
+  pub candidate_hash: CandidateHash,
+  /// The root of the erasure encoding of the candidate.
+  pub erasure_root: Hash,
+  /// Metrics to report.
+  pub metrics: Metrics,
+  /// Do not request data from availability-store. Useful for collators.
+  pub bypass_availability_store: bool,
+  /// The type of check to perform after available data was recovered.
+  pub post_recovery_check: PostRecoveryCheck,
+  /// The blake2-256 hash of the PoV.
+  pub pov_hash: Hash,
+  /// Protocol name for ChunkFetchingV1.
+  pub req_v1_protocol_name: ProtocolName,
+  /// Protocol name for ChunkFetchingV2.
+  pub req_v2_protocol_name: ProtocolName,
+  /// Whether or not chunk mapping is enabled.
+  pub chunk_mapping_enabled: bool,
+  /// Channel to the erasure task handler.
+	pub erasure_task_tx: mpsc::Sender&lt;ErasureTask&gt;,
 }
 
-struct Unavailable;
-struct Concluded(CandidateHash, Result&lt;AvailableData, RecoveryError&gt;);
-
-struct RecoveryTaskParams {
-    validator_authority_keys: Vec&lt;AuthorityId&gt;,
-    validators: Vec&lt;ValidatorId&gt;,
-    // The number of pieces needed.
-    threshold: usize,
-    candidate_hash: Hash,
-    erasure_root: Hash,
+pub struct RecoveryTask&lt;Sender: overseer::AvailabilityRecoverySenderTrait&gt; {
+	sender: Sender,
+	params: RecoveryParams,
+	strategies: VecDeque&lt;Box&lt;dyn RecoveryStrategy&lt;Sender&gt;&gt;&gt;,
+	state: task::State,
 }
 
-enum RecoveryTask {
-    RequestFromBackers {
-        // a random shuffling of the validators from the backing group which indicates the order
-        // in which we connect to them and request the chunk.
-        shuffled_backers: Vec&lt;ValidatorIndex&gt;,
-    }
-    RequestChunksFromValidators {
-        // a random shuffling of the validators which indicates the order in which we connect to the validators and
-        // request the chunk from them.
-        shuffling: Vec&lt;ValidatorIndex&gt;,
-        received_chunks: Map&lt;ValidatorIndex, ErasureChunk&gt;,
-        requesting_chunks: FuturesUnordered&lt;Receiver&lt;ErasureChunkRequestResponse&gt;&gt;,
-    }
-}
+#[async_trait::async_trait]
+/// Common trait for runnable recovery strategies.
+pub trait RecoveryStrategy&lt;Sender: overseer::AvailabilityRecoverySenderTrait&gt;: Send {
+	/// Main entry point of the strategy.
+	async fn run(
+		mut self: Box&lt;Self&gt;,
+		state: &amp;mut task::State,
+		sender: &amp;mut Sender,
+		common_params: &amp;RecoveryParams,
+	) -&gt; Result&lt;AvailableData, RecoveryError&gt;;
 
-struct RecoveryTask {
-    to_subsystems: SubsystemSender,
-    params: RecoveryTaskParams,
-    source: Source,
+	/// Return the name of the strategy for logging purposes.
+	fn display_name(&amp;self) -&gt; &amp;'static str;
+
+	/// Return the strategy type for use as a metric label.
+	fn strategy_type(&amp;self) -&gt; &amp;'static str;
 }
 <span class="boring">}
 </span></code></pre></pre>
@@ -5566,102 +5587,59 @@ struct RecoveryTask {
 <p>On <code>ActiveLeavesUpdate</code>, if <code>activated</code> is non-empty, set <code>state.live_block_hash</code> to the first block in <code>Activated</code>.</p>
 <p>Ignore <code>BlockFinalized</code> signals.</p>
 <p>On <code>Conclude</code>, shut down the subsystem.</p>
-<h4 id="availabilityrecoverymessagerecoveravailabledatareceipt-session-optionbacking_group_index-response"><a class="header" href="#availabilityrecoverymessagerecoveravailabledatareceipt-session-optionbacking_group_index-response"><code>AvailabilityRecoveryMessage::RecoverAvailableData(receipt, session, Option&lt;backing_group_index&gt;, response)</code></a></h4>
+<h4 id="availabilityrecoverymessagerecoveravailabledata"><a class="header" href="#availabilityrecoverymessagerecoveravailabledata"><code>AvailabilityRecoveryMessage::RecoverAvailableData(...)</code></a></h4>
 <ol>
-<li>Check the <code>availability_lru</code> for the candidate and return the data if so.</li>
-<li>Check if there is already an recovery handle for the request. If so, add the response handle to it.</li>
+<li>Check the <code>availability_lru</code> for the candidate and return the data if present.</li>
+<li>Check if there is already a recovery handle for the request. If so, add the response handle to it.</li>
 <li>Otherwise, load the session info for the given session under the state of <code>live_block_hash</code>, and initiate a recovery
-task with <em><code>launch_recovery_task</code></em>. Add a recovery handle to the state and add the response channel to it.</li>
+task with <code>launch_recovery_task</code>. Add a recovery handle to the state and add the response channel to it.</li>
 <li>If the session info is not available, return <code>RecoveryError::Unavailable</code> on the response channel.</li>
 </ol>
 <h3 id="recovery-logic"><a class="header" href="#recovery-logic">Recovery logic</a></h3>
-<h4 id="launch_recovery_tasksession_index-session_info-candidate_receipt-candidate_hash-optionbacking_group_index"><a class="header" href="#launch_recovery_tasksession_index-session_info-candidate_receipt-candidate_hash-optionbacking_group_index"><code>launch_recovery_task(session_index, session_info, candidate_receipt, candidate_hash, Option&lt;backing_group_index&gt;)</code></a></h4>
-<ol>
-<li>Compute the threshold from the session info. It should be <code>f + 1</code>, where <code>n = 3f + k</code>, where <code>k in {1, 2, 3}</code>, and
-<code>n</code> is the number of validators.</li>
-<li>Set the various fields of <code>RecoveryParams</code> based on the validator lists in <code>session_info</code> and information about the
-candidate.</li>
-<li>If the <code>backing_group_index</code> is <code>Some</code>, start in the <code>RequestFromBackers</code> phase with a shuffling of the backing group
-validator indices and a <code>None</code> requesting value.</li>
-<li>Otherwise, start in the <code>RequestChunksFromValidators</code> source with <code>received_chunks</code>,<code>requesting_chunks</code>, and
-<code>next_shuffling</code> all empty.</li>
-<li>Set the <code>to_subsystems</code> sender to be equal to a clone of the <code>SubsystemContext</code>'s sender.</li>
-<li>Initialize <code>received_chunks</code> to an empty set, as well as <code>requesting_chunks</code>.</li>
-</ol>
-<p>Launch the source as a background task running <code>run(recovery_task)</code>.</p>
-<h4 id="runrecovery_task---resultavailabledata-recoveryerror"><a class="header" href="#runrecovery_task---resultavailabledata-recoveryerror"><code>run(recovery_task) -&gt; Result&lt;AvailableData, RecoveryError&gt;</code></a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// How many parallel requests to have going at once.
-const N_PARALLEL: usize = 50;
-<span class="boring">}
-</span></code></pre></pre>
-<ul>
-<li>
-<p>Request <code>AvailabilityStoreMessage::QueryAvailableData</code>. If it exists, return that.</p>
-</li>
-<li>
-<p>If the task contains <code>RequestFromBackers</code></p>
+<h4 id="handle_recover---result"><a class="header" href="#handle_recover---result"><code>handle_recover(...) -&gt; Result&lt;()&gt;</code></a></h4>
+<p>Instantiate the appropriate <code>RecoveryStrategy</code>es, based on the subsystem configuration, params and session info.
+Call <code>launch_recovery_task()</code>.</p>
+<h4 id="launch_recovery_taskstate-ctx-response_sender-recovery_strategies-params---result"><a class="header" href="#launch_recovery_taskstate-ctx-response_sender-recovery_strategies-params---result"><code>launch_recovery_task(state, ctx, response_sender, recovery_strategies, params) -&gt; Result&lt;()&gt;</code></a></h4>
+<p>Create the <code>RecoveryTask</code> and launch it as a background task running <code>recovery_task.run()</code>.</p>
+<h4 id="recovery_taskrunmut-self---resultavailabledata-recoveryerror"><a class="header" href="#recovery_taskrunmut-self---resultavailabledata-recoveryerror"><code>recovery_task.run(mut self) -&gt; Result&lt;AvailableData, RecoveryError&gt;</code></a></h4>
 <ul>
 <li>Loop:
 <ul>
-<li>If the <code>requesting_pov</code> is <code>Some</code>, poll for updates on it. If it concludes, set <code>requesting_pov</code> to <code>None</code>.</li>
-<li>If the <code>requesting_pov</code> is <code>None</code>, take the next backer off the <code>shuffled_backers</code>.
-<ul>
-<li>If the backer is <code>Some</code>, issue a <code>NetworkBridgeMessage::Requests</code> with a network request for the
-<code>AvailableData</code> and wait for the response.</li>
-<li>If it concludes with a <code>None</code> result, return to beginning.</li>
-<li>If it concludes with available data, attempt a re-encoding.
-<ul>
-<li>If it has the correct erasure-root, break and issue a <code>Ok(available_data)</code>.</li>
-<li>If it has an incorrect erasure-root, return to beginning.</li>
-</ul>
-</li>
-<li>Send the result to each member of <code>awaiting</code>.</li>
-<li>If the backer is <code>None</code>, set the source to <code>RequestChunksFromValidators</code> with a random shuffling of validators
-and empty <code>received_chunks</code>, and <code>requesting_chunks</code> and break the loop.</li>
+<li>Pop a strategy from the queue. If none are left, return <code>RecoveryError::Unavailable</code>.</li>
+<li>Run the strategy.</li>
+<li>If the strategy returned successfully or returned <code>RecoveryError::Invalid</code>, break the loop.</li>
 </ul>
 </li>
 </ul>
-</li>
-</ul>
-</li>
-<li>
-<p>If the task contains <code>RequestChunksFromValidators</code>:</p>
-<ul>
-<li>Request <code>AvailabilityStoreMessage::QueryAllChunks</code>. For each chunk that exists, add it to <code>received_chunks</code> and
-remote the validator from <code>shuffling</code>.</li>
-<li>Loop:
-<ul>
-<li>If <code>received_chunks + requesting_chunks + shuffling</code> lengths are less than the threshold, break and return
-<code>Err(Unavailable)</code>.</li>
-<li>Poll for new updates from <code>requesting_chunks</code>. Check merkle proofs of any received chunks. If the request simply
-fails due to network issues, insert into the front of <code>shuffling</code> to be retried.</li>
-<li>If <code>received_chunks</code> has more than <code>threshold</code> entries, attempt to recover the data.
-<ul>
-<li>If that fails, return <code>Err(RecoveryError::Invalid)</code></li>
-<li>If correct:
-<ul>
-<li>If re-encoding produces an incorrect erasure-root, break and issue a <code>Err(RecoveryError::Invalid)</code>.</li>
-<li>break and issue <code>Ok(available_data)</code></li>
-</ul>
-</li>
-</ul>
-</li>
-<li>Send the result to each member of <code>awaiting</code>.</li>
-<li>While there are fewer than <code>N_PARALLEL</code> entries in <code>requesting_chunks</code>,
-<ul>
-<li>Pop the next item from <code>shuffling</code>. If it's empty and <code>requesting_chunks</code> is empty, return
-<code>Err(RecoveryError::Unavailable)</code>.</li>
-<li>Issue a <code>NetworkBridgeMessage::Requests</code> and wait for the response in <code>requesting_chunks</code>.</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="bitfield-distribution"><a class="header" href="#bitfield-distribution">Bitfield Distribution</a></h1>
+<h3 id="recovery-strategies"><a class="header" href="#recovery-strategies">Recovery strategies</a></h3>
+<h4 id="fetchfull"><a class="header" href="#fetchfull"><code>FetchFull</code></a></h4>
+<p>This strategy tries requesting the full available data from the validators in the backing group to
+which the node is already connected. They are tried one by one in a random order.
+It is very performant if there's enough network bandwidth and the backing group is not overloaded.
+The costly reed-solomon reconstruction is not needed.</p>
+<h4 id="fetchsystematicchunks"><a class="header" href="#fetchsystematicchunks"><code>FetchSystematicChunks</code></a></h4>
+<p>Very similar to <code>FetchChunks</code> below but requests from the validators that hold the systematic chunks, so that we avoid
+reed-solomon reconstruction. Only possible if <code>node_features::FeatureIndex::AvailabilityChunkMapping</code> is enabled and
+the <code>core_index</code> is supplied (currently only for recoveries triggered by approval voting).</p>
+<p>More info in
+<a href="https://github.com/polkadot-fellows/RFCs/blob/main/text/0047-assignment-of-availability-chunks.md">RFC-47</a>.</p>
+<h4 id="fetchchunks"><a class="header" href="#fetchchunks"><code>FetchChunks</code></a></h4>
+<p>The least performant strategy but also the most comprehensive one. It's the only one that cannot fail under the
+byzantine threshold assumption, so it's always added as the last one in the <code>recovery_strategies</code> queue.</p>
+<p>Performs parallel chunk requests to validators. When enough chunks were received, do the reconstruction.
+In the worst case, all validators will be tried.</p>
+<h3 id="default-recovery-strategy-configuration"><a class="header" href="#default-recovery-strategy-configuration">Default recovery strategy configuration</a></h3>
+<h4 id="for-validators"><a class="header" href="#for-validators">For validators</a></h4>
+<p>If the estimated available data size is smaller than a configured constant (currently 1Mib for Polkadot or 4Mib for
+other networks), try doing <code>FetchFull</code> first.
+Next, if the preconditions described in <code>FetchSystematicChunks</code> above are met, try systematic recovery.
+As a last resort, do <code>FetchChunks</code>.</p>
+<h4 id="for-collators"><a class="header" href="#for-collators">For collators</a></h4>
+<p>Collators currently only use <code>FetchChunks</code>, as they only attempt recoveries in rare scenarios.</p>
+<p>Moreover, the recovery task is specially configured to not attempt requesting data from the local availability-store
+(because it doesn't exist) and to not reencode the data after a succcessful recovery (because it's an expensive check
+that is not needed; checking the pov_hash is enough for collators).</p>
+<footer id="last-change">Last change: 2024-05-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/523e62560e">523e62560e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="bitfield-distribution"><a class="header" href="#bitfield-distribution">Bitfield Distribution</a></h1>
 <p>Validators vote on the availability of a backed candidate by issuing signed bitfields, where each bit corresponds to a
 single candidate. These bitfields can be used to compactly determine which backed candidates are available or not based
 on a 2/3+ quorum.</p>
@@ -6155,7 +6133,7 @@ no-show tick or the latest assignment tick + <code>APPROVAL_DELAY</code>.</li>
 <ul>
 <li>Requires <code>(SessionIndex, SessionInfo, CandidateReceipt, ValidatorIndex, backing_group, block_hash, candidate_index)</code></li>
 <li>Extract the public key of the <code>ValidatorIndex</code> from the <code>SessionInfo</code> for the session.</li>
-<li>Issue an <code>AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session_index, Some(backing_group), response_sender)</code></li>
+<li>Issue an <code>AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session_index, Some(backing_group), Some(core_index), response_sender)</code></li>
 <li>Load the historical validation code of the parachain by dispatching a
 <code>RuntimeApiRequest::ValidationCodeByHash(descriptor.validation_code_hash)</code> against the state of <code>block_hash</code>.</li>
 <li>Spawn a background task with a clone of <code>background_tx</code>
@@ -6323,7 +6301,7 @@ false.</li>
 <li>Given the slot number of a block, and the current time, this informs about the current tranche.</li>
 <li>Convert <code>time.saturating_sub(slot_number.to_time())</code> to a delay tranches value</li>
 </ul>
-<footer id="last-change">Last change: 2023-12-13, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a84dd0dba5">a84dd0dba5</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
+<footer id="last-change">Last change: 2024-05-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/523e62560e">523e62560e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
 <p>A subsystem for the distribution of assignments and approvals for approval checks on candidates over the network.</p>
 <p>The <a href="node/approval/approval-voting.html">Approval Voting</a> subsystem is responsible for active participation in a protocol designed to
 select a sufficient number of validators to check each and every candidate which appears in the relay chain. Statements
@@ -9191,6 +9169,9 @@ enum AvailabilityRecoveryMessage {
         CandidateReceipt,
         SessionIndex,
         Option&lt;GroupIndex&gt;, // Backing validator group to request the data directly from.
+        Option&lt;CoreIndex&gt;, /* A `CoreIndex` needs to be specified for the recovery process to
+		                    * prefer systematic chunk recovery. This is the core that the candidate
+                            * was occupying while pending availability. */
         ResponseChannel&lt;Result&lt;AvailableData, RecoveryError&gt;&gt;,
     ),
 }
@@ -9893,7 +9874,7 @@ pub enum CandidateValidationMessage {
 pub enum PvfCheckerMessage { }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
+<footer id="last-change">Last change: 2024-05-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/523e62560e">523e62560e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
 <p>Types used within the runtime exclusively and pervasively.</p>
 <h2 id="host-configuration"><a class="header" href="#host-configuration">Host Configuration</a></h2>
 <p>The internal-to-runtime configuration of the parachain host is kept in <code>struct HostConfiguration</code>. This is expected to

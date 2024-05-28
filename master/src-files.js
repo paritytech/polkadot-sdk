@@ -275,7 +275,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["polkadot_approval_distribution",["",[],["lib.rs","metrics.rs"]]],\
 ["polkadot_availability_bitfield_distribution",["",[],["lib.rs","metrics.rs"]]],\
 ["polkadot_availability_distribution",["",[["pov_requester",[],["mod.rs"]],["requester",[["fetch_task",[],["mod.rs"]]],["mod.rs","session_cache.rs"]]],["error.rs","lib.rs","metrics.rs","responder.rs"]]],\
-["polkadot_availability_recovery",["",[],["error.rs","futures_undead.rs","lib.rs","metrics.rs","task.rs"]]],\
+["polkadot_availability_recovery",["",[["task",[["strategy",[],["chunks.rs","full.rs","mod.rs","systematic.rs"]]],["mod.rs"]]],["error.rs","futures_undead.rs","lib.rs","metrics.rs"]]],\
 ["polkadot_cli",["",[],["cli.rs","command.rs","error.rs","lib.rs"]]],\
 ["polkadot_collator_protocol",["",[["collator_side",[],["collation.rs","metrics.rs","mod.rs","validators_buffer.rs"]],["validator_side",[],["collation.rs","metrics.rs","mod.rs"]]],["error.rs","lib.rs"]]],\
 ["polkadot_core_primitives",["",[],["lib.rs"]]],\
@@ -309,7 +309,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["polkadot_node_subsystem",["",[],["lib.rs"]]],\
 ["polkadot_node_subsystem_test_helpers",["",[],["lib.rs","mock.rs"]]],\
 ["polkadot_node_subsystem_types",["",[["messages",[],["network_bridge_event.rs"]]],["errors.rs","lib.rs","messages.rs","runtime_client.rs"]]],\
-["polkadot_node_subsystem_util",["",[["inclusion_emulator",[],["mod.rs"]],["runtime",[],["error.rs","mod.rs"]]],["backing_implicit_view.rs","database.rs","determine_new_blocks.rs","lib.rs","nesting_sender.rs","reputation.rs","vstaging.rs"]]],\
+["polkadot_node_subsystem_util",["",[["inclusion_emulator",[],["mod.rs"]],["runtime",[],["error.rs","mod.rs"]]],["availability_chunks.rs","backing_implicit_view.rs","database.rs","determine_new_blocks.rs","lib.rs","nesting_sender.rs","reputation.rs","vstaging.rs"]]],\
 ["polkadot_overseer",["",[],["dummy.rs","lib.rs","memory_stats.rs","metrics.rs"]]],\
 ["polkadot_parachain",["",[["chain_spec",[],["asset_hubs.rs","bridge_hubs.rs","collectives.rs","contracts.rs","coretime.rs","glutton.rs","mod.rs","penpal.rs","people.rs","rococo_parachain.rs","seedling.rs","shell.rs"]],["fake_runtime_api",[],["asset_hub_polkadot_aura.rs","aura.rs","mod.rs"]]],["cli.rs","command.rs","main.rs","rpc.rs","service.rs"]]],\
 ["polkadot_parachain_primitives",["",[],["lib.rs","primitives.rs"]]],\

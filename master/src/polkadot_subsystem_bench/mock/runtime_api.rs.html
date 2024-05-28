@@ -443,6 +443,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -471,9 +484,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_node_subsystem_types::OverseerSignal;
 <span class="kw">use </span>polkadot_primitives::{
-	AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, GroupRotationInfo,
-	IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex, SessionInfo,
-	ValidatorIndex,
+	node_features, AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex,
+	GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex,
+	SessionInfo, ValidatorIndex,
 };
 <span class="kw">use </span>sp_consensus_babe::Epoch <span class="kw">as </span>BabeEpoch;
 <span class="kw">use </span>sp_core::H256;
@@ -486,6 +499,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>RuntimeApiState {
 	<span class="comment">// All authorities in the test,
 	</span>authorities: TestAuthorities,
+	<span class="comment">// Node features state in the runtime
+	</span>node_features: NodeFeatures,
 	<span class="comment">// Candidate hashes per block
 	</span>candidate_hashes: HashMap&lt;H256, Vec&lt;CandidateReceipt&gt;&gt;,
 	<span class="comment">// Included candidates per bock
@@ -521,6 +536,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		session_index: SessionIndex,
 		core_state: MockRuntimeApiCoreState,
 	) -&gt; MockRuntimeApi {
+		<span class="comment">// Enable chunk mapping feature to make systematic av-recovery possible.
+		</span><span class="kw">let </span>node_features = node_features_with_chunk_mapping_enabled();
+
 		<span class="self">Self </span>{
 			state: RuntimeApiState {
 				authorities,
@@ -528,6 +546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				included_candidates,
 				babe_epoch,
 				session_index,
+				node_features,
 			},
 			config,
 			core_state,
@@ -613,15 +632,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
+							RuntimeApiRequest::NodeFeatures(_session_index, sender),
+						) =&gt; {
+							<span class="kw">let _ </span>= sender.send(<span class="prelude-val">Ok</span>(<span class="self">self</span>.state.node_features.clone()));
+						},
+						RuntimeApiMessage::Request(
+							_block_hash,
 							RuntimeApiRequest::SessionExecutorParams(_session_index, sender),
 						) =&gt; {
 							<span class="kw">let _ </span>= sender.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Default::default())));
-						},
-						RuntimeApiMessage::Request(
-							_request,
-							RuntimeApiRequest::NodeFeatures(_session_index, sender),
-						) =&gt; {
-							<span class="kw">let _ </span>= sender.send(<span class="prelude-val">Ok</span>(NodeFeatures::EMPTY));
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
@@ -736,6 +755,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 	}
+}
+
+<span class="kw">pub fn </span>node_features_with_chunk_mapping_enabled() -&gt; NodeFeatures {
+	<span class="kw">let </span><span class="kw-2">mut </span>node_features = NodeFeatures::new();
+	node_features.resize(node_features::FeatureIndex::AvailabilityChunkMapping <span class="kw">as </span>usize + <span class="number">1</span>, <span class="bool-val">false</span>);
+	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping <span class="kw">as </span>u8 <span class="kw">as </span>usize, <span class="bool-val">true</span>);
+	node_features
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

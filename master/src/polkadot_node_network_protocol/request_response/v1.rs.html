@@ -379,6 +379,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -414,7 +424,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>ChunkFetchingRequest {
 	<span class="doccomment">/// Hash of candidate we want a chunk for.
 	</span><span class="kw">pub </span>candidate_hash: CandidateHash,
-	<span class="doccomment">/// The index of the chunk to fetch.
+	<span class="doccomment">/// The validator index we are requesting from. This must be identical to the index of the
+	/// chunk we'll receive. For v2, this may not be the case.
 	</span><span class="kw">pub </span>index: ValidatorIndex,
 }
 
@@ -434,6 +445,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>x {
 			<span class="prelude-val">Some</span>(c) =&gt; ChunkFetchingResponse::Chunk(c),
 			<span class="prelude-val">None </span>=&gt; ChunkFetchingResponse::NoSuchChunk,
+		}
+	}
+}
+
+<span class="kw">impl </span>From&lt;ChunkFetchingResponse&gt; <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;ChunkResponse&gt; {
+	<span class="kw">fn </span>from(x: ChunkFetchingResponse) -&gt; <span class="self">Self </span>{
+		<span class="kw">match </span>x {
+			ChunkFetchingResponse::Chunk(c) =&gt; <span class="prelude-val">Some</span>(c),
+			ChunkFetchingResponse::NoSuchChunk =&gt; <span class="prelude-val">None</span>,
 		}
 	}
 }
@@ -461,7 +481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>ChunkResponse {
 	<span class="doccomment">/// Re-build an `ErasureChunk` from response and request.
 	</span><span class="kw">pub fn </span>recombine_into_chunk(<span class="self">self</span>, req: <span class="kw-2">&amp;</span>ChunkFetchingRequest) -&gt; ErasureChunk {
-		ErasureChunk { chunk: <span class="self">self</span>.chunk, proof: <span class="self">self</span>.proof, index: req.index }
+		ErasureChunk { chunk: <span class="self">self</span>.chunk, proof: <span class="self">self</span>.proof, index: req.index.into() }
 	}
 }
 

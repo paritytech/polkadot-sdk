@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AttestedCandidateRequest","AttestedCandidateResponse","CollationFetchingRequest"],"type":["CollationFetchingResponse"]};
+window.SIDEBAR_ITEMS = {"enum":["ChunkFetchingResponse"],"struct":["AttestedCandidateRequest","AttestedCandidateResponse","ChunkFetchingRequest","CollationFetchingRequest"],"type":["CollationFetchingResponse"]};

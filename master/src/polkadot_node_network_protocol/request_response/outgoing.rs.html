@@ -357,10 +357,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#206" id="206">206</a>
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -393,7 +389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>Requests {
 	<span class="doccomment">/// Request an availability chunk from a node.
-	</span>ChunkFetchingV1(OutgoingRequest&lt;v1::ChunkFetchingRequest&gt;),
+	</span>ChunkFetching(OutgoingRequest&lt;v2::ChunkFetchingRequest, v1::ChunkFetchingRequest&gt;),
 	<span class="doccomment">/// Fetch a collation from a collator which previously announced it.
 	</span>CollationFetchingV1(OutgoingRequest&lt;v1::CollationFetchingRequest&gt;),
 	<span class="doccomment">/// Fetch a PoV from a validator which previously sent out a seconded statement.
@@ -422,7 +418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// contained in the `enum`.
 	</span><span class="kw">pub fn </span>encode_request(<span class="self">self</span>) -&gt; (Protocol, OutgoingRequest&lt;Vec&lt;u8&gt;&gt;) {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::ChunkFetchingV1(r) =&gt; r.encode_request(),
+			<span class="self">Self</span>::ChunkFetching(r) =&gt; r.encode_request(),
 			<span class="self">Self</span>::CollationFetchingV1(r) =&gt; r.encode_request(),
 			<span class="self">Self</span>::CollationFetchingV2(r) =&gt; r.encode_request(),
 			<span class="self">Self</span>::PoVFetchingV1(r) =&gt; r.encode_request(),
@@ -527,26 +523,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns a raw `Vec&lt;u8&gt;` response over the channel. Use the associated `ProtocolName` to know
 	/// which request was the successful one and appropriately decode the response.
-	</span><span class="comment">// WARNING: This is commented for now because it's not used yet.
-	// If you need it, make sure to test it. You may need to enable the V1 substream upgrade
-	// protocol, unless libp2p was in the meantime updated to a version that fixes the problem
-	// described in https://github.com/libp2p/rust-libp2p/issues/5074
-	// pub fn new_with_fallback(
-	// 	peer: Recipient,
-	// 	payload: Req,
-	// 	fallback_request: FallbackReq,
-	// ) -&gt; (Self, impl Future&lt;Output = OutgoingResult&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;&gt;) {
-	// 	let (tx, rx) = oneshot::channel();
-	// 	let r = Self {
-	// 		peer,
-	// 		payload,
-	// 		pending_response: tx,
-	// 		fallback_request: Some((fallback_request, FallbackReq::PROTOCOL)),
-	// 	};
-	// 	(r, async { Ok(rx.await??) })
-	// }
+	</span><span class="kw">pub fn </span>new_with_fallback(
+		peer: Recipient,
+		payload: Req,
+		fallback_request: FallbackReq,
+	) -&gt; (<span class="self">Self</span>, <span class="kw">impl </span>Future&lt;Output = OutgoingResult&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;&gt;) {
+		<span class="kw">let </span>(tx, rx) = oneshot::channel();
+		<span class="kw">let </span>r = <span class="self">Self </span>{
+			peer,
+			payload,
+			pending_response: tx,
+			fallback_request: <span class="prelude-val">Some</span>((fallback_request, FallbackReq::PROTOCOL)),
+		};
+		(r, <span class="kw">async </span>{ <span class="prelude-val">Ok</span>(rx.<span class="kw">await</span><span class="question-mark">??</span>) })
+	}
 
-	</span><span class="doccomment">/// Encode a request into a `Vec&lt;u8&gt;`.
+	<span class="doccomment">/// Encode a request into a `Vec&lt;u8&gt;`.
 	///
 	/// As this throws away type information, we also return the `Protocol` this encoded request
 	/// adheres to.

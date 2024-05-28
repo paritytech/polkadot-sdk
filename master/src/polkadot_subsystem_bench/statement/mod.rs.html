@@ -598,7 +598,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -825,7 +824,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub async fn </span>benchmark_statement_distribution(
-	benchmark_name: <span class="kw-2">&amp;</span>str,
 	env: <span class="kw-2">&amp;mut </span>TestEnvironment,
 	state: <span class="kw-2">&amp;</span>TestState,
 ) -&gt; BenchmarkUsage {
@@ -1047,7 +1045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	env.stop().<span class="kw">await</span>;
-	env.collect_resource_usage(benchmark_name, <span class="kw-2">&amp;</span>[<span class="string">"statement-distribution"</span>])
+	env.collect_resource_usage(<span class="kw-2">&amp;</span>[<span class="string">"statement-distribution"</span>])
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

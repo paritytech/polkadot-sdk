@@ -417,6 +417,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -433,22 +464,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::configuration::{TestAuthorities, TestConfiguration};
+</span><span class="kw">use crate</span>::{
+	configuration::{TestAuthorities, TestConfiguration},
+	environment::GENESIS_HASH,
+	mock::runtime_api::node_features_with_chunk_mapping_enabled,
+};
 <span class="kw">use </span>bitvec::bitvec;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>itertools::Itertools;
 <span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>polkadot_node_network_protocol::{
-	request_response::v1::ChunkFetchingRequest, Versioned, VersionedValidationProtocol,
+	request_response::{v2::ChunkFetchingRequest, ReqProtocolNames},
+	Versioned, VersionedValidationProtocol,
 };
 <span class="kw">use </span>polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV};
 <span class="kw">use </span>polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
+<span class="kw">use </span>polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
 <span class="kw">use </span>polkadot_overseer::BlockInfo;
 <span class="kw">use </span>polkadot_primitives::{
-	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, Hash, HeadData, Header,
-	PersistedValidationData, Signed, SigningContext, ValidatorIndex,
+	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex,
+	Hash, HeadData, Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
 };
 <span class="kw">use </span>polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 <span class="kw">use </span>sp_core::H256;
@@ -468,14 +505,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>pov_size_to_candidate: HashMap&lt;usize, usize&gt;,
 	<span class="comment">// Map from generated candidate hashes to candidate index in `available_data` and `chunks`.
 	</span><span class="kw">pub </span>candidate_hashes: HashMap&lt;CandidateHash, usize&gt;,
+	<span class="comment">// Map from candidate hash to occupied core index.
+	</span><span class="kw">pub </span>candidate_hash_to_core_index: HashMap&lt;CandidateHash, CoreIndex&gt;,
 	<span class="comment">// Per candidate index receipts.
 	</span><span class="kw">pub </span>candidate_receipt_templates: Vec&lt;CandidateReceipt&gt;,
 	<span class="comment">// Per candidate index `AvailableData`
 	</span><span class="kw">pub </span>available_data: Vec&lt;AvailableData&gt;,
-	<span class="comment">// Per candiadte index chunks
+	<span class="comment">// Per candidate index chunks
 	</span><span class="kw">pub </span>chunks: Vec&lt;Vec&lt;ErasureChunk&gt;&gt;,
+	<span class="comment">// Per-core ValidatorIndex -&gt; ChunkIndex mapping
+	</span><span class="kw">pub </span>chunk_indices: Vec&lt;Vec&lt;ChunkIndex&gt;&gt;,
 	<span class="comment">// Per relay chain block - candidate backed by our backing group
 	</span><span class="kw">pub </span>backed_candidates: Vec&lt;CandidateReceipt&gt;,
+	<span class="comment">// Request protcol names
+	</span><span class="kw">pub </span>req_protocol_names: ReqProtocolNames,
 	<span class="comment">// Relay chain block infos
 	</span><span class="kw">pub </span>block_infos: Vec&lt;BlockInfo&gt;,
 	<span class="comment">// Chung fetching requests for backed candidates
@@ -508,6 +551,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			candidate_receipts: Default::default(),
 			block_headers: Default::default(),
 			test_authorities: config.generate_authorities(),
+			req_protocol_names: ReqProtocolNames::new(GENESIS_HASH, <span class="prelude-val">None</span>),
+			chunk_indices: Default::default(),
+			candidate_hash_to_core_index: Default::default(),
 		};
 
 		<span class="comment">// we use it for all candidates.
@@ -517,6 +563,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			max_pov_size: <span class="number">1024</span>,
 			relay_parent_storage_root: Default::default(),
 		};
+
+		test_state.chunk_indices = (<span class="number">0</span>..config.n_cores)
+			.map(|core_index| {
+				availability_chunk_indices(
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>node_features_with_chunk_mapping_enabled()),
+					config.n_validators,
+					CoreIndex(core_index <span class="kw">as </span>u32),
+				)
+				.unwrap()
+			})
+			.collect();
 
 		<span class="comment">// For each unique pov we create a candidate receipt.
 		</span><span class="kw">for </span>(index, pov_size) <span class="kw">in </span>config.pov_sizes().iter().cloned().unique().enumerate() {
@@ -585,6 +642,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index <span class="kw">as </span>u64);
 				<span class="comment">// Store the new candidate in the state
 				</span>test_state.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
+
+				<span class="kw">let </span>core_index = (index % config.n_cores) <span class="kw">as </span>u32;
+				test_state
+					.candidate_hash_to_core_index
+					.insert(candidate_receipt.hash(), core_index.into());
 
 				<span class="macro">gum::debug!</span>(target: LOG_TARGET, candidate_hash = <span class="question-mark">?</span>candidate_receipt.hash(), <span class="string">"new candidate"</span>);
 

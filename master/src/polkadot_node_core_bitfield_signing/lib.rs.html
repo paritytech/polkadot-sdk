@@ -450,29 +450,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -502,15 +479,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	FutureExt,
 };
 <span class="kw">use </span>polkadot_node_subsystem::{
-	errors::RuntimeApiError,
 	jaeger,
-	messages::{
-		AvailabilityStoreMessage, BitfieldDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
-	},
+	messages::{AvailabilityStoreMessage, BitfieldDistributionMessage},
 	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal, PerLeafSpan, SpawnedSubsystem,
-	SubsystemError, SubsystemResult, SubsystemSender,
+	SubsystemError, SubsystemResult,
 };
-<span class="kw">use </span>polkadot_node_subsystem_util::{<span class="self">self </span><span class="kw">as </span>util, Validator};
+<span class="kw">use </span>polkadot_node_subsystem_util::{
+	<span class="self">self </span><span class="kw">as </span>util, request_availability_cores, runtime::recv_runtime, Validator,
+};
 <span class="kw">use </span>polkadot_primitives::{AvailabilityBitfield, CoreState, Hash, ValidatorIndex};
 <span class="kw">use </span>sp_keystore::{Error <span class="kw">as </span>KeystoreError, KeystorePtr};
 <span class="kw">use </span>std::{collections::HashMap, time::Duration};
@@ -544,7 +520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>MpscSend(<span class="attr">#[from] </span>mpsc::SendError),
 
 	<span class="attr">#[error(transparent)]
-	</span>Runtime(<span class="attr">#[from] </span>RuntimeApiError),
+	</span>Runtime(<span class="attr">#[from] </span>util::runtime::Error),
 
 	<span class="attr">#[error(<span class="string">"Keystore failed: {0:?}"</span>)]
 	</span>Keystore(KeystoreError),
@@ -554,8 +530,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// for whether we have the availability chunk for our validator index.
 </span><span class="kw">async fn </span>get_core_availability(
 	core: <span class="kw-2">&amp;</span>CoreState,
-	validator_idx: ValidatorIndex,
-	sender: <span class="kw-2">&amp;</span>Mutex&lt;<span class="kw-2">&amp;mut </span><span class="kw">impl </span>SubsystemSender&lt;overseer::BitfieldSigningOutgoingMessages&gt;&gt;,
+	validator_index: ValidatorIndex,
+	sender: <span class="kw-2">&amp;</span>Mutex&lt;<span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::BitfieldSigningSenderTrait&gt;,
 	span: <span class="kw-2">&amp;</span>jaeger::Span,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
 	<span class="kw">if let </span>CoreState::Occupied(core) = core {
@@ -565,14 +541,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sender
 			.lock()
 			.<span class="kw">await
-			</span>.send_message(
-				AvailabilityStoreMessage::QueryChunkAvailability(
-					core.candidate_hash,
-					validator_idx,
-					tx,
-				)
-				.into(),
-			)
+			</span>.send_message(AvailabilityStoreMessage::QueryChunkAvailability(
+				core.candidate_hash,
+				validator_index,
+				tx,
+			))
 			.<span class="kw">await</span>;
 
 		<span class="kw">let </span>res = rx.<span class="kw">await</span>.map_err(Into::into);
@@ -591,25 +564,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// delegates to the v1 runtime API
-</span><span class="kw">async fn </span>get_availability_cores(
-	relay_parent: Hash,
-	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>SubsystemSender&lt;overseer::BitfieldSigningOutgoingMessages&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;CoreState&gt;, Error&gt; {
-	<span class="kw">let </span>(tx, rx) = oneshot::channel();
-	sender
-		.send_message(
-			RuntimeApiMessage::Request(relay_parent, RuntimeApiRequest::AvailabilityCores(tx))
-				.into(),
-		)
-		.<span class="kw">await</span>;
-	<span class="kw">match </span>rx.<span class="kw">await </span>{
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(out)) =&gt; <span class="prelude-val">Ok</span>(out),
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(runtime_err)) =&gt; <span class="prelude-val">Err</span>(runtime_err.into()),
-		<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err.into()),
-	}
-}
-
 <span class="doccomment">/// - get the list of core states from the runtime
 /// - for each core, concurrently determine chunk availability (see `get_core_availability`)
 /// - return the bitfield if there were no errors at any point in this process (otherwise, it's
@@ -618,12 +572,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_parent: Hash,
 	span: <span class="kw-2">&amp;</span>jaeger::Span,
 	validator_idx: ValidatorIndex,
-	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>SubsystemSender&lt;overseer::BitfieldSigningOutgoingMessages&gt;,
+	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::BitfieldSigningSenderTrait,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailabilityBitfield, Error&gt; {
 	<span class="comment">// get the set of availability cores from the runtime
 	</span><span class="kw">let </span>availability_cores = {
 		<span class="kw">let </span>_span = span.child(<span class="string">"get-availability-cores"</span>);
-		get_availability_cores(relay_parent, sender).<span class="kw">await</span><span class="question-mark">?
+		recv_runtime(request_availability_cores(relay_parent, sender).<span class="kw">await</span>).<span class="kw">await</span><span class="question-mark">?
 	</span>};
 
 	<span class="comment">// Wrap the sender in a Mutex to share it between the futures.

@@ -409,6 +409,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -429,11 +473,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>futures::channel::oneshot;
+<span class="kw">use </span>futures::{channel::oneshot, select, FutureExt};
 
 <span class="kw">use </span>fatality::Nested;
+<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_network_protocol::{
-	request_response::{v1, IncomingRequest, IncomingRequestReceiver},
+	request_response::{v1, v2, IncomingRequest, IncomingRequestReceiver, IsRequest},
 	UnifiedReputationChange <span class="kw">as </span>Rep,
 };
 <span class="kw">use </span>polkadot_node_primitives::{AvailableData, ErasureChunk};
@@ -477,33 +522,66 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Receiver task to be forked as a separate task to handle chunk requests.
-</span><span class="kw">pub async fn </span>run_chunk_receiver&lt;Sender&gt;(
+</span><span class="kw">pub async fn </span>run_chunk_receivers&lt;Sender&gt;(
 	<span class="kw-2">mut </span>sender: Sender,
-	<span class="kw-2">mut </span>receiver: IncomingRequestReceiver&lt;v1::ChunkFetchingRequest&gt;,
+	<span class="kw-2">mut </span>receiver_v1: IncomingRequestReceiver&lt;v1::ChunkFetchingRequest&gt;,
+	<span class="kw-2">mut </span>receiver_v2: IncomingRequestReceiver&lt;v2::ChunkFetchingRequest&gt;,
 	metrics: Metrics,
 ) <span class="kw">where
 	</span>Sender: SubsystemSender&lt;AvailabilityStoreMessage&gt;,
 {
+	<span class="kw">let </span>make_resp_v1 = |chunk: <span class="prelude-ty">Option</span>&lt;ErasureChunk&gt;| <span class="kw">match </span>chunk {
+		<span class="prelude-val">None </span>=&gt; v1::ChunkFetchingResponse::NoSuchChunk,
+		<span class="prelude-val">Some</span>(chunk) =&gt; v1::ChunkFetchingResponse::Chunk(chunk.into()),
+	};
+
+	<span class="kw">let </span>make_resp_v2 = |chunk: <span class="prelude-ty">Option</span>&lt;ErasureChunk&gt;| <span class="kw">match </span>chunk {
+		<span class="prelude-val">None </span>=&gt; v2::ChunkFetchingResponse::NoSuchChunk,
+		<span class="prelude-val">Some</span>(chunk) =&gt; v2::ChunkFetchingResponse::Chunk(chunk.into()),
+	};
+
 	<span class="kw">loop </span>{
-		<span class="kw">match </span>receiver.recv(|| <span class="macro">vec!</span>[COST_INVALID_REQUEST]).<span class="kw">await</span>.into_nested() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(msg)) =&gt; {
-				answer_chunk_request_log(<span class="kw-2">&amp;mut </span>sender, msg, <span class="kw-2">&amp;</span>metrics).<span class="kw">await</span>;
+		<span class="macro">select! </span>{
+			res = receiver_v1.recv(|| <span class="macro">vec!</span>[COST_INVALID_REQUEST]).fuse() =&gt; <span class="kw">match </span>res.into_nested() {
+				<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(msg)) =&gt; {
+					answer_chunk_request_log(<span class="kw-2">&amp;mut </span>sender, msg, make_resp_v1, <span class="kw-2">&amp;</span>metrics).<span class="kw">await</span>;
+				},
+				<span class="prelude-val">Err</span>(fatal) =&gt; {
+					<span class="macro">gum::debug!</span>(
+						target: LOG_TARGET,
+						error = <span class="question-mark">?</span>fatal,
+						<span class="string">"Shutting down chunk receiver."
+					</span>);
+					<span class="kw">return
+				</span>},
+				<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(jfyi)) =&gt; {
+					<span class="macro">gum::debug!</span>(
+						target: LOG_TARGET,
+						error = <span class="question-mark">?</span>jfyi,
+						<span class="string">"Error decoding incoming chunk request."
+					</span>);
+				}
 			},
-			<span class="prelude-val">Err</span>(fatal) =&gt; {
-				<span class="macro">gum::debug!</span>(
-					target: LOG_TARGET,
-					error = <span class="question-mark">?</span>fatal,
-					<span class="string">"Shutting down chunk receiver."
-				</span>);
-				<span class="kw">return
-			</span>},
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(jfyi)) =&gt; {
-				<span class="macro">gum::debug!</span>(
-					target: LOG_TARGET,
-					error = <span class="question-mark">?</span>jfyi,
-					<span class="string">"Error decoding incoming chunk request."
-				</span>);
-			},
+			res = receiver_v2.recv(|| <span class="macro">vec!</span>[COST_INVALID_REQUEST]).fuse() =&gt; <span class="kw">match </span>res.into_nested() {
+				<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(msg)) =&gt; {
+					answer_chunk_request_log(<span class="kw-2">&amp;mut </span>sender, msg.into(), make_resp_v2, <span class="kw-2">&amp;</span>metrics).<span class="kw">await</span>;
+				},
+				<span class="prelude-val">Err</span>(fatal) =&gt; {
+					<span class="macro">gum::debug!</span>(
+						target: LOG_TARGET,
+						error = <span class="question-mark">?</span>fatal,
+						<span class="string">"Shutting down chunk receiver."
+					</span>);
+					<span class="kw">return
+				</span>},
+				<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(jfyi)) =&gt; {
+					<span class="macro">gum::debug!</span>(
+						target: LOG_TARGET,
+						error = <span class="question-mark">?</span>jfyi,
+						<span class="string">"Error decoding incoming chunk request."
+					</span>);
+				}
+			}
 		}
 	}
 }
@@ -535,15 +613,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Variant of `answer_chunk_request` that does Prometheus metric and logging on errors.
 ///
 /// Any errors of `answer_request` will simply be logged.
-</span><span class="kw">pub async fn </span>answer_chunk_request_log&lt;Sender&gt;(
+</span><span class="kw">pub async fn </span>answer_chunk_request_log&lt;Sender, Req, MakeResp&gt;(
 	sender: <span class="kw-2">&amp;mut </span>Sender,
-	req: IncomingRequest&lt;v1::ChunkFetchingRequest&gt;,
+	req: IncomingRequest&lt;Req&gt;,
+	make_response: MakeResp,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
-) -&gt; ()
-<span class="kw">where
-	</span>Sender: SubsystemSender&lt;AvailabilityStoreMessage&gt;,
+) <span class="kw">where
+	</span>Req: IsRequest + Decode + Encode + Into&lt;v1::ChunkFetchingRequest&gt;,
+	Req::Response: Encode,
+	Sender: SubsystemSender&lt;AvailabilityStoreMessage&gt;,
+	MakeResp: Fn(<span class="prelude-ty">Option</span>&lt;ErasureChunk&gt;) -&gt; Req::Response,
 {
-	<span class="kw">let </span>res = answer_chunk_request(sender, req).<span class="kw">await</span>;
+	<span class="kw">let </span>res = answer_chunk_request(sender, req, make_response).<span class="kw">await</span>;
 	<span class="kw">match </span>res {
 		<span class="prelude-val">Ok</span>(result) =&gt; metrics.on_served_chunk(<span class="kw">if </span>result { SUCCEEDED } <span class="kw">else </span>{ NOT_FOUND }),
 		<span class="prelude-val">Err</span>(err) =&gt; {
@@ -588,39 +669,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Answer an incoming chunk request by querying the av store.
 ///
 /// Returns: `Ok(true)` if chunk was found and served.
-</span><span class="kw">pub async fn </span>answer_chunk_request&lt;Sender&gt;(
+</span><span class="kw">pub async fn </span>answer_chunk_request&lt;Sender, Req, MakeResp&gt;(
 	sender: <span class="kw-2">&amp;mut </span>Sender,
-	req: IncomingRequest&lt;v1::ChunkFetchingRequest&gt;,
+	req: IncomingRequest&lt;Req&gt;,
+	make_response: MakeResp,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;
 <span class="kw">where
 	</span>Sender: SubsystemSender&lt;AvailabilityStoreMessage&gt;,
+	Req: IsRequest + Decode + Encode + Into&lt;v1::ChunkFetchingRequest&gt;,
+	Req::Response: Encode,
+	MakeResp: Fn(<span class="prelude-ty">Option</span>&lt;ErasureChunk&gt;) -&gt; Req::Response,
 {
-	<span class="kw">let </span>span = jaeger::Span::new(req.payload.candidate_hash, <span class="string">"answer-chunk-request"</span>);
+	<span class="comment">// V1 and V2 requests have the same payload, so decoding into either one will work. It's the
+	// responses that differ, hence the `MakeResp` generic.
+	</span><span class="kw">let </span>payload: v1::ChunkFetchingRequest = req.payload.into();
+	<span class="kw">let </span>span = jaeger::Span::new(payload.candidate_hash, <span class="string">"answer-chunk-request"</span>);
 
 	<span class="kw">let </span>_child_span = span
 		.child(<span class="string">"answer-chunk-request"</span>)
-		.with_trace_id(req.payload.candidate_hash)
-		.with_chunk_index(req.payload.index.<span class="number">0</span>);
+		.with_trace_id(payload.candidate_hash)
+		.with_validator_index(payload.index);
 
-	<span class="kw">let </span>chunk = query_chunk(sender, req.payload.candidate_hash, req.payload.index).<span class="kw">await</span><span class="question-mark">?</span>;
+	<span class="kw">let </span>chunk = query_chunk(sender, payload.candidate_hash, payload.index).<span class="kw">await</span><span class="question-mark">?</span>;
 
 	<span class="kw">let </span>result = chunk.is_some();
 
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
-		hash = <span class="question-mark">?</span>req.payload.candidate_hash,
-		index = <span class="question-mark">?</span>req.payload.index,
+		hash = <span class="question-mark">?</span>payload.candidate_hash,
+		index = <span class="question-mark">?</span>payload.index,
 		peer = <span class="question-mark">?</span>req.peer,
 		has_data = <span class="question-mark">?</span>chunk.is_some(),
 		<span class="string">"Serving chunk"</span>,
 	);
 
-	<span class="kw">let </span>response = <span class="kw">match </span>chunk {
-		<span class="prelude-val">None </span>=&gt; v1::ChunkFetchingResponse::NoSuchChunk,
-		<span class="prelude-val">Some</span>(chunk) =&gt; v1::ChunkFetchingResponse::Chunk(chunk.into()),
-	};
+	<span class="kw">let </span>response = make_response(chunk);
 
-	req.send_response(response).map_err(|<span class="kw">_</span>| JfyiError::SendResponse)<span class="question-mark">?</span>;
+	req.pending_response
+		.send_response(response)
+		.map_err(|<span class="kw">_</span>| JfyiError::SendResponse)<span class="question-mark">?</span>;
+
 	<span class="prelude-val">Ok</span>(result)
 }
 

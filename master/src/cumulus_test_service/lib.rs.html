@@ -1115,6 +1115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#964" id="964">964</a>
 <a href="#965" id="965">965</a>
 <a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1269,7 +1270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		message: AvailabilityRecoveryMessage,
 		origin: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	) {
-		<span class="kw">let </span>AvailabilityRecoveryMessage::RecoverAvailableData(<span class="kw-2">ref </span>receipt, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = message;
+		<span class="kw">let </span>AvailabilityRecoveryMessage::RecoverAvailableData(<span class="kw-2">ref </span>receipt, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = message;
 		<span class="kw">let </span>candidate_hash = receipt.hash();
 
 		<span class="comment">// For every 3rd block we immediately signal unavailability to trigger
@@ -1277,7 +1278,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span><span class="self">self</span>.counter % <span class="number">3 </span>== <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.failed_hashes.insert(candidate_hash) {
 			<span class="macro">tracing::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Failing pov recovery."</span>);
 
-			<span class="kw">let </span>AvailabilityRecoveryMessage::RecoverAvailableData(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, back_sender) = message;
+			<span class="kw">let </span>AvailabilityRecoveryMessage::RecoverAvailableData(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, back_sender) =
+				message;
 			back_sender
 				.send(<span class="prelude-val">Err</span>(RecoveryError::Unavailable))
 				.expect(<span class="string">"Return channel should work here."</span>);

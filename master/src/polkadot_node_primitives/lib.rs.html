@@ -811,6 +811,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -843,13 +844,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 <span class="kw">use </span>polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, CollatorPair,
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
 	CommittedCandidateReceipt, CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData,
 	Id <span class="kw">as </span>ParaId, PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, ValidatorIndex, MAX_CODE_SIZE, MAX_POV_SIZE,
+	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 <span class="kw">pub use </span>sp_consensus_babe::{
 	AllowedSlots <span class="kw">as </span>BabeAllowedSlots, BabeEpochConfiguration, Epoch <span class="kw">as </span>BabeEpoch,
+	Randomness <span class="kw">as </span>BabeRandomness,
 };
 
 <span class="kw">pub use </span>polkadot_parachain_primitives::primitives::{
@@ -1452,7 +1454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The erasure-encoded chunk of data belonging to the candidate block.
 	</span><span class="kw">pub </span>chunk: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The index of this erasure-encoded chunk of data.
-	</span><span class="kw">pub </span>index: ValidatorIndex,
+	</span><span class="kw">pub </span>index: ChunkIndex,
 	<span class="doccomment">/// Proof for this chunk's branch in the Merkle tree.
 	</span><span class="kw">pub </span>proof: Proof,
 }

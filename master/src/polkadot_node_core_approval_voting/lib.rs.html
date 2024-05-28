@@ -3861,6 +3861,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3710" id="3710">3710</a>
 <a href="#3711" id="3711">3711</a>
 <a href="#3712" id="3712">3712</a>
+<a href="#3713" id="3713">3713</a>
+<a href="#3714" id="3714">3714</a>
+<a href="#3715" id="3715">3715</a>
+<a href="#3716" id="3716">3716</a>
+<a href="#3717" id="3717">3717</a>
+<a href="#3718" id="3718">3718</a>
+<a href="#3719" id="3719">3719</a>
+<a href="#3720" id="3720">3720</a>
+<a href="#3721" id="3721">3721</a>
+<a href="#3722" id="3722">3722</a>
+<a href="#3723" id="3723">3723</a>
+<a href="#3724" id="3724">3724</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4777,6 +4789,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		candidate: CandidateReceipt,
 		backing_group: GroupIndex,
 		distribute_assignment: bool,
+		core_index: <span class="prelude-ty">Option</span>&lt;CoreIndex&gt;,
 	},
 	NoteApprovedInChainSelection(Hash),
 	IssueApproval(CandidateHash, ApprovalVoteRequest),
@@ -5037,6 +5050,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				candidate,
 				backing_group,
 				distribute_assignment,
+				core_index,
 			} =&gt; {
 				<span class="comment">// Don't launch approval work if the node is syncing.
 				</span><span class="kw">if let </span>Mode::Syncing(<span class="kw">_</span>) = <span class="kw-2">*</span>mode {
@@ -5093,6 +5107,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										block_hash,
 										backing_group,
 										executor_params,
+										core_index,
 										<span class="kw-2">&amp;</span>launch_approval_span,
 									)
 									.<span class="kw">await
@@ -5330,6 +5345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 											candidate: candidate_entry.candidate_receipt().clone(),
 											backing_group: approval_entry.backing_group(),
 											distribute_assignment: <span class="bool-val">false</span>,
+											core_index: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>core_index),
 										});
 									}
 								},
@@ -6913,6 +6929,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"Launching approval work."</span>,
 		);
 
+		<span class="kw">let </span>candidate_core_index = block_entry
+			.candidates()
+			.iter()
+			.find_map(|(core_index, h)| (h == <span class="kw-2">&amp;</span>candidate_hash).then_some(<span class="kw-2">*</span>core_index));
+
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(claimed_core_indices) =
 			get_assignment_core_indices(<span class="kw-2">&amp;</span>indirect_cert.cert.kind, <span class="kw-2">&amp;</span>candidate_hash, <span class="kw-2">&amp;</span>block_entry)
 		{
@@ -6925,7 +6946,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="bool-val">true
 					</span>};
 					db.write_block_entry(block_entry.clone());
-
 					actions.push(Action::LaunchApproval {
 						claimed_candidate_indices,
 						candidate_hash,
@@ -6937,10 +6957,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						candidate: candidate_receipt,
 						backing_group,
 						distribute_assignment,
+						core_index: candidate_core_index,
 					});
 				},
 				<span class="prelude-val">Err</span>(err) =&gt; {
-					<span class="comment">// Never happens, it should only happen if no cores are claimed, which is a bug.
+					<span class="comment">// Never happens, it should only happen if no cores are claimed, which is a
+					// bug.
 					</span><span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
 						block_hash = <span class="question-mark">?</span>relay_block,
@@ -6996,6 +7018,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	block_hash: Hash,
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
+	core_index: <span class="prelude-ty">Option</span>&lt;CoreIndex&gt;,
 	span: <span class="kw-2">&amp;</span>jaeger::Span,
 ) -&gt; SubsystemResult&lt;RemoteHandle&lt;ApprovalState&gt;&gt; {
 	<span class="kw">let </span>(a_tx, a_rx) = oneshot::channel();
@@ -7042,6 +7065,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		candidate.clone(),
 		session_index,
 		<span class="prelude-val">Some</span>(backing_group),
+		core_index,
 		a_tx,
 	))
 	.<span class="kw">await</span>;

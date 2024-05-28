@@ -438,6 +438,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -724,6 +727,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	config.add_request_response_protocol(cfg);
 	<span class="kw">let </span>cfg =
 		Protocol::ChunkFetchingV1.get_outbound_only_config::&lt;<span class="kw">_</span>, Network&gt;(request_protocol_names);
+	config.add_request_response_protocol(cfg);
+	<span class="kw">let </span>cfg =
+		Protocol::ChunkFetchingV2.get_outbound_only_config::&lt;<span class="kw">_</span>, Network&gt;(request_protocol_names);
 	config.add_request_response_protocol(cfg);
 	(collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver)
 }

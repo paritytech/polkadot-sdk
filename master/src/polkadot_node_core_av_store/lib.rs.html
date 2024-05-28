@@ -1540,6 +1540,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1389" id="1389">1389</a>
 <a href="#1390" id="1390">1390</a>
 <a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1590,8 +1618,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_node_subsystem_util <span class="kw">as </span>util;
 <span class="kw">use </span>polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, Hash, Header, ValidatorIndex,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, Hash,
+	Header, NodeFeatures, ValidatorIndex,
 };
+<span class="kw">use </span>util::availability_chunks::availability_chunk_indices;
 
 <span class="kw">mod </span>metrics;
 <span class="kw">pub use </span><span class="self">self</span>::metrics::<span class="kw-2">*</span>;
@@ -1750,9 +1780,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	db: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Database&gt;,
 	config: <span class="kw-2">&amp;</span>Config,
 	candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
-	chunk_index: ValidatorIndex,
+	validator_index: ValidatorIndex,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ErasureChunk&gt;, Error&gt; {
-	<span class="kw">let </span>key = (CHUNK_PREFIX, candidate_hash, chunk_index).encode();
+	<span class="kw">let </span>key = (CHUNK_PREFIX, candidate_hash, validator_index).encode();
 
 	query_inner(db, config.col_data, <span class="kw-2">&amp;</span>key)
 }
@@ -1761,10 +1791,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	tx: <span class="kw-2">&amp;mut </span>DBTransaction,
 	config: <span class="kw-2">&amp;</span>Config,
 	candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
-	chunk_index: ValidatorIndex,
+	validator_index: ValidatorIndex,
 	erasure_chunk: <span class="kw-2">&amp;</span>ErasureChunk,
 ) {
-	<span class="kw">let </span>key = (CHUNK_PREFIX, candidate_hash, chunk_index).encode();
+	<span class="kw">let </span>key = (CHUNK_PREFIX, candidate_hash, validator_index).encode();
 
 	tx.put_vec(config.col_data, <span class="kw-2">&amp;</span>key, erasure_chunk.encode());
 }
@@ -1773,9 +1803,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	tx: <span class="kw-2">&amp;mut </span>DBTransaction,
 	config: <span class="kw-2">&amp;</span>Config,
 	candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
-	chunk_index: ValidatorIndex,
+	validator_index: ValidatorIndex,
 ) {
-	<span class="kw">let </span>key = (CHUNK_PREFIX, candidate_hash, chunk_index).encode();
+	<span class="kw">let </span>key = (CHUNK_PREFIX, candidate_hash, validator_index).encode();
 
 	tx.delete(config.col_data, <span class="kw-2">&amp;</span>key[..]);
 }
@@ -2681,20 +2711,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(meta) =&gt; {
 					<span class="kw">let </span><span class="kw-2">mut </span>chunks = Vec::new();
 
-					<span class="kw">for </span>(index, <span class="kw">_</span>) <span class="kw">in </span>meta.chunks_stored.iter().enumerate().filter(|(<span class="kw">_</span>, b)| <span class="kw-2">**</span>b) {
+					<span class="kw">for </span>(validator_index, <span class="kw">_</span>) <span class="kw">in
+						</span>meta.chunks_stored.iter().enumerate().filter(|(<span class="kw">_</span>, b)| <span class="kw-2">**</span>b)
+					{
+						<span class="kw">let </span>validator_index = ValidatorIndex(validator_index <span class="kw">as _</span>);
 						<span class="kw">let </span>_timer = subsystem.metrics.time_get_chunk();
 						<span class="kw">match </span>load_chunk(
 							<span class="kw-2">&amp;</span>subsystem.db,
 							<span class="kw-2">&amp;</span>subsystem.config,
 							<span class="kw-2">&amp;</span>candidate,
-							ValidatorIndex(index <span class="kw">as _</span>),
+							validator_index,
 						)<span class="question-mark">? </span>{
-							<span class="prelude-val">Some</span>(c) =&gt; chunks.push(c),
+							<span class="prelude-val">Some</span>(c) =&gt; chunks.push((validator_index, c)),
 							<span class="prelude-val">None </span>=&gt; {
 								<span class="macro">gum::warn!</span>(
 									target: LOG_TARGET,
 									<span class="question-mark">?</span>candidate,
-									index,
+									<span class="question-mark">?</span>validator_index,
 									<span class="string">"No chunk found for set bit in meta"
 								</span>);
 							},
@@ -2711,11 +2744,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 			<span class="kw">let _ </span>= tx.send(a);
 		},
-		AvailabilityStoreMessage::StoreChunk { candidate_hash, chunk, tx } =&gt; {
+		AvailabilityStoreMessage::StoreChunk { candidate_hash, validator_index, chunk, tx } =&gt; {
 			subsystem.metrics.on_chunks_received(<span class="number">1</span>);
 			<span class="kw">let </span>_timer = subsystem.metrics.time_store_chunk();
 
-			<span class="kw">match </span>store_chunk(<span class="kw-2">&amp;</span>subsystem.db, <span class="kw-2">&amp;</span>subsystem.config, candidate_hash, chunk) {
+			<span class="kw">match </span>store_chunk(
+				<span class="kw-2">&amp;</span>subsystem.db,
+				<span class="kw-2">&amp;</span>subsystem.config,
+				candidate_hash,
+				validator_index,
+				chunk,
+			) {
 				<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {
 					<span class="kw">let _ </span>= tx.send(<span class="prelude-val">Ok</span>(()));
 				},
@@ -2733,6 +2772,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			n_validators,
 			available_data,
 			expected_erasure_root,
+			core_index,
+			node_features,
 			tx,
 		} =&gt; {
 			subsystem.metrics.on_chunks_received(n_validators <span class="kw">as _</span>);
@@ -2745,6 +2786,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				n_validators <span class="kw">as _</span>,
 				available_data,
 				expected_erasure_root,
+				core_index,
+				node_features,
 			);
 
 			<span class="kw">match </span>res {
@@ -2775,6 +2818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	db: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Database&gt;,
 	config: <span class="kw-2">&amp;</span>Config,
 	candidate_hash: CandidateHash,
+	validator_index: ValidatorIndex,
 	chunk: ErasureChunk,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>tx = DBTransaction::new();
@@ -2784,12 +2828,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>), <span class="comment">// we weren't informed of this candidate by import events.
 	</span>};
 
-	<span class="kw">match </span>meta.chunks_stored.get(chunk.index.<span class="number">0 </span><span class="kw">as </span>usize).map(|b| <span class="kw-2">*</span>b) {
+	<span class="kw">match </span>meta.chunks_stored.get(validator_index.<span class="number">0 </span><span class="kw">as </span>usize).map(|b| <span class="kw-2">*</span>b) {
 		<span class="prelude-val">Some</span>(<span class="bool-val">true</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>), <span class="comment">// already stored.
 		</span><span class="prelude-val">Some</span>(<span class="bool-val">false</span>) =&gt; {
-			meta.chunks_stored.set(chunk.index.<span class="number">0 </span><span class="kw">as </span>usize, <span class="bool-val">true</span>);
+			meta.chunks_stored.set(validator_index.<span class="number">0 </span><span class="kw">as </span>usize, <span class="bool-val">true</span>);
 
-			write_chunk(<span class="kw-2">&amp;mut </span>tx, config, <span class="kw-2">&amp;</span>candidate_hash, chunk.index, <span class="kw-2">&amp;</span>chunk);
+			write_chunk(<span class="kw-2">&amp;mut </span>tx, config, <span class="kw-2">&amp;</span>candidate_hash, validator_index, <span class="kw-2">&amp;</span>chunk);
 			write_meta(<span class="kw-2">&amp;mut </span>tx, config, <span class="kw-2">&amp;</span>candidate_hash, <span class="kw-2">&amp;</span>meta);
 		},
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>), <span class="comment">// out of bounds.
@@ -2799,6 +2843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>candidate_hash,
 		chunk_index = %chunk.index.<span class="number">0</span>,
+		validator_index = %validator_index.<span class="number">0</span>,
 		<span class="string">"Stored chunk index for candidate."</span>,
 	);
 
@@ -2806,13 +2851,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 }
 
-<span class="comment">// Ok(true) on success, Ok(false) on failure, and Err on internal error.
-</span><span class="kw">fn </span>store_available_data(
+<span class="kw">fn </span>store_available_data(
 	subsystem: <span class="kw-2">&amp;</span>AvailabilityStoreSubsystem,
 	candidate_hash: CandidateHash,
 	n_validators: usize,
 	available_data: AvailableData,
 	expected_erasure_root: Hash,
+	core_index: CoreIndex,
+	node_features: NodeFeatures,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>tx = DBTransaction::new();
 
@@ -2854,16 +2900,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	drop(erasure_span);
 
-	<span class="kw">let </span>erasure_chunks = chunks.iter().zip(branches.map(|(proof, <span class="kw">_</span>)| proof)).enumerate().map(
-		|(index, (chunk, proof))| ErasureChunk {
+	<span class="kw">let </span>erasure_chunks: Vec&lt;<span class="kw">_</span>&gt; = chunks
+		.iter()
+		.zip(branches.map(|(proof, <span class="kw">_</span>)| proof))
+		.enumerate()
+		.map(|(index, (chunk, proof))| ErasureChunk {
 			chunk: chunk.clone(),
 			proof,
-			index: ValidatorIndex(index <span class="kw">as </span>u32),
-		},
-	);
+			index: ChunkIndex(index <span class="kw">as </span>u32),
+		})
+		.collect();
 
-	<span class="kw">for </span>chunk <span class="kw">in </span>erasure_chunks {
-		write_chunk(<span class="kw-2">&amp;mut </span>tx, <span class="kw-2">&amp;</span>subsystem.config, <span class="kw-2">&amp;</span>candidate_hash, chunk.index, <span class="kw-2">&amp;</span>chunk);
+	<span class="kw">let </span>chunk_indices = availability_chunk_indices(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>node_features), n_validators, core_index)<span class="question-mark">?</span>;
+	<span class="kw">for </span>(validator_index, chunk_index) <span class="kw">in </span>chunk_indices.into_iter().enumerate() {
+		write_chunk(
+			<span class="kw-2">&amp;mut </span>tx,
+			<span class="kw-2">&amp;</span>subsystem.config,
+			<span class="kw-2">&amp;</span>candidate_hash,
+			ValidatorIndex(validator_index <span class="kw">as </span>u32),
+			<span class="kw-2">&amp;</span>erasure_chunks[chunk_index.<span class="number">0 </span><span class="kw">as </span>usize],
+		);
 	}
 
 	meta.data_available = <span class="bool-val">true</span>;

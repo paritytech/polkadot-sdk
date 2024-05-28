@@ -693,7 +693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SubsystemError, SubsystemResult, TrySendError,
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::TimeoutExt;
-<span class="kw">use </span>polkadot_primitives::{Hash, ValidatorIndex};
+<span class="kw">use </span>polkadot_primitives::{ChunkIndex, Hash};
 
 <span class="kw">use </span>futures::{channel::mpsc, poll, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>parking_lot::Mutex;
@@ -1155,7 +1155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.enumerate()
 		.map(|(index, (proof, chunk))| ErasureChunk {
 			chunk: chunk.to_vec(),
-			index: ValidatorIndex(index <span class="kw">as _</span>),
+			index: ChunkIndex(index <span class="kw">as _</span>),
 			proof: Proof::try_from(proof).unwrap(),
 		})
 		.collect::&lt;Vec&lt;ErasureChunk&gt;&gt;();

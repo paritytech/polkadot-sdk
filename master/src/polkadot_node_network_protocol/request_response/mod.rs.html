@@ -577,6 +577,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#426" id="426">426</a>
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -677,6 +685,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Protocol for requesting candidates with attestations in statement distribution
 	/// when async backing is enabled.
 	</span>AttestedCandidateV2,
+
+	<span class="doccomment">/// Protocol for chunk fetching version 2, used by availability distribution and availability
+	/// recovery.
+	</span>ChunkFetchingV2,
 }
 
 <span class="doccomment">/// Minimum bandwidth we expect for validators - 500Mbit/s is the recommendation, so approximately
@@ -788,7 +800,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>name = req_protocol_names.get_name(<span class="self">self</span>);
 		<span class="kw">let </span>legacy_names = <span class="self">self</span>.get_legacy_name().into_iter().map(Into::into).collect();
 		<span class="kw">match </span><span class="self">self </span>{
-			Protocol::ChunkFetchingV1 =&gt; N::request_response_config(
+			Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 =&gt; N::request_response_config(
 				name,
 				legacy_names,
 				<span class="number">1_000</span>,
@@ -871,7 +883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// times (due to network delays), 100 seems big enough to accommodate for "bursts",
 			// assuming we can service requests relatively quickly, which would need to be measured
 			// as well.
-			</span>Protocol::ChunkFetchingV1 =&gt; <span class="number">100</span>,
+			</span>Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 =&gt; <span class="number">100</span>,
 			<span class="comment">// 10 seems reasonable, considering group sizes of max 10 validators.
 			</span>Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =&gt; <span class="number">10</span>,
 			<span class="comment">// 10 seems reasonable, considering group sizes of max 10 validators.
@@ -941,6 +953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Introduced after legacy names became legacy.
 			</span>Protocol::AttestedCandidateV2 =&gt; <span class="prelude-val">None</span>,
 			Protocol::CollationFetchingV2 =&gt; <span class="prelude-val">None</span>,
+			Protocol::ChunkFetchingV2 =&gt; <span class="prelude-val">None</span>,
 		}
 	}
 }
@@ -991,15 +1004,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>short_name = <span class="kw">match </span>protocol {
-			Protocol::ChunkFetchingV1 =&gt; <span class="string">"/req_chunk/1"</span>,
+			<span class="comment">// V1:
+			</span>Protocol::ChunkFetchingV1 =&gt; <span class="string">"/req_chunk/1"</span>,
 			Protocol::CollationFetchingV1 =&gt; <span class="string">"/req_collation/1"</span>,
 			Protocol::PoVFetchingV1 =&gt; <span class="string">"/req_pov/1"</span>,
 			Protocol::AvailableDataFetchingV1 =&gt; <span class="string">"/req_available_data/1"</span>,
 			Protocol::StatementFetchingV1 =&gt; <span class="string">"/req_statement/1"</span>,
 			Protocol::DisputeSendingV1 =&gt; <span class="string">"/send_dispute/1"</span>,
 
-			Protocol::CollationFetchingV2 =&gt; <span class="string">"/req_collation/2"</span>,
+			<span class="comment">// V2:
+			</span>Protocol::CollationFetchingV2 =&gt; <span class="string">"/req_collation/2"</span>,
 			Protocol::AttestedCandidateV2 =&gt; <span class="string">"/req_attested_candidate/2"</span>,
+			Protocol::ChunkFetchingV2 =&gt; <span class="string">"/req_chunk/2"</span>,
 		};
 
 		<span class="macro">format!</span>(<span class="string">"{}{}"</span>, prefix, short_name).into()

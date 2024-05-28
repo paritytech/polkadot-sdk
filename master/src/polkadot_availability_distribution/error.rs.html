@@ -266,6 +266,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -317,7 +321,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[fatal]
 	#[error(<span class="string">"Oneshot for receiving response from Chain API got cancelled"</span>)]
-	</span>ChainApiSenderDropped(<span class="attr">#[source] </span>oneshot::Canceled),
+	</span>ChainApiSenderDropped(<span class="attr">#[from] </span>oneshot::Canceled),
 
 	<span class="attr">#[fatal]
 	#[error(<span class="string">"Retrieving response from Chain API unexpectedly failed with error: {0}"</span>)]
@@ -350,6 +354,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[error(<span class="string">"Given validator index could not be found in current session"</span>)]
 	</span>InvalidValidatorIndex,
+
+	<span class="attr">#[error(<span class="string">"Erasure coding error: {0}"</span>)]
+	</span>ErasureCoding(<span class="attr">#[from] </span>polkadot_erasure_coding::Error),
 }
 
 <span class="doccomment">/// General result abbreviation type alias.
@@ -372,7 +379,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				JfyiError::InvalidValidatorIndex |
 				JfyiError::NoSuchCachedSession { .. } |
 				JfyiError::QueryAvailableDataResponseChannel(<span class="kw">_</span>) |
-				JfyiError::QueryChunkResponseChannel(<span class="kw">_</span>) =&gt; <span class="macro">gum::warn!</span>(target: LOG_TARGET, error = %jfyi, ctx),
+				JfyiError::QueryChunkResponseChannel(<span class="kw">_</span>) |
+				JfyiError::ErasureCoding(<span class="kw">_</span>) =&gt; <span class="macro">gum::warn!</span>(target: LOG_TARGET, error = %jfyi, ctx),
 				JfyiError::FetchPoV(<span class="kw">_</span>) |
 				JfyiError::SendResponse |
 				JfyiError::NoSuchPoV |

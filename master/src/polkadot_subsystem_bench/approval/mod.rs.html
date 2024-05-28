@@ -1223,8 +1223,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1072" id="1072">1072</a>
 <a href="#1073" id="1073">1073</a>
 <a href="#1074" id="1074">1074</a>
-<a href="#1075" id="1075">1075</a>
-<a href="#1076" id="1076">1076</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2115,7 +2113,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub async fn </span>bench_approvals(
-	benchmark_name: <span class="kw-2">&amp;</span>str,
 	env: <span class="kw-2">&amp;mut </span>TestEnvironment,
 	<span class="kw-2">mut </span>state: ApprovalTestState,
 ) -&gt; BenchmarkUsage {
@@ -2127,12 +2124,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			env.registry().clone(),
 		)
 		.<span class="kw">await</span>;
-	bench_approvals_run(benchmark_name, env, state, producer_rx).<span class="kw">await
+	bench_approvals_run(env, state, producer_rx).<span class="kw">await
 </span>}
 
 <span class="doccomment">/// Runs the approval benchmark.
 </span><span class="kw">pub async fn </span>bench_approvals_run(
-	benchmark_name: <span class="kw-2">&amp;</span>str,
 	env: <span class="kw-2">&amp;mut </span>TestEnvironment,
 	state: ApprovalTestState,
 	producer_rx: oneshot::Receiver&lt;()&gt;,
@@ -2299,7 +2295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.collect_resource_usage(benchmark_name, <span class="kw-2">&amp;</span>[<span class="string">"approval-distribution"</span>, <span class="string">"approval-voting"</span>])
+	env.collect_resource_usage(<span class="kw-2">&amp;</span>[<span class="string">"approval-distribution"</span>, <span class="string">"approval-voting"</span>])
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

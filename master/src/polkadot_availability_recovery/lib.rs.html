@@ -1020,6 +1020,66 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#869" id="869">869</a>
 <a href="#870" id="870">870</a>
 <a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1041,7 +1101,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![warn(missing_docs)]
 
 </span><span class="kw">use </span>std::{
-	collections::{HashMap, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	iter::Iterator,
 	num::NonZeroUsize,
 	pin::Pin,
@@ -1056,31 +1116,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	stream::{FuturesUnordered, StreamExt},
 	task::{Context, Poll},
 };
+<span class="kw">use </span>sc_network::ProtocolName;
 <span class="kw">use </span>schnellru::{ByLength, LruMap};
-<span class="kw">use </span>task::{FetchChunks, FetchChunksParams, FetchFull, FetchFullParams};
+<span class="kw">use </span>task::{
+	FetchChunks, FetchChunksParams, FetchFull, FetchFullParams, FetchSystematicChunks,
+	FetchSystematicChunksParams,
+};
 
-<span class="kw">use </span>fatality::Nested;
 <span class="kw">use </span>polkadot_erasure_coding::{
-	branch_hash, branches, obtain_chunks_v1, recovery_threshold, Error <span class="kw">as </span>ErasureEncodingError,
+	branches, obtain_chunks_v1, recovery_threshold, systematic_recovery_threshold,
+	Error <span class="kw">as </span>ErasureEncodingError,
 };
 <span class="kw">use </span>task::{RecoveryParams, RecoveryStrategy, RecoveryTask};
 
+<span class="kw">use </span>error::{log_error, Error, FatalError, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>polkadot_node_network_protocol::{
-	request_response::{v1 <span class="kw">as </span>request_v1, IncomingRequestReceiver},
+	request_response::{
+		v1 <span class="kw">as </span>request_v1, v2 <span class="kw">as </span>request_v2, IncomingRequestReceiver, IsRequest, ReqProtocolNames,
+	},
 	UnifiedReputationChange <span class="kw">as </span>Rep,
 };
-<span class="kw">use </span>polkadot_node_primitives::{AvailableData, ErasureChunk};
+<span class="kw">use </span>polkadot_node_primitives::AvailableData;
 <span class="kw">use </span>polkadot_node_subsystem::{
 	errors::RecoveryError,
 	jaeger,
 	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
-	SubsystemContext, SubsystemError, SubsystemResult,
+	SubsystemContext, SubsystemError,
 };
-<span class="kw">use </span>polkadot_node_subsystem_util::request_session_info;
+<span class="kw">use </span>polkadot_node_subsystem_util::{
+	availability_chunks::availability_chunk_indices,
+	runtime::{ExtendedSessionInfo, RuntimeInfo},
+};
 <span class="kw">use </span>polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HashT,
-	SessionIndex, SessionInfo, ValidatorIndex,
+	node_features, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, GroupIndex,
+	Hash, SessionIndex, ValidatorIndex,
 };
 
 <span class="kw">mod </span>error;
@@ -1091,6 +1161,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
+
+<span class="kw">type </span>RecoveryResult = std::result::Result&lt;AvailableData, RecoveryError&gt;;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::availability-recovery"</span>;
 
@@ -1107,13 +1179,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[derive(Clone, PartialEq)]
 </span><span class="doccomment">/// The strategy we use to recover the PoV.
 </span><span class="kw">pub enum </span>RecoveryStrategyKind {
-	<span class="doccomment">/// We always try the backing group first, then fallback to validator chunks.
-	</span>BackersFirstAlways,
 	<span class="doccomment">/// We try the backing group first if PoV size is lower than specified, then fallback to
 	/// validator chunks.
 	</span>BackersFirstIfSizeLower(usize),
+	<span class="doccomment">/// We try the backing group first if PoV size is lower than specified, then fallback to
+	/// systematic chunks. Regular chunk recovery as a last resort.
+	</span>BackersFirstIfSizeLowerThenSystematicChunks(usize),
+
+	<span class="doccomment">/// The following variants are only helpful for integration tests.
+	///
+	/// We always try the backing group first, then fallback to validator chunks.
+	</span><span class="attr">#[allow(dead_code)]
+	</span>BackersFirstAlways,
 	<span class="doccomment">/// We always recover using validator chunks.
+	</span><span class="attr">#[allow(dead_code)]
 	</span>ChunksAlways,
+	<span class="doccomment">/// First try the backing group. Then systematic chunks.
+	</span><span class="attr">#[allow(dead_code)]
+	</span>BackersThenSystematicChunks,
+	<span class="doccomment">/// Always recover using systematic chunks, fall back to regular chunks.
+	</span><span class="attr">#[allow(dead_code)]
+	</span>SystematicChunks,
 }
 
 <span class="doccomment">/// The Availability Recovery Subsystem.
@@ -1131,11 +1217,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>metrics: Metrics,
 	<span class="doccomment">/// The type of check to perform after available data was recovered.
 	</span>post_recovery_check: PostRecoveryCheck,
+	<span class="doccomment">/// Full protocol name for ChunkFetchingV1.
+	</span>req_v1_protocol_name: ProtocolName,
+	<span class="doccomment">/// Full protocol name for ChunkFetchingV2.
+	</span>req_v2_protocol_name: ProtocolName,
 }
 
 <span class="attr">#[derive(Clone, PartialEq, Debug)]
 </span><span class="doccomment">/// The type of check to perform after available data was recovered.
-</span><span class="kw">pub enum </span>PostRecoveryCheck {
+</span><span class="kw">enum </span>PostRecoveryCheck {
 	<span class="doccomment">/// Reencode the data and check erasure root. For validators.
 	</span>Reencode,
 	<span class="doccomment">/// Only check the pov hash. For collators only.
@@ -1143,55 +1233,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Expensive erasure coding computations that we want to run on a blocking thread.
-</span><span class="kw">pub enum </span>ErasureTask {
+</span><span class="kw">enum </span>ErasureTask {
 	<span class="doccomment">/// Reconstructs `AvailableData` from chunks given `n_validators`.
 	</span>Reconstruct(
 		usize,
-		HashMap&lt;ValidatorIndex, ErasureChunk&gt;,
-		oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;AvailableData, ErasureEncodingError&gt;&gt;,
+		BTreeMap&lt;ChunkIndex, Vec&lt;u8&gt;&gt;,
+		oneshot::Sender&lt;std::result::Result&lt;AvailableData, ErasureEncodingError&gt;&gt;,
 	),
 	<span class="doccomment">/// Re-encode `AvailableData` into erasure chunks in order to verify the provided root hash of
 	/// the Merkle tree.
 	</span>Reencode(usize, Hash, AvailableData, oneshot::Sender&lt;<span class="prelude-ty">Option</span>&lt;AvailableData&gt;&gt;),
 }
-
-<span class="kw">const fn </span>is_unavailable(
-	received_chunks: usize,
-	requesting_chunks: usize,
-	unrequested_validators: usize,
-	threshold: usize,
-) -&gt; bool {
-	received_chunks + requesting_chunks + unrequested_validators &lt; threshold
-}
-
-<span class="doccomment">/// Check validity of a chunk.
-</span><span class="kw">fn </span>is_chunk_valid(params: <span class="kw-2">&amp;</span>RecoveryParams, chunk: <span class="kw-2">&amp;</span>ErasureChunk) -&gt; bool {
-	<span class="kw">let </span>anticipated_hash =
-		<span class="kw">match </span>branch_hash(<span class="kw-2">&amp;</span>params.erasure_root, chunk.proof(), chunk.index.<span class="number">0 </span><span class="kw">as </span>usize) {
-			<span class="prelude-val">Ok</span>(hash) =&gt; hash,
-			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">gum::debug!</span>(
-					target: LOG_TARGET,
-					candidate_hash = <span class="question-mark">?</span>params.candidate_hash,
-					validator_index = <span class="question-mark">?</span>chunk.index,
-					error = <span class="question-mark">?</span>e,
-					<span class="string">"Invalid Merkle proof"</span>,
-				);
-				<span class="kw">return </span><span class="bool-val">false
-			</span>},
-		};
-	<span class="kw">let </span>erasure_chunk_hash = BlakeTwo256::hash(<span class="kw-2">&amp;</span>chunk.chunk);
-	<span class="kw">if </span>anticipated_hash != erasure_chunk_hash {
-		<span class="macro">gum::debug!</span>(
-			target: LOG_TARGET,
-			candidate_hash = <span class="question-mark">?</span>params.candidate_hash,
-			validator_index = <span class="question-mark">?</span>chunk.index,
-			<span class="string">"Merkle proof mismatch"
-		</span>);
-		<span class="kw">return </span><span class="bool-val">false
-	</span>}
-	<span class="bool-val">true
-</span>}
 
 <span class="doccomment">/// Re-encode the data into erasure chunks in order to verify
 /// the root hash of the provided Merkle tree, which is built
@@ -1236,12 +1288,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Accumulate all awaiting sides for some particular `AvailableData`.
 </span><span class="kw">struct </span>RecoveryHandle {
 	candidate_hash: CandidateHash,
-	remote: RemoteHandle&lt;<span class="prelude-ty">Result</span>&lt;AvailableData, RecoveryError&gt;&gt;,
-	awaiting: Vec&lt;oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;AvailableData, RecoveryError&gt;&gt;&gt;,
+	remote: RemoteHandle&lt;RecoveryResult&gt;,
+	awaiting: Vec&lt;oneshot::Sender&lt;RecoveryResult&gt;&gt;,
 }
 
 <span class="kw">impl </span>Future <span class="kw">for </span>RecoveryHandle {
-	<span class="kw">type </span>Output = <span class="prelude-ty">Option</span>&lt;(CandidateHash, <span class="prelude-ty">Result</span>&lt;AvailableData, RecoveryError&gt;)&gt;;
+	<span class="kw">type </span>Output = <span class="prelude-ty">Option</span>&lt;(CandidateHash, RecoveryResult)&gt;;
 
 	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>indices_to_remove = Vec::new();
@@ -1295,7 +1347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>CachedRecovery {
 	<span class="doccomment">/// Convert back to	`Result` to deliver responses.
-	</span><span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableData, RecoveryError&gt; {
+	</span><span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; RecoveryResult {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Valid(d) =&gt; <span class="prelude-val">Ok</span>(d),
 			<span class="self">Self</span>::Invalid =&gt; <span class="prelude-val">Err</span>(RecoveryError::Invalid),
@@ -1303,9 +1355,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>TryFrom&lt;<span class="prelude-ty">Result</span>&lt;AvailableData, RecoveryError&gt;&gt; <span class="kw">for </span>CachedRecovery {
+<span class="kw">impl </span>TryFrom&lt;RecoveryResult&gt; <span class="kw">for </span>CachedRecovery {
 	<span class="kw">type </span>Error = ();
-	<span class="kw">fn </span>try_from(o: <span class="prelude-ty">Result</span>&lt;AvailableData, RecoveryError&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;CachedRecovery, <span class="self">Self</span>::Error&gt; {
+	<span class="kw">fn </span>try_from(o: RecoveryResult) -&gt; std::result::Result&lt;CachedRecovery, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">match </span>o {
 			<span class="prelude-val">Ok</span>(d) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Valid(d)),
 			<span class="prelude-val">Err</span>(RecoveryError::Invalid) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Invalid),
@@ -1327,6 +1379,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// An LRU cache of recently recovered data.
 	</span>availability_lru: LruMap&lt;CandidateHash, CachedRecovery&gt;,
+
+	<span class="doccomment">/// Cached runtime info.
+	</span>runtime_info: RuntimeInfo,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>State {
@@ -1335,6 +1390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ongoing_recoveries: FuturesUnordered::new(),
 			live_block: (<span class="number">0</span>, Hash::default()),
 			availability_lru: LruMap::new(ByLength::new(LRU_SIZE)),
+			runtime_info: RuntimeInfo::new(<span class="prelude-val">None</span>),
 		}
 	}
 }
@@ -1351,9 +1407,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Handles a signal from the overseer.
-</span><span class="kw">async fn </span>handle_signal(state: <span class="kw-2">&amp;mut </span>State, signal: OverseerSignal) -&gt; SubsystemResult&lt;bool&gt; {
+/// Returns true if subsystem receives a deadly signal.
+</span><span class="kw">async fn </span>handle_signal(state: <span class="kw-2">&amp;mut </span>State, signal: OverseerSignal) -&gt; bool {
 	<span class="kw">match </span>signal {
-		OverseerSignal::Conclude =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
+		OverseerSignal::Conclude =&gt; <span class="bool-val">true</span>,
 		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate { activated, .. }) =&gt; {
 			<span class="comment">// if activated is non-empty, set state.live_block to the highest block in `activated`
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(activated) = activated {
@@ -1362,9 +1419,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
-		},
-		OverseerSignal::BlockFinalized(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+			<span class="bool-val">false
+		</span>},
+		OverseerSignal::BlockFinalized(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
 	}
 }
 
@@ -1373,27 +1430,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">async fn </span>launch_recovery_task&lt;Context&gt;(
 	state: <span class="kw-2">&amp;mut </span>State,
 	ctx: <span class="kw-2">&amp;mut </span>Context,
-	session_info: SessionInfo,
-	receipt: CandidateReceipt,
-	response_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;AvailableData, RecoveryError&gt;&gt;,
-	metrics: <span class="kw-2">&amp;</span>Metrics,
+	response_sender: oneshot::Sender&lt;RecoveryResult&gt;,
 	recovery_strategies: VecDeque&lt;Box&lt;<span class="kw">dyn </span>RecoveryStrategy&lt;&lt;Context <span class="kw">as </span>SubsystemContext&gt;::Sender&gt;&gt;&gt;,
-	bypass_availability_store: bool,
-	post_recovery_check: PostRecoveryCheck,
-) -&gt; error::Result&lt;()&gt; {
-	<span class="kw">let </span>candidate_hash = receipt.hash();
-	<span class="kw">let </span>params = RecoveryParams {
-		validator_authority_keys: session_info.discovery_keys.clone(),
-		n_validators: session_info.validators.len(),
-		threshold: recovery_threshold(session_info.validators.len())<span class="question-mark">?</span>,
-		candidate_hash,
-		erasure_root: receipt.descriptor.erasure_root,
-		metrics: metrics.clone(),
-		bypass_availability_store,
-		post_recovery_check,
-		pov_hash: receipt.descriptor.pov_hash,
-	};
-
+	params: RecoveryParams,
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+	<span class="kw">let </span>candidate_hash = params.candidate_hash;
 	<span class="kw">let </span>recovery_task = RecoveryTask::new(ctx.sender().clone(), params, recovery_strategies);
 
 	<span class="kw">let </span>(remote, remote_handle) = recovery_task.run().remote_handle();
@@ -1404,15 +1445,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		awaiting: <span class="macro">vec!</span>[response_sender],
 	});
 
-	<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = ctx.spawn(<span class="string">"recovery-task"</span>, Box::pin(remote)) {
-		<span class="macro">gum::warn!</span>(
-			target: LOG_TARGET,
-			err = <span class="question-mark">?</span>e,
-			<span class="string">"Failed to spawn a recovery task"</span>,
-		);
-	}
-
-	<span class="prelude-val">Ok</span>(())
+	ctx.spawn(<span class="string">"recovery-task"</span>, Box::pin(remote))
+		.map_err(|err| Error::SpawnTask(err))
 }
 
 <span class="doccomment">/// Handles an availability recovery request.
@@ -1423,13 +1457,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	receipt: CandidateReceipt,
 	session_index: SessionIndex,
 	backing_group: <span class="prelude-ty">Option</span>&lt;GroupIndex&gt;,
-	response_sender: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;AvailableData, RecoveryError&gt;&gt;,
+	response_sender: oneshot::Sender&lt;RecoveryResult&gt;,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 	erasure_task_tx: futures::channel::mpsc::Sender&lt;ErasureTask&gt;,
 	recovery_strategy_kind: RecoveryStrategyKind,
 	bypass_availability_store: bool,
 	post_recovery_check: PostRecoveryCheck,
-) -&gt; error::Result&lt;()&gt; {
+	maybe_core_index: <span class="prelude-ty">Option</span>&lt;CoreIndex&gt;,
+	req_v1_protocol_name: ProtocolName,
+	req_v2_protocol_name: ProtocolName,
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">let </span>candidate_hash = receipt.hash();
 
 	<span class="kw">let </span>span = jaeger::Span::new(candidate_hash, <span class="string">"availability-recovery"</span>)
@@ -1438,14 +1475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(result) =
 		state.availability_lru.get(<span class="kw-2">&amp;</span>candidate_hash).cloned().map(|v| v.into_result())
 	{
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = response_sender.send(result) {
-			<span class="macro">gum::warn!</span>(
-				target: LOG_TARGET,
-				err = <span class="question-mark">?</span>e,
-				<span class="string">"Error responding with an availability recovery result"</span>,
-			);
-		}
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		<span class="kw">return </span>response_sender.send(result).map_err(|<span class="kw">_</span>| Error::CanceledResponseSender)
 	}
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(i) =
@@ -1456,100 +1486,182 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">let </span>_span = span.child(<span class="string">"not-cached"</span>);
-	<span class="kw">let </span>session_info = request_session_info(state.live_block.<span class="number">1</span>, session_index, ctx.sender())
-		.<span class="kw">await
-		</span>.<span class="kw">await
-		</span>.map_err(error::Error::CanceledSessionInfo)<span class="question-mark">??</span>;
+	<span class="kw">let </span>session_info_res = state
+		.runtime_info
+		.get_session_info_by_index(ctx.sender(), state.live_block.<span class="number">1</span>, session_index)
+		.<span class="kw">await</span>;
 
 	<span class="kw">let </span>_span = span.child(<span class="string">"session-info-ctx-received"</span>);
-	<span class="kw">match </span>session_info {
-		<span class="prelude-val">Some</span>(session_info) =&gt; {
+	<span class="kw">match </span>session_info_res {
+		<span class="prelude-val">Ok</span>(ExtendedSessionInfo { session_info, node_features, .. }) =&gt; {
+			<span class="kw">let </span><span class="kw-2">mut </span>backer_group = <span class="prelude-val">None</span>;
+			<span class="kw">let </span>n_validators = session_info.validators.len();
+			<span class="kw">let </span>systematic_threshold = systematic_recovery_threshold(n_validators)<span class="question-mark">?</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>recovery_strategies: VecDeque&lt;
 				Box&lt;<span class="kw">dyn </span>RecoveryStrategy&lt;&lt;Context <span class="kw">as </span>SubsystemContext&gt;::Sender&gt;&gt;,
-			&gt; = VecDeque::with_capacity(<span class="number">2</span>);
+			&gt; = VecDeque::with_capacity(<span class="number">3</span>);
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(backing_group) = backing_group {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(backing_validators) = session_info.validator_groups.get(backing_group) {
 					<span class="kw">let </span><span class="kw-2">mut </span>small_pov_size = <span class="bool-val">true</span>;
 
-					<span class="kw">if let </span>RecoveryStrategyKind::BackersFirstIfSizeLower(fetch_chunks_threshold) =
-						recovery_strategy_kind
-					{
-						<span class="comment">// Get our own chunk size to get an estimate of the PoV size.
-						</span><span class="kw">let </span>chunk_size: <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;, error::Error&gt; =
-							query_chunk_size(ctx, candidate_hash).<span class="kw">await</span>;
-						<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(chunk_size)) = chunk_size {
-							<span class="kw">let </span>pov_size_estimate =
-								chunk_size.saturating_mul(session_info.validators.len()) / <span class="number">3</span>;
-							small_pov_size = pov_size_estimate &lt; fetch_chunks_threshold;
+					<span class="kw">match </span>recovery_strategy_kind {
+						RecoveryStrategyKind::BackersFirstIfSizeLower(fetch_chunks_threshold) |
+						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(
+							fetch_chunks_threshold,
+						) =&gt; {
+							<span class="comment">// Get our own chunk size to get an estimate of the PoV size.
+							</span><span class="kw">let </span>chunk_size: <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;&gt; =
+								query_chunk_size(ctx, candidate_hash).<span class="kw">await</span>;
+							<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(chunk_size)) = chunk_size {
+								<span class="kw">let </span>pov_size_estimate = chunk_size * systematic_threshold;
+								small_pov_size = pov_size_estimate &lt; fetch_chunks_threshold;
 
-							<span class="macro">gum::trace!</span>(
-								target: LOG_TARGET,
-								<span class="question-mark">?</span>candidate_hash,
-								pov_size_estimate,
-								fetch_chunks_threshold,
-								enabled = small_pov_size,
-								<span class="string">"Prefer fetch from backing group"</span>,
-							);
-						} <span class="kw">else </span>{
-							<span class="comment">// we have a POV limit but were not able to query the chunk size, so
-							// don't use the backing group.
-							</span>small_pov_size = <span class="bool-val">false</span>;
-						}
+								<span class="kw">if </span>small_pov_size {
+									<span class="macro">gum::trace!</span>(
+										target: LOG_TARGET,
+										<span class="question-mark">?</span>candidate_hash,
+										pov_size_estimate,
+										fetch_chunks_threshold,
+										<span class="string">"Prefer fetch from backing group"</span>,
+									);
+								}
+							} <span class="kw">else </span>{
+								<span class="comment">// we have a POV limit but were not able to query the chunk size, so
+								// don't use the backing group.
+								</span>small_pov_size = <span class="bool-val">false</span>;
+							}
+						},
+						<span class="kw">_ </span>=&gt; {},
 					};
 
 					<span class="kw">match </span>(<span class="kw-2">&amp;</span>recovery_strategy_kind, small_pov_size) {
 						(RecoveryStrategyKind::BackersFirstAlways, <span class="kw">_</span>) |
-						(RecoveryStrategyKind::BackersFirstIfSizeLower(<span class="kw">_</span>), <span class="bool-val">true</span>) =&gt; recovery_strategies.push_back(
-							Box::new(FetchFull::new(FetchFullParams {
-								validators: backing_validators.to_vec(),
-								erasure_task_tx: erasure_task_tx.clone(),
-							})),
-						),
+						(RecoveryStrategyKind::BackersFirstIfSizeLower(<span class="kw">_</span>), <span class="bool-val">true</span>) |
+						(
+							RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(<span class="kw">_</span>),
+							<span class="bool-val">true</span>,
+						) |
+						(RecoveryStrategyKind::BackersThenSystematicChunks, <span class="kw">_</span>) =&gt;
+							recovery_strategies.push_back(Box::new(FetchFull::new(
+								FetchFullParams { validators: backing_validators.to_vec() },
+							))),
 						<span class="kw">_ </span>=&gt; {},
 					};
+
+					backer_group = <span class="prelude-val">Some</span>(backing_validators);
+				}
+			}
+
+			<span class="kw">let </span>chunk_mapping_enabled = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) = node_features
+				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping <span class="kw">as </span>u8))
+				.as_deref()
+			{
+				<span class="bool-val">true
+			</span>} <span class="kw">else </span>{
+				<span class="bool-val">false
+			</span>};
+
+			<span class="comment">// We can only attempt systematic recovery if we received the core index of the
+			// candidate and chunk mapping is enabled.
+			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(core_index) = maybe_core_index {
+				<span class="kw">if </span><span class="macro">matches!</span>(
+					recovery_strategy_kind,
+					RecoveryStrategyKind::BackersThenSystematicChunks |
+						RecoveryStrategyKind::SystematicChunks |
+						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(<span class="kw">_</span>)
+				) &amp;&amp; chunk_mapping_enabled
+				{
+					<span class="kw">let </span>chunk_indices =
+						availability_chunk_indices(<span class="prelude-val">Some</span>(node_features), n_validators, core_index)<span class="question-mark">?</span>;
+
+					<span class="kw">let </span>chunk_indices: VecDeque&lt;<span class="kw">_</span>&gt; = chunk_indices
+						.iter()
+						.enumerate()
+						.map(|(v_index, c_index)| {
+							(
+								<span class="kw-2">*</span>c_index,
+								ValidatorIndex(
+									u32::try_from(v_index)
+										.expect(<span class="string">"validator count should not exceed u32"</span>),
+								),
+							)
+						})
+						.collect();
+
+					<span class="comment">// Only get the validators according to the threshold.
+					</span><span class="kw">let </span>validators = chunk_indices
+						.clone()
+						.into_iter()
+						.filter(|(c_index, <span class="kw">_</span>)| {
+							usize::try_from(c_index.<span class="number">0</span>)
+								.expect(<span class="string">"usize is at least u32 bytes on all modern targets."</span>) &lt;
+								systematic_threshold
+						})
+						.collect();
+
+					recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
+						FetchSystematicChunksParams {
+							validators,
+							backers: backer_group.map(|v| v.to_vec()).unwrap_or_else(|| <span class="macro">vec!</span>[]),
+						},
+					)));
 				}
 			}
 
 			recovery_strategies.push_back(Box::new(FetchChunks::new(FetchChunksParams {
 				n_validators: session_info.validators.len(),
-				erasure_task_tx,
 			})));
+
+			<span class="kw">let </span>session_info = session_info.clone();
+
+			<span class="kw">let </span>n_validators = session_info.validators.len();
 
 			launch_recovery_task(
 				state,
 				ctx,
-				session_info,
-				receipt,
 				response_sender,
-				metrics,
 				recovery_strategies,
-				bypass_availability_store,
-				post_recovery_check,
+				RecoveryParams {
+					validator_authority_keys: session_info.discovery_keys.clone(),
+					n_validators,
+					threshold: recovery_threshold(n_validators)<span class="question-mark">?</span>,
+					systematic_threshold,
+					candidate_hash,
+					erasure_root: receipt.descriptor.erasure_root,
+					metrics: metrics.clone(),
+					bypass_availability_store,
+					post_recovery_check,
+					pov_hash: receipt.descriptor.pov_hash,
+					req_v1_protocol_name,
+					req_v2_protocol_name,
+					chunk_mapping_enabled,
+					erasure_task_tx,
+				},
 			)
 			.<span class="kw">await
 		</span>},
-		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"SessionInfo is `None` at {:?}"</span>, state.live_block);
+		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
 			response_sender
 				.send(<span class="prelude-val">Err</span>(RecoveryError::Unavailable))
-				.map_err(|<span class="kw">_</span>| error::Error::CanceledResponseSender)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(())
+				.map_err(|<span class="kw">_</span>| Error::CanceledResponseSender)<span class="question-mark">?</span>;
+
+			<span class="prelude-val">Err</span>(Error::SessionInfoUnavailable(state.live_block.<span class="number">1</span>))
 		},
 	}
 }
 
-<span class="doccomment">/// Queries a chunk from av-store.
+<span class="doccomment">/// Queries the full `AvailableData` from av-store.
 </span><span class="attr">#[overseer::contextbounds(AvailabilityRecovery, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>query_full_data&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	candidate_hash: CandidateHash,
-) -&gt; error::Result&lt;<span class="prelude-ty">Option</span>&lt;AvailableData&gt;&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;AvailableData&gt;&gt; {
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 	ctx.send_message(AvailabilityStoreMessage::QueryAvailableData(candidate_hash, tx))
 		.<span class="kw">await</span>;
 
-	rx.<span class="kw">await</span>.map_err(error::Error::CanceledQueryFullData)
+	rx.<span class="kw">await</span>.map_err(Error::CanceledQueryFullData)
 }
 
 <span class="doccomment">/// Queries a chunk from av-store.
@@ -1557,12 +1669,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">async fn </span>query_chunk_size&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	candidate_hash: CandidateHash,
-) -&gt; error::Result&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;&gt; {
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 	ctx.send_message(AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx))
 		.<span class="kw">await</span>;
 
-	rx.<span class="kw">await</span>.map_err(error::Error::CanceledQueryFullData)
+	rx.<span class="kw">await</span>.map_err(Error::CanceledQueryFullData)
 }
 
 <span class="attr">#[overseer::contextbounds(AvailabilityRecovery, prefix = <span class="self">self</span>::overseer)]
@@ -1573,6 +1685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>for_collator(
 		fetch_chunks_threshold: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 		req_receiver: IncomingRequestReceiver&lt;request_v1::AvailableDataFetchingRequest&gt;,
+		req_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
 		metrics: Metrics,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
@@ -1583,58 +1696,67 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			post_recovery_check: PostRecoveryCheck::PovHash,
 			req_receiver,
 			metrics,
+			req_v1_protocol_name: req_protocol_names
+				.get_name(request_v1::ChunkFetchingRequest::PROTOCOL),
+			req_v2_protocol_name: req_protocol_names
+				.get_name(request_v2::ChunkFetchingRequest::PROTOCOL),
 		}
 	}
 
-	<span class="doccomment">/// Create a new instance of `AvailabilityRecoverySubsystem` which starts with a fast path to
-	/// request data from backers.
-	</span><span class="kw">pub fn </span>with_fast_path(
-		req_receiver: IncomingRequestReceiver&lt;request_v1::AvailableDataFetchingRequest&gt;,
-		metrics: Metrics,
-	) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{
-			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstAlways,
-			bypass_availability_store: <span class="bool-val">false</span>,
-			post_recovery_check: PostRecoveryCheck::Reencode,
-			req_receiver,
-			metrics,
-		}
-	}
-
-	<span class="doccomment">/// Create a new instance of `AvailabilityRecoverySubsystem` which requests only chunks
-	</span><span class="kw">pub fn </span>with_chunks_only(
-		req_receiver: IncomingRequestReceiver&lt;request_v1::AvailableDataFetchingRequest&gt;,
-		metrics: Metrics,
-	) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{
-			recovery_strategy_kind: RecoveryStrategyKind::ChunksAlways,
-			bypass_availability_store: <span class="bool-val">false</span>,
-			post_recovery_check: PostRecoveryCheck::Reencode,
-			req_receiver,
-			metrics,
-		}
-	}
-
-	<span class="doccomment">/// Create a new instance of `AvailabilityRecoverySubsystem` which requests chunks if PoV is
-	/// above a threshold.
-	</span><span class="kw">pub fn </span>with_chunks_if_pov_large(
+	<span class="doccomment">/// Create an optimised new instance of `AvailabilityRecoverySubsystem` suitable for validator
+	/// nodes, which:
+	/// - for small POVs (over the `fetch_chunks_threshold` or the
+	///   `CONSERVATIVE_FETCH_CHUNKS_THRESHOLD`), it attempts full recovery from backers, if backing
+	///   group supplied.
+	/// - for large POVs, attempts systematic recovery, if core_index supplied and
+	///   AvailabilityChunkMapping node feature is enabled.
+	/// - as a last resort, attempt regular chunk recovery from all validators.
+	</span><span class="kw">pub fn </span>for_validator(
 		fetch_chunks_threshold: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 		req_receiver: IncomingRequestReceiver&lt;request_v1::AvailableDataFetchingRequest&gt;,
+		req_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
 		metrics: Metrics,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
-			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(
-				fetch_chunks_threshold.unwrap_or(CONSERVATIVE_FETCH_CHUNKS_THRESHOLD),
-			),
+			recovery_strategy_kind:
+				RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(
+					fetch_chunks_threshold.unwrap_or(CONSERVATIVE_FETCH_CHUNKS_THRESHOLD),
+				),
 			bypass_availability_store: <span class="bool-val">false</span>,
 			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
 			metrics,
+			req_v1_protocol_name: req_protocol_names
+				.get_name(request_v1::ChunkFetchingRequest::PROTOCOL),
+			req_v2_protocol_name: req_protocol_names
+				.get_name(request_v2::ChunkFetchingRequest::PROTOCOL),
+		}
+	}
+
+	<span class="doccomment">/// Customise the recovery strategy kind
+	/// Currently only useful for tests.
+	</span><span class="attr">#[cfg(any(test, feature = <span class="string">"subsystem-benchmarks"</span>))]
+	</span><span class="kw">pub fn </span>with_recovery_strategy_kind(
+		req_receiver: IncomingRequestReceiver&lt;request_v1::AvailableDataFetchingRequest&gt;,
+		req_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
+		metrics: Metrics,
+		recovery_strategy_kind: RecoveryStrategyKind,
+	) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			recovery_strategy_kind,
+			bypass_availability_store: <span class="bool-val">false</span>,
+			post_recovery_check: PostRecoveryCheck::Reencode,
+			req_receiver,
+			metrics,
+			req_v1_protocol_name: req_protocol_names
+				.get_name(request_v1::ChunkFetchingRequest::PROTOCOL),
+			req_v2_protocol_name: req_protocol_names
+				.get_name(request_v2::ChunkFetchingRequest::PROTOCOL),
 		}
 	}
 
 	<span class="doccomment">/// Starts the inner subsystem loop.
-	</span><span class="kw">pub async fn </span>run&lt;Context&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>ctx: Context) -&gt; SubsystemResult&lt;()&gt; {
+	</span><span class="kw">pub async fn </span>run&lt;Context&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>ctx: Context) -&gt; std::result::Result&lt;(), FatalError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>state = State::default();
 		<span class="kw">let </span><span class="self">Self </span>{
 			<span class="kw-2">mut </span>req_receiver,
@@ -1642,6 +1764,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			recovery_strategy_kind,
 			bypass_availability_store,
 			post_recovery_check,
+			req_v1_protocol_name,
+			req_v2_protocol_name,
 		} = <span class="self">self</span>;
 
 		<span class="kw">let </span>(erasure_task_tx, erasure_task_rx) = futures::channel::mpsc::channel(<span class="number">16</span>);
@@ -1677,53 +1801,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">loop </span>{
 			<span class="kw">let </span>recv_req = req_receiver.recv(|| <span class="macro">vec!</span>[COST_INVALID_REQUEST]).fuse();
 			<span class="macro">pin_mut!</span>(recv_req);
-			<span class="macro">futures::select! </span>{
+			<span class="kw">let </span>res = <span class="macro">futures::select! </span>{
 				erasure_task = erasure_task_rx.next() =&gt; {
 					<span class="kw">match </span>erasure_task {
 						<span class="prelude-val">Some</span>(task) =&gt; {
-							<span class="kw">let </span>send_result = to_pool
+							to_pool
 								.next()
 								.expect(<span class="string">"Pool size is `NonZeroUsize`; qed"</span>)
 								.send(task)
 								.<span class="kw">await
-								</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed);
-
-							<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = send_result {
-								<span class="macro">gum::warn!</span>(
-									target: LOG_TARGET,
-									<span class="question-mark">?</span>err,
-									<span class="string">"Failed to send erasure coding task"</span>,
-								);
-							}
+								</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed)
 						},
 						<span class="prelude-val">None </span>=&gt; {
-							<span class="macro">gum::debug!</span>(
-								target: LOG_TARGET,
-								<span class="string">"Erasure task channel closed"</span>,
-							);
-
-							<span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::with_origin(<span class="string">"availability-recovery"</span>, RecoveryError::ChannelClosed))
+							<span class="prelude-val">Err</span>(RecoveryError::ChannelClosed)
 						}
-					}
+					}.map_err(Into::into)
 				}
-				v = ctx.recv().fuse() =&gt; {
-					<span class="kw">match </span>v<span class="question-mark">? </span>{
-						FromOrchestra::Signal(signal) =&gt; <span class="kw">if </span>handle_signal(
-							<span class="kw-2">&amp;mut </span>state,
-							signal,
-						).<span class="kw">await</span><span class="question-mark">? </span>{
-							<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"subsystem concluded"</span>);
-							<span class="kw">return </span><span class="prelude-val">Ok</span>(());
-						}
-						FromOrchestra::Communication { msg } =&gt; {
-							<span class="kw">match </span>msg {
-								AvailabilityRecoveryMessage::RecoverAvailableData(
-									receipt,
-									session_index,
-									maybe_backing_group,
-									response_sender,
-								) =&gt; {
-									<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_recover(
+				signal = ctx.recv().fuse() =&gt; {
+					<span class="kw">match </span>signal {
+						<span class="prelude-val">Ok</span>(signal) =&gt; {
+							<span class="kw">match </span>signal {
+								FromOrchestra::Signal(signal) =&gt; <span class="kw">if </span>handle_signal(
+									<span class="kw-2">&amp;mut </span>state,
+									signal,
+								).<span class="kw">await </span>{
+									<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"subsystem concluded"</span>);
+									<span class="kw">return </span><span class="prelude-val">Ok</span>(());
+								} <span class="kw">else </span>{
+									<span class="prelude-val">Ok</span>(())
+								},
+								FromOrchestra::Communication {
+									msg: AvailabilityRecoveryMessage::RecoverAvailableData(
+										receipt,
+										session_index,
+										maybe_backing_group,
+										maybe_core_index,
+										response_sender,
+									)
+								} =&gt; handle_recover(
 										<span class="kw-2">&amp;mut </span>state,
 										<span class="kw-2">&amp;mut </span>ctx,
 										receipt,
@@ -1734,21 +1849,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										erasure_task_tx.clone(),
 										recovery_strategy_kind.clone(),
 										bypass_availability_store,
-										post_recovery_check.clone()
-									).<span class="kw">await </span>{
-										<span class="macro">gum::warn!</span>(
-											target: LOG_TARGET,
-											err = <span class="question-mark">?</span>e,
-											<span class="string">"Error handling a recovery request"</span>,
-										);
-									}
-								}
-							}
-						}
+										post_recovery_check.clone(),
+										maybe_core_index,
+										req_v1_protocol_name.clone(),
+										req_v2_protocol_name.clone(),
+									).<span class="kw">await
+							</span>}
+						},
+						<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(Error::SubsystemReceive(e))
 					}
 				}
 				in_req = recv_req =&gt; {
-					<span class="kw">match </span>in_req.into_nested().map_err(|fatal| SubsystemError::with_origin(<span class="string">"availability-recovery"</span>, fatal))<span class="question-mark">? </span>{
+					<span class="kw">match </span>in_req {
 						<span class="prelude-val">Ok</span>(req) =&gt; {
 							<span class="kw">if </span>bypass_availability_store {
 								<span class="macro">gum::debug!</span>(
@@ -1756,40 +1868,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="string">"Skipping request to availability-store."</span>,
 								);
 								<span class="kw">let _ </span>= req.send_response(<span class="prelude-val">None</span>.into());
-								<span class="kw">continue
-							</span>}
-							<span class="kw">match </span>query_full_data(<span class="kw-2">&amp;mut </span>ctx, req.payload.candidate_hash).<span class="kw">await </span>{
-								<span class="prelude-val">Ok</span>(res) =&gt; {
-									<span class="kw">let _ </span>= req.send_response(res.into());
-								}
-								<span class="prelude-val">Err</span>(e) =&gt; {
-									<span class="macro">gum::debug!</span>(
-										target: LOG_TARGET,
-										err = <span class="question-mark">?</span>e,
-										<span class="string">"Failed to query available data."</span>,
-									);
-
-									<span class="kw">let _ </span>= req.send_response(<span class="prelude-val">None</span>.into());
+								<span class="prelude-val">Ok</span>(())
+							} <span class="kw">else </span>{
+								<span class="kw">match </span>query_full_data(<span class="kw-2">&amp;mut </span>ctx, req.payload.candidate_hash).<span class="kw">await </span>{
+									<span class="prelude-val">Ok</span>(res) =&gt; {
+										<span class="kw">let _ </span>= req.send_response(res.into());
+										<span class="prelude-val">Ok</span>(())
+									}
+									<span class="prelude-val">Err</span>(e) =&gt; {
+										<span class="kw">let _ </span>= req.send_response(<span class="prelude-val">None</span>.into());
+										<span class="prelude-val">Err</span>(e)
+									}
 								}
 							}
 						}
-						<span class="prelude-val">Err</span>(jfyi) =&gt; {
-							<span class="macro">gum::debug!</span>(
-								target: LOG_TARGET,
-								error = <span class="question-mark">?</span>jfyi,
-								<span class="string">"Decoding incoming request failed"
-							</span>);
-							<span class="kw">continue
-						</span>}
+						<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(Error::IncomingRequest(e))
 					}
 				}
 				output = state.ongoing_recoveries.select_next_some() =&gt; {
+					<span class="kw">let </span><span class="kw-2">mut </span>res = <span class="prelude-val">Ok</span>(());
 					<span class="kw">if let </span><span class="prelude-val">Some</span>((candidate_hash, result)) = output {
+						<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) = result {
+							res = <span class="prelude-val">Err</span>(Error::Recovery(e.clone()));
+						}
+
 						<span class="kw">if let </span><span class="prelude-val">Ok</span>(recovery) = CachedRecovery::try_from(result) {
 							state.availability_lru.insert(candidate_hash, recovery);
 						}
 					}
+
+					res
 				}
+			};
+
+			<span class="comment">// Only bubble up fatal errors, but log all of them.
+			</span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
+				log_error(<span class="prelude-val">Err</span>(e))<span class="question-mark">?</span>;
 			}
 		}
 	}
@@ -1857,7 +1971,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(ErasureTask::Reconstruct(n_validators, chunks, sender)) =&gt; {
 				<span class="kw">let _ </span>= sender.send(polkadot_erasure_coding::reconstruct_v1(
 					n_validators,
-					chunks.values().map(|c| (<span class="kw-2">&amp;</span>c.chunk[..], c.index.<span class="number">0 </span><span class="kw">as </span>usize)),
+					chunks.iter().map(|(c_index, chunk)| {
+						(
+							<span class="kw-2">&amp;</span>chunk[..],
+							usize::try_from(c_index.<span class="number">0</span>)
+								.expect(<span class="string">"usize is at least u32 bytes on all modern targets."</span>),
+						)
+					}),
 				));
 			},
 			<span class="prelude-val">Some</span>(ErasureTask::Reencode(n_validators, root, available_data, sender)) =&gt; {

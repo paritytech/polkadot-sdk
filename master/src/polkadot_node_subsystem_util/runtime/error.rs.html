@@ -237,7 +237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Runtime API subsystem is down, which means we're shutting down.
 	</span><span class="attr">#[fatal]
 	#[error(<span class="string">"Runtime request got canceled"</span>)]
-	</span>RuntimeRequestCanceled(oneshot::Canceled),
+	</span>RuntimeRequestCanceled(<span class="attr">#[from] </span>oneshot::Canceled),
 
 	<span class="doccomment">/// Some request to the runtime failed.
 	/// For example if we prune a block we're requesting info about.

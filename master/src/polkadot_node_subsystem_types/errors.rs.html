@@ -305,16 +305,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -335,6 +325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">crate</span>::JaegerError;
 <span class="kw">use </span>::orchestra::OrchestraError <span class="kw">as </span>OverseerError;
+<span class="kw">use </span>fatality::fatality;
 
 <span class="doccomment">/// A description of an error causing the runtime API request to be unservable.
 </span><span class="attr">#[derive(thiserror::Error, Debug, Clone)]
@@ -385,31 +376,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>std::error::Error <span class="kw">for </span>ChainApiError {}
 
 <span class="doccomment">/// An error that may happen during Availability Recovery process.
-</span><span class="attr">#[derive(PartialEq, Debug, Clone)]
+</span><span class="attr">#[derive(PartialEq, Clone)]
+#[fatality(splitable)]
+#[allow(missing_docs)]
 </span><span class="kw">pub enum </span>RecoveryError {
-	<span class="doccomment">/// A chunk is recovered but is invalid.
+	<span class="attr">#[error(<span class="string">"Invalid data"</span>)]
 	</span>Invalid,
 
-	<span class="doccomment">/// A requested chunk is unavailable.
+	<span class="attr">#[error(<span class="string">"Data is unavailable"</span>)]
 	</span>Unavailable,
 
-	<span class="doccomment">/// Erasure task channel closed, usually means node is shutting down.
+	<span class="attr">#[fatal]
+	#[error(<span class="string">"Erasure task channel closed"</span>)]
 	</span>ChannelClosed,
 }
-
-<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>RecoveryError {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; <span class="prelude-ty">Result</span>&lt;(), core::fmt::Error&gt; {
-		<span class="kw">let </span>msg = <span class="kw">match </span><span class="self">self </span>{
-			RecoveryError::Invalid =&gt; <span class="string">"Invalid"</span>,
-			RecoveryError::Unavailable =&gt; <span class="string">"Unavailable"</span>,
-			RecoveryError::ChannelClosed =&gt; <span class="string">"ChannelClosed"</span>,
-		};
-
-		<span class="macro">write!</span>(f, <span class="string">"{}"</span>, msg)
-	}
-}
-
-<span class="kw">impl </span>std::error::Error <span class="kw">for </span>RecoveryError {}
 
 <span class="doccomment">/// An error type that describes faults that may happen
 ///

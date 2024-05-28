@@ -375,6 +375,9 @@ enum AvailabilityRecoveryMessage {
         CandidateReceipt,
         SessionIndex,
         Option&lt;GroupIndex&gt;, // Backing validator group to request the data directly from.
+        Option&lt;CoreIndex&gt;, /* A `CoreIndex` needs to be specified for the recovery process to
+		                    * prefer systematic chunk recovery. This is the core that the candidate
+                            * was occupying while pending availability. */
         ResponseChannel&lt;Result&lt;AvailableData, RecoveryError&gt;&gt;,
     ),
 }
@@ -1077,7 +1080,7 @@ pub enum CandidateValidationMessage {
 pub enum PvfCheckerMessage { }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
+<footer id="last-change">Last change: 2024-05-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/523e62560e">523e62560e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

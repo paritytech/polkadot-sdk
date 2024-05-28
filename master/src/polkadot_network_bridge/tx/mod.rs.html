@@ -548,6 +548,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -851,7 +859,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">for </span>req <span class="kw">in </span>reqs {
 				<span class="kw">match </span>req {
-					Requests::ChunkFetchingV1(<span class="kw">_</span>) =&gt; metrics.on_message(<span class="string">"chunk_fetching_v1"</span>),
+					Requests::ChunkFetching(<span class="kw-2">ref </span>req) =&gt; {
+						<span class="comment">// This is not the actual request that will succeed, as we don't know yet
+						// what that will be. It's only the primary request we tried.
+						</span><span class="kw">if </span>req.fallback_request.is_some() {
+							metrics.on_message(<span class="string">"chunk_fetching_v2"</span>)
+						} <span class="kw">else </span>{
+							metrics.on_message(<span class="string">"chunk_fetching_v1"</span>)
+						}
+					},
 					Requests::AvailableDataFetchingV1(<span class="kw">_</span>) =&gt;
 						metrics.on_message(<span class="string">"available_data_fetching_v1"</span>),
 					Requests::CollationFetchingV1(<span class="kw">_</span>) =&gt; metrics.on_message(<span class="string">"collation_fetching_v1"</span>),

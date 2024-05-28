@@ -2653,7 +2653,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">crate</span>::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
 						)),
 				)
-				.substream_upgrade_protocol_override(upgrade::Version::V1Lazy)
+				.substream_upgrade_protocol_override(upgrade::Version::V1)
 				.notify_handler_buffer_size(NonZeroUsize::new(<span class="number">32</span>).expect(<span class="string">"32 != 0; qed"</span>))
 				<span class="comment">// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
 				// See &lt;https://github.com/paritytech/substrate/pull/6080&gt;

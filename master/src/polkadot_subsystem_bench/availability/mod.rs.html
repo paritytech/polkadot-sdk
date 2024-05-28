@@ -616,6 +616,53 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -635,12 +682,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{
 	availability::av_store_helpers::new_av_store,
 	dummy_builder,
-	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
+	environment::{TestEnvironment, TestEnvironmentDependencies},
 	mock::{
-		av_store::{<span class="self">self</span>, MockAvailabilityStore, NetworkAvailabilityState},
+		av_store::{MockAvailabilityStore, NetworkAvailabilityState},
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{<span class="self">self</span>, MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::{<span class="self">self</span>, MockRuntimeApi, MockRuntimeApiCoreState},
+		runtime_api::{
+			node_features_with_chunk_mapping_enabled, MockRuntimeApi, MockRuntimeApiCoreState,
+		},
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
@@ -648,16 +697,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
+
 <span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>polkadot_availability_bitfield_distribution::BitfieldDistribution;
 <span class="kw">use </span>polkadot_availability_distribution::{
 	AvailabilityDistributionSubsystem, IncomingRequestReceivers,
 };
-<span class="kw">use </span>polkadot_availability_recovery::AvailabilityRecoverySubsystem;
+<span class="kw">use </span>polkadot_availability_recovery::{AvailabilityRecoverySubsystem, RecoveryStrategyKind};
 <span class="kw">use </span>polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 <span class="kw">use </span>polkadot_node_metrics::metrics::Metrics;
 <span class="kw">use </span>polkadot_node_network_protocol::{
-	request_response::{IncomingRequest, ReqProtocolNames},
+	request_response::{v1, v2, IncomingRequest},
 	OurView,
 };
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -669,12 +719,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Span,
 };
 <span class="kw">use </span>polkadot_overseer::{metrics::Metrics <span class="kw">as </span>OverseerMetrics, Handle <span class="kw">as </span>OverseerHandle};
-<span class="kw">use </span>polkadot_primitives::{Block, GroupIndex, Hash};
+<span class="kw">use </span>polkadot_primitives::{Block, CoreIndex, GroupIndex, Hash};
 <span class="kw">use </span>sc_network::request_responses::{IncomingRequest <span class="kw">as </span>RawIncomingRequest, ProtocolConfig};
+<span class="kw">use </span>std::{ops::Sub, sync::Arc, time::Instant};
+<span class="kw">use </span>strum::Display;
 
 <span class="kw">use </span>sc_service::SpawnTaskHandle;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{ops::Sub, sync::Arc, time::Instant};
 <span class="kw">pub use </span>test_state::TestState;
 
 <span class="kw">mod </span>av_store_helpers;
@@ -682,15 +733,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"subsystem-bench::availability"</span>;
 
+<span class="attr">#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Display)]
+#[value(rename_all = <span class="string">"kebab-case"</span>)]
+#[strum(serialize_all = <span class="string">"kebab-case"</span>)]
+</span><span class="kw">pub enum </span>Strategy {
+	<span class="doccomment">/// Regular random chunk recovery. This is also the fallback for the next strategies.
+	</span>Chunks,
+	<span class="doccomment">/// Recovery from systematic chunks. Much faster than regular chunk recovery becasue it avoid
+	/// doing the reed-solomon reconstruction.
+	</span>Systematic,
+	<span class="doccomment">/// Fetch the full availability datafrom backers first. Saves CPU as we don't need to
+	/// re-construct from chunks. Typically this is only faster if nodes have enough bandwidth.
+	</span>FullFromBackers,
+}
+
 <span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
 #[clap(rename_all = <span class="string">"kebab-case"</span>)]
 #[allow(missing_docs)]
 </span><span class="kw">pub struct </span>DataAvailabilityReadOptions {
-	<span class="attr">#[clap(short, long, default_value_t = <span class="bool-val">false</span>)]
-	</span><span class="doccomment">/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as
-	/// we don't need to re-construct from chunks. Typically this is only faster if nodes have
-	/// enough bandwidth.
-	</span><span class="kw">pub </span>fetch_from_backers: bool,
+	<span class="attr">#[clap(short, long, default_value_t = Strategy::Systematic)]
+	</span><span class="kw">pub </span>strategy: Strategy,
 }
 
 <span class="kw">pub enum </span>TestDataAvailability {
@@ -702,7 +764,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
 	av_store: MockAvailabilityStore,
-	network_bridge: (MockNetworkBridgeTx, MockNetworkBridgeRx),
+	(network_bridge_tx, network_bridge_rx): (MockNetworkBridgeTx, MockNetworkBridgeRx),
 	availability_recovery: AvailabilityRecoverySubsystem,
 	dependencies: <span class="kw-2">&amp;</span>TestEnvironmentDependencies,
 ) -&gt; (Overseer&lt;SpawnGlue&lt;SpawnTaskHandle&gt;, AlwaysSupportsParachains&gt;, OverseerHandle) {
@@ -713,8 +775,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>builder = dummy
 		.replace_runtime_api(|<span class="kw">_</span>| runtime_api)
 		.replace_availability_store(|<span class="kw">_</span>| av_store)
-		.replace_network_bridge_tx(|<span class="kw">_</span>| network_bridge.<span class="number">0</span>)
-		.replace_network_bridge_rx(|<span class="kw">_</span>| network_bridge.<span class="number">1</span>)
+		.replace_network_bridge_tx(|<span class="kw">_</span>| network_bridge_tx)
+		.replace_network_bridge_rx(|<span class="kw">_</span>| network_bridge_rx)
 		.replace_availability_recovery(|<span class="kw">_</span>| availability_recovery);
 
 	<span class="kw">let </span>(overseer, raw_handle) =
@@ -727,7 +789,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>build_overseer_for_availability_write(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
-	network_bridge: (MockNetworkBridgeTx, MockNetworkBridgeRx),
+	(network_bridge_tx, network_bridge_rx): (MockNetworkBridgeTx, MockNetworkBridgeRx),
 	availability_distribution: AvailabilityDistributionSubsystem,
 	chain_api: MockChainApi,
 	availability_store: AvailabilityStoreSubsystem,
@@ -741,8 +803,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>builder = dummy
 		.replace_runtime_api(|<span class="kw">_</span>| runtime_api)
 		.replace_availability_store(|<span class="kw">_</span>| availability_store)
-		.replace_network_bridge_tx(|<span class="kw">_</span>| network_bridge.<span class="number">0</span>)
-		.replace_network_bridge_rx(|<span class="kw">_</span>| network_bridge.<span class="number">1</span>)
+		.replace_network_bridge_tx(|<span class="kw">_</span>| network_bridge_tx)
+		.replace_network_bridge_rx(|<span class="kw">_</span>| network_bridge_rx)
 		.replace_chain_api(|<span class="kw">_</span>| chain_api)
 		.replace_bitfield_distribution(|<span class="kw">_</span>| bitfield_distribution)
 		<span class="comment">// This is needed to test own chunk recovery for `n_cores`.
@@ -760,10 +822,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	with_prometheus_endpoint: bool,
 ) -&gt; (TestEnvironment, Vec&lt;ProtocolConfig&gt;) {
 	<span class="kw">let </span>dependencies = TestEnvironmentDependencies::default();
+
 	<span class="kw">let </span>availability_state = NetworkAvailabilityState {
 		candidate_hashes: state.candidate_hashes.clone(),
+		candidate_hash_to_core_index: state.candidate_hash_to_core_index.clone(),
 		available_data: state.available_data.clone(),
 		chunks: state.chunks.clone(),
+		chunk_indices: state.chunk_indices.clone(),
+		req_protocol_names: state.req_protocol_names.clone(),
 	};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>req_cfgs = Vec::new();
@@ -771,19 +837,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>(collation_req_receiver, collation_req_cfg) = IncomingRequest::get_config_receiver::&lt;
 		Block,
 		sc_network::NetworkWorker&lt;Block, Hash&gt;,
-	&gt;(<span class="kw-2">&amp;</span>ReqProtocolNames::new(GENESIS_HASH, <span class="prelude-val">None</span>));
+	&gt;(<span class="kw-2">&amp;</span>state.req_protocol_names);
 	req_cfgs.push(collation_req_cfg);
 
 	<span class="kw">let </span>(pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::&lt;
 		Block,
 		sc_network::NetworkWorker&lt;Block, Hash&gt;,
-	&gt;(<span class="kw-2">&amp;</span>ReqProtocolNames::new(GENESIS_HASH, <span class="prelude-val">None</span>));
-
-	<span class="kw">let </span>(chunk_req_receiver, chunk_req_cfg) = IncomingRequest::get_config_receiver::&lt;
-		Block,
-		sc_network::NetworkWorker&lt;Block, Hash&gt;,
-	&gt;(<span class="kw-2">&amp;</span>ReqProtocolNames::new(GENESIS_HASH, <span class="prelude-val">None</span>));
+	&gt;(<span class="kw-2">&amp;</span>state.req_protocol_names);
 	req_cfgs.push(pov_req_cfg);
+
+	<span class="kw">let </span>(chunk_req_v1_receiver, chunk_req_v1_cfg) =
+		IncomingRequest::&lt;v1::ChunkFetchingRequest&gt;::get_config_receiver::&lt;
+			Block,
+			sc_network::NetworkWorker&lt;Block, Hash&gt;,
+		&gt;(<span class="kw-2">&amp;</span>state.req_protocol_names);
+
+	<span class="comment">// We won't use v1 chunk fetching requests, but we need to keep the inbound queue alive.
+	// Otherwise, av-distribution subsystem will terminate.
+	</span>std::mem::forget(chunk_req_v1_cfg);
+
+	<span class="kw">let </span>(chunk_req_v2_receiver, chunk_req_v2_cfg) =
+		IncomingRequest::&lt;v2::ChunkFetchingRequest&gt;::get_config_receiver::&lt;
+			Block,
+			sc_network::NetworkWorker&lt;Block, Hash&gt;,
+		&gt;(<span class="kw-2">&amp;</span>state.req_protocol_names);
 
 	<span class="kw">let </span>(network, network_interface, network_receiver) = new_network(
 		<span class="kw-2">&amp;</span>state.config,
@@ -798,9 +875,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state.test_authorities.clone(),
 	);
 	<span class="kw">let </span>network_bridge_rx =
-		network_bridge::MockNetworkBridgeRx::new(network_receiver, <span class="prelude-val">Some</span>(chunk_req_cfg));
+		network_bridge::MockNetworkBridgeRx::new(network_receiver, <span class="prelude-val">Some</span>(chunk_req_v2_cfg));
 
-	<span class="kw">let </span>runtime_api = runtime_api::MockRuntimeApi::new(
+	<span class="kw">let </span>runtime_api = MockRuntimeApi::new(
 		state.config.clone(),
 		state.test_authorities.clone(),
 		state.candidate_receipts.clone(),
@@ -812,24 +889,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>(overseer, overseer_handle) = <span class="kw">match </span><span class="kw-2">&amp;</span>mode {
 		TestDataAvailability::Read(options) =&gt; {
-			<span class="kw">let </span>use_fast_path = options.fetch_from_backers;
-
-			<span class="kw">let </span>subsystem = <span class="kw">if </span>use_fast_path {
-				AvailabilityRecoverySubsystem::with_fast_path(
+			<span class="kw">let </span>subsystem = <span class="kw">match </span>options.strategy {
+				Strategy::FullFromBackers =&gt;
+					AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
+						collation_req_receiver,
+						<span class="kw-2">&amp;</span>state.req_protocol_names,
+						Metrics::try_register(<span class="kw-2">&amp;</span>dependencies.registry).unwrap(),
+						RecoveryStrategyKind::BackersFirstAlways,
+					),
+				Strategy::Chunks =&gt; AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
 					collation_req_receiver,
+					<span class="kw-2">&amp;</span>state.req_protocol_names,
 					Metrics::try_register(<span class="kw-2">&amp;</span>dependencies.registry).unwrap(),
-				)
-			} <span class="kw">else </span>{
-				AvailabilityRecoverySubsystem::with_chunks_only(
+					RecoveryStrategyKind::ChunksAlways,
+				),
+				Strategy::Systematic =&gt; AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
 					collation_req_receiver,
+					<span class="kw-2">&amp;</span>state.req_protocol_names,
 					Metrics::try_register(<span class="kw-2">&amp;</span>dependencies.registry).unwrap(),
-				)
+					RecoveryStrategyKind::SystematicChunks,
+				),
 			};
 
 			<span class="comment">// Use a mocked av-store.
-			</span><span class="kw">let </span>av_store = av_store::MockAvailabilityStore::new(
+			</span><span class="kw">let </span>av_store = MockAvailabilityStore::new(
 				state.chunks.clone(),
+				state.chunk_indices.clone(),
 				state.candidate_hashes.clone(),
+				state.candidate_hash_to_core_index.clone(),
 			);
 
 			build_overseer_for_availability_read(
@@ -844,7 +931,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		TestDataAvailability::Write =&gt; {
 			<span class="kw">let </span>availability_distribution = AvailabilityDistributionSubsystem::new(
 				state.test_authorities.keyring.keystore(),
-				IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+				IncomingRequestReceivers {
+					pov_req_receiver,
+					chunk_req_v1_receiver,
+					chunk_req_v2_receiver,
+				},
+				state.req_protocol_names.clone(),
 				Metrics::try_register(<span class="kw-2">&amp;</span>dependencies.registry).unwrap(),
 			);
 
@@ -880,7 +972,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub async fn </span>benchmark_availability_read(
-	benchmark_name: <span class="kw-2">&amp;</span>str,
 	env: <span class="kw-2">&amp;mut </span>TestEnvironment,
 	state: <span class="kw-2">&amp;</span>TestState,
 ) -&gt; BenchmarkUsage {
@@ -914,6 +1005,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Some</span>(GroupIndex(
 						candidate_num <span class="kw">as </span>u32 % (std::cmp::max(<span class="number">5</span>, config.n_cores) / <span class="number">5</span>) <span class="kw">as </span>u32,
 					)),
+					<span class="prelude-val">Some</span>(<span class="kw-2">*</span>state.candidate_hash_to_core_index.get(<span class="kw-2">&amp;</span>candidate.hash()).unwrap()),
 					tx,
 				),
 			);
@@ -945,11 +1037,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	env.stop().<span class="kw">await</span>;
-	env.collect_resource_usage(benchmark_name, <span class="kw-2">&amp;</span>[<span class="string">"availability-recovery"</span>])
+	env.collect_resource_usage(<span class="kw-2">&amp;</span>[<span class="string">"availability-recovery"</span>])
 }
 
 <span class="kw">pub async fn </span>benchmark_availability_write(
-	benchmark_name: <span class="kw-2">&amp;</span>str,
 	env: <span class="kw-2">&amp;mut </span>TestEnvironment,
 	state: <span class="kw-2">&amp;</span>TestState,
 ) -&gt; BenchmarkUsage {
@@ -959,7 +1050,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	env.metrics().set_n_cores(config.n_cores);
 
 	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Seeding availability store with candidates ..."</span>);
-	<span class="kw">for </span>backed_candidate <span class="kw">in </span>state.backed_candidates.clone() {
+	<span class="kw">for </span>(core_index, backed_candidate) <span class="kw">in </span>state.backed_candidates.clone().into_iter().enumerate() {
 		<span class="kw">let </span>candidate_index = <span class="kw-2">*</span>state.candidate_hashes.get(<span class="kw-2">&amp;</span>backed_candidate.hash()).unwrap();
 		<span class="kw">let </span>available_data = state.available_data[candidate_index].clone();
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
@@ -970,6 +1061,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				available_data,
 				expected_erasure_root: backed_candidate.descriptor().erasure_root,
 				tx,
+				core_index: CoreIndex(core_index <span class="kw">as </span>u32),
+				node_features: node_features_with_chunk_mapping_enabled(),
 			},
 		))
 		.<span class="kw">await</span>;
@@ -1078,10 +1171,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	env.stop().<span class="kw">await</span>;
-	env.collect_resource_usage(
-		benchmark_name,
-		<span class="kw-2">&amp;</span>[<span class="string">"availability-distribution"</span>, <span class="string">"bitfield-distribution"</span>, <span class="string">"availability-store"</span>],
-	)
+	env.collect_resource_usage(<span class="kw-2">&amp;</span>[
+		<span class="string">"availability-distribution"</span>,
+		<span class="string">"bitfield-distribution"</span>,
+		<span class="string">"availability-store"</span>,
+	])
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

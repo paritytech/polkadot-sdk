@@ -2330,6 +2330,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2179" id="2179">2179</a>
 <a href="#2180" id="2180">2180</a>
 <a href="#2181" id="2181">2181</a>
+<a href="#2182" id="2182">2182</a>
+<a href="#2183" id="2183">2183</a>
+<a href="#2184" id="2184">2184</a>
+<a href="#2185" id="2185">2185</a>
+<a href="#2186" id="2186">2186</a>
+<a href="#2187" id="2187">2187</a>
+<a href="#2188" id="2188">2188</a>
+<a href="#2189" id="2189">2189</a>
+<a href="#2190" id="2190">2190</a>
+<a href="#2191" id="2191">2191</a>
+<a href="#2192" id="2192">2192</a>
+<a href="#2193" id="2193">2193</a>
+<a href="#2194" id="2194">2194</a>
+<a href="#2195" id="2195">2195</a>
+<a href="#2196" id="2196">2196</a>
+<a href="#2197" id="2197">2197</a>
+<a href="#2198" id="2198">2198</a>
+<a href="#2199" id="2199">2199</a>
+<a href="#2200" id="2200">2200</a>
+<a href="#2201" id="2201">2201</a>
+<a href="#2202" id="2202">2202</a>
+<a href="#2203" id="2203">2203</a>
+<a href="#2204" id="2204">2204</a>
+<a href="#2205" id="2205">2205</a>
+<a href="#2206" id="2206">2206</a>
+<a href="#2207" id="2207">2207</a>
+<a href="#2208" id="2208">2208</a>
+<a href="#2209" id="2209">2209</a>
+<a href="#2210" id="2210">2210</a>
+<a href="#2211" id="2211">2211</a>
+<a href="#2212" id="2212">2212</a>
+<a href="#2213" id="2213">2213</a>
+<a href="#2214" id="2214">2214</a>
+<a href="#2215" id="2215">2215</a>
+<a href="#2216" id="2216">2216</a>
+<a href="#2217" id="2217">2217</a>
+<a href="#2218" id="2218">2218</a>
+<a href="#2219" id="2219">2219</a>
+<a href="#2220" id="2220">2220</a>
+<a href="#2221" id="2221">2221</a>
+<a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2448,6 +2491,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, Deserialize, Hash))]
 </span><span class="kw">pub struct </span>ValidatorIndex(<span class="kw">pub </span>u32);
+
+<span class="doccomment">/// Index of an availability chunk.
+///
+/// The underlying type is identical to `ValidatorIndex`, because
+/// the number of chunks will always be equal to the number of validators.
+/// However, the chunk index held by a validator may not always be equal to its `ValidatorIndex`, so
+/// we use a separate type to make code easier to read.
+</span><span class="attr">#[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, Deserialize, Hash))]
+</span><span class="kw">pub struct </span>ChunkIndex(<span class="kw">pub </span>u32);
+
+<span class="kw">impl </span>From&lt;ChunkIndex&gt; <span class="kw">for </span>ValidatorIndex {
+	<span class="kw">fn </span>from(c_index: ChunkIndex) -&gt; <span class="self">Self </span>{
+		ValidatorIndex(c_index.<span class="number">0</span>)
+	}
+}
+
+<span class="kw">impl </span>From&lt;ValidatorIndex&gt; <span class="kw">for </span>ChunkIndex {
+	<span class="kw">fn </span>from(v_index: ValidatorIndex) -&gt; <span class="self">Self </span>{
+		ChunkIndex(v_index.<span class="number">0</span>)
+	}
+}
+
+<span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>ChunkIndex {
+	<span class="kw">fn </span>from(n: u32) -&gt; <span class="self">Self </span>{
+		ChunkIndex(n)
+	}
+}
 
 <span class="comment">// We should really get https://github.com/paritytech/polkadot/issues/2403 going ..
 </span><span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>ValidatorIndex {
@@ -4119,6 +4190,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.<span class="number">0</span>.get(index.type_index())
 	}
 
+	<span class="doccomment">/// Returns a mutable reference to an element indexed using `K`.
+	</span><span class="kw">pub fn </span>get_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index: K) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>V&gt;
+	<span class="kw">where
+		</span>K: TypeIndex,
+	{
+		<span class="self">self</span>.<span class="number">0</span>.get_mut(index.type_index())
+	}
+
 	<span class="doccomment">/// Returns number of elements in vector.
 	</span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 		<span class="self">self</span>.<span class="number">0</span>.len()
@@ -4321,6 +4400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A feature index used to identify a bit into the node_features array stored
 	/// in the HostConfiguration.
 	</span><span class="attr">#[repr(u8)]
+	#[derive(Clone, Copy)]
 	</span><span class="kw">pub enum </span>FeatureIndex {
 		<span class="doccomment">/// Tells if tranch0 assignments could be sent in a single certificate.
 		/// Reserved for: `&lt;https://github.com/paritytech/polkadot-sdk/issues/628&gt;`
@@ -4329,10 +4409,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// The value stored there represents the assumed core index where the candidates
 		/// are backed. This is needed for the elastic scaling MVP.
 		</span>ElasticScalingMVP = <span class="number">1</span>,
+		<span class="doccomment">/// Tells if the chunk mapping feature is enabled.
+		/// Enables the implementation of
+		/// [RFC-47](https://github.com/polkadot-fellows/RFCs/blob/main/text/0047-assignment-of-availability-chunks.md).
+		/// Must not be enabled unless all validators and collators have stopped using `req_chunk`
+		/// protocol version 1. If it is enabled, validators can start systematic chunk recovery.
+		</span>AvailabilityChunkMapping = <span class="number">2</span>,
 		<span class="doccomment">/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		</span>FirstUnassigned = <span class="number">2</span>,
+		</span>FirstUnassigned = <span class="number">3</span>,
 	}
 }
 

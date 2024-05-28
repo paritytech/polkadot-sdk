@@ -595,6 +595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#444" id="444">444</a>
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -901,6 +902,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.send_message(AvailabilityRecoveryMessage::RecoverAvailableData(
 			req.candidate_receipt().clone(),
 			req.session(),
+			<span class="prelude-val">None</span>,
 			<span class="prelude-val">None</span>,
 			recover_available_data_tx,
 		))

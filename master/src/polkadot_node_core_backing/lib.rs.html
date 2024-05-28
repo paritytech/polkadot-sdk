@@ -2342,6 +2342,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2191" id="2191">2191</a>
 <a href="#2192" id="2192">2192</a>
 <a href="#2193" id="2193">2193</a>
+<a href="#2194" id="2194">2194</a>
+<a href="#2195" id="2195">2195</a>
+<a href="#2196" id="2196">2196</a>
+<a href="#2197" id="2197">2197</a>
+<a href="#2198" id="2198">2198</a>
+<a href="#2199" id="2199">2199</a>
+<a href="#2200" id="2200">2200</a>
+<a href="#2201" id="2201">2201</a>
+<a href="#2202" id="2202">2202</a>
+<a href="#2203" id="2203">2203</a>
+<a href="#2204" id="2204">2204</a>
+<a href="#2205" id="2205">2205</a>
+<a href="#2206" id="2206">2206</a>
+<a href="#2207" id="2207">2207</a>
+<a href="#2208" id="2208">2208</a>
+<a href="#2209" id="2209">2209</a>
+<a href="#2210" id="2210">2210</a>
+<a href="#2211" id="2211">2211</a>
+<a href="#2212" id="2212">2212</a>
+<a href="#2213" id="2213">2213</a>
+<a href="#2214" id="2214">2214</a>
+<a href="#2215" id="2215">2215</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2554,6 +2576,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	<span class="doccomment">/// The hash of the relay parent on top of which this job is doing it's work.
 	</span>parent: Hash,
+	<span class="doccomment">/// Session index.
+	</span>session_index: SessionIndex,
 	<span class="doccomment">/// The `ParaId` assigned to the local validator at this relay parent.
 	</span>assigned_para: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
 	<span class="doccomment">/// The `CoreIndex` assigned to the local validator at this relay parent.
@@ -2878,6 +2902,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	candidate_hash: CandidateHash,
 	available_data: AvailableData,
 	expected_erasure_root: Hash,
+	core_index: CoreIndex,
+	node_features: NodeFeatures,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 	<span class="comment">// Important: the `av-store` subsystem will check if the erasure root of the `available_data`
@@ -2890,6 +2916,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			n_validators,
 			available_data,
 			expected_erasure_root,
+			core_index,
+			node_features,
 			tx,
 		})
 		.<span class="kw">await</span>;
@@ -2913,6 +2941,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	candidate_hash: CandidateHash,
 	validation_data: PersistedValidationData,
 	expected_erasure_root: Hash,
+	core_index: CoreIndex,
+	node_features: NodeFeatures,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	store_available_data(
 		sender,
@@ -2920,6 +2950,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		candidate_hash,
 		AvailableData { pov, validation_data },
 		expected_erasure_root,
+		core_index,
+		node_features,
 	)
 	.<span class="kw">await
 </span>}
@@ -2990,6 +3022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	tx_command: mpsc::Sender&lt;(Hash, ValidatedCandidateCommand)&gt;,
 	candidate: CandidateReceipt,
 	relay_parent: Hash,
+	session_index: SessionIndex,
 	persisted_validation_data: PersistedValidationData,
 	pov: PoVData,
 	n_validators: usize,
@@ -3001,12 +3034,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">impl </span>overseer::CandidateBackingSenderTrait,
 		<span class="kw">impl </span>Fn(BackgroundValidationResult) -&gt; ValidatedCandidateCommand + Sync,
 	&gt;,
+	core_index: CoreIndex,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="kw">let </span>BackgroundValidationParams {
 		<span class="kw-2">mut </span>sender,
 		<span class="kw-2">mut </span>tx_command,
 		candidate,
 		relay_parent,
+		session_index,
 		persisted_validation_data,
 		pov,
 		n_validators,
@@ -3035,6 +3070,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(ep) =&gt; ep,
 		<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::UtilError(e)),
 	};
+
+	<span class="kw">let </span>node_features = request_node_features(relay_parent, session_index, <span class="kw-2">&amp;mut </span>sender)
+		.<span class="kw">await</span><span class="question-mark">?
+		</span>.unwrap_or(NodeFeatures::EMPTY);
 
 	<span class="kw">let </span>pov = <span class="kw">match </span>pov {
 		PoVData::Ready(pov) =&gt; pov,
@@ -3091,6 +3130,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				candidate.hash(),
 				validation_data.clone(),
 				candidate.descriptor.erasure_root,
+				core_index,
+				node_features,
 			)
 			.<span class="kw">await</span>;
 
@@ -3535,6 +3576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(PerRelayParentState {
 		prospective_parachains_mode: mode,
 		parent,
+		session_index,
 		assigned_core,
 		assigned_para,
 		backed: HashSet::new(),
@@ -4132,10 +4174,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="kw">let </span>candidate_hash = params.candidate.hash();
+	<span class="kw">let </span><span class="prelude-val">Some</span>(core_index) = rp_state.assigned_core <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(()) };
 	<span class="kw">if </span>rp_state.awaiting_validation.insert(candidate_hash) {
 		<span class="comment">// spawn background task.
 		</span><span class="kw">let </span>bg = <span class="kw">async move </span>{
-			<span class="kw">if let </span><span class="prelude-val">Err</span>(error) = validate_and_make_available(params).<span class="kw">await </span>{
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(error) = validate_and_make_available(params, core_index).<span class="kw">await </span>{
 				<span class="kw">if let </span>Error::BackgroundValidationMpsc(error) = error {
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
@@ -4210,6 +4253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			tx_command: background_validation_tx.clone(),
 			candidate: attesting.candidate,
 			relay_parent: rp_state.parent,
+			session_index: rp_state.session_index,
 			persisted_validation_data,
 			pov,
 			n_validators: rp_state.table_context.validators.len(),
@@ -4363,6 +4407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			tx_command: background_validation_tx.clone(),
 			candidate: candidate.clone(),
 			relay_parent: rp_state.parent,
+			session_index: rp_state.session_index,
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
 			n_validators: rp_state.table_context.validators.len(),
@@ -4428,8 +4473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			collation = <span class="question-mark">?</span>candidate.descriptor().para_id,
 			<span class="string">"Subsystem asked to second for para outside of our assignment"</span>,
 		);
-
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 	}
 
 	<span class="macro">gum::debug!</span>(

@@ -729,6 +729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -762,8 +763,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem_types::UnpinHandle;
 <span class="kw">use </span>polkadot_primitives::{
 	node_features::FeatureIndex, slashing, AsyncBackingParams, CandidateEvent, CandidateHash,
-	CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec,
-	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	CoreIndex, CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	IndexedVec, NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
 	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
@@ -1079,7 +1080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub async fn </span>get_occupied_cores&lt;Sender&gt;(
 	sender: <span class="kw-2">&amp;mut </span>Sender,
 	relay_parent: Hash,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;OccupiedCore&gt;&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(CoreIndex, OccupiedCore)&gt;&gt;
 <span class="kw">where
 	</span>Sender: overseer::SubsystemSender&lt;RuntimeApiMessage&gt;,
 {
@@ -1087,9 +1088,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="prelude-val">Ok</span>(cores
 		.into_iter()
-		.filter_map(|core_state| {
+		.enumerate()
+		.filter_map(|(core_index, core_state)| {
 			<span class="kw">if let </span>CoreState::Occupied(occupied) = core_state {
-				<span class="prelude-val">Some</span>(occupied)
+				<span class="prelude-val">Some</span>((CoreIndex(core_index <span class="kw">as </span>u32), occupied))
 			} <span class="kw">else </span>{
 				<span class="prelude-val">None
 			</span>}

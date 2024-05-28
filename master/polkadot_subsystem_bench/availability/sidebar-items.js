@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TestDataAvailability"],"fn":["benchmark_availability_read","benchmark_availability_write","prepare_test"],"struct":["DataAvailabilityReadOptions","TestState"]};
+window.SIDEBAR_ITEMS = {"enum":["Strategy","TestDataAvailability"],"fn":["benchmark_availability_read","benchmark_availability_write","prepare_test"],"struct":["DataAvailabilityReadOptions","TestState"]};

@@ -332,19 +332,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -370,7 +357,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(Debug, Serialize, Deserialize, Clone)]
 </span><span class="kw">pub struct </span>BenchmarkUsage {
-	<span class="kw">pub </span>benchmark_name: String,
 	<span class="kw">pub </span>network_usage: Vec&lt;ResourceUsage&gt;,
 	<span class="kw">pub </span>cpu_usage: Vec&lt;ResourceUsage&gt;,
 }
@@ -379,8 +365,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
 		<span class="macro">write!</span>(
 			f,
-			<span class="string">"\n{}\n\n{}\n{}\n\n{}\n{}\n"</span>,
-			<span class="self">self</span>.benchmark_name.purple(),
+			<span class="string">"\n{}\n{}\n\n{}\n{}\n"</span>,
 			<span class="macro">format!</span>(<span class="string">"{:&lt;32}{:&gt;12}{:&gt;12}"</span>, <span class="string">"Network usage, KiB"</span>, <span class="string">"total"</span>, <span class="string">"per block"</span>).blue(),
 			<span class="self">self</span>.network_usage
 				.iter()
@@ -406,18 +391,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>all_cpu_usage: Vec&lt;<span class="kw-2">&amp;</span>ResourceUsage&gt; = usages.iter().flat_map(|v| <span class="kw-2">&amp;</span>v.cpu_usage).collect();
 
 		<span class="self">Self </span>{
-			benchmark_name: usages.first().map(|v| v.benchmark_name.clone()).unwrap_or_default(),
 			network_usage: ResourceUsage::average_by_resource_name(<span class="kw-2">&amp;</span>all_network_usages),
 			cpu_usage: ResourceUsage::average_by_resource_name(<span class="kw-2">&amp;</span>all_cpu_usage),
 		}
 	}
 
 	<span class="kw">pub fn </span>check_network_usage(<span class="kw-2">&amp;</span><span class="self">self</span>, checks: <span class="kw-2">&amp;</span>[ResourceUsageCheck]) -&gt; Vec&lt;String&gt; {
-		check_usage(<span class="kw-2">&amp;</span><span class="self">self</span>.benchmark_name, <span class="kw-2">&amp;</span><span class="self">self</span>.network_usage, checks)
+		check_usage(<span class="kw-2">&amp;</span><span class="self">self</span>.network_usage, checks)
 	}
 
 	<span class="kw">pub fn </span>check_cpu_usage(<span class="kw-2">&amp;</span><span class="self">self</span>, checks: <span class="kw-2">&amp;</span>[ResourceUsageCheck]) -&gt; Vec&lt;String&gt; {
-		check_usage(<span class="kw-2">&amp;</span><span class="self">self</span>.benchmark_name, <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_usage, checks)
+		check_usage(<span class="kw-2">&amp;</span><span class="self">self</span>.cpu_usage, checks)
 	}
 
 	<span class="kw">pub fn </span>cpu_usage_diff(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>, resource_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;f64&gt; {
@@ -452,18 +436,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>check_usage(
-	benchmark_name: <span class="kw-2">&amp;</span>str,
-	usage: <span class="kw-2">&amp;</span>[ResourceUsage],
-	checks: <span class="kw-2">&amp;</span>[ResourceUsageCheck],
-) -&gt; Vec&lt;String&gt; {
-	checks
-		.iter()
-		.filter_map(|check| {
-			check_resource_usage(usage, check)
-				.map(|message| <span class="macro">format!</span>(<span class="string">"{}: {}"</span>, benchmark_name, message))
-		})
-		.collect()
+<span class="kw">fn </span>check_usage(usage: <span class="kw-2">&amp;</span>[ResourceUsage], checks: <span class="kw-2">&amp;</span>[ResourceUsageCheck]) -&gt; Vec&lt;String&gt; {
+	checks.iter().filter_map(|check| check_resource_usage(usage, check)).collect()
 }
 
 <span class="kw">fn </span>check_resource_usage(

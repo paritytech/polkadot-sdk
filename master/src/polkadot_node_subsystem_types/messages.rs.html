@@ -1382,6 +1382,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1231" id="1231">1231</a>
 <a href="#1232" id="1232">1232</a>
 <a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1864,6 +1873,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CandidateReceipt,
 		SessionIndex,
 		<span class="prelude-ty">Option</span>&lt;GroupIndex&gt;, <span class="comment">// Optional backing group to request from first.
+		</span><span class="prelude-ty">Option</span>&lt;CoreIndex&gt;,  <span class="comment">/* A `CoreIndex` needs to be specified for the recovery process to
+		                     * prefer systematic chunk recovery. */
 		</span>oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;AvailableData, <span class="kw">crate</span>::errors::RecoveryError&gt;&gt;,
 	),
 }
@@ -1899,7 +1910,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>QueryChunkSize(CandidateHash, oneshot::Sender&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;&gt;),
 
 	<span class="doccomment">/// Query all chunks that we have for the given candidate hash.
-	</span>QueryAllChunks(CandidateHash, oneshot::Sender&lt;Vec&lt;ErasureChunk&gt;&gt;),
+	</span>QueryAllChunks(CandidateHash, oneshot::Sender&lt;Vec&lt;(ValidatorIndex, ErasureChunk)&gt;&gt;),
 
 	<span class="doccomment">/// Query whether an `ErasureChunk` exists within the AV Store.
 	///
@@ -1914,6 +1925,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>StoreChunk {
 		<span class="doccomment">/// A hash of the candidate this chunk belongs to.
 		</span>candidate_hash: CandidateHash,
+		<span class="doccomment">/// Validator index. May not be equal to the chunk index.
+		</span>validator_index: ValidatorIndex,
 		<span class="doccomment">/// The chunk itself.
 		</span>chunk: ErasureChunk,
 		<span class="doccomment">/// Sending side of the channel to send result to.
@@ -1933,6 +1946,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>available_data: AvailableData,
 		<span class="doccomment">/// Erasure root we expect to get after chunking.
 		</span>expected_erasure_root: Hash,
+		<span class="doccomment">/// Core index where the candidate was backed.
+		</span>core_index: CoreIndex,
+		<span class="doccomment">/// Node features at the candidate relay parent. Used for computing the validator-&gt;chunk
+		/// mapping.
+		</span>node_features: NodeFeatures,
 		<span class="doccomment">/// Sending side of the channel to send result to.
 		</span>tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), StoreAvailableDataError&gt;&gt;,
 	},

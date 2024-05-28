@@ -575,7 +575,7 @@ no-show tick or the latest assignment tick + <code>APPROVAL_DELAY</code>.</li>
 <ul>
 <li>Requires <code>(SessionIndex, SessionInfo, CandidateReceipt, ValidatorIndex, backing_group, block_hash, candidate_index)</code></li>
 <li>Extract the public key of the <code>ValidatorIndex</code> from the <code>SessionInfo</code> for the session.</li>
-<li>Issue an <code>AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session_index, Some(backing_group), response_sender)</code></li>
+<li>Issue an <code>AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session_index, Some(backing_group), Some(core_index), response_sender)</code></li>
 <li>Load the historical validation code of the parachain by dispatching a
 <code>RuntimeApiRequest::ValidationCodeByHash(descriptor.validation_code_hash)</code> against the state of <code>block_hash</code>.</li>
 <li>Spawn a background task with a clone of <code>background_tx</code>
@@ -743,7 +743,7 @@ false.</li>
 <li>Given the slot number of a block, and the current time, this informs about the current tranche.</li>
 <li>Convert <code>time.saturating_sub(slot_number.to_time())</code> to a delay tranches value</li>
 </ul>
-<footer id="last-change">Last change: 2023-12-13, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a84dd0dba5">a84dd0dba5</a></footer>
+<footer id="last-change">Last change: 2024-05-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/523e62560e">523e62560e</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
