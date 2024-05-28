@@ -4,7 +4,6 @@
 title: Download KeyValues in remote externalities early
 
 doc:
-  - audience: Runtime Dev
   - audience: Runtime User
     description: |
       This PR allows for downloading of Key Values early, as the Keys and Values are being fetched from a stream
@@ -12,3 +11,4 @@ doc:
 
 crates:
   - name: frame-remote-externalities
+    bump: major
