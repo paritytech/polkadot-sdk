@@ -49,8 +49,9 @@ pub struct NetworkAvailabilityState {
 }
 
 // Implement access to the state.
+#[async_trait::async_trait]
 impl HandleNetworkMessage for NetworkAvailabilityState {
-	fn handle(
+	async fn handle(
 		&self,
 		message: NetworkMessage,
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,

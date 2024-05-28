@@ -491,6 +491,17 @@ check-tracing:
     - time cargo test --locked --manifest-path ./substrate/primitives/tracing/Cargo.toml --no-default-features
     - time cargo test --locked --manifest-path ./substrate/primitives/tracing/Cargo.toml --no-default-features --features=with-tracing
 
+# Check that `westend-runtime` compiles with the `metadata-hash` feature enabled.
+check-metadata-hash:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .pipeline-stopper-artifacts
+  script:
+    - time cargo build --locked -p westend-runtime --features metadata-hash
+
 # more information about this job can be found here:
 # https://github.com/paritytech/substrate/pull/3778
 test-full-crypto-feature:
@@ -618,4 +629,11 @@ subsystem-benchmark-approval-voting:
     - .subsystem-benchmark-template
   script:
     - cargo bench -p polkadot-node-core-approval-voting --bench approval-voting-regression-bench --features subsystem-benchmarks
+  allow_failure: true
+
+subsystem-benchmark-statement-distribution:
+  extends:
+    - .subsystem-benchmark-template
+  script:
+    - cargo bench -p polkadot-statement-distribution --bench statement-distribution-regression-bench --features subsystem-benchmarks
   allow_failure: true
