@@ -2110,7 +2110,6 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
-		/*
 		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
@@ -2119,7 +2118,6 @@ impl<T: Config> Pallet<T> {
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
 		Self::ensure_disabled_validators_sorted()?;
-		*/
 		Self::do_try_state_approvals()?;
 		Self::do_try_state_target_sorting()
 	}
@@ -2514,12 +2512,6 @@ impl<T: Config> Pallet<T> {
 				if let Some(approvals) = approvals_map.get_mut(&target) {
 					*approvals += vote.into();
 				} else {
-					// TODO: simplify
-					let self_stake = Pallet::<T>::weight_of(&target);
-					let init_stake = self_stake.saturating_add(vote);
-					approvals_map.insert(target, init_stake.into());
-
-					/*
 					// new addition to the map. add self-stake if validator is active.
 					let _ = match Self::status(&target) {
 						Ok(StakerStatus::Validator) => {
@@ -2528,12 +2520,10 @@ impl<T: Config> Pallet<T> {
 						},
 						_ => approvals_map.insert(target, vote.into()),
 					};
-					*/
 				}
 			}
 		}
 
-		let mut a = 0;
 		// add active validators without any nominations.
 		for (validator, _) in Validators::<T>::iter() {
 			// do not add validator if it is not in a good state.
@@ -2553,7 +2543,6 @@ impl<T: Config> Pallet<T> {
 						);
 					},
 					_ => {
-						a += 1;
 						let self_stake = Pallet::<T>::weight_of(&validator);
 						approvals_map.insert(validator, self_stake.into());
 					},
@@ -2572,11 +2561,11 @@ impl<T: Config> Pallet<T> {
 
 				log!(
 					error,
-					"try-runtime: score of {:?} in `TargetList` list: {:?}, calculated sum of all stake: {:?} -- status: {:?}",
+					"try-runtime: score of {:?} in `TargetList` list: {:?}, calculated sum of all stake: {:?} -- weight self-stake: {:?}",
 					target,
 					stake_in_list,
 					calculated_stake,
-					Self::status(&target),
+					Pallet::<T>::weight_of(&target),
 				);
 			}
 		}
@@ -2588,7 +2577,6 @@ impl<T: Config> Pallet<T> {
 
 		if !mismatch_approvals.is_zero() {
 			log!(error, "{} targets with unexpected score in list", mismatch_approvals);
-
 			return Err("final calculated approvals != target list scores".into());
 		}
 

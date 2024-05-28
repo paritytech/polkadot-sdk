@@ -88,7 +88,6 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 				// nominations (see below). Thus it is better to just chill the nominator and move
 				// on.
 				if Self::try_chill_nominator(&nominator) {
-					//log!(info, "nominator {:?} chilled, skip it.", nominator);
 					chilled += 1;
 					cursor = Some(nominator);
 					continue;
@@ -96,15 +95,15 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 				// clean the nominations before migrating. This will ensure that the voter is not
 				// nominating duplicate and/or dangling targets.
 				let nominations = Self::clean_nominations(&nominator)?;
-				let nominator_stake = Pallet::<T>::weight_of(&nominator);
+				let nominator_vote = Pallet::<T>::weight_of(&nominator);
 
 				// iter over up to `MaxNominationsOf<T>` targets of `nominator` and insert or
 				// update the target's approval's score.
 				for target in nominations.into_iter() {
 					if <T as Config>::TargetList::contains(&target) {
-						Self::update_target(&target, nominator_stake)?;
+						Self::update_target(&target, nominator_vote)?;
 					} else {
-						Self::insert_target(&target, nominator_stake)?;
+						Self::insert_target(&target, nominator_vote)?;
 					}
 				}
 
