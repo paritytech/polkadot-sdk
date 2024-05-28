@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716850864673,
+  "lastUpdate": 1716887650141,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5169,6 +5169,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.287202355520223,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "523e62560eb5d9a36ea75851f2fb15b9d7993f01",
+          "message": "Add availability-recovery from systematic chunks (#1644)\n\n**Don't look at the commit history, it's confusing, as this branch is\nbased on another branch that was merged**\n\nFixes #598 \nAlso implements [RFC\n#47](https://github.com/polkadot-fellows/RFCs/pull/47)\n\n## Description\n\n- Availability-recovery now first attempts to request the systematic\nchunks for large POVs (which are the first ~n/3 chunks, which can\nrecover the full data without doing the costly reed-solomon decoding\nprocess). This has a fallback of recovering from all chunks, if for some\nreason the process fails. Additionally, backers are also used as a\nbackup for requesting the systematic chunks if the assigned validator is\nnot offering the chunk (each backer is only used for one systematic\nchunk, to not overload them).\n- Quite obviously, recovering from systematic chunks is much faster than\nrecovering from regular chunks (4000% faster as measured on my apple M2\nPro).\n- Introduces a `ValidatorIndex` -> `ChunkIndex` mapping which is\ndifferent for every core, in order to avoid only querying the first n/3\nvalidators over and over again in the same session. The mapping is the\none described in RFC 47.\n- The mapping is feature-gated by the [NodeFeatures runtime\nAPI](https://github.com/paritytech/polkadot-sdk/pull/2177) so that it\ncan only be enabled via a governance call once a sufficient majority of\nvalidators have upgraded their client. If the feature is not enabled,\nthe mapping will be the identity mapping and backwards-compatibility\nwill be preserved.\n- Adds a new chunk request protocol version (v2), which adds the\nChunkIndex to the response. This may or may not be checked against the\nexpected chunk index. For av-distribution and systematic recovery, this\nwill be checked, but for regular recovery, no. This is backwards\ncompatible. First, a v2 request is attempted. If that fails during\nprotocol negotiation, v1 is used.\n- Systematic recovery is only attempted during approval-voting, where we\nhave easy access to the core_index. For disputes and collator\npov_recovery, regular chunk requests are used, just as before.\n\n## Performance results\n\nSome results from subsystem-bench:\n\nwith regular chunk recovery: CPU usage per block 39.82s\nwith recovery from backers: CPU usage per block 16.03s\nwith systematic recovery: CPU usage per block 19.07s\n\nEnd-to-end results here:\nhttps://github.com/paritytech/polkadot-sdk/issues/598#issuecomment-1792007099\n\n#### TODO:\n\n- [x] [RFC #47](https://github.com/polkadot-fellows/RFCs/pull/47)\n- [x] merge https://github.com/paritytech/polkadot-sdk/pull/2177 and\nrebase on top of those changes\n- [x] merge https://github.com/paritytech/polkadot-sdk/pull/2771 and\nrebase\n- [x] add tests\n- [x] preliminary performance measure on Versi: see\nhttps://github.com/paritytech/polkadot-sdk/issues/598#issuecomment-1792007099\n- [x] Rewrite the implementer's guide documentation\n- [x] https://github.com/paritytech/polkadot-sdk/pull/3065 \n- [x] https://github.com/paritytech/zombienet/issues/1705 and fix\nzombienet tests\n- [x] security audit\n- [x] final versi test and performance measure\n\n---------\n\nSigned-off-by: alindima <alin@parity.io>\nCo-authored-by: Javier Viola <javier@parity.io>",
+          "timestamp": "2024-05-28T08:15:50Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/523e62560eb5d9a36ea75851f2fb15b9d7993f01"
+        },
+        "date": 1716887622288,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63546.47000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.30752719854011,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.824472529999935,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.641507654750183,
             "unit": "seconds"
           }
         ]
