@@ -104,8 +104,6 @@ jobs:
 
           toml set templates/${{ matrix.template }}/Cargo.toml 'workspace.package.edition' "$(toml get --raw Cargo.toml 'workspace.package.edition')" > Cargo.temp
           mv Cargo.temp ./templates/${{ matrix.template }}/Cargo.toml
-
-          toml get Cargo.toml 'workspace.dependencies' --output-toml >> ./templates/${{ matrix.template }}/Cargo.toml
         working-directory: polkadot-sdk
       - name: Print the result Cargo.tomls for debugging
         if: runner.debug == '1'
@@ -118,6 +116,18 @@ jobs:
       - name: Copy over the new changes
         run: |
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
+      - name: Copy over required workspace dependencies
+        run: |
+          echo -e "\n[workspace.dependencies]" >> Cargo.toml
+          set +e
+          # If a workspace dependency is required..
+          while cargo tree --depth 1 --prefix none --no-dedupe 2>&1 | grep 'was not found in `workspace.dependencies`'; do
+            # Get its name..
+            missing_dep=$(cargo tree --depth 1 --prefix none --no-dedupe 2>&1 | grep 'was not found in `workspace.dependencies`' | sed -E 's/(.*)`dependency.(.*)` was not found in `workspace.dependencies`/\2/')
+            # And copy the dependency from the monorepo.
+            toml get ../polkadot-sdk/Cargo.toml 'workspace.dependencies' --output-toml | grep "^${missing_dep} = " >> Cargo.toml
+          done;
+        working-directory: "${{ env.template-path }}"
 
       # 3. Verify the build. Push the changes or create a PR.
 
