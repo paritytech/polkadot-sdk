@@ -456,20 +456,6 @@ benchmarks! {
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(stash)));
 	}
 
-	// NOTE: This benchmark will not be worst case as stash is now the same as controller. Remove this
-	// once <https://github.com/paritytech/polkadot-sdk/pull/4574#discussion_r1614429680> is resolved.
-	update_payee {
-		let stash = create_stash::<T>(USER_SEED, 100, RewardDestination::Staked)?;
-		Payee::<T>::insert(&stash, {
-			#[allow(deprecated)]
-			RewardDestination::Controller
-		});
-		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash.clone()), stash.clone())
-	verify {
-		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(stash)));
-	}
-
 	set_validator_count {
 		let validator_count = MaxValidators::<T>::get();
 	}: _(RawOrigin::Root, validator_count)

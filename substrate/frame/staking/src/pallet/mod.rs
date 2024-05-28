@@ -1856,36 +1856,6 @@ pub mod pallet {
 			Self::do_payout_stakers_by_page(validator_stash, era, page)
 		}
 
-		/// Migrates an account's `RewardDestination::Controller` to
-		/// `RewardDestination::Account(controller)`.
-		///
-		/// Effects will be felt instantly (as soon as this function is completed successfully).
-		///
-		/// This will waive the transaction fee if the `payee` is successfully migrated.
-		#[pallet::call_index(27)]
-		#[pallet::weight(T::WeightInfo::update_payee())]
-		pub fn update_payee(
-			origin: OriginFor<T>,
-			controller: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
-			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
-
-			ensure!(
-				(Payee::<T>::get(&ledger.stash) == {
-					#[allow(deprecated)]
-					Some(RewardDestination::Controller)
-				}),
-				Error::<T>::NotController
-			);
-
-			let _ = ledger
-				.set_payee(RewardDestination::Account(controller))
-				.defensive_proof("ledger should have been previously retrieved from storage.")?;
-
-			Ok(Pays::No.into())
-		}
-
 		/// Restores the state of a ledger which is in an inconsistent state.
 		///
 		/// The requirements to restore a ledger are the following:

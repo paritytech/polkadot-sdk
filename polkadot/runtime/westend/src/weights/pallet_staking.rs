@@ -318,22 +318,6 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `Staking::Ledger` (r:1 w:0)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Bonded` (r:1 w:0)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Payee` (r:1 w:1)
-	/// Proof: `Staking::Payee` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
-	fn update_payee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `932`
-		//  Estimated: `4556`
-		// Minimum execution time: 23_428_000 picoseconds.
-		Weight::from_parts(24_080_000, 0)
-			.saturating_add(Weight::from_parts(0, 4556))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 	/// Storage: `Staking::ValidatorCount` (r:0 w:1)
 	/// Proof: `Staking::ValidatorCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn set_validator_count() -> Weight {

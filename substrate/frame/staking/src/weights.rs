@@ -61,7 +61,6 @@ pub trait WeightInfo {
 	fn nominate(n: u32, ) -> Weight;
 	fn chill() -> Weight;
 	fn set_payee() -> Weight;
-	fn update_payee() -> Weight;
 	fn set_validator_count() -> Weight;
 	fn force_no_eras() -> Weight;
 	fn force_new_era() -> Weight;
@@ -344,21 +343,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 19_777_000 picoseconds.
 		Weight::from_parts(20_690_000, 4556)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Staking::Ledger` (r:1 w:0)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Bonded` (r:1 w:0)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Payee` (r:1 w:1)
-	/// Proof: `Staking::Payee` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
-	fn update_payee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `969`
-		//  Estimated: `4556`
-		// Minimum execution time: 23_705_000 picoseconds.
-		Weight::from_parts(24_409_000, 4556)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Staking::ValidatorCount` (r:0 w:1)
@@ -1062,21 +1046,6 @@ impl WeightInfo for () {
 		// Minimum execution time: 19_777_000 picoseconds.
 		Weight::from_parts(20_690_000, 4556)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Staking::Ledger` (r:1 w:0)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Bonded` (r:1 w:0)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Payee` (r:1 w:1)
-	/// Proof: `Staking::Payee` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
-	fn update_payee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `969`
-		//  Estimated: `4556`
-		// Minimum execution time: 23_705_000 picoseconds.
-		Weight::from_parts(24_409_000, 4556)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Staking::ValidatorCount` (r:0 w:1)
