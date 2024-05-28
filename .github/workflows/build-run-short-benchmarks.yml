@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: |
-          forklift cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
+          forklift cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build -p polkadot-parachain-bin --bin polkadot-parachain --workspace
           mkdir -p artifacts
           ./target/release/polkadot-parachain --version
           cp ./target/release/polkadot-parachain ./artifacts/
