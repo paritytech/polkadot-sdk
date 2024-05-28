@@ -966,7 +966,7 @@ pub mod pallet {
 						provides: vec![hash.as_ref().to_vec()],
 						longevity: TransactionLongevity::max_value(),
 						propagate: true,
-					});
+					})
 				}
 			}
 			if let Call::set_validation_data { .. } = call {
