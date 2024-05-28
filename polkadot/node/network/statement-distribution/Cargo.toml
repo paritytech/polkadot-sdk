@@ -42,3 +42,13 @@ sc-network = { path = "../../../../substrate/client/network" }
 futures-timer = "3.0.2"
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 rand_chacha = "0.3"
+polkadot-subsystem-bench = { path = "../../subsystem-bench" }
+
+[[bench]]
+name = "statement-distribution-regression-bench"
+path = "benches/statement-distribution-regression-bench.rs"
+harness = false
+required-features = ["subsystem-benchmarks"]
+
+[features]
+subsystem-benchmarks = []
