@@ -92,6 +92,7 @@ pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-feat
 pallet-root-testing = { path = "../../../substrate/frame/root-testing", default-features = false, version = "5.0.0" }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true, version = "0.35.0" }
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true, version = "29.0.0" }
 hex-literal = { version = "0.4.1" }
@@ -129,6 +130,7 @@ std = [
 	"block-builder-api/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -314,6 +316,9 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
+# Enable the metadata hash generation in the wasm builder.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = ["rococo-runtime-constants/fast-runtime"]
 
@@ -322,4 +327,4 @@ runtime-metrics = ["runtime-parachains/runtime-metrics", "sp-io/with-tracing"]
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]

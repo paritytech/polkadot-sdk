@@ -16,6 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true, version = "18.0.0" }
+docify = "0.2.8"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -30,6 +31,7 @@ pallet-parachain-template = { path = "../pallets/template", default-features = f
 # Substrate
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false, version = "29.0.0" }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true, version = "29.0.0" }
@@ -90,6 +92,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -183,3 +186,16 @@ try-runtime = [
 ]
 
 experimental = ["pallet-aura/experimental"]
+
+# Enable the metadata hash generation.
+#
+# This is hidden behind a feature because it increases the compile time.
+# The wasm binary needs to be compiled twice, once to fetch the metadata,
+# generate the metadata hash and then a second time with the
+# `RUNTIME_METADATA_HASH` environment variable set for the `CheckMetadataHash`
+# extension.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
+# A convenience feature for enabling things when doing a build
+# for an on-chain release.
+on-chain-release-build = ["metadata-hash"]

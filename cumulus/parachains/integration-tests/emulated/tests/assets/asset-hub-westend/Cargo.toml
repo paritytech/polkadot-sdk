@@ -16,6 +16,7 @@ assert_matches = "1.5.0"
 
 # Substrate
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
+frame-metadata-hash-extension = { path = "../../../../../../../substrate/frame/metadata-hash-extension" }
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false, version = "29.0.2" }
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false, version = "30.0.0" }

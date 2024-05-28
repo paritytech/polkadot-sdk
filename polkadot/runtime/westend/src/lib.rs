@@ -831,6 +831,7 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -1543,6 +1544,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 pub struct NominationPoolsMigrationV4OldPallet;
