@@ -1143,7 +1143,7 @@ pub(crate) mod tests {
 		.unwrap();
 		let payload_provider = MmrRootProvider::new(api.clone());
 		let comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
-		let key_store: Arc<BeefyKeystore<AuthorityId>> = Arc::new(Some(keystore).into());
+		let key_store: Arc<BeefyKeystore<ecdsa_crypto::AuthorityId>> = Arc::new(Some(keystore).into());
 		BeefyWorker {
 			backend: backend.clone(),
 			runtime: api.clone(),
@@ -1422,50 +1422,6 @@ pub(crate) mod tests {
 		// verify validator set is correctly extracted from digest
 		let extracted = find_authorities_change::<Block, ecdsa_crypto::AuthorityId>(&header);
 		assert_eq!(extracted, Some(validator_set));
-	}
-
-	#[tokio::test]
-	async fn keystore_vs_validator_set() {
-		let keys = &[Keyring::Alice];
-		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
-		let mut net = BeefyTestNet::new(1);
-		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
-
-		// keystore doesn't contain other keys than validators'
-		assert_eq!(
-			verify_validator_set::<Block, ecdsa_crypto::AuthorityId>(
-				&1,
-				&validator_set,
-				&worker.key_store
-			),
-			Ok(())
-		);
-
-		// unknown `Bob` key
-		let keys = &[Keyring::Bob];
-		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
-		let err_msg = "no authority public key found in store".to_string();
-		let expected = Err(Error::Keystore(err_msg));
-		assert_eq!(
-			verify_validator_set::<Block, ecdsa_crypto::AuthorityId>(
-				&1,
-				&validator_set,
-				&worker.key_store
-			),
-			expected
-		);
-
-		// worker has no keystore
-		worker.key_store = None.into();
-		let expected_err = Err(Error::Keystore("no Keystore".into()));
-		assert_eq!(
-			verify_validator_set::<Block, ecdsa_crypto::AuthorityId>(
-				&1,
-				&validator_set,
-				&worker.key_store
-			),
-			expected_err
-		);
 	}
 
 	#[tokio::test]

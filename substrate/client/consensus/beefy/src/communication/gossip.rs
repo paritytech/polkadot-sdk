@@ -688,7 +688,7 @@ pub(crate) mod tests {
 
 		let (network, mut report_stream) = TestNetwork::new();
 
-		let gv = GossipValidator::<Block, _>::new(
+		let gv = GossipValidator::<Block, _, ecdsa_crypto::AuthorityId>::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(network),
 		);
@@ -810,7 +810,7 @@ pub(crate) mod tests {
 	fn messages_allowed_and_expired() {
 		let keys = vec![Keyring::Alice.public()];
 		let validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
-		let gv = GossipValidator::<Block, _>::new(
+		let gv = GossipValidator::<Block, _, ecdsa_crypto::AuthorityId>::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(TestNetwork::new().0),
 		);
@@ -902,7 +902,7 @@ pub(crate) mod tests {
 	fn messages_rebroadcast() {
 		let keys = vec![Keyring::Alice.public()];
 		let validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
-		let gv = GossipValidator::<Block, _>::new(
+		let gv = GossipValidator::<Block, _, ecdsa_crypto::AuthorityId>::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(TestNetwork::new().0),
 		);

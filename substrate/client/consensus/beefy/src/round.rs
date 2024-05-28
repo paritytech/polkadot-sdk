@@ -237,7 +237,7 @@ mod tests {
 	use sc_network_test::Block;
 
 	use sp_consensus_beefy::{
-		ecdsa_cryptop, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, DoubleVotingProof, Payload,
+		ecdsa_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, DoubleVotingProof, Payload,
 		SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
