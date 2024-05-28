@@ -213,7 +213,6 @@ benchmarks! {
 		whitelist_account!(stash);
 	}: _(RawOrigin::Signed(stash.clone()), amount, reward_destination)
 	verify {
-		assert!(Bonded::<T>::contains_key(stash.clone()));
 		assert!(Ledger::<T>::contains_key(stash));
 	}
 
@@ -622,13 +621,11 @@ benchmarks! {
 		);
 		Ledger::<T>::insert(&stash, l);
 
-		assert!(Bonded::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash));
 
 		whitelist_account!(stash);
 	}: _(RawOrigin::Signed(stash.clone()), stash.clone(), s)
 	verify {
-		assert!(!Bonded::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
 	}
 
