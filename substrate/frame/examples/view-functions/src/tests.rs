@@ -22,8 +22,8 @@ use crate::{
 	mock::*,
 	pallet::{self, Pallet},
 };
+use codec::{Decode, Encode};
 use frame_support::traits::{DispatchQuery, Query};
-use codec::{Encode, Decode};
 
 #[test]
 fn pallet_get_value_query() {
@@ -33,17 +33,18 @@ fn pallet_get_value_query() {
 		assert_eq!(some_value, Pallet::<Runtime>::get_value());
 
 		let query = pallet::GetValueQuery::<Runtime>::new();
+		let input = query.encode();
+		let mut output = Vec::new();
 
-		let query_result = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<_, Vec<u8>>(
+		let _ = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<_, Vec<u8>>(
 			&<pallet::GetValueQuery<Runtime> as Query>::ID,
-			&*query.encode(),
-		).unwrap();
+			&mut &input[..],
+			&mut output,
+		)
+		.unwrap();
 
-		let query_result = <Option<u32>>::decode(&mut &query_result[..]).unwrap();
+		let query_result = <Option<u32>>::decode(&mut &output[..]).unwrap();
 
-		assert_eq!(
-			some_value,
-			query_result,
-		);
+		assert_eq!(some_value, query_result,);
 	});
 }

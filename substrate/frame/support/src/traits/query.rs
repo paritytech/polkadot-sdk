@@ -21,14 +21,19 @@ use codec::{Decode, Encode, Input, Output};
 
 /// implemented by the runtime dispatching by prefix and then the pallet dispatching by suffix
 pub trait DispatchQuery {
-	fn dispatch_query<I: Input, O: Output>(id: &QueryId, input: I) -> Result<O, codec::Error>;
+	fn dispatch_query<I: Input, O: Output>(
+		id: &QueryId,
+		input: &mut I,
+		output: &mut O,
+	) -> Result<(), codec::Error>;
 }
 
 impl DispatchQuery for () {
 	fn dispatch_query<I: Input, O: Output>(
 		_id: &QueryId,
-		_input: I,
-	) -> Result<O, codec::Error> {
+		_input: &mut I,
+		_output: &mut O,
+	) -> Result<(), codec::Error> {
 		Err(codec::Error::from("DispatchQuery not implemented")) // todo: return "query not found" error?
 	}
 }

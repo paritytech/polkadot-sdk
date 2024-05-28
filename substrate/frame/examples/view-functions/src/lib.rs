@@ -21,8 +21,7 @@
 pub mod mock;
 pub mod tests;
 
-use frame_support::{dispatch::DispatchResult, Parameter};
-use frame_system::offchain::SendTransactionTypes;
+use frame_support::Parameter;
 use scale_info::TypeInfo;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
@@ -46,7 +45,6 @@ impl SomeAssociation1 for u64 {
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::error]
 	pub enum Error<T> {}

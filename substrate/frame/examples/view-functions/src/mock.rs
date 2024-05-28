@@ -19,8 +19,7 @@
 #![cfg(test)]
 
 use crate::{self as view_functions_example};
-use frame_support::{derive_impl, Parameter};
-use scale_info::TypeInfo;
+use frame_support::derive_impl;
 use sp_runtime::testing::TestXt;
 
 pub type AccountId = u32;

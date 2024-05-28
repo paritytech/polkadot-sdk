@@ -46,6 +46,7 @@ fn expand_view_function(
 	let span = view_fns_impl.attr_span;
 	let frame_support = &def.frame_support;
 	let frame_system = &def.frame_system;
+	let pallet_ident = &def.pallet_struct.pallet;
 	let type_impl_gen = &def.type_impl_generics(span);
 	let type_decl_bounded_gen = &def.type_decl_bounded_generics(span);
 	let type_use_gen = &def.type_use_generics(span);
@@ -54,7 +55,18 @@ fn expand_view_function(
 	let where_clause = &view_fns_impl.where_clause;
 
 	let query_struct_ident = view_fn.query_struct_ident();
-	// let args = todo!();
+	let view_fn_name = &view_fn.name;
+	let (arg_names, arg_types): (Vec<_>, Vec<_>) = view_fn
+		.args
+		.iter()
+		.map(|arg| match arg {
+			syn::FnArg::Typed(pat_type) => match &*pat_type.pat {
+				syn::Pat::Ident(ident) => (ident.ident.clone(), pat_type.ty.clone()),
+				_ => panic!("Unsupported pattern in view function argument"),
+			},
+			_ => panic!("Unsupported argument in view function"),
+		})
+		.unzip();
 	let return_type = &view_fn.return_type;
 
 	quote::quote! {
@@ -72,12 +84,16 @@ fn expand_view_function(
 		#[scale_info(skip_type_params(#type_use_gen), capture_docs = #capture_docs)]
 		#[allow(non_camel_case_types)]
 		pub struct #query_struct_ident<#type_decl_bounded_gen> #where_clause {
+			#( pub #arg_names: #arg_types, )*
 			_marker: ::core::marker::PhantomData<(#type_use_gen,)>,
 		}
 
 		impl<#type_impl_gen> #query_struct_ident<#type_use_gen> #where_clause {
-			pub fn new() -> Self {
-				Self { _marker: ::core::default::Default::default() }
+			pub fn new(#( #arg_names: #arg_types, )*) -> Self {
+				Self {
+					#( #arg_names, )*
+					_marker: ::core::default::Default::default()
+				}
 			}
 		}
 
@@ -93,7 +109,8 @@ fn expand_view_function(
 			type ReturnType = #return_type;
 
 			fn query(self) -> Self::ReturnType {
-				todo!()
+				let Self { #( #arg_names, )* _marker } = self;
+				#pallet_ident::<#type_use_gen> :: #view_fn_name( #( #arg_names, )* )
 			}
 		}
 	}
@@ -104,20 +121,35 @@ fn impl_dispatch_query(def: &Def, view_fns_impl: &ViewFunctionsImplDef) -> Token
 	let frame_support = &def.frame_support;
 	let pallet_ident = &def.pallet_struct.pallet;
 	let type_impl_gen = &def.type_impl_generics(span);
-	let type_decl_bounded_gen = &def.type_decl_bounded_generics(span);
 	let type_use_gen = &def.type_use_generics(span);
+	let where_clause = &view_fns_impl.where_clause;
+
+	let query_match_arms = view_fns_impl.view_functions.iter().map(|view_fn| {
+		let query_struct_ident = view_fn.query_struct_ident();
+		quote::quote! {
+			<#query_struct_ident<#type_use_gen> as #frame_support::traits::QueryIdSuffix>::SUFFIX => {
+				let query = <#query_struct_ident<#type_use_gen> as #frame_support::__private::codec::Decode>::decode(input)?;
+				let result = <#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::query(query);
+				let output = #frame_support::__private::codec::Encode::encode_to(&result, output);
+				::core::result::Result::Ok(output)
+			}
+		}
+	});
 
 	quote::quote! {
 		impl<#type_impl_gen> #frame_support::traits::DispatchQuery
-			for #pallet_ident<#type_use_gen>
+			for #pallet_ident<#type_use_gen> #where_clause
 		{
 			fn dispatch_query<
 				I: #frame_support::__private::codec::Input,
 				O: #frame_support::__private::codec::Output,
 			>
-				(id: & #frame_support::traits::QueryId, input: I) -> Result<O, #frame_support::__private::codec::Error>
+				(id: & #frame_support::traits::QueryId, input: &mut I, output: &mut O) -> Result<(), #frame_support::__private::codec::Error>
 			{
-				todo!()
+				match id.suffix {
+					#( #query_match_arms )*
+					_ => Err(#frame_support::__private::codec::Error::from("DispatchQuery not implemented")), // todo: [AJ]
+				}
 			}
 		}
 	}
