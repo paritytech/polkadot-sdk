@@ -1028,6 +1028,14 @@ impl State {
 				let time_to_gather =
 					self.mark_gathered_enough_assignments(block_number, block_hash, candidate_hash);
 				if let Some(gathering_started) = time_to_gather.stage_start {
+					if gathering_started.elapsed().as_millis() > 6000 {
+						gum::trace!(
+							target: LOG_TARGET,
+							?block_hash,
+							?candidate_hash,
+							"Long assignment gathering time",
+						);
+					}
 					metrics.observe_assignment_gathering_time(
 						time_to_gather.stage,
 						gathering_started.elapsed().as_millis() as usize,
