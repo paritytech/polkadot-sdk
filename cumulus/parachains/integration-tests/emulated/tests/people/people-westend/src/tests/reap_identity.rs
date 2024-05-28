@@ -50,8 +50,8 @@ use people_westend_runtime::{
 	Runtime as PeopleRuntime,
 };
 use westend_runtime::{
-	BasicDeposit, ByteDeposit, MaxAdditionalFields, MaxSubAccounts, RuntimeOrigin as WestendOrigin,
-	SubAccountDeposit, Runtime as WestendRuntime,
+	BasicDeposit, ByteDeposit, MaxAdditionalFields, MaxSubAccounts, Runtime as WestendRuntime,
+	RuntimeOrigin as WestendOrigin, SubAccountDeposit,
 };
 use westend_runtime_constants::currency::*;
 use westend_system_emulated_network::{

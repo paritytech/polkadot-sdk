@@ -50,8 +50,8 @@ use people_rococo_runtime::{
 	Runtime as PeopleRuntime,
 };
 use rococo_runtime::{
-	BasicDeposit, ByteDeposit, MaxAdditionalFields, MaxSubAccounts, RuntimeOrigin as RococoOrigin,
-	SubAccountDeposit, Runtime as RococoRuntime,
+	BasicDeposit, ByteDeposit, MaxAdditionalFields, MaxSubAccounts, Runtime as RococoRuntime,
+	RuntimeOrigin as RococoOrigin, SubAccountDeposit,
 };
 use rococo_runtime_constants::currency::*;
 use rococo_system_emulated_network::{

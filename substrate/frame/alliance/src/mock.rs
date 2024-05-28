@@ -31,7 +31,7 @@ pub use frame_support::{
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{
 	legacy::{IdentityField, IdentityInfo},
-	Data, Judgement, IdentityOf, SuperOf,
+	Data, IdentityOf, Judgement, SuperOf,
 };
 
 pub use crate as pallet_alliance;
