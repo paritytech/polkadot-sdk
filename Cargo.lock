@@ -2135,6 +2135,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
+ "sp-utility",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -2293,6 +2294,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-trie",
+ "sp-utility",
  "staging-xcm",
  "staging-xcm-builder",
  "static_assertions",
@@ -9943,6 +9945,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
+ "sp-utility",
  "staging-xcm",
  "staging-xcm-builder",
  "wasm-instrument",
@@ -10983,6 +10986,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "sp-utility",
 ]
 
 [[package]]
@@ -11110,6 +11114,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "sp-utility",
 ]
 
 [[package]]
@@ -11514,6 +11519,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "sp-utility",
 ]
 
 [[package]]
@@ -11533,6 +11539,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "sp-utility",
 ]
 
 [[package]]
@@ -11569,6 +11576,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "sp-utility",
 ]
 
 [[package]]
@@ -15835,6 +15843,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-trie",
+ "sp-utility",
  "sp-version",
  "staging-xcm",
  "thiserror",
@@ -20383,6 +20392,17 @@ dependencies = [
  "trie-db",
  "trie-root",
  "trie-standardmap",
+]
+
+[[package]]
+name = "sp-utility"
+version = "13.0.0"
+dependencies = [
+ "environmental",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-std 14.0.0",
 ]
 
 [[package]]

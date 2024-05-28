@@ -76,6 +76,7 @@ pallet-assets = { path = "../assets" }
 pallet-proxy = { path = "../proxy" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-tracing = { path = "../../primitives/tracing" }
+sp-utility = { path = "../../primitives/utility" }
 
 [features]
 default = ["std"]
@@ -100,6 +101,7 @@ std = [
 	"sp-keystore/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-utility/std",
 	"wasm-instrument?/std",
 	"wasmi/std",
 	"xcm-builder/std",

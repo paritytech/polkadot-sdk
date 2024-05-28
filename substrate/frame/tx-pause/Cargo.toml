@@ -30,6 +30,7 @@ pallet-proxy = { path = "../proxy", default-features = false, optional = true }
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io" }
+sp-utility = { path = "../../primitives/utility", default-features = false }
 pallet-balances = { path = "../balances" }
 pallet-utility = { path = "../utility" }
 pallet-proxy = { path = "../proxy" }
@@ -49,6 +50,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-utility/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

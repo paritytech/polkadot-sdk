@@ -44,6 +44,7 @@ use parachains_runtimes_test_utils::{
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
+use sp_utility::CallsBatch;
 use xcm::latest::prelude::*;
 
 /// Helper trait to test bridges with remote GRANDPA chain.
@@ -421,7 +422,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 			let relay_chain_header_hash = relay_chain_header.hash();
 			vec![(
 				pallet_utility::Call::<RuntimeHelper::Runtime>::batch_all {
-					calls: vec![
+					calls: CallsBatch(vec![
 						BridgeGrandpaCall::<RuntimeHelper::Runtime, RuntimeHelper::GPI>::submit_finality_proof {
 							finality_target: Box::new(relay_chain_header),
 							justification: grandpa_justification,
@@ -432,7 +433,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 							messages_count: 1,
 							dispatch_weight: Weight::from_parts(1000000000, 0),
 						}.into(),
-					],
+					]),
 				}
 				.into(),
 				Box::new((

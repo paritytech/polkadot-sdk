@@ -39,7 +39,7 @@ benchmarks! {
 			calls.push(call);
 		}
 		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), calls)
+	}: _(RawOrigin::Signed(caller), CallsBatch(calls))
 	verify {
 		assert_last_event::<T>(Event::BatchCompleted.into())
 	}
@@ -60,7 +60,7 @@ benchmarks! {
 			calls.push(call);
 		}
 		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), calls)
+	}: _(RawOrigin::Signed(caller), CallsBatch(calls))
 	verify {
 		assert_last_event::<T>(Event::BatchCompleted.into())
 	}
@@ -81,7 +81,7 @@ benchmarks! {
 			calls.push(call);
 		}
 		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), calls)
+	}: _(RawOrigin::Signed(caller), CallsBatch(calls))
 	verify {
 		assert_last_event::<T>(Event::BatchCompleted.into())
 	}

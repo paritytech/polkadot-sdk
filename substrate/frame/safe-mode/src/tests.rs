@@ -24,6 +24,7 @@ use crate::mock::{RuntimeCall, *};
 
 use frame_support::{assert_err, assert_noop, assert_ok, hypothetically_ok, traits::Currency};
 use sp_runtime::traits::Dispatchable;
+use sp_utility::CallsBatch;
 
 #[test]
 fn fails_to_filter_calls_to_safe_mode_pallet() {
@@ -151,8 +152,9 @@ fn can_filter_balance_calls_when_activated() {
 #[test]
 fn can_filter_balance_in_batch_when_activated() {
 	new_test_ext().execute_with(|| {
-		let batch_call =
-			RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![call_transfer()] });
+		let batch_call = RuntimeCall::Utility(pallet_utility::Call::batch {
+			calls: CallsBatch(vec![call_transfer()]),
+		});
 
 		assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed(0)));
 

@@ -65,6 +65,7 @@ use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
 use sp_std::prelude::*;
+use sp_utility::{batched_calls_limit, CallsBatch, CALL_ALIGN};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -120,24 +121,11 @@ pub mod pallet {
 		DispatchedAs { result: DispatchResult },
 	}
 
-	// Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
-	// the `size_of` of the `Call` can be different. To ensure that this don't leads to
-	// mismatches between native/wasm or to different metadata for the same runtime, we
-	// algin the call size. The value is chosen big enough to hopefully never reach it.
-	const CALL_ALIGN: u32 = 1024;
-
 	#[pallet::extra_constants]
 	impl<T: Config> Pallet<T> {
 		/// The limit on the number of batched calls.
-		fn batched_calls_limit() -> u32 {
-			let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
-			let call_size = ((sp_std::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
-				CALL_ALIGN - 1) / CALL_ALIGN) *
-				CALL_ALIGN;
-			// The margin to take into account vec doubling capacity.
-			let margin_factor = 3;
-
-			allocator_limit / margin_factor / call_size
+		pub fn batched_calls_limit() -> u32 {
+			batched_calls_limit::<<T as Config>::RuntimeCall>()
 		}
 	}
 
@@ -181,6 +169,7 @@ pub mod pallet {
 		/// event is deposited.
 		#[pallet::call_index(0)]
 		#[pallet::weight({
+			let calls = &calls.0;
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
 			let dispatch_weight = dispatch_infos.iter()
 				.map(|di| di.weight)
@@ -200,13 +189,14 @@ pub mod pallet {
 		})]
 		pub fn batch(
 			origin: OriginFor<T>,
-			calls: Vec<<T as Config>::RuntimeCall>,
+			calls: CallsBatch<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
 			// Do not allow the `None` origin.
 			if ensure_none(origin.clone()).is_ok() {
 				return Err(BadOrigin.into())
 			}
 
+			let calls = calls.0;
 			let is_root = ensure_root(origin.clone()).is_ok();
 			let calls_len = calls.len();
 			ensure!(calls_len <= Self::batched_calls_limit() as usize, Error::<T>::TooManyCalls);
@@ -303,6 +293,7 @@ pub mod pallet {
 		/// - O(C) where C is the number of calls to be batched.
 		#[pallet::call_index(2)]
 		#[pallet::weight({
+			let calls = &calls.0;
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
 			let dispatch_weight = dispatch_infos.iter()
 				.map(|di| di.weight)
@@ -322,13 +313,14 @@ pub mod pallet {
 		})]
 		pub fn batch_all(
 			origin: OriginFor<T>,
-			calls: Vec<<T as Config>::RuntimeCall>,
+			calls: CallsBatch<<T as crate::pallet::Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
 			// Do not allow the `None` origin.
 			if ensure_none(origin.clone()).is_ok() {
 				return Err(BadOrigin.into())
 			}
 
+			let calls = calls.0;
 			let is_root = ensure_root(origin.clone()).is_ok();
 			let calls_len = calls.len();
 			ensure!(calls_len <= Self::batched_calls_limit() as usize, Error::<T>::TooManyCalls);
@@ -412,6 +404,7 @@ pub mod pallet {
 		/// - O(C) where C is the number of calls to be batched.
 		#[pallet::call_index(4)]
 		#[pallet::weight({
+			let calls = &calls.0;
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
 			let dispatch_weight = dispatch_infos.iter()
 				.map(|di| di.weight)
@@ -431,13 +424,14 @@ pub mod pallet {
 		})]
 		pub fn force_batch(
 			origin: OriginFor<T>,
-			calls: Vec<<T as Config>::RuntimeCall>,
+			calls: CallsBatch<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
 			// Do not allow the `None` origin.
 			if ensure_none(origin.clone()).is_ok() {
 				return Err(BadOrigin.into())
 			}
 
+			let calls = calls.0;
 			let is_root = ensure_root(origin.clone()).is_ok();
 			let calls_len = calls.len();
 			ensure!(calls_len <= Self::batched_calls_limit() as usize, Error::<T>::TooManyCalls);

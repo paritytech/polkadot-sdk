@@ -23,6 +23,7 @@ sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
+sp-utility = { path = "../../../../../substrate/primitives/utility" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
@@ -82,6 +83,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-utility/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

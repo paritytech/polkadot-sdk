@@ -24,6 +24,7 @@ use sp_runtime::{
 	traits::{BadOrigin, Dispatchable, IdentityLookup},
 	BuildStorage,
 };
+use sp_utility::CallsBatch;
 
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
@@ -665,19 +666,19 @@ fn spending_local_in_batch_respects_max_total() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Respect the `max_total` for the given origin.
 		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				RuntimeCall::from(TreasuryCall::spend_local { amount: 2, beneficiary: 100 }),
 				RuntimeCall::from(TreasuryCall::spend_local { amount: 2, beneficiary: 101 })
-			]
+			])
 		})
 		.dispatch(RuntimeOrigin::signed(10)));
 
 		assert_err_ignore_postinfo!(
 			RuntimeCall::from(UtilityCall::batch_all {
-				calls: vec![
+				calls: CallsBatch(vec![
 					RuntimeCall::from(TreasuryCall::spend_local { amount: 2, beneficiary: 100 }),
 					RuntimeCall::from(TreasuryCall::spend_local { amount: 4, beneficiary: 101 })
-				]
+				])
 			})
 			.dispatch(RuntimeOrigin::signed(10)),
 			Error::<Test, _>::InsufficientPermission
@@ -690,7 +691,7 @@ fn spending_in_batch_respects_max_total() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Respect the `max_total` for the given origin.
 		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				RuntimeCall::from(TreasuryCall::spend {
 					asset_kind: Box::new(1),
 					amount: 1,
@@ -703,13 +704,13 @@ fn spending_in_batch_respects_max_total() {
 					beneficiary: Box::new(101),
 					valid_from: None,
 				})
-			]
+			])
 		})
 		.dispatch(RuntimeOrigin::signed(10)));
 
 		assert_err_ignore_postinfo!(
 			RuntimeCall::from(UtilityCall::batch_all {
-				calls: vec![
+				calls: CallsBatch(vec![
 					RuntimeCall::from(TreasuryCall::spend {
 						asset_kind: Box::new(1),
 						amount: 2,
@@ -722,7 +723,7 @@ fn spending_in_batch_respects_max_total() {
 						beneficiary: Box::new(101),
 						valid_from: None,
 					})
-				]
+				])
 			})
 			.dispatch(RuntimeOrigin::signed(10)),
 			Error::<Test, _>::InsufficientPermission

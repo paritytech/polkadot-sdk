@@ -47,6 +47,7 @@ use bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
 use bp_messages::{DeliveredMessages, InboundLaneData, MessageNonce, UnrewardedRelayer};
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use sp_runtime::SaturatedConversion;
+use sp_utility::CallsBatch;
 
 /// Prepare a batch call with relay finality proof, parachain head proof and message proof.
 pub fn make_complex_relayer_delivery_batch<Runtime, GPI, PPI, MPI, InboundRelayer>(
@@ -98,7 +99,11 @@ pub fn make_complex_relayer_delivery_batch<Runtime, GPI, PPI, MPI, InboundRelaye
 		dispatch_weight: Weight::from_parts(1000000000, 0),
 	};
 	pallet_utility::Call::<Runtime>::batch_all {
-		calls: vec![submit_grandpa.into(), submit_para_head.into(), submit_message.into()],
+		calls: CallsBatch(vec![
+			submit_grandpa.into(),
+			submit_para_head.into(),
+			submit_message.into(),
+		]),
 	}
 }
 
@@ -151,11 +156,11 @@ where
 			relayers_state,
 		};
 	pallet_utility::Call::<Runtime>::batch_all {
-		calls: vec![
+		calls: CallsBatch(vec![
 			submit_grandpa.into(),
 			submit_para_head.into(),
 			submit_message_delivery_proof.into(),
-		],
+		]),
 	}
 }
 

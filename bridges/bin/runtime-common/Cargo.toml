@@ -45,6 +45,7 @@ sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+sp-utility = { path = "../../../substrate/primitives/utility", default-features = false }
 
 # Polkadot dependencies
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
@@ -83,6 +84,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
+	"sp-utility/std",
 	"tuplex/std",
 	"xcm-builder/std",
 	"xcm/std",

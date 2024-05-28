@@ -54,6 +54,7 @@ use sp_runtime::{
 	DispatchResult, FixedPointOperand, RuntimeDebug,
 };
 use sp_std::{marker::PhantomData, vec, vec::Vec};
+use sp_utility::CallsBatch;
 
 type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 // without this typedef rustfmt fails with internal err
@@ -629,7 +630,8 @@ where
 
 	fn expand_call(call: &CallOf<Runtime>) -> Vec<&CallOf<Runtime>> {
 		match call.is_sub_type() {
-			Some(UtilityCall::<Runtime>::batch_all { ref calls }) if calls.len() <= 3 =>
+			Some(UtilityCall::<Runtime>::batch_all { calls: CallsBatch(calls) })
+				if calls.len() <= 3 =>
 				calls.iter().collect(),
 			Some(_) => vec![],
 			None => vec![call],
@@ -780,7 +782,8 @@ where
 
 	fn expand_call(call: &CallOf<Runtime>) -> Vec<&CallOf<Runtime>> {
 		match call.is_sub_type() {
-			Some(UtilityCall::<Runtime>::batch_all { ref calls }) if calls.len() <= 2 =>
+			Some(UtilityCall::<Runtime>::batch_all { calls: CallsBatch(calls) })
+				if calls.len() <= 2 =>
 				calls.iter().collect(),
 			Some(_) => vec![],
 			None => vec![call],
@@ -1179,10 +1182,10 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_parachain_head_call(parachain_head_at_relay_header_number),
 				message_delivery_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -1191,10 +1194,10 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_parachain_head_call(parachain_head_at_relay_header_number),
 				message_confirmation_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -1203,10 +1206,10 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_relay_header_call(relay_header_number),
 				message_delivery_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -1215,10 +1218,10 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_relay_header_call_ex(relay_header_number),
 				message_delivery_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -1227,10 +1230,10 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_relay_header_call(relay_header_number),
 				message_confirmation_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -1239,10 +1242,10 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_relay_header_call_ex(relay_header_number),
 				message_confirmation_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -1252,11 +1255,11 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_relay_header_call(relay_header_number),
 				submit_parachain_head_call(parachain_head_at_relay_header_number),
 				message_delivery_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -1266,11 +1269,11 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_relay_header_call_ex(relay_header_number),
 				submit_parachain_head_call_ex(parachain_head_at_relay_header_number),
 				message_delivery_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -1280,11 +1283,11 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_relay_header_call(relay_header_number),
 				submit_parachain_head_call(parachain_head_at_relay_header_number),
 				message_confirmation_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -1294,11 +1297,11 @@ pub(crate) mod tests {
 		best_message: MessageNonce,
 	) -> RuntimeCall {
 		RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![
+			calls: CallsBatch(vec![
 				submit_relay_header_call_ex(relay_header_number),
 				submit_parachain_head_call_ex(parachain_head_at_relay_header_number),
 				message_confirmation_call(best_message),
-			],
+			]),
 		})
 	}
 
@@ -2093,7 +2096,7 @@ pub(crate) mod tests {
 			initialize_environment(100, 100, 100);
 
 			let call = RuntimeCall::Utility(UtilityCall::batch_all {
-				calls: vec![
+				calls: CallsBatch(vec![
 					RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads {
 						at_relay_block: (100, RelayBlockHash::default()),
 						parachains: vec![
@@ -2106,7 +2109,7 @@ pub(crate) mod tests {
 						parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
 					}),
 					message_delivery_call(200),
-				],
+				]),
 			});
 
 			assert_eq!(run_pre_dispatch(call), Ok(None),);
