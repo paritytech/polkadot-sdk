@@ -57,7 +57,7 @@ construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -89,6 +89,8 @@ impl pallet_mmr::Config for Test {
 	type LeafData = BeefyMmr;
 
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Test>;
+
+	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Test>;
 
 	type WeightInfo = ();
 }

@@ -26,14 +26,14 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::Statement;
 use polkadot_node_subsystem::messages::{
-	network_bridge_event::NewGossipTopology, AllMessages, ChainApiMessage, FragmentTreeMembership,
-	HypotheticalCandidate, NetworkBridgeEvent, ProspectiveParachainsMessage, ReportPeerMessage,
+	network_bridge_event::NewGossipTopology, AllMessages, ChainApiMessage, HypotheticalCandidate,
+	HypotheticalMembership, NetworkBridgeEvent, ProspectiveParachainsMessage, ReportPeerMessage,
 	RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	AssignmentPair, AsyncBackingParams, BlockNumber, CommittedCandidateReceipt, CoreState,
+	AssignmentPair, AsyncBackingParams, Block, BlockNumber, CommittedCandidateReceipt, CoreState,
 	GroupRotationInfo, HeadData, Header, IndexedVec, PersistedValidationData, ScheduledCore,
 	SessionIndex, SessionInfo, ValidatorPair,
 };
@@ -177,20 +177,39 @@ impl TestState {
 	}
 
 	fn make_dummy_leaf(&self, relay_parent: Hash) -> TestLeaf {
+		self.make_dummy_leaf_with_multiple_cores_per_para(relay_parent, 1)
+	}
+
+	fn make_dummy_leaf_with_multiple_cores_per_para(
+		&self,
+		relay_parent: Hash,
+		groups_for_first_para: usize,
+	) -> TestLeaf {
 		TestLeaf {
 			number: 1,
 			hash: relay_parent,
 			parent_hash: Hash::repeat_byte(0),
 			session: 1,
 			availability_cores: self.make_availability_cores(|i| {
-				CoreState::Scheduled(ScheduledCore {
-					para_id: ParaId::from(i as u32),
-					collator: None,
-				})
+				let para_id = if i < groups_for_first_para {
+					ParaId::from(0u32)
+				} else {
+					ParaId::from(i as u32)
+				};
+
+				CoreState::Scheduled(ScheduledCore { para_id, collator: None })
 			}),
 			disabled_validators: Default::default(),
 			para_data: (0..self.session_info.validator_groups.len())
-				.map(|i| (ParaId::from(i as u32), PerParaData::new(1, vec![1, 2, 3].into())))
+				.map(|i| {
+					let para_id = if i < groups_for_first_para {
+						ParaId::from(0u32)
+					} else {
+						ParaId::from(i as u32)
+					};
+
+					(para_id, PerParaData::new(1, vec![1, 2, 3].into()))
+				})
 				.collect(),
 			minimum_backing_votes: 2,
 		}
@@ -340,9 +359,14 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		Arc::new(LocalKeystore::in_memory()) as KeystorePtr
 	};
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (candidate_req_receiver, req_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0);
 
 	let test_state = TestState::from_config(config, req_cfg.inbound_queue.unwrap(), &mut rng);
@@ -485,6 +509,12 @@ async fn setup_test_and_connect_peers(
 	// Send gossip topology and activate leaf.
 	if send_topology_before_leaf {
 		send_new_topology(overseer, state.make_dummy_topology()).await;
+		// Send cleaning up of a leaf to make sure it does not clear the save topology as well.
+		overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::stop_work(Hash::random()),
+			)))
+			.await;
 		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
 	} else {
 		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
@@ -509,7 +539,7 @@ async fn activate_leaf(
 	leaf: &TestLeaf,
 	test_state: &TestState,
 	is_new_session: bool,
-	hypothetical_frontier: Vec<(HypotheticalCandidate, FragmentTreeMembership)>,
+	hypothetical_memberships: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	let activated = new_leaf(leaf.hash, leaf.number);
 
@@ -524,7 +554,7 @@ async fn activate_leaf(
 		leaf,
 		test_state,
 		is_new_session,
-		hypothetical_frontier,
+		hypothetical_memberships,
 	)
 	.await;
 }
@@ -534,7 +564,7 @@ async fn handle_leaf_activation(
 	leaf: &TestLeaf,
 	test_state: &TestState,
 	is_new_session: bool,
-	hypothetical_frontier: Vec<(HypotheticalCandidate, FragmentTreeMembership)>,
+	hypothetical_memberships: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	let TestLeaf {
 		number,
@@ -556,19 +586,6 @@ async fn handle_leaf_activation(
 		}
 	);
 
-	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
-		.iter()
-		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
-		.collect();
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
-		) if parent == *hash => {
-			tx.send(mrp_response).unwrap();
-		}
-	);
-
 	let header = Header {
 		parent_hash: *parent_hash,
 		number: *number,
@@ -582,6 +599,19 @@ async fn handle_leaf_activation(
 			ChainApiMessage::BlockHeader(parent, tx)
 		) if parent == *hash => {
 			tx.send(Ok(Some(header))).unwrap();
+		}
+	);
+
+	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
+		.iter()
+		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
+		.collect();
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::ProspectiveParachains(
+			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
+		) if parent == *hash => {
+			tx.send(mrp_response).unwrap();
 		}
 	);
 
@@ -644,18 +674,17 @@ async fn handle_leaf_activation(
 				tx.send(Ok((validator_groups, group_rotation_info))).unwrap();
 			},
 			AllMessages::ProspectiveParachains(
-				ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx),
+				ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx),
 			) => {
-				assert_eq!(req.fragment_tree_relay_parent, Some(*hash));
-				assert!(!req.backed_in_path_only);
-				for (i, (candidate, _)) in hypothetical_frontier.iter().enumerate() {
+				assert_eq!(req.fragment_chain_relay_parent, Some(*hash));
+				for (i, (candidate, _)) in hypothetical_memberships.iter().enumerate() {
 					assert!(
 						req.candidates.iter().any(|c| &c == &candidate),
 						"did not receive request for hypothetical candidate {}",
 						i,
 					);
 				}
-				tx.send(hypothetical_frontier).unwrap();
+				tx.send(hypothetical_memberships).unwrap();
 				// this is the last expected runtime api call
 				break
 			},
@@ -697,17 +726,16 @@ async fn handle_sent_request(
 	);
 }
 
-async fn answer_expected_hypothetical_depth_request(
+async fn answer_expected_hypothetical_membership_request(
 	virtual_overseer: &mut VirtualOverseer,
-	responses: Vec<(HypotheticalCandidate, FragmentTreeMembership)>,
+	responses: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx)
+			ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx)
 		) => {
-			assert_eq!(req.fragment_tree_relay_parent, None);
-			assert!(!req.backed_in_path_only);
+			assert_eq!(req.fragment_chain_relay_parent, None);
 			for (i, (candidate, _)) in responses.iter().enumerate() {
 				assert!(
 					req.candidates.iter().any(|c| &c == &candidate),

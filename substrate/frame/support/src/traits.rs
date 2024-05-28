@@ -22,8 +22,8 @@
 pub mod tokens;
 pub use tokens::{
 	currency::{
-		ActiveIssuanceOf, Currency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
-		ReservableCurrency, TotalIssuanceOf, VestingSchedule,
+		ActiveIssuanceOf, Currency, InspectLockableCurrency, LockIdentifier, LockableCurrency,
+		NamedReservableCurrency, ReservableCurrency, TotalIssuanceOf, VestingSchedule,
 	},
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
@@ -36,7 +36,7 @@ mod members;
 pub use members::{AllowAll, DenyAll, Filter};
 pub use members::{
 	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Equals, Everything,
-	EverythingBut, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
+	EverythingBut, FromContains, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
 	RankedMembers, RankedMembersSwapHandler, SortedMembers, TheseExcept,
 };
 
@@ -87,7 +87,7 @@ pub use hooks::GenesisBuild;
 pub use hooks::{
 	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
 	OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, OnTimestampSet, PostInherents,
-	PostTransactions, PreInherents,
+	PostTransactions, PreInherents, UncheckedOnRuntimeUpgrade,
 };
 
 pub mod schedule;

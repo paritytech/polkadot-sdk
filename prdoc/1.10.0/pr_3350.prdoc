@@ -1,0 +1,31 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: removed `pallet::getter` from Pallet AURA
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes all the declarations of macro `pallet::getter` in the Pallet AURA and replaces the use of storage getter functions authorities() & current_slot() with `StorageItem::get()` API across the crates as listed bellow.  
+      The purpose is to discourage developers to use this macro, that is currently being removed and soon will be deprecated.
+
+crates: 
+  - name: pallet-aura
+  - name: solochain-template-runtime
+  - name: cumulus-pallet-aura-ext
+  - name: parachain-template-runtime
+  - name: people-westend-runtime
+  - name: people-rococo-runtime
+  - name: bridge-hub-rococo-runtime
+  - name: bridge-hub-westend-runtime
+  - name: rococo-parachain-runtime
+  - name: penpal-runtime
+  - name: glutton-westend-runtime
+  - name: shell-runtime
+  - name: seedling-runtime
+  - name: collectives-westend-runtime
+  - name: asset-hub-rococo-runtime
+  - name: asset-hub-westend-runtime
+  - name: contracts-rococo-runtime
+  - name: coretime-westend-runtime
+  - name: coretime-rococo-runtime

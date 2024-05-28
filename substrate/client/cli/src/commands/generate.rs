@@ -64,7 +64,7 @@ impl GenerateCmd {
 		let password = self.keystore_params.read_password()?;
 		let output = self.output_scheme.output_type;
 
-		let phrase = mnemonic.word_iter().join(" ");
+		let phrase = mnemonic.words().join(" ");
 
 		with_crypto_scheme!(
 			self.crypto_scheme.scheme,

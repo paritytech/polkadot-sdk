@@ -62,7 +62,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-// Test that a fitlered call can be dispatched.
+// Test that a filtered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -77,7 +77,7 @@ parameter_types! {
 		);
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type Block = Block;
@@ -194,7 +194,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[test]
 fn params_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Democracy::referendum_count(), 0);
+		assert_eq!(ReferendumCount::<Test>::get(), 0);
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_eq!(Balances::total_issuance(), 210);
 	});

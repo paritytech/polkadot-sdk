@@ -16,13 +16,10 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing,
-	runtime_api::ParachainHost,
-	slashing,
-	vstaging::{self, ApprovalVotingParams},
-	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Header, Id, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	async_backing, runtime_api::ParachainHost, slashing, ApprovalVotingParams, Block, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
 	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
@@ -33,7 +30,10 @@ use sp_authority_discovery::AuthorityDiscoveryApi;
 use sp_blockchain::{BlockStatus, Info};
 use sp_consensus_babe::{BabeApi, Epoch};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	sync::Arc,
+};
 
 /// Offers header utilities.
 ///
@@ -320,7 +320,7 @@ pub trait RuntimeApiSubsystemClient {
 
 	// === v9 ===
 	/// Get the node features.
-	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError>;
+	async fn node_features(&self, at: Hash) -> Result<NodeFeatures, ApiError>;
 
 	// == v10: Approval voting params ==
 	/// Approval voting configuration parameters
@@ -329,6 +329,18 @@ pub trait RuntimeApiSubsystemClient {
 		at: Hash,
 		session_index: SessionIndex,
 	) -> Result<ApprovalVotingParams, ApiError>;
+
+	// == v11: Claim queue ==
+	/// Fetch the `ClaimQueue` from scheduler pallet
+	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError>;
+
+	// == v11: Elastic scaling support ==
+	/// Get the receipts of all candidates pending availability for a `ParaId`.
+	async fn candidates_pending_availability(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -422,6 +434,14 @@ where
 		para_id: Id,
 	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
 		self.client.runtime_api().candidate_pending_availability(at, para_id)
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
+		self.client.runtime_api().candidates_pending_availability(at, para_id)
 	}
 
 	async fn candidate_events(&self, at: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {
@@ -578,7 +598,7 @@ where
 		self.client.runtime_api().async_backing_params(at)
 	}
 
-	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError> {
+	async fn node_features(&self, at: Hash) -> Result<NodeFeatures, ApiError> {
 		self.client.runtime_api().node_features(at)
 	}
 
@@ -593,6 +613,10 @@ where
 		_session_index: SessionIndex,
 	) -> Result<ApprovalVotingParams, ApiError> {
 		self.client.runtime_api().approval_voting_params(at)
+	}
+
+	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError> {
+		self.client.runtime_api().claim_queue(at)
 	}
 }
 

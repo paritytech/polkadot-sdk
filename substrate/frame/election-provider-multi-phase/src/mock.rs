@@ -208,7 +208,7 @@ pub fn witness() -> SolutionOrSnapshotSize {
 		.unwrap_or_default()
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -441,7 +441,7 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-pub type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 
 parameter_types! {
 	pub MaxNominations: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;

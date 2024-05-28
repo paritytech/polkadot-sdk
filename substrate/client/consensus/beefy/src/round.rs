@@ -22,7 +22,7 @@ use codec::{Decode, Encode};
 use log::{debug, info};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_beefy::{
-	AuthorityIdBound, Commitment, EquivocationProof, SignedCommitment, ValidatorSet,
+	AuthorityIdBound, Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet,
 	ValidatorSetId, VoteMessage,
 };
 use sp_runtime::traits::{Block, NumberFor};
@@ -83,8 +83,7 @@ where
 {
 	Ok,
 	RoundConcluded(SignedCommitment<NumberFor<B>, <AuthorityId as RuntimeAppPublic>::Signature>),
-	Equivocation(
-		EquivocationProof<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	DoubleVoting(DoubleVotingProof<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 	),
 	Invalid,
 	Stale,
@@ -184,7 +183,7 @@ where
 					target: LOG_TARGET,
 					"🥩 detected equivocated vote: 1st: {:?}, 2nd: {:?}", previous_vote, vote
 				);
-				return VoteImportResult::Equivocation(EquivocationProof {
+				return VoteImportResult::DoubleVoting(DoubleVotingProof {
 					first: previous_vote.clone(),
 					second: vote,
 				})
@@ -238,8 +237,8 @@ mod tests {
 	use sc_network_test::Block;
 
 	use sp_consensus_beefy::{
-		ecdsa_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment,
-		EquivocationProof, Payload, SignedCommitment, ValidatorSet, VoteMessage,
+		ecdsa_cryptop, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, DoubleVotingProof, Payload,
+		SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
 	use super::{threshold, Block as BlockT, RoundTracker, Rounds};
@@ -530,7 +529,7 @@ mod tests {
 		let mut alice_vote2 = alice_vote1.clone();
 		alice_vote2.commitment = commitment2;
 
-		let expected_result = VoteImportResult::Equivocation(EquivocationProof {
+		let expected_result = VoteImportResult::DoubleVoting(DoubleVotingProof {
 			first: alice_vote1.clone(),
 			second: alice_vote2.clone(),
 		});

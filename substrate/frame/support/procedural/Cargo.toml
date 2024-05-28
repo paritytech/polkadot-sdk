@@ -18,10 +18,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-derive-syn-parse = "0.1.5"
+derive-syn-parse = "0.2.0"
 Inflector = "0.11.4"
 cfg-expr = "0.15.5"
-itertools = "0.10.3"
+itertools = "0.11"
 proc-macro2 = "1.0.56"
 quote = { workspace = true }
 syn = { features = ["full", "visit-mut"], workspace = true }
@@ -38,6 +38,7 @@ regex = "1"
 default = ["std"]
 std = ["sp-crypto-hashing/std"]
 no-metadata-docs = []
+experimental = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of
 # pallets in a runtime grows. Does increase the compile time!
 tuples-96 = []

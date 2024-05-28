@@ -105,8 +105,8 @@
 //! This macro will call `.into()` under the hood.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_better)]
 //!
-//! Moreover, you will learn in the [Safe Defensive Programming
-//! section](crate::reference_docs::safe_defensive_programming) that it is always recommended to use
+//! Moreover, you will learn in the [Defensive Programming
+//! section](crate::reference_docs::defensive_programming) that it is always recommended to use
 //! safe arithmetic operations in your runtime. By using [`frame::traits::CheckedSub`], we can not
 //! only take a step in that direction, but also improve the error handing and make it slightly more
 //! ergonomic.
@@ -294,7 +294,7 @@
 //! The following topics where used in this guide, but not covered in depth. It is suggested to
 //! study them subsequently:
 //!
-//! - [`crate::reference_docs::safe_defensive_programming`].
+//! - [`crate::reference_docs::defensive_programming`].
 //! - [`crate::reference_docs::frame_origin`].
 //! - [`crate::reference_docs::frame_runtime_types`].
 //! - The pallet we wrote in this guide was using `dev_mode`, learn more in
@@ -438,7 +438,7 @@ pub mod pallet {
 				}
 			);
 
-			#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 			impl frame_system::Config for Runtime {
 				type Block = MockBlock<Runtime>;
 				// within pallet we just said `<T as frame_system::Config>::AccountId`, now we
@@ -717,7 +717,7 @@ pub mod pallet_v2 {
 				}
 			);
 
-			#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 			impl frame_system::Config for Runtime {
 				type Block = MockBlock<Runtime>;
 				type AccountId = u64;

@@ -20,7 +20,7 @@ use network::ProtocolName;
 use parity_scale_codec::{Decode, Encode, Error as DecodingError};
 
 use sc_network as network;
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 
 use polkadot_primitives::AuthorityDiscoveryId;
 

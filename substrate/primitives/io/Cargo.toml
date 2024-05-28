@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 bytes = { version = "1.1.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bytes"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bytes"] }
 sp-core = { path = "../core", default-features = false }
 sp-crypto-hashing = { path = "../crypto/hashing", default-features = false }
 sp-keystore = { path = "../keystore", default-features = false, optional = true }
@@ -37,6 +37,9 @@ tracing-core = { version = "0.1.32", default-features = false }
 
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
 ed25519-dalek = { version = "2.1", default-features = false, optional = true }
+
+[target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
+polkavm-derive = { workspace = true }
 
 [build-dependencies]
 rustversion = "1.0.6"
@@ -82,7 +85,7 @@ disable_allocator = []
 # This gives the caller direct programmatic access to the error message.
 #
 # When disabled the error message will only be printed out in the
-# logs, with the caller receving a generic "wasm `unreachable` instruction executed"
+# logs, with the caller receiving a generic "wasm `unreachable` instruction executed"
 # error message.
 #
 # This has no effect if both `disable_panic_handler` and `disable_oom`

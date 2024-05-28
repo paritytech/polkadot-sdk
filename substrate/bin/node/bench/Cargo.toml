@@ -15,8 +15,8 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-array-bytes = "6.1"
-clap = { version = "4.5.1", features = ["derive"] }
+array-bytes = "6.2.2"
+clap = { version = "4.5.3", features = ["derive"] }
 log = { workspace = true, default-features = true }
 node-primitives = { path = "../primitives" }
 node-testing = { path = "../testing" }
@@ -44,4 +44,4 @@ lazy_static = "1.4.0"
 parity-db = "0.4.12"
 sc-transaction-pool = { path = "../../../client/transaction-pool" }
 sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
-futures = { version = "0.3.21", features = ["thread-pool"] }
+futures = { version = "0.3.30", features = ["thread-pool"] }

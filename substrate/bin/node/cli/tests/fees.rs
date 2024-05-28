@@ -28,6 +28,7 @@ use kitchensink_runtime::{
 };
 use node_primitives::Balance;
 use node_testing::keyring::*;
+use polkadot_sdk::*;
 use sp_runtime::{traits::One, Perbill};
 
 pub mod common;
@@ -54,11 +55,11 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Bare,
+				signed: None,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time1 }),
 			},
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(0, 0)),
+				signed: Some((charlie(), signed_extra(0, 0))),
 				function: RuntimeCall::Sudo(pallet_sudo::Call::sudo {
 					call: Box::new(RuntimeCall::RootTesting(
 						pallet_root_testing::Call::fill_block { ratio: Perbill::from_percent(60) },
@@ -77,11 +78,11 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
 		block1.1,
 		vec![
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Bare,
+				signed: None,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time2 }),
 			},
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(1, 0)),
+				signed: Some((charlie(), signed_extra(1, 0))),
 				function: RuntimeCall::System(frame_system::Call::remark { remark: vec![0; 1] }),
 			},
 		],
@@ -135,7 +136,7 @@ fn transaction_fee_is_correct() {
 	// if weight of the cheapest weight would be 10^7, this would be 10^9, which is:
 	//   - 1 MILLICENTS in substrate node.
 	//   - 1 milli-dot based on current polkadot runtime.
-	// (this baed on assigning 0.1 CENT to the cheapest tx with `weight = 100`)
+	// (this based on assigning 0.1 CENT to the cheapest tx with `weight = 100`)
 	let mut t = new_test_ext(compact_code_unwrap());
 	t.insert(<frame_system::Account<Runtime>>::hashed_key_for(alice()), new_account_info(100));
 	t.insert(<frame_system::Account<Runtime>>::hashed_key_for(bob()), new_account_info(10));
@@ -147,7 +148,7 @@ fn transaction_fee_is_correct() {
 
 	let tip = 1_000_000;
 	let xt = sign(CheckedExtrinsic {
-		format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, tip)),
+		signed: Some((alice(), signed_extra(0, tip))),
 		function: RuntimeCall::Balances(default_transfer_call()),
 	});
 
@@ -211,10 +212,7 @@ fn block_weight_capacity_report() {
 		let num_transfers = block_number * factor;
 		let mut xts = (0..num_transfers)
 			.map(|i| CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(
-					charlie(),
-					tx_ext(nonce + i as Nonce, 0),
-				),
+				signed: Some((charlie(), signed_extra(nonce + i as Nonce, 0))),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 0,
@@ -225,7 +223,7 @@ fn block_weight_capacity_report() {
 		xts.insert(
 			0,
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Bare,
+				signed: None,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time * 1000 }),
 			},
 		);
@@ -288,16 +286,13 @@ fn block_length_capacity_report() {
 			previous_hash,
 			vec![
 				CheckedExtrinsic {
-					format: sp_runtime::generic::ExtrinsicFormat::Bare,
+					signed: None,
 					function: RuntimeCall::Timestamp(pallet_timestamp::Call::set {
 						now: time * 1000,
 					}),
 				},
 				CheckedExtrinsic {
-					format: sp_runtime::generic::ExtrinsicFormat::Signed(
-						charlie(),
-						tx_ext(nonce, 0),
-					),
+					signed: Some((charlie(), signed_extra(nonce, 0))),
 					function: RuntimeCall::System(frame_system::Call::remark {
 						remark: vec![0u8; (block_number * factor) as usize],
 					}),

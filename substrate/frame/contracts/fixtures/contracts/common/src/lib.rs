@@ -149,3 +149,13 @@ macro_rules! output {
 		$host_fn($($arg,)* $output);
 	};
 }
+
+/// Similar to `output!` but unwraps the result.
+#[macro_export]
+macro_rules! unwrap_output {
+	($output: ident, $buffer: expr, $host_fn:path, $($arg:expr),*) => {
+		let mut $output = $buffer;
+		let $output = &mut &mut $output[..];
+		$host_fn($($arg,)* $output).unwrap();
+	};
+}

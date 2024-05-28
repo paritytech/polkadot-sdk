@@ -16,6 +16,11 @@
 // limitations under the License.
 
 //! Adapter to use `fungibles::*` implementations as `fungible::*`.
+//!
+//! This allows for a `fungibles` asset, e.g. from the `pallet_assets` pallet, to be used when a
+//! `fungible` asset is expected.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use super::*;
 use crate::traits::{
@@ -230,10 +235,18 @@ impl<
 	fn burn_from(
 		who: &AccountId,
 		amount: Self::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		<F as fungibles::Mutate<AccountId>>::burn_from(A::get(), who, amount, precision, force)
+		<F as fungibles::Mutate<AccountId>>::burn_from(
+			A::get(),
+			who,
+			amount,
+			preservation,
+			precision,
+			force,
+		)
 	}
 	fn shelve(who: &AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError> {
 		<F as fungibles::Mutate<AccountId>>::shelve(A::get(), who, amount)

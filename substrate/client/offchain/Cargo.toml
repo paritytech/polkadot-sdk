@@ -16,11 +16,11 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 bytes = "1.1"
-codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
 fnv = "1.0.6"
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 hyper = { version = "0.14.16", features = ["http2", "stream"] }
 hyper-rustls = { version = "0.24.0", features = ["http2"] }
@@ -34,6 +34,7 @@ tracing = "0.1.29"
 sc-client-api = { path = "../api" }
 sc-network = { path = "../network" }
 sc-network-common = { path = "../network/common" }
+sc-network-types = { path = "../network/types" }
 sc-transaction-pool-api = { path = "../transaction-pool/api" }
 sc-utils = { path = "../utils" }
 sp-api = { path = "../../primitives/api" }
@@ -45,8 +46,9 @@ sp-externalities = { path = "../../primitives/externalities" }
 log = { workspace = true, default-features = true }
 
 [dev-dependencies]
+async-trait = "0.1"
 lazy_static = "1.4.0"
-tokio = "1.22.0"
+tokio = "1.37"
 sc-block-builder = { path = "../block-builder" }
 sc-client-db = { path = "../db", default-features = true }
 sc-transaction-pool = { path = "../transaction-pool" }

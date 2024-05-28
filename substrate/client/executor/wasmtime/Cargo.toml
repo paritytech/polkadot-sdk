@@ -30,7 +30,7 @@ wasmtime = { version = "8.0.1", default-features = false, features = [
 	"parallel-compilation",
 	"pooling-allocator",
 ] }
-anyhow = "1.0.68"
+anyhow = "1.0.81"
 sc-allocator = { path = "../../allocator" }
 sc-executor-common = { path = "../common" }
 sp-runtime-interface = { path = "../../../primitives/runtime-interface" }
@@ -50,5 +50,5 @@ sc-runtime-test = { path = "../runtime-test" }
 sp-io = { path = "../../../primitives/io" }
 tempfile = "3.3.0"
 paste = "1.0"
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 cargo_metadata = "0.15.4"

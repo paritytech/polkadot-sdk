@@ -919,13 +919,24 @@ pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
 	fn call(&self) -> &Self::Call;
 }
 
+#[cfg(feature = "std")]
+impl<Call, Extra> ExtrinsicCall for sp_runtime::testing::TestXt<Call, Extra>
+where
+	Call: codec::Codec + Sync + Send + TypeInfo,
+	Extra: TypeInfo,
+{
+	fn call(&self) -> &Self::Call {
+		&self.call
+	}
+}
+
 impl<Address, Call, Signature, Extra> ExtrinsicCall
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Address: TypeInfo,
 	Call: TypeInfo,
 	Signature: TypeInfo,
-	Extra: TypeInfo,
+	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
 {
 	fn call(&self) -> &Self::Call {
 		&self.function
@@ -1413,7 +1424,7 @@ mod test {
 		assert_eq!(<WrapperOpaque<[u8; 2usize.pow(14)]>>::max_encoded_len(), 2usize.pow(14) + 4);
 
 		let data = 4u64;
-		// Ensure that we check that the `Vec<u8>` is consumed completly on decode.
+		// Ensure that we check that the `Vec<u8>` is consumed completely on decode.
 		assert!(WrapperOpaque::<u32>::decode(&mut &data.encode().encode()[..]).is_err());
 	}
 

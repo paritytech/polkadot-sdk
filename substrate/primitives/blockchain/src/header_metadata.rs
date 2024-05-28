@@ -97,7 +97,7 @@ pub fn lowest_common_ancestor<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 }
 
 /// Compute a tree-route between two blocks. See tree-route docs for more details.
-pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block>>(
+pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	backend: &T,
 	from: Block::Hash,
 	to: Block::Hash,
@@ -178,7 +178,7 @@ pub struct TreeRoute<Block: BlockT> {
 impl<Block: BlockT> TreeRoute<Block> {
 	/// Creates a new `TreeRoute`.
 	///
-	/// To preserve the structure safety invariats it is required that `pivot < route.len()`.
+	/// To preserve the structure safety invariants it is required that `pivot < route.len()`.
 	pub fn new(route: Vec<HashAndNumber<Block>>, pivot: usize) -> Result<Self, String> {
 		if pivot < route.len() {
 			Ok(TreeRoute { route, pivot })
@@ -212,7 +212,7 @@ impl<Block: BlockT> TreeRoute<Block> {
 		)
 	}
 
-	/// Get a slice of enacted blocks (descendents of the common ancestor)
+	/// Get a slice of enacted blocks (descendants of the common ancestor)
 	pub fn enacted(&self) -> &[HashAndNumber<Block>] {
 		&self.route[self.pivot + 1..]
 	}

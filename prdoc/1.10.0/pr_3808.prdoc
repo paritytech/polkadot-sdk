@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix spelling mistakes in source code
+
+doc:
+  - audience: Node Operator
+    description: |
+      Some spelling mistakes in log output, error messages and tracing (prometheus/grafana) have been fixed.
+  - audience: Runtime Dev
+    description: |
+      Public crate changes:
+      - The public trait `RuntimeParameterStore` in `substrate/frame/support` had the associated type renamed from `AggregratedKeyValue` to `AggregatedKeyValue`.
+      - The public trait `AggregratedKeyValue` in `substrate/frame/support` was similarly renamed to `AggregatedKeyValue`.
+      - The public methods `test_versioning` and `test_versioning_register_only` of the `TestApi` trait in `substrate/primitives/runtime-interface/test-wasm` had the spelling of `versionning` changed to `versioning`.
+      - The public functions `read_trie_first_descendant_value` and `read_child_trie_first_descendant_value` in `substrate/primitives/trie` had the spelling of `descedant` changed to `descendant`.
+crates:
+  - name: frame-support
+  - name: sp-runtime-interface-test-wasm
+  - name: sp-trie
