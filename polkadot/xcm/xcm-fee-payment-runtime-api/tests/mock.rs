@@ -29,7 +29,7 @@ use frame_support::{
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
 use sp_runtime::{
-	traits::{Get, IdentityLookup, MaybeEquivalence, TryConvert, Dispatchable},
+	traits::{Dispatchable, Get, IdentityLookup, MaybeEquivalence, TryConvert},
 	BuildStorage, SaturatedConversion,
 };
 use sp_std::{cell::RefCell, marker::PhantomData};
@@ -58,9 +58,7 @@ construct_runtime! {
 	}
 }
 
-pub type SignedExtra = (
-	frame_system::CheckWeight<TestRuntime>,
-);
+pub type SignedExtra = (frame_system::CheckWeight<TestRuntime>,);
 pub type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
 type Block = sp_runtime::testing::Block<TestXt>;
 type Balance = u128;
@@ -459,11 +457,11 @@ sp_api::mock_impl_runtime_apis! {
 			let result = call.dispatch(origin.into());
 			let local_xcm = pallet_xcm::Pallet::<TestRuntime>::recorded_xcm();
 			let forwarded_xcms = sent_xcm()
-                               .into_iter()
-                               .map(|(location, message)| (
-                                       VersionedLocation::from(location),
-                                       vec![VersionedXcm::from(message)],
-                               )).collect();
+							   .into_iter()
+							   .map(|(location, message)| (
+									   VersionedLocation::from(location),
+									   vec![VersionedXcm::from(message)],
+							   )).collect();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {
 				local_xcm: local_xcm.map(VersionedXcm::<()>::from),

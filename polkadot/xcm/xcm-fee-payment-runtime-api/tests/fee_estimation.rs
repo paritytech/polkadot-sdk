@@ -25,7 +25,8 @@ use xcm_fee_payment_runtime_api::{dry_run::XcmDryRunApi, fees::XcmPaymentApi};
 mod mock;
 use mock::{
 	fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
-	DeliveryFees, ExistentialDeposit, HereLocation, RuntimeCall, RuntimeEvent, TestClient, OriginCaller,
+	DeliveryFees, ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent,
+	TestClient,
 };
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
