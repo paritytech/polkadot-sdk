@@ -165,7 +165,10 @@ use frame_system::{ensure_signed, pallet_prelude::*, RawOrigin};
 pub mod pallet {
 	use super::*;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
@@ -245,6 +248,8 @@ pub mod pallet {
 		Released { agent: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 		/// Funds slashed from a delegator.
 		Slashed { agent: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		/// Unclaimed delegation funds migrated to delegator.
+		MigratedDelegation { agent: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	/// Map of Delegators to their `Delegation`.
@@ -371,7 +376,7 @@ pub mod pallet {
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
 			// and has enough delegated balance to migrate.
-			let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, agent);
+			let proxy_delegator = Self::generate_proxy_delegator(agent);
 			let balance_remaining = Self::held_balance_of(&proxy_delegator);
 			ensure!(balance_remaining >= amount, Error::<T>::NotEnoughFunds);
 
@@ -422,6 +427,12 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Derive an account from the migrating agent account where the unclaimed delegation funds
+	/// are held.
+	pub fn generate_proxy_delegator(agent: T::AccountId) -> T::AccountId {
+		Self::sub_account(AccountType::ProxyDelegator, agent)
+	}
+
 	/// Derive a (keyless) pot account from the given agent account and account type.
 	pub(crate) fn sub_account(account_type: AccountType, agent: T::AccountId) -> T::AccountId {
 		T::PalletId::get().into_sub_account_truncating((account_type, agent.clone()))
@@ -464,7 +475,7 @@ impl<T: Config> Pallet<T> {
 
 		// We create a proxy delegator that will keep all the delegation funds until funds are
 		// transferred to actual delegator.
-		let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, who.clone());
+		let proxy_delegator = Self::generate_proxy_delegator(who.clone());
 
 		// Keep proxy delegator alive until all funds are migrated.
 		frame_system::Pallet::<T>::inc_providers(&proxy_delegator);
@@ -646,9 +657,9 @@ impl<T: Config> Pallet<T> {
 			!Self::is_delegator(destination_delegator) && !Self::is_agent(destination_delegator)
 		);
 
+		let agent = source_delegation.agent.clone();
 		// update delegations
-		Delegation::<T>::new(&source_delegation.agent, amount)
-			.update_or_kill(destination_delegator);
+		Delegation::<T>::new(&agent, amount).update_or_kill(destination_delegator);
 
 		source_delegation.amount = source_delegation
 			.amount
@@ -683,6 +694,12 @@ impl<T: Config> Pallet<T> {
 
 		// hold the funds again in the new delegator account.
 		T::Currency::hold(&HoldReason::StakingDelegation.into(), destination_delegator, amount)?;
+
+		Self::deposit_event(Event::<T>::MigratedDelegation {
+			agent,
+			delegator: destination_delegator.clone(),
+			amount,
+		});
 
 		Ok(())
 	}

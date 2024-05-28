@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use polkadot_sdk::*;
+
 use codec::{Decode, Encode};
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use frame_support::Hashable;
@@ -55,7 +57,7 @@ const HEAP_PAGES: u64 = 20;
 type TestExternalities<H> = CoreTestExternalities<H>;
 
 fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
-	node_testing::keyring::sign(xt, SPEC_VERSION, TRANSACTION_VERSION, GENESIS_HASH)
+	node_testing::keyring::sign(xt, SPEC_VERSION, TRANSACTION_VERSION, GENESIS_HASH, None)
 }
 
 fn new_test_ext(genesis_config: &RuntimeGenesisConfig) -> TestExternalities<BlakeTwo256> {

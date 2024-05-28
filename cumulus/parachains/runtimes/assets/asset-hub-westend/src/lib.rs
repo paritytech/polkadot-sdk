@@ -95,8 +95,8 @@ use xcm::latest::prelude::AssetId;
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
-	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
+	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
 use xcm_fee_payment_runtime_api::{
@@ -120,10 +120,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westmint"),
 	impl_name: create_runtime_str!("westmint"),
 	authoring_version: 1,
-	spec_version: 1_011_000,
+	spec_version: 1_012_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 15,
+	transaction_version: 16,
 	state_version: 1,
 };
 
@@ -974,6 +974,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -1386,7 +1387,7 @@ impl_runtime_apis! {
 			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
 			Ok(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::V4),
+				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,
@@ -1628,7 +1629,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(xcm::v4::Assets, u32, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(XcmAssets, u32, Location, Box<dyn FnOnce()>)> {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
@@ -1659,7 +1660,7 @@ impl_runtime_apis! {
 					);
 					let transfer_asset: Asset = (asset_location, asset_amount).into();
 
-					let assets: xcm::v4::Assets = vec![fee_asset.clone(), transfer_asset].into();
+					let assets: XcmAssets = vec![fee_asset.clone(), transfer_asset].into();
 					let fee_index = if assets.get(0).unwrap().eq(&fee_asset) { 0 } else { 1 };
 
 					// verify transferred successfully
@@ -1732,7 +1733,7 @@ impl_runtime_apis! {
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(WestendLocation::get())
 				}
-				fn worst_case_holding(depositable_count: u32) -> xcm::v4::Assets {
+				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
 					let holding_non_fungibles = MaxAssetsIntoHolding::get() / 2 - depositable_count;
 					let holding_fungibles = holding_non_fungibles - 2; // -2 for two `iter::once` bellow
@@ -1793,7 +1794,7 @@ impl_runtime_apis! {
 					(0u64, Response::Version(Default::default()))
 				}
 
-				fn worst_case_asset_exchange() -> Result<(xcm::v4::Assets, xcm::v4::Assets), BenchmarkError> {
+				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
@@ -1812,9 +1813,9 @@ impl_runtime_apis! {
 					Ok(WestendLocation::get())
 				}
 
-				fn claimable_asset() -> Result<(Location, Location, xcm::v4::Assets), BenchmarkError> {
+				fn claimable_asset() -> Result<(Location, Location, XcmAssets), BenchmarkError> {
 					let origin = WestendLocation::get();
-					let assets: xcm::v4::Assets = (AssetId(WestendLocation::get()), 1_000 * UNITS).into();
+					let assets: XcmAssets = (AssetId(WestendLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
