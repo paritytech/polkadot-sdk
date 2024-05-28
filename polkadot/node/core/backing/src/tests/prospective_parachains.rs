@@ -1435,7 +1435,13 @@ fn concurrent_dependent_candidates() {
 				)) => {
 					tx.send(Ok(test_state.validator_groups.clone())).unwrap();
 				},
-
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::NodeFeatures(sess_idx, tx),
+				)) => {
+					assert_eq!(sess_idx, 1);
+					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_parent,
 					RuntimeApiRequest::AvailabilityCores(tx),

@@ -18,12 +18,13 @@
 
 use parity_scale_codec::{Decode, Encode};
 
+use polkadot_node_primitives::ErasureChunk;
 use polkadot_primitives::{
 	CandidateHash, CommittedCandidateReceipt, Hash, Id as ParaId, PersistedValidationData,
-	UncheckedSignedStatement,
+	UncheckedSignedStatement, ValidatorIndex,
 };
 
-use super::{IsRequest, Protocol};
+use super::{v1, IsRequest, Protocol};
 use crate::v2::StatementFilter;
 
 /// Request a candidate with statements.
@@ -77,4 +78,61 @@ impl IsRequest for CollationFetchingRequest {
 	// The response is the same as for V1.
 	type Response = CollationFetchingResponse;
 	const PROTOCOL: Protocol = Protocol::CollationFetchingV2;
+}
+
+/// Request an availability chunk.
+#[derive(Debug, Copy, Clone, Encode, Decode)]
+pub struct ChunkFetchingRequest {
+	/// Hash of candidate we want a chunk for.
+	pub candidate_hash: CandidateHash,
+	/// The validator index we are requesting from. This may not be identical to the index of the
+	/// chunk we'll receive. It's up to the caller to decide whether they need to validate they got
+	/// the chunk they were expecting.
+	pub index: ValidatorIndex,
+}
+
+/// Receive a requested erasure chunk.
+#[derive(Debug, Clone, Encode, Decode)]
+pub enum ChunkFetchingResponse {
+	/// The requested chunk data.
+	#[codec(index = 0)]
+	Chunk(ErasureChunk),
+	/// Node was not in possession of the requested chunk.
+	#[codec(index = 1)]
+	NoSuchChunk,
+}
+
+impl From<Option<ErasureChunk>> for ChunkFetchingResponse {
+	fn from(x: Option<ErasureChunk>) -> Self {
+		match x {
+			Some(c) => ChunkFetchingResponse::Chunk(c),
+			None => ChunkFetchingResponse::NoSuchChunk,
+		}
+	}
+}
+
+impl From<ChunkFetchingResponse> for Option<ErasureChunk> {
+	fn from(x: ChunkFetchingResponse) -> Self {
+		match x {
+			ChunkFetchingResponse::Chunk(c) => Some(c),
+			ChunkFetchingResponse::NoSuchChunk => None,
+		}
+	}
+}
+
+impl From<v1::ChunkFetchingRequest> for ChunkFetchingRequest {
+	fn from(v1::ChunkFetchingRequest { candidate_hash, index }: v1::ChunkFetchingRequest) -> Self {
+		Self { candidate_hash, index }
+	}
+}
+
+impl From<ChunkFetchingRequest> for v1::ChunkFetchingRequest {
+	fn from(ChunkFetchingRequest { candidate_hash, index }: ChunkFetchingRequest) -> Self {
+		Self { candidate_hash, index }
+	}
+}
+
+impl IsRequest for ChunkFetchingRequest {
+	type Response = ChunkFetchingResponse;
+	const PROTOCOL: Protocol = Protocol::ChunkFetchingV2;
 }
