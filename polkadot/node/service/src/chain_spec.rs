@@ -70,11 +70,11 @@ pub struct Extensions {
 }
 
 // Generic chain spec, in case when we don't have the native runtime.
-pub type GenericChainSpec = service::GenericChainSpec<(), Extensions>;
+pub type GenericChainSpec = service::GenericChainSpec<Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 #[cfg(feature = "westend-native")]
-pub type WestendChainSpec = service::GenericChainSpec<(), Extensions>;
+pub type WestendChainSpec = service::GenericChainSpec<Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -83,7 +83,7 @@ pub type WestendChainSpec = GenericChainSpec;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 #[cfg(feature = "rococo-native")]
-pub type RococoChainSpec = service::GenericChainSpec<(), Extensions>;
+pub type RococoChainSpec = service::GenericChainSpec<Extensions>;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.

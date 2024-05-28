@@ -630,3 +630,10 @@ subsystem-benchmark-approval-voting:
   script:
     - cargo bench -p polkadot-node-core-approval-voting --bench approval-voting-regression-bench --features subsystem-benchmarks
   allow_failure: true
+
+subsystem-benchmark-statement-distribution:
+  extends:
+    - .subsystem-benchmark-template
+  script:
+    - cargo bench -p polkadot-statement-distribution --bench statement-distribution-regression-bench --features subsystem-benchmarks
+  allow_failure: true
