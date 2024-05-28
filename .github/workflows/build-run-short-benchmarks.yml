@@ -82,4 +82,6 @@ jobs:
         with:
           name: short-benchmark-artifacts
       - name: script
-        run: ./artifacts/polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+        run: |
+          ls -la
+          ./polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
