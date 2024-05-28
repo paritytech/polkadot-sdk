@@ -322,7 +322,7 @@ fn automatic_unbonding_pools() {
 		let init_free_balance_2 = Balances::free_balance(2);
 		let init_free_balance_3 = Balances::free_balance(3);
 
-		let pool_bonded_account = Pools::create_bonded_account(1);
+		let pool_bonded_account = Pools::generate_bonded_account(1);
 
 		// creates a pool with 5 bonded, owned by 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(1), 5, 1, 1, 1));
