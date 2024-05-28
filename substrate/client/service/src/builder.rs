@@ -18,7 +18,7 @@
 
 use crate::{
 	build_network_future, build_system_rpc_future,
-	client::{Client, ClientConfig},
+	client::{Client, ClientConfig, CodeProvider},
 	config::{Configuration, KeystoreConfig, PrometheusConfig},
 	error::Error,
 	metrics::MetricsService,

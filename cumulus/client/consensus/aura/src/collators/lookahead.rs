@@ -363,22 +363,23 @@ where
 					Ok(x) => x,
 				};
 
-				let validation_code_hash = match params.code_hash_provider.code_hash_at(parent_hash)
-				{
-					None => {
-						tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-						break
-					},
-					Some(v) => v,
+				let Some(validation_code_hash) =
+					params.code_hash_provider.code_hash_at(parent_hash)
+				else {
+					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
+					break
 				};
 
-				super::check_validation_code_or_log(
+				let Some(state_validation_code_hash) = super::check_validation_code_or_log(
 					&validation_code_hash,
 					params.para_id,
 					&params.relay_client,
 					relay_parent,
 				)
-				.await;
+				.await
+				else {
+					break
+				};
 
 				match collator
 					.collate(
@@ -412,7 +413,11 @@ where
 										relay_parent,
 										collation,
 										parent_head: parent_header.encode().into(),
-										validation_code_hash,
+										// We are using the validation code hash as found in the
+										// relay chain state. This is done because the local node
+										// could for example running with an override for some sort
+										// of testing or whatever.
+										validation_code_hash: state_validation_code_hash,
 										result_sender: None,
 										core_index,
 									},
