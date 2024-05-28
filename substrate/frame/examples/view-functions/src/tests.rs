@@ -48,3 +48,28 @@ fn pallet_get_value_query() {
 		assert_eq!(some_value, query_result,);
 	});
 }
+
+#[test]
+fn pallet_get_value_with_arg_query() {
+	new_test_ext().execute_with(|| {
+		let some_key = 1u32;
+		let some_value = Some(123);
+		pallet::SomeMap::<Runtime>::set(some_key, some_value);
+		assert_eq!(some_value, Pallet::<Runtime>::get_value_with_arg(some_key));
+
+		let query = pallet::GetValueWithArgQuery::<Runtime>::new(some_key);
+		let input = query.encode();
+		let mut output = Vec::new();
+
+		let _ = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<_, Vec<u8>>(
+			&<pallet::GetValueWithArgQuery<Runtime> as Query>::ID,
+			&mut &input[..],
+			&mut output,
+		)
+		.unwrap();
+
+		let query_result = <Option<u32>>::decode(&mut &output[..]).unwrap();
+
+		assert_eq!(some_value, query_result,);
+	});
+}
