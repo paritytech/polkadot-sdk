@@ -56,6 +56,7 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 					candidate.receipt.clone(),
 					candidate.session_index,
 					None,
+					None,
 					tx,
 				),
 				"ActiveCandidateRecovery",

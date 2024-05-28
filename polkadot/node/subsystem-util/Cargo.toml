@@ -24,6 +24,7 @@ gum = { package = "tracing-gum", path = "../gum" }
 derive_more = "0.99.17"
 schnellru = "0.2.1"
 
+erasure-coding = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
 polkadot-node-subsystem = { path = "../subsystem" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-jaeger = { path = "../jaeger" }
