@@ -50,7 +50,7 @@ where
 {
 	let proof = <BeefyVersionedFinalityProof<Block, AuthorityId>>::decode_all(&mut &*encoded)
 		.map_err(|_| (ConsensusError::InvalidJustification, 0))?;
-    verify_with_validator_set::<Block, AuthorityId>(target_number, validator_set, &proof);
+    verify_with_validator_set::<Block, AuthorityId>(target_number, validator_set, &proof)?;
     Ok(proof)
 }
 
