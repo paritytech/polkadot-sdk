@@ -17,55 +17,220 @@
 
 //! This module contains routines for accessing and altering a contract transient storage.
 
+use core::marker::PhantomData;
+
 use crate::{
 	exec::{AccountIdOf, Key},
 	storage::WriteOutcome,
 	Config, Error,
 };
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
 type Value = Vec<u8>;
 type StorageKey = Vec<u8>;
+type State<T> = BTreeMap<AccountIdOf<T>, Storage<T>>;
+type MeterEntries = Vec<MeterEntry>;
 
-#[derive(Clone)]
+#[derive(Default)]
+struct MeterEntry {
+	// Allocation commited by subsequent frames.
+	nested: Diff,
+	// Current allocation made by frame.
+	current: Diff,
+}
+
+// impl MeterEntry {
+// 	fn saturating_add(&self, rhs: &Self) -> Self {
+// 		Self {
+// 			bytes_added: self.bytes_added.saturating_add(rhs.bytes_added),
+// 			bytes_removed: self.bytes_removed.saturating_add(rhs.bytes_removed),
+// 		}
+// 	}
+// }
+
+
+/// This type is used to describe a storage change when charging from the meter.
+#[derive(Default)]
+pub struct Diff {
+	/// How many bytes were added to storage.
+	pub bytes_added: u32,
+	/// How many bytes were removed from storage.
+	pub bytes_removed: u32,
+}
+
+impl Diff {
+	fn saturating_add(&self, rhs: &Self) -> Self {
+		Self {
+			bytes_added: self.bytes_added.saturating_add(rhs.bytes_added),
+			bytes_removed: self.bytes_removed.saturating_add(rhs.bytes_removed),
+		}
+	}
+}
+
+/// Storage meter enforces the limit for each frame and total limit for transaction.
+/// It tracks journal and storage allocation.
+struct StorageMeter<T: Config> {
+	limit: u32,
+	frame_limit: u32,
+	nested: MeterEntries,
+	_phantom: PhantomData<T>
+}
+
+impl <T: Config> StorageMeter<T> {
+
+	pub fn new(limit: u32) -> Self {
+		Self {
+			limit,
+			frame_limit: 256,
+			nested: vec![Default::default()],
+			_phantom: Default::default()
+		}
+	}
+
+	fn charge(&mut self, amount: Diff) -> DispatchResult {
+		let total: usize = self.nested.iter().sum();
+		if let Some(nested_meter) = self.nested.last_mut() {
+			let current = nested_meter.saturating_add(amount);
+			if current > self.frame_limit as _ || total > self.limit as _ {
+				return Err(Error::<T>::OutOfStorage.into());
+			}
+			*nested_meter = current;
+		}
+		Ok(())
+	}
+
+	fn revert(&mut self) {
+		self.nested.pop();
+	}
+
+	fn start(&mut self) {
+		self.nested.push(Default::default());
+	}
+
+	fn commit(&mut self) {
+		if let Some(amount) = self.nested.pop()
+		{
+			if let Some(nested_meter) = self.nested.last_mut() {
+
+			let total: usize = self.nested.iter().sum();
+			}
+		}
+	}
+}
+
 struct JournalEntry<T: Config> {
 	account: AccountIdOf<T>,
 	key: StorageKey,
 	prev_value: Option<Value>,
 }
 
-type Journal<T> = Vec<JournalEntry<T>>;
+impl <T: Config> JournalEntry<T> {
+	pub fn new(account: AccountIdOf<T>, key: StorageKey, prev_value: Option<Value>) -> Self {
+		Self{
+			account,
+			key,
+			prev_value,
+		}
+	}
+
+	pub fn revert(self, storage: &mut State<T>) {
+		if let Some(contract) = storage.get_mut(&self.account) {
+			if let Some(prev_value) = self.prev_value {
+				contract.insert(self.key, prev_value);
+			} else {
+				contract.remove(&self.key);
+			}
+		}
+	}
+}
+
+struct Journal<T: Config> (Vec<JournalEntry<T>>);
+
+impl <T: Config> Journal<T> {
+	pub fn new() -> Self {
+		Self(Default::default())
+	}
+
+	pub fn push(&mut self, entry: JournalEntry<T>) {
+		self.0.push(entry);
+	}
+
+	pub fn len(&self) -> usize {
+		self.0.len()
+	}
+
+	pub fn rollback(&mut self, storage: &mut State<T>, checkpoint: usize) {
+		self.0
+        .drain(checkpoint..)
+        .rev()
+        .for_each(|entry| entry.revert(storage));
+	}
+}
+
 type Checkpoints = Vec<usize>;
-type Storage = (BTreeMap<StorageKey, Value>, usize);
+struct Storage<T: Config> {
+	data: BTreeMap<StorageKey, Value>,
+	_phantom: PhantomData<T>,
+}
+
+impl<T: Config> Storage<T> {
+	pub fn new(max_size: usize) -> Self {
+		Self { data: Default::default(), _phantom: Default::default() }
+	}
+
+	pub fn get(&self, key: &StorageKey) -> Option<&Value> {
+		self.data.get(key)
+	}
+
+	pub fn try_insert(
+		&mut self,
+		key: StorageKey,
+		value: Value,
+		meter: &mut StorageMeter<T>,
+	) -> DispatchResult {
+		let new_value_size = value.len();
+		meter.charge(new_value_size)?;
+		self.data.insert(key, value);
+		Ok(())
+	}
+
+	pub fn insert(
+		&mut self,
+		key: StorageKey,
+		value: Value,
+	) {
+		self.data.insert(key, value);
+	}
+
+	pub fn remove(&mut self, key: &StorageKey) {
+		self.data.remove(key);
+	}
+}
 
 pub struct TransientStorage<T: Config> {
-	current: BTreeMap<AccountIdOf<T>, Storage>,
+	current: State<T>,
 	journal: Journal<T>,
+	meter: StorageMeter<T>,
+	// The size of the checkpoints is limited by the stack depth.
 	checkpoints: Checkpoints,
-	// Maximum size in bytes per contract.
-	max_size: usize,
 }
 
 impl<T: Config> TransientStorage<T> {
 	pub fn new(max_size: u32) -> Self {
 		TransientStorage {
 			current: Default::default(),
-			journal: vec![],
+			journal: Journal::new(),
 			checkpoints: vec![],
-			max_size: max_size as _,
+			meter: StorageMeter::new(max_size)
 		}
 	}
 
 	pub fn read(&self, account: &AccountIdOf<T>, key: &Key<T>) -> Option<Value> {
 		self.current
 			.get(account)
-			.and_then(|contract| contract.0.get(&key.hash()))
+			.and_then(|contract| contract.data.get(&key.hash()))
 			.cloned()
-	}
-
-	fn current_size(&self, account: &AccountIdOf<T>) -> usize {
-		self.current.get(account).map(|contract| contract.1).unwrap_or_default()
 	}
 
 	pub fn write(
@@ -75,45 +240,37 @@ impl<T: Config> TransientStorage<T> {
 		value: Option<Value>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
-		let old_value = self.read(&account, &key);
-		let key = key.hash();
+		let old_value = self.read(account, key);
+		// Skip if the same value is being set.
+		if old_value != value {
+			let key: Vec<u8> = key.hash();
+			// Update the current state.
+			if let Some(value) = value {
+				// Insert storage value.
+				self.current
+					.entry(account.clone())
+					.or_insert_with(|| Storage::new(256))
+					.try_insert(key.clone(), value, &mut self.meter)?;
+			} else {
+				// Remove storage entry.
+				self.current.entry(account.clone()).and_modify(|contract| {
+					{
+						contract.remove(&key);
+					};
+				});
+			}
 
-		// Calculate new size and check if it exceeds max_size.
-		let old_value_size = old_value.as_ref().map(|e| e.len()).unwrap_or_default();
-		let new_value_size = value.as_ref().map(|e| e.len()).unwrap_or_default();
-
-		let current_size = self.current_size(account);
-		let size = current_size.saturating_sub(old_value_size).saturating_add(new_value_size);
-		if size > self.max_size {
-			return Err(Error::<T>::OutOfStorage.into());
-		}
-
-		// Update the journal.
-		self.journal.push(JournalEntry {
-			account: account.clone(),
-			key: key.clone(),
-			prev_value: old_value.clone(),
-		});
-
-		// Update the current state.
-		if let Some(value) = value {
-			self.current
-				.entry(account.clone())
-				.or_insert_with(|| (BTreeMap::new(), size))
-				.0
-				.insert(key, value);
-		} else {
-			self.current.entry(account.clone()).and_modify(|e| {
-				{
-					e.0.remove(&key);
-					e.1 = size;
-				};
-			});
+			// Update the journal.
+			self.journal.push(JournalEntry::new(
+				account.clone(),
+				key,
+				old_value.clone()
+			));
 		}
 
 		Ok(match (take, old_value) {
 			(_, None) => WriteOutcome::New,
-			(false, Some(_)) => WriteOutcome::Overwritten(old_value_size as _),
+			(false, Some(old_value)) => WriteOutcome::Overwritten(old_value.len() as _),
 			(true, Some(old_value)) => WriteOutcome::Taken(old_value),
 		})
 	}
@@ -122,38 +279,26 @@ impl<T: Config> TransientStorage<T> {
 		self.checkpoints
 			.pop()
 			.expect("No open transient storage transaction that can be committed.");
+		self.meter.commit();
 	}
 
 	pub fn start_transaction(&mut self) {
 		self.checkpoints.push(self.journal.len());
+		self.meter.start()
 	}
 
 	pub fn rollback_transaction(&mut self) {
-		let last_checkpoint = self
+		let checkpoint = self
 			.checkpoints
 			.pop()
 			.expect("No open transient storage transaction that can be rolled back.");
+		self.meter.revert();
+		self.journal.rollback(&mut self.current, checkpoint);
 
-		for i in (last_checkpoint..self.journal.len()).rev() {
-			let JournalEntry { account, key, prev_value } = &self.journal[i];
+	}
 
-			if let Some(contract) = self.current.get_mut(account) {
-				// Calculate new size.
-				let current_value_size = contract.0.len();
-				let prev_value_size = prev_value.as_ref().map(|e| e.len()).unwrap_or_default();
+	pub fn terminate(&mut self, account: &AccountIdOf<T>) {
 
-				contract.1 =
-					contract.1.saturating_sub(current_value_size).saturating_add(prev_value_size);
-
-				if let Some(prev_value) = prev_value {
-					contract.0.insert(key.clone(), prev_value.clone());
-				} else {
-					contract.0.remove(key);
-				}
-			}
-		}
-
-		self.journal.truncate(last_checkpoint);
 	}
 }
 
@@ -193,6 +338,27 @@ mod tests {
 	}
 
 	#[test]
+	fn overwrite_and_commmit_transaction_works() {
+		let mut storage = TransientStorage::<Test>::new(256);
+		storage.start_transaction();
+		storage.commit_transaction();
+
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
+			Ok(WriteOutcome::New)
+		);
+
+		assert_eq!(
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1, 2]), false),
+			Ok(WriteOutcome::Overwritten(1))
+		);
+
+		storage.commit_transaction();
+		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1, 2]))
+	}
+
+	#[test]
 	fn rollback_in_nested_transaction_works() {
 		let mut storage = TransientStorage::<Test>::new(256);
 		storage.start_transaction();
@@ -209,5 +375,32 @@ mod tests {
 		storage.commit_transaction();
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]));
 		assert_eq!(storage.read(&BOB, &Key::Fix([1; 32])), None)
+	}
+
+	#[test]
+	fn commit_in_nested_transaction_works() {
+		let mut storage = TransientStorage::<Test>::new(2);
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
+			Ok(WriteOutcome::New)
+		);
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![2]), false),
+			Ok(WriteOutcome::New)
+		);
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&CHARLIE, &Key::Fix([1; 32]), Some(vec![3]), false),
+			Ok(WriteOutcome::New)
+		);
+		storage.commit_transaction();
+		storage.commit_transaction();
+		storage.commit_transaction();
+		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]));
+		assert_eq!(storage.read(&BOB, &Key::Fix([1; 32])), Some(vec![2]));
+		assert_eq!(storage.read(&CHARLIE, &Key::Fix([1; 32])), Some(vec![3]));
+
 	}
 }
