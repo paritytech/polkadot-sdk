@@ -84,4 +84,5 @@ jobs:
       - name: script
         run: |
           ls -la
+          chmod +x polkadot
           ./polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
