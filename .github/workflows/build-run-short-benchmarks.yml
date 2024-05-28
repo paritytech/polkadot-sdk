@@ -1,0 +1,85 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORKLIFT_storage_s3_bucketName: ${{ secrets.FORKLIFT_storage_s3_bucketName }}
+  FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
+  FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
+  FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
+  FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
+
+jobs:
+  set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+  build-short-benchmark:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 30
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          forklift cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build --bin polkadot --workspace
+          mkdir -p artifacts
+          target/release/polkadot --version
+          cp ./target/release/polkadot ./artifacts/
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: short-benchmark-artifacts
+          path: ./artifacts
+  # build-short-benchmark-cumulus:
+  #   runs-on: arc-runners-polkadot-sdk-beefy
+  #   timeout-minutes: 30
+  #   needs: [set-image]
+  #   container:
+  #     image: ${{ needs.set-image.outputs.IMAGE }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: script
+  #       run: exit 0
+  short-benchmark-westend:
+    runs-on: arc-runners-polkadot-sdk-benchmark
+    timeout-minutes: 30
+    needs: [set-image, build-short-benchmark]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      RUNTIME: westend
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-C debug-assertions -D warnings"
+      RUST_BACKTRACE: "full"
+      WASM_BUILD_NO_COLOR: 1
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+    steps:
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: short-benchmark-artifacts
+      - name: script
+        run: ./artifacts/polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
