@@ -271,7 +271,7 @@ pub mod pallet {
 						false,
 						"host configuration is promised to set until `on_finalize`; qed",
 					);
-					return
+					return;
 				},
 			};
 
@@ -286,7 +286,7 @@ pub mod pallet {
 						"relevant messaging state is promised to be set until `on_finalize`; \
 							qed",
 					);
-					return
+					return;
 				},
 			};
 
@@ -307,7 +307,7 @@ pub mod pallet {
 							"relevant messaging state is promised to be set until `on_finalize`; \
 								qed",
 						);
-						return (0, 0)
+						return (0, 0);
 					},
 				};
 
@@ -966,11 +966,11 @@ pub mod pallet {
 						provides: vec![hash.as_ref().to_vec()],
 						longevity: TransactionLongevity::max_value(),
 						propagate: true,
-					})
+					});
 				}
 			}
 			if let Call::set_validation_data { .. } = call {
-				return Ok(Default::default())
+				return Ok(Default::default());
 			}
 			Err(InvalidTransaction::Call.into())
 		}
@@ -1042,7 +1042,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let channels = match RelevantMessagingState::<T>::get() {
 			None => {
 				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
-				return ChannelStatus::Closed
+				return ChannelStatus::Closed;
 			},
 			Some(d) => d.egress_channels,
 		};
@@ -1059,7 +1059,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let meta = &channels[index].1;
 		if meta.msg_count + 1 > meta.max_capacity {
 			// The channel is at its capacity. Skip it for now.
-			return ChannelStatus::Full
+			return ChannelStatus::Full;
 		}
 		let max_size_now = meta.max_total_size - meta.total_size;
 		let max_size_ever = meta.max_message_size;
@@ -1562,7 +1562,7 @@ impl<T: Config> Pallet<T> {
 		// However, changing this setting is expected to be rare.
 		if let Some(cfg) = HostConfiguration::<T>::get() {
 			if message_len > cfg.max_upward_message_size as usize {
-				return Err(MessageSendError::TooBig)
+				return Err(MessageSendError::TooBig);
 			}
 			let threshold =
 				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
@@ -1694,12 +1694,23 @@ pub trait RelaychainStateProvider {
 	/// **NOTE**: This is not guaranteed to return monotonically increasing relay parents.
 	fn current_relay_chain_state() -> RelayChainState;
 
+	/// May be called by any runtime module to obtain the current state proof for well known keys.
+	///
+	fn current_relay_state_proof() -> Option<sp_trie::StorageProof>;
+
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
 	/// else a noop.
 	///
 	/// It allows for setting a custom RelayChainState.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_relay_chain_state(_state: RelayChainState) {}
+
+	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
+	/// else a noop.
+	///
+	/// It allows for setting a custom StorageProof.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_current_relay_state_proof(_proof: sp_trie::StorageProof) {}
 }
 
 /// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation
@@ -1757,6 +1768,10 @@ impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
 			.unwrap_or_default()
 	}
 
+	fn current_relay_state_proof() -> Option<sp_trie::StorageProof> {
+		RelayStateProof::<T>::get()
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_relay_chain_state(state: RelayChainState) {
 		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
@@ -1770,5 +1785,10 @@ impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
 		validation_data.relay_parent_number = state.number;
 		validation_data.relay_parent_storage_root = state.state_root;
 		ValidationData::<T>::put(validation_data)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_current_relay_state_proof(proof: sp_trie::StorageProof) {
+		RelayStateProof::<T>::put(proof)
 	}
 }
