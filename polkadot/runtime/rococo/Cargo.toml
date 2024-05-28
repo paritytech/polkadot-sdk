@@ -103,7 +103,7 @@ polkadot-parachain-primitives = { path = "../../parachain", default-features = f
 
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "8.0.2" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "8.0.1" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "8.0.2" }
 
 [dev-dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }

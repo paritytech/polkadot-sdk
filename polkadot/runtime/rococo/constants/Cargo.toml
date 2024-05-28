@@ -20,7 +20,7 @@ sp-weights = { path = "../../../../substrate/primitives/weights", default-featur
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
 
 xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false, version = "8.0.1" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../xcm/xcm-builder", default-features = false, version = "8.0.1" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../xcm/xcm-builder", default-features = false, version = "8.0.2" }
 
 [features]
 default = ["std"]
