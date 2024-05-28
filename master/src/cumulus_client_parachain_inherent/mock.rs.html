@@ -405,6 +405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -453,12 +454,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// your parachain's configuration in order to mock the MQC heads properly.
 /// See [`MockXcmConfig`] for more information
 </span><span class="kw">pub struct </span>MockValidationDataInherentDataProvider&lt;R = ()&gt; {
-	<span class="doccomment">/// The current block number of the local block chain (the parachain)
+	<span class="doccomment">/// The current block number of the local block chain (the parachain).
 	</span><span class="kw">pub </span>current_para_block: u32,
-	<span class="doccomment">/// The current block head data of the local block chain (the parachain)
+	<span class="doccomment">/// The parachain ID of the parachain for that the inherent data is created.
+	</span><span class="kw">pub </span>para_id: ParaId,
+	<span class="doccomment">/// The current block head data of the local block chain (the parachain).
 	</span><span class="kw">pub </span>current_para_block_head: <span class="prelude-ty">Option</span>&lt;cumulus_primitives_core::relay_chain::HeadData&gt;,
 	<span class="doccomment">/// The relay block in which this parachain appeared to start. This will be the relay block
-	/// number in para block #P1
+	/// number in para block #P1.
 	</span><span class="kw">pub </span>relay_offset: u32,
 	<span class="doccomment">/// The number of relay blocks that elapses between each parablock. Probably set this to 1 or 2
 	/// to simulate optimistic or realistic relay chain behavior.
@@ -466,20 +469,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Number of parachain blocks per relay chain epoch
 	/// Mock epoch is computed by dividing `current_para_block` by this value.
 	</span><span class="kw">pub </span>para_blocks_per_relay_epoch: u32,
-	<span class="doccomment">/// Function to mock BABE one epoch ago randomness
+	<span class="doccomment">/// Function to mock BABE one epoch ago randomness.
 	</span><span class="kw">pub </span>relay_randomness_config: R,
 	<span class="doccomment">/// XCM messages and associated configuration information.
 	</span><span class="kw">pub </span>xcm_config: MockXcmConfig,
 	<span class="doccomment">/// Inbound downward XCM messages to be injected into the block.
 	</span><span class="kw">pub </span>raw_downward_messages: Vec&lt;Vec&lt;u8&gt;&gt;,
-	<span class="comment">// Inbound Horizontal messages sorted by channel
+	<span class="comment">// Inbound Horizontal messages sorted by channel.
 	</span><span class="kw">pub </span>raw_horizontal_messages: Vec&lt;(ParaId, Vec&lt;u8&gt;)&gt;,
 	<span class="comment">// Additional key-value pairs that should be injected.
 	</span><span class="kw">pub </span>additional_key_values: <span class="prelude-ty">Option</span>&lt;Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt;&gt;,
 }
 
-<span class="kw">pub trait </span>GenerateRandomness&lt;I&gt; {
-	<span class="kw">fn </span>generate_randomness(<span class="kw-2">&amp;</span><span class="self">self</span>, input: I) -&gt; relay_chain::Hash;
+<span class="doccomment">/// Something that can generate randomness.
+</span><span class="kw">pub trait </span>GenerateRandomness&lt;I&gt; {
+	<span class="doccomment">/// Generate the randomness using the given `input`.
+	</span><span class="kw">fn </span>generate_randomness(<span class="kw-2">&amp;</span><span class="self">self</span>, input: I) -&gt; relay_chain::Hash;
 }
 
 <span class="kw">impl </span>GenerateRandomness&lt;u64&gt; <span class="kw">for </span>() {
@@ -498,8 +503,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// parachain's storage, and the corresponding relay data mocked.
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">pub struct </span>MockXcmConfig {
-	<span class="doccomment">/// The parachain id of the parachain being mocked.
-	</span><span class="kw">pub </span>para_id: ParaId,
 	<span class="doccomment">/// The starting state of the dmq_mqc_head.
 	</span><span class="kw">pub </span>starting_dmq_mqc_head: relay_chain::Hash,
 	<span class="doccomment">/// The starting state of each parachain's mqc head
@@ -526,7 +529,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>new&lt;B: Block, BE: Backend&lt;B&gt;, C: StorageProvider&lt;B, BE&gt;&gt;(
 		client: <span class="kw-2">&amp;</span>C,
 		parent_block: B::Hash,
-		para_id: ParaId,
 		parachain_system_name: ParachainSystemName,
 	) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>starting_dmq_mqc_head = client
@@ -559,7 +561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.unwrap_or_default();
 
-		<span class="self">Self </span>{ para_id, starting_dmq_mqc_head, starting_hrmp_mqc_heads }
+		<span class="self">Self </span>{ starting_dmq_mqc_head, starting_hrmp_mqc_heads }
 	}
 }
 
@@ -573,7 +575,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_inherents::Error&gt; {
 		<span class="comment">// Use the "sproof" (spoof proof) builder to build valid mock state root and proof.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>sproof_builder =
-			RelayStateSproofBuilder { para_id: <span class="self">self</span>.xcm_config.para_id, ..Default::default() };
+			RelayStateSproofBuilder { para_id: <span class="self">self</span>.para_id, ..Default::default() };
 
 		<span class="comment">// Calculate the mocked relay block based on the current para block
 		</span><span class="kw">let </span>relay_parent_number =
