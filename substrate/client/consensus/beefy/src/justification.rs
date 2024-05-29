@@ -20,7 +20,10 @@ use crate::keystore::BeefyKeystore;
 use codec::{DecodeAll, Encode};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_beefy::{AuthorityIdBound, ValidatorSet, ValidatorSetId, VersionedFinalityProof, BeefySignatureHasher, KnownSignature,};
+use sp_consensus_beefy::{
+	AuthorityIdBound, BeefySignatureHasher, KnownSignature, ValidatorSet, ValidatorSetId,
+	VersionedFinalityProof,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 /// A finality proof with matching BEEFY authorities' signatures.
@@ -29,8 +32,7 @@ pub type BeefyVersionedFinalityProof<Block, AuthorityId> =
 
 pub(crate) fn proof_block_num_and_set_id<Block: BlockT, AuthorityId: AuthorityIdBound>(
 	proof: &BeefyVersionedFinalityProof<Block, AuthorityId>,
-) -> (NumberFor<Block>, ValidatorSetId)
-{
+) -> (NumberFor<Block>, ValidatorSetId) {
 	match proof {
 		VersionedFinalityProof::V1(sc) =>
 			(sc.commitment.block_number, sc.commitment.validator_set_id),
@@ -42,12 +44,11 @@ pub(crate) fn decode_and_verify_finality_proof<Block: BlockT, AuthorityId: Autho
 	encoded: &[u8],
 	target_number: NumberFor<Block>,
 	validator_set: &ValidatorSet<AuthorityId>,
-) -> Result<BeefyVersionedFinalityProof<Block, AuthorityId>, (ConsensusError, u32)>
-{
+) -> Result<BeefyVersionedFinalityProof<Block, AuthorityId>, (ConsensusError, u32)> {
 	let proof = <BeefyVersionedFinalityProof<Block, AuthorityId>>::decode_all(&mut &*encoded)
 		.map_err(|_| (ConsensusError::InvalidJustification, 0))?;
-    verify_with_validator_set::<Block, AuthorityId>(target_number, validator_set, &proof)?;
-    Ok(proof)
+	verify_with_validator_set::<Block, AuthorityId>(target_number, validator_set, &proof)?;
+	Ok(proof)
 }
 
 /// Verify the Beefy finality proof against the validator set at the block it was generated.
@@ -55,8 +56,10 @@ pub(crate) fn verify_with_validator_set<'a, Block: BlockT, AuthorityId: Authorit
 	target_number: NumberFor<Block>,
 	validator_set: &'a ValidatorSet<AuthorityId>,
 	proof: &'a BeefyVersionedFinalityProof<Block, AuthorityId>,
-) -> Result<Vec<KnownSignature<&'a AuthorityId,&'a <AuthorityId as RuntimeAppPublic>::Signature>>, (ConsensusError, u32)>
-{
+) -> Result<
+	Vec<KnownSignature<&'a AuthorityId, &'a <AuthorityId as RuntimeAppPublic>::Signature>>,
+	(ConsensusError, u32),
+> {
 	let mut signatures_checked = 0u32;
 	match proof {
 		VersionedFinalityProof::V1(signed_commitment) => {

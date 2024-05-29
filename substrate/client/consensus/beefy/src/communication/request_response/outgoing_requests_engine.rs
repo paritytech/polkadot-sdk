@@ -50,21 +50,18 @@ type Response = Result<(Vec<u8>, ProtocolName), RequestFailure>;
 type ResponseReceiver = oneshot::Receiver<Response>;
 
 #[derive(Clone, Debug)]
-struct RequestInfo<B: Block, AuthorityId: AuthorityIdBound>
-{
+struct RequestInfo<B: Block, AuthorityId: AuthorityIdBound> {
 	block: NumberFor<B>,
 	active_set: ValidatorSet<AuthorityId>,
 }
 
-enum State<B: Block, AuthorityId: AuthorityIdBound>
-{
+enum State<B: Block, AuthorityId: AuthorityIdBound> {
 	Idle,
 	AwaitingResponse(PeerId, RequestInfo<B, AuthorityId>, ResponseReceiver),
 }
 
 /// Possible engine responses.
-pub(crate) enum ResponseInfo<B: Block, AuthorityId: AuthorityIdBound>
-{
+pub(crate) enum ResponseInfo<B: Block, AuthorityId: AuthorityIdBound> {
 	/// No peer response available yet.
 	Pending,
 	/// Valid justification provided alongside peer reputation changes.
@@ -73,8 +70,7 @@ pub(crate) enum ResponseInfo<B: Block, AuthorityId: AuthorityIdBound>
 	PeerReport(PeerReport),
 }
 
-pub struct OnDemandJustificationsEngine<B: Block, AuthorityId: AuthorityIdBound>
-{
+pub struct OnDemandJustificationsEngine<B: Block, AuthorityId: AuthorityIdBound> {
 	network: Arc<dyn NetworkRequest + Send + Sync>,
 	protocol_name: ProtocolName,
 
@@ -85,8 +81,7 @@ pub struct OnDemandJustificationsEngine<B: Block, AuthorityId: AuthorityIdBound>
 	metrics: Option<OnDemandOutgoingRequestsMetrics>,
 }
 
-impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, AuthorityId>
-{
+impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, AuthorityId> {
 	pub fn new(
 		network: Arc<dyn NetworkRequest + Send + Sync>,
 		protocol_name: ProtocolName,
@@ -112,7 +107,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 		let live = self.live_peers.lock();
 		while let Some(peer) = self.peers_cache.pop_front() {
 			if live.contains(&peer) {
-				return Some(peer)
+				return Some(peer);
 			}
 		}
 		None
@@ -146,7 +141,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 	pub fn request(&mut self, block: NumberFor<B>, active_set: ValidatorSet<AuthorityId>) {
 		// ignore new requests while there's already one pending
 		if matches!(self.state, State::AwaitingResponse(_, _, _)) {
-			return
+			return;
 		}
 		self.reset_peers_cache_for_block(block);
 
@@ -237,7 +232,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 		let (peer, req_info, resp) = match &mut self.state {
 			State::Idle => {
 				futures::future::pending::<()>().await;
-				return ResponseInfo::Pending
+				return ResponseInfo::Pending;
 			},
 			State::AwaitingResponse(peer, req_info, receiver) => {
 				let resp = receiver.await;

@@ -37,7 +37,9 @@ use crate::{
 	LOG_TARGET,
 };
 use sp_application_crypto::RuntimeAppPublic;
-use sp_consensus_beefy::{AuthorityIdBound, ValidatorSet, ValidatorSetId, VoteMessage, ecdsa_crypto::AuthorityId};
+use sp_consensus_beefy::{
+	ecdsa_crypto::AuthorityId, AuthorityIdBound, ValidatorSet, ValidatorSetId, VoteMessage,
+};
 
 // Timeout for rebroadcasting messages.
 #[cfg(not(test))]
@@ -70,16 +72,14 @@ enum Consider {
 
 /// BEEFY gossip message type that gets encoded and sent on the network.
 #[derive(Debug, Encode, Decode)]
-pub(crate) enum GossipMessage<B: Block, AuthorityId: AuthorityIdBound>
-{
+pub(crate) enum GossipMessage<B: Block, AuthorityId: AuthorityIdBound> {
 	/// BEEFY message with commitment and single signature.
 	Vote(VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>),
 	/// BEEFY justification with commitment and signatures.
 	FinalityProof(BeefyVersionedFinalityProof<B, AuthorityId>),
 }
 
-impl<B: Block, AuthorityId: AuthorityIdBound> GossipMessage<B, AuthorityId>
-{
+impl<B: Block, AuthorityId: AuthorityIdBound> GossipMessage<B, AuthorityId> {
 	/// Return inner vote if this message is a Vote.
 	pub fn unwrap_vote(
 		self,
@@ -117,31 +117,27 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct GossipFilterCfg<'a, B: Block, AuthorityId: AuthorityIdBound>
-{
+pub(crate) struct GossipFilterCfg<'a, B: Block, AuthorityId: AuthorityIdBound> {
 	pub start: NumberFor<B>,
 	pub end: NumberFor<B>,
 	pub validator_set: &'a ValidatorSet<AuthorityId>,
 }
 
 #[derive(Clone, Debug)]
-struct FilterInner<B: Block, AuthorityId: AuthorityIdBound>
-{
+struct FilterInner<B: Block, AuthorityId: AuthorityIdBound> {
 	pub start: NumberFor<B>,
 	pub end: NumberFor<B>,
 	pub validator_set: ValidatorSet<AuthorityId>,
 }
 
-struct Filter<B: Block, AuthorityId: AuthorityIdBound>
-{
+struct Filter<B: Block, AuthorityId: AuthorityIdBound> {
 	// specifies live rounds
 	inner: Option<FilterInner<B, AuthorityId>>,
 	// cache of seen valid justifications in active rounds
 	rounds_with_valid_proofs: BTreeSet<NumberFor<B>>,
 }
 
-impl<B: Block, AuthorityId: AuthorityIdBound> Filter<B, AuthorityId>
-{
+impl<B: Block, AuthorityId: AuthorityIdBound> Filter<B, AuthorityId> {
 	pub fn new() -> Self {
 		Self { inner: None, rounds_with_valid_proofs: BTreeSet::new() }
 	}
@@ -239,14 +235,14 @@ where
 	network: Arc<N>,
 }
 
-impl<B, N,AuthorityId> GossipValidator<B, N,AuthorityId>
+impl<B, N, AuthorityId> GossipValidator<B, N, AuthorityId>
 where
 	B: Block,
 	AuthorityId: AuthorityIdBound,
 {
 	pub(crate) fn new(known_peers: Arc<Mutex<KnownPeers<B>>>, network: Arc<N>) -> Self {
 		Self {
-		votes_topic: votes_topic::<B>(),
+			votes_topic: votes_topic::<B>(),
 			justifs_topic: proofs_topic::<B>(),
 			gossip_filter: RwLock::new(Filter::new()),
 			next_rebroadcast: Mutex::new(Instant::now() + REBROADCAST_AFTER),
@@ -271,8 +267,8 @@ where
 impl<B, N, AuthorityId> GossipValidator<B, N, AuthorityId>
 where
 	B: Block,
-    N: NetworkPeers,
-AuthorityId: AuthorityIdBound,
+	N: NetworkPeers,
+	AuthorityId: AuthorityIdBound,
 {
 	fn report(&self, who: PeerId, cost_benefit: ReputationChange) {
 		self.network.report_peer(who, cost_benefit);
@@ -308,7 +304,7 @@ AuthorityId: AuthorityIdBound,
 				.unwrap_or(false)
 			{
 				debug!(target: LOG_TARGET, "Message from voter not in validator set: {}", vote.id);
-				return Action::Discard(cost::UNKNOWN_VOTER)
+				return Action::Discard(cost::UNKNOWN_VOTER);
 			}
 		}
 
@@ -345,7 +341,7 @@ AuthorityId: AuthorityIdBound,
 			}
 
 			if guard.is_already_proven(round) {
-				return Action::Discard(benefit::NOT_INTERESTED)
+				return Action::Discard(benefit::NOT_INTERESTED);
 			}
 
 			// Verify justification signatures.
@@ -467,7 +463,7 @@ where
 		let filter = self.gossip_filter.read();
 		Box::new(move |_who, intent, _topic, mut data| {
 			if let MessageIntent::PeriodicRebroadcast = intent {
-				return do_rebroadcast
+				return do_rebroadcast;
 			}
 
 			match GossipMessage::<B, AuthorityId>::decode_all(&mut data) {
@@ -670,7 +666,8 @@ pub(crate) mod tests {
 	#[test]
 	fn should_validate_messages() {
 		let keys = vec![Keyring::<ecdsa_crypto::AuthorityId>::Alice.public()];
-		let validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
+		let validator_set =
+			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
 
 		let (network, mut report_stream) = TestNetwork::new();
 
@@ -795,7 +792,8 @@ pub(crate) mod tests {
 	#[test]
 	fn messages_allowed_and_expired() {
 		let keys = vec![Keyring::Alice.public()];
-		let validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
+		let validator_set =
+			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
 		let gv = GossipValidator::<Block, _, ecdsa_crypto::AuthorityId>::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(TestNetwork::new().0),
@@ -887,7 +885,8 @@ pub(crate) mod tests {
 	#[test]
 	fn messages_rebroadcast() {
 		let keys = vec![Keyring::Alice.public()];
-		let validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
+		let validator_set =
+			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
 		let gv = GossipValidator::<Block, _, ecdsa_crypto::AuthorityId>::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(TestNetwork::new().0),

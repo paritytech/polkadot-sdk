@@ -175,8 +175,7 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	}
 }
 
-impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<AuthorityId>
-{
+impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<AuthorityId> {
 	fn from(store: Option<KeystorePtr>) -> BeefyKeystore<AuthorityId> {
 		BeefyKeystore(store, PhantomData)
 	}

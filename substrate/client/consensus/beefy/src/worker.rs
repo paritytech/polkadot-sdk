@@ -42,9 +42,8 @@ use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
-    AuthorityIdBound, BeefyApi, BeefySignatureHasher, Commitment,
-	DoubleVotingProof, PayloadProvider, ValidatorSet, VersionedFinalityProof, VoteMessage,
-	BEEFY_ENGINE_ID,
+	AuthorityIdBound, BeefyApi, BeefySignatureHasher, Commitment, DoubleVotingProof,
+	PayloadProvider, ValidatorSet, VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
 	generic::BlockId,
@@ -75,7 +74,7 @@ pub(crate) enum RoundAction {
 /// Note: this is part of `PersistedState` so any changes here should also bump
 /// aux-db schema version.
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct VoterOracle<B: Block, AuthorityId: AuthorityIdBound>{
+pub(crate) struct VoterOracle<B: Block, AuthorityId: AuthorityIdBound> {
 	/// Queue of known sessions. Keeps track of voting rounds (block numbers) within each session.
 	///
 	/// There are three voter states corresponding to three queue states:
@@ -112,24 +111,24 @@ where
 		let mut validate = || -> bool {
 			let best_grandpa = *grandpa_header.number();
 			if sessions.is_empty() || best_beefy > best_grandpa {
-				return false
+				return false;
 			}
 			for (idx, session) in sessions.iter().enumerate() {
 				let start = session.session_start();
 				if session.validators().is_empty() {
-					return false
+					return false;
 				}
 				if start > best_grandpa || start <= prev_start {
-					return false
+					return false;
 				}
 				#[cfg(not(test))]
 				if let Some(prev_id) = prev_validator_id {
 					if session.validator_set_id() <= prev_id {
-						return false
+						return false;
 					}
 				}
 				if idx != 0 && session.mandatory_done() {
-					return false
+					return false;
 				}
 				prev_start = session.session_start();
 				prev_validator_id = Some(session.validator_set_id());
@@ -275,8 +274,7 @@ where
 ///
 /// Note: Any changes here should also bump aux-db schema version.
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct PersistedState<B: Block, AuthorityId: AuthorityIdBound>
-{
+pub(crate) struct PersistedState<B: Block, AuthorityId: AuthorityIdBound> {
 	/// Best block we voted on.
 	best_voted: NumberFor<B>,
 	/// Chooses which incoming votes to accept and which votes to generate.
@@ -286,8 +284,7 @@ pub(crate) struct PersistedState<B: Block, AuthorityId: AuthorityIdBound>
 	pallet_genesis: NumberFor<B>,
 }
 
-impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId>
-{
+impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 	pub fn checked_new(
 		grandpa_header: <B as Block>::Header,
 		best_beefy: NumberFor<B>,
@@ -383,8 +380,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId>
 }
 
 /// A BEEFY worker/voter that follows the BEEFY protocol
-pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, N, AuthorityId: AuthorityIdBound>
-{
+pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, N, AuthorityId: AuthorityIdBound> {
 	// utilities
 	pub backend: Arc<BE>,
 	pub runtime: Arc<RuntimeApi>,
@@ -593,7 +589,7 @@ where
 				// New state is persisted after finalization.
 				self.finalize(finality_proof.clone())?;
 				metric_inc!(self.metrics, beefy_good_votes_processed);
-				return Ok(Some(finality_proof))
+				return Ok(Some(finality_proof));
 			},
 			VoteImportResult::Ok => {
 				// Persist state after handling mandatory block vote.
@@ -635,7 +631,7 @@ where
 
 		if block_num <= self.persisted_state.voting_oracle.best_beefy_block {
 			// we've already finalized this round before, short-circuit.
-			return Ok(())
+			return Ok(());
 		}
 
 		// Finalize inner round and update voting_oracle state.
@@ -760,7 +756,7 @@ where
 			hash
 		} else {
 			warn!(target: LOG_TARGET, "🥩 No MMR root digest found for: {:?}", target_hash);
-			return Ok(())
+			return Ok(());
 		};
 
 		let rounds = self.persisted_state.voting_oracle.active_rounds_mut()?;
@@ -774,7 +770,7 @@ where
 				target: LOG_TARGET,
 				"🥩 Missing validator id - can't vote for: {:?}", target_hash
 			);
-			return Ok(())
+			return Ok(());
 		};
 
 		let commitment = Commitment { payload, block_number: target_number, validator_set_id };
@@ -784,7 +780,7 @@ where
 			Ok(sig) => sig,
 			Err(err) => {
 				warn!(target: LOG_TARGET, "🥩 Error signing commitment: {:?}", err);
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -970,7 +966,11 @@ where
 	/// Report the given equivocation to the BEEFY runtime module.
 	fn report_double_voting(
 		&self,
-		proof: DoubleVotingProof<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+		proof: DoubleVotingProof<
+			NumberFor<B>,
+			AuthorityId,
+			<AuthorityId as RuntimeAppPublic>::Signature,
+		>,
 	) -> Result<(), Error> {
 		let rounds = self.persisted_state.voting_oracle.active_rounds()?;
 		self.fisherman.report_double_voting(proof, rounds)
@@ -1048,9 +1048,7 @@ pub(crate) mod tests {
 		Backend,
 	};
 
-	impl<B: super::Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId>
-	where
-	{
+	impl<B: super::Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 		pub fn active_round(&self) -> Result<&Rounds<B, AuthorityId>, Error> {
 			self.voting_oracle.active_rounds()
 		}
@@ -1077,8 +1075,8 @@ pub(crate) mod tests {
 		MmrRootProvider<Block, TestApi>,
 		TestApi,
 		Arc<SyncingService<Block>>,
-	    TestNetwork,
-	    ecdsa_crypto::AuthorityId,
+		TestNetwork,
+		ecdsa_crypto::AuthorityId,
 	> {
 		let keystore = create_beefy_keystore(key);
 
@@ -1143,7 +1141,8 @@ pub(crate) mod tests {
 		.unwrap();
 		let payload_provider = MmrRootProvider::new(api.clone());
 		let comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
-		let key_store: Arc<BeefyKeystore<ecdsa_crypto::AuthorityId>> = Arc::new(Some(keystore).into());
+		let key_store: Arc<BeefyKeystore<ecdsa_crypto::AuthorityId>> =
+			Arc::new(Some(keystore).into());
 		BeefyWorker {
 			backend: backend.clone(),
 			runtime: api.clone(),

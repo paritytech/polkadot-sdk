@@ -17,15 +17,14 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{error::Error, keystore::BeefyKeystore, round::Rounds, LOG_TARGET};
-use sp_application_crypto::RuntimeAppPublic;
 use log::{debug, error, warn};
 use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
-	check_equivocation_proof,
-	AuthorityIdBound,
-	BeefyApi, BeefySignatureHasher, DoubleVotingProof, OpaqueKeyOwnershipProof, ValidatorSetId,
+	check_equivocation_proof, AuthorityIdBound, BeefyApi, BeefySignatureHasher, DoubleVotingProof,
+	OpaqueKeyOwnershipProof, ValidatorSetId,
 };
 use sp_runtime::{
 	generic::BlockId,
@@ -48,10 +47,11 @@ pub struct Fisherman<B, BE, RuntimeApi, AuthorityId: AuthorityIdBound> {
 	_phantom: PhantomData<B>,
 }
 
-impl<B: Block, BE: Backend<B>, RuntimeApi: ProvideRuntimeApi<B>, AuthorityId> Fisherman<B, BE, RuntimeApi, AuthorityId>
+impl<B: Block, BE: Backend<B>, RuntimeApi: ProvideRuntimeApi<B>, AuthorityId>
+	Fisherman<B, BE, RuntimeApi, AuthorityId>
 where
-    RuntimeApi::Api: BeefyApi<B, AuthorityId>,
-    AuthorityId: AuthorityIdBound,
+	RuntimeApi::Api: BeefyApi<B, AuthorityId>,
+	AuthorityId: AuthorityIdBound,
 {
 	pub fn new(
 		backend: Arc<BE>,
@@ -121,7 +121,11 @@ where
 	/// isn't necessarily the best block if there are pending authority set changes.
 	pub fn report_double_voting(
 		&self,
-		proof: DoubleVotingProof<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+		proof: DoubleVotingProof<
+			NumberFor<B>,
+			AuthorityId,
+			<AuthorityId as RuntimeAppPublic>::Signature,
+		>,
 		active_rounds: &Rounds<B, AuthorityId>,
 	) -> Result<(), Error> {
 		let (validators, validator_set_id) =
@@ -130,13 +134,13 @@ where
 
 		if !check_equivocation_proof::<_, _, BeefySignatureHasher>(&proof) {
 			debug!(target: LOG_TARGET, "🥩 Skipping report for bad equivocation {:?}", proof);
-			return Ok(())
+			return Ok(());
 		}
 
 		if let Some(local_id) = self.key_store.authority_id(validators) {
 			if offender_id == &local_id {
 				warn!(target: LOG_TARGET, "🥩 Skipping report for own equivocation");
-				return Ok(())
+				return Ok(());
 			}
 		}
 

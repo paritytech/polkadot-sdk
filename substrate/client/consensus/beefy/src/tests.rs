@@ -1421,7 +1421,7 @@ async fn beefy_reports_equivocations() {
 	for wait_ms in [250, 500, 1250, 3000] {
 		run_for(Duration::from_millis(wait_ms), &net).await;
 		if !api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty() {
-			break
+			break;
 		}
 	}
 

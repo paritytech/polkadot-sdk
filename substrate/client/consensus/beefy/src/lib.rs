@@ -119,8 +119,7 @@ where
 /// Links between the block importer, the background voter and the RPC layer,
 /// to be used by the voter.
 #[derive(Clone)]
-pub struct BeefyVoterLinks<B: Block, AuthorityId: AuthorityIdBound>
-{
+pub struct BeefyVoterLinks<B: Block, AuthorityId: AuthorityIdBound> {
 	// BlockImport -> Voter links
 	/// Stream of BEEFY signed commitments from block import to voter.
 	pub from_block_import_justif_stream: BeefyVersionedFinalityProofStream<B, AuthorityId>,
@@ -134,8 +133,7 @@ pub struct BeefyVoterLinks<B: Block, AuthorityId: AuthorityIdBound>
 
 /// Links used by the BEEFY RPC layer, from the BEEFY background voter.
 #[derive(Clone)]
-pub struct BeefyRPCLinks<B: Block, AuthorityId: AuthorityIdBound>
-{
+pub struct BeefyRPCLinks<B: Block, AuthorityId: AuthorityIdBound> {
 	/// Stream of signed commitments coming from the voter.
 	pub from_voter_justif_stream: BeefyVersionedFinalityProofStream<B, AuthorityId>,
 	/// Stream of BEEFY best block hashes coming from the voter.
@@ -209,8 +207,7 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 }
 
 /// BEEFY gadget initialization parameters.
-pub struct BeefyParams<B: Block, BE, C, N, P, R, S, AuthorityId: AuthorityIdBound>
-{
+pub struct BeefyParams<B: Block, BE, C, N, P, R, S, AuthorityId: AuthorityIdBound> {
 	/// BEEFY client
 	pub client: Arc<C>,
 	/// Client Backend
@@ -237,8 +234,7 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S, AuthorityId: AuthorityIdBoun
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-pub(crate) struct BeefyComms<B: Block, N, AuthorityId: AuthorityIdBound>
-{
+pub(crate) struct BeefyComms<B: Block, N, AuthorityId: AuthorityIdBound> {
 	pub gossip_engine: GossipEngine<B>,
 	pub gossip_validator: Arc<GossipValidator<B, N, AuthorityId>>,
 	pub on_demand_justifications: OnDemandJustificationsEngine<B, AuthorityId>,
@@ -250,8 +246,7 @@ pub(crate) struct BeefyComms<B: Block, N, AuthorityId: AuthorityIdBound>
 /// for certain chain and backend conditions, and while sleeping we still need to pump the
 /// GossipEngine. Once initialization is done, the GossipEngine (and other pieces) are added to get
 /// the complete [worker::BeefyWorker] object.
-pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi, AuthorityId: AuthorityIdBound>
-{
+pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi, AuthorityId: AuthorityIdBound> {
 	// utilities
 	backend: Arc<BE>,
 	runtime: Arc<RuntimeApi>,
@@ -390,7 +385,7 @@ where
 					beefy_genesis,
 				)
 				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?;
-				break state
+				break state;
 			}
 
 			if *header.number() == beefy_genesis {
@@ -413,7 +408,7 @@ where
 					min_block_delta,
 					beefy_genesis,
 				)
-				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?
+				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?;
 			}
 
 			if let Some(active) = find_authorities_change::<B, AuthorityId>(&header) {
@@ -483,7 +478,7 @@ where
 					is_authority,
 				);
 			}
-			return Ok(state)
+			return Ok(state);
 		}
 
 		// No valid voter-state persisted, re-initialize from pallet genesis.
@@ -611,15 +606,17 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 			futures::future::Either::Left(((error::Error::ConsensusReset, reuse_comms), _)) => {
 				error!(target: LOG_TARGET, "🥩 Error: {:?}. Restarting voter.", error::Error::ConsensusReset);
 				beefy_comms = reuse_comms;
-				continue
+				continue;
 			},
 			// On other errors, bring down / finish the task.
-			futures::future::Either::Left(((worker_err, _), _)) =>
-				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", worker_err),
-			futures::future::Either::Right((odj_handler_err, _)) =>
-				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", odj_handler_err),
+			futures::future::Either::Left(((worker_err, _), _)) => {
+				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", worker_err)
+			},
+			futures::future::Either::Right((odj_handler_err, _)) => {
+				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", odj_handler_err)
+			},
 		};
-		return
+		return;
 	}
 }
 
@@ -689,7 +686,7 @@ where
 					"🥩 BEEFY pallet available: block {:?} beefy genesis {:?}",
 					notif.header.number(), start
 				);
-				return Ok((start, notif.header))
+				return Ok((start, notif.header));
 			}
 		}
 	}
@@ -724,7 +721,7 @@ where
 	loop {
 		debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
 		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
-			return Ok(active)
+			return Ok(active);
 		} else {
 			match find_authorities_change::<B, AuthorityId>(&header) {
 				Some(active) => return Ok(active),

@@ -33,26 +33,23 @@ use std::collections::BTreeMap;
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound>
-{
+pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
 	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 }
 
-impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId>
-{
+impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId> {
 	fn default() -> Self {
 		Self { votes: Default::default() }
 	}
 }
 
-impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId>
-{
+impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 	fn add_vote(
 		&mut self,
 		vote: (AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature),
 	) -> bool {
 		if self.votes.contains_key(&vote.0) {
-			return false
+			return false;
 		}
 
 		self.votes.insert(vote.0, vote.1);
@@ -71,11 +68,11 @@ pub fn threshold(authorities: usize) -> usize {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound>
-{
+pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound> {
 	Ok,
 	RoundConcluded(SignedCommitment<NumberFor<B>, <AuthorityId as RuntimeAppPublic>::Signature>),
-	DoubleVoting(DoubleVotingProof<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	DoubleVoting(
+		DoubleVotingProof<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 	),
 	Invalid,
 	Stale,
@@ -86,8 +83,7 @@ pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound>
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound>
-{
+pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound> {
 	rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker<AuthorityId>>,
 	previous_votes: BTreeMap<
 		(AuthorityId, NumberFor<B>),
@@ -147,7 +143,7 @@ where
 
 		if num < self.session_start || Some(num) <= self.best_done {
 			debug!(target: LOG_TARGET, "🥩 received vote for old stale round {:?}, ignoring", num);
-			return VoteImportResult::Stale
+			return VoteImportResult::Stale;
 		} else if vote.commitment.validator_set_id != self.validator_set_id() {
 			debug!(
 				target: LOG_TARGET,
@@ -155,14 +151,14 @@ where
 				self.validator_set_id(),
 				vote,
 			);
-			return VoteImportResult::Invalid
+			return VoteImportResult::Invalid;
 		} else if !self.validators().iter().any(|id| &vote.id == id) {
 			debug!(
 				target: LOG_TARGET,
 				"🥩 received vote {:?} from validator that is not in the validator set, ignoring",
 				vote
 			);
-			return VoteImportResult::Invalid
+			return VoteImportResult::Invalid;
 		}
 
 		if let Some(previous_vote) = self.previous_votes.get(&vote_key) {
@@ -175,7 +171,7 @@ where
 				return VoteImportResult::DoubleVoting(DoubleVotingProof {
 					first: previous_vote.clone(),
 					second: vote,
-				})
+				});
 			}
 		} else {
 			// this is the first vote sent by `id` for `num`, all good
@@ -188,7 +184,7 @@ where
 			round.is_done(threshold(self.validator_set.len()))
 		{
 			if let Some(round) = self.rounds.remove_entry(&vote.commitment) {
-				return VoteImportResult::RoundConcluded(self.signed_commitment(round))
+				return VoteImportResult::RoundConcluded(self.signed_commitment(round));
 			}
 		}
 		VoteImportResult::Ok
@@ -226,8 +222,8 @@ mod tests {
 	use sc_network_test::Block;
 
 	use sp_consensus_beefy::{
-		ecdsa_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, DoubleVotingProof, Payload,
-		SignedCommitment, ValidatorSet, VoteMessage,
+		ecdsa_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment,
+		DoubleVotingProof, Payload, SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
 	use super::{threshold, Block as BlockT, RoundTracker, Rounds};
