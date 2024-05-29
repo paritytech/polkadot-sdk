@@ -154,7 +154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     client: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;C&gt;,
     transaction_pool: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;A&gt;,
     prometheus: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;PrometheusRegistry&gt;,
-    telemetry: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;TelemetryHandle&gt;
+    telemetry: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sc_telemetry/struct.TelemetryHandle.html" title="struct sc_telemetry::TelemetryHandle">TelemetryHandle</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a new proposer factory.</p>
 <p>Proof recording will be disabled when using proposers built by this instance to build
 blocks.</p>
@@ -163,7 +163,7 @@ blocks.</p>
     client: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;C&gt;,
     transaction_pool: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;A&gt;,
     prometheus: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;PrometheusRegistry&gt;,
-    telemetry: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;TelemetryHandle&gt;
+    telemetry: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sc_telemetry/struct.TelemetryHandle.html" title="struct sc_telemetry::TelemetryHandle">TelemetryHandle</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a new proposer factory with proof recording enabled.</p>
 <p>Each proposer created by this instance will record a proof while building a block.</p>
 <p>This will also include the proof into the estimation of the block size. This can be disabled

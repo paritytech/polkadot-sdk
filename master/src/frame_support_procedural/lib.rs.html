@@ -1453,7 +1453,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1302" id="1302">1302</a>
 <a href="#1303" id="1303">1303</a>
 <a href="#1304" id="1304">1304</a>
-<a href="#1305" id="1305">1305</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2705,8 +2704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// * The macro generates a type alias for each pallet to their `Pallet`. E.g. `type System =
 ///   frame_system::Pallet&lt;Runtime&gt;`
-</span><span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
-#[proc_macro_attribute]
+</span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>runtime(attr: TokenStream, item: TokenStream) -&gt; TokenStream {
 	runtime::runtime(attr, item)
 }

@@ -2792,7 +2792,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2641" id="2641">2641</a>
 <a href="#2642" id="2642">2642</a>
 <a href="#2643" id="2643">2643</a>
-<a href="#2644" id="2644">2644</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3303,8 +3302,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
 };
 
-<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
-</span><span class="kw">pub use </span>frame_support_procedural::runtime;
+<span class="kw">pub use </span>frame_support_procedural::runtime;
 
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>frame_support_procedural::{__create_tt_macro, __generate_dummy_part_checker};
