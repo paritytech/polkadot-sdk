@@ -1,0 +1,25 @@
+[package]
+name = "cumulus-pov-validator"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
+clap = { version = "4.5.3", features = ["derive"] }
+sc-executor = { path = "../../../substrate/client/executor" }
+sp-io = { path = "../../../substrate/primitives/io" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
+polkadot-node-primitives = { path = "../../../polkadot/node/primitives" }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+anyhow = "1.0.86"
+tracing = "0.1.40"
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true
