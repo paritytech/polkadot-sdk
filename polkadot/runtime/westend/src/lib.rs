@@ -125,7 +125,12 @@ use sp_runtime::traits::Get;
 pub use sp_runtime::BuildStorage;
 
 /// Constant values used within the runtime.
-use westend_runtime_constants::{currency::*, fee::*, system_parachain::BROKER_ID, time::*};
+use westend_runtime_constants::{
+	currency::*,
+	fee::*,
+	system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID},
+	time::*,
+};
 
 mod bag_thresholds;
 mod weights;
@@ -1212,7 +1217,7 @@ impl coretime::Config for Runtime {
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 	// Keep 2 timeslices worth of revenue information.
-	pub const MaxHistoricalRevenue: BlockNumber = 2 * 80;
+	pub const MaxHistoricalRevenue: BlockNumber = 2 * TIMESLICE_PERIOD;
 	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
 

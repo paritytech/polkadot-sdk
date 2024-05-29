@@ -121,6 +121,15 @@ pub mod system_parachain {
 
 	/// All system parachains of Rococo.
 	pub type SystemParachains = IsChildSystemParachain<Id>;
+
+	/// Coretime constants
+	pub mod coretime {
+		/// Coretime timeslice period in blocks
+		#[cfg(feature = "fast-runtime")]
+		pub const TIMESLICE_PERIOD: u32 = 10;
+		#[cfg(not(feature = "fast-runtime"))]
+		pub const TIMESLICE_PERIOD: u32 = 80;
+	}
 }
 
 /// Rococo Treasury pallet instance.

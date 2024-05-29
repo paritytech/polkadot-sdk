@@ -27,6 +27,7 @@ use frame_support::{
 };
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf};
 use parachains_common::{AccountId, Balance};
+use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
 
 pub struct CreditToCollatorPot;
@@ -217,10 +218,7 @@ impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type OnRevenue = CreditToCollatorPot;
-	#[cfg(feature = "fast-runtime")]
-	type TimeslicePeriod = ConstU32<10>;
-	#[cfg(not(feature = "fast-runtime"))]
-	type TimeslicePeriod = ConstU32<80>;
+	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
 	// We don't actually need any leases at launch but set to 10 in case we want to sudo some in.
 	type MaxLeasedCores = ConstU32<10>;
 	type MaxReservedCores = ConstU32<10>;

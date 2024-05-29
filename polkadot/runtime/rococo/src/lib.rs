@@ -39,7 +39,7 @@ use primitives::{
 	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 	PARACHAIN_KEY_TYPE_ID,
 };
-use rococo_runtime_constants::system_parachain::BROKER_ID;
+use rococo_runtime_constants::system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID};
 use runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
@@ -1083,7 +1083,7 @@ impl coretime::Config for Runtime {
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 	// Keep 2 timeslices worth of revenue information.
-	pub const MaxHistoricalRevenue: BlockNumber = 2 * 80;
+	pub const MaxHistoricalRevenue: BlockNumber = 2 * TIMESLICE_PERIOD;
 	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
 
