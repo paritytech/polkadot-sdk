@@ -225,26 +225,22 @@ mod tests {
 
 	use assert_matches::assert_matches;
 	use futures::executor::block_on;
-	use sc_block_builder::BlockBuilderBuilder;
-	use sc_transaction_pool::FullPool;
-	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool};
+	use sc_transaction_pool::BasicPool;
 	use sp_runtime::{
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
 		ApplyExtrinsicResult,
 	};
-	use substrate_test_runtime_client::{
-		runtime::Transfer, sp_consensus::BlockOrigin, AccountKeyring, ClientBlockImportExt,
-	};
+	use substrate_test_runtime_client::{runtime::Transfer, AccountKeyring};
 
 	#[tokio::test]
 	async fn should_return_next_nonce_for_some_account() {
 		sp_tracing::try_init_simple();
 
 		// given
-		let mut client = Arc::new(substrate_test_runtime_client::new());
+		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let pool =
-			FullPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let new_transaction = |nonce: u64| {
@@ -263,23 +259,6 @@ mod tests {
 		let ext1 = new_transaction(1);
 		block_on(pool.submit_one(hash_of_block0, source, ext1)).unwrap();
 
-		// import block no 1.
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_of_block0)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_of_block1 = block.header.hash();
-		block_on(client.import(BlockOrigin::Own, block)).unwrap();
-
-		// Let txpool process transactions.
-		block_on(
-			pool.maintain(ChainEvent::NewBestBlock { hash: hash_of_block1, tree_route: None }),
-		);
-
 		let accounts = System::new(client, pool, DenyUnsafe::Yes);
 
 		// when
@@ -297,7 +276,7 @@ mod tests {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let pool =
-			FullPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
 		let accounts = System::new(client, pool, DenyUnsafe::Yes);
 
@@ -316,7 +295,7 @@ mod tests {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let pool =
-			FullPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
 		let accounts = System::new(client, pool, DenyUnsafe::No);
 
@@ -344,7 +323,7 @@ mod tests {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let pool =
-			FullPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
 		let accounts = System::new(client, pool, DenyUnsafe::No);
 
