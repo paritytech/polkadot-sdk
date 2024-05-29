@@ -65,7 +65,7 @@ use xcm_executor::{
 	AssetsInHolding,
 };
 use xcm_fee_payment_runtime_api::{
-	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	dry_run::{Error as XcmDryRunApiError, CallDryRunEffects, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
 
@@ -2442,7 +2442,7 @@ impl<T: Config> Pallet<T> {
 		origin: OriginCaller,
 		call: RuntimeCall,
 	) -> Result<
-		ExtrinsicDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>,
+		CallDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>,
 		XcmDryRunApiError,
 	>
 	where
@@ -2459,7 +2459,7 @@ impl<T: Config> Pallet<T> {
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
-		Ok(ExtrinsicDryRunEffects {
+		Ok(CallDryRunEffects {
 			local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 			forwarded_xcms,
 			emitted_events: events,

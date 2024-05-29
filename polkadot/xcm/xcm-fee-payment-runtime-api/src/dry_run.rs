@@ -25,7 +25,7 @@ use xcm::prelude::*;
 
 /// Effects of dry-running an extrinsic.
 #[derive(Encode, Decode, Debug, TypeInfo)]
-pub struct ExtrinsicDryRunEffects<Event> {
+pub struct CallDryRunEffects<Event> {
 	/// The result of executing the extrinsic.
 	pub execution_result: DispatchResultWithPostInfo,
 	/// The list of events fired by the extrinsic.
@@ -54,12 +54,12 @@ sp_api::decl_runtime_apis! {
 	/// If there's local execution, the location will be "Here".
 	/// This vector can be used to calculate both execution and delivery fees.
 	///
-	/// Extrinsics or XCMs might fail when executed, this doesn't mean the result of these calls will be an `Err`.
+	/// Calls or XCMs might fail when executed, this doesn't mean the result of these calls will be an `Err`.
 	/// In those cases, there might still be a valid result, with the execution error inside it.
 	/// The only reasons why these calls might return an error are listed in the [`Error`] enum.
 	pub trait XcmDryRunApi<Call: Encode, Event: Decode, OriginCaller: Encode> {
 		/// Dry run call.
-		fn dry_run_call(origin: OriginCaller, call: Call) -> Result<ExtrinsicDryRunEffects<Event>, Error>;
+		fn dry_run_call(origin: OriginCaller, call: Call) -> Result<CallDryRunEffects<Event>, Error>;
 
 		/// Dry run XCM program
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>) -> Result<XcmDryRunEffects<Event>, Error>;

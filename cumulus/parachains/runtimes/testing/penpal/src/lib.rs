@@ -86,7 +86,7 @@ use xcm::{
 	IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
 use xcm_fee_payment_runtime_api::{
-	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	dry_run::{Error as XcmDryRunApiError, CallDryRunEffects, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
 
@@ -887,7 +887,7 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_builder::InspectMessageQueues;
 			use xcm_executor::RecordXcm;
 			use xcm::prelude::*;
@@ -896,7 +896,7 @@ impl_runtime_apis! {
 			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
 			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(ExtrinsicDryRunEffects {
+			Ok(CallDryRunEffects {
 				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 				forwarded_xcms,
 				emitted_events: events,

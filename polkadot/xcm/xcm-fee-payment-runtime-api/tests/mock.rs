@@ -45,7 +45,7 @@ use xcm_executor::{
 };
 
 use xcm_fee_payment_runtime_api::{
-	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunApi, XcmDryRunEffects},
+	dry_run::{Error as XcmDryRunApiError, CallDryRunEffects, XcmDryRunApi, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
 };
 
@@ -451,7 +451,7 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl XcmDryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for RuntimeApi {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_executor::RecordXcm;
 			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(true);
 			let result = call.dispatch(origin.into());
@@ -463,7 +463,7 @@ sp_api::mock_impl_runtime_apis! {
 									   vec![VersionedXcm::from(message)],
 							   )).collect();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(ExtrinsicDryRunEffects {
+			Ok(CallDryRunEffects {
 				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 				forwarded_xcms,
 				emitted_events: events,
