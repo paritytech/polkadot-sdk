@@ -9749,7 +9749,8 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]

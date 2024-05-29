@@ -2138,7 +2138,7 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type PriceAdapter = pallet_broker::Linear;
+	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }
 
 parameter_types! {
