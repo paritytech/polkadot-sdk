@@ -1,0 +1,16 @@
+title: "Add support for versioned notification for HRMP pallet"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The configuration of the HRMP pallet has been expanded to include the `VersionWrapper` type,
+      which controls the encoding of XCM notifications related to the opening/closing of HRMP channels.
+      If your runtime does not concern itself with the XCM version used for notifications,
+      you can set it as `type VersionWrapper = ()` to always use the latest XCM.
+      If your runtime does care about the XCM version when sending to child parachains,
+      you can provide an instance of the `pallet_xcm` with `type VersionWrapper = XcmPallet`,
+      which can manage XCM versions for destinations.
+
+crates:
+- name: polkadot-runtime-parachains
+  bump: major

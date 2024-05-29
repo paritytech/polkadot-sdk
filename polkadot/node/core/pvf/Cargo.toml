@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 always-assert = "0.1"
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 blake3 = "1.5"
 cfg-if = "1.0"
 futures = "0.3.30"
@@ -25,7 +25,7 @@ tempfile = "3.3.0"
 thiserror = { workspace = true }
 tokio = { version = "1.24.2", features = ["fs", "process"] }
 
-parity-scale-codec = { version = "3.6.1", default-features = false, features = [
+parity-scale-codec = { version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
 
@@ -44,7 +44,7 @@ polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = tr
 
 [dev-dependencies]
 assert_matches = "1.4.0"
-criterion = { version = "0.4.0", default-features = false, features = [
+criterion = { version = "0.5.1", default-features = false, features = [
 	"async_tokio",
 	"cargo_bench_support",
 ] }

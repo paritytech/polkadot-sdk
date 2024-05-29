@@ -61,7 +61,7 @@
 //! blocks) and will go with the longest one in case of a tie.
 //!
 //! An in-depth description and analysis of the protocol can be found here:
-//! <https://research.web3.foundation/en/latest/polkadot/block-production/Babe.html>
+//! <https://research.web3.foundation/Polkadot/protocols/block-production/Babe>
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -562,9 +562,10 @@ fn aux_storage_cleanup<C: HeaderMetadata<Block> + HeaderBackend<Block>, Block: B
 	// Cleans data for stale forks.
 	let stale_forks = match client.expand_forks(&notification.stale_heads) {
 		Ok(stale_forks) => stale_forks,
-		Err((stale_forks, e)) => {
+		Err(e) => {
 			warn!(target: LOG_TARGET, "{:?}", e);
-			stale_forks
+
+			Default::default()
 		},
 	};
 	hashes.extend(stale_forks.iter());

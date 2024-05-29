@@ -25,6 +25,7 @@ use crate::{
 };
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
+use frame_benchmarking::benchmarking;
 use sp_core::Get;
 use sp_std::prelude::*;
 
@@ -57,6 +58,16 @@ pub struct CallSetup<T: Config> {
 	data: Vec<u8>,
 }
 
+impl<T> Default for CallSetup<T>
+where
+	T: Config + pallet_balances::Config,
+	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+{
+	fn default() -> Self {
+		Self::new(WasmModule::dummy())
+	}
+}
+
 impl<T> CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
@@ -69,6 +80,17 @@ where
 		let origin = Origin::from_account_id(contract.caller.clone());
 
 		let storage_meter = Meter::new(&origin, None, 0u32.into()).unwrap();
+
+		// Whitelist contract account, as it is already accounted for in the call benchmark
+		benchmarking::add_to_whitelist(
+			frame_system::Account::<T>::hashed_key_for(&contract.account_id).into(),
+		);
+
+		// Whitelist the contract's contractInfo as it is already accounted for in the call
+		// benchmark
+		benchmarking::add_to_whitelist(
+			crate::ContractInfoOf::<T>::hashed_key_for(&contract.account_id).into(),
+		);
 
 		Self {
 			contract,
@@ -150,21 +172,29 @@ where
 }
 
 #[macro_export]
-macro_rules! call_builder(
-	($func: ident, $module:expr) => {
-		$crate::call_builder!($func, _contract, $module);
+macro_rules! memory(
+	($($bytes:expr,)*) => {
+		 vec![]
+		    .into_iter()
+		    $(.chain($bytes))*
+		    .collect::<Vec<_>>()
 	};
-	($func: ident, $contract: ident, $module:expr) => {
-		let mut setup = CallSetup::<T>::new($module);
-		$crate::call_builder!($func, $contract, setup: setup);
+);
+
+#[macro_export]
+macro_rules! build_runtime(
+	($runtime:ident, $memory:ident: [$($segment:expr,)*]) => {
+		$crate::build_runtime!($runtime, _contract, $memory: [$($segment,)*]);
 	};
-    ($func:ident, setup: $setup: ident) => {
-		$crate::call_builder!($func, _contract, setup: $setup);
+	($runtime:ident, $contract:ident, $memory:ident: [$($bytes:expr,)*]) => {
+		$crate::build_runtime!($runtime, $contract);
+		let mut $memory = $crate::memory!($($bytes,)*);
 	};
-    ($func:ident, $contract: ident, setup: $setup: ident) => {
-		let data = $setup.data();
-		let $contract = $setup.contract();
-		let (mut ext, module) = $setup.ext();
-		let $func = CallSetup::<T>::prepare_call(&mut ext, module, data);
+	($runtime:ident, $contract:ident) => {
+		let mut setup = CallSetup::<T>::default();
+		let $contract = setup.contract();
+		let input = setup.data();
+		let (mut ext, _) = setup.ext();
+		let mut $runtime = crate::wasm::Runtime::new(&mut ext, input);
 	};
 );

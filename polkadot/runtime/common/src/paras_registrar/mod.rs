@@ -761,7 +761,6 @@ mod tests {
 
 	const NORMAL_RATIO: Perbill = Perbill::from_percent(75);
 	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
 		pub BlockWeights: limits::BlockWeights =
 			frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
 		pub BlockLength: limits::BlockLength =
@@ -780,7 +779,6 @@ mod tests {
 		type Lookup = IdentityLookup<u64>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type DbWeight = ();
 		type BlockWeights = BlockWeights;
 		type BlockLength = BlockLength;

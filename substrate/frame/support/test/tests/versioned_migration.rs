@@ -27,7 +27,6 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 };
 use frame_system::Config;
-use sp_core::ConstU64;
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -75,7 +74,6 @@ construct_runtime!(
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
-	type BlockHashCount = ConstU64<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;

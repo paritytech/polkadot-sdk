@@ -156,7 +156,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 				return
 			},
 			AllocateSlotForBlockAnnounceValidation::MaximumPeerSlotsReached => {
-				warn!(
+				debug!(
 					target: LOG_TARGET,
 					"💔 Ignored block (#{} -- {}) announcement from {} because all validation slots for this peer are occupied.",
 					number,

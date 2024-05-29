@@ -55,7 +55,7 @@ use sp_runtime::{
 };
 use sp_state_machine::StorageChanges;
 use sp_timestamp::Timestamp;
-use std::{convert::TryFrom, error::Error, time::Duration};
+use std::{error::Error, time::Duration};
 
 /// Parameters for instantiating a [`Collator`].
 pub struct Params<BI, CIDP, RClient, Proposer, CS> {

@@ -20,6 +20,8 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
+use polkadot_sdk::{sc_consensus_beefy as beefy, sc_consensus_grandpa as grandpa, *};
+
 use crate::Cli;
 use codec::Encode;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -126,6 +128,7 @@ pub fn create_extrinsic(
 					kitchensink_runtime::Runtime,
 				>::from(tip, None),
 			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -140,6 +143,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			(),
+			None,
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -668,7 +672,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let beefy_params = beefy::BeefyParams {
 		client: client.clone(),
 		backend: backend.clone(),
-		payload_provider: beefy_primitives::mmr::MmrRootProvider::new(client.clone()),
+		payload_provider: sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone()),
 		runtime: client.clone(),
 		key_store: keystore.clone(),
 		network_params,
@@ -842,6 +846,7 @@ mod tests {
 		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
+	use polkadot_sdk::*;
 	use sc_client_api::BlockBackend;
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
@@ -1041,6 +1046,7 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let extra = (
 					check_non_zero_sender,
 					check_spec_version,
@@ -1050,11 +1056,22 @@ mod tests {
 					check_nonce,
 					check_weight,
 					tx_payment,
+					metadata_hash,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
 					extra,
-					((), spec_version, transaction_version, genesis_hash, genesis_hash, (), (), ()),
+					(
+						(),
+						spec_version,
+						transaction_version,
+						genesis_hash,
+						genesis_hash,
+						(),
+						(),
+						(),
+						None,
+					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
 				let (function, extra, _) = raw_payload.deconstruct();

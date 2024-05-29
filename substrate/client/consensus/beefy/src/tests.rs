@@ -59,7 +59,7 @@ use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
 	test_utils::Keyring as BeefyKeyring,
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, MmrRootHash, OpaqueKeyOwnershipProof,
+	BeefyApi, Commitment, ConsensusLog, DoubleVotingProof, MmrRootHash, OpaqueKeyOwnershipProof,
 	Payload, SignedCommitment, ValidatorSet, ValidatorSetId, VersionedFinalityProof, VoteMessage,
 	BEEFY_ENGINE_ID,
 };
@@ -259,7 +259,7 @@ pub(crate) struct TestApi {
 	pub validator_set: Option<BeefyValidatorSet>,
 	pub mmr_root_hash: MmrRootHash,
 	pub reported_equivocations:
-		Option<Arc<Mutex<Vec<EquivocationProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
+		Option<Arc<Mutex<Vec<DoubleVotingProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
 }
 
 impl TestApi {
@@ -313,7 +313,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			proof: EquivocationProof<NumberFor<Block>, AuthorityId, Signature>,
+			proof: DoubleVotingProof<NumberFor<Block>, AuthorityId, Signature>,
 			_dummy: OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			if let Some(equivocations_buf) = self.inner.reported_equivocations.as_ref() {

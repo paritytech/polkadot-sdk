@@ -120,7 +120,9 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod routing;
-pub use routing::{EnsureDecodableXcm, EnsureDelivery, WithTopicSource, WithUniqueTopic};
+pub use routing::{
+	EnsureDecodableXcm, EnsureDelivery, InspectMessageQueues, WithTopicSource, WithUniqueTopic,
+};
 
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;

@@ -27,7 +27,7 @@ use snowbridge_pallet_inbound_queue_fixtures::{
 };
 use snowbridge_pallet_system;
 use snowbridge_router_primitives::inbound::{
-	Command, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedMessage,
+	Command, Destination, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedMessage,
 };
 use sp_core::H256;
 use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};
@@ -40,6 +40,7 @@ const TREASURY_ACCOUNT: [u8; 32] =
 const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const INSUFFICIENT_XCM_FEE: u128 = 1000;
+const XCM_FEE: u128 = 4_000_000_000;
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum ControlCall {
@@ -547,6 +548,136 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success:false, .. }) => {},
+			]
+		);
+	});
+}
+
+fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128) {
+	let weth_asset_location: Location = Location::new(
+		2,
+		[EthereumNetwork::get().into(), AccountKey20 { network: None, key: WETH }],
+	);
+	// (Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH })
+	// Fund asset hub sovereign on bridge hub
+	let asset_hub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
+		1,
+		[Parachain(AssetHubRococo::para_id().into())],
+	));
+	BridgeHubRococo::fund_accounts(vec![(asset_hub_sovereign.clone(), INITIAL_FUND)]);
+
+	// Register WETH
+	AssetHubRococo::execute_with(|| {
+		type RuntimeOrigin = <AssetHubRococo as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			weth_asset_location.clone().try_into().unwrap(),
+			asset_hub_sovereign.into(),
+			false,
+			1,
+		));
+
+		assert!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::asset_exists(
+			weth_asset_location.clone().try_into().unwrap(),
+		));
+	});
+
+	// Send WETH to an existent account on asset hub
+	BridgeHubRococo::execute_with(|| {
+		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
+
+		type EthereumInboundQueue =
+			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
+		let message_id: H256 = [0; 32].into();
+		let message = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendToken {
+				token: WETH.into(),
+				destination: Destination::AccountId32 { id: account_id },
+				amount: 1_000_000,
+				fee,
+			},
+		});
+		let (xcm, _) = EthereumInboundQueue::do_convert(message_id, message).unwrap();
+		assert_ok!(EthereumInboundQueue::send_xcm(xcm, AssetHubRococo::para_id().into()));
+
+		// Check that the message was sent
+		assert_expected_events!(
+			BridgeHubRococo,
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+			]
+		);
+	});
+}
+
+#[test]
+fn send_token_from_ethereum_to_existent_account_on_asset_hub() {
+	send_token_from_ethereum_to_asset_hub_with_fee(AssetHubRococoSender::get().into(), XCM_FEE);
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		// Check that the token was received and issued as a foreign asset on AssetHub
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
+			]
+		);
+	});
+}
+
+#[test]
+fn send_token_from_ethereum_to_non_existent_account_on_asset_hub() {
+	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], XCM_FEE);
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		// Check that the token was received and issued as a foreign asset on AssetHub
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
+			]
+		);
+	});
+}
+
+#[test]
+fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_insufficient_fee() {
+	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], INSUFFICIENT_XCM_FEE);
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		// Check that the message was not processed successfully due to insufficient fee
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success:false, .. }) => {},
+			]
+		);
+	});
+}
+
+#[test]
+fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_sufficient_fee_but_do_not_satisfy_ed(
+) {
+	// On AH the xcm fee is 33_873_024 and the ED is 3_300_000
+	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], 36_000_000);
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		// Check that the message was not processed successfully due to insufficient ED
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![

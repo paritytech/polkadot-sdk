@@ -35,6 +35,12 @@ pub mod bridge_to_westend_config;
 mod weights;
 pub mod xcm_config;
 
+use bridge_runtime_common::extensions::{
+	check_obsolete_extension::{
+		CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
+	},
+	refund_relayer_extension::RefundableParachain,
+};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{
@@ -63,7 +69,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, TransformOrigin},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -142,8 +148,9 @@ pub type Migrations = (
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	InitStorageVersions,
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	// unreleased
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
@@ -203,10 +210,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_010_000,
+	spec_version: 1_012_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 4,
+	transaction_version: 5,
 	state_version: 1,
 };
 
@@ -383,7 +390,7 @@ impl pallet_message_queue::Config for Runtime {
 	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
 	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
 	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
-	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type HeapSize = sp_core::ConstU32<{ 103 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
 	type IdleMaxServiceWeight = MessageQueueServiceWeight;
@@ -411,11 +418,20 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type VersionWrapper = PolkadotXcm;
 	// Enqueue XCMP messages from siblings for later processing.
 	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
-	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type MaxInboundSuspended = ConstU32<1_000>;
+	type MaxActiveOutboundChannels = ConstU32<128>;
+	// Most on-chain HRMP channels are configured to use 102400 bytes of max message size, so we
+	// need to set the page size larger than that until we reduce the channel size on-chain.
+	type MaxPageSize = ConstU32<{ 103 * 1024 }>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+impl cumulus_pallet_xcmp_queue::migration::v5::V5Config for Runtime {
+	// This must be the same as the `ChannelInfo` from the `Config`:
+	type ChannelList = ParachainSystem;
 }
 
 parameter_types! {
@@ -740,10 +756,28 @@ pub type XcmOverRococoBulletin = XcmOverPolkadotBulletin;
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,
 	// Grandpa
-	BridgeWestendGrandpa,
-	BridgeRococoBulletinGrandpa,
+	CheckAndBoostBridgeGrandpaTransactions<
+		Runtime,
+		bridge_common_config::BridgeGrandpaWestendInstance,
+		bridge_to_westend_config::PriorityBoostPerRelayHeader,
+		xcm_config::TreasuryAccount,
+	>,
+	CheckAndBoostBridgeGrandpaTransactions<
+		Runtime,
+		bridge_common_config::BridgeGrandpaRococoBulletinInstance,
+		bridge_to_bulletin_config::PriorityBoostPerRelayHeader,
+		xcm_config::TreasuryAccount,
+	>,
 	// Parachains
-	BridgeWestendParachains,
+	CheckAndBoostBridgeParachainsTransactions<
+		Runtime,
+		RefundableParachain<
+		bridge_common_config::BridgeParachainWestendInstance,
+			bp_bridge_hub_westend::BridgeHubWestend,
+		>,
+		bridge_to_westend_config::PriorityBoostPerParachainHeader,
+		xcm_config::TreasuryAccount,
+	>,
 	// Messages
 	BridgeWestendMessages,
 	BridgeRococoBulletinMessages
@@ -938,6 +972,11 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
 			BridgeWestendGrandpa::best_finalized()
 		}
+		fn free_headers_interval() -> Option<bp_westend::BlockNumber> {
+			<Runtime as pallet_bridge_grandpa::Config<
+				bridge_common_config::BridgeGrandpaWestendInstance
+			>>::FreeHeadersInterval::get()
+		}
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_westend::Header>> {
 			BridgeWestendGrandpa::synced_headers_grandpa_info()
@@ -949,6 +988,10 @@ impl_runtime_apis! {
 			BridgeWestendParachains::best_parachain_head_id::<
 				bp_bridge_hub_westend::BridgeHubWestend
 			>().unwrap_or(None)
+		}
+		fn free_headers_interval() -> Option<bp_bridge_hub_westend::BlockNumber> {
+			// "free interval" is not currently used for parachains
+			None
 		}
 	}
 
@@ -982,6 +1025,12 @@ impl_runtime_apis! {
 	impl bp_polkadot_bulletin::PolkadotBulletinFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<bp_runtime::HeaderId<bp_polkadot_bulletin::Hash, bp_polkadot_bulletin::BlockNumber>> {
 			BridgePolkadotBulletinGrandpa::best_finalized()
+		}
+
+		fn free_headers_interval() -> Option<bp_polkadot_bulletin::BlockNumber> {
+			<Runtime as pallet_bridge_grandpa::Config<
+				bridge_common_config::BridgeGrandpaRococoBulletinInstance
+			>>::FreeHeadersInterval::get()
 		}
 
 		fn synced_headers_grandpa_info(

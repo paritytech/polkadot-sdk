@@ -174,9 +174,10 @@ fn service_queues_failing_messages_works() {
 		MessageQueue::enqueue_message(msg("badformat"), Here);
 		MessageQueue::enqueue_message(msg("corrupt"), Here);
 		MessageQueue::enqueue_message(msg("unsupported"), Here);
+		MessageQueue::enqueue_message(msg("stacklimitreached"), Here);
 		MessageQueue::enqueue_message(msg("yield"), Here);
 		// Starts with four pages.
-		assert_pages(&[0, 1, 2, 3]);
+		assert_pages(&[0, 1, 2, 3, 4]);
 
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
 		assert_last_event::<Test>(
@@ -206,9 +207,9 @@ fn service_queues_failing_messages_works() {
 			.into(),
 		);
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
-		assert_eq!(System::events().len(), 3);
+		assert_eq!(System::events().len(), 4);
 		// Last page with the `yield` stays in.
-		assert_pages(&[3]);
+		assert_pages(&[4]);
 	});
 }
 
@@ -1879,4 +1880,98 @@ fn process_enqueued_on_idle_requires_enough_weight() {
 		Pallet::<Test>::on_idle(1, Weight::from_parts(0, 0));
 		assert_eq!(MessagesProcessed::take(), vec![]);
 	})
+}
+
+/// A message that reports `StackLimitReached` will not be put into the overweight queue when
+/// executed from the top level.
+#[test]
+fn process_discards_stack_ov_message() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		MessageQueue::enqueue_message(msg("stacklimitreached"), Here);
+
+		MessageQueue::service_queues(10.into_weight());
+
+		assert_last_event::<Test>(
+			Event::ProcessingFailed {
+				id: blake2_256(b"stacklimitreached").into(),
+				origin: MessageOrigin::Here,
+				error: ProcessMessageError::StackLimitReached,
+			}
+			.into(),
+		);
+
+		assert!(MessagesProcessed::take().is_empty());
+		// Message is gone and not overweight:
+		assert_pages(&[]);
+	});
+}
+
+/// A message that reports `StackLimitReached` will stay in the overweight queue when it is executed
+/// by `execute_overweight`.
+#[test]
+fn execute_overweight_keeps_stack_ov_message() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		// We need to create a mocked message that first reports insufficient weight, and then
+		// `StackLimitReached`:
+		IgnoreStackOvError::set(true);
+		MessageQueue::enqueue_message(msg("stacklimitreached"), Here);
+		MessageQueue::service_queues(0.into_weight());
+
+		assert_last_event::<Test>(
+			Event::OverweightEnqueued {
+				id: blake2_256(b"stacklimitreached"),
+				origin: MessageOrigin::Here,
+				message_index: 0,
+				page_index: 0,
+			}
+			.into(),
+		);
+		// Does not count as 'processed':
+		assert!(MessagesProcessed::take().is_empty());
+		assert_pages(&[0]);
+
+		// Now let it return `StackLimitReached`. Note that this case would normally not happen,
+		// since we assume that the top-level execution is the one with the most remaining stack
+		// depth.
+		IgnoreStackOvError::set(false);
+		// Ensure that trying to execute the message does not change any state (besides events).
+		System::reset_events();
+		let storage_noop = StorageNoopGuard::new();
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(3.into_weight(), (Here, 0, 0)),
+			Err(ExecuteOverweightError::Other)
+		);
+		assert_last_event::<Test>(
+			Event::ProcessingFailed {
+				id: blake2_256(b"stacklimitreached").into(),
+				origin: MessageOrigin::Here,
+				error: ProcessMessageError::StackLimitReached,
+			}
+			.into(),
+		);
+		System::reset_events();
+		drop(storage_noop);
+
+		// Now let's process it normally:
+		IgnoreStackOvError::set(true);
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(1.into_weight(), (Here, 0, 0))
+				.unwrap(),
+			1.into_weight()
+		);
+
+		assert_last_event::<Test>(
+			Event::Processed {
+				id: blake2_256(b"stacklimitreached").into(),
+				origin: MessageOrigin::Here,
+				weight_used: 1.into_weight(),
+				success: true,
+			}
+			.into(),
+		);
+		assert_pages(&[]);
+		System::reset_events();
+	});
 }

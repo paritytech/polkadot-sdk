@@ -17,6 +17,8 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
+use polkadot_sdk::*;
+
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -118,6 +120,7 @@ mod multiplier_tests {
 		weights::{Weight, WeightToFee},
 	};
 	use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+	use polkadot_sdk::*;
 	use sp_runtime::{
 		assert_eq_error_rate,
 		traits::{Convert, One, Zero},

@@ -135,7 +135,7 @@ use frame_system::{
 use scale_info::TypeInfo;
 use smallvec::Array;
 use sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Saturating, StaticLookup, Zero},
+	traits::{Convert, Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::{fmt::Debug, prelude::*};
@@ -146,7 +146,7 @@ pub use crate::{
 	exec::Frame,
 	migration::{MigrateSequence, Migration, NoopMigration},
 	pallet::*,
-	schedule::{HostFnWeights, InstructionWeights, Limits, Schedule},
+	schedule::{InstructionWeights, Limits, Schedule},
 	wasm::Determinism,
 };
 pub use weights::WeightInfo;
@@ -223,14 +223,14 @@ pub struct Environment<T: Config> {
 pub struct ApiVersion(u16);
 impl Default for ApiVersion {
 	fn default() -> Self {
-		Self(2)
+		Self(3)
 	}
 }
 
 #[test]
 fn api_version_is_up_to_date() {
 	assert_eq!(
-		109,
+		111,
 		crate::wasm::STABLE_API_COUNT,
 		"Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test."
 	);
@@ -307,6 +307,9 @@ pub mod pallet {
 		/// Therefore please make sure to be restrictive about which dispatchables are allowed
 		/// in order to not introduce a new DoS vector like memory allocation patterns that can
 		/// be exploited to drive the runtime into a panic.
+		///
+		/// This filter does not apply to XCM transact calls. To impose restrictions on XCM transact
+		/// calls, you must configure them separately within the XCM pallet itself.
 		#[pallet::no_default_bounds]
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
@@ -830,14 +833,11 @@ pub mod pallet {
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
-				Self::deposit_event(
-					vec![T::Hashing::hash_of(&dest), code_hash, contract.code_hash],
-					Event::ContractCodeUpdated {
-						contract: dest.clone(),
-						new_code_hash: code_hash,
-						old_code_hash: contract.code_hash,
-					},
-				);
+				Self::deposit_event(Event::ContractCodeUpdated {
+					contract: dest.clone(),
+					new_code_hash: code_hash,
+					old_code_hash: contract.code_hash,
+				});
 				contract.code_hash = code_hash;
 				Ok(())
 			})
@@ -1824,8 +1824,13 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Deposit a pallet contracts event. Handles the conversion to the overarching event type.
-	fn deposit_event(topics: Vec<T::Hash>, event: Event<T>) {
+	/// Deposit a pallet contracts event.
+	fn deposit_event(event: Event<T>) {
+		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
+	}
+
+	/// Deposit a pallet contracts indexed event.
+	fn deposit_indexed_event(topics: Vec<T::Hash>, event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event_indexed(
 			&topics,
 			<T as Config>::RuntimeEvent::from(event).into(),

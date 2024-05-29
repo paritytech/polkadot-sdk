@@ -22,6 +22,7 @@ futures = "0.3.30"
 jsonpath_lib = "0.3"
 log = { workspace = true }
 num-traits = "0.2"
+parking_lot = "0.12.1"
 serde_json = { workspace = true, default-features = true }
 sysinfo = "0.30"
 time = { version = "0.3", features = ["formatting", "local-offset", "std"] }

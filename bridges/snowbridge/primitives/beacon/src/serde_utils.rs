@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer};
 
 // helper to deserialize arbitrary arrays like [T; N]
 pub mod arrays {
-	use std::{convert::TryInto, marker::PhantomData};
+	use std::marker::PhantomData;
 
 	use serde::{
 		de::{SeqAccess, Visitor},

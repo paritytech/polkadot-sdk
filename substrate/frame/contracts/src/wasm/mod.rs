@@ -31,6 +31,9 @@ pub use {
 	tests::MockExt,
 };
 
+#[cfg(feature = "runtime-benchmarks")]
+pub use crate::wasm::runtime::{BenchEnv, ReturnData, TrapReason};
+
 pub use crate::wasm::{
 	prepare::{LoadedModule, LoadingMode},
 	runtime::{
@@ -184,10 +187,11 @@ impl<T: Config> WasmBlob<T> {
 
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
-				<Pallet<T>>::deposit_event(
-					vec![code_hash],
-					Event::CodeRemoved { code_hash, deposit_released, remover },
-				);
+				<Pallet<T>>::deposit_event(Event::CodeRemoved {
+					code_hash,
+					deposit_released,
+					remover,
+				});
 				Ok(())
 			} else {
 				Err(<Error<T>>::CodeNotFound.into())
@@ -271,14 +275,11 @@ impl<T: Config> WasmBlob<T> {
 					self.code_info.refcount = 0;
 					<PristineCode<T>>::insert(code_hash, &self.code);
 					*stored_code_info = Some(self.code_info.clone());
-					<Pallet<T>>::deposit_event(
-						vec![code_hash],
-						Event::CodeStored {
-							code_hash,
-							deposit_held: deposit,
-							uploader: self.code_info.owner.clone(),
-						},
-					);
+					<Pallet<T>>::deposit_event(Event::CodeStored {
+						code_hash,
+						deposit_held: deposit,
+						uploader: self.code_info.owner.clone(),
+					});
 					Ok(deposit)
 				},
 			}
@@ -803,6 +804,9 @@ mod tests {
 		) -> Result<(), DispatchError> {
 			self.delegate_dependencies.borrow_mut().remove(code);
 			Ok(())
+		}
+		fn locked_delegate_dependencies_count(&mut self) -> usize {
+			self.delegate_dependencies.borrow().len()
 		}
 	}
 

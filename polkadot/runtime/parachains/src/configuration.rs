@@ -30,7 +30,7 @@ use primitives::{
 	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
 	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
-use sp_runtime::{traits::Zero, Perbill};
+use sp_runtime::{traits::Zero, Perbill, Percent};
 use sp_std::prelude::*;
 
 #[cfg(test)]
@@ -1458,5 +1458,18 @@ impl<T: Config> Pallet<T> {
 		PendingConfigs::<T>::put(pending_configs);
 
 		Ok(())
+	}
+}
+
+/// The implementation of `Get<(u32, u32)>` which reads `ActiveConfig` and returns `P` percent of
+/// `hrmp_channel_max_message_size` / `hrmp_channel_max_capacity`.
+pub struct ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>(sp_std::marker::PhantomData<(T, P)>);
+impl<T: crate::hrmp::pallet::Config, P: Get<Percent>> Get<(u32, u32)>
+	for ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>
+{
+	fn get() -> (u32, u32) {
+		let config = ActiveConfig::<T>::get();
+		let percent = P::get();
+		(percent * config.hrmp_channel_max_message_size, percent * config.hrmp_channel_max_capacity)
 	}
 }
