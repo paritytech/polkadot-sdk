@@ -296,7 +296,6 @@ pub enum ConsensusLog<AuthorityId: Codec> {
 ///
 /// A vote message is a direct vote created by a BEEFY node on every voting round
 /// and is gossiped to its peers.
-
 // TODO: Remove `Signature` generic type, instead get it from `Id::Signature`.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct VoteMessage<Number, Id, Signature> {
