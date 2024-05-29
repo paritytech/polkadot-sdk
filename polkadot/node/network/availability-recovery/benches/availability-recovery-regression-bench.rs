@@ -51,11 +51,7 @@ fn main() -> Result<(), String> {
 			std::io::stdout().flush().unwrap();
 			let (mut env, _cfgs) =
 				prepare_test(&state, TestDataAvailability::Read(options.clone()), false);
-			env.runtime().block_on(benchmark_availability_read(
-				"data_availability_read",
-				&mut env,
-				&state,
-			))
+			env.runtime().block_on(benchmark_availability_read(&mut env, &state))
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
