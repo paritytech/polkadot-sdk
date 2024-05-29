@@ -2830,56 +2830,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2679" id="2679">2679</a>
 <a href="#2680" id="2680">2680</a>
 <a href="#2681" id="2681">2681</a>
-<a href="#2682" id="2682">2682</a>
-<a href="#2683" id="2683">2683</a>
-<a href="#2684" id="2684">2684</a>
-<a href="#2685" id="2685">2685</a>
-<a href="#2686" id="2686">2686</a>
-<a href="#2687" id="2687">2687</a>
-<a href="#2688" id="2688">2688</a>
-<a href="#2689" id="2689">2689</a>
-<a href="#2690" id="2690">2690</a>
-<a href="#2691" id="2691">2691</a>
-<a href="#2692" id="2692">2692</a>
-<a href="#2693" id="2693">2693</a>
-<a href="#2694" id="2694">2694</a>
-<a href="#2695" id="2695">2695</a>
-<a href="#2696" id="2696">2696</a>
-<a href="#2697" id="2697">2697</a>
-<a href="#2698" id="2698">2698</a>
-<a href="#2699" id="2699">2699</a>
-<a href="#2700" id="2700">2700</a>
-<a href="#2701" id="2701">2701</a>
-<a href="#2702" id="2702">2702</a>
-<a href="#2703" id="2703">2703</a>
-<a href="#2704" id="2704">2704</a>
-<a href="#2705" id="2705">2705</a>
-<a href="#2706" id="2706">2706</a>
-<a href="#2707" id="2707">2707</a>
-<a href="#2708" id="2708">2708</a>
-<a href="#2709" id="2709">2709</a>
-<a href="#2710" id="2710">2710</a>
-<a href="#2711" id="2711">2711</a>
-<a href="#2712" id="2712">2712</a>
-<a href="#2713" id="2713">2713</a>
-<a href="#2714" id="2714">2714</a>
-<a href="#2715" id="2715">2715</a>
-<a href="#2716" id="2716">2716</a>
-<a href="#2717" id="2717">2717</a>
-<a href="#2718" id="2718">2718</a>
-<a href="#2719" id="2719">2719</a>
-<a href="#2720" id="2720">2720</a>
-<a href="#2721" id="2721">2721</a>
-<a href="#2722" id="2722">2722</a>
-<a href="#2723" id="2723">2723</a>
-<a href="#2724" id="2724">2724</a>
-<a href="#2725" id="2725">2725</a>
-<a href="#2726" id="2726">2726</a>
-<a href="#2727" id="2727">2727</a>
-<a href="#2728" id="2728">2728</a>
-<a href="#2729" id="2729">2729</a>
-<a href="#2730" id="2730">2730</a>
-<a href="#2731" id="2731">2731</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2991,7 +2941,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>xcm_builder::PayOverXcm;
 
 <span class="kw">use </span>xcm_fee_payment_runtime_api::{
-	dry_run::{Error <span class="kw">as </span>XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	dry_run::{CallDryRunEffects, Error <span class="kw">as </span>XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error <span class="kw">as </span>XcmPaymentApiError,
 };
 
@@ -5153,63 +5103,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi&lt;Block, RuntimeCall, RuntimeEvent&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>dry_run_extrinsic(extrinsic: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;ExtrinsicDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
-			<span class="kw">use </span>xcm_builder::InspectMessageQueues;
-			<span class="kw">use </span>xcm_executor::RecordXcm;
-			pallet_xcm::Pallet::&lt;Runtime&gt;::set_record_xcm(<span class="bool-val">true</span>);
-			<span class="kw">let </span>result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
-				<span class="macro">log::error!</span>(
-					target: <span class="string">"xcm::XcmDryRunApi::dry_run_extrinsic"</span>,
-					<span class="string">"Applying extrinsic failed with error {:?}"</span>,
-					error,
-				);
-				XcmDryRunApiError::InvalidExtrinsic
-			})<span class="question-mark">?</span>;
-			<span class="kw">let </span>local_xcm = pallet_xcm::Pallet::&lt;Runtime&gt;::recorded_xcm();
-			<span class="kw">let </span>forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			<span class="kw">let </span>events: Vec&lt;RuntimeEvent&gt; = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			<span class="prelude-val">Ok</span>(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::&lt;()&gt;::from),
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::DryRunApi&lt;Block, RuntimeCall, RuntimeEvent, OriginCaller&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>dry_run_call(origin: OriginCaller, call: RuntimeCall) -&gt; <span class="prelude-ty">Result</span>&lt;CallDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
+			XcmPallet::dry_run_call::&lt;Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall&gt;(origin, call)
 		}
 
 		<span class="kw">fn </span>dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm&lt;RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
-			<span class="kw">use </span>xcm_builder::InspectMessageQueues;
-			<span class="kw">let </span>origin_location: Location = origin_location.try_into().map_err(|error| {
-				<span class="macro">log::error!</span>(
-					target: <span class="string">"xcm::XcmDryRunApi::dry_run_xcm"</span>,
-					<span class="string">"Location version conversion failed with error: {:?}"</span>,
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})<span class="question-mark">?</span>;
-			<span class="kw">let </span>xcm: Xcm&lt;RuntimeCall&gt; = xcm.try_into().map_err(|error| {
-				<span class="macro">log::error!</span>(
-					target: <span class="string">"xcm::XcmDryRunApi::dry_run_xcm"</span>,
-					<span class="string">"Xcm version conversion failed with error {:?}"</span>,
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})<span class="question-mark">?</span>;
-			<span class="kw">let </span><span class="kw-2">mut </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-			<span class="kw">let </span>result = xcm_executor::XcmExecutor::&lt;xcm_config::XcmConfig&gt;::prepare_and_execute(
-				origin_location,
-				xcm,
-				<span class="kw-2">&amp;mut </span>hash,
-				Weight::MAX, <span class="comment">// Max limit available for execution.
-				</span>Weight::zero(),
-			);
-			<span class="kw">let </span>forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			<span class="kw">let </span>events: Vec&lt;RuntimeEvent&gt; = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			<span class="prelude-val">Ok</span>(XcmDryRunEffects {
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+			XcmPallet::dry_run_xcm::&lt;Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig&gt;(origin_location, xcm)
 		}
 	}
 

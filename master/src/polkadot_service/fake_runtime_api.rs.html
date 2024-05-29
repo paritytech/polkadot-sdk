@@ -995,8 +995,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi&lt;Block, (), ()&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>dry_run_extrinsic(<span class="kw">_</span>: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_fee_payment_runtime_api::dry_run::ExtrinsicDryRunEffects&lt;()&gt;, xcm_fee_payment_runtime_api::dry_run::Error&gt; {
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::DryRunApi&lt;Block, (), (), ()&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>dry_run_call(<span class="kw">_</span>: (), <span class="kw">_</span>: ()) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_fee_payment_runtime_api::dry_run::CallDryRunEffects&lt;()&gt;, xcm_fee_payment_runtime_api::dry_run::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 

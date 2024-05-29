@@ -1951,60 +1951,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1800" id="1800">1800</a>
 <a href="#1801" id="1801">1801</a>
 <a href="#1802" id="1802">1802</a>
-<a href="#1803" id="1803">1803</a>
-<a href="#1804" id="1804">1804</a>
-<a href="#1805" id="1805">1805</a>
-<a href="#1806" id="1806">1806</a>
-<a href="#1807" id="1807">1807</a>
-<a href="#1808" id="1808">1808</a>
-<a href="#1809" id="1809">1809</a>
-<a href="#1810" id="1810">1810</a>
-<a href="#1811" id="1811">1811</a>
-<a href="#1812" id="1812">1812</a>
-<a href="#1813" id="1813">1813</a>
-<a href="#1814" id="1814">1814</a>
-<a href="#1815" id="1815">1815</a>
-<a href="#1816" id="1816">1816</a>
-<a href="#1817" id="1817">1817</a>
-<a href="#1818" id="1818">1818</a>
-<a href="#1819" id="1819">1819</a>
-<a href="#1820" id="1820">1820</a>
-<a href="#1821" id="1821">1821</a>
-<a href="#1822" id="1822">1822</a>
-<a href="#1823" id="1823">1823</a>
-<a href="#1824" id="1824">1824</a>
-<a href="#1825" id="1825">1825</a>
-<a href="#1826" id="1826">1826</a>
-<a href="#1827" id="1827">1827</a>
-<a href="#1828" id="1828">1828</a>
-<a href="#1829" id="1829">1829</a>
-<a href="#1830" id="1830">1830</a>
-<a href="#1831" id="1831">1831</a>
-<a href="#1832" id="1832">1832</a>
-<a href="#1833" id="1833">1833</a>
-<a href="#1834" id="1834">1834</a>
-<a href="#1835" id="1835">1835</a>
-<a href="#1836" id="1836">1836</a>
-<a href="#1837" id="1837">1837</a>
-<a href="#1838" id="1838">1838</a>
-<a href="#1839" id="1839">1839</a>
-<a href="#1840" id="1840">1840</a>
-<a href="#1841" id="1841">1841</a>
-<a href="#1842" id="1842">1842</a>
-<a href="#1843" id="1843">1843</a>
-<a href="#1844" id="1844">1844</a>
-<a href="#1845" id="1845">1845</a>
-<a href="#1846" id="1846">1846</a>
-<a href="#1847" id="1847">1847</a>
-<a href="#1848" id="1848">1848</a>
-<a href="#1849" id="1849">1849</a>
-<a href="#1850" id="1850">1850</a>
-<a href="#1851" id="1851">1851</a>
-<a href="#1852" id="1852">1852</a>
-<a href="#1853" id="1853">1853</a>
-<a href="#1854" id="1854">1854</a>
-<a href="#1855" id="1855">1855</a>
-<a href="#1856" id="1856">1856</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2108,7 +2054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
 <span class="kw">use </span>xcm_fee_payment_runtime_api::{
-	dry_run::{Error <span class="kw">as </span>XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	dry_run::{CallDryRunEffects, Error <span class="kw">as </span>XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error <span class="kw">as </span>XcmPaymentApiError,
 };
 
@@ -3339,67 +3285,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi&lt;Block, RuntimeCall, RuntimeEvent&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>dry_run_extrinsic(extrinsic: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;ExtrinsicDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
-			<span class="kw">use </span>xcm_builder::InspectMessageQueues;
-			<span class="kw">use </span>xcm_executor::RecordXcm;
-			<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
-
-			pallet_xcm::Pallet::&lt;Runtime&gt;::set_record_xcm(<span class="bool-val">true</span>);
-			<span class="kw">let </span>result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
-				<span class="macro">log::error!</span>(
-					target: <span class="string">"xcm::XcmDryRunApi::dry_run_extrinsic"</span>,
-					<span class="string">"Applying extrinsic failed with error {:?}"</span>,
-					error,
-				);
-				XcmDryRunApiError::InvalidExtrinsic
-			})<span class="question-mark">?</span>;
-			<span class="kw">let </span>local_xcm = pallet_xcm::Pallet::&lt;Runtime&gt;::recorded_xcm();
-			<span class="kw">let </span>forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			<span class="kw">let </span>events: Vec&lt;RuntimeEvent&gt; = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			<span class="prelude-val">Ok</span>(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::&lt;()&gt;::from),
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::DryRunApi&lt;Block, RuntimeCall, RuntimeEvent, OriginCaller&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>dry_run_call(origin: OriginCaller, call: RuntimeCall) -&gt; <span class="prelude-ty">Result</span>&lt;CallDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
+			PolkadotXcm::dry_run_call::&lt;Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall&gt;(origin, call)
 		}
 
-		<span class="kw">fn </span>dry_run_xcm(origin_location: VersionedLocation, program: VersionedXcm&lt;RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
-			<span class="kw">use </span>xcm_builder::InspectMessageQueues;
-			<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
-
-			<span class="kw">let </span>origin_location: Location = origin_location.try_into().map_err(|error| {
-				<span class="macro">log::error!</span>(
-					target: <span class="string">"xcm::XcmDryRunApi::dry_run_xcm"</span>,
-					<span class="string">"Location version conversion failed with error: {:?}"</span>,
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})<span class="question-mark">?</span>;
-			<span class="kw">let </span>program: Xcm&lt;RuntimeCall&gt; = program.try_into().map_err(|error| {
-				<span class="macro">log::error!</span>(
-					target: <span class="string">"xcm::XcmDryRunApi::dry_run_xcm"</span>,
-					<span class="string">"Xcm version conversion failed with error {:?}"</span>,
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})<span class="question-mark">?</span>;
-			<span class="kw">let </span><span class="kw-2">mut </span>hash = program.using_encoded(sp_core::hashing::blake2_256);
-			<span class="kw">let </span>result = xcm_executor::XcmExecutor::&lt;xcm_config::XcmConfig&gt;::prepare_and_execute(
-				origin_location,
-				program,
-				<span class="kw-2">&amp;mut </span>hash,
-				Weight::MAX, <span class="comment">// Max limit available for execution.
-				</span>Weight::zero(),
-			);
-			<span class="kw">let </span>forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			<span class="kw">let </span>events: Vec&lt;RuntimeEvent&gt; = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			<span class="prelude-val">Ok</span>(XcmDryRunEffects {
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+		<span class="kw">fn </span>dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm&lt;RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
+			PolkadotXcm::dry_run_xcm::&lt;Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig&gt;(origin_location, xcm)
 		}
 	}
 

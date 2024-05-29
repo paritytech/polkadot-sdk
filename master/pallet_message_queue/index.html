@@ -171,8 +171,8 @@ which queue it will be stored. Messages are stored by being appended to the last
 book. Each book keeps track of its pages by indexing <code>Pages</code>. The <code>ReadyRing</code> contains all
 queues which hold at least one unprocessed message and are thereby <em>ready</em> to be serviced. The
 <code>ServiceHead</code> indicates which <em>ready</em> queue is the next to be serviced.
-The pallet implements <a href="../frame_support/traits/messages/trait.EnqueueMessage.html" title="trait frame_support::traits::messages::EnqueueMessage"><code>frame_support::traits::EnqueueMessage</code></a>,
-<a href="../frame_support/traits/messages/trait.ServiceQueues.html" title="trait frame_support::traits::messages::ServiceQueues"><code>frame_support::traits::ServiceQueues</code></a> and has <a href="../frame_support/traits/messages/trait.ProcessMessage.html" title="trait frame_support::traits::messages::ProcessMessage"><code>frame_support::traits::ProcessMessage</code></a> and
+The pallet implements [<code>frame_support::traits::EnqueueMessage</code>],
+[<code>frame_support::traits::ServiceQueues</code>] and has [<code>frame_support::traits::ProcessMessage</code>] and
 <a href="trait.OnQueueChanged.html" title="trait pallet_message_queue::OnQueueChanged"><code>OnQueueChanged</code></a> hooks to communicate with the outside world.</p>
 <p>NOTE: The storage items are not linked since they are not public.</p>
 <p><strong>Message Execution</strong></p>
@@ -216,7 +216,7 @@ an operation before committing to it. The process of exiting due to insufficient
 termed “bailing”.</p>
 <h2 id="scenario-message-enqueuing"><a class="doc-anchor" href="#scenario-message-enqueuing">§</a>Scenario: Message enqueuing</h2>
 <p>A message <code>m</code> is enqueued for origin <code>o</code> into queue <code>Q[o]</code> through
-<a href="../frame_support/traits/messages/trait.EnqueueMessage.html#tymethod.enqueue_message" title="associated function frame_support::traits::messages::EnqueueMessage::enqueue_message"><code>frame_support::traits::EnqueueMessage::enqueue_message</code></a><code>(m, o)</code>.</p>
+[<code>frame_support::traits::EnqueueMessage::enqueue_message</code>]<code>(m, o)</code>.</p>
 <p>First the queue is either loaded if it exists or otherwise created with empty default values.
 The message is then inserted to the queue by appended it into its last <code>Page</code> or by creating a
 new <code>Page</code> just for <code>m</code> if it does not fit in there. The number of messages in the <code>Book</code> is
@@ -224,7 +224,7 @@ incremented.</p>
 <p><code>Q[o]</code> is now <em>ready</em> which will eventually result in <code>m</code> being processed.</p>
 <h2 id="scenario-message-processing"><a class="doc-anchor" href="#scenario-message-processing">§</a>Scenario: Message processing</h2>
 <p>The pallet runs each block in <code>on_initialize</code> or when being manually called through
-<a href="../frame_support/traits/messages/trait.ServiceQueues.html#tymethod.service_queues" title="associated function frame_support::traits::messages::ServiceQueues::service_queues"><code>frame_support::traits::ServiceQueues::service_queues</code></a>.</p>
+[<code>frame_support::traits::ServiceQueues::service_queues</code>].</p>
 <p>First it tries to “rotate” the <code>ReadyRing</code> by one through advancing the <code>ServiceHead</code> to the
 next <em>ready</em> queue. It then starts to service this queue by servicing as many pages of it as
 possible. Servicing a page means to execute as many message of it as possible. Each executed
@@ -238,9 +238,9 @@ queues on which it can make progress or not enough weight to check that.</p>
 <h2 id="scenario-overweight-execution"><a class="doc-anchor" href="#scenario-overweight-execution">§</a>Scenario: Overweight execution</h2>
 <p>A permanently over-weight message which was skipped by the message processing will never be
 executed automatically through <code>on_initialize</code> nor by calling
-<a href="../frame_support/traits/messages/trait.ServiceQueues.html#tymethod.service_queues" title="associated function frame_support::traits::messages::ServiceQueues::service_queues"><code>frame_support::traits::ServiceQueues::service_queues</code></a>.</p>
+[<code>frame_support::traits::ServiceQueues::service_queues</code>].</p>
 <p>Manual intervention in the form of
-<a href="../frame_support/traits/messages/trait.ServiceQueues.html#method.execute_overweight" title="associated function frame_support::traits::messages::ServiceQueues::execute_overweight"><code>frame_support::traits::ServiceQueues::execute_overweight</code></a> is necessary. Overweight messages
+[<code>frame_support::traits::ServiceQueues::execute_overweight</code>] is necessary. Overweight messages
 emit an <a href="pallet/enum.Event.html#variant.OverweightEnqueued" title="variant pallet_message_queue::pallet::Event::OverweightEnqueued"><code>Event::OverweightEnqueued</code></a> event which can be used to extract the arguments for
 manual execution. This only works on permanently overweight messages. There is no guarantee that
 this will work since the message could be part of a stale page and be reaped before execution
@@ -252,7 +252,7 @@ commences.</p>
 which is calculated from <a href="pallet/trait.Config.html#associatedtype.HeapSize" title="associated type pallet_message_queue::pallet::Config::HeapSize"><code>Config::HeapSize</code></a> and <a href="struct.ItemHeader.html#method.max_encoded_len" title="associated function pallet_message_queue::ItemHeader::max_encoded_len"><code>ItemHeader::max_encoded_len()</code></a>.</li>
 <li><code>MessageOrigin</code>: A generic <em>origin</em> of a message, defined as <a href="type.MessageOriginOf.html" title="type pallet_message_queue::MessageOriginOf"><code>MessageOriginOf</code></a>. The
 requirements for it are kept minimal to remain as generic as possible. The type is defined in
-<a href="../frame_support/traits/messages/trait.ProcessMessage.html#associatedtype.Origin" title="associated type frame_support::traits::messages::ProcessMessage::Origin"><code>frame_support::traits::ProcessMessage::Origin</code></a>.</li>
+[<code>frame_support::traits::ProcessMessage::Origin</code>].</li>
 <li><code>Page</code>: An array of <code>Message</code>s, see <a href="struct.Page.html" title="struct pallet_message_queue::Page"><code>Page</code></a>. Can never be empty.</li>
 <li><code>Book</code>: A list of <code>Page</code>s, see <a href="struct.BookState.html" title="struct pallet_message_queue::BookState"><code>BookState</code></a>. Can be empty.</li>
 <li><code>Queue</code>: A <code>Book</code> together with an <code>MessageOrigin</code> which can be part of the <code>ReadyRing</code>. Can

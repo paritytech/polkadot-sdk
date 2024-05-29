@@ -227,11 +227,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -253,16 +248,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! that need to be paid.
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>frame_support::pallet_prelude::{DispatchResult, TypeInfo};
-<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
+<span class="kw">use </span>frame_support::pallet_prelude::{DispatchResultWithPostInfo, TypeInfo};
 <span class="kw">use </span>sp_std::vec::Vec;
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Effects of dry-running an extrinsic.
 </span><span class="attr">#[derive(Encode, Decode, Debug, TypeInfo)]
-</span><span class="kw">pub struct </span>ExtrinsicDryRunEffects&lt;Event&gt; {
+</span><span class="kw">pub struct </span>CallDryRunEffects&lt;Event&gt; {
 	<span class="doccomment">/// The result of executing the extrinsic.
-	</span><span class="kw">pub </span>execution_result: DispatchResult,
+	</span><span class="kw">pub </span>execution_result: DispatchResultWithPostInfo,
 	<span class="doccomment">/// The list of events fired by the extrinsic.
 	</span><span class="kw">pub </span>emitted_events: Vec&lt;Event&gt;,
 	<span class="doccomment">/// The local XCM that was attempted to be executed, if any.
@@ -289,12 +283,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// If there's local execution, the location will be "Here".
 	/// This vector can be used to calculate both execution and delivery fees.
 	///
-	/// Extrinsics or XCMs might fail when executed, this doesn't mean the result of these calls will be an `Err`.
+	/// Calls or XCMs might fail when executed, this doesn't mean the result of these calls will be an `Err`.
 	/// In those cases, there might still be a valid result, with the execution error inside it.
 	/// The only reasons why these calls might return an error are listed in the [`Error`] enum.
-	</span><span class="kw">pub trait </span>XcmDryRunApi&lt;Call, Event: Decode&gt; {
-		<span class="doccomment">/// Dry run extrinsic.
-		</span><span class="kw">fn </span>dry_run_extrinsic(extrinsic: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;ExtrinsicDryRunEffects&lt;Event&gt;, Error&gt;;
+	</span><span class="kw">pub trait </span>DryRunApi&lt;Call: Encode, Event: Decode, OriginCaller: Encode&gt; {
+		<span class="doccomment">/// Dry run call.
+		</span><span class="kw">fn </span>dry_run_call(origin: OriginCaller, call: Call) -&gt; <span class="prelude-ty">Result</span>&lt;CallDryRunEffects&lt;Event&gt;, Error&gt;;
 
 		<span class="doccomment">/// Dry run XCM program
 		</span><span class="kw">fn </span>dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm&lt;Call&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmDryRunEffects&lt;Event&gt;, Error&gt;;
@@ -310,10 +304,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Converting a versioned data structure from one version to another failed.
 	</span><span class="attr">#[codec(index = <span class="number">1</span>)]
 	</span>VersionedConversionFailed,
-
-	<span class="doccomment">/// Extrinsic was invalid.
-	</span><span class="attr">#[codec(index = <span class="number">2</span>)]
-	</span>InvalidExtrinsic,
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

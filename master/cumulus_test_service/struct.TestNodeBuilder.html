@@ -167,12 +167,12 @@ node.</p>
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Make the node connect to the given parachain nodes.</p>
 <p>By default the node will not be connected to any node or will be able to discover any other
 node.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.connect_to_relay_chain_node" class="method"><a class="src rightside" href="../src/cumulus_test_service/lib.rs.html#607-613">source</a><h4 class="code-header">pub fn <a href="#method.connect_to_relay_chain_node" class="fn">connect_to_relay_chain_node</a>(self, node: &amp;<a class="struct" href="../polkadot_test_service/struct.PolkadotTestNode.html" title="struct polkadot_test_service::PolkadotTestNode">PolkadotTestNode</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Make the node connect to the given relay chain node.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.connect_to_relay_chain_node" class="method"><a class="src rightside" href="../src/cumulus_test_service/lib.rs.html#607-613">source</a><h4 class="code-header">pub fn <a href="#method.connect_to_relay_chain_node" class="fn">connect_to_relay_chain_node</a>(self, node: &amp;PolkadotTestNode) -&gt; Self</h4></section></summary><div class="docblock"><p>Make the node connect to the given relay chain node.</p>
 <p>By default the node will not be connected to any node or will be able to discover any other
 node.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.connect_to_relay_chain_nodes" class="method"><a class="src rightside" href="../src/cumulus_test_service/lib.rs.html#619-625">source</a><h4 class="code-header">pub fn <a href="#method.connect_to_relay_chain_nodes" class="fn">connect_to_relay_chain_nodes</a>&lt;'a&gt;(
     self,
-    nodes: impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>&lt;Item = &amp;'a <a class="struct" href="../polkadot_test_service/struct.PolkadotTestNode.html" title="struct polkadot_test_service::PolkadotTestNode">PolkadotTestNode</a>&gt;
+    nodes: impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>&lt;Item = &amp;'a PolkadotTestNode&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Make the node connect to the given relay chain nodes.</p>
 <p>By default the node will not be connected to any node or will be able to discover any other
 node.</p>
