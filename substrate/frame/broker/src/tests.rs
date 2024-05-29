@@ -1626,7 +1626,7 @@ fn force_reserve_works() {
 
 		// Not intended to work before sales are started.
 		assert_noop!(
-			Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone()),
+			Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 0),
 			Error::<Test>::NoSales
 		);
 
@@ -1634,8 +1634,12 @@ fn force_reserve_works() {
 		assert_ok!(Broker::do_start_sales(100, 0));
 		advance_to(1);
 
+		// Add a new core. With the mock this is instant, with current relay implementation it
+		// takes two sessions to come into effect.
+		assert_ok!(Broker::do_request_core_count(1));
+
 		// Force reserve should now work.
-		assert_ok!(Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone()));
+		assert_ok!(Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 0));
 
 		// Reservation is added for the workload.
 		System::assert_has_event(

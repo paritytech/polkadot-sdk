@@ -811,16 +811,21 @@ pub mod pallet {
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `workload`: The workload which should be permanently placed on a core starting
 		///   immediately.
+		/// - `core`: The core to which the assignment should be made until the reservation takes
+		///   effect. It is left to the caller to either add this new core or reassign any other
+		///   tasks to this existing core.
 		///
-		/// This requests an additional core, reserves the workload and then injects the workload
-		/// into the Workplan for the next two sale periods.
+		/// This reserves the workload and then injects the workload into the Workplan for the next
+		/// two sale periods. This overwrites any existing assignments for this core at the start of
+		/// the next sale period.
 		#[pallet::call_index(20)]
 		pub fn force_reserve(
 			origin: OriginFor<T>,
 			workload: Schedule,
+			core: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_force_reserve(workload)?;
+			Self::do_force_reserve(workload, core)?;
 			Ok(Pays::No.into())
 		}
 

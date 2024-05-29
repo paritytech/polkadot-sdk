@@ -60,26 +60,22 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_force_reserve(workload: Schedule) -> DispatchResult {
+	pub(crate) fn do_force_reserve(workload: Schedule, core: CoreIndex) -> DispatchResult {
 		// Sales must have started, otherwise reserve is equivalent.
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
 		// Reserve - starts at second sale period boundary from now.
 		Self::do_reserve(workload.clone())?;
 
-		// Request an extra core only if the reserve was successful.
-		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		let core_count = status.core_count;
-		Self::do_request_core_count(core_count.saturating_add(1))?;
-
 		// Add to workload - grants one region from the next sale boundary.
-		Workplan::<T>::insert((sale.region_begin, core_count), &workload);
+		Workplan::<T>::insert((sale.region_begin, core), &workload);
 
 		// Assign now until the next sale boundary unless the next timeslice is already the sale
 		// boundary.
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let timeslice = status.last_committed_timeslice.saturating_add(1);
 		if timeslice < sale.region_begin {
-			Workplan::<T>::insert((timeslice, core_count), &workload);
+			Workplan::<T>::insert((timeslice, core), &workload);
 		}
 
 		Ok(())
