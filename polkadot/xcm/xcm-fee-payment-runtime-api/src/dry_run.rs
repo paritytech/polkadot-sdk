@@ -75,8 +75,4 @@ pub enum Error {
 	/// Converting a versioned data structure from one version to another failed.
 	#[codec(index = 1)]
 	VersionedConversionFailed,
-
-	/// Extrinsic was invalid.
-	#[codec(index = 2)]
-	InvalidExtrinsic,
 }
