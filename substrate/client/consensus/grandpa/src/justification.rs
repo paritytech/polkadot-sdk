@@ -22,8 +22,8 @@ use std::{
 	sync::Arc,
 };
 
-use finality_grandpa::{voter_set::VoterSet, Error as GrandpaError};
 use codec::{Decode, DecodeAll, Encode};
+use finality_grandpa::{voter_set::VoterSet, Error as GrandpaError};
 use sp_blockchain::{Error as ClientError, HeaderBackend};
 use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};

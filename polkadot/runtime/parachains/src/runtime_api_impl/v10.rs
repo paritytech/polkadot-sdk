@@ -149,7 +149,10 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 			CoreOccupied::Free => {
 				if let Some(para_id) = scheduled.get(&CoreIndex(i as _)).cloned() {
-					CoreState::Scheduled(polkadot_primitives::ScheduledCore { para_id, collator: None })
+					CoreState::Scheduled(polkadot_primitives::ScheduledCore {
+						para_id,
+						collator: None,
+					})
 				} else {
 					CoreState::Free
 				}

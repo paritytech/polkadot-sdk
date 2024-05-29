@@ -18,8 +18,8 @@
 
 use super::Junction;
 use crate::v3::MultiLocation as NewMultiLocation;
-use core::{mem, result};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{mem, result};
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.

@@ -24,9 +24,9 @@ use crate::{
 	},
 	LOG_TARGET,
 };
+use codec::{Decode, Encode};
 use futures::FutureExt;
 use futures_timer::Delay;
-use codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, WorkerError, WorkerResponse},

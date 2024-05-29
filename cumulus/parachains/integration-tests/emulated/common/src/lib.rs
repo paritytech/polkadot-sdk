@@ -20,11 +20,11 @@ pub mod xcm_helpers;
 pub use xcm_emulator;
 
 // Substrate
-use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use frame_support::parameter_types;
 use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{
 	traits::{AccountIdConversion, IdentifyAccount, Verify},

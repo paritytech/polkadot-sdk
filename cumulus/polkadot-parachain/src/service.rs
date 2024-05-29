@@ -43,6 +43,7 @@ pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Header, Non
 
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use futures::{lock::Mutex, prelude::*};
+use prometheus_endpoint::Registry;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, ImportQueue,
@@ -61,7 +62,6 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 };
 use std::{marker::PhantomData, sync::Arc, time::Duration};
-use prometheus_endpoint::Registry;
 
 use polkadot_primitives::CollatorPair;
 

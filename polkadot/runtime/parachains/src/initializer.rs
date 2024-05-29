@@ -25,12 +25,12 @@ use crate::{
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
 };
+use codec::{Decode, Encode};
 use frame_support::{
 	traits::{OneSessionHandler, Randomness},
 	weights::Weight,
 };
 use frame_system::limits::BlockWeights;
-use codec::{Decode, Encode};
 use polkadot_primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;

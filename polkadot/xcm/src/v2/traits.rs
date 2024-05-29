@@ -17,8 +17,8 @@
 //! Cross-Consensus Message format data structures.
 
 use crate::v3::Error as NewError;
-use core::result;
 use codec::{Decode, Encode};
+use core::result;
 use scale_info::TypeInfo;
 
 use super::*;

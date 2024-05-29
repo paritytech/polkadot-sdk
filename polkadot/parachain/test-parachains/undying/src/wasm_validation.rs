@@ -17,8 +17,8 @@
 //! WASM validation for the `Undying` parachain.
 
 use crate::{BlockData, HeadData};
-use polkadot_parachain_primitives::primitives::{HeadData as GenericHeadData, ValidationResult};
 use codec::{Decode, Encode};
+use polkadot_parachain_primitives::primitives::{HeadData as GenericHeadData, ValidationResult};
 
 #[no_mangle]
 pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {

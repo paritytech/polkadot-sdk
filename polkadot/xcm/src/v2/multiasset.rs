@@ -34,8 +34,8 @@ use crate::v3::{
 	WildMultiAsset as NewWildMultiAsset,
 };
 use alloc::{vec, vec::Vec};
-use core::cmp::Ordering;
 use codec::{self as codec, Decode, Encode};
+use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.

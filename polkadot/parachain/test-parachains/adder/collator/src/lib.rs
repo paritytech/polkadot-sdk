@@ -16,9 +16,10 @@
 
 //! Collator for the adder test parachain.
 
+use adder::{execute, hash_state, BlockData, HeadData};
+use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use futures_timer::Delay;
-use codec::{Decode, Encode};
 use polkadot_node_primitives::{
 	Collation, CollationResult, CollationSecondedSignal, CollatorFn, MaybeCompressedPoV, PoV,
 	Statement,
@@ -33,7 +34,6 @@ use std::{
 	},
 	time::Duration,
 };
-use adder::{execute, hash_state, BlockData, HeadData};
 
 /// The amount we add when producing a new block.
 ///

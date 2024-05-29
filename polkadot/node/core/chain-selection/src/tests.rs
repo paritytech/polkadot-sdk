@@ -30,8 +30,8 @@ use std::{
 };
 
 use assert_matches::assert_matches;
-use futures::channel::oneshot;
 use codec::Encode;
+use futures::channel::oneshot;
 use parking_lot::Mutex;
 use sp_core::testing::TaskExecutor;
 
@@ -229,7 +229,8 @@ impl Clock for TestClock {
 
 const TEST_STAGNANT_INTERVAL: Duration = Duration::from_millis(20);
 
-type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ChainSelectionMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ChainSelectionMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	test: impl FnOnce(TestBackend, TestClock, VirtualOverseer) -> T,

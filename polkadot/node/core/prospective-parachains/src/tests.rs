@@ -42,7 +42,8 @@ const ASYNC_BACKING_DISABLED_ERROR: RuntimeApiError =
 
 const MAX_POV_SIZE: u32 = 1_000_000;
 
-type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ProspectiveParachainsMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ProspectiveParachainsMessage>;
 
 fn dummy_constraints(
 	min_relay_parent_number: BlockNumber,

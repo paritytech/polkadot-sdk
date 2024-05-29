@@ -18,12 +18,12 @@ use crate::cli::{Cli, Subcommand, NODE_VERSION};
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
 use futures::future::TryFutureExt;
 use log::info;
-use sc_cli::SubstrateCli;
 use polkadot_service::{
 	self,
 	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
 	BlockId, HeaderBackend, IdentifyVariant,
 };
+use sc_cli::SubstrateCli;
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
 use std::net::ToSocketAddrs;
@@ -331,7 +331,8 @@ pub fn run() -> Result<()> {
 
 			Ok(runner.async_run(|mut config| {
 				let (client, _, _, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None).map_err(Error::PolkadotService)?;
+					polkadot_service::new_chain_ops(&mut config, None)
+						.map_err(Error::PolkadotService)?;
 				Ok((cmd.run(client, config.database).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -342,7 +343,8 @@ pub fn run() -> Result<()> {
 			set_default_ss58_version(chain_spec);
 
 			Ok(runner.async_run(|mut config| {
-				let (client, _, _, task_manager) = polkadot_service::new_chain_ops(&mut config, None)?;
+				let (client, _, _, task_manager) =
+					polkadot_service::new_chain_ops(&mut config, None)?;
 				Ok((cmd.run(client, config.chain_spec).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -369,15 +371,18 @@ pub fn run() -> Result<()> {
 			set_default_ss58_version(chain_spec);
 
 			Ok(runner.async_run(|mut config| {
-				let (client, backend, _, task_manager) = polkadot_service::new_chain_ops(&mut config, None)?;
+				let (client, backend, _, task_manager) =
+					polkadot_service::new_chain_ops(&mut config, None)?;
 				let aux_revert = Box::new(|client, backend, blocks| {
-					polkadot_service::revert_backend(client, backend, blocks, config).map_err(|err| {
-						match err {
-							polkadot_service::Error::Blockchain(err) => err.into(),
-							// Generic application-specific error.
-							err => sc_cli::Error::Application(err.into()),
-						}
-					})
+					polkadot_service::revert_backend(client, backend, blocks, config).map_err(
+						|err| {
+							match err {
+								polkadot_service::Error::Blockchain(err) => err.into(),
+								// Generic application-specific error.
+								err => sc_cli::Error::Application(err.into()),
+							}
+						},
+					)
 				});
 				Ok((
 					cmd.run(client, backend, Some(aux_revert)).map_err(Error::SubstrateCli),
@@ -400,7 +405,8 @@ pub fn run() -> Result<()> {
 					.into()),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|mut config| {
-					let (client, backend, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
+					let (client, backend, _, _) =
+						polkadot_service::new_chain_ops(&mut config, None)?;
 					let db = backend.expose_db();
 					let storage = backend.expose_storage();
 

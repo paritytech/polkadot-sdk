@@ -17,12 +17,14 @@
 //! Genesis configs presets for the Rococo runtime
 
 use crate::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
+use polkadot_primitives::{
+	vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId,
+};
+use rococo_runtime_constants::currency::UNITS as ROC;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use polkadot_primitives::{vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId};
-use rococo_runtime_constants::currency::UNITS as ROC;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::IdentifyAccount;
 #[cfg(not(feature = "std"))]
@@ -105,7 +107,8 @@ fn rococo_session_keys(
 }
 
 fn default_parachains_host_configuration(
-) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber> {
+) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
+{
 	use polkadot_primitives::{
 		node_features::FeatureIndex, AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE,
 	};

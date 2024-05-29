@@ -27,6 +27,7 @@ pub use polkadot_node_core_pvf_common::{
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-execute-worker";
 
+use codec::{Decode, Encode};
 use cpu_time::ProcessTime;
 use nix::{
 	errno::Errno,
@@ -36,7 +37,6 @@ use nix::{
 	},
 	unistd::{ForkResult, Pid},
 };
-use codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},

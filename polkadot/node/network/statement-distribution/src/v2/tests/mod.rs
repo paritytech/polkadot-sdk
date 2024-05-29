@@ -44,8 +44,8 @@ use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_keyring::Sr25519Keyring;
 
 use assert_matches::assert_matches;
-use futures::Future;
 use codec::Encode;
+use futures::Future;
 use rand::{Rng, SeedableRng};
 use test_helpers::mock::new_leaf;
 
@@ -55,7 +55,8 @@ mod cluster;
 mod grid;
 mod requests;
 
-type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<StatementDistributionMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<StatementDistributionMessage>;
 
 const DEFAULT_ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
 	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };

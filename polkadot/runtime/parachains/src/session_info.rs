@@ -29,7 +29,9 @@ use frame_support::{
 	traits::{OneSessionHandler, ValidatorSet, ValidatorSetWithIdentification},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo};
+use polkadot_primitives::{
+	AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo,
+};
 use sp_std::vec::Vec;
 
 pub use pallet::*;

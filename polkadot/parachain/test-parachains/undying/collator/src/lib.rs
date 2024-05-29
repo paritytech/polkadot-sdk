@@ -16,9 +16,9 @@
 
 //! Collator for the `Undying` test parachain.
 
+use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use futures_timer::Delay;
-use codec::{Decode, Encode};
 use polkadot_node_primitives::{
 	maybe_compress_pov, Collation, CollationResult, CollationSecondedSignal, CollatorFn,
 	MaybeCompressedPoV, PoV, Statement,

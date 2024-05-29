@@ -56,9 +56,9 @@
 
 #![warn(missing_docs)]
 
+use codec::Decode;
 use futures::{prelude::*, StreamExt};
 use log::{debug, error, info};
-use codec::Decode;
 use parking_lot::RwLock;
 use prometheus_endpoint::{PrometheusError, Registry};
 use sc_client_api::{

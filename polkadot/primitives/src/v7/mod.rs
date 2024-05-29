@@ -27,10 +27,10 @@ use sp_std::{
 };
 
 use sp_application_crypto::KeyTypeId;
-use sp_inherents::InherentIdentifier;
-use sp_core::RuntimeDebug;
-use sp_runtime::traits::{AppVerify, Header as HeaderT};
 use sp_arithmetic::traits::{BaseArithmetic, Saturating};
+use sp_core::RuntimeDebug;
+use sp_inherents::InherentIdentifier;
+use sp_runtime::traits::{AppVerify, Header as HeaderT};
 
 pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 
@@ -172,8 +172,8 @@ pub type ValidatorSignature = validator_app::Signature;
 /// A declarations of storage keys where an external observer can find some interesting data.
 pub mod well_known_keys {
 	use super::{HrmpChannelId, Id, WellKnownKey};
-	use hex_literal::hex;
 	use codec::Encode as _;
+	use hex_literal::hex;
 	use sp_io::hashing::twox_64;
 	use sp_std::prelude::*;
 
@@ -1765,9 +1765,7 @@ impl codec::Encode for CompactStatement {
 }
 
 impl codec::Decode for CompactStatement {
-	fn decode<I: codec::Input>(
-		input: &mut I,
-	) -> Result<Self, codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let maybe_magic = <[u8; 4]>::decode(input)?;
 		if maybe_magic != BACKING_STATEMENT_MAGIC {
 			return Err(codec::Error::from("invalid magic string"))

@@ -19,9 +19,9 @@
 //! values in the test specifications, through a bidirectional message passing
 //! implemented as a `backchannel`.
 
+use codec;
 use futures_util::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
-use codec as codec;
 use serde::{Deserialize, Serialize};
 use std::{env, sync::Mutex};
 use tokio::sync::broadcast;

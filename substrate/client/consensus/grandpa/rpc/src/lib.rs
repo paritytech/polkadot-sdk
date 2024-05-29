@@ -127,8 +127,8 @@ mod tests {
 	use super::*;
 	use std::{collections::HashSet, sync::Arc};
 
-	use jsonrpsee::{core::EmptyServerParams as EmptyParams, types::SubscriptionId, RpcModule};
 	use codec::{Decode, Encode};
+	use jsonrpsee::{core::EmptyServerParams as EmptyParams, types::SubscriptionId, RpcModule};
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_consensus_grandpa::{
 		report, AuthorityId, FinalityProof, GrandpaJustification, GrandpaJustificationSender,

@@ -17,8 +17,8 @@
 //! Cross-Consensus Message format data structures.
 
 pub use crate::v3::{Error, Result, SendError, XcmHash};
-use core::result;
 use codec::{Decode, Encode};
+use core::result;
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;

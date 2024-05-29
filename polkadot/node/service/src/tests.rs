@@ -46,7 +46,8 @@ use polkadot_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_node_subsystem_test_helpers::TestSubsystemSender;
 use polkadot_overseer::{SubsystemContext, SubsystemSender};
 
-type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
 
 #[async_trait::async_trait]
 impl OverseerHandleT for TestSubsystemSender {

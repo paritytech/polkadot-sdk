@@ -24,13 +24,13 @@ use std::{
 	time::Duration,
 };
 
+use codec::{Decode, Encode};
 use finality_grandpa::{
 	round::State as RoundState, voter, voter_set::VoterSet, BlockNumberOps, Error as GrandpaError,
 };
 use futures::prelude::*;
 use futures_timer::Delay;
 use log::{debug, warn};
-use codec::{Decode, Encode};
 use parking_lot::RwLock;
 use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, U64};
 
@@ -107,9 +107,7 @@ impl<Block: BlockT> Encode for CompletedRounds<Block> {
 impl<Block: BlockT> codec::EncodeLike for CompletedRounds<Block> {}
 
 impl<Block: BlockT> Decode for CompletedRounds<Block> {
-	fn decode<I: codec::Input>(
-		value: &mut I,
-	) -> Result<Self, codec::Error> {
+	fn decode<I: codec::Input>(value: &mut I) -> Result<Self, codec::Error> {
 		<(Vec<CompletedRound<Block>>, SetId, Vec<AuthorityId>)>::decode(value)
 			.map(|(rounds, set_id, voters)| CompletedRounds { rounds, set_id, voters })
 	}

@@ -18,8 +18,8 @@
 
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
-use log::debug;
 use codec::Decode;
+use log::debug;
 
 use sc_client_api::{backend::Backend, utils::is_descendent_of};
 use sc_consensus::{

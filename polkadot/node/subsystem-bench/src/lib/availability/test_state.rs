@@ -20,9 +20,9 @@ use crate::{
 	mock::runtime_api::node_features_with_chunk_mapping_enabled,
 };
 use bitvec::bitvec;
+use codec::Encode;
 use colored::Colorize;
 use itertools::Itertools;
-use codec::Encode;
 use polkadot_node_network_protocol::{
 	request_response::{v2::ChunkFetchingRequest, ReqProtocolNames},
 	Versioned, VersionedValidationProtocol,

@@ -19,8 +19,8 @@
 use super::*;
 
 use codec::{Decode, Encode};
-use sp_core::RuntimeDebug;
 use scale_info::TypeInfo;
+use sp_core::RuntimeDebug;
 
 /// Candidate's acceptance limitations for asynchronous backing per relay parent.
 #[derive(

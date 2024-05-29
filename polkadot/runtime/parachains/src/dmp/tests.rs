@@ -19,9 +19,9 @@ use crate::{
 	configuration::ActiveConfig,
 	mock::{new_test_ext, Dmp, MockGenesisConfig, Paras, System, Test},
 };
+use codec::Encode;
 use frame_support::assert_ok;
 use hex_literal::hex;
-use codec::Encode;
 use polkadot_primitives::BlockNumber;
 
 pub(crate) fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {

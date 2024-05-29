@@ -28,6 +28,7 @@ use crate::{
 	util::make_persisted_validation_data_with_parent,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+use codec::{Decode, Encode};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -36,7 +37,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
-use codec::{Decode, Encode};
 use polkadot_primitives::{
 	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
 	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,

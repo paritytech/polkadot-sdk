@@ -114,9 +114,9 @@ use crate::{
 	shared,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use codec::{Decode, Encode};
 use polkadot_primitives::{
 	ConsensusLog, HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
 	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature, MIN_CODE_SIZE,
@@ -348,9 +348,7 @@ impl Encode for ParaKind {
 }
 
 impl Decode for ParaKind {
-	fn decode<I: codec::Input>(
-		input: &mut I,
-	) -> Result<Self, codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		match bool::decode(input) {
 			Ok(true) => Ok(ParaKind::Parachain),
 			Ok(false) => Ok(ParaKind::Parathread),

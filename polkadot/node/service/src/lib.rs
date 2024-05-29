@@ -41,7 +41,6 @@ mod tests;
 
 #[cfg(feature = "full-node")]
 use {
-	sc_consensus_grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider},
 	gum::info,
 	polkadot_node_core_approval_voting::{
 		self as approval_voting_subsystem, Config as ApprovalVotingConfig,
@@ -58,6 +57,7 @@ use {
 		request_response::ReqProtocolNames,
 	},
 	sc_client_api::BlockBackend,
+	sc_consensus_grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
 	sp_core::traits::SpawnNamed,
 };
@@ -89,7 +89,6 @@ use sc_telemetry::TelemetryWorker;
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 
 pub use chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
-pub use sp_consensus::{Proposal, SelectChain};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
@@ -104,6 +103,7 @@ pub use sc_service::{
 	TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
 pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
+pub use sp_consensus::{Proposal, SelectChain};
 pub use sp_runtime::{
 	generic,
 	traits::{self as runtime_traits, BlakeTwo256, Block as BlockT, Header as HeaderT, NumberFor},
@@ -516,14 +516,15 @@ where
 		Vec::new()
 	};
 
-	let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import_with_authority_set_hard_forks(
-		client.clone(),
-		GRANDPA_JUSTIFICATION_PERIOD,
-		&(client.clone() as Arc<_>),
-		select_chain.clone(),
-		grandpa_hard_forks,
-		telemetry.as_ref().map(|x| x.handle()),
-	)?;
+	let (grandpa_block_import, grandpa_link) =
+		sc_consensus_grandpa::block_import_with_authority_set_hard_forks(
+			client.clone(),
+			GRANDPA_JUSTIFICATION_PERIOD,
+			&(client.clone() as Arc<_>),
+			select_chain.clone(),
+			grandpa_hard_forks,
+			telemetry.as_ref().map(|x| x.handle()),
+		)?;
 	let justification_import = grandpa_block_import.clone();
 
 	let (beefy_block_import, beefy_voter_links, beefy_rpc_links) =
@@ -539,28 +540,29 @@ where
 		sc_consensus_babe::block_import(babe_config.clone(), beefy_block_import, client.clone())?;
 
 	let slot_duration = babe_link.config().slot_duration();
-	let (import_queue, babe_worker_handle) = sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
-		link: babe_link.clone(),
-		block_import: block_import.clone(),
-		justification_import: Some(Box::new(justification_import)),
-		client: client.clone(),
-		select_chain: select_chain.clone(),
-		create_inherent_data_providers: move |_, ()| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+	let (import_queue, babe_worker_handle) =
+		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
+			link: babe_link.clone(),
+			block_import: block_import.clone(),
+			justification_import: Some(Box::new(justification_import)),
+			client: client.clone(),
+			select_chain: select_chain.clone(),
+			create_inherent_data_providers: move |_, ()| async move {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-			let slot =
+				let slot =
 				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 					*timestamp,
 					slot_duration,
 				);
 
-			Ok((slot, timestamp))
-		},
-		spawner: &task_manager.spawn_essential_handle(),
-		registry: config.prometheus_registry(),
-		telemetry: telemetry.as_ref().map(|x| x.handle()),
-		offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
-	})?;
+				Ok((slot, timestamp))
+			},
+			spawner: &task_manager.spawn_essential_handle(),
+			registry: config.prometheus_registry(),
+			telemetry: telemetry.as_ref().map(|x| x.handle()),
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+		})?;
 
 	let justification_stream = grandpa_link.justification_stream();
 	let shared_authority_set = grandpa_link.shared_authority_set().clone();
@@ -835,7 +837,8 @@ pub fn new_full<
 	// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
 	// anything in terms of behaviour, but makes the logs more consistent with the other
 	// Substrate nodes.
-	let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
+	let grandpa_protocol_name =
+		sc_consensus_grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
 	let (grandpa_protocol_config, grandpa_notification_service) =
 		sc_consensus_grandpa::grandpa_peers_set_config::<_, Network>(
 			grandpa_protocol_name.clone(),
@@ -849,12 +852,10 @@ pub fn new_full<
 	// `beefy_on_demand_justifications_handler` is given to `beefy-gadget` task to be run,
 	// while `beefy_req_resp_cfg` is added to `config.network.request_response_protocols`.
 	let (beefy_on_demand_justifications_handler, beefy_req_resp_cfg) =
-		sc_consensus_beefy::communication::request_response::BeefyJustifsRequestHandler::new::<_, Network>(
-			&genesis_hash,
-			config.chain_spec.fork_id(),
-			client.clone(),
-			prometheus_registry.clone(),
-		);
+		sc_consensus_beefy::communication::request_response::BeefyJustifsRequestHandler::new::<
+			_,
+			Network,
+		>(&genesis_hash, config.chain_spec.fork_id(), client.clone(), prometheus_registry.clone());
 	let beefy_notification_service = match enable_beefy {
 		false => None,
 		true => {
@@ -1260,7 +1261,9 @@ pub fn new_full<
 		};
 
 		let babe = sc_consensus_babe::start_babe(babe_config)?;
-		task_manager.spawn_essential_handle().spawn_blocking("sc_consensus_babe", None, babe);
+		task_manager
+			.spawn_essential_handle()
+			.spawn_blocking("sc_consensus_babe", None, babe);
 	}
 
 	// if the node isn't actively participating in consensus then it doesn't
@@ -1344,7 +1347,8 @@ pub fn new_full<
 
 		if let Some(delay) = _malus_finality_delay {
 			info!(?delay, "Enabling malus finality delay",);
-			voting_rules_builder = voting_rules_builder.add(sc_consensus_grandpa::BeforeBestBlockBy(delay));
+			voting_rules_builder =
+				voting_rules_builder.add(sc_consensus_grandpa::BeforeBestBlockBy(delay));
 		};
 
 		let grandpa_config = sc_consensus_grandpa::GrandpaParams {

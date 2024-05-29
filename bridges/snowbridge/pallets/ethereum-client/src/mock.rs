@@ -30,23 +30,31 @@ pub fn load_checkpoint_update_fixture(
 	load_fixture("initial-checkpoint.json".to_string()).unwrap()
 }
 
-pub fn load_sync_committee_update_fixture(
-) -> snowbridge_beacon_primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
+pub fn load_sync_committee_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
 	load_fixture("sync-committee-update.json".to_string()).unwrap()
 }
 
-pub fn load_finalized_header_update_fixture(
-) -> snowbridge_beacon_primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
+pub fn load_finalized_header_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
 	load_fixture("finalized-header-update.json".to_string()).unwrap()
 }
 
-pub fn load_next_sync_committee_update_fixture(
-) -> snowbridge_beacon_primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
+pub fn load_next_sync_committee_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
 	load_fixture("next-sync-committee-update.json".to_string()).unwrap()
 }
 
-pub fn load_next_finalized_header_update_fixture(
-) -> snowbridge_beacon_primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
+pub fn load_next_finalized_header_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
 	load_fixture("next-finalized-header-update.json".to_string()).unwrap()
 }
 

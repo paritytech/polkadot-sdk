@@ -29,6 +29,7 @@ use crate::{
 use frame_support::pallet_prelude::*;
 use polkadot_primitives::CoreIndex;
 
+use codec::Decode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{
@@ -38,7 +39,6 @@ use frame_support::{
 };
 use frame_support_test::TestRandomness;
 use frame_system::limits;
-use codec::Decode;
 use polkadot_primitives::{
 	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
 	ValidationCode, ValidatorIndex,

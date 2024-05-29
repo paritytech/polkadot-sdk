@@ -16,10 +16,10 @@
 
 //! A simple wrapper allowing `Sudo` to call into `paras` routines.
 
+use codec::Encode;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use codec::Encode;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	configuration, dmp, hrmp,

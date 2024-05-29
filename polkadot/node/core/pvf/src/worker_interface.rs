@@ -17,9 +17,9 @@
 //! Common logic for implementation of worker processes.
 
 use crate::LOG_TARGET;
+use codec::Encode;
 use futures::FutureExt as _;
 use futures_timer::Delay;
-use codec::Encode;
 use pin_project::pin_project;
 use polkadot_node_core_pvf_common::{SecurityStatus, WorkerHandshake};
 use rand::Rng;

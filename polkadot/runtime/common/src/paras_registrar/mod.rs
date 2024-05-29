@@ -26,7 +26,9 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
-use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
+use polkadot_primitives::{
+	HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE,
+};
 use polkadot_runtime_parachains::{
 	configuration, ensure_parachain,
 	paras::{self, ParaGenesisArgs, UpgradeStrategy},
@@ -35,8 +37,8 @@ use polkadot_runtime_parachains::{
 use sp_std::{prelude::*, result};
 
 use crate::traits::{OnSwap, Registrar};
-pub use pallet::*;
 use codec::{Decode, Encode};
+pub use pallet::*;
 use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{

@@ -21,10 +21,10 @@ pub mod security;
 use crate::{
 	framed_recv_blocking, framed_send_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET,
 };
+use codec::{Decode, Encode};
 use cpu_time::ProcessTime;
 use futures::never::Never;
 use nix::{errno::Errno, sys::resource::Usage};
-use codec::{Decode, Encode};
 use std::{
 	any::Any,
 	fmt::{self},

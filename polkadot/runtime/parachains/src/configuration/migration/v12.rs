@@ -214,7 +214,8 @@ mod tests {
 	];
 
 		let v12 =
-			V12HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
+			V12HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..])
+				.unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.

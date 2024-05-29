@@ -16,6 +16,7 @@
 
 //! Pallet to process claims from Ethereum addresses.
 
+use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
 	traits::{Currency, Get, IsSubType, VestingSchedule},
@@ -23,7 +24,6 @@ use frame_support::{
 	DefaultNoBound,
 };
 pub use pallet::*;
-use codec::{Decode, Encode};
 use polkadot_primitives::ValidityError;
 use scale_info::TypeInfo;
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};

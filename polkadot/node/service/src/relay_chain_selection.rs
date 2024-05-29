@@ -36,7 +36,6 @@
 #![cfg(feature = "full-node")]
 
 use super::{HeaderProvider, HeaderProviderProvider};
-use sp_consensus::{Error as ConsensusError, SelectChain};
 use futures::channel::oneshot;
 use polkadot_node_primitives::MAX_FINALITY_LAG as PRIMITIVES_MAX_FINALITY_LAG;
 use polkadot_node_subsystem::messages::{
@@ -46,6 +45,7 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
 use polkadot_overseer::{AllMessages, Handle};
 use polkadot_primitives::{Block as PolkadotBlock, BlockNumber, Hash, Header as PolkadotHeader};
+use sp_consensus::{Error as ConsensusError, SelectChain};
 use std::sync::Arc;
 
 pub use sc_service::SpawnTaskHandle;

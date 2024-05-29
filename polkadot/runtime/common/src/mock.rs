@@ -17,10 +17,12 @@
 //! Mocking utilities for testing.
 
 use crate::traits::Registrar;
+use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchResult, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
-use codec::{Decode, Encode};
-use polkadot_primitives::{HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, ValidationCode};
+use polkadot_primitives::{
+	HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, ValidationCode,
+};
 use polkadot_runtime_parachains::paras;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{traits::SaturatedConversion, DispatchError, Permill};
@@ -239,7 +241,9 @@ impl frame_support::traits::EstimateNextSessionRotation<u32> for TestNextSession
 	}
 }
 
-pub fn validators_public_keys(validators: &[Sr25519Keyring]) -> Vec<polkadot_primitives::ValidatorId> {
+pub fn validators_public_keys(
+	validators: &[Sr25519Keyring],
+) -> Vec<polkadot_primitives::ValidatorId> {
 	validators.iter().map(|v| v.public().into()).collect()
 }
 

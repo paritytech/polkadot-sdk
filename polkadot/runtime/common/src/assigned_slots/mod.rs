@@ -30,10 +30,10 @@ use crate::{
 	slots::{self, Pallet as Slots, WeightInfo as SlotsWeightInfo},
 	traits::{LeaseError, Leaser, Registrar},
 };
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use codec::{Decode, Encode, MaxEncodedLen};
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	configuration,
@@ -428,7 +428,8 @@ pub mod pallet {
 
 			// Force downgrade to on-demand parachain (if needed) before end of lease period
 			if is_parachain {
-				if let Err(err) = polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id) {
+				if let Err(err) = polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
+				{
 					// Treat failed downgrade as warning .. slot lease has been cleared,
 					// so the parachain will be downgraded anyway by the slots pallet
 					// at the end of the lease period .
@@ -633,8 +634,8 @@ mod tests {
 	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	use frame_system::EnsureRoot;
 	use pallet_balances;
-	use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
 	use polkadot_primitives::BlockNumber;
+	use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
 	use polkadot_runtime_parachains::{
 		configuration as parachains_configuration, paras as parachains_paras,
 		shared as parachains_shared,

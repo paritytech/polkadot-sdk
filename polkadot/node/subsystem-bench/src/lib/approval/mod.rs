@@ -40,12 +40,12 @@ use crate::{
 	usage::BenchmarkUsage,
 	NODE_UNDER_TEST,
 };
+use codec::{Decode, Encode};
 use colored::Colorize;
 use futures::channel::oneshot;
 use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
-use codec::{Decode, Encode};
 use polkadot_approval_distribution::ApprovalDistribution;
 use polkadot_node_core_approval_voting::{
 	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},

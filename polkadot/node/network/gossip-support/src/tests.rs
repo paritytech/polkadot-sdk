@@ -90,7 +90,8 @@ lazy_static! {
 	];
 }
 
-type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
 
 #[derive(Debug, Clone)]
 struct MockAuthorityDiscovery {

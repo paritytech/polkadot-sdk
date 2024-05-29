@@ -16,13 +16,13 @@
 
 //! Pallet to process purchase of DOTs.
 
+use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, EnsureOrigin, ExistenceRequirement, Get, VestingSchedule},
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::sr25519;
 use sp_runtime::{

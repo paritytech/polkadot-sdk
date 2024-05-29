@@ -36,12 +36,12 @@ use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
 	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
 };
+use polkadot_statement_table::v2::Misbehavior;
 use rstest::rstest;
 use sp_application_crypto::AppCrypto;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use sp_tracing as _;
-use polkadot_statement_table::v2::Misbehavior;
 use std::{collections::HashMap, time::Duration};
 
 mod prospective_parachains;
@@ -164,7 +164,8 @@ impl Default for TestState {
 	}
 }
 
-type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CandidateBackingMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CandidateBackingMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	keystore: KeystorePtr,
@@ -197,7 +198,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 fn make_erasure_root(test: &TestState, pov: PoV, validation_data: PersistedValidationData) -> Hash {
 	let available_data = AvailableData { validation_data, pov: Arc::new(pov) };
 
-	let chunks = polkadot_erasure_coding::obtain_chunks_v1(test.validators.len(), &available_data).unwrap();
+	let chunks =
+		polkadot_erasure_coding::obtain_chunks_v1(test.validators.len(), &available_data).unwrap();
 	polkadot_erasure_coding::branches(&chunks).root()
 }
 

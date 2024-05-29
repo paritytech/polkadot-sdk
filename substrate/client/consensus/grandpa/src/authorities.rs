@@ -20,10 +20,10 @@
 
 use std::{cmp::Ord, fmt::Debug, ops::Add};
 
+use codec::{Decode, Encode};
 use finality_grandpa::voter_set::VoterSet;
 use fork_tree::{FilterAction, ForkTree};
 use log::debug;
-use codec::{Decode, Encode};
 use parking_lot::MappedMutexGuard;
 use sc_consensus::shared_data::{SharedData, SharedDataLocked};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
@@ -662,9 +662,7 @@ pub struct PendingChange<H, N> {
 }
 
 impl<H: Decode, N: Decode> Decode for PendingChange<H, N> {
-	fn decode<I: codec::Input>(
-		value: &mut I,
-	) -> Result<Self, codec::Error> {
+	fn decode<I: codec::Input>(value: &mut I) -> Result<Self, codec::Error> {
 		let next_authorities = Decode::decode(value)?;
 		let delay = Decode::decode(value)?;
 		let canon_height = Decode::decode(value)?;

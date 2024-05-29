@@ -16,9 +16,9 @@ pub use v1::MigrateToV1;
 pub mod v0 {
 	use crate::inclusion::{Config, Pallet};
 	use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+	use codec::{Decode, Encode};
 	use frame_support::{storage_alias, Twox64Concat};
 	use frame_system::pallet_prelude::BlockNumberFor;
-	use codec::{Decode, Encode};
 	use polkadot_primitives::{
 		AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CoreIndex,
 		GroupIndex, Id as ParaId, ValidatorIndex,
@@ -78,12 +78,12 @@ mod v1 {
 	use sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 
 	#[cfg(feature = "try-runtime")]
+	use codec::{Decode, Encode};
+	#[cfg(feature = "try-runtime")]
 	use frame_support::{
 		ensure,
 		traits::{GetStorageVersion, StorageVersion},
 	};
-	#[cfg(feature = "try-runtime")]
-	use codec::{Decode, Encode};
 
 	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
 
@@ -218,7 +218,9 @@ mod tests {
 	};
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 	use polkadot_primitives::{AvailabilityBitfield, Id as ParaId};
-	use polkadot_primitives_test_helpers::{dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash};
+	use polkadot_primitives_test_helpers::{
+		dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash,
+	};
 
 	#[test]
 	fn migrate_to_v1() {

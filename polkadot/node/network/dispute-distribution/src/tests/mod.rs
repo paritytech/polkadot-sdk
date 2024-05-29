@@ -24,13 +24,13 @@ use std::{
 };
 
 use assert_matches::assert_matches;
+use codec::{Decode, Encode};
 use futures::{
 	channel::oneshot,
 	future::{poll_fn, ready},
 	pin_mut, Future,
 };
 use futures_timer::Delay;
-use codec::{Decode, Encode};
 
 use sc_network::{config::RequestResponseConfig, ProtocolName};
 

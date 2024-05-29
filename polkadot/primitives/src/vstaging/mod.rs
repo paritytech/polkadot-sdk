@@ -21,9 +21,9 @@ use crate::v7::*;
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode};
-use sp_core::RuntimeDebug;
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
+use sp_core::RuntimeDebug;
 
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 #[derive(

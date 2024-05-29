@@ -86,8 +86,8 @@
 //! We only send polite messages to peers,
 
 use ahash::{AHashMap, AHashSet};
-use log::{debug, trace};
 use codec::{Decode, DecodeAll, Encode};
+use log::{debug, trace};
 use prometheus_endpoint::{register, CounterVec, Opts, PrometheusError, Registry, U64};
 use rand::seq::SliceRandom;
 use sc_network::ReputationChange;

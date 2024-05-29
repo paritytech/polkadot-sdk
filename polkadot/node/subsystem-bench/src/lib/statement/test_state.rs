@@ -21,9 +21,9 @@ use crate::{
 	NODE_UNDER_TEST,
 };
 use bitvec::vec::BitVec;
+use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use itertools::Itertools;
-use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	request_response::{
 		v2::{AttestedCandidateRequest, AttestedCandidateResponse},

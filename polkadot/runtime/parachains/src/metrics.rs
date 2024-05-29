@@ -16,13 +16,13 @@
 
 //! Runtime declaration of the parachain metrics.
 
-use polkadot_runtime_metrics::{Counter, CounterVec, Histogram};
 use polkadot_primitives::metric_definitions::{
 	PARACHAIN_CREATE_INHERENT_BITFIELDS_SIGNATURE_CHECKS,
 	PARACHAIN_INHERENT_DATA_BITFIELDS_PROCESSED, PARACHAIN_INHERENT_DATA_CANDIDATES_PROCESSED,
 	PARACHAIN_INHERENT_DATA_DISPUTE_SETS_PROCESSED, PARACHAIN_INHERENT_DATA_WEIGHT,
 	PARACHAIN_VERIFY_DISPUTE_SIGNATURE,
 };
+use polkadot_runtime_metrics::{Counter, CounterVec, Histogram};
 
 pub struct Metrics {
 	/// Samples inherent data weight.

@@ -16,8 +16,8 @@
 
 //! Assignment criteria VRF generation and checking.
 
-use itertools::Itertools;
 use codec::{Decode, Encode};
+use itertools::Itertools;
 use polkadot_node_primitives::approval::{
 	self as approval_types,
 	v1::{AssignmentCert, AssignmentCertKind, DelayTranche, RelayVRFStory},

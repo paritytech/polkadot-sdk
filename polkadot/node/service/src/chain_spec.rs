@@ -16,13 +16,13 @@
 
 //! Polkadot chain configurations.
 
-use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
-use sc_consensus_grandpa::AuthorityId as GrandpaId;
 #[cfg(feature = "westend-native")]
 use pallet_staking::Forcing;
 use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 
 #[cfg(feature = "westend-native")]
 use polkadot_primitives::vstaging::SchedulerParams;
@@ -31,13 +31,13 @@ use rococo_runtime as rococo;
 use sc_chain_spec::ChainSpecExtension;
 #[cfg(any(feature = "westend-native", feature = "rococo-native"))]
 use sc_chain_spec::ChainType;
+#[cfg(any(feature = "westend-native", feature = "rococo-native"))]
+use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::IdentifyAccount;
 #[cfg(feature = "westend-native")]
 use sp_runtime::Perbill;
-#[cfg(any(feature = "westend-native", feature = "rococo-native"))]
-use sc_telemetry::TelemetryEndpoints;
 #[cfg(feature = "westend-native")]
 use westend_runtime as westend;
 #[cfg(feature = "westend-native")]

@@ -26,6 +26,7 @@ use std::{
 	time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
 };
 
+use codec::{Decode, Encode, Error as CodecError, Input};
 use futures::{
 	channel::{
 		mpsc::{channel, Receiver as MpscReceiver, Sender as MpscSender},
@@ -34,7 +35,6 @@ use futures::{
 	future, select, FutureExt, SinkExt, StreamExt,
 };
 use futures_timer::Delay;
-use codec::{Decode, Encode, Error as CodecError, Input};
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use sp_consensus::SyncOracle;
 

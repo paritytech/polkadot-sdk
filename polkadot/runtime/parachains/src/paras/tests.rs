@@ -16,12 +16,12 @@
 
 use super::*;
 use frame_support::{assert_err, assert_ok, assert_storage_noop};
-use sp_keyring::Sr25519Keyring;
 use polkadot_primitives::{vstaging::SchedulerParams, BlockNumber, PARACHAIN_KEY_TYPE_ID};
+use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 use sc_keystore::LocalKeystore;
+use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
-use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 
 use crate::{
 	configuration::HostConfiguration,
@@ -135,7 +135,10 @@ fn check_code_is_not_stored(validation_code: &ValidationCode) {
 /// An utility for checking that certain events were deposited.
 struct EventValidator {
 	events: Vec<
-		frame_system::EventRecord<<Test as frame_system::Config>::RuntimeEvent, polkadot_primitives::Hash>,
+		frame_system::EventRecord<
+			<Test as frame_system::Config>::RuntimeEvent,
+			polkadot_primitives::Hash,
+		>,
 	>,
 }
 

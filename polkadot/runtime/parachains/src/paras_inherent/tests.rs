@@ -1495,9 +1495,9 @@ mod sanitizers {
 	use sp_core::crypto::UncheckedFrom;
 
 	use crate::mock::Test;
-	use sp_keyring::Sr25519Keyring;
 	use polkadot_primitives::PARACHAIN_KEY_TYPE_ID;
 	use sc_keystore::LocalKeystore;
+	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::{Keystore, KeystorePtr};
 	use std::sync::Arc;
 

@@ -31,8 +31,8 @@
 
 #![deny(missing_docs)]
 
-use futures::{channel::oneshot, future::FutureExt, join, select};
 use codec::Encode;
+use futures::{channel::oneshot, future::FutureExt, join, select};
 use polkadot_node_primitives::{
 	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
 	SubmitCollationParams,

@@ -18,8 +18,8 @@ use crate::{
 	approval::{ApprovalsOptions, BlockTestData, CandidateTestData},
 	configuration::TestAuthorities,
 };
-use itertools::Itertools;
 use codec::{Decode, Encode};
+use itertools::Itertools;
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_primitives::{CandidateIndex, Hash, ValidatorIndex};
 use sc_network_types::PeerId;

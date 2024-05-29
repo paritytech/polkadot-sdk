@@ -216,7 +216,7 @@ impl TestEnvironment {
 				"prometheus",
 				"test-environment",
 				async move {
-prometheus_endpoint::init_prometheus(
+					prometheus_endpoint::init_prometheus(
 						SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
 						registry_clone,
 					)

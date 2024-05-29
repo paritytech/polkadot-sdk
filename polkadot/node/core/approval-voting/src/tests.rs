@@ -463,7 +463,8 @@ fn sign_approval_multiple_candidates(
 		.into()
 }
 
-type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
 
 #[derive(Default)]
 struct HarnessConfigBuilder {

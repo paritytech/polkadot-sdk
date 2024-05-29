@@ -34,14 +34,14 @@ use polkadot_primitives::{
 	AsyncBackingParams, BlockNumber, CollatorPair, HeadData, PersistedValidationData,
 	ScheduledCore, ValidationCode,
 };
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_descriptor, dummy_hash, dummy_head_data, dummy_validator, make_candidate,
+};
 use rstest::rstest;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use std::{
 	collections::{BTreeMap, VecDeque},
 	pin::Pin,
-};
-use polkadot_primitives_test_helpers::{
-	dummy_candidate_descriptor, dummy_hash, dummy_head_data, dummy_validator, make_candidate,
 };
 
 type VirtualOverseer = TestSubsystemContextHandle<CollationGenerationMessage>;

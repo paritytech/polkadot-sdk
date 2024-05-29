@@ -16,8 +16,6 @@
 
 //! Chain specifications for the test runtime.
 
-use sp_consensus_babe::AuthorityId as BabeId;
-use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use pallet_staking::Forcing;
 use polkadot_primitives::{
 	vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
@@ -25,7 +23,9 @@ use polkadot_primitives::{
 use polkadot_service::chain_spec::{get_account_id_from_seed, get_from_seed, Extensions};
 use polkadot_test_runtime::BABE_GENESIS_EPOCH_CONFIG;
 use sc_chain_spec::{ChainSpec, ChainType};
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::sr25519;
 use sp_runtime::Perbill;
 use test_runtime_constants::currency::DOTS;

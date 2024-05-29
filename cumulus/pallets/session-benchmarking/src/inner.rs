@@ -17,10 +17,10 @@
 
 use sp_std::{prelude::*, vec};
 
+use codec::Decode;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use pallet_session::*;
-use codec::Decode;
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
 pub trait Config: pallet_session::Config {}
 

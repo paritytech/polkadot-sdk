@@ -17,9 +17,9 @@
 //! WASM validation for adder parachain.
 
 use crate::{BlockData, HeadData};
+use codec::{Decode, Encode};
 use core::panic;
 use polkadot_parachain_primitives::primitives::{HeadData as GenericHeadData, ValidationResult};
-use codec::{Decode, Encode};
 use sp_std::vec::Vec;
 
 #[no_mangle]

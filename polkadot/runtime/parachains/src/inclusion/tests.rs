@@ -31,18 +31,20 @@ use polkadot_primitives::{
 };
 
 use assert_matches::assert_matches;
-use frame_support::assert_noop;
-use sp_keyring::Sr25519Keyring;
 use codec::DecodeAll;
+use frame_support::assert_noop;
 use polkadot_primitives::{
 	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorId,
 	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
 	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
 };
+use polkadot_primitives_test_helpers::{
+	dummy_collator, dummy_collator_signature, dummy_validation_code,
+};
 use sc_keystore::LocalKeystore;
+use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
-use polkadot_primitives_test_helpers::{dummy_collator, dummy_collator_signature, dummy_validation_code};
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	let mut config = HostConfiguration::default();

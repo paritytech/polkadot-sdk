@@ -62,9 +62,9 @@ use super::{
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{ConstU32, WeakBoundedVec};
+use codec::{self, Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, result};
 use derivative::Derivative;
-use codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 mod junction;

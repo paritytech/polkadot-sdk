@@ -32,12 +32,12 @@ use polkadot_primitives::{
 	metric_definitions::{CounterDefinition, CounterVecDefinition, HistogramDefinition},
 	RuntimeMetricLabelValues, RuntimeMetricOp, RuntimeMetricUpdate,
 };
+use prometheus_endpoint::{
+	register, Counter, CounterVec, Histogram, HistogramOpts, Opts, PrometheusError, Registry, U64,
+};
 use std::{
 	collections::hash_map::HashMap,
 	sync::{Arc, Mutex, MutexGuard},
-};
-use prometheus_endpoint::{
-	register, Counter, CounterVec, Histogram, HistogramOpts, Opts, PrometheusError, Registry, U64,
 };
 mod parachain;
 

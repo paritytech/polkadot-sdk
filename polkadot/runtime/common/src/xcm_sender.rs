@@ -16,9 +16,9 @@
 
 //! XCM sender for relay chain.
 
+use codec::{Decode, Encode};
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
-use codec::{Decode, Encode};
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	configuration::{self, HostConfiguration},

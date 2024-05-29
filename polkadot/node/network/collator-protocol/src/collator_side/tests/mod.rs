@@ -223,7 +223,8 @@ impl TestState {
 	}
 }
 
-type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
 
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,

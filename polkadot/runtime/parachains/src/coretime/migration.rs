@@ -27,6 +27,10 @@ mod v_coretime {
 		paras,
 	};
 	#[cfg(feature = "try-runtime")]
+	use codec::Decode;
+	#[cfg(feature = "try-runtime")]
+	use codec::Encode;
+	#[cfg(feature = "try-runtime")]
 	use frame_support::ensure;
 	use frame_support::{
 		traits::{OnRuntimeUpgrade, PalletInfoAccess, StorageVersion},
@@ -34,10 +38,6 @@ mod v_coretime {
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
 	use pallet_broker::{CoreAssignment, CoreMask, ScheduleItem};
-	#[cfg(feature = "try-runtime")]
-	use codec::Decode;
-	#[cfg(feature = "try-runtime")]
-	use codec::Encode;
 	use polkadot_parachain_primitives::primitives::IsSystem;
 	use polkadot_primitives::{CoreIndex, Id as ParaId};
 	use sp_arithmetic::traits::SaturatedConversion;

@@ -22,6 +22,7 @@ use crate::{
 	slot_range::SlotRange,
 	traits::{AuctionStatus, Auctioneer, LeaseError, Leaser, Registrar},
 };
+use codec::Decode;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -30,7 +31,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-use codec::Decode;
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedSub, One, Saturating, Zero};
 use sp_std::{mem::swap, prelude::*};
@@ -678,8 +678,8 @@ mod tests {
 	};
 	use frame_system::{EnsureRoot, EnsureSignedBy};
 	use pallet_balances;
-	use polkadot_primitives_test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	use polkadot_primitives::{BlockNumber, Id as ParaId};
+	use polkadot_primitives_test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	use sp_core::H256;
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},

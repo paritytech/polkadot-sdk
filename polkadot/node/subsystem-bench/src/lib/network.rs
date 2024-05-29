@@ -38,6 +38,7 @@ use crate::{
 	environment::TestEnvironmentDependencies,
 	NODE_UNDER_TEST,
 };
+use codec::Encode;
 use colored::Colorize;
 use futures::{
 	channel::{
@@ -55,7 +56,6 @@ use net_protocol::{
 	request_response::{Recipient, Requests, ResponseSender},
 	ObservedRole, VersionedValidationProtocol, View,
 };
-use codec::Encode;
 use polkadot_node_network_protocol::{self as net_protocol, Versioned};
 use polkadot_node_subsystem::messages::StatementDistributionMessage;
 use polkadot_node_subsystem_types::messages::NetworkBridgeEvent;

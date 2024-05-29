@@ -25,9 +25,9 @@ use crate::{
 	mock::runtime_api::session_info_for_peers,
 	NODE_UNDER_TEST,
 };
+use codec::Encode;
 use futures::SinkExt;
 use itertools::Itertools;
-use codec::Encode;
 use polkadot_node_core_approval_voting::{
 	criteria::{compute_assignments, Config},
 	time::tranche_to_tick,

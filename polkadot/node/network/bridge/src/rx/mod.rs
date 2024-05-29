@@ -20,8 +20,8 @@ use super::*;
 
 use always_assert::never;
 use bytes::Bytes;
-use net_protocol::filter_by_peer_version;
 use codec::{Decode, DecodeAll};
+use net_protocol::filter_by_peer_version;
 use parking_lot::Mutex;
 
 use sc_network::{

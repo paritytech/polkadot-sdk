@@ -18,6 +18,7 @@
 
 use codec::Codec;
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
+use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
 use sc_consensus_aura::{AuraVerifier, CompatibilityMode};
@@ -32,7 +33,6 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Debug, sync::Arc};
-use prometheus_endpoint::Registry;
 
 /// Parameters for [`import_queue`].
 pub struct ImportQueueParams<'a, I, C, CIDP, S> {

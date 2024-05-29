@@ -20,10 +20,9 @@ use crate::{
 	configuration, initializer::SessionChangeNotification, metrics::METRICS, session_info,
 };
 use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0};
+use codec::{Decode, Encode};
 use frame_support::{ensure, weights::Weight};
 use frame_system::pallet_prelude::*;
-use codec::{Decode, Encode};
-use polkadot_runtime_metrics::get_current_time;
 use polkadot_primitives::{
 	byzantine_threshold, supermajority_threshold, ApprovalVote, ApprovalVoteMultipleCandidates,
 	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CompactStatement,
@@ -31,6 +30,7 @@ use polkadot_primitives::{
 	InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex, SigningContext,
 	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+use polkadot_runtime_metrics::get_current_time;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AppVerify, One, Saturating, Zero},

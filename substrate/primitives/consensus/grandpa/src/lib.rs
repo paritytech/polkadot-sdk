@@ -77,7 +77,8 @@ pub type RoundNumber = u64;
 pub type AuthorityList = Vec<(AuthorityId, AuthorityWeight)>;
 
 /// A GRANDPA message for a substrate chain.
-pub type Message<Header> = finality_grandpa::Message<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+pub type Message<Header> =
+	finality_grandpa::Message<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 
 /// A signed message.
 pub type SignedMessage<Header> = finality_grandpa::SignedMessage<
@@ -91,7 +92,8 @@ pub type SignedMessage<Header> = finality_grandpa::SignedMessage<
 pub type PrimaryPropose<Header> =
 	finality_grandpa::PrimaryPropose<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A prevote message for this chain's block type.
-pub type Prevote<Header> = finality_grandpa::Prevote<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+pub type Prevote<Header> =
+	finality_grandpa::Prevote<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A precommit message for this chain's block type.
 pub type Precommit<Header> =
 	finality_grandpa::Precommit<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
@@ -266,13 +268,31 @@ impl<H, N> EquivocationProof<H, N> {
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, TypeInfo)]
 pub enum Equivocation<H, N> {
 	/// Proof of equivocation at prevote stage.
-	Prevote(finality_grandpa::Equivocation<AuthorityId, finality_grandpa::Prevote<H, N>, AuthoritySignature>),
+	Prevote(
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Prevote<H, N>,
+			AuthoritySignature,
+		>,
+	),
 	/// Proof of equivocation at precommit stage.
-	Precommit(finality_grandpa::Equivocation<AuthorityId, finality_grandpa::Precommit<H, N>, AuthoritySignature>),
+	Precommit(
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Precommit<H, N>,
+			AuthoritySignature,
+		>,
+	),
 }
 
-impl<H, N> From<finality_grandpa::Equivocation<AuthorityId, finality_grandpa::Prevote<H, N>, AuthoritySignature>>
-	for Equivocation<H, N>
+impl<H, N>
+	From<
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Prevote<H, N>,
+			AuthoritySignature,
+		>,
+	> for Equivocation<H, N>
 {
 	fn from(
 		equivocation: finality_grandpa::Equivocation<
@@ -285,8 +305,14 @@ impl<H, N> From<finality_grandpa::Equivocation<AuthorityId, finality_grandpa::Pr
 	}
 }
 
-impl<H, N> From<finality_grandpa::Equivocation<AuthorityId, finality_grandpa::Precommit<H, N>, AuthoritySignature>>
-	for Equivocation<H, N>
+impl<H, N>
+	From<
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Precommit<H, N>,
+			AuthoritySignature,
+		>,
+	> for Equivocation<H, N>
 {
 	fn from(
 		equivocation: finality_grandpa::Equivocation<

@@ -29,8 +29,8 @@ use crate::{
 	futures_undead::FuturesUndead, ErasureTask, PostRecoveryCheck, RecoveryParams, LOG_TARGET,
 };
 
-use futures::{channel::oneshot, SinkExt};
 use codec::Decode;
+use futures::{channel::oneshot, SinkExt};
 use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]
 use polkadot_node_network_protocol::request_response::CHUNK_REQUEST_TIMEOUT;
@@ -636,11 +636,11 @@ mod tests {
 	use super::*;
 	use crate::{tests::*, Metrics, RecoveryStrategy, RecoveryTask};
 	use assert_matches::assert_matches;
+	use codec::Error as DecodingError;
 	use futures::{
 		channel::mpsc::{self, UnboundedReceiver},
 		executor, future, Future, FutureExt, StreamExt,
 	};
-	use codec::Error as DecodingError;
 	use polkadot_erasure_coding::{recovery_threshold, systematic_recovery_threshold};
 	use polkadot_node_network_protocol::request_response::Protocol;
 	use polkadot_node_primitives::{BlockData, PoV};

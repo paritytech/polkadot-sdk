@@ -289,7 +289,8 @@ mod tests {
 		let raw_config = hex_literal::hex!["00003000005000005555150000008000fbff0100000200000a000000c80000006400000000000000000000000000500000c800000a0000000000000000c0220fca950300000000000000000000c0220fca9503000000000000000000e8030000009001000a0000000000000000900100008070000000000000000000000a000000050000000500000001000000010500000001c80000000600000058020000020000002800000000000000020000000100000001020000000f000000"];
 
 		let v6 =
-			V6HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
+			V6HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..])
+				.unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
