@@ -202,12 +202,14 @@ pub trait TryState<BlockNumber> {
 	fn try_state(_: BlockNumber, _: Select) -> Result<(), TryRuntimeError>;
 }
 
+// Empty tuple never does anything.
 impl<BlockNumber> TryState<BlockNumber> for () {
 	fn try_state(_: BlockNumber, _: Select) -> Result<(), TryRuntimeError> {
 		Ok(())
 	}
 }
 
+// 2-element tuple calls first and then second, optionally filtering according to input.
 impl<BlockNumber, AllPallets, AdditionalHooks> TryState<BlockNumber>
 	for (AdditionalHooks, AllPallets)
 where
@@ -290,5 +292,16 @@ where
 				result
 			},
 		}
+	}
+}
+
+// 1-element tuple calls first and then empty tuple, which is a no-op
+impl<BlockNumber, T> TryState<BlockNumber> for (T,)
+where
+	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+	T: IdentifiableTryStateLogic<BlockNumber>,
+{
+	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
+		<(T, ()) as TryState<BlockNumber>>::try_state(n, targets)
 	}
 }
