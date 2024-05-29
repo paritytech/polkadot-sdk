@@ -184,7 +184,6 @@ parameter_types! {
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
-#[docify::export(cumulus_parachain_config)]
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
@@ -262,7 +261,6 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
-#[docify::export(aura_config)]
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
