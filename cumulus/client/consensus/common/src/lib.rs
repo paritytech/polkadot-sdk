@@ -19,10 +19,7 @@ use polkadot_primitives::{
 	Block as PBlock, Hash as PHash, Header as PHeader, PersistedValidationData, ValidationCodeHash,
 };
 
-use cumulus_primitives_core::{
-	relay_chain,
-	AbridgedHostConfiguration,
-};
+use cumulus_primitives_core::{relay_chain, AbridgedHostConfiguration};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
 use sc_client_api::Backend;

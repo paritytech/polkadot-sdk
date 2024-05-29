@@ -308,7 +308,8 @@ pub struct RunCmd {
 	#[arg(long, conflicts_with_all = ["relay_chain_rpc_urls", "collator"])]
 	pub relay_chain_light_client: bool,
 
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling. Use with care, this flag is unstable and subject to change.
+	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling. Use with care, this
+	/// flag is unstable and subject to change.
 	#[arg(long)]
 	pub experimental_use_slot_based: bool,
 }

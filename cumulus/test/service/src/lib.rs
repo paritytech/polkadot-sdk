@@ -746,7 +746,8 @@ impl TestNodeBuilder {
 			false,
 		);
 
-		let collator_options = CollatorOptions { relay_chain_mode: self.relay_chain_mode, use_slot_based: false };
+		let collator_options =
+			CollatorOptions { relay_chain_mode: self.relay_chain_mode, use_slot_based: false };
 
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
