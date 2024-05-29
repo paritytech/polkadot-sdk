@@ -205,10 +205,11 @@ impl<BlockNumber> TryState<BlockNumber> for () {
 	}
 }
 
-impl<BlockNumber, T> TryState<BlockNumber> for (T,)
+impl<BlockNumber, T1, T2> TryState<BlockNumber> for (T1, T2)
 where
 	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
-	T: IdentifiableTryStateLogic<BlockNumber>,
+	T1: IdentifiableTryStateLogic<BlockNumber>,
+	T2: IdentifiableTryStateLogic<BlockNumber>,
 {
 	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
 		match targets {
@@ -216,7 +217,10 @@ where
 			Select::All => {
 				let mut errors = Vec::<TryRuntimeError>::new();
 
-				if let Err(err) = T::try_state(n.clone()) {
+				if let Err(err) = T1::try_state(n.clone()) {
+					errors.push(err);
+				}
+				if let Err(err) = T2::try_state(n.clone()) {
 					errors.push(err);
 				}
 
@@ -244,7 +248,8 @@ where
 				Ok(())
 			},
 			Select::RoundRobin(len) => {
-				let functions: &[fn(BlockNumber) -> Result<(), TryRuntimeError>] = &[T::try_state];
+				let functions: &[fn(BlockNumber) -> Result<(), TryRuntimeError>] =
+					&[T1::try_state, T2::try_state];
 				let skip = n.clone() % (functions.len() as u32).into();
 				let skip: u32 =
 					skip.try_into().unwrap_or_else(|_| sp_runtime::traits::Bounded::max_value());
@@ -259,7 +264,7 @@ where
 				let try_state_fns: &[(
 					fn(&[u8]) -> bool,
 					fn(BlockNumber) -> Result<(), TryRuntimeError>,
-				)] = &[(T::matches_id, T::try_state)];
+				)] = &[(T1::matches_id, T1::try_state), (T2::matches_id, T2::try_state)];
 
 				let mut result = Ok(());
 				try_state_identifiers.iter().for_each(|id| {
