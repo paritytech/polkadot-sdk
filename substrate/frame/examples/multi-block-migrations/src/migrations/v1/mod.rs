@@ -32,6 +32,9 @@ use frame_support::{
 #[cfg(feature = "try-runtime")]
 use sp_std::collections::btree_map::BTreeMap;
 
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
+
 mod benchmarks;
 mod tests;
 pub mod weights;
