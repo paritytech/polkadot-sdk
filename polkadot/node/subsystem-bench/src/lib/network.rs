@@ -186,6 +186,13 @@ impl NetworkMessage {
 			_ => None,
 		}
 	}
+
+	pub fn is_from_node(&self) -> bool {
+		match self {
+			NetworkMessage::MessageFromNode(_, _) | NetworkMessage::RequestFromNode(_, _) => true,
+			_ => false,
+		}
+	}
 }
 
 /// A network interface of the node under test.
@@ -476,24 +483,35 @@ impl EmulatedPeer {
 	pub async fn send_message(&mut self, message: NetworkMessage) {
 		self.tx_limiter.reap(message.size()).await;
 
-		if self.latency_ms == 0 {
-			self.to_node.unbounded_send(message).expect("Sending to the node never fails");
-		} else {
+		if self.has_latency() {
+			let latency = self.emulate_latency();
 			let to_node = self.to_node.clone();
-			let latency_ms = std::time::Duration::from_millis(self.latency_ms as u64);
 
 			// Emulate RTT latency
 			self.spawn_handle
 				.spawn("peer-latency-emulator", "test-environment", async move {
-					tokio::time::sleep(latency_ms).await;
+					latency.await;
 					to_node.unbounded_send(message).expect("Sending to the node never fails");
 				});
+		} else {
+			self.to_node.unbounded_send(message).expect("Sending to the node never fails");
 		}
 	}
 
 	/// Returns the rx bandwidth limiter.
 	pub fn rx_limiter(&mut self) -> &mut RateLimit {
 		&mut self.rx_limiter
+	}
+
+	pub fn has_latency(&self) -> bool {
+		self.latency_ms > 0
+	}
+
+	pub fn emulate_latency(&self) -> tokio::time::Sleep {
+		// The latency is meant to be RTT
+		let latency_ms = self.latency_ms as u64 / 2;
+		let latency = std::time::Duration::from_millis(latency_ms);
+		tokio::time::sleep(latency)
 	}
 }
 
@@ -548,6 +566,10 @@ async fn emulated_peer_loop(
 					emulated_peer.rx_limiter().reap(size).await;
 					stats.inc_received(size);
 
+					if peer_message.is_from_node() && emulated_peer.has_latency() {
+						emulated_peer.emulate_latency().await;
+					}
+
 					let mut message = Some(peer_message);
 
 					// Try all handlers until the message gets processed.
@@ -561,6 +583,7 @@ async fn emulated_peer_loop(
 						}
 					}
 					if let Some(message) = message {
+						// TODO: message.peer() is always None because it's a message from node
 						panic!("Emulated message from peer {:?} not handled", message.peer());
 					}
 				} else {
