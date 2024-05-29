@@ -57,7 +57,7 @@ sp_api::decl_runtime_apis! {
 	/// Calls or XCMs might fail when executed, this doesn't mean the result of these calls will be an `Err`.
 	/// In those cases, there might still be a valid result, with the execution error inside it.
 	/// The only reasons why these calls might return an error are listed in the [`Error`] enum.
-	pub trait XcmDryRunApi<Call: Encode, Event: Decode, OriginCaller: Encode> {
+	pub trait DryRunApi<Call: Encode, Event: Decode, OriginCaller: Encode> {
 		/// Dry run call.
 		fn dry_run_call(origin: OriginCaller, call: Call) -> Result<CallDryRunEffects<Event>, Error>;
 

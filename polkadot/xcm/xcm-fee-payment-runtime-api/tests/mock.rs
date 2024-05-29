@@ -45,7 +45,7 @@ use xcm_executor::{
 };
 
 use xcm_fee_payment_runtime_api::{
-	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunApi, XcmDryRunEffects},
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, DryRunApi, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
 };
 
@@ -450,11 +450,12 @@ sp_api::mock_impl_runtime_apis! {
 		}
 	}
 
-	impl XcmDryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for RuntimeApi {
+	impl DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for RuntimeApi {
 		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_executor::RecordXcm;
 			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(true);
 			let result = call.dispatch(origin.into());
+			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(false);
 			let local_xcm = pallet_xcm::Pallet::<TestRuntime>::recorded_xcm();
 			let forwarded_xcms = sent_xcm()
 							   .into_iter()
