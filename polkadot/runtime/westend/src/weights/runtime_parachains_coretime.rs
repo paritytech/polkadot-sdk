@@ -81,5 +81,5 @@ impl<T: frame_system::Config> runtime_parachains::coretime::WeightInfo for Weigh
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	fn request_revenue_info_at() -> frame_support::weights::Weight { todo!() }
+	fn request_revenue_at() -> frame_support::weights::Weight { todo!() }
 }
