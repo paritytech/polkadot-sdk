@@ -17,6 +17,10 @@
 use self::test_helpers::mock::new_leaf;
 use super::*;
 use crate::backend::V1ReadBackend;
+use overseer::prometheus::{
+	prometheus::{IntCounter, IntCounterVec},
+	Histogram, HistogramOpts, HistogramVec, Opts,
+};
 use polkadot_node_primitives::{
 	approval::{
 		v1::{
@@ -40,7 +44,7 @@ use polkadot_primitives::{
 	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, GroupIndex, Header,
 	Id as ParaId, IndexedVec, NodeFeatures, ValidationCode, ValidatorSignature,
 };
-use std::time::Duration;
+use std::{cmp::max, time::Duration};
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
@@ -3331,7 +3335,7 @@ async fn recover_available_data(virtual_overseer: &mut VirtualOverseer) {
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::AvailabilityRecovery(
-			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 		) => {
 			tx.send(Ok(available_data)).unwrap();
 		},
@@ -5049,4 +5053,234 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 
 		virtual_overseer
 	});
+}
+
+// Test we correctly update the timer when we mark the beginning of gathering assignments.
+#[test]
+fn test_gathering_assignments_statements() {
+	let mut state = State {
+		keystore: Arc::new(LocalKeystore::in_memory()),
+		slot_duration_millis: 6_000,
+		clock: Box::new(MockClock::default()),
+		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
+		spans: HashMap::new(),
+		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+		)),
+	};
+
+	for i in 0..200i32 {
+		state.mark_begining_of_gathering_assignments(
+			i as u32,
+			Hash::repeat_byte(i as u8),
+			CandidateHash(Hash::repeat_byte(i as u8)),
+		);
+		assert!(
+			state.per_block_assignments_gathering_times.len() <=
+				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize
+		);
+
+		assert_eq!(
+			state
+				.per_block_assignments_gathering_times
+				.iter()
+				.map(|(block_number, _)| block_number)
+				.min(),
+			Some(max(0, i - MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as i32 + 1) as u32).as_ref()
+		)
+	}
+	assert_eq!(
+		state.per_block_assignments_gathering_times.len(),
+		MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS as usize
+	);
+
+	let nothing_changes = state
+		.per_block_assignments_gathering_times
+		.iter()
+		.map(|(block_number, _)| *block_number)
+		.sorted()
+		.collect::<Vec<_>>();
+
+	for i in 150..200i32 {
+		state.mark_begining_of_gathering_assignments(
+			i as u32,
+			Hash::repeat_byte(i as u8),
+			CandidateHash(Hash::repeat_byte(i as u8)),
+		);
+		assert_eq!(
+			nothing_changes,
+			state
+				.per_block_assignments_gathering_times
+				.iter()
+				.map(|(block_number, _)| *block_number)
+				.sorted()
+				.collect::<Vec<_>>()
+		);
+	}
+
+	for i in 110..120 {
+		let block_hash = Hash::repeat_byte(i as u8);
+		let candidate_hash = CandidateHash(Hash::repeat_byte(i as u8));
+
+		state.mark_gathered_enough_assignments(i as u32, block_hash, candidate_hash);
+
+		assert!(state
+			.per_block_assignments_gathering_times
+			.get(&i)
+			.unwrap()
+			.get(&(block_hash, candidate_hash))
+			.unwrap()
+			.stage_start
+			.is_none());
+		state.mark_begining_of_gathering_assignments(i as u32, block_hash, candidate_hash);
+		let record = state
+			.per_block_assignments_gathering_times
+			.get(&i)
+			.unwrap()
+			.get(&(block_hash, candidate_hash))
+			.unwrap();
+
+		assert!(record.stage_start.is_some());
+		assert_eq!(record.stage, 1);
+	}
+
+	state.cleanup_assignments_gathering_timestamp(200);
+	assert_eq!(state.per_block_assignments_gathering_times.len(), 0);
+}
+
+// Test we note the time we took to transition RequiredTranche  from Pending to Exact and
+// that we increase the stage when we transition from Exact to Pending.
+#[test]
+fn test_observe_assignment_gathering_status() {
+	let mut state = State {
+		keystore: Arc::new(LocalKeystore::in_memory()),
+		slot_duration_millis: 6_000,
+		clock: Box::new(MockClock::default()),
+		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
+		spans: HashMap::new(),
+		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+		)),
+	};
+
+	let metrics_inner = MetricsInner {
+		imported_candidates_total: IntCounter::new("dummy", "dummy").unwrap(),
+		assignments_produced: Histogram::with_opts(HistogramOpts::new("dummy", "dummy")).unwrap(),
+		approvals_produced_total: IntCounterVec::new(Opts::new("dummy", "dummy"), &["dummy"])
+			.unwrap(),
+		no_shows_total: IntCounter::new("dummy", "dummy").unwrap(),
+		observed_no_shows: IntCounter::new("dummy", "dummy").unwrap(),
+		approved_by_one_third: IntCounter::new("dummy", "dummy").unwrap(),
+		wakeups_triggered_total: IntCounter::new("dummy", "dummy").unwrap(),
+		coalesced_approvals_buckets: Histogram::with_opts(HistogramOpts::new("dummy", "dummy"))
+			.unwrap(),
+		coalesced_approvals_delay: Histogram::with_opts(HistogramOpts::new("dummy", "dummy"))
+			.unwrap(),
+		candidate_approval_time_ticks: Histogram::with_opts(HistogramOpts::new("dummy", "dummy"))
+			.unwrap(),
+		block_approval_time_ticks: Histogram::with_opts(HistogramOpts::new("dummy", "dummy"))
+			.unwrap(),
+		time_db_transaction: Histogram::with_opts(HistogramOpts::new("dummy", "dummy")).unwrap(),
+		time_recover_and_approve: Histogram::with_opts(HistogramOpts::new("dummy", "dummy"))
+			.unwrap(),
+		candidate_signatures_requests_total: IntCounter::new("dummy", "dummy").unwrap(),
+		unapproved_candidates_in_unfinalized_chain: prometheus::Gauge::<prometheus::U64>::new(
+			"dummy", "dummy",
+		)
+		.unwrap(),
+		assignments_gathering_time_by_stage: HistogramVec::new(
+			HistogramOpts::new("test", "test"),
+			&["stage"],
+		)
+		.unwrap(),
+	};
+
+	let metrics = Metrics(Some(metrics_inner));
+	let block_hash = Hash::repeat_byte(1);
+	let candidate_hash = CandidateHash(Hash::repeat_byte(1));
+	let block_number = 1;
+
+	// Transition from Pending to Exact and check stage 0 time is recorded.
+	state.observe_assignment_gathering_status(
+		&metrics,
+		&RequiredTranches::Pending {
+			considered: 0,
+			next_no_show: None,
+			maximum_broadcast: 0,
+			clock_drift: 0,
+		},
+		block_hash,
+		block_number,
+		candidate_hash,
+	);
+
+	state.observe_assignment_gathering_status(
+		&metrics,
+		&RequiredTranches::Exact {
+			needed: 2,
+			tolerated_missing: 2,
+			next_no_show: None,
+			last_assignment_tick: None,
+		},
+		block_hash,
+		block_number,
+		candidate_hash,
+	);
+
+	let value = metrics
+		.0
+		.as_ref()
+		.unwrap()
+		.assignments_gathering_time_by_stage
+		.get_metric_with_label_values(&["0"])
+		.unwrap();
+
+	assert_eq!(value.get_sample_count(), 1);
+
+	// Transition from Exact to Pending to Exact and check stage 1 time is recorded.
+	state.observe_assignment_gathering_status(
+		&metrics,
+		&RequiredTranches::Pending {
+			considered: 0,
+			next_no_show: None,
+			maximum_broadcast: 0,
+			clock_drift: 0,
+		},
+		block_hash,
+		block_number,
+		candidate_hash,
+	);
+
+	state.observe_assignment_gathering_status(
+		&metrics,
+		&RequiredTranches::Exact {
+			needed: 2,
+			tolerated_missing: 2,
+			next_no_show: None,
+			last_assignment_tick: None,
+		},
+		block_hash,
+		block_number,
+		candidate_hash,
+	);
+
+	let value = metrics
+		.0
+		.as_ref()
+		.unwrap()
+		.assignments_gathering_time_by_stage
+		.get_metric_with_label_values(&["0"])
+		.unwrap();
+
+	assert_eq!(value.get_sample_count(), 1);
+
+	let value = metrics
+		.0
+		.as_ref()
+		.unwrap()
+		.assignments_gathering_time_by_stage
+		.get_metric_with_label_values(&["1"])
+		.unwrap();
+
+	assert_eq!(value.get_sample_count(), 1);
 }

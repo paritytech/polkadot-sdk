@@ -607,7 +607,7 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::{
 		approval_db::common::{load_block_entry, DbBackend},
-		RuntimeInfo, RuntimeInfoConfig,
+		RuntimeInfo, RuntimeInfoConfig, MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 	};
 	use assert_matches::assert_matches;
 	use polkadot_node_primitives::{
@@ -622,6 +622,7 @@ pub(crate) mod tests {
 		SessionInfo, ValidatorId, ValidatorIndex,
 	};
 	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+	use schnellru::{ByLength, LruMap};
 	pub(crate) use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
 		AllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
@@ -658,6 +659,9 @@ pub(crate) mod tests {
 			clock: Box::new(MockClock::default()),
 			assignment_criteria: Box::new(MockAssignmentCriteria::default()),
 			spans: HashMap::new(),
+			per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+			)),
 		}
 	}
 
