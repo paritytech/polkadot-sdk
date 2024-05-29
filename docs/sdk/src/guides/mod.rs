@@ -27,5 +27,5 @@ pub mod xcm_enabled_parachain;
 /// How to enable storage weight reclaiming in a parachain node and runtime.
 pub mod enable_pov_reclaim;
 
-/// Parachain guides
-pub mod parachains;
+/// How to enable Async Backing on parachain projects that started in 2023 or before. 
+pub mod async_backing_guide;
