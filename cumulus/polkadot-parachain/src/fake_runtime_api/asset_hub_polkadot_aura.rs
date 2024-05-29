@@ -152,7 +152,7 @@ sp_api::impl_runtime_apis! {
 
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
-		fn on_runtime_upgrade(_: frame_try_runtime::TryOnRuntimeUpgradeOpts) -> (Weight, Weight) {
+		fn on_runtime_upgrade(_: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
 			unimplemented!()
 		}
 

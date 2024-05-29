@@ -180,7 +180,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 use ::{
 	frame_support::{
 		traits::{
-			TryDecodeEntireStorage, TryDecodeEntireStorageError, TryOnRuntimeUpgradeOpts, TryState,
+			TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState, UpgradeCheckSelect,
 		},
 		StorageNoopGuard,
 	},
@@ -433,7 +433,7 @@ where
 	/// [`frame_system::LastRuntimeUpgrade`] is set to the current runtime version after
 	/// migrations execute. This is important for idempotency checks, because some migrations use
 	/// this value to determine whether or not they should execute.
-	pub fn try_runtime_upgrade(opts: TryOnRuntimeUpgradeOpts) -> Result<Weight, TryRuntimeError> {
+	pub fn try_runtime_upgrade(opts: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
 		let try_on_runtime_upgrade_weight =

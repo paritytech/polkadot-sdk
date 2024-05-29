@@ -98,7 +98,7 @@ impl sp_std::str::FromStr for Select {
 #[derive(
 	codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo, builder_pattern::Builder,
 )]
-pub struct TryOnRuntimeUpgradeOpts {
+pub struct UpgradeCheckSelect {
 	#[default(false)]
 	pub pre_and_post: bool,
 	#[default(false)]
