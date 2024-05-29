@@ -40,11 +40,11 @@ use sp_runtime::{
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 
-use super::{
+use crate::{
 	error::{self, Error},
+	graph,
 	metrics::{ApiMetrics, ApiMetricsExt},
 };
-use crate::graph;
 
 /// The transaction pool logic for full client.
 pub struct FullChainApi<Client, Block> {

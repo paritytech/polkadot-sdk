@@ -370,8 +370,8 @@ where
 mod tests {
 	use super::*;
 	use crate::{
-		common::tests::{uxt, TestApi},
 		graph::Pool,
+		tests::{uxt, TestApi},
 	};
 	use futures::executor::block_on;
 	use sc_transaction_pool_api::TransactionSource;

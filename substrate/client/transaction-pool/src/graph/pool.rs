@@ -456,7 +456,7 @@ impl<B: ChainApi> Clone for Pool<B> {
 #[cfg(test)]
 mod tests {
 	use super::{super::base_pool::Limit, *};
-	use crate::common::tests::{pool, uxt, TestApi, INVALID_NONCE};
+	use crate::tests::{pool, uxt, TestApi, INVALID_NONCE};
 	use assert_matches::assert_matches;
 	use codec::Encode;
 	use futures::executor::block_on;
