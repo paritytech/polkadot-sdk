@@ -298,7 +298,7 @@ defined staking rate. The full specification can be found
 <p>Total reward is split among validators and their nominators depending on the number of points
 they received during the era. Points are added to a validator using
 <a href="struct.Pallet.html#method.reward_by_ids" title="associated function pallet_staking::Pallet::reward_by_ids"><code>reward_by_ids</code></a>.</p>
-<p><a href="struct.Pallet.html" title="struct pallet_staking::Pallet"><code>Pallet</code></a> implements [<code>pallet_authorship::EventHandler</code>] to add reward points to block producer
+<p><a href="struct.Pallet.html" title="struct pallet_staking::Pallet"><code>Pallet</code></a> implements <a href="../pallet_authorship/trait.EventHandler.html" title="trait pallet_authorship::EventHandler"><code>pallet_authorship::EventHandler</code></a> to add reward points to block producer
 and block producer of referenced uncles.</p>
 <p>The validator and its nominator split their reward as following:</p>
 <p>The validator can declare an amount, named <a href="struct.ValidatorPrefs.html#structfield.commission" title="field pallet_staking::ValidatorPrefs::commission"><code>commission</code></a>, that does

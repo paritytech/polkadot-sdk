@@ -152,7 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     path: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T::<a class="associatedtype" href="../trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>&gt;&gt;,
     amount_out: T::<a class="associatedtype" href="../trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>,
     amount_in_max: T::<a class="associatedtype" href="../trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>,
-    send_to: T::AccountId,
+    send_to: T::<a class="associatedtype" href="../../../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>,
     keep_alive: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Swap any amount of <code>asset1</code> to get the exact amount of <code>asset2</code>.
 <code>amount_in_max</code> param allows to specify the max amount of the <code>asset1</code>
