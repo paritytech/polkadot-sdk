@@ -4,9 +4,14 @@ doc:
   - audience: Node Dev
     description: |
       The feature was masking the ability of collators to respond with `CollationWithParentHeadData`
-      to validator collation fetch requests. This is no longer needed as validators 
-      have been upgraded to support the new response. `CollationWithParentHeadData` however
-      is only sent by collators of parachains with multiple cores assigned.
+      to validator collation fetch requests, a requirement for elastic scaling. 
+      Please note that `CollationWithParentHeadData` is only sent by collators of parachains with 
+      multiple cores assigned, otherwise collators must respond with `CollationFetchingResponse::Collation`
+  - audience: Node Operator
+    description: |
+      This changes enables elastic scaling support in collators. Please upgrade to latest version, 
+      otherwise validator nodes will not be able to back elastic parachain blocks leading to 
+      missed rewards. 
 
 crates:
   - name: polkadot-collator-protocol
