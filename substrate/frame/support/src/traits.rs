@@ -135,5 +135,5 @@ mod try_runtime;
 #[cfg(feature = "try-runtime")]
 pub use try_runtime::{
 	Select as TryStateSelect, TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState,
-	UpgradeCheckSelect,
+	TryStateIdentifier, UpgradeCheckSelect,
 };

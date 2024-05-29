@@ -151,13 +151,32 @@ pub trait TryState<BlockNumber> {
 	fn try_state(_: BlockNumber, _: Select) -> Result<(), TryRuntimeError>;
 }
 
+/// The identifier for a `try-state` check.
+/// It is used by the default `TryState` implementation on tuples for the `Select::Only` test filter.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TryStateIdentifier(Vec<u8>);
+
+impl sp_std::ops::Deref for TryStateIdentifier {
+	type Target = [u8];
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl From<Vec<u8>> for TryStateIdentifier {
+	fn from(value: Vec<u8>) -> Self {
+		Self(value)
+	}
+}
+
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
 impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber>
 	for Tuple
 {
-	for_tuples!( where #( Tuple: crate::traits::StaticPartialEq<[u8]> )* );
+	for_tuples!( where #( Tuple: crate::traits::StaticPartialEq<TryStateIdentifier> )* );
 	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
 		match targets {
 			Select::None => Ok(()),
@@ -206,26 +225,28 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 				}
 				result
 			},
-			Select::Only(ref pallet_names) => {
+			Select::Only(ref try_state_identifiers) => {
 				let try_state_fns: &[(
-					fn(&[u8]) -> bool,
+					fn(&TryStateIdentifier) -> bool,
 					fn(BlockNumber, Select) -> Result<(), TryRuntimeError>,
 				)] = &[for_tuples!(
 					#( (Tuple::eq, Tuple::try_state) ),*
 				)];
+
 				let mut result = Ok(());
-				// pallet_names.iter().for_each(|pallet_name| {
-				// 	if let Some((name, try_state_fn)) =
-				// 		try_state_fns.iter().find(|(name, _)| name.as_bytes() == pallet_name)
-				// 	{
-				// 		result = result.and(try_state_fn(n.clone(), targets.clone()));
-				// 	} else {
-				// 		log::warn!(
-				// 			"Pallet {:?} not found",
-				// 			sp_std::str::from_utf8(pallet_name).unwrap_or_default()
-				// 		);
-				// 	}
-				// });
+				try_state_identifiers.iter().for_each(|id| {
+					if let Some((_, try_state_fn)) = try_state_fns
+						.iter()
+						.find(|(eq_logic, _)| eq_logic(&TryStateIdentifier::from(id.clone())))
+					{
+						result = result.and(try_state_fn(n.clone(), targets.clone()));
+					} else {
+						log::warn!(
+							"Try-state logic with identifier {:?} not found",
+							sp_std::str::from_utf8(id).unwrap_or_default()
+						);
+					}
+				});
 
 				result
 			},
