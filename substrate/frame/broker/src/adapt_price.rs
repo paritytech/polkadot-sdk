@@ -150,6 +150,29 @@ mod tests {
 	}
 
 	#[test]
+	fn leadin_price_bound_check() {
+		assert_eq!(
+			CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from(0)),
+			FixedU64::from(100)
+		);
+		assert_eq!(
+			CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from_rational(1, 4)),
+			FixedU64::from(55)
+		);
+
+		assert_eq!(
+			CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from_float(0.5)),
+			FixedU64::from(10)
+		);
+
+		assert_eq!(
+			CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from_rational(3, 4)),
+			FixedU64::from_float(5.5)
+		);
+		assert_eq!(CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::one()), FixedU64::one());
+	}
+
+	#[test]
 	fn no_op_sale_is_good() {
 		let prices = CenterTargetPrice::adapt_price(SalePerformance::new(None, 1));
 		assert_eq!(prices.target_price, 10);
