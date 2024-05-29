@@ -44,6 +44,40 @@ use pallet_balances::Call as BalancesCall;
 
 const TEST_KEY: &[u8] = b":test:key:";
 
+#[cfg(feature = "try-runtime")]
+mod try_runtime {
+	use frame_support::traits::{IdentifiableTryStateLogic, TryStateLogic};
+	use sp_runtime::traits::AtLeast32BitUnsigned;
+
+	// Will contain `true` when the custom runtime logic was called.
+	pub(super) static mut CANARY_FLAG: bool = false;
+
+	const CUSTOM_TRY_STATE_ID: &[u8] = b"custom_try_state";
+
+	pub(super) struct CustomTryState;
+
+	impl<BlockNumber> TryStateLogic<BlockNumber> for CustomTryState
+	where
+		BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+	{
+		fn try_state(_: BlockNumber) -> Result<(), sp_runtime::TryRuntimeError> {
+			unsafe {
+				CANARY_FLAG = true;
+			}
+			Ok(())
+		}
+	}
+
+	impl<BlockNumber> IdentifiableTryStateLogic<BlockNumber> for CustomTryState
+	where
+		BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+	{
+		fn matches_id(id: &[u8]) -> bool {
+			id == CUSTOM_TRY_STATE_ID
+		}
+	}
+}
+
 #[frame_support::pallet(dev_mode)]
 mod custom {
 	use super::*;
@@ -77,6 +111,18 @@ mod custom {
 
 		fn offchain_worker(n: BlockNumberFor<T>) {
 			assert_eq!(BlockNumberFor::<T>::from(1u32), n);
+		}
+
+		// Verify that `CustomTryState` has been called before.
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			unsafe {
+				assert!(
+					try_runtime::CANARY_FLAG,
+					"Custom `try-runtime` did not run before pallet `try-runtime`."
+				);
+			}
+			Ok(())
 		}
 	}
 
@@ -268,9 +314,9 @@ mod custom2 {
 		// Inherent call is accepted for being dispatched
 		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
 			match call {
-				Call::allowed_unsigned { .. } |
-				Call::optional_inherent { .. } |
-				Call::inherent { .. } => Ok(()),
+				Call::allowed_unsigned { .. }
+				| Call::optional_inherent { .. }
+				| Call::inherent { .. } => Ok(()),
 				_ => Err(UnknownTransaction::NoUnsignedValidator.into()),
 			}
 		}
@@ -397,6 +443,11 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 	}
 }
 
+#[cfg(not(feature = "try-runtime"))]
+type CustomOnTryState = ();
+#[cfg(feature = "try-runtime")]
+type CustomOnTryState = try_runtime::CustomTryState;
+
 type Executive = super::Executive<
 	Runtime,
 	Block<TestXt>,
@@ -404,6 +455,7 @@ type Executive = super::Executive<
 	Runtime,
 	AllPalletsWithSystem,
 	CustomOnRuntimeUpgrade,
+	CustomOnTryState,
 >;
 
 parameter_types! {
@@ -498,8 +550,8 @@ fn balance_transfer_dispatch_works() {
 		.assimilate_storage(&mut t)
 		.unwrap();
 	let xt = TestXt::new(call_transfer(2, 69), sign_extra(1, 0, 0));
-	let weight = xt.get_dispatch_info().weight +
-		<Runtime as frame_system::Config>::BlockWeights::get()
+	let weight = xt.get_dispatch_info().weight
+		+ <Runtime as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
 	let fee: Balance =
@@ -523,9 +575,14 @@ fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 	ext.execute_with(|| {
 		SystemCallbacksCalled::set(0);
 	});
+
+	#[cfg(feature = "try-runtime")]
+	unsafe {
+		try_runtime::CANARY_FLAG = false;
+	}
+
 	ext
 }
-
 fn new_test_ext_v0(balance_factor: Balance) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 111 * balance_factor)] }
@@ -681,8 +738,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 	let mut t = new_test_ext(1);
 	t.execute_with(|| {
 		// Block execution weight + on_initialize weight from custom module
-		let base_block_weight = Weight::from_parts(175, 0) +
-			<Runtime as frame_system::Config>::BlockWeights::get().base_block;
+		let base_block_weight = Weight::from_parts(175, 0)
+			+ <Runtime as frame_system::Config>::BlockWeights::get().base_block;
 
 		Executive::initialize_block(&Header::new_from_number(1));
 
@@ -694,8 +751,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 		assert!(Executive::apply_extrinsic(x2.clone()).unwrap().is_ok());
 
 		// default weight for `TestXt` == encoded length.
-		let extrinsic_weight = Weight::from_parts(len as u64, 0) +
-			<Runtime as frame_system::Config>::BlockWeights::get()
+		let extrinsic_weight = Weight::from_parts(len as u64, 0)
+			+ <Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic;
 		// Check we account for all extrinsic weight and their len.
@@ -957,10 +1014,10 @@ fn all_weights_are_recorded_correctly() {
 		// Weights are recorded correctly
 		assert_eq!(
 			frame_system::Pallet::<Runtime>::block_weight().total(),
-			custom_runtime_upgrade_weight +
-				runtime_upgrade_weight +
-				on_initialize_weight +
-				base_block_weight,
+			custom_runtime_upgrade_weight
+				+ runtime_upgrade_weight
+				+ on_initialize_weight
+				+ base_block_weight,
 		);
 	});
 }
