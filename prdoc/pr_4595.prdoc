@@ -9,7 +9,7 @@ doc:
       multiple cores assigned, otherwise collators must respond with `CollationFetchingResponse::Collation`
   - audience: Node Operator
     description: |
-      This changes enables elastic scaling support in collators. Please upgrade to latest version, 
+      This change enables elastic scaling support in collators. Please upgrade to latest version, 
       otherwise validator nodes will not be able to back elastic parachain blocks leading to 
       missed rewards. 
 
