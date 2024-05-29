@@ -9,6 +9,7 @@
 ![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub
 forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
+<!-- markdownlint-disable-next-line MD013 -->
 [![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)
 
 ![GitHub lines of code](https://tokei.rs/b1/github/paritytech/polkadot-sdk)&nbsp;&nbsp;
@@ -30,7 +31,7 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## 🚀 Releases
 
-> [!NOTE] 
+> [!NOTE]
 > Our release process is still Work-In-Progress and may not yet reflect the aspired outline
 > here.
 
@@ -62,9 +63,10 @@ Conduct](./docs/contributor/CODE_OF_CONDUCT.md).
 
 ### 👾 Ready to Contribute?
 
-Take a look at the issues labeled with [`mentor`](https://github.com/paritytech/polkadot-sdk/labels/C1-mentor) (or alternatively [this](https://mentor.tasty.limo/) page, created by one of
-the maintainers) label to get started! We always recognize valuable contributions by proposing an
-on-chain tip to the Polkadot network as a token of our appreciation.
+Take a look at the issues labeled with [`mentor`](https://github.com/paritytech/polkadot-sdk/labels/C1-mentor)
+(or alternatively [this](https://mentor.tasty.limo/) page, created by one of the maintainers) label to get started!
+We always recognize valuable contributions by proposing an on-chain tip to the Polkadot network as a token of our
+appreciation.
 
 ## Polkadot Fellowship
 
