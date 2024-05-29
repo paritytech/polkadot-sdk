@@ -772,9 +772,7 @@ fn fap_fork_no_xts_ready_switch_to_future() {
 	sp_tracing::try_init_simple();
 
 	// note: there are no xts in blocks!
-	let (api, forks) = test_chain_with_forks::chain(Some(&|f, b| match (f, b) {
-		_ => false,
-	}));
+	let (api, forks) = test_chain_with_forks::chain(Some(&|_, _| false));
 	let (pool, _) = create_basic_pool(api.clone());
 
 	let f03 = forks[0][3].hash();
@@ -850,9 +848,7 @@ fn fap_ready_at_triggered_by_maintain() {
 	//this scenario w/o xts is not likely to happen, but similar thing (xt changing from ready to
 	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
-	let (api, forks) = test_chain_with_forks::chain(Some(&|f, b| match (f, b) {
-		_ => false,
-	}));
+	let (api, forks) = test_chain_with_forks::chain(Some(&|_, _| false));
 	let (pool, _) = create_basic_pool(api.clone());
 
 	let f03 = forks[0][3].hash();

@@ -121,7 +121,7 @@ impl TestApi {
 		// Push genesis block
 		api.push_block(0, Vec::new(), true);
 
-		let hash0 = api.chain.read().block_by_hash.keys().nth(0).unwrap().clone();
+		let hash0 = *api.chain.read().block_by_hash.keys().nth(0).unwrap();
 		api.chain.write().nonces.insert(hash0, Default::default());
 
 		api
