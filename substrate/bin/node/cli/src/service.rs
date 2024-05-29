@@ -20,7 +20,7 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
-use polkadot_sdk::{sc_consensus_beefy as beefy, sc_consensus_grandpa as grandpa, *};
+use polkadot_sdk::{sc_consensus_beefy as beefy, sp_consensus_beefy as beefy_primitives, sc_consensus_grandpa as grandpa, *};
 
 use crate::Cli;
 use codec::Encode;
