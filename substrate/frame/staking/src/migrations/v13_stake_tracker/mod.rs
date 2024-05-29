@@ -20,13 +20,14 @@
 //! sorted list of targets with a bags-list.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{log, weights, Config, Nominators, Pallet, StakerStatus, Validators};
+use crate::{log, weights, Config, Nominations, Nominators, Pallet, StakerStatus, Validators};
 use core::marker::PhantomData;
 use frame_election_provider_support::{SortedListProvider, VoteWeight};
 use frame_support::{
 	ensure,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	traits::Defensive,
+	BoundedVec,
 };
 use sp_staking::StakingInterface;
 use sp_std::prelude::*;
@@ -69,12 +70,8 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		let mut chilled = 0;
-
 		// do as much progress as possible per step.
 		while meter.try_consume(required).is_ok() {
-			//TODO:  only bench a sub-step function, e.g. Self::do_migrate_nominatior(who);
-
 			// fetch the next nominator to migrate.
 			let mut iter = if let Some(ref last_nom) = cursor {
 				Nominators::<T>::iter_from(Nominators::<T>::hashed_key_for(last_nom))
@@ -83,19 +80,11 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 			};
 
 			if let Some((nominator, _)) = iter.next() {
-				// try chill nominator. If chilled, skip migration of this nominator. The nominator
-				// is force-chilled because it may need to re-nominate with a different set of
-				// nominations (see below). Thus it is better to just chill the nominator and move
-				// on.
-				if Self::try_chill_nominator(&nominator) {
-					chilled += 1;
-					cursor = Some(nominator);
-					continue;
-				}
+				let nominator_vote = Pallet::<T>::weight_of(&nominator);
+
 				// clean the nominations before migrating. This will ensure that the voter is not
 				// nominating duplicate and/or dangling targets.
 				let nominations = Self::clean_nominations(&nominator)?;
-				let nominator_vote = Pallet::<T>::weight_of(&nominator);
 
 				// iter over up to `MaxNominationsOf<T>` targets of `nominator` and insert or
 				// update the target's approval's score.
@@ -113,23 +102,17 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 				// done, return earlier.
 
 				// TODO: do this as the migration is performed -- not a large step at the end.
-
-				let mut a = 0;
 				// but before, add active validators without any nominations.
 				for (validator, _) in Validators::<T>::iter() {
 					if !<T as Config>::TargetList::contains(&validator) &&
 						<Pallet<T> as StakingInterface>::status(&validator) ==
 							Ok(StakerStatus::Validator)
 					{
-						a += 1;
 						let self_stake = Pallet::<T>::weight_of(&validator);
 						<T as Config>::TargetList::on_insert(validator, self_stake.into())
 							.expect("node does not exist, checked above; qed.");
 					}
 				}
-
-				log!(info, "Added validators with self stake: {:?}", a);
-				log!(info, "Chilled nominators: {:?}", chilled);
 				return Ok(None)
 			}
 		}
@@ -191,17 +174,6 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> MigrationV13<T, 
 		}
 	}
 
-	/// Chills a nominator if their active stake is below the minimum bond.
-	pub(crate) fn try_chill_nominator(who: &T::AccountId) -> bool {
-		if Pallet::<T>::active_stake(&who).unwrap_or_default() <
-			Pallet::<T>::minimum_nominator_bond()
-		{
-			let _ = <Pallet<T> as StakingInterface>::chill(&who).defensive();
-			return true;
-		}
-		false
-	}
-
 	/// Cleans up the nominations of `who`.
 	///
 	/// After calling this method, the following invariants are respected:
@@ -221,40 +193,50 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> MigrationV13<T, 
 			SteppedMigrationError::Failed
 		);
 
-		let mut raw_nominations = Nominators::<T>::get(who)
-			.map(|n| n.targets.into_inner())
-			.expect("who is nominator as per the check above; qed.");
+		let raw_nominations =
+			Nominators::<T>::get(who).expect("who is nominator as per the check above; qed.");
+		let mut raw_targets = raw_nominations.targets.into_inner();
 
-		let count_before = raw_nominations.len();
+		let count_before = raw_targets.len();
 
 		// remove duplicate nominations.
-		let dedup_noms: Vec<T::AccountId> = raw_nominations
-			.drain(..)
-			.collect::<BTreeSet<_>>()
-			.into_iter()
-			.collect::<Vec<_>>();
+		let dedup_noms: Vec<T::AccountId> =
+			raw_targets.drain(..).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>();
 
 		// remove all non-validator nominations.
-		let nominations = dedup_noms
+		let targets = dedup_noms
 			.into_iter()
 			.filter(|n| Pallet::<T>::status(n) == Ok(StakerStatus::Validator))
 			.collect::<Vec<_>>();
 
-		// update `who`'s nominations in staking or chill voter, if necessary.
-		if nominations.len() == 0 {
+		if targets.len() == 0 {
+			// if no nominations are left, chill the nominator.
 			let _ = <Pallet<T> as StakingInterface>::chill(&who)
 				.map_err(|e| {
-					log!(error, "ERROR when chilling {:?}", who);
+					log!(error, "error when chilling {:?}", who);
 					e
 				})
 				.defensive();
-		} else if count_before > nominations.len() {
-			<Pallet<T> as StakingInterface>::nominate(who, nominations.clone()).map_err(|e| {
-				log!(error, "failed to migrate nominations {:?}.", e);
-				SteppedMigrationError::Failed
-			})?;
+		} else if count_before > targets.len() {
+			// force update the nominations.
+			let bounded_targets = targets
+				.clone()
+				.into_iter()
+				.collect::<Vec<_>>()
+				.try_into()
+				.expect(
+				"new bound should be within the existent set of targets, thus it should fit; qed.",
+			);
+
+			let nominations = Nominations {
+				targets: bounded_targets,
+				submitted_in: raw_nominations.submitted_in,
+				suppressed: raw_nominations.suppressed,
+			};
+
+			<Pallet<T>>::do_add_nominator(who, nominations);
 		}
 
-		Ok(nominations)
+		Ok(targets)
 	}
 }

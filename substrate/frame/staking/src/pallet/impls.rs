@@ -2445,8 +2445,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	///  TODO: implement checks when voter list is strictly sorted.
-
 	/// Stake-tracker: checks if the approvals stake of the targets in the target list are correct.
 	///
 	/// These try-state checks generate a map with approval stake of all the targets based on
@@ -2496,19 +2494,6 @@ impl<T: Config> Pallet<T> {
 			);
 
 			for target in nominations.into_iter() {
-				// skip if for some reason there is a nominator being nominated.
-				match Self::status(&target) {
-					Ok(StakerStatus::Nominator(_)) => {
-						log!(
-							warn,
-							"nominated stakers {:?} is a nominator, not a validator.",
-							target
-						);
-						continue;
-					},
-					_ => (),
-				}
-
 				if let Some(approvals) = approvals_map.get_mut(&target) {
 					*approvals += vote.into();
 				} else {
