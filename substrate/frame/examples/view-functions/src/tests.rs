@@ -36,7 +36,7 @@ fn pallet_get_value_query() {
 		let input = query.encode();
 		let mut output = Vec::new();
 
-		let _ = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<_, Vec<u8>>(
+		let _ = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<Vec<u8>>(
 			&<pallet::GetValueQuery<Runtime> as Query>::ID,
 			&mut &input[..],
 			&mut output,
@@ -61,7 +61,7 @@ fn pallet_get_value_with_arg_query() {
 		let input = query.encode();
 		let mut output = Vec::new();
 
-		let _ = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<_, Vec<u8>>(
+		let _ = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<Vec<u8>>(
 			&<pallet::GetValueWithArgQuery<Runtime> as Query>::ID,
 			&mut &input[..],
 			&mut output,
@@ -73,3 +73,57 @@ fn pallet_get_value_with_arg_query() {
 		assert_eq!(some_value, query_result,);
 	});
 }
+
+// pub struct Test<T>(PhantomData<T>);
+//
+// impl<T: pallet::Config> DispatchQuery for Test<T>
+// where
+// 	T::AccountId: From<crate::SomeType1> + crate::SomeAssociation1,
+// {
+// 	#[automatically_derived]
+// 	// #[deny(unreachable_patterns)]
+// 	fn dispatch_query<O: codec::Output>(
+// 		id: &frame_support::traits::QueryId,
+// 		input: &mut &[u8],
+// 		output: &mut O,
+// 	) -> Result<(), codec::Error> {
+// 		match id.suffix {
+// 			<pallet::GetValueQuery<T> as frame_support::traits::QueryIdSuffix>::SUFFIX => {
+// 				let query = <pallet::GetValueQuery<
+// 					T,
+// 				> as codec::DecodeAll>::decode_all(input)?;
+// 				let result = <pallet::GetValueQuery<
+// 					T,
+// 				> as frame_support::traits::Query>::query(query);
+// 				let output = codec::Encode::encode_to(
+// 					&result,
+// 					output,
+// 				);
+// 				::core::result::Result::Ok(output)
+// 			}
+// 			<pallet::GetValueWithArgQuery<
+// 				T,
+// 			> as frame_support::traits::QueryIdSuffix>::SUFFIX => {
+// 				let query = <pallet::GetValueWithArgQuery<
+// 					T,
+// 				> as codec::DecodeAll>::decode_all(input)?;
+// 				let result = <pallet::GetValueWithArgQuery<
+// 					T,
+// 				> as frame_support::traits::Query>::query(query);
+// 				let output = codec::Encode::encode_to(
+// 					&result,
+// 					output,
+// 				);
+// 				::core::result::Result::Ok(output)
+// 			}
+// 			_ => {
+// 				Err(
+// 					codec::Error::from(
+// 						"DispatchQuery not implemented",
+// 					),
+// 				)
+// 			}
+// 		}
+// 	}
+//
+// }

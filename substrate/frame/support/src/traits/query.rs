@@ -17,21 +17,21 @@
 
 //! Traits for querying pallet view functions.
 
-use codec::{Decode, Encode, Input, Output};
+use codec::{Decode, Encode, Output};
 
 /// implemented by the runtime dispatching by prefix and then the pallet dispatching by suffix
 pub trait DispatchQuery {
-	fn dispatch_query<I: Input, O: Output>(
+	fn dispatch_query<O: Output>(
 		id: &QueryId,
-		input: &mut I,
+		input: &mut &[u8],
 		output: &mut O,
 	) -> Result<(), codec::Error>;
 }
 
 impl DispatchQuery for () {
-	fn dispatch_query<I: Input, O: Output>(
+	fn dispatch_query<O: Output>(
 		_id: &QueryId,
-		_input: &mut I,
+		_input: &mut &[u8],
 		_output: &mut O,
 	) -> Result<(), codec::Error> {
 		Err(codec::Error::from("DispatchQuery not implemented")) // todo: return "query not found" error?

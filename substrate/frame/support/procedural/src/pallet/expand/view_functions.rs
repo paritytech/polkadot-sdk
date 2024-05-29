@@ -82,7 +82,6 @@ fn expand_view_function(
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
 		#[scale_info(skip_type_params(#type_use_gen), capture_docs = #capture_docs)]
-		#[allow(non_camel_case_types)]
 		pub struct #query_struct_ident<#type_decl_bounded_gen> #where_clause {
 			#( pub #arg_names: #arg_types, )*
 			_marker: ::core::marker::PhantomData<(#type_use_gen,)>,
@@ -128,7 +127,7 @@ fn impl_dispatch_query(def: &Def, view_fns_impl: &ViewFunctionsImplDef) -> Token
 		let query_struct_ident = view_fn.query_struct_ident();
 		quote::quote! {
 			<#query_struct_ident<#type_use_gen> as #frame_support::traits::QueryIdSuffix>::SUFFIX => {
-				let query = <#query_struct_ident<#type_use_gen> as #frame_support::__private::codec::Decode>::decode(input)?;
+				let query = <#query_struct_ident<#type_use_gen> as #frame_support::__private::codec::DecodeAll>::decode_all(input)?;
 				let result = <#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::query(query);
 				let output = #frame_support::__private::codec::Encode::encode_to(&result, output);
 				::core::result::Result::Ok(output)
@@ -137,20 +136,23 @@ fn impl_dispatch_query(def: &Def, view_fns_impl: &ViewFunctionsImplDef) -> Token
 	});
 
 	quote::quote! {
-		impl<#type_impl_gen> #frame_support::traits::DispatchQuery
-			for #pallet_ident<#type_use_gen> #where_clause
-		{
-			fn dispatch_query<
-				I: #frame_support::__private::codec::Input,
-				O: #frame_support::__private::codec::Output,
-			>
-				(id: & #frame_support::traits::QueryId, input: &mut I, output: &mut O) -> Result<(), #frame_support::__private::codec::Error>
+		const _: () = {
+			impl<#type_impl_gen> #frame_support::traits::DispatchQuery
+				for #pallet_ident<#type_use_gen> #where_clause
 			{
-				match id.suffix {
-					#( #query_match_arms )*
-					_ => Err(#frame_support::__private::codec::Error::from("DispatchQuery not implemented")), // todo: [AJ]
+				#[deny(unreachable_patterns)]
+				fn dispatch_query<
+					O: #frame_support::__private::codec::Output,
+				>
+					(id: & #frame_support::traits::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::__private::codec::Error>
+				{
+					let x = 1;
+					match id.suffix {
+						#( #query_match_arms )*
+						_ => Err(#frame_support::__private::codec::Error::from("DispatchQuery not implemented")), // todo: [AJ]
+					}
 				}
 			}
-		}
+		};
 	}
 }
