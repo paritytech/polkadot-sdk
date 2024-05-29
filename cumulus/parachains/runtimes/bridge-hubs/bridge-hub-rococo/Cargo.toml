@@ -42,8 +42,6 @@ pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
-pallet-example-mbm = { path = "../../../../../substrate/frame/examples/multi-block-migrations", default-features = false }
-pallet-migrations = { path = "../../../../../substrate/frame/migrations", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false }
 sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
@@ -122,7 +120,6 @@ snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/
 
 bridge-hub-common = { path = "../common", default-features = false }
 
-
 [dev-dependencies]
 static_assertions = "1.1"
 bridge-hub-test-utils = { path = "../test-utils" }
@@ -177,9 +174,7 @@ std = [
 	"pallet-bridge-parachains/std",
 	"pallet-bridge-relayers/std",
 	"pallet-collator-selection/std",
-	"pallet-example-mbm/std",
 	"pallet-message-queue/std",
-	"pallet-migrations/std",
 	"pallet-multisig/std",
 	"pallet-session/std",
 	"pallet-timestamp/std",
@@ -246,9 +241,7 @@ runtime-benchmarks = [
 	"pallet-bridge-parachains/runtime-benchmarks",
 	"pallet-bridge-relayers/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
-	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
-	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -288,9 +281,7 @@ try-runtime = [
 	"pallet-bridge-parachains/try-runtime",
 	"pallet-bridge-relayers/try-runtime",
 	"pallet-collator-selection/try-runtime",
-	"pallet-example-mbm/try-runtime",
 	"pallet-message-queue/try-runtime",
-	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
