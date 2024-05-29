@@ -27,7 +27,7 @@ use sc_transaction_pool_api::{
 use crate::hex_string;
 use futures::{FutureExt, StreamExt};
 
-use sp_runtime::traits::{Block as BlockT, NumberFor};
+use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 use substrate_test_runtime_transaction_pool::TestApi;
 use tokio::sync::mpsc;
@@ -166,7 +166,7 @@ impl TransactionPool for MiddlewarePool {
 
 	fn ready_at(
 		&self,
-		at: NumberFor<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 	) -> Pin<
 		Box<
 			dyn Future<
@@ -177,11 +177,14 @@ impl TransactionPool for MiddlewarePool {
 		self.inner_pool.ready_at(at)
 	}
 
-	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
-		self.inner_pool.ready()
+	fn ready(
+		&self,
+		at: Self::Hash,
+	) -> Option<Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>> {
+		self.inner_pool.ready(at)
 	}
 
-	fn futures(&self) -> Vec<Self::InPoolTransaction> {
-		self.inner_pool.futures()
+	fn futures(&self, at: Self::Hash) -> Option<Vec<Self::InPoolTransaction>> {
+		self.inner_pool.futures(at)
 	}
 }

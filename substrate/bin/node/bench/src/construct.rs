@@ -35,7 +35,7 @@ use sc_transaction_pool_api::{
 };
 use sp_consensus::{Environment, Proposer};
 use sp_inherents::InherentDataProvider;
-use sp_runtime::{traits::NumberFor, OpaqueExtrinsic};
+use sp_runtime::OpaqueExtrinsic;
 
 use crate::{
 	common::SizeType,
@@ -261,7 +261,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 
 	fn ready_at(
 		&self,
-		_at: NumberFor<Self::Block>,
+		_at: Self::Hash,
 	) -> Pin<
 		Box<
 			dyn Future<
@@ -274,7 +274,10 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		Box::pin(futures::future::ready(iter))
 	}
 
-	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
+	fn ready(
+		&self,
+		_at: Self::Hash,
+	) -> Option<Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>> {
 		unimplemented!()
 	}
 
@@ -282,7 +285,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		Default::default()
 	}
 
-	fn futures(&self) -> Vec<Self::InPoolTransaction> {
+	fn futures(&self, _at: Self::Hash) -> Option<Vec<Self::InPoolTransaction>> {
 		unimplemented!()
 	}
 

@@ -467,7 +467,7 @@ mod tests {
 		// then
 		assert_eq!(pool.status().ready, 1);
 		assert!(matches!(
-			pool.ready().next().unwrap().data().function,
+			pool.ready(header.hash()).unwrap().next().unwrap().data().function,
 			RuntimeCall::SubstrateTest(PalletCall::storage_change { .. })
 		));
 	}
