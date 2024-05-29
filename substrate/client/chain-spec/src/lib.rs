@@ -257,7 +257,7 @@
 //! 	pub known_blocks: HashMap<u64, String>,
 //! }
 //!
-//! pub type MyChainSpec<G> = GenericChainSpec<G, MyExtension>;
+//! pub type MyChainSpec = GenericChainSpec<MyExtension>;
 //! ```
 //! Some parameters may require different values depending on the current blockchain height (a.k.a.
 //! forks). You can use the [`ChainSpecGroup`](macro@ChainSpecGroup) macro and the provided [`Forks`]
@@ -286,10 +286,10 @@
 //! pub type BlockNumber = u64;
 //!
 //! /// A chain spec supporting forkable `ClientParams`.
-//! pub type MyChainSpec1<G> = GenericChainSpec<G, Forks<BlockNumber, ClientParams>>;
+//! pub type MyChainSpec1 = GenericChainSpec<Forks<BlockNumber, ClientParams>>;
 //!
 //! /// A chain spec supporting forkable `Extension`.
-//! pub type MyChainSpec2<G> = GenericChainSpec<G, Forks<BlockNumber, Extension>>;
+//! pub type MyChainSpec2 = GenericChainSpec<Forks<BlockNumber, Extension>>;
 //! ```
 //! It's also possible to have a set of parameters that are allowed to change with block numbers
 //! (i.e., they are forkable), and another set that is not subject to changes. This can also be
@@ -316,7 +316,7 @@
 //! 	pub pool: Forks<u64, PoolParams>,
 //! }
 //!
-//! pub type MyChainSpec<G> = GenericChainSpec<G, Extension>;
+//! pub type MyChainSpec = GenericChainSpec<Extension>;
 //! ```
 //! The chain spec can be extended with other fields that are opaque to the default chain spec.
 //! Specific node implementations will need to be able to deserialize these extensions.
@@ -344,7 +344,6 @@ pub use sc_chain_spec_derive::{ChainSpecExtension, ChainSpecGroup};
 
 use sc_network::config::MultiaddrWithPeerId;
 use sc_telemetry::TelemetryEndpoints;
-use serde::{de::DeserializeOwned, Serialize};
 use sp_core::storage::Storage;
 use sp_runtime::BuildStorage;
 
@@ -373,10 +372,6 @@ impl Default for ChainType {
 
 /// Arbitrary properties defined in chain spec as a JSON object
 pub type Properties = serde_json::map::Map<String, serde_json::Value>;
-
-/// A set of traits for the runtime genesis config.
-pub trait RuntimeGenesis: Serialize + DeserializeOwned + BuildStorage {}
-impl<T: Serialize + DeserializeOwned + BuildStorage> RuntimeGenesis for T {}
 
 /// Common interface of a chain specification.
 pub trait ChainSpec: BuildStorage + Send + Sync {

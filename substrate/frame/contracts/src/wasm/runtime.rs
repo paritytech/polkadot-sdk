@@ -21,6 +21,7 @@ use crate::{
 	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
 	gas::{ChargedAmount, Token},
 	primitives::ExecReturnValue,
+	weights::WeightInfo,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
@@ -145,6 +146,8 @@ impl HostError for TrapReason {}
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
+	/// Base Weight of calling a host function.
+	HostFn,
 	/// Weight charged for copying data from the sandbox.
 	CopyFromContract(u32),
 	/// Weight charged for copying data to the sandbox.
@@ -177,12 +180,8 @@ pub enum RuntimeCosts {
 	Now,
 	/// Weight of calling `seal_weight_to_fee`.
 	WeightToFee,
-	/// Weight of calling `seal_input` without the weight of copying the input.
-	InputBase,
-	/// Weight of calling `seal_return` for the given output size.
-	Return(u32),
-	/// Weight of calling `seal_terminate`.
-	Terminate,
+	/// Weight of calling `seal_terminate`, passing the number of locked dependencies.
+	Terminate(u32),
 	/// Weight of calling `seal_random`. It includes the weight for copying the subject.
 	Random,
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
@@ -206,13 +205,13 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_delegate_call` for the given input size.
 	DelegateCallBase,
 	/// Weight of the transfer performed during a call.
-	CallSurchargeTransfer,
+	CallTransferSurcharge,
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
 	/// Weight of calling `seal_instantiate` for the given input length and salt.
 	InstantiateBase { input_data_len: u32, salt_len: u32 },
 	/// Weight of the transfer performed during an instantiate.
-	InstantiateSurchargeTransfer,
+	InstantiateTransferSurcharge,
 	/// Weight of calling `seal_hash_sha_256` for the given input size.
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
@@ -236,15 +235,28 @@ pub enum RuntimeCosts {
 	/// Weight of calling `ecdsa_to_eth_address`
 	EcdsaToEthAddress,
 	/// Weight of calling `reentrance_count`
-	ReentrantCount,
+	ReentranceCount,
 	/// Weight of calling `account_reentrance_count`
-	AccountEntranceCount,
+	AccountReentranceCount,
 	/// Weight of calling `instantiation_nonce`
 	InstantiationNonce,
 	/// Weight of calling `lock_delegate_dependency`
 	LockDelegateDependency,
 	/// Weight of calling `unlock_delegate_dependency`
 	UnlockDelegateDependency,
+}
+
+macro_rules! cost_args {
+	// cost_args!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_sub(T::WeightInfo::name(0, 0, 0))
+	($name:ident, $( $arg: expr ),+) => {
+		(T::WeightInfo::$name($( $arg ),+).saturating_sub(cost_args!(@call_zero $name, $( $arg ),+)))
+	};
+	// Transform T::WeightInfo::name(a, b, c) into T::WeightInfo::name(0, 0, 0)
+	(@call_zero $name:ident, $( $arg:expr ),*) => {
+		T::WeightInfo::$name($( cost_args!(@replace_token $arg) ),*)
+	};
+	// Replace the token with 0.
+	(@replace_token $_in:tt) => { 0 };
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -256,85 +268,57 @@ impl<T: Config> Token<T> for RuntimeCosts {
 	}
 
 	fn weight(&self) -> Weight {
-		let s = T::Schedule::get().host_fn_weights;
 		use self::RuntimeCosts::*;
 		match *self {
-			CopyFromContract(len) => s.return_per_byte.saturating_mul(len.into()),
-			CopyToContract(len) => s.input_per_byte.saturating_mul(len.into()),
-			Caller => s.caller,
-			IsContract => s.is_contract,
-			CodeHash => s.code_hash,
-			OwnCodeHash => s.own_code_hash,
-			CallerIsOrigin => s.caller_is_origin,
-			CallerIsRoot => s.caller_is_root,
-			Address => s.address,
-			GasLeft => s.gas_left,
-			Balance => s.balance,
-			ValueTransferred => s.value_transferred,
-			MinimumBalance => s.minimum_balance,
-			BlockNumber => s.block_number,
-			Now => s.now,
-			WeightToFee => s.weight_to_fee,
-			InputBase => s.input,
-			Return(len) => s.r#return.saturating_add(s.return_per_byte.saturating_mul(len.into())),
-			Terminate => s.terminate,
-			Random => s.random,
-			DepositEvent { num_topic, len } => s
-				.deposit_event
-				.saturating_add(s.deposit_event_per_topic.saturating_mul(num_topic.into()))
-				.saturating_add(s.deposit_event_per_byte.saturating_mul(len.into())),
-			DebugMessage(len) => s
-				.debug_message
-				.saturating_add(s.deposit_event_per_byte.saturating_mul(len.into())),
-			SetStorage { new_bytes, old_bytes } => s
-				.set_storage
-				.saturating_add(s.set_storage_per_new_byte.saturating_mul(new_bytes.into()))
-				.saturating_add(s.set_storage_per_old_byte.saturating_mul(old_bytes.into())),
-			ClearStorage(len) => s
-				.clear_storage
-				.saturating_add(s.clear_storage_per_byte.saturating_mul(len.into())),
-			ContainsStorage(len) => s
-				.contains_storage
-				.saturating_add(s.contains_storage_per_byte.saturating_mul(len.into())),
-			GetStorage(len) =>
-				s.get_storage.saturating_add(s.get_storage_per_byte.saturating_mul(len.into())),
-			TakeStorage(len) => s
-				.take_storage
-				.saturating_add(s.take_storage_per_byte.saturating_mul(len.into())),
-			Transfer => s.transfer,
-			CallBase => s.call,
-			DelegateCallBase => s.delegate_call,
-			CallSurchargeTransfer => s.call_transfer_surcharge,
-			CallInputCloned(len) => s.call_per_cloned_byte.saturating_mul(len.into()),
-			InstantiateBase { input_data_len, salt_len } => s
-				.instantiate
-				.saturating_add(s.instantiate_per_input_byte.saturating_mul(input_data_len.into()))
-				.saturating_add(s.instantiate_per_salt_byte.saturating_mul(salt_len.into())),
-			InstantiateSurchargeTransfer => s.instantiate_transfer_surcharge,
-			HashSha256(len) => s
-				.hash_sha2_256
-				.saturating_add(s.hash_sha2_256_per_byte.saturating_mul(len.into())),
-			HashKeccak256(len) => s
-				.hash_keccak_256
-				.saturating_add(s.hash_keccak_256_per_byte.saturating_mul(len.into())),
-			HashBlake256(len) => s
-				.hash_blake2_256
-				.saturating_add(s.hash_blake2_256_per_byte.saturating_mul(len.into())),
-			HashBlake128(len) => s
-				.hash_blake2_128
-				.saturating_add(s.hash_blake2_128_per_byte.saturating_mul(len.into())),
-			EcdsaRecovery => s.ecdsa_recover,
-			Sr25519Verify(len) => s
-				.sr25519_verify
-				.saturating_add(s.sr25519_verify_per_byte.saturating_mul(len.into())),
+			HostFn => cost_args!(noop_host_fn, 1),
+			CopyToContract(len) => T::WeightInfo::seal_input(len),
+			CopyFromContract(len) => T::WeightInfo::seal_return(len),
+			Caller => T::WeightInfo::seal_caller(),
+			IsContract => T::WeightInfo::seal_is_contract(),
+			CodeHash => T::WeightInfo::seal_code_hash(),
+			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
+			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
+			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
+			Address => T::WeightInfo::seal_address(),
+			GasLeft => T::WeightInfo::seal_gas_left(),
+			Balance => T::WeightInfo::seal_balance(),
+			ValueTransferred => T::WeightInfo::seal_value_transferred(),
+			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
+			BlockNumber => T::WeightInfo::seal_block_number(),
+			Now => T::WeightInfo::seal_now(),
+			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
+			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
+			Random => T::WeightInfo::seal_random(),
+			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
+			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
+			SetStorage { new_bytes, old_bytes } =>
+				T::WeightInfo::seal_set_storage(new_bytes, old_bytes),
+			ClearStorage(len) => T::WeightInfo::seal_clear_storage(len),
+			ContainsStorage(len) => T::WeightInfo::seal_contains_storage(len),
+			GetStorage(len) => T::WeightInfo::seal_get_storage(len),
+			TakeStorage(len) => T::WeightInfo::seal_take_storage(len),
+			Transfer => T::WeightInfo::seal_transfer(),
+			CallBase => T::WeightInfo::seal_call(0, 0),
+			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
+			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
+			CallInputCloned(len) => cost_args!(seal_call, 0, len),
+			InstantiateBase { input_data_len, salt_len } =>
+				T::WeightInfo::seal_instantiate(0, input_data_len, salt_len),
+			InstantiateTransferSurcharge => cost_args!(seal_instantiate, 1, 0, 0),
+			HashSha256(len) => T::WeightInfo::seal_hash_sha2_256(len),
+			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
+			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
+			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
+			EcdsaRecovery => T::WeightInfo::seal_ecdsa_recover(),
+			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
 			ChainExtension(weight) | CallRuntime(weight) | CallXcmExecute(weight) => weight,
-			SetCodeHash => s.set_code_hash,
-			EcdsaToEthAddress => s.ecdsa_to_eth_address,
-			ReentrantCount => s.reentrance_count,
-			AccountEntranceCount => s.account_reentrance_count,
-			InstantiationNonce => s.instantiation_nonce,
-			LockDelegateDependency => s.lock_delegate_dependency,
-			UnlockDelegateDependency => s.unlock_delegate_dependency,
+			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
+			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
+			ReentranceCount => T::WeightInfo::seal_reentrance_count(),
+			AccountReentranceCount => T::WeightInfo::seal_account_reentrance_count(),
+			InstantiationNonce => T::WeightInfo::seal_instantiation_nonce(),
+			LockDelegateDependency => T::WeightInfo::lock_delegate_dependency(),
+			UnlockDelegateDependency => T::WeightInfo::unlock_delegate_dependency(),
 		}
 	}
 }
@@ -819,6 +803,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(call_type.cost())?;
+
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
 			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
 			charge_gas!(self, RuntimeCosts::CallInputCloned(input.len() as u32))?;
@@ -842,7 +827,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 				let value: BalanceOf<<E as Ext>::T> =
 					self.read_sandbox_memory_as(memory, value_ptr)?;
 				if value > 0u32.into() {
-					self.charge_gas(RuntimeCosts::CallSurchargeTransfer)?;
+					self.charge_gas(RuntimeCosts::CallTransferSurcharge)?;
 				}
 				self.ext.call(
 					weight,
@@ -910,7 +895,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		};
 		let value: BalanceOf<<E as Ext>::T> = self.read_sandbox_memory_as(memory, value_ptr)?;
 		if value > 0u32.into() {
-			self.charge_gas(RuntimeCosts::InstantiateSurchargeTransfer)?;
+			self.charge_gas(RuntimeCosts::InstantiateTransferSurcharge)?;
 		}
 		let code_hash: CodeHash<<E as Ext>::T> =
 			self.read_sandbox_memory_as(memory, code_hash_ptr)?;
@@ -942,7 +927,9 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	}
 
 	fn terminate(&mut self, memory: &[u8], beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::Terminate)?;
+		let count = self.ext.locked_delegate_dependencies_count() as _;
+		self.charge_gas(RuntimeCosts::Terminate(count))?;
+
 		let beneficiary: <<E as Ext>::T as frame_system::Config>::AccountId =
 			self.read_sandbox_memory_as(memory, beneficiary_ptr)?;
 		self.ext.terminate(&beneficiary)?;
@@ -959,6 +946,14 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 // for every function.
 #[define_env(doc)]
 pub mod env {
+
+	/// Noop function used to benchmark the time it takes to execute an empty function.
+	#[cfg(feature = "runtime-benchmarks")]
+	#[unstable]
+	fn noop(ctx: _, memory: _) -> Result<(), TrapReason> {
+		Ok(())
+	}
+
 	/// Set the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::set_storage`]
 	#[prefixed_alias]
@@ -1387,7 +1382,6 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::input`].
 	#[prefixed_alias]
 	fn input(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
-		ctx.charge_gas(RuntimeCosts::InputBase)?;
 		if let Some(input) = ctx.input_data.take() {
 			ctx.write_sandbox_output(memory, out_ptr, out_len_ptr, &input, false, |len| {
 				Some(RuntimeCosts::CopyToContract(len))
@@ -1408,7 +1402,7 @@ pub mod env {
 		data_ptr: u32,
 		data_len: u32,
 	) -> Result<(), TrapReason> {
-		ctx.charge_gas(RuntimeCosts::Return(data_len))?;
+		ctx.charge_gas(RuntimeCosts::CopyFromContract(data_len))?;
 		Err(TrapReason::Return(ReturnData {
 			flags,
 			data: ctx.read_sandbox_memory(memory, data_ptr, data_len)?,
@@ -2249,7 +2243,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::reentrance_count`].
 	#[unstable]
 	fn reentrance_count(ctx: _, memory: _) -> Result<u32, TrapReason> {
-		ctx.charge_gas(RuntimeCosts::ReentrantCount)?;
+		ctx.charge_gas(RuntimeCosts::ReentranceCount)?;
 		Ok(ctx.ext.reentrance_count())
 	}
 
@@ -2258,7 +2252,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::account_reentrance_count`].
 	#[unstable]
 	fn account_reentrance_count(ctx: _, memory: _, account_ptr: u32) -> Result<u32, TrapReason> {
-		ctx.charge_gas(RuntimeCosts::AccountEntranceCount)?;
+		ctx.charge_gas(RuntimeCosts::AccountReentranceCount)?;
 		let account_id: <<E as Ext>::T as frame_system::Config>::AccountId =
 			ctx.read_sandbox_memory_as(memory, account_ptr)?;
 		Ok(ctx.ext.account_reentrance_count(&account_id))

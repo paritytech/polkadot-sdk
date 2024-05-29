@@ -109,7 +109,6 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 			reward_account.clone(),
 		)
 	}
-
 	fn migrate_delegation(
 		agent: &Self::AccountId,
 		delegator: &Self::AccountId,
@@ -120,6 +119,24 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 			delegator.clone(),
 			value,
 		)
+	}
+
+	/// Only used for testing.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn drop_agent(agent: &T::AccountId) {
+		<Agents<T>>::remove(agent);
+		<Delegators<T>>::iter()
+			.filter(|(_, delegation)| delegation.agent == *agent)
+			.for_each(|(delegator, _)| {
+				let _ = T::Currency::release_all(
+					&HoldReason::StakingDelegation.into(),
+					&delegator,
+					Precision::BestEffort,
+				);
+				<Delegators<T>>::remove(&delegator);
+			});
+
+		T::CoreStaking::migrate_to_direct_staker(agent);
 	}
 }
 
