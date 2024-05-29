@@ -140,6 +140,12 @@ impl core::str::FromStr for UpgradeCheckSelect {
 	}
 }
 
+/// Execute some checks to ensure the internal state of a pallet is consistent.
+///
+/// Usually, these checks should check all of the invariants that are expected to be held on all of
+/// the storage items of your pallet.
+///
+/// This hook should not alter any storage.
 pub trait TryStateLogic<BlockNumber> {
 	fn try_state(_: BlockNumber) -> Result<(), TryRuntimeError>;
 }
@@ -160,16 +166,13 @@ where
 			}
 		)*);
 
-		if !errors.is_empty() {
-			return Err("Detected errors while executing `try_state` checks. See logs for more \
-						info."
-				.into());
-		}
-
 		Ok(())
 	}
 }
 
+/// Logic executed when `try-state` filters are provided in the `try-runtime` CLI.
+///
+/// Returning `true` for the provided ID will include this `try-state` logic in the overall tests performed.
 pub trait IdentifiableTryStateLogic<BlockNumber>: TryStateLogic<BlockNumber> {
 	fn matches_id(_id: &[u8]) -> bool;
 }
@@ -205,12 +208,12 @@ impl<BlockNumber> TryState<BlockNumber> for () {
 	}
 }
 
-// Did not find a way to implement a trait on tuple without requiring the tuples to implement the very same trait being implemented.
-impl<BlockNumber, T1, T2> TryState<BlockNumber> for (T1, T2)
+impl<BlockNumber, AllPallets, AdditionalHooks> TryState<BlockNumber>
+	for (AdditionalHooks, AllPallets)
 where
 	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
-	T1: IdentifiableTryStateLogic<BlockNumber>,
-	T2: IdentifiableTryStateLogic<BlockNumber>,
+	AdditionalHooks: IdentifiableTryStateLogic<BlockNumber>,
+	AllPallets: IdentifiableTryStateLogic<BlockNumber>,
 {
 	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
 		match targets {
@@ -218,10 +221,10 @@ where
 			Select::All => {
 				let mut errors = Vec::<TryRuntimeError>::new();
 
-				if let Err(err) = T1::try_state(n.clone()) {
+				if let Err(err) = AdditionalHooks::try_state(n.clone()) {
 					errors.push(err);
 				}
-				if let Err(err) = T2::try_state(n.clone()) {
+				if let Err(err) = AllPallets::try_state(n.clone()) {
 					errors.push(err);
 				}
 
@@ -250,7 +253,7 @@ where
 			},
 			Select::RoundRobin(len) => {
 				let functions: &[fn(BlockNumber) -> Result<(), TryRuntimeError>] =
-					&[T1::try_state, T2::try_state];
+					&[AdditionalHooks::try_state, AllPallets::try_state];
 				let skip = n.clone() % (functions.len() as u32).into();
 				let skip: u32 =
 					skip.try_into().unwrap_or_else(|_| sp_runtime::traits::Bounded::max_value());
@@ -265,7 +268,10 @@ where
 				let try_state_fns: &[(
 					fn(&[u8]) -> bool,
 					fn(BlockNumber) -> Result<(), TryRuntimeError>,
-				)] = &[(T1::matches_id, T1::try_state), (T2::matches_id, T2::try_state)];
+				)] = &[
+					(AdditionalHooks::matches_id, AdditionalHooks::try_state),
+					(AllPallets::matches_id, AllPallets::try_state),
+				];
 
 				let mut result = Ok(());
 				try_state_identifiers.iter().for_each(|id| {

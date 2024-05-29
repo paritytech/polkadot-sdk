@@ -122,11 +122,16 @@
 //! }
 //!
 //! struct CustomTryState;
-//! impl frame_support::traits::TryState<BlockNumber> for CustomTryState {
+//! impl frame_support::traits::IdentifiableTryStateLogic<BlockNumber> for CustomTryState {
 //!
-//! 	fn try_state(_: BlockNumber, _: Select) -> Result<(), sp_runtime::TryRuntimeError> {
+//! 	fn try_state(_: BlockNumber) -> Result<(), sp_runtime::TryRuntimeError> {
 //!         // Do whatever you want.
 //!         Ok(())
+//! 	}
+//!
+//! 	fn matches_id(id: &[u8]) -> bool {
+//! 		// Used to decide whether to include this or not when `Select::Only` is specified.
+//!         id == b"my_custom_try_state"
 //! 	}
 //! }
 //!
