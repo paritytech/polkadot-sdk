@@ -229,13 +229,14 @@ impl Clock for TestClock {
 
 const TEST_STAGNANT_INTERVAL: Duration = Duration::from_millis(20);
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<ChainSelectionMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ChainSelectionMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	test: impl FnOnce(TestBackend, TestClock, VirtualOverseer) -> T,
 ) {
 	let pool = TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool);
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let backend = TestBackend::default();
 	let clock = TestClock::new(0);

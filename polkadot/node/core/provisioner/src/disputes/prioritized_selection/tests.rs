@@ -29,7 +29,6 @@ use polkadot_primitives::{
 	CandidateHash, DisputeState, InvalidDisputeStatementKind, SessionIndex,
 	ValidDisputeStatementKind, ValidatorSignature,
 };
-use test_helpers;
 
 //
 // Unit tests for various functions

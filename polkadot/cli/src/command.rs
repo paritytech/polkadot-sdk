@@ -22,13 +22,13 @@ use sc_cli::SubstrateCli;
 use service::{
 	self,
 	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
-	HeaderBackend, IdentifyVariant,
+	BlockId, HeaderBackend, IdentifyVariant,
 };
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
 use std::net::ToSocketAddrs;
 
-pub use crate::{error::Error, service::BlockId};
+pub use crate::error::Error;
 #[cfg(feature = "hostperfcheck")]
 pub use polkadot_performance_test::PerfCheckError;
 #[cfg(feature = "pyroscope")]

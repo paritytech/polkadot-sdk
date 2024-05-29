@@ -44,7 +44,7 @@ use rand::SeedableRng;
 use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_core::crypto::Pair as PairT;
 use std::time::Duration;
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<ApprovalDistributionMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalDistributionMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	mut state: State,
@@ -56,7 +56,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		.try_init();
 
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = ApprovalDistribution::new(Default::default());
 	{
@@ -3657,7 +3658,8 @@ fn batch_test_round(message_count: usize) {
 	let pool = sp_core::testing::TaskExecutor::new();
 	let mut state = State::default();
 
-	let (mut context, mut virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (mut context, mut virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 	let subsystem = ApprovalDistribution::new(Default::default());
 	let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(12345);
 	let mut sender = context.sender().clone();

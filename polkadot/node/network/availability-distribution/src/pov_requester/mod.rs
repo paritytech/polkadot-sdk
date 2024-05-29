@@ -169,10 +169,11 @@ mod tests {
 
 	fn test_run(pov_hash: Hash, pov: PoV) {
 		let pool = TaskExecutor::new();
-		let (mut context, mut virtual_overseer) = test_helpers::make_subsystem_context::<
-			AvailabilityDistributionMessage,
-			TaskExecutor,
-		>(pool.clone());
+		let (mut context, mut virtual_overseer) =
+			polkadot_node_subsystem_test_helpers::make_subsystem_context::<
+				AvailabilityDistributionMessage,
+				TaskExecutor,
+			>(pool.clone());
 		let keystore = make_ferdie_keystore();
 		let mut runtime = polkadot_node_subsystem_util::runtime::RuntimeInfo::new(Some(keystore));
 

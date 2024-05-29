@@ -609,7 +609,6 @@ pub(crate) mod tests {
 		approval_db::common::{load_block_entry, DbBackend},
 		RuntimeInfo, RuntimeInfoConfig,
 	};
-	use ::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	use assert_matches::assert_matches;
 	use polkadot_node_primitives::{
 		approval::v1::{VrfSignature, VrfTranscript},
@@ -622,6 +621,7 @@ pub(crate) mod tests {
 		node_features::FeatureIndex, ExecutorParams, Id as ParaId, IndexedVec, NodeFeatures,
 		SessionInfo, ValidatorId, ValidatorIndex,
 	};
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 	pub(crate) use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
 		AllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,

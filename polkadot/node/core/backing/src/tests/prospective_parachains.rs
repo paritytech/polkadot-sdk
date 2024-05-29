@@ -1601,7 +1601,8 @@ fn occupied_core_assignment() {
 		let previous_para_id = test_state.chain_ids[1];
 
 		// Set the core state to occupied.
-		let mut candidate_descriptor = ::test_helpers::dummy_candidate_descriptor(Hash::zero());
+		let mut candidate_descriptor =
+			polkadot_primitives_test_helpers::dummy_candidate_descriptor(Hash::zero());
 		candidate_descriptor.para_id = previous_para_id;
 		test_state.availability_cores[0] = CoreState::Occupied(OccupiedCore {
 			group_responsible: Default::default(),

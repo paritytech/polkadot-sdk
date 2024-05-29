@@ -503,10 +503,10 @@ mod tests {
 	use super::*;
 
 	use crate::{mock::TestRegistrar, slots};
-	use ::test_helpers::{dummy_head_data, dummy_validation_code};
 	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	use frame_system::EnsureRoot;
 	use pallet_balances;
+	use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
 	use primitives::BlockNumber;
 	use sp_core::H256;
 	use sp_runtime::{

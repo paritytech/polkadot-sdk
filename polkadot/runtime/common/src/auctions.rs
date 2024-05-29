@@ -671,7 +671,6 @@ impl<T: Config> Pallet<T> {
 mod tests {
 	use super::*;
 	use crate::{auctions, mock::TestRegistrar};
-	use ::test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	use frame_support::{
 		assert_noop, assert_ok, assert_storage_noop, derive_impl, ord_parameter_types,
 		parameter_types,
@@ -679,6 +678,7 @@ mod tests {
 	};
 	use frame_system::{EnsureRoot, EnsureSignedBy};
 	use pallet_balances;
+	use polkadot_primitives_test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	use primitives::{BlockNumber, Id as ParaId};
 	use sp_core::H256;
 	use sp_runtime::{

@@ -26,7 +26,9 @@ mod command;
 mod error;
 
 #[cfg(feature = "service")]
-pub use service::{self, Block, CoreApi, IdentifyVariant, ProvideRuntimeApi, TFullClient};
+pub use service::{
+	self as service, Block, CoreApi, IdentifyVariant, ProvideRuntimeApi, TFullClient,
+};
 
 #[cfg(feature = "malus")]
 pub use service::overseer::validator_overseer_builder;

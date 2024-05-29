@@ -46,7 +46,7 @@ use polkadot_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_node_subsystem_test_helpers::TestSubsystemSender;
 use polkadot_overseer::{SubsystemContext, SubsystemSender};
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
 
 #[async_trait::async_trait]
 impl OverseerHandleT for TestSubsystemSender {
@@ -76,7 +76,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		.try_init();
 
 	let pool = TaskExecutor::new();
-	let (mut context, virtual_overseer) = test_helpers::make_subsystem_context(pool);
+	let (mut context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let (finality_target_tx, finality_target_rx) = oneshot::channel::<Option<Hash>>();
 

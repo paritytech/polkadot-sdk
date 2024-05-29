@@ -90,7 +90,7 @@ lazy_static! {
 	];
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
 
 #[derive(Debug, Clone)]
 struct MockAuthorityDiscovery {
@@ -200,7 +200,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>, AD: AuthorityDiscovery>(
 	test_fn: impl FnOnce(VirtualOverseer) -> T,
 ) -> GossipSupport<AD> {
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = subsystem.run(context);
 

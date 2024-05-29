@@ -132,7 +132,7 @@ impl Default for TestState {
 	}
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
 
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,
@@ -151,7 +151,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 
 	let pool = sp_core::testing::TaskExecutor::new();
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
 	Keystore::sr25519_generate_new(

@@ -64,7 +64,7 @@ use super::{
 	},
 };
 
-use ::test_helpers::{dummy_candidate_receipt, dummy_candidate_receipt_bad_sig};
+use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_candidate_receipt_bad_sig};
 
 const SLOT_DURATION_MILLIS: u64 = 5000;
 
@@ -459,7 +459,7 @@ fn sign_approval_multiple_candidates(
 		.into()
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
 
 #[derive(Default)]
 struct HarnessConfigBuilder {
@@ -548,7 +548,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		config;
 
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool);
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let keystore = LocalKeystore::in_memory();
 	let _ = keystore.sr25519_generate_new(

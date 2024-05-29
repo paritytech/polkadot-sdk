@@ -16,10 +16,6 @@
 
 use self::test_helpers::mock::new_leaf;
 use super::*;
-use ::test_helpers::{
-	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
-};
 use assert_matches::assert_matches;
 use futures::{future, Future};
 use polkadot_node_primitives::{BlockData, InvalidCandidate, SignedFullStatement, Statement};
@@ -35,6 +31,10 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	node_features, CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData,
 	PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
+	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
 };
 use rstest::rstest;
 use sp_application_crypto::AppCrypto;
@@ -164,7 +164,7 @@ impl Default for TestState {
 	}
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CandidateBackingMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CandidateBackingMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	keystore: KeystorePtr,
@@ -172,7 +172,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 ) {
 	let pool = sp_core::testing::TaskExecutor::new();
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = async move {
 		if let Err(e) = super::run(context, keystore, Metrics(None)).await {

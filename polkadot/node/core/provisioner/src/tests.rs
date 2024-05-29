@@ -15,9 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use ::test_helpers::{dummy_candidate_descriptor, dummy_hash};
 use bitvec::bitvec;
 use polkadot_primitives::{OccupiedCore, ScheduledCore};
+use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
 
 const MOCK_GROUP_SIZE: usize = 5;
 
@@ -244,7 +244,6 @@ mod select_candidates {
 		super::*, build_occupied_core, common::test_harness, default_bitvec, occupied_core,
 		scheduled_core, MOCK_GROUP_SIZE,
 	};
-	use ::test_helpers::{dummy_candidate_descriptor, dummy_hash};
 	use futures::channel::mpsc;
 	use polkadot_node_subsystem::messages::{
 		AllMessages, RuntimeApiMessage,
@@ -257,6 +256,7 @@ mod select_candidates {
 	use polkadot_primitives::{
 		BlockNumber, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData,
 	};
+	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
 	use rstest::rstest;
 	use std::ops::Not;
 	use CoreState::{Free, Scheduled};

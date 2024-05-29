@@ -55,7 +55,7 @@ use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 use super::mock::{make_session_info, OccupiedCoreBuilder};
 use crate::LOG_TARGET;
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<AvailabilityDistributionMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<AvailabilityDistributionMessage>;
 pub struct TestHarness {
 	pub virtual_overseer: VirtualOverseer,
 	pub pov_req_cfg: RequestResponseConfig,

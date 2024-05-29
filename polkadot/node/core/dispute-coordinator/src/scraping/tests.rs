@@ -22,7 +22,6 @@ use futures::future::join;
 use parity_scale_codec::Encode;
 use sp_core::testing::TaskExecutor;
 
-use ::test_helpers::{dummy_collator, dummy_collator_signature, dummy_hash};
 use polkadot_node_primitives::DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;
 use polkadot_node_subsystem::{
 	messages::{
@@ -40,6 +39,7 @@ use polkadot_primitives::{
 	BlakeTwo256, BlockNumber, CandidateDescriptor, CandidateEvent, CandidateReceipt, CoreIndex,
 	GroupIndex, Hash, HashT, HeadData, Id as ParaId,
 };
+use polkadot_primitives_test_helpers::{dummy_collator, dummy_collator_signature, dummy_hash};
 
 use crate::{scraping::Inclusions, LOG_TARGET};
 

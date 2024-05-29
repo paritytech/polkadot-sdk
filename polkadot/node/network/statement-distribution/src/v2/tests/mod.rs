@@ -55,7 +55,7 @@ mod cluster;
 mod grid;
 mod requests;
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<StatementDistributionMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<StatementDistributionMessage>;
 
 const DEFAULT_ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
 	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
@@ -371,7 +371,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 
 	let test_state = TestState::from_config(config, req_cfg.inbound_queue.unwrap(), &mut rng);
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 	let subsystem = async move {
 		let subsystem = crate::StatementDistributionSubsystem {
 			keystore,

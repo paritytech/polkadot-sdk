@@ -20,7 +20,6 @@ use assert_matches::assert_matches;
 use futures::{channel::oneshot, executor, future, Future};
 
 use self::test_helpers::mock::new_leaf;
-use ::test_helpers::TestCandidateBuilder;
 use parking_lot::Mutex;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV, Proof};
 use polkadot_node_subsystem::{
@@ -34,6 +33,7 @@ use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, HeadData, Header,
 	PersistedValidationData, ValidatorId,
 };
+use polkadot_primitives_test_helpers::TestCandidateBuilder;
 use sp_keyring::Sr25519Keyring;
 
 mod columns {
@@ -44,7 +44,7 @@ mod columns {
 
 const TEST_CONFIG: Config = Config { col_data: columns::DATA, col_meta: columns::META };
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<AvailabilityStoreMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<AvailabilityStoreMessage>;
 
 #[derive(Clone)]
 struct TestClock {
@@ -127,7 +127,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		.try_init();
 
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = AvailabilityStoreSubsystem::with_pruning_config_and_clock(
 		store,

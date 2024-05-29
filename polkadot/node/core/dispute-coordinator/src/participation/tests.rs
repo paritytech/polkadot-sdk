@@ -22,9 +22,6 @@ use std::{sync::Arc, time::Duration};
 use sp_core::testing::TaskExecutor;
 
 use super::*;
-use ::test_helpers::{
-	dummy_candidate_commitments, dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash,
-};
 use parity_scale_codec::Encode;
 use polkadot_node_primitives::{AvailableData, BlockData, InvalidCandidate, PoV};
 use polkadot_node_subsystem::{
@@ -39,6 +36,9 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_primitives::{
 	BlakeTwo256, CandidateCommitments, HashT, Header, PersistedValidationData, ValidationCode,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_commitments, dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash,
 };
 
 type VirtualOverseer = TestSubsystemContextHandle<DisputeCoordinatorMessage>;

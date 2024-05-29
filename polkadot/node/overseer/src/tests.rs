@@ -18,7 +18,6 @@ use async_trait::async_trait;
 use futures::{executor, pending, pin_mut, poll, select, stream, FutureExt};
 use std::{collections::HashMap, sync::atomic, task::Poll};
 
-use ::test_helpers::{dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash};
 use node_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_network_protocol::{PeerId, UnifiedReputationChange};
 use polkadot_node_primitives::{
@@ -31,6 +30,9 @@ use polkadot_node_subsystem_types::messages::{
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
 	PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash,
 };
 
 use crate::{

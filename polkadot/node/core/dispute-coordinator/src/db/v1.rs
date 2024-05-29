@@ -375,9 +375,9 @@ fn load_cleaned_votes_watermark(
 mod tests {
 
 	use super::*;
-	use ::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	use polkadot_node_primitives::DISPUTE_WINDOW;
 	use polkadot_primitives::{Hash, Id as ParaId};
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 
 	fn make_db() -> DbBackend {
 		let db = kvdb_memorydb::create(1);
