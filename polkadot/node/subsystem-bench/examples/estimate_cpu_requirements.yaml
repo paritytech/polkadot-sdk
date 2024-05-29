@@ -20,16 +20,3 @@ TestConfiguration:
   num_blocks: 3
   connectivity: 100
   latency: null
-
-- objective: !DataAvailabilityRead
-    fetch_from_backers: true
-  n_validators: 1000
-  max_validators_per_core: 5
-  n_cores: 10
-  min_pov_size: 5120
-  max_pov_size: 5120
-  peer_bandwidth: 524288000000
-  bandwidth: 524288000000
-  connectivity: 100
-  latency: null
-  num_blocks: 3
