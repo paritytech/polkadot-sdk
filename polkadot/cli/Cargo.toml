@@ -49,24 +49,25 @@ substrate-build-script-utils = { path = "../../substrate/utils/build-script-util
 [features]
 default = ["cli", "db", "full-node"]
 db = ["polkadot-service/db"]
+service = ["dep:polkadot-service"]
 cli = [
 	"clap",
 	"frame-benchmarking-cli",
 	"sc-cli",
 	"sc-service",
 	"sc-tracing",
-	"polkadot-service",
+	"service",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
-	"polkadot-service/runtime-benchmarks",
+	"polkadot-service?/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 full-node = ["polkadot-service/full-node"]
 try-runtime = [
-	"polkadot-service/try-runtime",
+	"polkadot-service?/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 fast-runtime = ["polkadot-service/fast-runtime"]

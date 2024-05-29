@@ -25,7 +25,7 @@ mod command;
 #[cfg(feature = "cli")]
 mod error;
 
-#[cfg(feature = "polkadot_service")]
+#[cfg(feature = "service")]
 pub use polkadot_service::{
 	self as service, Block, CoreApi, IdentifyVariant, ProvideRuntimeApi, TFullClient,
 };
