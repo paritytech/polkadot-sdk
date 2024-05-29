@@ -25,9 +25,10 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use bp_runtime::BlockNumberOf;
 use finality_relay::TargetClient;
 use relay_substrate_client::{
-	AccountKeyPairOf, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
+	AccountKeyPairOf, Chain, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
 	TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
@@ -103,19 +104,56 @@ impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<
 		.ok_or(Error::BridgePalletIsNotInitialized)?)
 	}
 
+	async fn free_source_headers_interval(
+		&self,
+	) -> Result<Option<BlockNumberOf<P::SourceChain>>, Self::Error> {
+		Ok(self
+			.client
+			.typed_state_call(
+				P::SourceChain::FREE_HEADERS_INTERVAL_METHOD.into(),
+				(),
+				Some(self.client.best_header().await?.hash()),
+			)
+			.await
+			.unwrap_or_else(|e| {
+				log::info!(
+					target: "bridge",
+					"Call of {} at {} has failed with an error: {:?}. Treating as `None`",
+					P::SourceChain::FREE_HEADERS_INTERVAL_METHOD,
+					P::TargetChain::NAME,
+					e,
+				);
+				None
+			}))
+	}
+
 	async fn submit_finality_proof(
 		&self,
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		mut proof: SubstrateFinalityProof<P>,
+		is_free_execution_expected: bool,
 	) -> Result<Self::TransactionTracker, Error> {
 		// verify and runtime module at target chain may require optimized finality proof
 		let context =
 			P::FinalityEngine::verify_and_optimize_proof(&self.client, &header, &mut proof).await?;
 
+		// if free execution is expected, but the call size/weight exceeds hardcoded limits, the
+		// runtime may still accept the proof, but it may have some cost for relayer. Let's check
+		// it here to avoid losing relayer funds
+		if is_free_execution_expected {
+			let extras = P::FinalityEngine::check_max_expected_call_limits(&header, &proof);
+			if extras.is_weight_limit_exceeded || extras.extra_size != 0 {
+				return Err(Error::FinalityProofWeightLimitExceeded { extras })
+			}
+		}
+
 		// now we may submit optimized finality proof
 		let mortality = self.transaction_params.mortality;
 		let call = P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(
-			header, proof, context,
+			header,
+			proof,
+			is_free_execution_expected,
+			context,
 		);
 		self.client
 			.submit_and_watch_signed_extrinsic(

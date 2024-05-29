@@ -3,7 +3,7 @@
 use crate as snowbridge_system;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{tokens::fungible::Mutate, ConstU128, ConstU64, ConstU8},
+	traits::{tokens::fungible::Mutate, ConstU128, ConstU8},
 	weights::IdentityFee,
 	PalletId,
 };
@@ -106,7 +106,6 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
 	type Nonce = u64;

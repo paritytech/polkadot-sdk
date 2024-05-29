@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
+use crate::{limits::BlockWeights, Config, DispatchClass, Pallet, LOG_TARGET};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
@@ -64,17 +64,6 @@ where
 		}
 	}
 
-	/// Checks if the current extrinsic can fit into the block with respect to block weight limits.
-	///
-	/// Upon successes, it returns the new block weight as a `Result`.
-	fn check_block_weight(
-		info: &DispatchInfoOf<T::RuntimeCall>,
-	) -> Result<crate::ConsumedWeight, TransactionValidityError> {
-		let maximum_weight = T::BlockWeights::get();
-		let all_weight = Pallet::<T>::block_weight();
-		calculate_consumed_weight::<T::RuntimeCall>(maximum_weight, all_weight, info)
-	}
-
 	/// Checks if the current extrinsic can fit into the block with respect to block length limits.
 	///
 	/// Upon successes, it returns the new block length as a `Result`.
@@ -113,7 +102,12 @@ where
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let next_len = Self::check_block_length(info, len)?;
-		let next_weight = Self::check_block_weight(info)?;
+
+		let all_weight = Pallet::<T>::block_weight();
+		let maximum_weight = T::BlockWeights::get();
+		let next_weight =
+			calculate_consumed_weight::<T::RuntimeCall>(&maximum_weight, all_weight, info)?;
+		check_combined_proof_size::<T::RuntimeCall>(info, &maximum_weight, next_len, &next_weight)?;
 		Self::check_extrinsic_weight(info)?;
 
 		crate::AllExtrinsicsLen::<T>::put(next_len);
@@ -136,8 +130,41 @@ where
 	}
 }
 
+/// Check that the combined extrinsic length and proof size together do not exceed the PoV limit.
+pub fn check_combined_proof_size<Call>(
+	info: &DispatchInfoOf<Call>,
+	maximum_weight: &BlockWeights,
+	next_len: u32,
+	next_weight: &crate::ConsumedWeight,
+) -> Result<(), TransactionValidityError>
+where
+	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+	// This extra check ensures that the extrinsic length does not push the
+	// PoV over the limit.
+	let total_pov_size = next_weight.total().proof_size().saturating_add(next_len as u64);
+	if total_pov_size > maximum_weight.max_block.proof_size() {
+		log::debug!(
+			target: LOG_TARGET,
+			"Extrinsic exceeds total pov size. Still including if mandatory. size: {}kb, limit: {}kb, is_mandatory: {}",
+			total_pov_size as f64/1024.0,
+			maximum_weight.max_block.proof_size() as f64/1024.0,
+			info.class == DispatchClass::Mandatory
+		);
+		return match info.class {
+			// Allow mandatory extrinsics
+			DispatchClass::Mandatory => Ok(()),
+			_ => Err(InvalidTransaction::ExhaustsResources.into()),
+		};
+	}
+	Ok(())
+}
+
+/// Checks if the current extrinsic can fit into the block with respect to block weight limits.
+///
+/// Upon successes, it returns the new block weight as a `Result`.
 pub fn calculate_consumed_weight<Call>(
-	maximum_weight: BlockWeights,
+	maximum_weight: &BlockWeights,
 	mut all_weight: crate::ConsumedWeight,
 	info: &DispatchInfoOf<Call>,
 ) -> Result<crate::ConsumedWeight, TransactionValidityError>
@@ -172,7 +199,7 @@ where
 				"Exceeded the per-class allowance.",
 			);
 
-			return Err(InvalidTransaction::ExhaustsResources.into())
+			return Err(InvalidTransaction::ExhaustsResources.into());
 		},
 		// There is no `max_total` limit (`None`),
 		// or we are below the limit.
@@ -190,7 +217,7 @@ where
 					"Total block weight is exceeded.",
 				);
 
-				return Err(InvalidTransaction::ExhaustsResources.into())
+				return Err(InvalidTransaction::ExhaustsResources.into());
 			},
 			// There is either no limit in reserved pool (`None`),
 			// or we are below the limit.
@@ -742,17 +769,171 @@ mod tests {
 
 		// when
 		assert_ok!(calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
-			maximum_weight.clone(),
+			&maximum_weight,
 			all_weight.clone(),
-			&mandatory1
+			&mandatory1,
 		));
 		assert_err!(
 			calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
-				maximum_weight,
+				&maximum_weight,
 				all_weight,
-				&mandatory2
+				&mandatory2,
 			),
 			InvalidTransaction::ExhaustsResources
 		);
+	}
+
+	#[test]
+	fn maximum_proof_size_includes_length() {
+		let maximum_weight = BlockWeights::builder()
+			.base_block(Weight::zero())
+			.for_class(DispatchClass::non_mandatory(), |w| {
+				w.base_extrinsic = Weight::zero();
+				w.max_total = Some(Weight::from_parts(20, 10));
+			})
+			.for_class(DispatchClass::Mandatory, |w| {
+				w.base_extrinsic = Weight::zero();
+				w.reserved = Some(Weight::from_parts(5, 10));
+				w.max_total = None;
+			})
+			.build_or_panic();
+
+		assert_eq!(maximum_weight.max_block, Weight::from_parts(20, 10));
+
+		let info = DispatchInfo { class: DispatchClass::Normal, ..Default::default() };
+		let mandatory = DispatchInfo { class: DispatchClass::Mandatory, ..Default::default() };
+		// We have 10 reftime and 5 proof size left over.
+		let next_weight = crate::ConsumedWeight::new(|class| match class {
+			DispatchClass::Normal => Weight::from_parts(10, 5),
+			DispatchClass::Operational => Weight::from_parts(0, 0),
+			DispatchClass::Mandatory => Weight::zero(),
+		});
+
+		// Simple checks for the length
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&info,
+			&maximum_weight,
+			0,
+			&next_weight
+		));
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&info,
+			&maximum_weight,
+			5,
+			&next_weight
+		));
+		assert_err!(
+			check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+				&info,
+				&maximum_weight,
+				6,
+				&next_weight
+			),
+			InvalidTransaction::ExhaustsResources
+		);
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&mandatory,
+			&maximum_weight,
+			6,
+			&next_weight
+		));
+
+		// We have 10 reftime and 0 proof size left over.
+		let next_weight = crate::ConsumedWeight::new(|class| match class {
+			DispatchClass::Normal => Weight::from_parts(10, 10),
+			DispatchClass::Operational => Weight::from_parts(0, 0),
+			DispatchClass::Mandatory => Weight::zero(),
+		});
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&info,
+			&maximum_weight,
+			0,
+			&next_weight
+		));
+		assert_err!(
+			check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+				&info,
+				&maximum_weight,
+				1,
+				&next_weight
+			),
+			InvalidTransaction::ExhaustsResources
+		);
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&mandatory,
+			&maximum_weight,
+			1,
+			&next_weight
+		));
+
+		// We have 10 reftime and 2 proof size left over.
+		// Used weight is spread across dispatch classes this time.
+		let next_weight = crate::ConsumedWeight::new(|class| match class {
+			DispatchClass::Normal => Weight::from_parts(10, 5),
+			DispatchClass::Operational => Weight::from_parts(0, 3),
+			DispatchClass::Mandatory => Weight::zero(),
+		});
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&info,
+			&maximum_weight,
+			0,
+			&next_weight
+		));
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&info,
+			&maximum_weight,
+			2,
+			&next_weight
+		));
+		assert_err!(
+			check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+				&info,
+				&maximum_weight,
+				3,
+				&next_weight
+			),
+			InvalidTransaction::ExhaustsResources
+		);
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&mandatory,
+			&maximum_weight,
+			3,
+			&next_weight
+		));
+
+		// Ref time is over the limit. Should not happen, but we should make sure that it is
+		// ignored.
+		let next_weight = crate::ConsumedWeight::new(|class| match class {
+			DispatchClass::Normal => Weight::from_parts(30, 5),
+			DispatchClass::Operational => Weight::from_parts(0, 0),
+			DispatchClass::Mandatory => Weight::zero(),
+		});
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&info,
+			&maximum_weight,
+			0,
+			&next_weight
+		));
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&info,
+			&maximum_weight,
+			5,
+			&next_weight
+		));
+		assert_err!(
+			check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+				&info,
+				&maximum_weight,
+				6,
+				&next_weight
+			),
+			InvalidTransaction::ExhaustsResources
+		);
+		assert_ok!(check_combined_proof_size::<<Test as Config>::RuntimeCall>(
+			&mandatory,
+			&maximum_weight,
+			6,
+			&next_weight
+		));
 	}
 }

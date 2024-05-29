@@ -16,14 +16,16 @@
 
 //! A mock runtime for XCM benchmarking.
 
-use crate::{fungible as xcm_balances_benchmark, mock::*};
+use crate::{fungible as xcm_balances_benchmark, generate_holding_assets, mock::*};
 use frame_benchmarking::BenchmarkError;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{Everything, Nothing},
 };
 use xcm::latest::prelude::*;
-use xcm_builder::{AllowUnpaidExecutionFrom, FrameTransactionalProcessor, MintLocation};
+use xcm_builder::{
+	AllowUnpaidExecutionFrom, EnsureDecodableXcm, FrameTransactionalProcessor, MintLocation,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -91,7 +93,7 @@ parameter_types! {
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = DevNull;
+	type XcmSender = EnsureDecodableXcm<DevNull>;
 	type AssetTransactor = AssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = TrustedReserves;
@@ -118,6 +120,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 impl crate::Config for Test {
@@ -130,9 +133,8 @@ impl crate::Config for Test {
 		Ok(valid_destination)
 	}
 	fn worst_case_holding(depositable_count: u32) -> Assets {
-		crate::mock_worst_case_holding(
-			depositable_count,
-			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get(),
+		generate_holding_assets(
+			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get() - depositable_count,
 		)
 	}
 }

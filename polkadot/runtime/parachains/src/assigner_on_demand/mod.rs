@@ -173,7 +173,7 @@ impl QueueStatusType {
 	fn consume_index(&mut self, removed_index: QueueIndex) {
 		if removed_index != self.smallest_index {
 			self.freed_indices.push(removed_index.reverse());
-			return
+			return;
 		}
 		let mut index = self.smallest_index.0.overflowing_add(1).0;
 		// Even more to advance?
@@ -368,10 +368,10 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// An order was placed at some spot price amount.
-		OnDemandOrderPlaced { para_id: ParaId, spot_price: BalanceOf<T> },
-		/// The value of the spot traffic multiplier changed.
-		SpotTrafficSet { traffic: FixedU128 },
+		/// An order was placed at some spot price amount by orderer ordered_by
+		OnDemandOrderPlaced { para_id: ParaId, spot_price: BalanceOf<T>, ordered_by: T::AccountId },
+		/// The value of the spot price has likely changed
+		SpotPriceSet { spot_price: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -410,12 +410,11 @@ pub mod pallet {
 		///
 		/// Errors:
 		/// - `InsufficientBalance`: from the Currency implementation
-		/// - `InvalidParaId`
 		/// - `QueueFull`
 		/// - `SpotPriceHigherThanMaxAmount`
 		///
 		/// Events:
-		/// - `SpotOrderPlaced`
+		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::place_order_allow_death(QueueStatus::<T>::get().size()))]
 		pub fn place_order_allow_death(
@@ -437,12 +436,11 @@ pub mod pallet {
 		///
 		/// Errors:
 		/// - `InsufficientBalance`: from the Currency implementation
-		/// - `InvalidParaId`
 		/// - `QueueFull`
 		/// - `SpotPriceHigherThanMaxAmount`
 		///
 		/// Events:
-		/// - `SpotOrderPlaced`
+		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::place_order_keep_alive(QueueStatus::<T>::get().size()))]
 		pub fn place_order_keep_alive(
@@ -539,12 +537,11 @@ where
 	///
 	/// Errors:
 	/// - `InsufficientBalance`: from the Currency implementation
-	/// - `InvalidParaId`
 	/// - `QueueFull`
 	/// - `SpotPriceHigherThanMaxAmount`
 	///
 	/// Events:
-	/// - `SpotOrderPlaced`
+	/// - `OnDemandOrderPlaced`
 	fn do_place_order(
 		sender: <T as frame_system::Config>::AccountId,
 		max_amount: BalanceOf<T>,
@@ -578,6 +575,12 @@ where
 				Error::<T>::QueueFull
 			);
 			Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
+			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced {
+				para_id,
+				spot_price,
+				ordered_by: sender,
+			});
+
 			Ok(())
 		})
 	}
@@ -599,7 +602,14 @@ where
 				// Only update storage on change
 				if new_traffic != old_traffic {
 					queue_status.traffic = new_traffic;
-					Pallet::<T>::deposit_event(Event::<T>::SpotTrafficSet { traffic: new_traffic });
+
+					// calculate the new spot price
+					let spot_price: BalanceOf<T> = new_traffic.saturating_mul_int(
+						config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<T>>(),
+					);
+
+					// emit the event for updated new price
+					Pallet::<T>::deposit_event(Event::<T>::SpotPriceSet { spot_price });
 				}
 			},
 			Err(err) => {
@@ -721,7 +731,7 @@ where
 			"Decreased affinity for a para that has not been served on a core?"
 		);
 		if affinity != Some(0) {
-			return
+			return;
 		}
 		// No affinity more for entries on this core, free any entries:
 		//
@@ -740,7 +750,7 @@ where
 	///
 	/// Subtracts from the count of the `CoreAffinityCount` if an entry is found and the core_index
 	/// matches. When the count reaches 0, the entry is removed.
-	/// A non-existant entry is a no-op.
+	/// A non-existent entry is a no-op.
 	///
 	/// Returns: The new affinity of the para on that core. `None` if there is no affinity on this
 	/// core.
@@ -754,7 +764,7 @@ where
 				} else {
 					*maybe_affinity = None;
 				}
-				return Some(new_count)
+				return Some(new_count);
 			} else {
 				None
 			}

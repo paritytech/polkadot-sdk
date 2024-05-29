@@ -15,7 +15,7 @@ workspace = true
 paste = { version = "1.0", default-features = false }
 bitflags = "1.0"
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"], optional = true }
-scale = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+scale = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ], optional = true }

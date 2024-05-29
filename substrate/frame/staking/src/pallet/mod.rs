@@ -39,6 +39,7 @@ use sp_runtime::{
 use sp_staking::{
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
+	StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -47,10 +48,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
+	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -67,7 +69,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(14);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -217,10 +219,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
 
-		/// The fraction of the validator set that is safe to be offending.
-		/// After the threshold is reached a new era will be forced.
-		type OffendingValidatorsThreshold: Get<Perbill>;
-
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
 		/// used for NPoS election.
 		///
@@ -277,6 +275,9 @@ pub mod pallet {
 		///
 		/// WARNING: this only reports slashing and withdraw events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
+
+		// `DisablingStragegy` controls how validators are disabled
+		type DisablingStrategy: DisablingStrategy<Self>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -654,19 +655,16 @@ pub mod pallet {
 	#[pallet::getter(fn current_planned_session)]
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
-	/// Indices of validators that have offended in the active era and whether they are currently
-	/// disabled.
+	/// Indices of validators that have offended in the active era. The offenders are disabled for a
+	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
+	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
+	/// implicitly means that the implementor also controls the max number of disabled validators.
 	///
-	/// This value should be a superset of disabled validators since not all offences lead to the
-	/// validator being disabled (if there was no slash). This is needed to track the percentage of
-	/// validators that have offended in the current era, ensuring a new era is forced if
-	/// `OffendingValidatorsThreshold` is reached. The vec is always kept sorted so that we can find
-	/// whether a given validator has previously offended using binary search. It gets cleared when
-	/// the era ends.
+	/// The vec is always kept sorted so that we can find whether a given validator has previously
+	/// offended using binary search.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	#[pallet::getter(fn offending_validators)]
-	pub type OffendingValidators<T: Config> = StorageValue<_, Vec<(u32, bool)>, ValueQuery>;
+	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -871,6 +869,8 @@ pub mod pallet {
 		RewardDestinationRestricted,
 		/// Not enough funds available to withdraw.
 		NotEnoughFunds,
+		/// Operation not allowed for virtual stakers.
+		VirtualStakerNotAllowed,
 	}
 
 	#[pallet::hooks]
@@ -939,7 +939,8 @@ pub mod pallet {
 		/// - Three extra DB entries.
 		///
 		/// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
-		/// unless the `origin` falls below _existential deposit_ and gets removed as dust.
+		/// unless the `origin` falls below _existential deposit_ (or equal to 0) and gets removed
+		/// as dust.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::bond())]
 		pub fn bond(
@@ -1616,6 +1617,7 @@ pub mod pallet {
 		///
 		/// 1. the `total_balance` of the stash is below existential deposit.
 		/// 2. or, the `ledger.total` of the stash is below existential deposit.
+		/// 3. or, existential deposit is zero and either `total_balance` or `ledger.total` is zero.
 		///
 		/// The former can happen in cases like a slash; the latter when a fully unbonded account
 		/// is still receiving staking rewards in `RewardDestination::Staked`.
@@ -1637,9 +1639,17 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
+			// virtual stakers should not be allowed to be reaped.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
+
 			let ed = T::Currency::minimum_balance();
-			let reapable = T::Currency::total_balance(&stash) < ed ||
-				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default() < ed;
+			let origin_balance = T::Currency::total_balance(&stash);
+			let ledger_total =
+				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
+			let reapable = origin_balance < ed ||
+				origin_balance.is_zero() ||
+				ledger_total < ed ||
+				ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
@@ -1996,6 +2006,9 @@ pub mod pallet {
 			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+
+			// cannot restore ledger for virtual stakers.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
 			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
 			let stash_balance = T::Currency::free_balance(&stash);

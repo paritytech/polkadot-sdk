@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use polkadot_sdk::*;
+
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 
 use kitchensink_runtime::{constants::currency::*, BalancesCall};
@@ -86,6 +88,8 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: None,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,

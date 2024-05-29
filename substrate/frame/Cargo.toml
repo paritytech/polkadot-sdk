@@ -2,12 +2,11 @@
 name = "polkadot-sdk-frame"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
-homepage = "paritytech.github.io"
+homepage = "https://paritytech.github.io"
 repository.workspace = true
 description = "Experimental: The single package to get you started with building frame pallets and runtimes"
-publish = false
 
 [lints]
 workspace = true
@@ -19,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # external deps
-parity-scale-codec = { version = "3.2.2", default-features = false, features = [
+parity-scale-codec = { version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
 scale-info = { version = "2.11.1", default-features = false, features = [
@@ -47,9 +46,17 @@ sp-session = { default-features = false, path = "../primitives/session", optiona
 sp-consensus-aura = { default-features = false, path = "../primitives/consensus/aura", optional = true }
 sp-consensus-grandpa = { default-features = false, path = "../primitives/consensus/grandpa", optional = true }
 sp-inherents = { default-features = false, path = "../primitives/inherents", optional = true }
+sp-storage = { default-features = false, path = "../primitives/storage", optional = true }
 
 frame-executive = { default-features = false, path = "../frame/executive", optional = true }
 frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
+
+# Used for runtime benchmarking
+frame-benchmarking = { default-features = false, path = "../frame/benchmarking", optional = true }
+frame-system-benchmarking = { default-features = false, path = "../frame/system/benchmarking", optional = true }
+
+# Used for try-runtime
+frame-try-runtime = { default-features = false, path = "../frame/try-runtime", optional = true }
 
 docify = "0.2.8"
 log = { workspace = true }
@@ -68,6 +75,7 @@ runtime = [
 	"sp-inherents",
 	"sp-offchain",
 	"sp-session",
+	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
 
@@ -75,10 +83,13 @@ runtime = [
 	"frame-system-rpc-runtime-api",
 ]
 std = [
+	"frame-benchmarking?/std",
 	"frame-executive?/std",
 	"frame-support/std",
+	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api?/std",
 	"frame-system/std",
+	"frame-try-runtime?/std",
 	"log/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
@@ -94,6 +105,22 @@ std = [
 	"sp-runtime/std",
 	"sp-session?/std",
 	"sp-std/std",
+	"sp-storage/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-examples/try-runtime",
+	"sp-runtime/try-runtime",
 ]

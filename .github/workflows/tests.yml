@@ -1,0 +1,98 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORKLIFT_storage_s3_bucketName: ${{ secrets.FORKLIFT_storage_s3_bucketName }}
+  FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
+  FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
+  FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
+  FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
+
+jobs:
+
+  changes:
+    permissions:
+      pull-requests: read
+    uses: ./.github/workflows/check-changed-files.yml
+
+  set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+  quick-benchmarks:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}    
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      RUSTFLAGS: "-C debug-assertions -D warnings"
+      RUST_BACKTRACE: "full"
+      WASM_BUILD_NO_COLOR: 1
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: time forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
+  
+  # cf https://github.com/paritytech/polkadot-sdk/issues/1652
+  test-syscalls:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}    
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    continue-on-error: true # this rarely triggers in practice
+    env:
+      SKIP_WASM_BUILD: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          forklift cargo build --locked --profile production --target x86_64-unknown-linux-musl --bin polkadot-execute-worker --bin polkadot-prepare-worker
+          cd polkadot/scripts/list-syscalls
+          ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls | diff -u execute-worker-syscalls -
+          ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
+    # todo:
+    # after_script:
+    # - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
+    #   printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
+    #   fi
+  
+  cargo-check-all-benches:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}    
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      SKIP_WASM_BUILD: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: time forklift cargo check --all --benches

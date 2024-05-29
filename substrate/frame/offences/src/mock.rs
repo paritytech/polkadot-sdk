@@ -24,7 +24,7 @@ use crate::Config;
 use codec::Encode;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
+	traits::ConstU32,
 	weights::{constants::RocksDbWeight, Weight},
 };
 use sp_core::H256;
@@ -33,7 +33,7 @@ use sp_runtime::{
 	BuildStorage, Perbill,
 };
 use sp_staking::{
-	offence::{self, DisableStrategy, Kind, OffenceDetails},
+	offence::{self, Kind, OffenceDetails},
 	SessionIndex,
 };
 
@@ -51,7 +51,6 @@ impl<Reporter, Offender> offence::OnOffenceHandler<Reporter, Offender, Weight>
 		_offenders: &[OffenceDetails<Reporter, Offender>],
 		slash_fraction: &[Perbill],
 		_offence_session: SessionIndex,
-		_disable_strategy: DisableStrategy,
 	) -> Weight {
 		OnOffencePerbill::mutate(|f| {
 			*f = slash_fraction.to_vec();
@@ -89,7 +88,6 @@ impl frame_system::Config for Runtime {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = ();

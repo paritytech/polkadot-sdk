@@ -1,0 +1,81 @@
+# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel
+name: tests linux stable
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORKLIFT_storage_s3_bucketName: ${{ secrets.FORKLIFT_storage_s3_bucketName }}
+  FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
+  FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
+  FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
+  FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
+
+jobs:
+
+  changes:
+    permissions:
+      pull-requests: read
+    uses: ./.github/workflows/check-changed-files.yml
+
+  set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    needs: changes
+    if: ${{ needs.changes.outputs.rust }}      
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+  
+  test-linux-stable-int:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}  
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      RUSTFLAGS: "-C debug-assertions -D warnings"
+      RUST_BACKTRACE: 1
+      WASM_BUILD_NO_COLOR: 1
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+      # Ensure we run the UI tests.
+      RUN_UI_TESTS: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
+  
+  # https://github.com/paritytech/ci_cd/issues/864
+  test-linux-stable-runtime-benchmarks:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}    
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
