@@ -102,6 +102,10 @@
 //! bounds, such as being [`frame::traits::IsSubType`]:
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
 //!
+//! > Once Rust's "_Associated Type Bounds RFC_" is usable, the following syntax can be used to
+//! > simplify the above scenario. See [this](https://github.com/paritytech/polkadot-sdk/issues/3743)
+//! > issue for more information.
+//!
 //! ### Asserting Equality of Multiple Runtime Composite Enums
 //!
 //! Recall that in the above example, `<T as Config>::RuntimeCall` and `<T as
