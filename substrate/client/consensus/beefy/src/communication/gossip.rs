@@ -71,8 +71,6 @@ enum Consider {
 /// BEEFY gossip message type that gets encoded and sent on the network.
 #[derive(Debug, Encode, Decode)]
 pub(crate) enum GossipMessage<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// BEEFY message with commitment and single signature.
 	Vote(VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>),
@@ -81,8 +79,6 @@ where
 }
 
 impl<B: Block, AuthorityId: AuthorityIdBound> GossipMessage<B, AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// Return inner vote if this message is a Vote.
 	pub fn unwrap_vote(
@@ -122,8 +118,6 @@ where
 
 #[derive(Clone, Debug)]
 pub(crate) struct GossipFilterCfg<'a, B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub start: NumberFor<B>,
 	pub end: NumberFor<B>,
@@ -132,8 +126,6 @@ where
 
 #[derive(Clone, Debug)]
 struct FilterInner<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub start: NumberFor<B>,
 	pub end: NumberFor<B>,
@@ -141,8 +133,6 @@ where
 }
 
 struct Filter<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	// specifies live rounds
 	inner: Option<FilterInner<B, AuthorityId>>,
@@ -151,8 +141,6 @@ where
 }
 
 impl<B: Block, AuthorityId: AuthorityIdBound> Filter<B, AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub fn new() -> Self {
 		Self { inner: None, rounds_with_valid_proofs: BTreeSet::new() }
@@ -242,7 +230,6 @@ where
 pub(crate) struct GossipValidator<B, N, AuthorityId: AuthorityIdBound>
 where
 	B: Block,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	votes_topic: B::Hash,
 	justifs_topic: B::Hash,
@@ -256,11 +243,10 @@ impl<B, N,AuthorityId> GossipValidator<B, N,AuthorityId>
 where
 	B: Block,
 	AuthorityId: AuthorityIdBound,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub(crate) fn new(known_peers: Arc<Mutex<KnownPeers<B>>>, network: Arc<N>) -> Self {
 		Self {
-			votes_topic: votes_topic::<B>(),
+		votes_topic: votes_topic::<B>(),
 			justifs_topic: proofs_topic::<B>(),
 			gossip_filter: RwLock::new(Filter::new()),
 			next_rebroadcast: Mutex::new(Instant::now() + REBROADCAST_AFTER),

@@ -176,8 +176,6 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 }
 
 impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn from(store: Option<KeystorePtr>) -> BeefyKeystore<AuthorityId> {
 		BeefyKeystore(store, PhantomData)

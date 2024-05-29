@@ -43,8 +43,6 @@ pub(crate) fn write_voter_state<B: BlockT, BE: AuxStore, AuthorityId: AuthorityI
 	backend: &BE,
 	state: &PersistedState<B, AuthorityId>,
 ) -> ClientResult<()>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	trace!(target: LOG_TARGET, "🥩 persisting {:?}", state);
 	AuxStore::insert_aux(backend, &[(WORKER_STATE_KEY, state.encode().as_slice())], &[])
@@ -66,7 +64,6 @@ pub(crate) fn load_persistent<B, BE, AuthorityId: AuthorityIdBound>(
 where
 	B: BlockT,
 	BE: Backend<B>,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	let version: Option<u32> = load_decode(backend, VERSION_KEY)?;
 

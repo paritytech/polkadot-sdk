@@ -120,8 +120,6 @@ where
 /// to be used by the voter.
 #[derive(Clone)]
 pub struct BeefyVoterLinks<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	// BlockImport -> Voter links
 	/// Stream of BEEFY signed commitments from block import to voter.
@@ -137,8 +135,6 @@ where
 /// Links used by the BEEFY RPC layer, from the BEEFY background voter.
 #[derive(Clone)]
 pub struct BeefyRPCLinks<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// Stream of signed commitments coming from the voter.
 	pub from_voter_justif_stream: BeefyVersionedFinalityProofStream<B, AuthorityId>,
@@ -164,7 +160,6 @@ where
 	RuntimeApi: ProvideRuntimeApi<B> + Send + Sync,
 	RuntimeApi::Api: BeefyApi<B, AuthorityId>,
 	AuthorityId: AuthorityIdBound,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	// Voter -> RPC links
 	let (to_rpc_justif_sender, from_voter_justif_stream) =
@@ -215,8 +210,6 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 
 /// BEEFY gadget initialization parameters.
 pub struct BeefyParams<B: Block, BE, C, N, P, R, S, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// BEEFY client
 	pub client: Arc<C>,
@@ -245,8 +238,6 @@ where
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
 pub(crate) struct BeefyComms<B: Block, N, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub gossip_engine: GossipEngine<B>,
 	pub gossip_validator: Arc<GossipValidator<B, N, AuthorityId>>,
@@ -260,8 +251,6 @@ where
 /// GossipEngine. Once initialization is done, the GossipEngine (and other pieces) are added to get
 /// the complete [worker::BeefyWorker] object.
 pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	// utilities
 	backend: Arc<BE>,
@@ -279,7 +268,6 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 	AuthorityId: AuthorityIdBound,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// This will wait for the chain to enable BEEFY (if not yet enabled) and also wait for the
 	/// backend to sync all headers required by the voter to build a contiguous chain of mandatory
@@ -518,7 +506,6 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 	N: GossipNetwork<B> + NetworkRequest + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
 	AuthorityId: AuthorityIdBound,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	let BeefyParams {
 		client,
@@ -685,7 +672,6 @@ where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	info!(target: LOG_TARGET, "🥩 BEEFY gadget waiting for BEEFY pallet to become available...");
 	loop {
@@ -724,7 +710,6 @@ where
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	let blockchain = backend.blockchain();
 	// Walk up the chain looking for the validator set active at 'at_header'. Process both state and

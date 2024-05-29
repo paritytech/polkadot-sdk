@@ -47,8 +47,6 @@ use crate::{
 ///
 /// When using BEEFY, the block import worker should be using this block import object.
 pub struct BeefyBlockImport<Block: BlockT, Backend, RuntimeApi, I, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	backend: Arc<Backend>,
 	runtime: Arc<RuntimeApi>,
@@ -59,8 +57,6 @@ where
 
 impl<Block: BlockT, BE, Runtime, I: Clone, AuthorityId: AuthorityIdBound> Clone
 	for BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn clone(&self) -> Self {
 		BeefyBlockImport {
@@ -75,8 +71,6 @@ where
 
 impl<Block: BlockT, BE, Runtime, I, AuthorityId: AuthorityIdBound>
 	BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// Create a new BeefyBlockImport.
 	pub fn new(
@@ -97,7 +91,6 @@ where
 	Runtime: ProvideRuntimeApi<Block>,
 	Runtime::Api: BeefyApi<Block, AuthorityId> + Send,
 	AuthorityId: AuthorityIdBound,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn decode_and_verify(
 		&self,
@@ -137,7 +130,6 @@ where
 	Runtime: ProvideRuntimeApi<Block> + Send + Sync,
 	Runtime::Api: BeefyApi<Block, AuthorityId>,
 	AuthorityId: AuthorityIdBound,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	type Error = ConsensusError;
 

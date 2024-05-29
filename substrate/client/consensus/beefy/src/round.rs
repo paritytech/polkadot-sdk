@@ -34,15 +34,11 @@ use std::collections::BTreeMap;
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 #[derive(Debug, Decode, Encode, PartialEq)]
 pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 }
 
 impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn default() -> Self {
 		Self { votes: Default::default() }
@@ -50,8 +46,6 @@ where
 }
 
 impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn add_vote(
 		&mut self,
@@ -78,8 +72,6 @@ pub fn threshold(authorities: usize) -> usize {
 
 #[derive(Debug, PartialEq)]
 pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	Ok,
 	RoundConcluded(SignedCommitment<NumberFor<B>, <AuthorityId as RuntimeAppPublic>::Signature>),
@@ -95,8 +87,6 @@ where
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 #[derive(Debug, Decode, Encode, PartialEq)]
 pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker<AuthorityId>>,
 	previous_votes: BTreeMap<
@@ -113,7 +103,6 @@ impl<B, AuthorityId> Rounds<B, AuthorityId>
 where
 	B: Block,
 	AuthorityId: AuthorityIdBound,
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub(crate) fn new(
 		session_start: NumberFor<B>,

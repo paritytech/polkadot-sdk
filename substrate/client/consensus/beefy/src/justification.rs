@@ -30,8 +30,6 @@ pub type BeefyVersionedFinalityProof<Block, AuthorityId> =
 pub(crate) fn proof_block_num_and_set_id<Block: BlockT, AuthorityId: AuthorityIdBound>(
 	proof: &BeefyVersionedFinalityProof<Block, AuthorityId>,
 ) -> (NumberFor<Block>, ValidatorSetId)
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	match proof {
 		VersionedFinalityProof::V1(sc) =>
@@ -45,8 +43,6 @@ pub(crate) fn decode_and_verify_finality_proof<Block: BlockT, AuthorityId: Autho
 	target_number: NumberFor<Block>,
 	validator_set: &ValidatorSet<AuthorityId>,
 ) -> Result<BeefyVersionedFinalityProof<Block, AuthorityId>, (ConsensusError, u32)>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	let proof = <BeefyVersionedFinalityProof<Block, AuthorityId>>::decode_all(&mut &*encoded)
 		.map_err(|_| (ConsensusError::InvalidJustification, 0))?;

@@ -51,16 +51,12 @@ type ResponseReceiver = oneshot::Receiver<Response>;
 
 #[derive(Clone, Debug)]
 struct RequestInfo<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	block: NumberFor<B>,
 	active_set: ValidatorSet<AuthorityId>,
 }
 
 enum State<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	Idle,
 	AwaitingResponse(PeerId, RequestInfo<B, AuthorityId>, ResponseReceiver),
@@ -68,8 +64,6 @@ where
 
 /// Possible engine responses.
 pub(crate) enum ResponseInfo<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	/// No peer response available yet.
 	Pending,
@@ -80,8 +74,6 @@ where
 }
 
 pub struct OnDemandJustificationsEngine<B: Block, AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	network: Arc<dyn NetworkRequest + Send + Sync>,
 	protocol_name: ProtocolName,
@@ -94,8 +86,6 @@ where
 }
 
 impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub fn new(
 		network: Arc<dyn NetworkRequest + Send + Sync>,
