@@ -39,3 +39,5 @@ crates:
     bump: major
   - name: asset-hub-westend-runtime
     bump: major
+  - name: pallet-xcm
+    bump: minor
