@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Decode;
-use polkadot_primitives::{Hash as PHash, HeadData};
+use polkadot_primitives::Hash as RelayHash;
 
 use cumulus_primitives_core::{
 	relay_chain::{BlockId as RBlockId, OccupiedCoreAssumption},
@@ -27,7 +27,6 @@ use sc_client_api::{Backend, HeaderBackend};
 
 use sp_blockchain::{Backend as BlockchainBackend, TreeRoute};
 
-use sp_core::H256;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 const PARENT_SEARCH_LOG_TARGET: &str = "consensus::common::find_potential_parents";
@@ -35,7 +34,7 @@ const PARENT_SEARCH_LOG_TARGET: &str = "consensus::common::find_potential_parent
 #[derive(Debug)]
 pub struct ParentSearchParams {
 	/// The relay-parent that is intended to be used.
-	pub relay_parent: PHash,
+	pub relay_parent: RelayHash,
 	/// The ID of the parachain.
 	pub para_id: ParaId,
 	/// A limitation on the age of relay parents for parachain blocks that are being
@@ -56,7 +55,7 @@ pub struct PotentialParent<B: BlockT> {
 	pub hash: B::Hash,
 	/// The header of the block.
 	pub header: B::Header,
-	/// The depth of the block.
+	/// The depth of the block with respect to the included block.
 	pub depth: usize,
 	/// Whether the block is the included block, is itself pending on-chain, or descends
 	/// from the block pending availability.
@@ -96,13 +95,9 @@ pub async fn find_potential_parents<B: BlockT>(
 ) -> Result<Vec<PotentialParent<B>>, RelayChainError> {
 	tracing::trace!("Parent search parameters: {params:?}");
 	// Get the included block.
-	let Some((included_header, included_hash, pending_pvd)) = fetch_included_pending_from_relay(
-		relay_client,
-		backend,
-		params.para_id,
-		params.relay_parent,
-	)
-	.await?
+	let Some((included_header, included_hash)) =
+		fetch_included_from_relay_chain(relay_client, backend, params.para_id, params.relay_parent)
+			.await?
 	else {
 		return Ok(Default::default())
 	};
@@ -120,8 +115,17 @@ pub async fn find_potential_parents<B: BlockT>(
 
 	// Pending header and hash.
 	let maybe_pending = {
-		// Try to decode the pending header.
-		let pending_header = pending_pvd.and_then(|p| B::Header::decode(&mut &p.0[..]).ok());
+		// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::Included`
+		// so the candidate pending availability gets enacted before being returned to  us.
+		let pending_header = relay_client
+			.persisted_validation_data(
+				params.relay_parent,
+				params.para_id,
+				OccupiedCoreAssumption::Included,
+			)
+			.await?
+			.and_then(|p| B::Header::decode(&mut &p.parent_head.0[..]).ok())
+			.filter(|x| x.hash() != included_hash);
 
 		// If the pending block is not locally known, we can't do anything.
 		if let Some(header) = pending_header {
@@ -223,13 +227,16 @@ pub async fn find_potential_parents<B: BlockT>(
 	))
 }
 
-/// Fetch the included and pending block from the relay chain.
-async fn fetch_included_pending_from_relay<B: BlockT>(
+/// Fetch the included block from the relay chain.
+async fn fetch_included_from_relay_chain<B: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<B>,
 	para_id: ParaId,
-	relay_parent: PHash,
-) -> Result<Option<(B::Header, B::Hash, Option<HeadData>)>, RelayChainError> {
+	relay_parent: RelayHash,
+) -> Result<Option<(B::Header, B::Hash)>, RelayChainError> {
+	// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::TimedOut`
+	// so that even if there is a pending candidate, we assume it is timed out and we get the
+	// included head.
 	let included_header = relay_client
 		.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::TimedOut)
 		.await?;
@@ -237,12 +244,6 @@ async fn fetch_included_pending_from_relay<B: BlockT>(
 		Some(pvd) => pvd.parent_head,
 		None => return Ok(None), // this implies the para doesn't exist.
 	};
-
-	// Fetch the pending header from the relay chain.
-	let pending_pvd = relay_client
-		.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::Included)
-		.await?
-		.and_then(|x| if x.parent_head != included_header { Some(x.parent_head) } else { None });
 
 	let included_header = match B::Header::decode(&mut &included_header.0[..]).ok() {
 		None => return Ok(None),
@@ -263,7 +264,7 @@ async fn fetch_included_pending_from_relay<B: BlockT>(
 		_ => {},
 	};
 
-	Ok(Some((included_header, included_hash, pending_pvd)))
+	Ok(Some((included_header, included_hash)))
 }
 
 /// Build an ancestry of relay parents that are acceptable.
@@ -277,9 +278,9 @@ async fn fetch_included_pending_from_relay<B: BlockT>(
 /// ancestry blocks.
 async fn build_relay_parent_ancestry(
 	ancestry_lookback: usize,
-	relay_parent: PHash,
+	relay_parent: RelayHash,
 	relay_client: &impl RelayChainInterface,
-) -> Result<Vec<(H256, H256)>, RelayChainError> {
+) -> Result<Vec<(RelayHash, RelayHash)>, RelayChainError> {
 	let mut ancestry = Vec::with_capacity(ancestry_lookback + 1);
 	let mut current_rp = relay_parent;
 	let mut required_session = None;
@@ -319,7 +320,7 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 	backend: &impl Backend<Block>,
 	max_depth: usize,
 	ignore_alternative_branches: bool,
-	rp_ancestry: Vec<(H256, H256)>,
+	rp_ancestry: Vec<(RelayHash, RelayHash)>,
 	mut potential_parents: Vec<PotentialParent<Block>>,
 ) -> Vec<PotentialParent<Block>> {
 	let included_hash = included_header.hash();

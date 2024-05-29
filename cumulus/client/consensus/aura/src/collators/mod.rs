@@ -28,11 +28,11 @@ use cumulus_client_consensus_common::{
 	self as consensus_common, load_abridged_host_configuration, ParentSearchParams,
 };
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Hash as PHash, BlockT};
+use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_primitives::{
-	AsyncBackingParams, CoreIndex, CoreState, Hash as RHash, Id as ParaId, OccupiedCoreAssumption,
-	ValidationCodeHash,
+	AsyncBackingParams, CoreIndex, CoreState, Hash as RelayHash, Id as ParaId,
+	OccupiedCoreAssumption, ValidationCodeHash,
 };
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
 use sp_api::ProvideRuntimeApi;
@@ -54,7 +54,7 @@ async fn check_validation_code_or_log(
 	local_validation_code_hash: &ValidationCodeHash,
 	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
-	relay_parent: RHash,
+	relay_parent: RelayHash,
 ) {
 	let state_validation_code_hash = match relay_client
 		.validation_code_hash(relay_parent, para_id, OccupiedCoreAssumption::Included)
@@ -98,7 +98,7 @@ async fn check_validation_code_or_log(
 
 /// Reads async backing parameters from the relay chain storage at the given relay parent.
 async fn async_backing_params(
-	relay_parent: RHash,
+	relay_parent: RelayHash,
 	relay_client: &impl RelayChainInterface,
 ) -> Option<AsyncBackingParams> {
 	match load_abridged_host_configuration(relay_parent, relay_client).await {
@@ -124,7 +124,7 @@ async fn async_backing_params(
 
 // Return all the cores assigned to the para at the provided relay parent.
 async fn cores_scheduled_for_para(
-	relay_parent: RHash,
+	relay_parent: RelayHash,
 	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
 ) -> VecDeque<CoreIndex> {
@@ -193,10 +193,10 @@ where
 	// Here we lean on the property that building on an empty unincluded segment must always
 	// be legal. Skipping the runtime API query here allows us to seamlessly run this
 	// collator against chains which have not yet upgraded their runtime.
-	if parent_hash != included_block {
-		if !runtime_api.can_build_upon(parent_hash, included_block, slot).ok()? {
-			return None
-		}
+	if parent_hash != included_block &&
+		!runtime_api.can_build_upon(parent_hash, included_block, slot).ok()?
+	{
+		return None
 	}
 
 	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
@@ -206,7 +206,7 @@ where
 /// we can build on. Once a list of potential parents is retrieved, return the last one of the
 /// longest chain.
 async fn find_parent<Block>(
-	relay_parent: PHash,
+	relay_parent: ParaHash,
 	para_id: ParaId,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
@@ -231,7 +231,7 @@ where
 	)
 	.await;
 
-	let mut potential_parents = match potential_parents {
+	let potential_parents = match potential_parents {
 		Err(e) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
@@ -249,5 +249,8 @@ where
 		None => return None, // also serves as an `is_empty` check.
 		Some(b) => b.hash,
 	};
-	potential_parents.into_iter().max_by_key(|a| a.depth).map(|parent| (included_block, parent))
+	potential_parents
+		.into_iter()
+		.max_by_key(|a| a.depth)
+		.map(|parent| (included_block, parent))
 }

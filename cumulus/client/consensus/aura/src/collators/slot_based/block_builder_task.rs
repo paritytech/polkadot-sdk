@@ -46,7 +46,17 @@ use crate::{
 };
 
 /// Parameters for [`run_block_builder`].
-pub struct BuilderTaskParams<Block: BlockT, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct BuilderTaskParams<
+	Block: BlockT,
+	BI,
+	CIDP,
+	Client,
+	Backend,
+	RelayClient,
+	CHP,
+	Proposer,
+	CS,
+> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -58,7 +68,7 @@ pub struct BuilderTaskParams<Block: BlockT, BI, CIDP, Client, Backend, RClient, 
 	/// The para client's backend, used to access the database.
 	pub para_backend: Arc<Backend>,
 	/// A handle to the relay-chain client.
-	pub relay_client: RClient,
+	pub relay_client: RelayClient,
 	/// A validation code hash provider, used to get the current validation code hash.
 	pub code_hash_provider: CHP,
 	/// The underlying keystore, which should contain Aura consensus keys.
@@ -102,7 +112,6 @@ fn duration_now() -> Duration {
 	})
 }
 
-/// TODO For testing of slot drift, check if can be moved elsewhere.
 /// Returns the duration until the next slot from now.
 fn time_until_next_slot(slot_duration: Duration, drift: Duration) -> Duration {
 	let now = duration_now().as_millis() - drift.as_millis();
@@ -126,24 +135,37 @@ where
 	}
 
 	/// Returns a future that resolves when the next slot arrives.
-	pub async fn wait_until_next_slot(&self) -> SlotInfo {
-		let slot_duration = match crate::slot_duration(&*self.client) {
-			Ok(s) => s,
-			Err(e) => {
-				tracing::error!(target: crate::LOG_TARGET, ?e, "Failed to fetch slot duration from runtime. Killing collator task.");
-				todo!();
-			},
+	pub async fn wait_until_next_slot(&self) -> Result<SlotInfo, ()> {
+		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
+			tracing::error!(target: crate::LOG_TARGET, "Failed to fetch slot duration from runtime.");
+			return Err(())
 		};
+
 		let time_until_next_slot = time_until_next_slot(slot_duration.as_duration(), self.drift);
 		tokio::time::sleep(time_until_next_slot).await;
 		let timestamp = sp_timestamp::Timestamp::current();
-		SlotInfo { slot: Slot::from_timestamp(timestamp, slot_duration), timestamp, slot_duration }
+		Ok(SlotInfo {
+			slot: Slot::from_timestamp(timestamp, slot_duration),
+			timestamp,
+			slot_duration,
+		})
 	}
 }
 
 /// Run block-builder.
-pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
-	params: BuilderTaskParams<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+pub async fn run_block_builder<
+	Block,
+	P,
+	BI,
+	CIDP,
+	Client,
+	Backend,
+	RelayClient,
+	CHP,
+	Proposer,
+	CS,
+>(
+	params: BuilderTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
 ) where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
@@ -158,7 +180,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 	Client::Api:
 		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
-	RClient: RelayChainInterface + Clone + 'static,
+	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
@@ -204,7 +226,9 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 
 	loop {
 		// We wait here until the next slot arrives.
-		let para_slot = slot_timer.wait_until_next_slot().await;
+		let Ok(para_slot) = slot_timer.wait_until_next_slot().await else {
+			return;
+		};
 
 		let Ok(expected_cores) =
 			expected_core_count(relay_chain_slot_duration, para_slot.slot_duration)
