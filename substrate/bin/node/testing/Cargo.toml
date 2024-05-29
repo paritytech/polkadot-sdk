@@ -21,6 +21,7 @@ fs_extra = "1"
 futures = "0.3.30"
 log = { workspace = true, default-features = true }
 tempfile = "3.1.0"
+frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension" }
 frame-system = { path = "../../../frame/system" }
 node-cli = { package = "staging-node-cli", path = "../cli" }
 node-primitives = { path = "../primitives" }

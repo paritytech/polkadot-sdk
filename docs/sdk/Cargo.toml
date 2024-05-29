@@ -38,6 +38,7 @@ frame-system = { path = "../../substrate/frame/system", default-features = false
 frame-support = { path = "../../substrate/frame/support", default-features = false }
 frame-executive = { path = "../../substrate/frame/executive", default-features = false }
 pallet-example-single-block-migrations = { path = "../../substrate/frame/examples/single-block-migrations" }
+frame-metadata-hash-extension = { path = "../../substrate/frame/metadata-hash-extension" }
 
 # Substrate Client
 sc-network = { path = "../../substrate/client/network" }

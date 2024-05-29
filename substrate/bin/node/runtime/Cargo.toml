@@ -58,6 +58,7 @@ sp-io = { path = "../../../primitives/io", default-features = false }
 frame-executive = { path = "../../../frame/executive", default-features = false }
 frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false }
 frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false }
+frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension", default-features = false }
 frame-support = { path = "../../../frame/support", default-features = false, features = ["experimental", "tuples-96"] }
 frame-system = { path = "../../../frame/system", default-features = false }
 frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true }
@@ -159,6 +160,7 @@ std = [
 	"frame-benchmarking/std",
 	"frame-election-provider-support/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -436,3 +438,5 @@ experimental = [
 	"frame-system/experimental",
 	"pallet-example-tasks/experimental",
 ]
+
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
