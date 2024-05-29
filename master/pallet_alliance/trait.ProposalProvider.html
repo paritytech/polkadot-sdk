@@ -155,13 +155,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         threshold: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
         proposal: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;Proposal&gt;,
         length_bound: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>), <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>), DispatchError&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.vote_proposal" class="fn">vote_proposal</a>(
         who: AccountId,
         proposal: Hash,
         index: <a class="type" href="type.ProposalIndex.html" title="type pallet_alliance::ProposalIndex">ProposalIndex</a>,
         approve: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>, DispatchError&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.close_proposal" class="fn">close_proposal</a>(
         proposal_hash: Hash,
         index: <a class="type" href="type.ProposalIndex.html" title="type pallet_alliance::ProposalIndex">ProposalIndex</a>,
@@ -175,14 +175,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     threshold: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     proposal: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;Proposal&gt;,
     length_bound: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>), <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Add a new proposal.
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>), DispatchError&gt;</h4></section></summary><div class="docblock"><p>Add a new proposal.
 Returns a proposal length and active proposals count if successful.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.vote_proposal" class="method"><a class="src rightside" href="../src/pallet_alliance/lib.rs.html#177-182">source</a><h4 class="code-header">fn <a href="#tymethod.vote_proposal" class="fn">vote_proposal</a>(
     who: AccountId,
     proposal: Hash,
     index: <a class="type" href="type.ProposalIndex.html" title="type pallet_alliance::ProposalIndex">ProposalIndex</a>,
     approve: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Add an aye or nay vote for the sender to the given proposal.
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Add an aye or nay vote for the sender to the given proposal.
 Returns true if the sender votes first time if successful.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.close_proposal" class="method"><a class="src rightside" href="../src/pallet_alliance/lib.rs.html#185-190">source</a><h4 class="code-header">fn <a href="#tymethod.close_proposal" class="fn">close_proposal</a>(
     proposal_hash: Hash,

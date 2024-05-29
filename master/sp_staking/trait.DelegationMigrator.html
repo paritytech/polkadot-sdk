@@ -156,12 +156,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     fn <a href="#tymethod.migrate_nominator_to_agent" class="fn">migrate_nominator_to_agent</a>(
         agent: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>,
         reward_account: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>
-    ) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
+    ) -&gt; DispatchResult;
 <span class="item-spacer"></span>    fn <a href="#tymethod.migrate_delegation" class="fn">migrate_delegation</a>(
         agent: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>,
         delegator: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>,
         value: Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.Balance" title="type sp_staking::DelegationMigrator::Balance">Balance</a>
-    ) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
+    ) -&gt; DispatchResult;
 <span class="item-spacer"></span>    fn <a href="#tymethod.drop_agent" class="fn">drop_agent</a>(agent: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>);
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait to provide functionality for direct stakers to migrate to delegation agents.
 See <a href="trait.DelegationInterface.html" title="trait sp_staking::DelegationInterface"><code>DelegationInterface</code></a> for more details on delegation.</p>
@@ -170,14 +170,14 @@ See <a href="trait.DelegationInterface.html" title="trait sp_staking::Delegation
 </div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.migrate_nominator_to_agent" class="method"><a class="src rightside" href="../src/sp_staking/lib.rs.html#569-572">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_nominator_to_agent" class="fn">migrate_nominator_to_agent</a>(
     agent: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>,
     reward_account: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>
-) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Migrate an existing <code>Nominator</code> to <code>Agent</code> account.</p>
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Migrate an existing <code>Nominator</code> to <code>Agent</code> account.</p>
 <p>The implementation should ensure the <code>Nominator</code> account funds are moved to an escrow
 from which <code>Agents</code> can later release funds to its <code>Delegators</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.migrate_delegation" class="method"><a class="src rightside" href="../src/sp_staking/lib.rs.html#578-582">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_delegation" class="fn">migrate_delegation</a>(
     agent: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>,
     delegator: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>,
     value: Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.Balance" title="type sp_staking::DelegationMigrator::Balance">Balance</a>
-) -&gt; <a class="type" href="../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Migrate <code>value</code> of delegation to <code>delegator</code> from a migrating agent.</p>
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Migrate <code>value</code> of delegation to <code>delegator</code> from a migrating agent.</p>
 <p>When a direct <code>Nominator</code> migrates to <code>Agent</code>, the funds are kept in escrow. This function
 allows the <code>Agent</code> to release the funds to the <code>delegator</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.drop_agent" class="method"><a class="src rightside" href="../src/sp_staking/lib.rs.html#588">source</a><h4 class="code-header">fn <a href="#tymethod.drop_agent" class="fn">drop_agent</a>(agent: &amp;Self::<a class="associatedtype" href="trait.DelegationMigrator.html#associatedtype.AccountId" title="type sp_staking::DelegationMigrator::AccountId">AccountId</a>)</h4></section></summary><div class="docblock"><p>Drop the <code>Agent</code> account and its associated delegators.</p>
