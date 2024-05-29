@@ -559,7 +559,7 @@ pub mod pallet {
 		/// Begin the Bulk Coretime sales rotation.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
-		/// - `min_price`: The price after the leadin period of Bulk Coretime in the first sale.
+		/// - `end_price`: The price after the leadin period of Bulk Coretime in the first sale.
 		/// - `extra_cores`: Number of extra cores that should be requested on top of the cores
 		///   required for `Reservations` and `Leases`.
 		///
@@ -571,11 +571,11 @@ pub mod pallet {
 		))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
-			min_price: BalanceOf<T>,
+			end_price: BalanceOf<T>,
 			extra_cores: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_start_sales(min_price, extra_cores)?;
+			Self::do_start_sales(end_price, extra_cores)?;
 			Ok(Pays::No.into())
 		}
 

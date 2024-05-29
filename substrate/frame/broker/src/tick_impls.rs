@@ -164,7 +164,7 @@ impl<T: Config> Pallet<T> {
 
 		log::debug!(
 			"Rotated sale, new prices: {:?}, {:?}",
-			new_prices.min_price,
+			new_prices.end_price,
 			new_prices.target_price
 		);
 
@@ -228,7 +228,7 @@ impl<T: Config> Pallet<T> {
 		let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
 		let sellout_price = if cores_offered > 0 {
 			// No core sold -> price was too high -> we have to adjust downwards.
-			Some(new_prices.min_price)
+			Some(new_prices.end_price)
 		} else {
 			None
 		};
@@ -237,7 +237,7 @@ impl<T: Config> Pallet<T> {
 		let new_sale = SaleInfoRecord {
 			sale_start,
 			leadin_length,
-			min_price: new_prices.min_price,
+			end_price: new_prices.end_price,
 			sellout_price,
 			region_begin,
 			region_end,
@@ -252,7 +252,7 @@ impl<T: Config> Pallet<T> {
 			sale_start,
 			leadin_length,
 			start_price: Self::sale_price(&new_sale, now),
-			end_price: new_prices.min_price,
+			end_price: new_prices.end_price,
 			region_begin,
 			region_end,
 			ideal_cores_sold,

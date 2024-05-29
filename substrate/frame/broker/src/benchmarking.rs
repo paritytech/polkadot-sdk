@@ -776,12 +776,12 @@ mod benches {
 		let config = new_config_record::<T>();
 
 		let now = frame_system::Pallet::<T>::block_number();
-		let min_price = 10u32.into();
+		let end_price = 10u32.into();
 		let commit_timeslice = Broker::<T>::latest_timeslice_ready_to_commit(&config);
 		let sale = SaleInfoRecordOf::<T> {
 			sale_start: now,
 			leadin_length: Zero::zero(),
-			min_price,
+			end_price,
 			sellout_price: None,
 			region_begin: commit_timeslice,
 			region_end: commit_timeslice.saturating_add(config.region_length),

@@ -30,7 +30,7 @@ pub struct SalePerformance<Balance> {
 	pub sellout_price: Option<Balance>,
 
 	/// The minimum price that was achieved in this sale.
-	pub min_price: Balance,
+	pub end_price: Balance,
 
 	/// The number of cores we want to sell, ideally.
 	pub ideal_cores_sold: CoreIndex,
@@ -46,7 +46,7 @@ pub struct SalePerformance<Balance> {
 #[derive(Copy, Clone)]
 pub struct AdaptedPrices<Balance> {
 	/// New minimum price to use.
-	pub min_price: Balance,
+	pub end_price: Balance,
 	/// Price we optimize for.
 	pub target_price: Balance,
 }
@@ -56,7 +56,7 @@ impl<Balance: Copy> SalePerformance<Balance> {
 	pub fn from_sale<BlockNumber>(record: &SaleInfoRecord<Balance, BlockNumber>) -> Self {
 		Self {
 			sellout_price: record.sellout_price,
-			min_price: record.min_price,
+			end_price: record.end_price,
 			ideal_cores_sold: record.ideal_cores_sold,
 			cores_offered: record.cores_offered,
 			cores_sold: record.cores_sold,
@@ -64,8 +64,8 @@ impl<Balance: Copy> SalePerformance<Balance> {
 	}
 
 	#[cfg(test)]
-	fn new(sellout_price: Option<Balance>, min_price: Balance) -> Self {
-		Self { sellout_price, min_price, ideal_cores_sold: 0, cores_offered: 0, cores_sold: 0 }
+	fn new(sellout_price: Option<Balance>, end_price: Balance) -> Self {
+		Self { sellout_price, end_price, ideal_cores_sold: 0, cores_offered: 0, cores_sold: 0 }
 	}
 }
 
@@ -87,8 +87,8 @@ impl<Balance: Copy> AdaptPrice<Balance> for () {
 		FixedU64::one()
 	}
 	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
-		let price = performance.sellout_price.unwrap_or(performance.min_price);
-		AdaptedPrices { min_price: price, target_price: price }
+		let price = performance.sellout_price.unwrap_or(performance.end_price);
+		AdaptedPrices { end_price: price, target_price: price }
 	}
 }
 
@@ -110,8 +110,8 @@ impl<Balance: FixedPointOperand> AdaptPrice<Balance> for CenterTargetPrice<Balan
 	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
 		let Some(sellout_price) = performance.sellout_price else {
 			return AdaptedPrices {
-				min_price: performance.min_price,
-				target_price: FixedU64::from(10).saturating_mul_int(performance.min_price),
+				end_price: performance.end_price,
+				target_price: FixedU64::from(10).saturating_mul_int(performance.end_price),
 			}
 		};
 
@@ -123,7 +123,7 @@ impl<Balance: FixedPointOperand> AdaptPrice<Balance> for CenterTargetPrice<Balan
 			price
 		};
 
-		AdaptedPrices { min_price: price, target_price: sellout_price }
+		AdaptedPrices { end_price: price, target_price: sellout_price }
 	}
 }
 
@@ -145,7 +145,7 @@ mod tests {
 	fn no_op_sale_is_good() {
 		let prices = CenterTargetPrice::adapt_price(SalePerformance::new(None, 1));
 		assert_eq!(prices.target_price, 10);
-		assert_eq!(prices.min_price, 1);
+		assert_eq!(prices.end_price, 1);
 	}
 
 	#[test]
@@ -155,10 +155,10 @@ mod tests {
 		for _ in 0..10 {
 			let prices = CenterTargetPrice::adapt_price(performance);
 			performance.sellout_price = Some(1000);
-			performance.min_price = prices.min_price;
+			performance.end_price = prices.end_price;
 
-			assert!(prices.min_price <= 101);
-			assert!(prices.min_price >= 99);
+			assert!(prices.end_price <= 101);
+			assert!(prices.end_price >= 99);
 			assert!(prices.target_price <= 1001);
 			assert!(prices.target_price >= 999);
 		}
@@ -169,7 +169,7 @@ mod tests {
 		let performance = SalePerformance::new(Some(10_000), 100);
 		let prices = CenterTargetPrice::adapt_price(performance);
 		assert_eq!(prices.target_price, 10_000);
-		assert_eq!(prices.min_price, 1000);
+		assert_eq!(prices.end_price, 1000);
 	}
 
 	#[test]
@@ -177,7 +177,7 @@ mod tests {
 		let performance = SalePerformance::new(Some(100), 100);
 		let prices = CenterTargetPrice::adapt_price(performance);
 		assert_eq!(prices.target_price, 100);
-		assert_eq!(prices.min_price, 10);
+		assert_eq!(prices.end_price, 10);
 	}
 
 	#[test]
@@ -188,10 +188,10 @@ mod tests {
 		for _ in 0..11 {
 			let prices = CenterTargetPrice::adapt_price(performance);
 			performance.sellout_price = Some(sellout_price);
-			performance.min_price = prices.min_price;
+			performance.end_price = prices.end_price;
 
-			assert!(prices.min_price <= sellout_price);
-			assert!(prices.min_price > 0);
+			assert!(prices.end_price <= sellout_price);
+			assert!(prices.end_price > 0);
 		}
 	}
 
@@ -200,7 +200,7 @@ mod tests {
 		let performance = SalePerformance::new(None, 100);
 		let prices = CenterTargetPrice::adapt_price(performance);
 		assert_eq!(prices.target_price, 1000);
-		assert_eq!(prices.min_price, 100);
+		assert_eq!(prices.end_price, 100);
 	}
 
 	#[test]

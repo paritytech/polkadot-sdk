@@ -214,7 +214,7 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 	/// The length in blocks of the Leadin Period (where the price is decreasing).
 	pub leadin_length: BlockNumber,
 	/// The price of Bulk Coretime after the Leadin Period.
-	pub min_price: Balance,
+	pub end_price: Balance,
 	/// The first timeslice of the Regions which are being sold in this sale.
 	pub region_begin: Timeslice,
 	/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e. One
