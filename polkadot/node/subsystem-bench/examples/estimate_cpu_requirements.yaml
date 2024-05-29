@@ -11,7 +11,7 @@ TestConfiguration:
     coalesce_tranche_diff: 12
     num_no_shows_per_candidate: 5
     workdir_prefix: "/tmp/"
-  n_validators: 500
+  n_validators: 1000
   n_cores: 100
   min_pov_size: 1120
   max_pov_size: 5120
