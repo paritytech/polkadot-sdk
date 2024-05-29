@@ -47,6 +47,7 @@ use core::mem::take;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
+		defensive_prelude::*,
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
 		WithdrawReasons,
@@ -201,16 +202,7 @@ pub mod pallet {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// Update revenue information storage.
 			Revenue::<T>::mutate(|revenue| {
-				match revenue.force_insert_keep_left(0, 0u32.into()) {
-					Ok(_) => (),
-					Err(e) => {
-						// Defensive, should not fail.
-						log::debug!(
-							target: LOG_TARGET,
-							"Error updating historical revenue: {:?}", e
-						);
-					},
-				}
+				let _ = revenue.force_insert_keep_left(0, 0u32.into()).defensive_proof("Inserting a revenue value does not fail");
 			});
 
 			let config = configuration::ActiveConfig::<T>::get();
@@ -411,6 +403,9 @@ where
 			Revenue::<T>::mutate(|bounded_revenue| {
 				if let Some(current_block) = bounded_revenue.get_mut(0) {
 					*current_block = current_block.saturating_add(spot_price);
+				} else {
+					// The value's been inserted in `on_initialize` so this should never happen
+					defensive!("Cannot update current block's revenue info");
 				}
 			});
 
@@ -641,7 +636,7 @@ where
 			// while !revenue.is_empty() {
 			// 	let index = (revenue.len() - 1) as u32;
 			// 	if when > now.saturating_sub(index.into()) {
-			// 		amount = amount.saturating_add(revenue.pop().expect("Checked to contain at least one element; qed"));
+			// 		amount = amount.saturating_add(revenue.pop().defensive_unwrap_or(0));
 			// 	} else {
 			// 		break
 			// 	}
