@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716959701376,
+  "lastUpdate": 1716967667827,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -12011,6 +12011,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010219286753333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "89604daa0f4244bc83782bd489918cfecb81a7d0",
+          "message": "Add omni bencher & chain-spec-builder bins to release (#4557)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/4354\n\nThis PR adds the steps to build and attach `frame-omni-bencher` and\n`chain-spec-builder` binaries to the release draft\n\n## TODO\n- [x] add also chain-spec-builder binary\n- [ ] ~~check/investigate Kian's comment: `chain spec builder. Ideally I\nwant it to match the version of the sp-genesis-builder crate`~~ see\n[comment](https://github.com/paritytech/polkadot-sdk/pull/4518#issuecomment-2134731355)\n- [ ] Backport to `polkadot-sdk@1.11` release, so we can use it for next\nfellows release: https://github.com/polkadot-fellows/runtimes/pull/324\n- [ ] Backport to `polkadot-sdk@1.12` release\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2024-05-29T05:50:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/89604daa0f4244bc83782bd489918cfecb81a7d0"
+        },
+        "date": 1716967639835,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022173055959999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012380142826666671,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010392649866666676,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16971708833333335,
             "unit": "seconds"
           }
         ]
