@@ -93,7 +93,7 @@ where
 	C: Send + Sync + 'static,
 	C::Api: AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
-	P: TransactionPool + 'static + ?Sized,
+	P: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: traits::Block,
 	AccountId: Clone + Display + Codec + Send + 'static,
 	Nonce: Clone + Display + Codec + Send + traits::AtLeast32Bit + 'static,
@@ -183,7 +183,7 @@ fn adjust_nonce<P, AccountId, Nonce, Block>(
 	best: <Block as traits::Block>::Hash,
 ) -> Nonce
 where
-	P: TransactionPool + ?Sized,
+	P: TransactionPool<Block = Block> + ?Sized,
 	AccountId: Clone + std::fmt::Display + Encode,
 	Nonce: Clone + std::fmt::Display + Encode + traits::AtLeast32Bit + 'static,
 	Block: traits::Block,
