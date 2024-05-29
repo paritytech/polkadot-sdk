@@ -11,7 +11,7 @@ doc:
       pending slashes of the pool members.
 
 crates:
-  - name: pallet-nomination-pool
+  - name: pallet-nomination-pools
     bump: minor
   - name: westend-runtime
     bump: minor
