@@ -892,6 +892,7 @@ impl_runtime_apis! {
 			use xcm_executor::RecordXcm;
 			use xcm::prelude::*;
 			pallet_xcm::Pallet::<Runtime>::set_record_xcm(true);
+			frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
 			let result = call.dispatch(origin.into());
 			pallet_xcm::Pallet::<Runtime>::set_record_xcm(false);
 			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
@@ -926,6 +927,7 @@ impl_runtime_apis! {
 				XcmDryRunApiError::VersionedConversionFailed
 			})?;
 			let mut hash = program.using_encoded(sp_core::hashing::blake2_256);
+			frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
 			let result = xcm_executor::XcmExecutor::<xcm_config::XcmConfig>::prepare_and_execute(
 				origin_location,
 				program,
