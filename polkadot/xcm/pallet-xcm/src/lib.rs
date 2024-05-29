@@ -29,7 +29,9 @@ pub mod migration;
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::{
-	dispatch::{DispatchErrorWithPostInfo, GetDispatchInfo, WithPostDispatchInfo},
+	dispatch::{
+		DispatchErrorWithPostInfo, GetDispatchInfo, PostDispatchInfo, WithPostDispatchInfo,
+	},
 	pallet_prelude::*,
 	traits::{
 		Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency,
@@ -50,18 +52,22 @@ use sp_runtime::{
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
-	ExecuteController, ExecuteControllerWeightInfo, QueryController, QueryControllerWeightInfo,
-	SendController, SendControllerWeightInfo,
+	ExecuteController, ExecuteControllerWeightInfo, InspectMessageQueues, QueryController,
+	QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
 };
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
 		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
-		TransactAsset, TransferType, VersionChangeNotifier, WeightBounds, XcmAssetTransfers,
+		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
+		XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
-use xcm_fee_payment_runtime_api::fees::Error as XcmPaymentApiError;
+use xcm_fee_payment_runtime_api::{
+	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
+};
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -2432,6 +2438,76 @@ impl<T: Config> Pallet<T> {
 		AccountIdConversion::<T::AccountId>::into_account_truncating(&ID)
 	}
 
+	pub fn dry_run_call<Runtime, Router, OriginCaller, RuntimeCall>(
+		origin: OriginCaller,
+		call: RuntimeCall,
+	) -> Result<
+		ExtrinsicDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>,
+		XcmDryRunApiError,
+	>
+	where
+		Runtime: crate::Config,
+		Router: InspectMessageQueues,
+		RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo>,
+		<RuntimeCall as Dispatchable>::RuntimeOrigin: From<OriginCaller>,
+	{
+		crate::Pallet::<Runtime>::set_record_xcm(true);
+		let result = call.dispatch(origin.into());
+		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm();
+		let forwarded_xcms = Router::get_messages();
+		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
+			frame_system::Pallet::<Runtime>::read_events_no_consensus()
+				.map(|record| record.event.clone())
+				.collect();
+		Ok(ExtrinsicDryRunEffects {
+			local_xcm: local_xcm.map(VersionedXcm::<()>::from),
+			forwarded_xcms,
+			emitted_events: events,
+			execution_result: result,
+		})
+	}
+
+	pub fn dry_run_xcm<Runtime, Router, RuntimeCall, XcmConfig>(
+		origin_location: VersionedLocation,
+		xcm: VersionedXcm<RuntimeCall>,
+	) -> Result<XcmDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
+	where
+		Runtime: frame_system::Config,
+		Router: InspectMessageQueues,
+		XcmConfig: xcm_executor::Config<RuntimeCall = RuntimeCall>,
+	{
+		let origin_location: Location = origin_location.try_into().map_err(|error| {
+			log::error!(
+				target: "xcm::XcmDryRunApi::dry_run_xcm",
+				"Location version conversion failed with error: {:?}",
+				error,
+			);
+			XcmDryRunApiError::VersionedConversionFailed
+		})?;
+		let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
+			log::error!(
+				target: "xcm::XcmDryRunApi::dry_run_xcm",
+				"Xcm version conversion failed with error {:?}",
+				error,
+			);
+			XcmDryRunApiError::VersionedConversionFailed
+		})?;
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		let result = xcm_executor::XcmExecutor::<XcmConfig>::prepare_and_execute(
+			origin_location,
+			xcm,
+			&mut hash,
+			Weight::MAX, // Max limit available for execution.
+			Weight::zero(),
+		);
+		let forwarded_xcms = Router::get_messages();
+		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
+			frame_system::Pallet::<Runtime>::read_events_no_consensus()
+				.map(|record| record.event.clone())
+				.collect();
+		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
+	}
+
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
 		let message = Xcm::<()>::try_from(message)
 			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
@@ -3126,7 +3202,7 @@ impl<T: Config> CheckSuspension for Pallet<T> {
 	}
 }
 
-impl<T: Config> xcm_executor::traits::RecordXcm for Pallet<T> {
+impl<T: Config> RecordXcm for Pallet<T> {
 	fn should_record() -> bool {
 		ShouldRecordXcm::<T>::get()
 	}
