@@ -158,7 +158,8 @@ where
 
 		if !CON::can_swap_tokens_for_exact_tokens(
 			who.clone(),
-			vec![asset_id.into(), N::get()],
+			asset_id.into(),
+			N::get(),
 			native_asset_required,
 			None,
 			false,

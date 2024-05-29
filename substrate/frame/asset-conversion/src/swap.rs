@@ -81,7 +81,8 @@ pub trait Swap<AccountId> {
 	/// This operation is expected to be atomic.
 	fn can_swap_tokens_for_exact_tokens(
 		sender: AccountId,
-		path: Vec<Self::AssetKind>,
+		asset_in: Self::AssetKind,
+		asset_out: Self::AssetKind,
 		amount_out: Self::Balance,
 		amount_in_max: Option<Self::Balance>,
 		keep_alive: bool,
@@ -184,15 +185,12 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 
 	fn can_swap_tokens_for_exact_tokens(
 		sender: T::AccountId,
-		path: Vec<Self::AssetKind>,
+		asset_in: Self::AssetKind,
+		asset_out: Self::AssetKind,
 		amount_out: Self::Balance,
 		amount_in_max: Option<Self::Balance>,
 		keep_alive: bool,
 	) -> bool {
-		let (asset_in, asset_out) = match (path.first(), path.last()) {
-			(Some(asset_1), Some(asset_2)) => (asset_1.clone(), asset_2.clone()),
-			_ => return false,
-		};
 		let Some(amount_in) = Self::quote_price_tokens_for_exact_tokens(
 			asset_out,
 			asset_in.clone(),
