@@ -856,6 +856,7 @@ fn test_availability_recovery_msg() -> AvailabilityRecoveryMessage {
 		dummy_candidate_receipt(dummy_hash()),
 		Default::default(),
 		None,
+		None,
 		sender,
 	)
 }

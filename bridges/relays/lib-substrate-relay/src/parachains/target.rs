@@ -122,9 +122,20 @@ where
 	async fn free_source_relay_headers_interval(
 		&self,
 	) -> Result<Option<BlockNumberOf<P::SourceRelayChain>>, Self::Error> {
-		self.target_client
+		Ok(self
+			.target_client
 			.typed_state_call(P::SourceRelayChain::FREE_HEADERS_INTERVAL_METHOD.into(), (), None)
 			.await
+			.unwrap_or_else(|e| {
+				log::info!(
+					target: "bridge",
+					"Call of {} at {} has failed with an error: {:?}. Treating as `None`",
+					P::SourceRelayChain::FREE_HEADERS_INTERVAL_METHOD,
+					P::TargetChain::NAME,
+					e,
+				);
+				None
+			}))
 	}
 
 	async fn parachain_head(

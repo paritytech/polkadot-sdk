@@ -21,7 +21,7 @@ statement-table = { package = "polkadot-statement-table", path = "../../../state
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 gum = { package = "tracing-gum", path = "../../gum" }
 thiserror = { workspace = true }
-fatality = "0.0.6"
+fatality = "0.1.1"
 schnellru = "0.2.1"
 
 [dev-dependencies]

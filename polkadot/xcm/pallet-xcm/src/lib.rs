@@ -61,7 +61,7 @@ use xcm_executor::{
 	},
 	AssetsInHolding,
 };
-use xcm_fee_payment_runtime_api::Error as FeePaymentError;
+use xcm_fee_payment_runtime_api::fees::Error as XcmPaymentApiError;
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -763,6 +763,25 @@ pub mod pallet {
 	/// Global suspension state of the XCM executor.
 	#[pallet::storage]
 	pub(super) type XcmExecutionSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// Whether or not incoming XCMs (both executed locally and received) should be recorded.
+	/// Only one XCM program will be recorded at a time.
+	/// This is meant to be used in runtime APIs, and it's advised it stays false
+	/// for all other use cases, so as to not degrade regular performance.
+	///
+	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
+	/// implementation in the XCM executor configuration.
+	#[pallet::storage]
+	pub(crate) type ShouldRecordXcm<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// If [`ShouldRecordXcm`] is set to true, then the last XCM program executed locally
+	/// will be stored here.
+	/// Runtime APIs can fetch the XCM that was executed by accessing this value.
+	///
+	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
+	/// implementation in the XCM executor configuration.
+	#[pallet::storage]
+	pub(crate) type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -2413,35 +2432,37 @@ impl<T: Config> Pallet<T> {
 		AccountIdConversion::<T::AccountId>::into_account_truncating(&ID)
 	}
 
-	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, FeePaymentError> {
-		let message =
-			Xcm::<()>::try_from(message).map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
+		let message = Xcm::<()>::try_from(message)
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
 		T::Weigher::weight(&mut message.into()).map_err(|()| {
 			log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
-			FeePaymentError::WeightNotComputable
+			XcmPaymentApiError::WeightNotComputable
 		})
 	}
 
 	pub fn query_delivery_fees(
 		destination: VersionedLocation,
 		message: VersionedXcm<()>,
-	) -> Result<VersionedAssets, FeePaymentError> {
+	) -> Result<VersionedAssets, XcmPaymentApiError> {
 		let result_version = destination.identify_version().max(message.identify_version());
 
-		let destination =
-			destination.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+		let destination = destination
+			.try_into()
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
-		let message = message.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+		let message =
+			message.try_into().map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
 		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
 			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Error when querying delivery fees: {:?}", error);
-			FeePaymentError::Unroutable
+			XcmPaymentApiError::Unroutable
 		})?;
 
 		VersionedAssets::from(fees)
 			.into_version(result_version)
-			.map_err(|_| FeePaymentError::VersionedConversionFailed)
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)
 	}
 
 	/// Create a new expectation of a query response with the querier being here.
@@ -3102,6 +3123,24 @@ impl<T: Config> CheckSuspension for Pallet<T> {
 		_properties: &mut Properties,
 	) -> bool {
 		XcmExecutionSuspended::<T>::get()
+	}
+}
+
+impl<T: Config> xcm_executor::traits::RecordXcm for Pallet<T> {
+	fn should_record() -> bool {
+		ShouldRecordXcm::<T>::get()
+	}
+
+	fn set_record_xcm(enabled: bool) {
+		ShouldRecordXcm::<T>::put(enabled);
+	}
+
+	fn recorded_xcm() -> Option<Xcm<()>> {
+		RecordedXcm::<T>::get()
+	}
+
+	fn record(xcm: Xcm<()>) {
+		RecordedXcm::<T>::put(xcm);
 	}
 }
 

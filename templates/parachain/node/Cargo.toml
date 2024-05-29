@@ -10,20 +10,18 @@ edition.workspace = true
 publish = false
 build = "build.rs"
 
-[lints]
-workspace = true
-
 # [[bin]]
 # name = "parachain-template-node"
 
 [dependencies]
 clap = { version = "4.5.3", features = ["derive"] }
 log = { workspace = true, default-features = true }
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 serde = { features = ["derive"], workspace = true, default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
 futures = "0.3.28"
 serde_json = { workspace = true, default-features = true }
+docify = "0.2.8"
 
 # Local
 parachain-template-runtime = { path = "../runtime" }

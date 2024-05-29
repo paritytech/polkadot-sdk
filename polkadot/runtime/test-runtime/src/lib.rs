@@ -29,7 +29,9 @@ use sp_std::{
 
 use polkadot_runtime_parachains::{
 	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration, disputes as parachains_disputes,
+	configuration as parachains_configuration,
+	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
+	disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
@@ -78,7 +80,7 @@ use sp_runtime::{
 		SaturatedConversion, StaticLookup, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent,
 };
 use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
@@ -556,8 +558,7 @@ parameter_types! {
 impl parachains_dmp::Config for Runtime {}
 
 parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
-	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (51200, 500);
+	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
 }
 
 impl parachains_hrmp::Config for Runtime {
@@ -565,7 +566,11 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
+		Runtime,
+		HrmpChannelSizeAndCapacityWithSystemRatio,
+	>;
+	type VersionWrapper = crate::Xcm;
 	type WeightInfo = parachains_hrmp::TestWeightInfo;
 }
 
@@ -1039,11 +1044,11 @@ sp_api::impl_runtime_apis! {
 		fn generate_proof(
 			_block_numbers: Vec<BlockNumber>,
 			_best_known_block_number: Option<BlockNumber>,
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<Hash>), mmr::Error> {
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<Hash>), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
 
-		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::Proof<Hash>)
+		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::LeafProof<Hash>)
 			-> Result<(), mmr::Error>
 		{
 			Err(mmr::Error::PalletNotIncluded)
@@ -1052,7 +1057,7 @@ sp_api::impl_runtime_apis! {
 		fn verify_proof_stateless(
 			_root: Hash,
 			_leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			_proof: mmr::Proof<Hash>
+			_proof: mmr::LeafProof<Hash>
 		) -> Result<(), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}

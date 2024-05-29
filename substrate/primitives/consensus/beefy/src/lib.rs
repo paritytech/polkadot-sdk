@@ -52,7 +52,10 @@ use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 use sp_core::H256;
-use sp_runtime::traits::{Hash, Keccak256, NumberFor};
+use sp_runtime::{
+	traits::{Hash, Keccak256, NumberFor},
+	OpaqueValue,
+};
 
 /// Key type for BEEFY module.
 pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;
@@ -399,21 +402,7 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 /// the runtime API boundary this type is unknown and as such we keep this
 /// opaque representation, implementors of the runtime API will have to make
 /// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
-#[derive(Decode, Encode, PartialEq, TypeInfo)]
-pub struct OpaqueKeyOwnershipProof(Vec<u8>);
-impl OpaqueKeyOwnershipProof {
-	/// Create a new `OpaqueKeyOwnershipProof` using the given encoded
-	/// representation.
-	pub fn new(inner: Vec<u8>) -> OpaqueKeyOwnershipProof {
-		OpaqueKeyOwnershipProof(inner)
-	}
-
-	/// Try to decode this `OpaqueKeyOwnershipProof` into the given concrete key
-	/// ownership proof type.
-	pub fn decode<T: Decode>(self) -> Option<T> {
-		codec::Decode::decode(&mut &self.0[..]).ok()
-	}
-}
+pub type OpaqueKeyOwnershipProof = OpaqueValue;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for BEEFY voters.

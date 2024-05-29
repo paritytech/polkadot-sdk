@@ -229,7 +229,7 @@ impl pallet_message_queue::Config for Runtime {
 	// These need to be configured to the XCMP pallet - if it is deployed.
 	type QueueChangeHandler = ();
 	type QueuePausedQuery = ();
-	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type HeapSize = sp_core::ConstU32<{ 103 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
 	type IdleMaxServiceWeight = MessageQueueServiceWeight;

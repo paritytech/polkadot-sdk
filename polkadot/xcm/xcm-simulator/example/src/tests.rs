@@ -19,7 +19,7 @@ use crate::*;
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
 use xcm::latest::QueryResponseInfo;
-use xcm_simulator::TestExt;
+use xcm_simulator::{mock_message_queue::ReceivedDmp, TestExt};
 
 // Helper function for forming buy execution message
 fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
@@ -171,7 +171,7 @@ fn remote_locking_and_unlocking() {
 
 	ParaA::execute_with(|| {
 		assert_eq!(
-			parachain::MsgQueue::received_dmp(),
+			ReceivedDmp::<parachain::Runtime>::get(),
 			vec![Xcm(vec![NoteUnlockable {
 				owner: (Parent, Parachain(2)).into(),
 				asset: (Parent, locked_amount).into()
@@ -501,7 +501,7 @@ fn query_holding() {
 	// Check that QueryResponse message was received
 	ParaA::execute_with(|| {
 		assert_eq!(
-			parachain::MsgQueue::received_dmp(),
+			ReceivedDmp::<parachain::Runtime>::get(),
 			vec![Xcm(vec![QueryResponse {
 				query_id: query_id_set,
 				response: Response::Assets(Assets::new()),

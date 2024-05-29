@@ -1,0 +1,6 @@
+flowchart
+	relay[Relaychain] --"DMP"--> paraA["Parachain(2000)"]
+	relay --"DMP"--> paraB["Parachain(2001)"]
+
+	paraA --"UMP"--> relay
+	paraB --"UMP"--> relay

@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ] }
@@ -30,7 +30,7 @@ sp-std = { path = "../std", default-features = false }
 docify = "0.2.8"
 
 [dev-dependencies]
-criterion = "0.4.0"
+criterion = "0.5.1"
 primitive-types = "0.12.0"
 sp-crypto-hashing = { path = "../crypto/hashing" }
 rand = "0.8.5"

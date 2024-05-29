@@ -107,13 +107,24 @@ impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<
 	async fn free_source_headers_interval(
 		&self,
 	) -> Result<Option<BlockNumberOf<P::SourceChain>>, Self::Error> {
-		self.client
+		Ok(self
+			.client
 			.typed_state_call(
 				P::SourceChain::FREE_HEADERS_INTERVAL_METHOD.into(),
 				(),
 				Some(self.client.best_header().await?.hash()),
 			)
 			.await
+			.unwrap_or_else(|e| {
+				log::info!(
+					target: "bridge",
+					"Call of {} at {} has failed with an error: {:?}. Treating as `None`",
+					P::SourceChain::FREE_HEADERS_INTERVAL_METHOD,
+					P::TargetChain::NAME,
+					e,
+				);
+				None
+			}))
 	}
 
 	async fn submit_finality_proof(
@@ -125,6 +136,16 @@ impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<
 		// verify and runtime module at target chain may require optimized finality proof
 		let context =
 			P::FinalityEngine::verify_and_optimize_proof(&self.client, &header, &mut proof).await?;
+
+		// if free execution is expected, but the call size/weight exceeds hardcoded limits, the
+		// runtime may still accept the proof, but it may have some cost for relayer. Let's check
+		// it here to avoid losing relayer funds
+		if is_free_execution_expected {
+			let extras = P::FinalityEngine::check_max_expected_call_limits(&header, &proof);
+			if extras.is_weight_limit_exceeded || extras.extra_size != 0 {
+				return Err(Error::FinalityProofWeightLimitExceeded { extras })
+			}
+		}
 
 		// now we may submit optimized finality proof
 		let mortality = self.transaction_params.mortality;

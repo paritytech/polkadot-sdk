@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use sc_network::{multiaddr, Multiaddr};
+use libp2p::multiaddr::{self, Multiaddr};
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// List of telemetry servers we want to talk to. Contains the URL of the server, and the

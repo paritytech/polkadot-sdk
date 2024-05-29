@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 memmap2 = "0.9.3"
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -34,7 +34,7 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
 log = { workspace = true }
 sp-tracing = { path = "../../primitives/tracing" }
-array-bytes = { version = "6.1" }
+array-bytes = "6.2.2"
 docify = "0.2.8"
 
 [dev-dependencies]
@@ -42,3 +42,4 @@ substrate-test-runtime = { path = "../../test-utils/runtime" }
 sp-keyring = { path = "../../primitives/keyring" }
 sp-application-crypto = { default-features = false, path = "../../primitives/application-crypto", features = ["serde"] }
 sp-consensus-babe = { default-features = false, path = "../../primitives/consensus/babe", features = ["serde"] }
+regex = "1.6.0"

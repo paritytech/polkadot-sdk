@@ -33,13 +33,13 @@ fn fast_track_referendum_works() {
 			set_balance_proposal(2)
 		));
 		let hash = note_preimage(1);
-		assert!(<MetadataOf<Test>>::get(MetadataOwner::External).is_none());
+		assert!(MetadataOf::<Test>::get(MetadataOwner::External).is_none());
 		assert_ok!(Democracy::set_metadata(
 			RuntimeOrigin::signed(3),
 			MetadataOwner::External,
 			Some(hash),
 		),);
-		assert!(<MetadataOf<Test>>::get(MetadataOwner::External).is_some());
+		assert!(MetadataOf::<Test>::get(MetadataOwner::External).is_some());
 		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed(1), h, 3, 2), BadOrigin);
 		assert_ok!(Democracy::fast_track(RuntimeOrigin::signed(5), h, 2, 0));
 		assert_eq!(
@@ -53,8 +53,8 @@ fn fast_track_referendum_works() {
 			})
 		);
 		// metadata reset from the external proposal to the referendum.
-		assert!(<MetadataOf<Test>>::get(MetadataOwner::External).is_none());
-		assert!(<MetadataOf<Test>>::get(MetadataOwner::Referendum(0)).is_some());
+		assert!(MetadataOf::<Test>::get(MetadataOwner::External).is_none());
+		assert!(MetadataOf::<Test>::get(MetadataOwner::Referendum(0)).is_some());
 	});
 }
 

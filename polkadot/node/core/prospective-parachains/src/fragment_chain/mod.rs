@@ -14,35 +14,49 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A tree utility for managing parachain fragments not referenced by the relay-chain.
+//! Utility for managing parachain fragments not referenced by the relay-chain.
 //!
 //! # Overview
 //!
-//! This module exposes two main types: [`FragmentTree`] and [`CandidateStorage`] which are meant to
-//! be used in close conjunction. Each fragment tree is associated with a particular relay-parent
-//! and each node in the tree represents a candidate. Each parachain has a single candidate storage,
-//! but can have multiple trees for each relay chain block in the view.
+//! This module exposes two main types: [`FragmentChain`] and [`CandidateStorage`] which are meant
+//! to be used in close conjunction. Each fragment chain is associated with a particular
+//! relay-parent and each node in the chain represents a candidate. Each parachain has a single
+//! candidate storage, but can have one chain for each relay chain block in the view.
+//! Therefore, the same candidate can be present in multiple fragment chains of a parachain. One of
+//! the purposes of the candidate storage is to deduplicate the large candidate data that is being
+//! referenced from multiple fragment chains.
 //!
-//! A tree has an associated [`Scope`] which defines limits on candidates within the tree.
+//! A chain has an associated [`Scope`] which defines limits on candidates within the chain.
 //! Candidates themselves have their own [`Constraints`] which are either the constraints from the
-//! scope, or, if there are previous nodes in the tree, a modified version of the previous
+//! scope, or, if there are previous nodes in the chain, a modified version of the previous
 //! candidate's constraints.
+//!
+//! Another use of the `CandidateStorage` is to keep a record of candidates which may not be yet
+//! included in any chain, but which may become part of a chain in the future. This is needed for
+//! elastic scaling, so that we may parallelise the backing process across different groups. As long
+//! as some basic constraints are not violated by an unconnected candidate (like the relay parent
+//! being in scope), we proceed with the backing process, hoping that its predecessors will be
+//! backed soon enough. This is commonly called a potential candidate. Note that not all potential
+//! candidates will be maintained in the CandidateStorage. The total number of connected + potential
+//! candidates will be at most max_candidate_depth + 1.
 //!
 //! This module also makes use of types provided by the Inclusion Emulator module, such as
 //! [`Fragment`] and [`Constraints`]. These perform the actual job of checking for validity of
 //! prospective fragments.
 //!
-//! # Usage
+//! # Parachain forks
 //!
-//! It's expected that higher-level code will have a tree for each relay-chain block which might
-//! reasonably have blocks built upon it.
+//! Parachains are expected to not create forks, hence the use of fragment chains as opposed to
+//! fragment trees. If parachains do create forks, their performance in regards to async backing and
+//! elastic scaling will suffer, because different validators will have different views of the
+//! future.
 //!
-//! Because a para only has a single candidate storage, trees only store indices into the storage.
-//! The storage is meant to be pruned when trees are dropped by higher-level code.
+//! This is a compromise we can make - collators which want to use async backing and elastic scaling
+//! need to cooperate for the highest throughput.
 //!
-//! # Cycles
+//! # Parachain cycles
 //!
-//! Nodes do not uniquely refer to a parachain block for two reasons.
+//! Parachains can create cycles, because:
 //!   1. There's no requirement that head-data is unique for a parachain. Furthermore, a parachain
 //!      is under no obligation to be acyclic, and this is mostly just because it's totally
 //!      inefficient to enforce it. Practical use-cases are acyclic, but there is still more than
@@ -50,34 +64,17 @@
 //!   2. and candidates only refer to their parent by its head-data. This whole issue could be
 //!      resolved by having candidates reference their parent by candidate hash.
 //!
-//! The implication is that when we receive a candidate receipt, there are actually multiple
-//! possibilities for any candidates between the para-head recorded in the relay parent's state
-//! and the candidate in question.
+//! However, dealing with cycles increases complexity during the backing/inclusion process for no
+//! practical reason. Therefore, fragment chains will not accept such candidates.
 //!
-//! This means that our candidates need to handle multiple parents and that depth is an
-//! attribute of a node in a tree, not a candidate. Put another way, the same candidate might
-//! have different depths in different parts of the tree.
+//! On the other hand, enforcing that a parachain will NEVER be acyclic would be very complicated
+//! (looping through the entire parachain's history on every new candidate or changing the candidate
+//! receipt to reference the parent's candidate hash).
 //!
-//! As an extreme example, a candidate which produces head-data which is the same as its parent
-//! can correspond to multiple nodes within the same [`FragmentTree`]. Such cycles are bounded
-//! by the maximum depth allowed by the tree. An example with `max_depth: 4`:
-//!
-//! ```text
-//!           committed head
-//!                  |
-//! depth 0:      head_a
-//!                  |
-//! depth 1:      head_b
-//!                  |
-//! depth 2:      head_a
-//!                  |
-//! depth 3:      head_b
-//!                  |
-//! depth 4:      head_a
-//! ```
+//! # Spam protection
 //!
 //! As long as the [`CandidateStorage`] has bounded input on the number of candidates supplied,
-//! [`FragmentTree`] complexity is bounded. This means that higher-level code needs to be selective
+//! [`FragmentChain`] complexity is bounded. This means that higher-level code needs to be selective
 //! about limiting the amount of candidates that are considered.
 //!
 //! The code in this module is not designed for speed or efficiency, but conceptual simplicity.
@@ -90,16 +87,15 @@
 mod tests;
 
 use std::{
-	borrow::Cow,
 	collections::{
 		hash_map::{Entry, HashMap},
 		BTreeMap, HashSet,
 	},
+	sync::Arc,
 };
 
 use super::LOG_TARGET;
-use bitvec::prelude::*;
-use polkadot_node_subsystem::messages::Ancestors;
+use polkadot_node_subsystem::messages::{Ancestors, HypotheticalCandidate};
 use polkadot_node_subsystem_util::inclusion_emulator::{
 	ConstraintModifications, Constraints, Fragment, ProspectiveCandidate, RelayChainBlockInfo,
 };
@@ -120,11 +116,19 @@ pub enum CandidateStorageInsertionError {
 
 /// Stores candidates and information about them such as their relay-parents and their backing
 /// states.
+#[derive(Clone, Default)]
 pub(crate) struct CandidateStorage {
-	// Index from head data hash to candidate hashes with that head data as a parent.
+	// Index from head data hash to candidate hashes with that head data as a parent. Purely for
+	// efficiency when responding to `ProspectiveValidationDataRequest`s or when trying to find a
+	// new candidate to push to a chain.
+	// Even though having multiple candidates with same parent would be invalid for a parachain, it
+	// could happen across different relay chain forks, hence the HashSet.
 	by_parent_head: HashMap<Hash, HashSet<CandidateHash>>,
 
-	// Index from head data hash to candidate hashes outputting that head data.
+	// Index from head data hash to candidate hashes outputting that head data. Purely for
+	// efficiency when responding to `ProspectiveValidationDataRequest`s.
+	// Even though having multiple candidates with same output would be invalid for a parachain,
+	// it could happen across different relay chain forks.
 	by_output_head: HashMap<Hash, HashSet<CandidateHash>>,
 
 	// Index from candidate hash to fragment node.
@@ -132,23 +136,14 @@ pub(crate) struct CandidateStorage {
 }
 
 impl CandidateStorage {
-	/// Create a new `CandidateStorage`.
-	pub fn new() -> Self {
-		CandidateStorage {
-			by_parent_head: HashMap::new(),
-			by_output_head: HashMap::new(),
-			by_candidate_hash: HashMap::new(),
-		}
-	}
-
 	/// Introduce a new candidate.
 	pub fn add_candidate(
 		&mut self,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
+		state: CandidateState,
 	) -> Result<CandidateHash, CandidateStorageInsertionError> {
 		let candidate_hash = candidate.hash();
-
 		if self.by_candidate_hash.contains_key(&candidate_hash) {
 			return Err(CandidateStorageInsertionError::CandidateAlreadyKnown(candidate_hash))
 		}
@@ -157,24 +152,30 @@ impl CandidateStorage {
 			return Err(CandidateStorageInsertionError::PersistedValidationDataMismatch)
 		}
 
-		let parent_head_hash = persisted_validation_data.parent_head.hash();
-		let output_head_hash = candidate.commitments.head_data.hash();
 		let entry = CandidateEntry {
 			candidate_hash,
+			parent_head_data_hash: persisted_validation_data.parent_head.hash(),
+			output_head_data_hash: candidate.commitments.head_data.hash(),
 			relay_parent: candidate.descriptor.relay_parent,
-			state: CandidateState::Introduced,
-			candidate: ProspectiveCandidate {
-				commitments: Cow::Owned(candidate.commitments),
+			state,
+			candidate: Arc::new(ProspectiveCandidate {
+				commitments: candidate.commitments,
 				collator: candidate.descriptor.collator,
 				collator_signature: candidate.descriptor.signature,
 				persisted_validation_data,
 				pov_hash: candidate.descriptor.pov_hash,
 				validation_code_hash: candidate.descriptor.validation_code_hash,
-			},
+			}),
 		};
 
-		self.by_parent_head.entry(parent_head_hash).or_default().insert(candidate_hash);
-		self.by_output_head.entry(output_head_hash).or_default().insert(candidate_hash);
+		self.by_parent_head
+			.entry(entry.parent_head_data_hash())
+			.or_default()
+			.insert(candidate_hash);
+		self.by_output_head
+			.entry(entry.output_head_data_hash())
+			.or_default()
+			.insert(candidate_hash);
 		// sanity-checked already.
 		self.by_candidate_hash.insert(candidate_hash, entry);
 
@@ -184,21 +185,20 @@ impl CandidateStorage {
 	/// Remove a candidate from the store.
 	pub fn remove_candidate(&mut self, candidate_hash: &CandidateHash) {
 		if let Some(entry) = self.by_candidate_hash.remove(candidate_hash) {
-			let parent_head_hash = entry.candidate.persisted_validation_data.parent_head.hash();
-			if let Entry::Occupied(mut e) = self.by_parent_head.entry(parent_head_hash) {
+			if let Entry::Occupied(mut e) = self.by_parent_head.entry(entry.parent_head_data_hash())
+			{
 				e.get_mut().remove(&candidate_hash);
 				if e.get().is_empty() {
 					e.remove();
 				}
 			}
-		}
-	}
 
-	/// Note that an existing candidate has been seconded.
-	pub fn mark_seconded(&mut self, candidate_hash: &CandidateHash) {
-		if let Some(entry) = self.by_candidate_hash.get_mut(candidate_hash) {
-			if entry.state != CandidateState::Backed {
-				entry.state = CandidateState::Seconded;
+			if let Entry::Occupied(mut e) = self.by_output_head.entry(entry.output_head_data_hash())
+			{
+				e.get_mut().remove(&candidate_hash);
+				if e.get().is_empty() {
+					e.remove();
+				}
 			}
 		}
 	}
@@ -223,6 +223,11 @@ impl CandidateStorage {
 	/// Whether a candidate is contained within the storage already.
 	pub fn contains(&self, candidate_hash: &CandidateHash) -> bool {
 		self.by_candidate_hash.contains_key(candidate_hash)
+	}
+
+	/// Return an iterator over the stored candidates.
+	pub fn candidates(&self) -> impl Iterator<Item = &CandidateEntry> {
+		self.by_candidate_hash.values()
 	}
 
 	/// Retain only candidates which pass the predicate.
@@ -260,16 +265,17 @@ impl CandidateStorage {
 	}
 
 	/// Returns candidate's relay parent, if present.
-	pub(crate) fn relay_parent_by_candidate_hash(
-		&self,
-		candidate_hash: &CandidateHash,
-	) -> Option<Hash> {
+	pub(crate) fn relay_parent_of_candidate(&self, candidate_hash: &CandidateHash) -> Option<Hash> {
 		self.by_candidate_hash.get(candidate_hash).map(|entry| entry.relay_parent)
 	}
 
-	fn iter_para_children<'a>(
+	/// Returns the candidates which have the given head data hash as parent.
+	/// We don't allow forks in a parachain, but we may have multiple candidates with same parent
+	/// across different relay chain forks. That's why it returns an iterator (but only one will be
+	/// valid and used in the end).
+	fn possible_para_children<'a>(
 		&'a self,
-		parent_head_hash: &Hash,
+		parent_head_hash: &'a Hash,
 	) -> impl Iterator<Item = &'a CandidateEntry> + 'a {
 		let by_candidate_hash = &self.by_candidate_hash;
 		self.by_parent_head
@@ -277,10 +283,6 @@ impl CandidateStorage {
 			.into_iter()
 			.flat_map(|hashes| hashes.iter())
 			.filter_map(move |h| by_candidate_hash.get(h))
-	}
-
-	fn get(&'_ self, candidate_hash: &CandidateHash) -> Option<&'_ CandidateEntry> {
-		self.by_candidate_hash.get(candidate_hash)
 	}
 
 	#[cfg(test)]
@@ -292,23 +294,36 @@ impl CandidateStorage {
 /// The state of a candidate.
 ///
 /// Candidates aren't even considered until they've at least been seconded.
-#[derive(Debug, PartialEq)]
-enum CandidateState {
-	/// The candidate has been introduced in a spam-protected way but
-	/// is not necessarily backed.
-	Introduced,
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) enum CandidateState {
 	/// The candidate has been seconded.
 	Seconded,
 	/// The candidate has been completely backed by the group.
 	Backed,
 }
 
-#[derive(Debug)]
-struct CandidateEntry {
+#[derive(Debug, Clone)]
+pub(crate) struct CandidateEntry {
 	candidate_hash: CandidateHash,
+	parent_head_data_hash: Hash,
+	output_head_data_hash: Hash,
 	relay_parent: Hash,
-	candidate: ProspectiveCandidate<'static>,
+	candidate: Arc<ProspectiveCandidate>,
 	state: CandidateState,
+}
+
+impl CandidateEntry {
+	pub fn hash(&self) -> CandidateHash {
+		self.candidate_hash
+	}
+
+	pub fn parent_head_data_hash(&self) -> Hash {
+		self.parent_head_data_hash
+	}
+
+	pub fn output_head_data_hash(&self) -> Hash {
+		self.output_head_data_hash
+	}
 }
 
 /// A candidate existing on-chain but pending availability, for special treatment
@@ -321,15 +336,22 @@ pub(crate) struct PendingAvailability {
 	pub relay_parent: RelayChainBlockInfo,
 }
 
-/// The scope of a [`FragmentTree`].
-#[derive(Debug)]
+/// The scope of a [`FragmentChain`].
+#[derive(Debug, Clone)]
 pub(crate) struct Scope {
+	/// The assigned para id of this `FragmentChain`.
 	para: ParaId,
+	/// The relay parent we're currently building on top of.
 	relay_parent: RelayChainBlockInfo,
+	/// The other relay parents candidates are allowed to build upon, mapped by the block number.
 	ancestors: BTreeMap<BlockNumber, RelayChainBlockInfo>,
+	/// The other relay parents candidates are allowed to build upon, mapped by the block hash.
 	ancestors_by_hash: HashMap<Hash, RelayChainBlockInfo>,
+	/// The candidates pending availability at this block.
 	pending_availability: Vec<PendingAvailability>,
+	/// The base constraints derived from the latest included candidate.
 	base_constraints: Constraints,
+	/// Equal to `max_candidate_depth`.
 	max_depth: usize,
 }
 
@@ -398,7 +420,7 @@ impl Scope {
 		})
 	}
 
-	/// Get the earliest relay-parent allowed in the scope of the fragment tree.
+	/// Get the earliest relay-parent allowed in the scope of the fragment chain.
 	pub fn earliest_relay_parent(&self) -> RelayChainBlockInfo {
 		self.ancestors
 			.iter()
@@ -407,8 +429,8 @@ impl Scope {
 			.unwrap_or_else(|| self.relay_parent.clone())
 	}
 
-	/// Get the ancestor of the fragment tree by hash.
-	pub fn ancestor_by_hash(&self, hash: &Hash) -> Option<RelayChainBlockInfo> {
+	/// Get the relay ancestor of the fragment chain by hash.
+	pub fn ancestor(&self, hash: &Hash) -> Option<RelayChainBlockInfo> {
 		if hash == &self.relay_parent.hash {
 			return Some(self.relay_parent.clone())
 		}
@@ -430,67 +452,48 @@ impl Scope {
 	}
 }
 
-/// We use indices into a flat vector to refer to nodes in the tree.
-/// Every tree also has an implicit root.
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum NodePointer {
-	Root,
-	Storage(usize),
+pub struct FragmentNode {
+	fragment: Fragment,
+	candidate_hash: CandidateHash,
+	cumulative_modifications: ConstraintModifications,
 }
 
-/// A hypothetical candidate, which may or may not exist in
-/// the fragment tree already.
-pub(crate) enum HypotheticalCandidate<'a> {
-	Complete {
-		receipt: Cow<'a, CommittedCandidateReceipt>,
-		persisted_validation_data: Cow<'a, PersistedValidationData>,
-	},
-	Incomplete {
-		relay_parent: Hash,
-		parent_head_data_hash: Hash,
-	},
-}
-
-impl<'a> HypotheticalCandidate<'a> {
-	fn parent_head_data_hash(&self) -> Hash {
-		match *self {
-			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } =>
-				persisted_validation_data.as_ref().parent_head.hash(),
-			HypotheticalCandidate::Incomplete { ref parent_head_data_hash, .. } =>
-				*parent_head_data_hash,
-		}
-	}
-
+impl FragmentNode {
 	fn relay_parent(&self) -> Hash {
-		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				receipt.descriptor().relay_parent,
-			HypotheticalCandidate::Incomplete { ref relay_parent, .. } => *relay_parent,
-		}
+		self.fragment.relay_parent().hash
 	}
 }
 
-/// This is a tree of candidates based on some underlying storage of candidates and a scope.
+/// Response given by `can_add_candidate_as_potential`
+#[derive(PartialEq, Debug)]
+pub enum PotentialAddition {
+	/// Can be added as either connected or unconnected candidate.
+	Anyhow,
+	/// Can only be added as a connected candidate to the chain.
+	IfConnected,
+	/// Cannot be added.
+	None,
+}
+
+/// This is a chain of candidates based on some underlying storage of candidates and a scope.
 ///
-/// All nodes in the tree must be either pending availability or within the scope. Within the scope
+/// All nodes in the chain must be either pending availability or within the scope. Within the scope
 /// means it's built off of the relay-parent or an ancestor.
-pub(crate) struct FragmentTree {
+pub(crate) struct FragmentChain {
 	scope: Scope,
 
-	// Invariant: a contiguous prefix of the 'nodes' storage will contain
-	// the top-level children.
-	nodes: Vec<FragmentNode>,
+	chain: Vec<FragmentNode>,
 
-	// The candidates stored in this tree, mapped to a bitvec indicating the depths
-	// where the candidate is stored.
-	candidates: HashMap<CandidateHash, BitVec<u16, Msb0>>,
+	candidates: HashSet<CandidateHash>,
+
+	// Index from head data hash to candidate hashes with that head data as a parent.
+	by_parent_head: HashMap<Hash, CandidateHash>,
+	// Index from head data hash to candidate hashes outputting that head data.
+	by_output_head: HashMap<Hash, CandidateHash>,
 }
 
-impl FragmentTree {
-	/// Create a new [`FragmentTree`] with given scope and populated from the storage.
-	///
-	/// Can be populated recursively (i.e. `populate` will pick up candidates that build on other
-	/// candidates).
+impl FragmentChain {
+	/// Create a new [`FragmentChain`] with given scope and populated from the storage.
 	pub fn populate(scope: Scope, storage: &CandidateStorage) -> Self {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -498,284 +501,151 @@ impl FragmentTree {
 			relay_parent_num = scope.relay_parent.number,
 			para_id = ?scope.para,
 			ancestors = scope.ancestors.len(),
-			"Instantiating Fragment Tree",
+			"Instantiating Fragment Chain",
 		);
 
-		let mut tree = FragmentTree { scope, nodes: Vec::new(), candidates: HashMap::new() };
+		let mut fragment_chain = Self {
+			scope,
+			chain: Vec::new(),
+			candidates: HashSet::new(),
+			by_parent_head: HashMap::new(),
+			by_output_head: HashMap::new(),
+		};
 
-		tree.populate_from_bases(storage, vec![NodePointer::Root]);
+		fragment_chain.populate_chain(storage);
 
-		tree
+		fragment_chain
 	}
 
-	/// Get the scope of the Fragment Tree.
+	/// Get the scope of the Fragment Chain.
 	pub fn scope(&self) -> &Scope {
 		&self.scope
 	}
 
-	// Inserts a node and updates child references in a non-root parent.
-	fn insert_node(&mut self, node: FragmentNode) {
-		let pointer = NodePointer::Storage(self.nodes.len());
-		let parent_pointer = node.parent;
-		let candidate_hash = node.candidate_hash;
-
-		let max_depth = self.scope.max_depth;
-
-		self.candidates
-			.entry(candidate_hash)
-			.or_insert_with(|| bitvec![u16, Msb0; 0; max_depth + 1])
-			.set(node.depth, true);
-
-		match parent_pointer {
-			NodePointer::Storage(ptr) => {
-				self.nodes.push(node);
-				self.nodes[ptr].children.push((pointer, candidate_hash))
-			},
-			NodePointer::Root => {
-				// Maintain the invariant of node storage beginning with depth-0.
-				if self.nodes.last().map_or(true, |last| last.parent == NodePointer::Root) {
-					self.nodes.push(node);
-				} else {
-					let pos =
-						self.nodes.iter().take_while(|n| n.parent == NodePointer::Root).count();
-					self.nodes.insert(pos, node);
-				}
-			},
-		}
+	/// Returns the number of candidates in the chain
+	pub(crate) fn len(&self) -> usize {
+		self.candidates.len()
 	}
 
-	fn node_has_candidate_child(
-		&self,
-		pointer: NodePointer,
-		candidate_hash: &CandidateHash,
-	) -> bool {
-		self.node_candidate_child(pointer, candidate_hash).is_some()
+	/// Whether the candidate exists.
+	pub(crate) fn contains_candidate(&self, candidate: &CandidateHash) -> bool {
+		self.candidates.contains(candidate)
 	}
 
-	fn node_candidate_child(
-		&self,
-		pointer: NodePointer,
-		candidate_hash: &CandidateHash,
-	) -> Option<NodePointer> {
-		match pointer {
-			NodePointer::Root => self
-				.nodes
-				.iter()
-				.take_while(|n| n.parent == NodePointer::Root)
-				.enumerate()
-				.find(|(_, n)| &n.candidate_hash == candidate_hash)
-				.map(|(i, _)| NodePointer::Storage(i)),
-			NodePointer::Storage(ptr) =>
-				self.nodes.get(ptr).and_then(|n| n.candidate_child(candidate_hash)),
-		}
+	/// Return a vector of the chain's candidate hashes, in-order.
+	pub(crate) fn to_vec(&self) -> Vec<CandidateHash> {
+		self.chain.iter().map(|candidate| candidate.candidate_hash).collect()
 	}
 
-	/// Returns an O(n) iterator over the hashes of candidates contained in the
-	/// tree.
-	pub(crate) fn candidates(&self) -> impl Iterator<Item = CandidateHash> + '_ {
-		self.candidates.keys().cloned()
-	}
-
-	/// Whether the candidate exists and at what depths.
-	pub(crate) fn candidate(&self, candidate: &CandidateHash) -> Option<Vec<usize>> {
-		self.candidates.get(candidate).map(|d| d.iter_ones().collect())
-	}
-
-	/// Add a candidate and recursively populate from storage.
+	/// Try accumulating more candidates onto the chain.
 	///
-	/// Candidates can be added either as children of the root or children of other candidates.
-	pub(crate) fn add_and_populate(&mut self, hash: CandidateHash, storage: &CandidateStorage) {
-		let candidate_entry = match storage.get(&hash) {
-			None => return,
-			Some(e) => e,
-		};
-
-		let candidate_parent = &candidate_entry.candidate.persisted_validation_data.parent_head;
-
-		// Select an initial set of bases, whose required relay-parent matches that of the
-		// candidate.
-		let root_base = if &self.scope.base_constraints.required_parent == candidate_parent {
-			Some(NodePointer::Root)
-		} else {
-			None
-		};
-
-		let non_root_bases = self
-			.nodes
-			.iter()
-			.enumerate()
-			.filter(|(_, n)| {
-				n.cumulative_modifications.required_parent.as_ref() == Some(candidate_parent)
-			})
-			.map(|(i, _)| NodePointer::Storage(i));
-
-		let bases = root_base.into_iter().chain(non_root_bases).collect();
-
-		// Pass this into the population function, which will sanity-check stuff like depth,
-		// fragments, etc. and then recursively populate.
-		self.populate_from_bases(storage, bases);
+	/// Candidates can only be added if they build on the already existing chain.
+	pub(crate) fn extend_from_storage(&mut self, storage: &CandidateStorage) {
+		self.populate_chain(storage);
 	}
 
-	/// Returns `true` if the path from the root to the node's parent (inclusive)
-	/// only contains backed candidates, `false` otherwise.
-	fn path_contains_backed_only_candidates(
-		&self,
-		mut parent_pointer: NodePointer,
-		candidate_storage: &CandidateStorage,
-	) -> bool {
-		while let NodePointer::Storage(ptr) = parent_pointer {
-			let node = &self.nodes[ptr];
-			let candidate_hash = &node.candidate_hash;
-
-			if candidate_storage.get(candidate_hash).map_or(true, |candidate_entry| {
-				!matches!(candidate_entry.state, CandidateState::Backed)
-			}) {
-				return false
-			}
-			parent_pointer = node.parent;
-		}
-
-		true
-	}
-
-	/// Returns the hypothetical depths where a candidate with the given hash and parent head data
-	/// would be added to the tree, without applying other candidates recursively on top of it.
+	/// Returns the hypothetical state of a candidate with the given hash and parent head data
+	/// in regards to the existing chain.
 	///
-	/// If the candidate is already known, this returns the actual depths where this
-	/// candidate is part of the tree.
+	/// Returns true if either:
+	/// - the candidate is already present
+	/// - the candidate can be added to the chain
+	/// - the candidate could potentially be added to the chain in the future (its ancestors are
+	///   still unknown but it doesn't violate other rules).
 	///
-	/// Setting `backed_in_path_only` to `true` ensures this function only returns such membership
-	/// that every candidate in the path from the root is backed.
-	pub(crate) fn hypothetical_depths(
+	/// If this returns false, the candidate could never be added to the current chain (not now, not
+	/// ever)
+	pub(crate) fn hypothetical_membership(
 		&self,
-		hash: CandidateHash,
 		candidate: HypotheticalCandidate,
 		candidate_storage: &CandidateStorage,
-		backed_in_path_only: bool,
-	) -> Vec<usize> {
-		// if `true`, we always have to traverse the tree.
-		if !backed_in_path_only {
-			// if known.
-			if let Some(depths) = self.candidates.get(&hash) {
-				return depths.iter_ones().collect()
-			}
+	) -> bool {
+		let candidate_hash = candidate.candidate_hash();
+
+		// If we've already used this candidate in the chain
+		if self.candidates.contains(&candidate_hash) {
+			return true
 		}
 
-		// if out of scope.
-		let candidate_relay_parent = candidate.relay_parent();
-		let candidate_relay_parent = if self.scope.relay_parent.hash == candidate_relay_parent {
-			self.scope.relay_parent.clone()
-		} else if let Some(info) = self.scope.ancestors_by_hash.get(&candidate_relay_parent) {
-			info.clone()
-		} else {
-			return Vec::new()
+		let can_add_as_potential = self.can_add_candidate_as_potential(
+			candidate_storage,
+			&candidate.candidate_hash(),
+			&candidate.relay_parent(),
+			candidate.parent_head_data_hash(),
+			candidate.output_head_data_hash(),
+		);
+
+		if can_add_as_potential == PotentialAddition::None {
+			return false
+		}
+
+		let Some(candidate_relay_parent) = self.scope.ancestor(&candidate.relay_parent()) else {
+			// can_add_candidate_as_potential already checked for this, but just to be safe.
+			return false
 		};
 
-		let max_depth = self.scope.max_depth;
-		let mut depths = bitvec![u16, Msb0; 0; max_depth + 1];
+		let identity_modifications = ConstraintModifications::identity();
+		let cumulative_modifications = if let Some(last_candidate) = self.chain.last() {
+			&last_candidate.cumulative_modifications
+		} else {
+			&identity_modifications
+		};
 
-		// iterate over all nodes where parent head-data matches,
-		// relay-parent number is <= candidate, and depth < max_depth.
-		let node_pointers = (0..self.nodes.len()).map(NodePointer::Storage);
-		for parent_pointer in std::iter::once(NodePointer::Root).chain(node_pointers) {
-			let (modifications, child_depth, earliest_rp) = match parent_pointer {
-				NodePointer::Root =>
-					(ConstraintModifications::identity(), 0, self.scope.earliest_relay_parent()),
-				NodePointer::Storage(ptr) => {
-					let node = &self.nodes[ptr];
-					let parent_rp = self
-						.scope
-						.ancestor_by_hash(&node.relay_parent())
-						.or_else(|| {
-							self.scope
-								.get_pending_availability(&node.candidate_hash)
-								.map(|_| self.scope.earliest_relay_parent())
-						})
-						.expect("All nodes in tree are either pending availability or within scope; qed");
+		let child_constraints =
+			match self.scope.base_constraints.apply_modifications(&cumulative_modifications) {
+				Err(e) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						new_parent_head = ?cumulative_modifications.required_parent,
+						?candidate_hash,
+						err = ?e,
+						"Failed to apply modifications",
+					);
 
-					(node.cumulative_modifications.clone(), node.depth + 1, parent_rp)
+					return false
 				},
+				Ok(c) => c,
 			};
 
-			if child_depth > max_depth {
-				continue
-			}
-
-			if earliest_rp.number > candidate_relay_parent.number {
-				continue
-			}
-
-			let child_constraints =
-				match self.scope.base_constraints.apply_modifications(&modifications) {
-					Err(e) => {
-						gum::debug!(
-							target: LOG_TARGET,
-							new_parent_head = ?modifications.required_parent,
-							err = ?e,
-							"Failed to apply modifications",
-						);
-
-						continue
-					},
-					Ok(c) => c,
-				};
-
-			let parent_head_hash = candidate.parent_head_data_hash();
-			if parent_head_hash != child_constraints.required_parent.hash() {
-				continue
-			}
-
+		let parent_head_hash = candidate.parent_head_data_hash();
+		if parent_head_hash == child_constraints.required_parent.hash() {
 			// We do additional checks for complete candidates.
-			if let HypotheticalCandidate::Complete { ref receipt, ref persisted_validation_data } =
-				candidate
+			if let HypotheticalCandidate::Complete {
+				ref receipt,
+				ref persisted_validation_data,
+				..
+			} = candidate
 			{
-				let prospective_candidate = ProspectiveCandidate {
-					commitments: Cow::Borrowed(&receipt.commitments),
-					collator: receipt.descriptor().collator.clone(),
-					collator_signature: receipt.descriptor().signature.clone(),
-					persisted_validation_data: persisted_validation_data.as_ref().clone(),
-					pov_hash: receipt.descriptor().pov_hash,
-					validation_code_hash: receipt.descriptor().validation_code_hash,
-				};
-
-				if Fragment::new(
-					candidate_relay_parent.clone(),
-					child_constraints,
-					prospective_candidate,
+				if Fragment::check_against_constraints(
+					&candidate_relay_parent,
+					&child_constraints,
+					&receipt.commitments,
+					&receipt.descriptor().validation_code_hash,
+					persisted_validation_data,
 				)
 				.is_err()
 				{
-					continue
+					gum::debug!(
+						target: LOG_TARGET,
+						"Fragment::check_against_constraints() returned error",
+					);
+					return false
 				}
 			}
 
-			// Check that the path only contains backed candidates, if necessary.
-			if !backed_in_path_only ||
-				self.path_contains_backed_only_candidates(parent_pointer, candidate_storage)
-			{
-				depths.set(child_depth, true);
-			}
+			// If we got this far, it can be added to the chain right now.
+			true
+		} else if can_add_as_potential == PotentialAddition::Anyhow {
+			// Otherwise it is or can be an unconnected candidate, but only if PotentialAddition
+			// does not force us to only add a connected candidate.
+			true
+		} else {
+			false
 		}
-
-		depths.iter_ones().collect()
 	}
 
 	/// Select `count` candidates after the given `ancestors` which pass
 	/// the predicate and have not already been backed on chain.
-	///
-	/// Does an exhaustive search into the tree after traversing the ancestors path.
-	/// If the ancestors draw out a path that can be traversed in multiple ways, no
-	/// candidates will be returned.
-	/// If the ancestors do not draw out a full path (the path contains holes), candidates will be
-	/// suggested that may fill these holes.
-	/// If the ancestors don't draw out a valid path, no candidates will be returned. If there are
-	/// multiple possibilities of the same size, this will select the first one. If there is no
-	/// chain of size `count` that matches the criteria, this will return the largest chain it could
-	/// find with the criteria. If there are no candidates meeting those criteria, returns an empty
-	/// `Vec`.
-	/// Cycles are accepted, but this code expects that the runtime will deduplicate
-	/// identical candidates when occupying the cores (when proposing to back A->B->A, only A will
-	/// be backed on chain).
 	///
 	/// The intention of the `ancestors` is to allow queries on the basis of
 	/// one or more candidates which were previously pending availability becoming
@@ -789,362 +659,334 @@ impl FragmentTree {
 		if count == 0 {
 			return vec![]
 		}
-		// First, we need to order the ancestors.
-		// The node returned is the one from which we can start finding new backable candidates.
-		let Some(base_node) = self.find_ancestor_path(ancestors) else { return vec![] };
+		let base_pos = self.find_ancestor_path(ancestors);
 
-		self.find_backable_chain_inner(
-			base_node,
-			count,
-			count,
-			&pred,
-			&mut Vec::with_capacity(count as usize),
-		)
-	}
+		let actual_end_index = std::cmp::min(base_pos + (count as usize), self.chain.len());
+		let mut res = Vec::with_capacity(actual_end_index - base_pos);
 
-	// Try finding a candidate chain starting from `base_node` of length `expected_count`.
-	// If not possible, return the longest one we could find.
-	// Does a depth-first search, since we're optimistic that there won't be more than one such
-	// chains (parachains shouldn't usually have forks). So in the usual case, this will conclude
-	// in `O(expected_count)`.
-	// Cycles are accepted, but this doesn't allow for infinite execution time, because the maximum
-	// depth we'll reach is `expected_count`.
-	//
-	// Worst case performance is `O(num_forks ^ expected_count)`, the same as populating the tree.
-	// Although an exponential function, this is actually a constant that can only be altered via
-	// sudo/governance, because:
-	// 1. `num_forks` at a given level is at most `max_candidate_depth * max_validators_per_core`
-	//    (because each validator in the assigned group can second `max_candidate_depth`
-	//    candidates). The prospective-parachains subsystem assumes that the number of para forks is
-	//    limited by collator-protocol and backing subsystems. In practice, this is a constant which
-	//    can only be altered by sudo or governance.
-	// 2. `expected_count` is equal to the number of cores a para is scheduled on (in an elastic
-	//    scaling scenario). For non-elastic-scaling, this is just 1. In practice, this should be a
-	//    small number (1-3), capped by the total number of available cores (a constant alterable
-	//    only via governance/sudo).
-	fn find_backable_chain_inner(
-		&self,
-		base_node: NodePointer,
-		expected_count: u32,
-		remaining_count: u32,
-		pred: &dyn Fn(&CandidateHash) -> bool,
-		accumulator: &mut Vec<CandidateHash>,
-	) -> Vec<CandidateHash> {
-		if remaining_count == 0 {
-			// The best option is the chain we've accumulated so far.
-			return accumulator.to_vec();
-		}
-
-		let children: Vec<_> = match base_node {
-			NodePointer::Root => self
-				.nodes
-				.iter()
-				.enumerate()
-				.take_while(|(_, n)| n.parent == NodePointer::Root)
-				.filter(|(_, n)| self.scope.get_pending_availability(&n.candidate_hash).is_none())
-				.filter(|(_, n)| pred(&n.candidate_hash))
-				.map(|(ptr, n)| (NodePointer::Storage(ptr), n.candidate_hash))
-				.collect(),
-			NodePointer::Storage(base_node_ptr) => {
-				let base_node = &self.nodes[base_node_ptr];
-
-				base_node
-					.children
-					.iter()
-					.filter(|(_, hash)| self.scope.get_pending_availability(&hash).is_none())
-					.filter(|(_, hash)| pred(&hash))
-					.map(|(ptr, hash)| (*ptr, *hash))
-					.collect()
-			},
-		};
-
-		let mut best_result = accumulator.clone();
-		for (child_ptr, child_hash) in children {
-			accumulator.push(child_hash);
-
-			let result = self.find_backable_chain_inner(
-				child_ptr,
-				expected_count,
-				remaining_count - 1,
-				&pred,
-				accumulator,
-			);
-
-			accumulator.pop();
-
-			// Short-circuit the search if we've found the right length. Otherwise, we'll
-			// search for a max.
-			// Taking the first best selection doesn't introduce bias or become gameable,
-			// because `find_ancestor_path` uses a `HashSet` to track the ancestors, which
-			// makes the order in which ancestors are visited non-deterministic.
-			if result.len() == expected_count as usize {
-				return result
-			} else if best_result.len() < result.len() {
-				best_result = result;
-			}
-		}
-
-		best_result
-	}
-
-	// Orders the ancestors into a viable path from root to the last one.
-	// Returns a pointer to the last node in the path.
-	// We assume that the ancestors form a chain (that the
-	// av-cores do not back parachain forks), None is returned otherwise.
-	// If we cannot use all ancestors, stop at the first found hole in the chain. This usually
-	// translates to a timed out candidate.
-	fn find_ancestor_path(&self, mut ancestors: Ancestors) -> Option<NodePointer> {
-		// The number of elements in the path we've processed so far.
-		let mut depth = 0;
-		let mut last_node = NodePointer::Root;
-		let mut next_node: Option<NodePointer> = Some(NodePointer::Root);
-
-		while let Some(node) = next_node {
-			if depth > self.scope.max_depth {
-				return None;
-			}
-
-			last_node = node;
-
-			next_node = match node {
-				NodePointer::Root => {
-					let children = self
-						.nodes
-						.iter()
-						.enumerate()
-						.take_while(|n| n.1.parent == NodePointer::Root)
-						.map(|(index, node)| (NodePointer::Storage(index), node.candidate_hash))
-						.collect::<Vec<_>>();
-
-					self.find_valid_child(&mut ancestors, children.iter()).ok()?
-				},
-				NodePointer::Storage(ptr) => {
-					let children = self.nodes.get(ptr).and_then(|n| Some(n.children.iter()));
-					if let Some(children) = children {
-						self.find_valid_child(&mut ancestors, children).ok()?
-					} else {
-						None
-					}
-				},
-			};
-
-			depth += 1;
-		}
-
-		Some(last_node)
-	}
-
-	// Find a node from the given iterator which is present in the ancestors
-	// collection. If there are multiple such nodes, return an error and log a warning. We don't
-	// accept forks in a parachain to be backed. The supplied ancestors should all form a chain.
-	// If there is no such node, return None.
-	fn find_valid_child<'a>(
-		&self,
-		ancestors: &'a mut Ancestors,
-		nodes: impl Iterator<Item = &'a (NodePointer, CandidateHash)> + 'a,
-	) -> Result<Option<NodePointer>, ()> {
-		let mut possible_children =
-			nodes.filter_map(|(node_ptr, hash)| match ancestors.remove(&hash) {
-				true => Some(node_ptr),
-				false => None,
-			});
-
-		// We don't accept forks in a parachain to be backed. The supplied ancestors
-		// should all form a chain.
-		let next = possible_children.next();
-		if let Some(second_child) = possible_children.next() {
-			if let (Some(NodePointer::Storage(first_child)), NodePointer::Storage(second_child)) =
-				(next, second_child)
+		for elem in &self.chain[base_pos..actual_end_index] {
+			if self.scope.get_pending_availability(&elem.candidate_hash).is_none() &&
+				pred(&elem.candidate_hash)
 			{
-				gum::error!(
-					target: LOG_TARGET,
-					para_id = ?self.scope.para,
-					relay_parent = ?self.scope.relay_parent,
-					"Trying to find new backable candidates for a parachain for which we've backed a fork.\
-					This is a bug and the runtime should not have allowed it.\n\
-					Backed candidates with the same parent: {}, {}",
-					self.nodes[*first_child].candidate_hash,
-					self.nodes[*second_child].candidate_hash,
-				);
-			}
-
-			Err(())
-		} else {
-			Ok(next.copied())
-		}
-	}
-
-	fn populate_from_bases(&mut self, storage: &CandidateStorage, initial_bases: Vec<NodePointer>) {
-		// Populate the tree breadth-first.
-		let mut last_sweep_start = None;
-
-		loop {
-			let sweep_start = self.nodes.len();
-
-			if Some(sweep_start) == last_sweep_start {
+				res.push(elem.candidate_hash);
+			} else {
 				break
 			}
+		}
 
-			let parents: Vec<NodePointer> = if let Some(last_start) = last_sweep_start {
-				(last_start..self.nodes.len()).map(NodePointer::Storage).collect()
-			} else {
-				initial_bases.clone()
-			};
+		res
+	}
 
-			// 1. get parent head and find constraints
-			// 2. iterate all candidates building on the right head and viable relay parent
-			// 3. add new node
-			for parent_pointer in parents {
-				let (modifications, child_depth, earliest_rp) = match parent_pointer {
-					NodePointer::Root =>
-						(ConstraintModifications::identity(), 0, self.scope.earliest_relay_parent()),
-					NodePointer::Storage(ptr) => {
-						let node = &self.nodes[ptr];
-						let parent_rp = self
-							.scope
-							.ancestor_by_hash(&node.relay_parent())
-							.or_else(|| {
-								// if the relay-parent is out of scope _and_ it is in the tree,
-								// it must be a candidate pending availability.
-								self.scope
-									.get_pending_availability(&node.candidate_hash)
-									.map(|c| c.relay_parent.clone())
-							})
-							.expect("All nodes in tree are either pending availability or within scope; qed");
+	// Tries to orders the ancestors into a viable path from root to the last one.
+	// Stops when the ancestors are all used or when a node in the chain is not present in the
+	// ancestor set. Returns the index in the chain were the search stopped.
+	fn find_ancestor_path(&self, mut ancestors: Ancestors) -> usize {
+		if self.chain.is_empty() {
+			return 0;
+		}
 
-						(node.cumulative_modifications.clone(), node.depth + 1, parent_rp)
+		for (index, candidate) in self.chain.iter().enumerate() {
+			if !ancestors.remove(&candidate.candidate_hash) {
+				return index
+			}
+		}
+
+		// This means that we found the entire chain in the ancestor set. There won't be anything
+		// left to back.
+		self.chain.len()
+	}
+
+	// Return the earliest relay parent a new candidate can have in order to be added to the chain.
+	// This is the relay parent of the last candidate in the chain.
+	// The value returned may not be valid if we want to add a candidate pending availability, which
+	// may have a relay parent which is out of scope. Special handling is needed in that case.
+	// `None` is returned if the candidate's relay parent info cannot be found.
+	fn earliest_relay_parent(&self) -> Option<RelayChainBlockInfo> {
+		if let Some(last_candidate) = self.chain.last() {
+			self.scope.ancestor(&last_candidate.relay_parent()).or_else(|| {
+				// if the relay-parent is out of scope _and_ it is in the chain,
+				// it must be a candidate pending availability.
+				self.scope
+					.get_pending_availability(&last_candidate.candidate_hash)
+					.map(|c| c.relay_parent.clone())
+			})
+		} else {
+			Some(self.scope.earliest_relay_parent())
+		}
+	}
+
+	// Checks if this candidate could be added in the future to this chain.
+	// This assumes that the chain does not already contain this candidate. It may or may not be
+	// present in the `CandidateStorage`.
+	// Even if the candidate is a potential candidate, this function will indicate that it can be
+	// kept only if there's enough room for it.
+	pub(crate) fn can_add_candidate_as_potential(
+		&self,
+		storage: &CandidateStorage,
+		candidate_hash: &CandidateHash,
+		relay_parent: &Hash,
+		parent_head_hash: Hash,
+		output_head_hash: Option<Hash>,
+	) -> PotentialAddition {
+		// If we've got enough candidates for the configured depth, no point in adding more.
+		if self.chain.len() > self.scope.max_depth {
+			return PotentialAddition::None
+		}
+
+		if !self.check_potential(relay_parent, parent_head_hash, output_head_hash) {
+			return PotentialAddition::None
+		}
+
+		let present_in_storage = storage.contains(candidate_hash);
+
+		let unconnected = self
+			.find_unconnected_potential_candidates(
+				storage,
+				present_in_storage.then_some(candidate_hash),
+			)
+			.len();
+
+		if (self.chain.len() + unconnected) < self.scope.max_depth {
+			PotentialAddition::Anyhow
+		} else if (self.chain.len() + unconnected) == self.scope.max_depth {
+			// If we've only one slot left to fill, it must be filled with a connected candidate.
+			PotentialAddition::IfConnected
+		} else {
+			PotentialAddition::None
+		}
+	}
+
+	// The candidates which are present in `CandidateStorage`, are not part of this chain but could
+	// become part of this chain in the future. Capped at the max depth minus the existing chain
+	// length.
+	// If `ignore_candidate` is supplied and found in storage, it won't be counted.
+	pub(crate) fn find_unconnected_potential_candidates(
+		&self,
+		storage: &CandidateStorage,
+		ignore_candidate: Option<&CandidateHash>,
+	) -> Vec<CandidateHash> {
+		let mut candidates = vec![];
+		for candidate in storage.candidates() {
+			if let Some(ignore_candidate) = ignore_candidate {
+				if ignore_candidate == &candidate.candidate_hash {
+					continue
+				}
+			}
+			// We stop at max_depth + 1 with the search. There's no point in looping further.
+			if (self.chain.len() + candidates.len()) > self.scope.max_depth {
+				break
+			}
+			if !self.candidates.contains(&candidate.candidate_hash) &&
+				self.check_potential(
+					&candidate.relay_parent,
+					candidate.candidate.persisted_validation_data.parent_head.hash(),
+					Some(candidate.candidate.commitments.head_data.hash()),
+				) {
+				candidates.push(candidate.candidate_hash);
+			}
+		}
+
+		candidates
+	}
+
+	// Check if adding a candidate which transitions `parent_head_hash` to `output_head_hash` would
+	// introduce a fork or a cycle in the parachain.
+	// `output_head_hash` is optional because we sometimes make this check before retrieving the
+	// collation.
+	fn is_fork_or_cycle(&self, parent_head_hash: Hash, output_head_hash: Option<Hash>) -> bool {
+		if self.by_parent_head.contains_key(&parent_head_hash) {
+			// fork. our parent has another child already
+			return true
+		}
+
+		if let Some(output_head_hash) = output_head_hash {
+			if self.by_output_head.contains_key(&output_head_hash) {
+				// this is not a chain, there are multiple paths to the same state.
+				return true
+			}
+
+			// trivial 0-length cycle.
+			if parent_head_hash == output_head_hash {
+				return true
+			}
+
+			// this should catch any other cycles. our output state cannot already be the parent
+			// state of another candidate, unless this is a cycle, since the already added
+			// candidates form a chain.
+			if self.by_parent_head.contains_key(&output_head_hash) {
+				return true
+			}
+		}
+
+		false
+	}
+
+	// Checks the potential of a candidate to be added to the chain in the future.
+	// Verifies that the relay parent is in scope and not moving backwards and that we're not
+	// introducing forks or cycles with other candidates in the chain.
+	// `output_head_hash` is optional because we sometimes make this check before retrieving the
+	// collation.
+	fn check_potential(
+		&self,
+		relay_parent: &Hash,
+		parent_head_hash: Hash,
+		output_head_hash: Option<Hash>,
+	) -> bool {
+		if self.is_fork_or_cycle(parent_head_hash, output_head_hash) {
+			return false
+		}
+
+		let Some(earliest_rp) = self.earliest_relay_parent() else { return false };
+
+		let Some(relay_parent) = self.scope.ancestor(relay_parent) else { return false };
+
+		if relay_parent.number < earliest_rp.number {
+			return false // relay parent moved backwards.
+		}
+
+		true
+	}
+
+	// Populate the fragment chain with candidates from CandidateStorage.
+	// Can be called by the constructor or when introducing a new candidate.
+	// If we're introducing a new candidate onto an existing chain, we may introduce more than one,
+	// since we may connect already existing candidates to the chain.
+	fn populate_chain(&mut self, storage: &CandidateStorage) {
+		let mut cumulative_modifications = if let Some(last_candidate) = self.chain.last() {
+			last_candidate.cumulative_modifications.clone()
+		} else {
+			ConstraintModifications::identity()
+		};
+		let Some(mut earliest_rp) = self.earliest_relay_parent() else { return };
+
+		loop {
+			if self.chain.len() > self.scope.max_depth {
+				break;
+			}
+
+			let child_constraints =
+				match self.scope.base_constraints.apply_modifications(&cumulative_modifications) {
+					Err(e) => {
+						gum::debug!(
+							target: LOG_TARGET,
+							new_parent_head = ?cumulative_modifications.required_parent,
+							err = ?e,
+							"Failed to apply modifications",
+						);
+
+						break
 					},
+					Ok(c) => c,
 				};
 
-				if child_depth > self.scope.max_depth {
+			let required_head_hash = child_constraints.required_parent.hash();
+			// Even though we don't allow parachain forks under the same active leaf, they may still
+			// appear under different relay chain forks, hence the iterator below.
+			let possible_children = storage.possible_para_children(&required_head_hash);
+			let mut added_child = false;
+			for candidate in possible_children {
+				// Add one node to chain if
+				// 1. it does not introduce a fork or a cycle.
+				// 2. parent hash is correct.
+				// 3. relay-parent does not move backwards.
+				// 4. all non-pending-availability candidates have relay-parent in scope.
+				// 5. candidate outputs fulfill constraints
+
+				if self.is_fork_or_cycle(
+					candidate.parent_head_data_hash(),
+					Some(candidate.output_head_data_hash()),
+				) {
 					continue
 				}
 
-				let child_constraints =
-					match self.scope.base_constraints.apply_modifications(&modifications) {
+				let pending = self.scope.get_pending_availability(&candidate.candidate_hash);
+				let Some(relay_parent) = pending
+					.map(|p| p.relay_parent.clone())
+					.or_else(|| self.scope.ancestor(&candidate.relay_parent))
+				else {
+					continue
+				};
+
+				// require: candidates don't move backwards
+				// and only pending availability candidates can be out-of-scope.
+				//
+				// earliest_rp can be before the earliest relay parent in the scope
+				// when the parent is a pending availability candidate as well, but
+				// only other pending candidates can have a relay parent out of scope.
+				let min_relay_parent_number = pending
+					.map(|p| match self.chain.len() {
+						0 => p.relay_parent.number,
+						_ => earliest_rp.number,
+					})
+					.unwrap_or_else(|| earliest_rp.number);
+
+				if relay_parent.number < min_relay_parent_number {
+					continue // relay parent moved backwards.
+				}
+
+				// don't add candidates if they're already present in the chain.
+				// this can never happen, as candidates can only be duplicated if there's a cycle
+				// and we shouldn't have allowed for a cycle to be chained.
+				if self.contains_candidate(&candidate.candidate_hash) {
+					continue
+				}
+
+				let fragment = {
+					let mut constraints = child_constraints.clone();
+					if let Some(ref p) = pending {
+						// overwrite for candidates pending availability as a special-case.
+						constraints.min_relay_parent_number = p.relay_parent.number;
+					}
+
+					let f = Fragment::new(
+						relay_parent.clone(),
+						constraints,
+						// It's cheap to clone because it's wrapped in an Arc
+						candidate.candidate.clone(),
+					);
+
+					match f {
+						Ok(f) => f,
 						Err(e) => {
 							gum::debug!(
 								target: LOG_TARGET,
-								new_parent_head = ?modifications.required_parent,
 								err = ?e,
-								"Failed to apply modifications",
+								?relay_parent,
+								candidate_hash = ?candidate.candidate_hash,
+								"Failed to instantiate fragment",
 							);
 
-							continue
+							break
 						},
-						Ok(c) => c,
-					};
-
-				// Add nodes to tree wherever
-				// 1. parent hash is correct
-				// 2. relay-parent does not move backwards.
-				// 3. all non-pending-availability candidates have relay-parent in scope.
-				// 4. candidate outputs fulfill constraints
-				let required_head_hash = child_constraints.required_parent.hash();
-				for candidate in storage.iter_para_children(&required_head_hash) {
-					let pending = self.scope.get_pending_availability(&candidate.candidate_hash);
-					let relay_parent = pending
-						.map(|p| p.relay_parent.clone())
-						.or_else(|| self.scope.ancestor_by_hash(&candidate.relay_parent));
-
-					let relay_parent = match relay_parent {
-						Some(r) => r,
-						None => continue,
-					};
-
-					// require: pending availability candidates don't move backwards
-					// and only those can be out-of-scope.
-					//
-					// earliest_rp can be before the earliest relay parent in the scope
-					// when the parent is a pending availability candidate as well, but
-					// only other pending candidates can have a relay parent out of scope.
-					let min_relay_parent_number = pending
-						.map(|p| match parent_pointer {
-							NodePointer::Root => p.relay_parent.number,
-							NodePointer::Storage(_) => earliest_rp.number,
-						})
-						.unwrap_or_else(|| {
-							std::cmp::max(
-								earliest_rp.number,
-								self.scope.earliest_relay_parent().number,
-							)
-						});
-
-					if relay_parent.number < min_relay_parent_number {
-						continue // relay parent moved backwards.
 					}
+				};
 
-					// don't add candidates where the parent already has it as a child.
-					if self.node_has_candidate_child(parent_pointer, &candidate.candidate_hash) {
-						continue
-					}
+				// Update the cumulative constraint modifications.
+				cumulative_modifications.stack(fragment.constraint_modifications());
+				// Update the earliest rp
+				earliest_rp = relay_parent;
 
-					let fragment = {
-						let mut constraints = child_constraints.clone();
-						if let Some(ref p) = pending {
-							// overwrite for candidates pending availability as a special-case.
-							constraints.min_relay_parent_number = p.relay_parent.number;
-						}
+				let node = FragmentNode {
+					fragment,
+					candidate_hash: candidate.candidate_hash,
+					cumulative_modifications: cumulative_modifications.clone(),
+				};
 
-						let f = Fragment::new(
-							relay_parent.clone(),
-							constraints,
-							candidate.candidate.partial_clone(),
-						);
-
-						match f {
-							Ok(f) => f.into_owned(),
-							Err(e) => {
-								gum::debug!(
-									target: LOG_TARGET,
-									err = ?e,
-									?relay_parent,
-									candidate_hash = ?candidate.candidate_hash,
-									"Failed to instantiate fragment",
-								);
-
-								continue
-							},
-						}
-					};
-
-					let mut cumulative_modifications = modifications.clone();
-					cumulative_modifications.stack(fragment.constraint_modifications());
-
-					let node = FragmentNode {
-						parent: parent_pointer,
-						fragment,
-						candidate_hash: candidate.candidate_hash,
-						depth: child_depth,
-						cumulative_modifications,
-						children: Vec::new(),
-					};
-
-					self.insert_node(node);
-				}
+				self.chain.push(node);
+				self.candidates.insert(candidate.candidate_hash);
+				// We've already checked for forks and cycles.
+				self.by_parent_head
+					.insert(candidate.parent_head_data_hash(), candidate.candidate_hash);
+				self.by_output_head
+					.insert(candidate.output_head_data_hash(), candidate.candidate_hash);
+				added_child = true;
+				// We can only add one child for a candidate. (it's a chain, not a tree)
+				break;
 			}
 
-			last_sweep_start = Some(sweep_start);
+			if !added_child {
+				break
+			}
 		}
-	}
-}
-
-struct FragmentNode {
-	// A pointer to the parent node.
-	parent: NodePointer,
-	fragment: Fragment<'static>,
-	candidate_hash: CandidateHash,
-	depth: usize,
-	cumulative_modifications: ConstraintModifications,
-	children: Vec<(NodePointer, CandidateHash)>,
-}
-
-impl FragmentNode {
-	fn relay_parent(&self) -> Hash {
-		self.fragment.relay_parent().hash
-	}
-
-	fn candidate_child(&self, candidate_hash: &CandidateHash) -> Option<NodePointer> {
-		self.children.iter().find(|(_, c)| c == candidate_hash).map(|(p, _)| *p)
 	}
 }
