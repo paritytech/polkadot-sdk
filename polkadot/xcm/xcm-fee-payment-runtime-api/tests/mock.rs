@@ -45,7 +45,7 @@ use xcm_executor::{
 };
 
 use xcm_fee_payment_runtime_api::{
-	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, DryRunApi, XcmDryRunEffects},
+	dry_run::{CallDryRunEffects, DryRunApi, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
 };
 
