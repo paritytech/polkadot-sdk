@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716924898677,
+  "lastUpdate": 1716959701376,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -11959,6 +11959,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022814796573333324,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5f68c93039fce08d7f711025eddc5343b0272111",
+          "message": "Moves runtime macro out of experimental flag (#4249)\n\nStep in https://github.com/paritytech/polkadot-sdk/issues/3688\n\nNow that the `runtime` macro (Construct Runtime V2) has been\nsuccessfully deployed on Westend, this PR moves it out of the\nexperimental feature flag and makes it generally available for runtime\ndevs.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-05-29T03:41:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f68c93039fce08d7f711025eddc5343b0272111"
+        },
+        "date": 1716959673036,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012266621219999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02209747388,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16959264074666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010219286753333334,
             "unit": "seconds"
           }
         ]
