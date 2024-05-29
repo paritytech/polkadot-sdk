@@ -33,11 +33,11 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 std = [
+	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-session/std",
-	"codec/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]

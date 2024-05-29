@@ -26,4 +26,4 @@ substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 
 [features]
 default = ["std"]
-std = ["polkadot-parachain-primitives/std", "codec/std", "sp-io/std", "sp-std/std"]
+std = ["codec/std", "polkadot-parachain-primitives/std", "sp-io/std", "sp-std/std"]

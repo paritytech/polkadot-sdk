@@ -61,8 +61,8 @@ cli = [
 runtime-benchmarks = [
 	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
-	"sc-service?/runtime-benchmarks",
 	"polkadot-service?/runtime-benchmarks",
+	"sc-service?/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 full-node = ["polkadot-service/full-node"]

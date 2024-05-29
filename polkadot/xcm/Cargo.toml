@@ -33,9 +33,9 @@ default = ["std"]
 wasm-api = []
 std = [
 	"bounded-collections/std",
+	"codec/std",
 	"environmental/std",
 	"log/std",
-	"codec/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-weights/std",

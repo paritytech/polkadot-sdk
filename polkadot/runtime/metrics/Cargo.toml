@@ -22,8 +22,8 @@ bs58 = { version = "0.5.0", default-features = false, features = ["alloc"] }
 default = ["std"]
 std = [
 	"bs58/std",
-	"frame-benchmarking?/std",
 	"codec/std",
+	"frame-benchmarking?/std",
 	"polkadot-primitives/std",
 	"sp-std/std",
 	"sp-tracing/std",

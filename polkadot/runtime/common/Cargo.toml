@@ -76,11 +76,11 @@ default = ["std"]
 no_std = []
 std = [
 	"bitvec/std",
+	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"sp-inherents/std",
 	"libsecp256k1/std",
 	"log/std",
 	"pallet-asset-rate?/std",
@@ -97,7 +97,6 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"pallet-vesting/std",
-	"codec/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"rustc-hex/std",
@@ -106,6 +105,7 @@ std = [
 	"slot-range-helper/std",
 	"sp-api/std",
 	"sp-core/std",
+	"sp-inherents/std",
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",

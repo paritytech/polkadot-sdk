@@ -83,6 +83,7 @@ runtime = [
 	"frame-system-rpc-runtime-api",
 ]
 std = [
+	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-executive?/std",
 	"frame-support/std",
@@ -91,7 +92,6 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime?/std",
 	"log/std",
-	"codec/std",
 	"scale-info/std",
 	"sp-api?/std",
 	"sp-arithmetic/std",

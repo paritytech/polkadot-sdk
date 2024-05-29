@@ -22,4 +22,4 @@ sp-core = { path = "../../../substrate/primitives/core" }
 
 [features]
 default = ["std"]
-std = ["adder/std", "halt/std", "codec/std"]
+std = ["adder/std", "codec/std", "halt/std"]

@@ -36,11 +36,11 @@ sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 [features]
 default = ["std"]
 std = [
+	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"codec/std",
 	"scale-info/std",
 	"sp-consensus-sassafras/std",
 	"sp-io/std",
