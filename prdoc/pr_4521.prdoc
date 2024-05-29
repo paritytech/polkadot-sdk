@@ -12,12 +12,12 @@ doc:
 
   - audience: Runtime User
     description: |
-      The price controller of the Coretime chain will be adjusted with this
-      release. This will very likely be used in the fellowship production
-      runtime to have a much larger leadin. This fixes a price manipulation
-      issue we discovered with the Kusama launch.
+      The price controller of the Rococo and Westend Coretime chain will be
+      adjusted with this release. This will very likely be used in the
+      fellowship production runtime to have a much larger leadin. This fixes a
+      price manipulation issue we discovered with the Kusama launch.
 
 crates:
   - name: pallet-broker
-    bump: major
+    bump: minor
 
