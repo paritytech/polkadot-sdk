@@ -17,6 +17,6 @@ TestConfiguration:
   max_pov_size: 5120
   peer_bandwidth: 524288000000
   bandwidth: 524288000000
-  num_blocks: 3
+  num_blocks: 10
   connectivity: 100
   latency: null
