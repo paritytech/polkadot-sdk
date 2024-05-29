@@ -295,7 +295,7 @@ where
 	}
 }
 
-// 1-element tuple calls first and then empty tuple, which is a no-op
+// 1-element tuple calls first tuple element and then empty tuple, which is a no-op
 impl<BlockNumber, T> TryState<BlockNumber> for (T,)
 where
 	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,

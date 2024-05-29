@@ -49,7 +49,7 @@ mod try_runtime {
 	use frame_support::traits::{IdentifiableTryStateLogic, TryStateLogic};
 	use sp_runtime::traits::AtLeast32BitUnsigned;
 
-	// Will contain `true` when the custom runtime logic was called.
+	// Will contain `true` when the custom runtime logic is called.
 	pub(super) static mut CANARY_FLAG: bool = false;
 
 	const CUSTOM_TRY_STATE_ID: &[u8] = b"custom_try_state";

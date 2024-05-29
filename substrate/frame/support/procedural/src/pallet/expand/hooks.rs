@@ -18,6 +18,7 @@
 use crate::pallet::Def;
 
 /// * implement the individual traits using the Hooks trait
+/// * implement the `TryStateLogic` and `IdentifiableTryStateLogic` traits, that are strictly dependent on the `TryState` hook
 pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 	let (where_clause, span, has_runtime_upgrade) = match def.hooks.as_ref() {
 		Some(hooks) => {
@@ -141,200 +142,222 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 	};
 
 	quote::quote_spanned!(span =>
-		#hooks_impl
+			#hooks_impl
 
-		impl<#type_impl_gen>
-			#frame_support::traits::OnFinalize<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-			for #pallet_ident<#type_use_gen> #where_clause
-		{
-			fn on_finalize(n: #frame_system::pallet_prelude::BlockNumberFor::<T>) {
-				#frame_support::__private::sp_tracing::enter_span!(
-					#frame_support::__private::sp_tracing::trace_span!("on_finalize")
-				);
-				<
-					Self as #frame_support::traits::Hooks<
-						#frame_system::pallet_prelude::BlockNumberFor::<T>
-					>
-				>::on_finalize(n)
-			}
-		}
-
-		impl<#type_impl_gen>
-			#frame_support::traits::OnIdle<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-			for #pallet_ident<#type_use_gen> #where_clause
-		{
-			fn on_idle(
-				n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
-				remaining_weight: #frame_support::weights::Weight
-			) -> #frame_support::weights::Weight {
-				<
-					Self as #frame_support::traits::Hooks<
-						#frame_system::pallet_prelude::BlockNumberFor::<T>
-					>
-				>::on_idle(n, remaining_weight)
-			}
-		}
-
-		impl<#type_impl_gen>
-			#frame_support::traits::OnPoll<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-			for #pallet_ident<#type_use_gen> #where_clause
-		{
-			fn on_poll(
-				n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
-				weight: &mut #frame_support::weights::WeightMeter
-			) {
-				<
-					Self as #frame_support::traits::Hooks<
-						#frame_system::pallet_prelude::BlockNumberFor::<T>
-					>
-				>::on_poll(n, weight);
-			}
-		}
-
-		impl<#type_impl_gen>
-			#frame_support::traits::OnInitialize<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-			for #pallet_ident<#type_use_gen> #where_clause
-		{
-			fn on_initialize(
-				n: #frame_system::pallet_prelude::BlockNumberFor::<T>
-			) -> #frame_support::weights::Weight {
-				#frame_support::__private::sp_tracing::enter_span!(
-					#frame_support::__private::sp_tracing::trace_span!("on_initialize")
-				);
-				<
-					Self as #frame_support::traits::Hooks<
-						#frame_system::pallet_prelude::BlockNumberFor::<T>
-					>
-				>::on_initialize(n)
-			}
-		}
-
-		impl<#type_impl_gen>
-			#frame_support::traits::BeforeAllRuntimeMigrations
-			for #pallet_ident<#type_use_gen> #where_clause
-		{
-			fn before_all_runtime_migrations() -> #frame_support::weights::Weight {
-				use #frame_support::traits::{Get, PalletInfoAccess};
-				use #frame_support::__private::hashing::twox_128;
-				use #frame_support::storage::unhashed::contains_prefixed_key;
-				#frame_support::__private::sp_tracing::enter_span!(
-					#frame_support::__private::sp_tracing::trace_span!("before_all")
-				);
-
-				// Check if the pallet has any keys set, including the storage version. If there are
-				// no keys set, the pallet was just added to the runtime and needs to have its
-				// version initialized.
-				let pallet_hashed_prefix = <Self as PalletInfoAccess>::name_hash();
-				let exists = contains_prefixed_key(&pallet_hashed_prefix);
-				if !exists {
-					#initialize_on_chain_storage_version
-					<T as #frame_system::Config>::DbWeight::get().reads_writes(1, 1)
-				} else {
-					<T as #frame_system::Config>::DbWeight::get().reads(1)
-				}
-			}
-		}
-
-		impl<#type_impl_gen>
-			#frame_support::traits::OnRuntimeUpgrade
-			for #pallet_ident<#type_use_gen> #where_clause
-		{
-			fn on_runtime_upgrade() -> #frame_support::weights::Weight {
-				#frame_support::__private::sp_tracing::enter_span!(
-					#frame_support::__private::sp_tracing::trace_span!("on_runtime_update")
-				);
-
-				// log info about the upgrade.
-				#log_runtime_upgrade
-
-				<
-					Self as #frame_support::traits::Hooks<
-						#frame_system::pallet_prelude::BlockNumberFor::<T>
-					>
-				>::on_runtime_upgrade()
-			}
-
-			#[cfg(feature = "try-runtime")]
-			fn pre_upgrade() -> Result<#frame_support::__private::sp_std::vec::Vec<u8>, #frame_support::sp_runtime::TryRuntimeError> {
-				<
-					Self
-					as
-					#frame_support::traits::Hooks<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-				>::pre_upgrade()
-			}
-
-			#[cfg(feature = "try-runtime")]
-			fn post_upgrade(state: #frame_support::__private::sp_std::vec::Vec<u8>) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
-				#post_storage_version_check
-
-				<
-					Self
-					as
-					#frame_support::traits::Hooks<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-				>::post_upgrade(state)
-			}
-		}
-
-		impl<#type_impl_gen>
-			#frame_support::traits::OffchainWorker<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-			for #pallet_ident<#type_use_gen> #where_clause
-		{
-			fn offchain_worker(n: #frame_system::pallet_prelude::BlockNumberFor::<T>) {
-				<
-					Self as #frame_support::traits::Hooks<
-						#frame_system::pallet_prelude::BlockNumberFor::<T>
-					>
-				>::offchain_worker(n)
-			}
-		}
-
-		// Integrity tests are only required for when `std` is enabled.
-		#frame_support::std_enabled! {
 			impl<#type_impl_gen>
-				#frame_support::traits::IntegrityTest
-			for #pallet_ident<#type_use_gen> #where_clause
+				#frame_support::traits::OnFinalize<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+				for #pallet_ident<#type_use_gen> #where_clause
 			{
-				fn integrity_test() {
-					#frame_support::__private::sp_io::TestExternalities::default().execute_with(|| {
-						<
-							Self as #frame_support::traits::Hooks<
-								#frame_system::pallet_prelude::BlockNumberFor::<T>
-							>
-						>::integrity_test()
-					});
+				fn on_finalize(n: #frame_system::pallet_prelude::BlockNumberFor::<T>) {
+					#frame_support::__private::sp_tracing::enter_span!(
+						#frame_support::__private::sp_tracing::trace_span!("on_finalize")
+					);
+					<
+						Self as #frame_support::traits::Hooks<
+							#frame_system::pallet_prelude::BlockNumberFor::<T>
+						>
+					>::on_finalize(n)
 				}
 			}
-		}
 
-		#[cfg(feature = "try-runtime")]
-		impl<#type_impl_gen>
-			#frame_support::traits::TryState<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-			for #pallet_ident<#type_use_gen> #where_clause
-		{
-			fn try_state(
-				n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
-				_s: #frame_support::traits::TryStateSelect
-			) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
-				#frame_support::__private::log::info!(
-					target: #frame_support::LOG_TARGET,
-					"🩺 Running {:?} try-state checks",
-					#pallet_name,
-				);
-				<
-					Self as #frame_support::traits::Hooks<
-						#frame_system::pallet_prelude::BlockNumberFor::<T>
-					>
-				>::try_state(n).map_err(|err| {
-					#frame_support::__private::log::error!(
-						target: #frame_support::LOG_TARGET,
-						"❌ {:?} try_state checks failed: {:?}",
-						#pallet_name,
-						err
+			impl<#type_impl_gen>
+				#frame_support::traits::OnIdle<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+				for #pallet_ident<#type_use_gen> #where_clause
+			{
+				fn on_idle(
+					n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
+					remaining_weight: #frame_support::weights::Weight
+				) -> #frame_support::weights::Weight {
+					<
+						Self as #frame_support::traits::Hooks<
+							#frame_system::pallet_prelude::BlockNumberFor::<T>
+						>
+					>::on_idle(n, remaining_weight)
+				}
+			}
+
+			impl<#type_impl_gen>
+				#frame_support::traits::OnPoll<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+				for #pallet_ident<#type_use_gen> #where_clause
+			{
+				fn on_poll(
+					n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
+					weight: &mut #frame_support::weights::WeightMeter
+				) {
+					<
+						Self as #frame_support::traits::Hooks<
+							#frame_system::pallet_prelude::BlockNumberFor::<T>
+						>
+					>::on_poll(n, weight);
+				}
+			}
+
+			impl<#type_impl_gen>
+				#frame_support::traits::OnInitialize<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+				for #pallet_ident<#type_use_gen> #where_clause
+			{
+				fn on_initialize(
+					n: #frame_system::pallet_prelude::BlockNumberFor::<T>
+				) -> #frame_support::weights::Weight {
+					#frame_support::__private::sp_tracing::enter_span!(
+						#frame_support::__private::sp_tracing::trace_span!("on_initialize")
+					);
+					<
+						Self as #frame_support::traits::Hooks<
+							#frame_system::pallet_prelude::BlockNumberFor::<T>
+						>
+					>::on_initialize(n)
+				}
+			}
+
+			impl<#type_impl_gen>
+				#frame_support::traits::BeforeAllRuntimeMigrations
+				for #pallet_ident<#type_use_gen> #where_clause
+			{
+				fn before_all_runtime_migrations() -> #frame_support::weights::Weight {
+					use #frame_support::traits::{Get, PalletInfoAccess};
+					use #frame_support::__private::hashing::twox_128;
+					use #frame_support::storage::unhashed::contains_prefixed_key;
+					#frame_support::__private::sp_tracing::enter_span!(
+						#frame_support::__private::sp_tracing::trace_span!("before_all")
 					);
 
-					err
-				})
+					// Check if the pallet has any keys set, including the storage version. If there are
+					// no keys set, the pallet was just added to the runtime and needs to have its
+					// version initialized.
+					let pallet_hashed_prefix = <Self as PalletInfoAccess>::name_hash();
+					let exists = contains_prefixed_key(&pallet_hashed_prefix);
+					if !exists {
+						#initialize_on_chain_storage_version
+						<T as #frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+					} else {
+						<T as #frame_system::Config>::DbWeight::get().reads(1)
+					}
+				}
 			}
-		}
+
+			impl<#type_impl_gen>
+				#frame_support::traits::OnRuntimeUpgrade
+				for #pallet_ident<#type_use_gen> #where_clause
+			{
+				fn on_runtime_upgrade() -> #frame_support::weights::Weight {
+					#frame_support::__private::sp_tracing::enter_span!(
+						#frame_support::__private::sp_tracing::trace_span!("on_runtime_update")
+					);
+
+					// log info about the upgrade.
+					#log_runtime_upgrade
+
+					<
+						Self as #frame_support::traits::Hooks<
+							#frame_system::pallet_prelude::BlockNumberFor::<T>
+						>
+					>::on_runtime_upgrade()
+				}
+
+				#[cfg(feature = "try-runtime")]
+				fn pre_upgrade() -> Result<#frame_support::__private::sp_std::vec::Vec<u8>, #frame_support::sp_runtime::TryRuntimeError> {
+					<
+						Self
+						as
+						#frame_support::traits::Hooks<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+					>::pre_upgrade()
+				}
+
+				#[cfg(feature = "try-runtime")]
+				fn post_upgrade(state: #frame_support::__private::sp_std::vec::Vec<u8>) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
+					#post_storage_version_check
+
+					<
+						Self
+						as
+						#frame_support::traits::Hooks<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+					>::post_upgrade(state)
+				}
+			}
+
+			impl<#type_impl_gen>
+				#frame_support::traits::OffchainWorker<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+				for #pallet_ident<#type_use_gen> #where_clause
+			{
+				fn offchain_worker(n: #frame_system::pallet_prelude::BlockNumberFor::<T>) {
+					<
+						Self as #frame_support::traits::Hooks<
+							#frame_system::pallet_prelude::BlockNumberFor::<T>
+						>
+					>::offchain_worker(n)
+				}
+			}
+
+			// Integrity tests are only required for when `std` is enabled.
+			#frame_support::std_enabled! {
+				impl<#type_impl_gen>
+					#frame_support::traits::IntegrityTest
+				for #pallet_ident<#type_use_gen> #where_clause
+				{
+					fn integrity_test() {
+						#frame_support::__private::sp_io::TestExternalities::default().execute_with(|| {
+							<
+								Self as #frame_support::traits::Hooks<
+									#frame_system::pallet_prelude::BlockNumberFor::<T>
+								>
+							>::integrity_test()
+						});
+					}
+				}
+			}
+
+			#[cfg(feature = "try-runtime")]
+			impl<#type_impl_gen>
+				#frame_support::traits::TryState<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+				for #pallet_ident<#type_use_gen> #where_clause
+			{
+				fn try_state(
+					n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
+					_s: #frame_support::traits::TryStateSelect
+				) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
+					#frame_support::__private::log::info!(
+						target: #frame_support::LOG_TARGET,
+						"🩺 Running {:?} try-state checks",
+						#pallet_name,
+					);
+					<
+						Self as #frame_support::traits::Hooks<
+							#frame_system::pallet_prelude::BlockNumberFor::<T>
+						>
+					>::try_state(n).map_err(|err| {
+						#frame_support::__private::log::error!(
+							target: #frame_support::LOG_TARGET,
+							"❌ {:?} try_state checks failed: {:?}",
+							#pallet_name,
+							err
+						);
+
+						err
+					})
+				}
+			}
+
+			// Implement `TryStateLogic<BlockNumber>` for `Pallet`
+			#[cfg(feature = "try-runtime")]
+			impl<#type_impl_gen> #frame_support::traits::TryStateLogic<#frame_system::pallet_prelude::BlockNumberFor<T>>
+				for #pallet_ident<#type_use_gen>
+				#where_clause
+			{
+				fn try_state(n: frame_system::pallet_prelude::BlockNumberFor<T>) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
+					<Self as #frame_support::traits::TryState<#frame_system::pallet_prelude::BlockNumberFor::<T>>>::try_state(n, #frame_support::traits::TryStateSelect::All)
+				}
+			}
+
+			// Implement `IdentifiableTryStateLogic<BlockNumber>` for `Pallet`
+			#[cfg(feature = "try-runtime")]
+			impl<#type_impl_gen> #frame_support::traits::IdentifiableTryStateLogic<frame_system::pallet_prelude::BlockNumberFor<T>>
+				for #pallet_ident<#type_use_gen>
+				#where_clause
+			{
+				fn matches_id(id: &[u8]) -> bool {
+					<Self as #frame_support::pallet_prelude::PalletInfoAccess>::name().as_bytes() == id
+				}
+			}
 	)
 }
