@@ -195,7 +195,6 @@ fn start_consensus(
 		client.clone(),
 	);
 
-	#[docify::export(aura_params)]
 	let params = AuraParams {
 		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 		block_import,
@@ -319,7 +318,6 @@ pub async fn start_parachain_node(
 		})
 	};
 
-	#[docify::export(spawn_tasks)]
 	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		rpc_builder,
 		client: client.clone(),
