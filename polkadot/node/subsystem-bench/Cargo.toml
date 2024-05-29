@@ -56,7 +56,7 @@ rand_distr = "0.4.3"
 bitvec = "1.0.1"
 kvdb-memorydb = "0.13.0"
 
-parity-scale-codec = { version = "3.6.12", features = ["derive", "std"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive", "std"] }
 tokio = { version = "1.24.2", features = ["parking_lot", "rt-multi-thread"] }
 clap-num = "1.0.2"
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
@@ -69,7 +69,7 @@ sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 polkadot-node-metrics = { path = "../metrics" }
 itertools = "0.11"
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
-prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 prometheus = { version = "0.13.0", default-features = false }
 serde = { workspace = true, default-features = true }
 serde_yaml = { workspace = true }
@@ -87,7 +87,7 @@ rand_core = "0.6.2"
 rand_chacha = { version = "0.3.1" }
 paste = "1.0.14"
 orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
-pyroscope = "0.5.7"
+pyro = { package = "pyroscope", version = "0.5.7" }
 pyroscope_pprofrs = "0.2.7"
 strum = { version = "0.24", features = ["derive"] }
 

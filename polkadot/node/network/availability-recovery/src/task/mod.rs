@@ -30,7 +30,7 @@ pub use self::strategy::{REGULAR_CHUNKS_REQ_RETRY_LIMIT, SYSTEMATIC_CHUNKS_REQ_R
 
 use crate::{metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET};
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, overseer, RecoveryError};
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash};

@@ -23,7 +23,7 @@ use crate::{
 use bitvec::vec::BitVec;
 use futures::channel::oneshot;
 use itertools::Itertools;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	request_response::{
 		v2::{AttestedCandidateRequest, AttestedCandidateResponse},

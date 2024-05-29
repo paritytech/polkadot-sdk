@@ -40,7 +40,7 @@ use crate::{configuration, initializer::SessionChangeNotification, paras};
 use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
-use primitives::{
+use polkadot_primitives::{
 	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
 };
 use sp_runtime::traits::One;

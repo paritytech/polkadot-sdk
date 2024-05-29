@@ -34,7 +34,7 @@ sp-staking = { path = "../../primitives/staking", default-features = false, feat
 sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
-grandpa = { package = "finality-grandpa", version = "0.16.2", features = ["derive-codec"] }
+finality-grandpa = { version = "0.16.2", features = ["derive-codec"] }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }
 pallet-balances = { path = "../balances" }

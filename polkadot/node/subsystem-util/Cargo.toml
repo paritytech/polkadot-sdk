@@ -14,7 +14,7 @@ async-trait = "0.1.79"
 futures = "0.3.30"
 futures-channel = "0.3.23"
 itertools = "0.11"
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 parking_lot = "0.12.1"
 pin-project = "1.0.9"
 rand = "0.8.5"

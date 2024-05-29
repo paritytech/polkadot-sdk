@@ -18,8 +18,8 @@ pub mod v0 {
 	use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 	use frame_support::{storage_alias, Twox64Concat};
 	use frame_system::pallet_prelude::BlockNumberFor;
-	use parity_scale_codec::{Decode, Encode};
-	use primitives::{
+	use codec::{Decode, Encode};
+	use polkadot_primitives::{
 		AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CoreIndex,
 		GroupIndex, Id as ParaId, ValidatorIndex,
 	};
@@ -83,7 +83,7 @@ mod v1 {
 		traits::{GetStorageVersion, StorageVersion},
 	};
 	#[cfg(feature = "try-runtime")]
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
 
@@ -217,8 +217,8 @@ mod tests {
 		mock::{new_test_ext, MockGenesisConfig, Test},
 	};
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
-	use primitives::{AvailabilityBitfield, Id as ParaId};
-	use test_helpers::{dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash};
+	use polkadot_primitives::{AvailabilityBitfield, Id as ParaId};
+	use polkadot_primitives_test_helpers::{dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash};
 
 	#[test]
 	fn migrate_to_v1() {

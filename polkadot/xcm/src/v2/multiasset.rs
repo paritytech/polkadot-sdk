@@ -35,7 +35,7 @@ use crate::v3::{
 };
 use alloc::{vec, vec::Vec};
 use core::cmp::Ordering;
-use parity_scale_codec::{self as codec, Decode, Encode};
+use codec::{self as codec, Decode, Encode};
 use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.
@@ -317,7 +317,7 @@ impl TryFrom<NewMultiAsset> for MultiAsset {
 pub struct MultiAssets(Vec<MultiAsset>);
 
 impl Decode for MultiAssets {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		Self::from_sorted_and_deduplicated(Vec::<MultiAsset>::decode(input)?)
 			.map_err(|()| "Out of order".into())
 	}

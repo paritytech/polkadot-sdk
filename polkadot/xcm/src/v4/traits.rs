@@ -18,7 +18,7 @@
 
 pub use crate::v3::{Error, Result, SendError, XcmHash};
 use core::result;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;

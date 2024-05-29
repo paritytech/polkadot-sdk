@@ -17,12 +17,12 @@
 //! WASM validation for the `Undying` parachain.
 
 use crate::{BlockData, HeadData};
-use parachain::primitives::{HeadData as GenericHeadData, ValidationResult};
-use parity_scale_codec::{Decode, Encode};
+use polkadot_parachain_primitives::primitives::{HeadData as GenericHeadData, ValidationResult};
+use codec::{Decode, Encode};
 
 #[no_mangle]
 pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
-	let params = unsafe { parachain::load_params(params, len) };
+	let params = unsafe { polkadot_parachain_primitives::load_params(params, len) };
 	let parent_head =
 		HeadData::decode(&mut &params.parent_head.0[..]).expect("invalid parent head format.");
 
@@ -34,7 +34,7 @@ pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
 	let (new_head, _) =
 		crate::execute(parent_hash, parent_head, block_data).expect("Executes block");
 
-	parachain::write_result(&ValidationResult {
+	polkadot_parachain_primitives::write_result(&ValidationResult {
 		head_data: GenericHeadData(new_head.encode()),
 		new_validation_code: None,
 		upward_messages: sp_std::vec::Vec::new().try_into().expect("empty vec fits within bounds"),

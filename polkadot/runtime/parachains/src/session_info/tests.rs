@@ -24,8 +24,8 @@ use crate::{
 	},
 	util::take_active_subset,
 };
-use keyring::Sr25519Keyring;
-use primitives::{vstaging::SchedulerParams, BlockNumber, ValidatorId, ValidatorIndex};
+use sp_keyring::Sr25519Keyring;
+use polkadot_primitives::{vstaging::SchedulerParams, BlockNumber, ValidatorId, ValidatorIndex};
 
 fn run_to_block(
 	to: BlockNumber,

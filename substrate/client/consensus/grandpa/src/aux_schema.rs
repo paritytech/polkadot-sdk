@@ -22,7 +22,7 @@ use std::fmt::Debug;
 
 use finality_grandpa::round::State as RoundState;
 use log::{info, warn};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use fork_tree::ForkTree;
 use sc_client_api::backend::AuxStore;

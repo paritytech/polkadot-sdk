@@ -24,7 +24,7 @@ use crate::{
 use cpu_time::ProcessTime;
 use futures::never::Never;
 use nix::{errno::Errno, sys::resource::Usage};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use std::{
 	any::Any,
 	fmt::{self},

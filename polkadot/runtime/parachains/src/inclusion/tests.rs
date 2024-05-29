@@ -25,16 +25,16 @@ use crate::{
 	paras_inherent::DisputedBitfield,
 	shared::AllowedRelayParentsTracker,
 };
-use primitives::{
+use polkadot_primitives::{
 	effective_minimum_backing_votes, AvailabilityBitfield, SignedAvailabilityBitfields,
 	UncheckedSignedAvailabilityBitfields,
 };
 
 use assert_matches::assert_matches;
 use frame_support::assert_noop;
-use keyring::Sr25519Keyring;
-use parity_scale_codec::DecodeAll;
-use primitives::{
+use sp_keyring::Sr25519Keyring;
+use codec::DecodeAll;
+use polkadot_primitives::{
 	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorId,
 	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
 	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
@@ -42,7 +42,7 @@ use primitives::{
 use sc_keystore::LocalKeystore;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
-use test_helpers::{dummy_collator, dummy_collator_signature, dummy_validation_code};
+use polkadot_primitives_test_helpers::{dummy_collator, dummy_collator_signature, dummy_validation_code};
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	let mut config = HostConfiguration::default();
@@ -100,7 +100,7 @@ pub(crate) fn collator_sign_candidate(
 ) {
 	candidate.descriptor.collator = collator.public().into();
 
-	let payload = primitives::collator_signature_payload(
+	let payload = polkadot_primitives::collator_signature_payload(
 		&candidate.descriptor.relay_parent,
 		&candidate.descriptor.para_id,
 		&candidate.descriptor.persisted_validation_data_hash,
@@ -158,7 +158,7 @@ pub(crate) fn back_candidate(
 	let backed =
 		BackedCandidate::new(candidate, validity_votes, validator_indices.clone(), core_index);
 
-	let successfully_backed = primitives::check_candidate_backing(
+	let successfully_backed = polkadot_primitives::check_candidate_backing(
 		backed.candidate().hash(),
 		backed.validity_votes(),
 		validator_indices.as_bitslice(),

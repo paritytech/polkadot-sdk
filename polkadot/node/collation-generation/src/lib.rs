@@ -32,7 +32,7 @@
 #![deny(missing_docs)]
 
 use futures::{channel::oneshot, future::FutureExt, join, select};
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_primitives::{
 	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
 	SubmitCollationParams,

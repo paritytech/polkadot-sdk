@@ -18,9 +18,9 @@
 
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
-use parity_scale_codec::{Decode, Encode};
-use primitives::Id as ParaId;
-use runtime_parachains::{
+use codec::{Decode, Encode};
+use polkadot_primitives::Id as ParaId;
+use polkadot_runtime_parachains::{
 	configuration::{self, HostConfiguration},
 	dmp, FeeTracker,
 };
@@ -259,7 +259,7 @@ mod tests {
 	use super::*;
 	use crate::integration_tests::new_test_ext;
 	use frame_support::{assert_ok, parameter_types};
-	use runtime_parachains::FeeTracker;
+	use polkadot_runtime_parachains::FeeTracker;
 	use sp_runtime::FixedU128;
 	use xcm::MAX_XCM_DECODE_DEPTH;
 

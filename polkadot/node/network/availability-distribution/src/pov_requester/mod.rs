@@ -138,7 +138,7 @@ mod tests {
 	use assert_matches::assert_matches;
 	use futures::{executor, future};
 
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	use sc_network::ProtocolName;
 	use sp_core::testing::TaskExecutor;
 

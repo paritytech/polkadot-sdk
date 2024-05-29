@@ -21,7 +21,7 @@ use crate::{
 	paras::{ParaGenesisArgs, ParaKind},
 };
 
-use primitives::{Balance, HeadData, ValidationCode};
+use polkadot_primitives::{Balance, HeadData, ValidationCode};
 use sp_runtime::Perbill;
 
 fn default_genesis_config() -> MockGenesisConfig {
@@ -40,7 +40,7 @@ pub struct GenesisConfigBuilder {
 	pub on_demand_fee_variability: Perbill,
 	pub on_demand_max_queue_size: u32,
 	pub on_demand_target_queue_utilization: Perbill,
-	pub onboarded_on_demand_chains: Vec<primitives::Id>,
+	pub onboarded_on_demand_chains: Vec<polkadot_primitives::Id>,
 }
 
 impl Default for GenesisConfigBuilder {

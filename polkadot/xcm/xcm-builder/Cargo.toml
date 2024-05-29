@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 impl-trait-for-tuples = "0.2.1"
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
@@ -34,7 +34,7 @@ pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-xcm = { path = "../pallet-xcm" }
 pallet-salary = { path = "../../../substrate/frame/salary" }
 pallet-assets = { path = "../../../substrate/frame/assets" }
-primitives = { package = "polkadot-primitives", path = "../../primitives" }
+polkadot-primitives = { path = "../../primitives" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
 assert_matches = "1.5.0"
 polkadot-test-runtime = { path = "../../runtime/test-runtime" }
@@ -51,7 +51,7 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-test-runtime/runtime-benchmarks",
-	"primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
@@ -60,7 +60,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-transaction-payment/std",
-	"parity-scale-codec/std",
+	"codec/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"sp-arithmetic/std",

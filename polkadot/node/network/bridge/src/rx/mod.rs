@@ -21,7 +21,7 @@ use super::*;
 use always_assert::never;
 use bytes::Bytes;
 use net_protocol::filter_by_peer_version;
-use parity_scale_codec::{Decode, DecodeAll};
+use codec::{Decode, DecodeAll};
 use parking_lot::Mutex;
 
 use sc_network::{

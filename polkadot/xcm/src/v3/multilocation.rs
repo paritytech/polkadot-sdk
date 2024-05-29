@@ -21,7 +21,7 @@ use crate::{
 	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation, VersionedLocation,
 };
 use core::result;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -531,7 +531,7 @@ xcm_procedural::impl_conversion_functions_for_multilocation_v3!();
 #[cfg(test)]
 mod tests {
 	use crate::v3::prelude::*;
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	#[test]
 	fn conversion_works() {

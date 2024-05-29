@@ -23,7 +23,7 @@ use futures::Stream;
 
 use async_trait::async_trait;
 use jsonrpsee_core::ClientError as JsonRpcError;
-use parity_scale_codec::Error as CodecError;
+use codec::Error as CodecError;
 use sp_api::ApiError;
 
 use cumulus_primitives_core::relay_chain::BlockId;

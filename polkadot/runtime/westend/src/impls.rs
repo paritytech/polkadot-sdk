@@ -17,9 +17,9 @@
 use crate::xcm_config;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
-use parity_scale_codec::{Decode, Encode};
-use primitives::Balance;
-use runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
+use codec::{Decode, Encode};
+use polkadot_primitives::Balance;
+use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
 use sp_std::{marker::PhantomData, prelude::*};
 use westend_runtime_constants::currency::*;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};

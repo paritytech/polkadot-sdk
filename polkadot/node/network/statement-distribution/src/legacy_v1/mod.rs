@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use net_protocol::{filter_by_peer_version, peer_set::ProtocolVersion};
-use parity_scale_codec::Encode;
+use codec::Encode;
 
 use polkadot_node_network_protocol::{
 	self as net_protocol,

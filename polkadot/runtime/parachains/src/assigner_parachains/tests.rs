@@ -24,7 +24,7 @@ use crate::{
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_ok, pallet_prelude::*};
-use primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
+use polkadot_primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
 use sp_std::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {

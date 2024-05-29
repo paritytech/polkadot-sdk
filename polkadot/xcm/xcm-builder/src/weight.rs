@@ -25,7 +25,7 @@ use frame_support::{
 		WeightToFee as WeightToFeeT,
 	},
 };
-use parity_scale_codec::Decode;
+use codec::Decode;
 use sp_runtime::traits::{SaturatedConversion, Saturating, Zero};
 use sp_std::{marker::PhantomData, result::Result};
 use xcm::latest::{prelude::*, GetWeight, Weight};

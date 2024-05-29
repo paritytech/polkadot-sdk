@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_parachains::inclusion`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_parachains::inclusion::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo for WeightInfo<T> {
 	/// Storage: MessageQueue BookStateFor (r:1 w:1)
 	/// Proof: MessageQueue BookStateFor (max_values: None, max_size: Some(55), added: 2530, mode: MaxEncodedLen)
 	/// Storage: MessageQueue Pages (r:1 w:999)

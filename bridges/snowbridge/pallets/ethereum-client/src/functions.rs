@@ -10,7 +10,7 @@ use crate::config::{
 pub fn decompress_sync_committee_bits(
 	input: [u8; SYNC_COMMITTEE_BITS_SIZE],
 ) -> [u8; SYNC_COMMITTEE_SIZE] {
-	primitives::decompress_sync_committee_bits::<SYNC_COMMITTEE_SIZE, SYNC_COMMITTEE_BITS_SIZE>(
+	snowbridge_beacon_primitives::decompress_sync_committee_bits::<SYNC_COMMITTEE_SIZE, SYNC_COMMITTEE_BITS_SIZE>(
 		input,
 	)
 }

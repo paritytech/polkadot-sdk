@@ -32,7 +32,7 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Debug, sync::Arc};
-use substrate_prometheus_endpoint::Registry;
+use prometheus_endpoint::Registry;
 
 /// Parameters for [`import_queue`].
 pub struct ImportQueueParams<'a, I, C, CIDP, S> {

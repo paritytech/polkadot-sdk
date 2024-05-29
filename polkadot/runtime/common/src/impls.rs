@@ -22,8 +22,8 @@ use frame_support::traits::{
 	Contains, ContainsPair, Imbalance, OnUnbalanced,
 };
 use pallet_treasury::TreasuryAccountId;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-use primitives::Balance;
+use codec::{Decode, Encode, MaxEncodedLen};
+use polkadot_primitives::Balance;
 use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
 use xcm::VersionedLocation;
 
@@ -32,8 +32,8 @@ pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToAuthor<R>
 where
 	R: pallet_balances::Config + pallet_authorship::Config,
-	<R as frame_system::Config>::AccountId: From<primitives::AccountId>,
-	<R as frame_system::Config>::AccountId: Into<primitives::AccountId>,
+	<R as frame_system::Config>::AccountId: From<polkadot_primitives::AccountId>,
+	<R as frame_system::Config>::AccountId: Into<polkadot_primitives::AccountId>,
 {
 	fn on_nonzero_unbalanced(
 		amount: Credit<<R as frame_system::Config>::AccountId, pallet_balances::Pallet<R>>,
@@ -48,8 +48,8 @@ pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
 	R: pallet_balances::Config + pallet_authorship::Config + pallet_treasury::Config,
-	<R as frame_system::Config>::AccountId: From<primitives::AccountId>,
-	<R as frame_system::Config>::AccountId: Into<primitives::AccountId>,
+	<R as frame_system::Config>::AccountId: From<polkadot_primitives::AccountId>,
+	<R as frame_system::Config>::AccountId: Into<polkadot_primitives::AccountId>,
 {
 	fn on_unbalanceds<B>(
 		mut fees_then_tips: impl Iterator<Item = Credit<R::AccountId, pallet_balances::Pallet<R>>>,
@@ -255,7 +255,7 @@ mod tests {
 		PalletId,
 	};
 	use frame_system::limits;
-	use primitives::AccountId;
+	use polkadot_primitives::AccountId;
 	use sp_core::{ConstU64, H256};
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},

@@ -35,11 +35,11 @@ mod v_coretime {
 	use frame_system::pallet_prelude::BlockNumberFor;
 	use pallet_broker::{CoreAssignment, CoreMask, ScheduleItem};
 	#[cfg(feature = "try-runtime")]
-	use parity_scale_codec::Decode;
+	use codec::Decode;
 	#[cfg(feature = "try-runtime")]
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	use polkadot_parachain_primitives::primitives::IsSystem;
-	use primitives::{CoreIndex, Id as ParaId};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
 	use sp_arithmetic::traits::SaturatedConversion;
 	use sp_core::Get;
 	use sp_runtime::BoundedVec;

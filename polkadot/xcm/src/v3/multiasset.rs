@@ -43,7 +43,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
 use core::cmp::Ordering;
-use parity_scale_codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.
@@ -302,7 +302,7 @@ enum UncheckedFungibility {
 }
 
 impl Decode for Fungibility {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		match UncheckedFungibility::decode(input)? {
 			UncheckedFungibility::Fungible(a) if a != 0 => Ok(Self::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) => Ok(Self::NonFungible(i)),

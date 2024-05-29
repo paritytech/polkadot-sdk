@@ -35,7 +35,7 @@ use sp_runtime::{
 };
 
 /// The log target to be used by client code.
-pub const CLIENT_LOG_TARGET: &str = "grandpa";
+pub const CLIENT_LOG_TARGET: &str = "finality_grandpa";
 /// The log target to be used by runtime code.
 pub const RUNTIME_LOG_TARGET: &str = "runtime::grandpa";
 
@@ -77,10 +77,10 @@ pub type RoundNumber = u64;
 pub type AuthorityList = Vec<(AuthorityId, AuthorityWeight)>;
 
 /// A GRANDPA message for a substrate chain.
-pub type Message<Header> = grandpa::Message<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+pub type Message<Header> = finality_grandpa::Message<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 
 /// A signed message.
-pub type SignedMessage<Header> = grandpa::SignedMessage<
+pub type SignedMessage<Header> = finality_grandpa::SignedMessage<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
@@ -89,21 +89,21 @@ pub type SignedMessage<Header> = grandpa::SignedMessage<
 
 /// A primary propose message for this chain's block type.
 pub type PrimaryPropose<Header> =
-	grandpa::PrimaryPropose<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+	finality_grandpa::PrimaryPropose<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A prevote message for this chain's block type.
-pub type Prevote<Header> = grandpa::Prevote<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+pub type Prevote<Header> = finality_grandpa::Prevote<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A precommit message for this chain's block type.
 pub type Precommit<Header> =
-	grandpa::Precommit<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+	finality_grandpa::Precommit<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A catch up message for this chain's block type.
-pub type CatchUp<Header> = grandpa::CatchUp<
+pub type CatchUp<Header> = finality_grandpa::CatchUp<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
 	AuthorityId,
 >;
 /// A commit message for this chain's block type.
-pub type Commit<Header> = grandpa::Commit<
+pub type Commit<Header> = finality_grandpa::Commit<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
@@ -111,7 +111,7 @@ pub type Commit<Header> = grandpa::Commit<
 >;
 
 /// A compact commit message for this chain's block type.
-pub type CompactCommit<Header> = grandpa::CompactCommit<
+pub type CompactCommit<Header> = finality_grandpa::CompactCommit<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
@@ -266,18 +266,18 @@ impl<H, N> EquivocationProof<H, N> {
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, TypeInfo)]
 pub enum Equivocation<H, N> {
 	/// Proof of equivocation at prevote stage.
-	Prevote(grandpa::Equivocation<AuthorityId, grandpa::Prevote<H, N>, AuthoritySignature>),
+	Prevote(finality_grandpa::Equivocation<AuthorityId, finality_grandpa::Prevote<H, N>, AuthoritySignature>),
 	/// Proof of equivocation at precommit stage.
-	Precommit(grandpa::Equivocation<AuthorityId, grandpa::Precommit<H, N>, AuthoritySignature>),
+	Precommit(finality_grandpa::Equivocation<AuthorityId, finality_grandpa::Precommit<H, N>, AuthoritySignature>),
 }
 
-impl<H, N> From<grandpa::Equivocation<AuthorityId, grandpa::Prevote<H, N>, AuthoritySignature>>
+impl<H, N> From<finality_grandpa::Equivocation<AuthorityId, finality_grandpa::Prevote<H, N>, AuthoritySignature>>
 	for Equivocation<H, N>
 {
 	fn from(
-		equivocation: grandpa::Equivocation<
+		equivocation: finality_grandpa::Equivocation<
 			AuthorityId,
-			grandpa::Prevote<H, N>,
+			finality_grandpa::Prevote<H, N>,
 			AuthoritySignature,
 		>,
 	) -> Self {
@@ -285,13 +285,13 @@ impl<H, N> From<grandpa::Equivocation<AuthorityId, grandpa::Prevote<H, N>, Autho
 	}
 }
 
-impl<H, N> From<grandpa::Equivocation<AuthorityId, grandpa::Precommit<H, N>, AuthoritySignature>>
+impl<H, N> From<finality_grandpa::Equivocation<AuthorityId, finality_grandpa::Precommit<H, N>, AuthoritySignature>>
 	for Equivocation<H, N>
 {
 	fn from(
-		equivocation: grandpa::Equivocation<
+		equivocation: finality_grandpa::Equivocation<
 			AuthorityId,
-			grandpa::Precommit<H, N>,
+			finality_grandpa::Precommit<H, N>,
 			AuthoritySignature,
 		>,
 	) -> Self {
@@ -358,10 +358,10 @@ where
 
 	match report.equivocation {
 		Equivocation::Prevote(equivocation) => {
-			check!(equivocation, grandpa::Message::Prevote);
+			check!(equivocation, finality_grandpa::Message::Prevote);
 		},
 		Equivocation::Precommit(equivocation) => {
-			check!(equivocation, grandpa::Message::Precommit);
+			check!(equivocation, finality_grandpa::Message::Precommit);
 		},
 	}
 }
@@ -389,7 +389,7 @@ pub fn localized_payload_with_buffer<E: Encode>(
 /// Check a message signature by encoding the message as a localized payload and
 /// verifying the provided signature using the expected authority id.
 pub fn check_message_signature<H, N>(
-	message: &grandpa::Message<H, N>,
+	message: &finality_grandpa::Message<H, N>,
 	id: &AuthorityId,
 	signature: &AuthoritySignature,
 	round: RoundNumber,
@@ -407,7 +407,7 @@ where
 /// The encoding necessary to verify the signature will be done using the given
 /// buffer, the original content of the buffer will be cleared.
 pub fn check_message_signature_with_buffer<H, N>(
-	message: &grandpa::Message<H, N>,
+	message: &finality_grandpa::Message<H, N>,
 	id: &AuthorityId,
 	signature: &AuthoritySignature,
 	round: RoundNumber,
@@ -437,11 +437,11 @@ where
 #[cfg(feature = "std")]
 pub fn sign_message<H, N>(
 	keystore: KeystorePtr,
-	message: grandpa::Message<H, N>,
+	message: finality_grandpa::Message<H, N>,
 	public: AuthorityId,
 	round: RoundNumber,
 	set_id: SetId,
-) -> Option<grandpa::SignedMessage<H, N, AuthoritySignature, AuthorityId>>
+) -> Option<finality_grandpa::SignedMessage<H, N, AuthoritySignature, AuthorityId>>
 where
 	H: Encode,
 	N: Encode,
@@ -456,7 +456,7 @@ where
 		.try_into()
 		.ok()?;
 
-	Some(grandpa::SignedMessage { message, signature, id: public })
+	Some(finality_grandpa::SignedMessage { message, signature, id: public })
 }
 
 /// An opaque type used to represent the key ownership proof at the runtime API

@@ -30,8 +30,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-use parity_scale_codec::Decode;
-use primitives::Id as ParaId;
+use codec::Decode;
+use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedSub, One, Saturating, Zero};
 use sp_std::{mem::swap, prelude::*};
 
@@ -679,7 +679,7 @@ mod tests {
 	use frame_system::{EnsureRoot, EnsureSignedBy};
 	use pallet_balances;
 	use polkadot_primitives_test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
-	use primitives::{BlockNumber, Id as ParaId};
+	use polkadot_primitives::{BlockNumber, Id as ParaId};
 	use sp_core::H256;
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
@@ -1728,7 +1728,7 @@ mod benchmarking {
 		traits::{EnsureOrigin, OnInitialize},
 	};
 	use frame_system::RawOrigin;
-	use runtime_parachains::paras;
+	use polkadot_runtime_parachains::paras;
 	use sp_runtime::{traits::Bounded, SaturatedConversion};
 
 	use frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};

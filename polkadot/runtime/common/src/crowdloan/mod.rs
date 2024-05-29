@@ -68,8 +68,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
-use primitives::Id as ParaId;
+use codec::{Decode, Encode};
+use polkadot_primitives::Id as ParaId;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
@@ -862,7 +862,7 @@ mod tests {
 		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{ConstU32, OnFinalize, OnInitialize},
 	};
-	use primitives::Id as ParaId;
+	use polkadot_primitives::Id as ParaId;
 	use sp_core::H256;
 	use std::{cell::RefCell, collections::BTreeMap, sync::Arc};
 	// The testing primitives are very useful for avoiding having to work with signatures
@@ -1979,7 +1979,7 @@ mod benchmarking {
 	use super::{Pallet as Crowdloan, *};
 	use frame_support::{assert_ok, traits::OnInitialize};
 	use frame_system::RawOrigin;
-	use runtime_parachains::paras;
+	use polkadot_runtime_parachains::paras;
 	use sp_core::crypto::UncheckedFrom;
 	use sp_runtime::traits::{Bounded, CheckedSub};
 	use sp_std::prelude::*;

@@ -21,8 +21,8 @@ use frame_benchmarking::{benchmarks, whitelist_account};
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking::testing_utils::create_validators;
-use parity_scale_codec::Decode;
-use primitives::{Hash, PARACHAIN_KEY_TYPE_ID};
+use codec::Decode;
+use polkadot_primitives::{Hash, PARACHAIN_KEY_TYPE_ID};
 use sp_runtime::traits::{One, OpaqueKeys, StaticLookup};
 use sp_session::MembershipProof;
 

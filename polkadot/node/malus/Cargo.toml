@@ -48,7 +48,7 @@ clap = { version = "4.5.3", features = ["derive"] }
 futures = "0.3.30"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../gum" }
-erasure = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
+polkadot-erasure-coding = { path = "../../erasure-coding" }
 rand = "0.8.5"
 
 # Required for worker binaries to build.

@@ -22,7 +22,7 @@ use crate::{
 use bitvec::bitvec;
 use colored::Colorize;
 use itertools::Itertools;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_network_protocol::{
 	request_response::{v2::ChunkFetchingRequest, ReqProtocolNames},
 	Versioned, VersionedValidationProtocol,

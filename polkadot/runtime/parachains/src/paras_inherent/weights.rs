@@ -19,8 +19,8 @@
 //! the relay chain, but we do care about the size of the block, by putting the tx in the
 //! proof_size we can use the already existing weight limiting code to limit the used size as well.
 
-use parity_scale_codec::{Encode, WrapperTypeEncode};
-use primitives::{
+use codec::{Encode, WrapperTypeEncode};
+use polkadot_primitives::{
 	CheckedMultiDisputeStatementSet, MultiDisputeStatementSet, UncheckedSignedAvailabilityBitfield,
 	UncheckedSignedAvailabilityBitfields,
 };

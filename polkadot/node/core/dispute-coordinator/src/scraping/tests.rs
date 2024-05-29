@@ -19,7 +19,7 @@ use std::time::Duration;
 use assert_matches::assert_matches;
 
 use futures::future::join;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use sp_core::testing::TaskExecutor;
 
 use polkadot_node_primitives::DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;

@@ -30,7 +30,7 @@ use futures::{
 	pin_mut, Future,
 };
 use futures_timer::Delay;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use sc_network::{config::RequestResponseConfig, ProtocolName};
 

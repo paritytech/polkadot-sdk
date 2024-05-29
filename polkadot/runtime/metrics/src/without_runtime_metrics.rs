@@ -18,7 +18,7 @@
 //! provide a dummy implementation for the native runtime to avoid cluttering the runtime code
 //! with `#[cfg(feature = "runtime-metrics")]`.
 
-use primitives::metric_definitions::{
+use polkadot_primitives::metric_definitions::{
 	CounterDefinition, CounterVecDefinition, HistogramDefinition,
 };
 

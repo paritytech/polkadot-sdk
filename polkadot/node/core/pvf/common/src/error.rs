@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::prepare::{PrepareSuccess, PrepareWorkerSuccess};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 pub use sc_executor_common::error::Error as ExecuteError;
 
 /// Result of PVF preparation from a worker, with checksum of the compiled PVF and stats of the

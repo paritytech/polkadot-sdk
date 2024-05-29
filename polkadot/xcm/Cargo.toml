@@ -15,7 +15,7 @@ bounded-collections = { version = "0.2.0", default-features = false, features = 
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
 sp-weights = { path = "../../substrate/primitives/weights", default-features = false, features = ["serde"] }
 serde = { features = ["alloc", "derive", "rc"], workspace = true }
@@ -35,7 +35,7 @@ std = [
 	"bounded-collections/std",
 	"environmental/std",
 	"log/std",
-	"parity-scale-codec/std",
+	"codec/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-weights/std",

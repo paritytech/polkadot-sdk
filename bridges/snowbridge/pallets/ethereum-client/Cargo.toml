@@ -33,7 +33,7 @@ sp-io = { path = "../../../../substrate/primitives/io", default-features = false
 snowbridge-core = { path = "../../primitives/core", default-features = false }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
 snowbridge-pallet-ethereum-client-fixtures = { path = "fixtures", default-features = false, optional = true }
-primitives = { package = "snowbridge-beacon-primitives", path = "../../primitives/beacon", default-features = false }
+snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
 pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-features = false, optional = true }
 
@@ -62,7 +62,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-timestamp/std",
-	"primitives/std",
+	"snowbridge-beacon-primitives/std",
 	"scale-info/std",
 	"serde",
 	"snowbridge-core/std",

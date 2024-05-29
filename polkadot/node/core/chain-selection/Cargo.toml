@@ -19,7 +19,7 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 kvdb = "0.13.0"
 thiserror = { workspace = true }
-parity-scale-codec = "3.6.12"
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }

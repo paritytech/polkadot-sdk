@@ -31,7 +31,7 @@ use std::{
 
 use assert_matches::assert_matches;
 use futures::channel::oneshot;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use parking_lot::Mutex;
 use sp_core::testing::TaskExecutor;
 

@@ -18,8 +18,8 @@
 
 use super::*;
 
-use parity_scale_codec::{Decode, Encode};
-use primitives::RuntimeDebug;
+use codec::{Decode, Encode};
+use sp_core::RuntimeDebug;
 use scale_info::TypeInfo;
 
 /// Candidate's acceptance limitations for asynchronous backing per relay parent.

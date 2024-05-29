@@ -22,9 +22,9 @@ use crate::{
 use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0};
 use frame_support::{ensure, weights::Weight};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_runtime_metrics::get_current_time;
-use primitives::{
+use polkadot_primitives::{
 	byzantine_threshold, supermajority_threshold, ApprovalVote, ApprovalVoteMultipleCandidates,
 	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CompactStatement,
 	ConsensusLog, DisputeState, DisputeStatement, DisputeStatementSet, ExplicitDisputeStatement,

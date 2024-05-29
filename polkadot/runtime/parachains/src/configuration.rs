@@ -21,11 +21,11 @@
 use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
-use primitives::{
+use polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
 	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
 	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
@@ -42,7 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use primitives::vstaging::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -1276,7 +1276,7 @@ pub mod pallet {
 		fn integrity_test() {
 			assert_eq!(
 				&ActiveConfig::<T>::hashed_key(),
-				primitives::well_known_keys::ACTIVE_CONFIG,
+				polkadot_primitives::well_known_keys::ACTIVE_CONFIG,
 				"`well_known_keys::ACTIVE_CONFIG` doesn't match key of `ActiveConfig`! Make sure that the name of the\
 				 configuration pallet is `Configuration` in the runtime!",
 			);

@@ -30,8 +30,8 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::limits::BlockWeights;
-use parity_scale_codec::{Decode, Encode};
-use primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
+use codec::{Decode, Encode};
+use polkadot_primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 

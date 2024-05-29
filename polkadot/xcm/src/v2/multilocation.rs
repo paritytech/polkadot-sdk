@@ -19,7 +19,7 @@
 use super::Junction;
 use crate::v3::MultiLocation as NewMultiLocation;
 use core::{mem, result};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -883,7 +883,7 @@ impl TryFrom<MultiLocation> for Junctions {
 mod tests {
 	use super::{Ancestor, AncestorThen, Junctions::*, MultiLocation, Parent, ParentThen};
 	use crate::opaque::v2::{Junction::*, NetworkId::*};
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	#[test]
 	fn inverted_works() {

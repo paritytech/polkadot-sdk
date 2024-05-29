@@ -42,5 +42,5 @@ pub enum Error {
 	ExposingMetricsInvalidHost(String, AddrParseError),
 	/// Prometheus error.
 	#[error("{0}")]
-	Prometheus(#[from] substrate_prometheus_endpoint::prometheus::Error),
+	Prometheus(#[from] prometheus_endpoint::prometheus::Error),
 }

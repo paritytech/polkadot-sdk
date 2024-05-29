@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use futures::{executor, pending, pin_mut, poll, select, stream, FutureExt};
 use std::{collections::HashMap, sync::atomic, task::Poll};
 
-use node_test_helpers::mock::{dummy_unpin_handle, new_leaf};
+use polkadot_node_subsystem_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_network_protocol::{PeerId, UnifiedReputationChange};
 use polkadot_node_primitives::{
 	BlockData, CollationGenerationConfig, CollationResult, DisputeMessage, InvalidDisputeVote, PoV,

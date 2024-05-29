@@ -21,7 +21,7 @@
 #![recursion_limit = "256"]
 
 use pallet_transaction_payment::FungibleAdapter;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	prelude::*,
@@ -41,8 +41,8 @@ use polkadot_runtime_parachains::{
 	shared as parachains_shared,
 };
 
-use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
-use beefy_primitives::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -57,7 +57,7 @@ use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
-use primitives::{
+use polkadot_primitives::{
 	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
 	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
 	GroupRotationInfo, Hash as HashT, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
@@ -65,7 +65,7 @@ use primitives::{
 	SessionInfo as SessionInfoData, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
-use runtime_common::{
+use polkadot_runtime_common::{
 	claims, impl_runtime_weights, paras_sudo_wrapper, BlockHashCount, BlockLength,
 	SlowAdjustingFeeUpdate,
 };
@@ -121,10 +121,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 /// The BABE epoch configuration at genesis.
-pub const BABE_GENESIS_EPOCH_CONFIG: babe_primitives::BabeEpochConfiguration =
-	babe_primitives::BabeEpochConfiguration {
+pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+	sp_consensus_babe::BabeEpochConfiguration {
 		c: PRIMARY_PROBABILITY,
-		allowed_slots: babe_primitives::AllowedSlots::PrimaryAndSecondaryVRFSlots,
+		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
 
 /// Native version.
@@ -324,7 +324,7 @@ parameter_types! {
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, runtime_common::elections::OnChainAccuracy>;
+	type Solver = SequentialPhragmen<AccountId, polkadot_runtime_common::elections::OnChainAccuracy>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type Bounds = ElectionBoundsOnChain;
@@ -338,7 +338,7 @@ impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = runtime_common::CurrencyToVote;
+	type CurrencyToVote = polkadot_runtime_common::CurrencyToVote;
 	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
@@ -361,7 +361,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type MaxControllersInDeprecationBatch = ConstU32<5900>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
-	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
+	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
@@ -796,7 +796,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl block_builder_api::BlockBuilder<Block> for Runtime {
+	impl sp_block_builder::BlockBuilder<Block> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
 			Executive::apply_extrinsic(extrinsic)
 		}
@@ -805,19 +805,19 @@ sp_api::impl_runtime_apis! {
 			Executive::finalize_block()
 		}
 
-		fn inherent_extrinsics(data: inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+		fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
 			data.create_extrinsics()
 		}
 
 		fn check_inherents(
 			block: Block,
-			data: inherents::InherentData,
-		) -> inherents::CheckInherentsResult {
+			data: sp_inherents::InherentData,
+		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
 		}
 	}
 
-	impl tx_pool_api::runtime_api::TaggedTransactionQueue<Block> for Runtime {
+	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(
 			source: TransactionSource,
 			tx: <Block as BlockT>::Extrinsic,
@@ -827,20 +827,20 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
+	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
 			Executive::offchain_worker(header)
 		}
 	}
 
-	impl authority_discovery_primitives::AuthorityDiscoveryApi<Block> for Runtime {
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
 		fn authorities() -> Vec<AuthorityDiscoveryId> {
 			runtime_impl::relevant_authority_ids::<Runtime>()
 		}
 	}
 
 	#[api_version(11)]
-	impl primitives::runtime_api::ParachainHost<Block> for Runtime {
+	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
 		}
@@ -871,7 +871,7 @@ sp_api::impl_runtime_apis! {
 
 		fn check_validation_outputs(
 			para_id: ParaId,
-			outputs: primitives::CandidateCommitments,
+			outputs: polkadot_primitives::CandidateCommitments,
 		) -> bool {
 			runtime_impl::check_validation_outputs::<Runtime>(para_id, outputs)
 		}
@@ -924,8 +924,8 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_pvf_check_statement(
-			stmt: primitives::PvfCheckStatement,
-			signature: primitives::ValidatorSignature,
+			stmt: polkadot_primitives::PvfCheckStatement,
+			signature: polkadot_primitives::ValidatorSignature,
 		) {
 			runtime_impl::submit_pvf_check_statement::<Runtime>(stmt, signature)
 		}
@@ -952,7 +952,7 @@ sp_api::impl_runtime_apis! {
 		fn key_ownership_proof(
 			validator_id: ValidatorId,
 		) -> Option<slashing::OpaqueKeyOwnershipProof> {
-			use parity_scale_codec::Encode;
+			use codec::Encode;
 
 			Historical::prove((PARACHAIN_KEY_TYPE_ID, validator_id))
 				.map(|p| p.encode())
@@ -973,15 +973,15 @@ sp_api::impl_runtime_apis! {
 			runtime_impl::minimum_backing_votes::<Runtime>()
 		}
 
-		fn para_backing_state(para_id: ParaId) -> Option<primitives::async_backing::BackingState> {
+		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::async_backing::BackingState> {
 			runtime_impl::backing_state::<Runtime>(para_id)
 		}
 
-		fn async_backing_params() -> primitives::AsyncBackingParams {
+		fn async_backing_params() -> polkadot_primitives::AsyncBackingParams {
 			runtime_impl::async_backing_params::<Runtime>()
 		}
 
-		fn approval_voting_params() -> primitives::ApprovalVotingParams {
+		fn approval_voting_params() -> polkadot_primitives::ApprovalVotingParams {
 			runtime_impl::approval_voting_params::<Runtime>()
 		}
 
@@ -989,7 +989,7 @@ sp_api::impl_runtime_apis! {
 			runtime_impl::disabled_validators::<Runtime>()
 		}
 
-		fn node_features() -> primitives::NodeFeatures {
+		fn node_features() -> polkadot_primitives::NodeFeatures {
 			runtime_impl::node_features::<Runtime>()
 		}
 
@@ -1002,32 +1002,32 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
+	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			// dummy implementation due to lack of BEEFY pallet.
 			None
 		}
 
-		fn validator_set() -> Option<beefy_primitives::ValidatorSet<BeefyId>> {
+		fn validator_set() -> Option<sp_consensus_beefy::ValidatorSet<BeefyId>> {
 			// dummy implementation due to lack of BEEFY pallet.
 			None
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			_equivocation_proof: beefy_primitives::DoubleVotingProof<
+			_equivocation_proof: sp_consensus_beefy::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
 			>,
-			_key_owner_proof: beefy_primitives::OpaqueKeyOwnershipProof,
+			_key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			None
 		}
 
 		fn generate_key_ownership_proof(
-			_set_id: beefy_primitives::ValidatorSetId,
+			_set_id: sp_consensus_beefy::ValidatorSetId,
 			_authority_id: BeefyId,
-		) -> Option<beefy_primitives::OpaqueKeyOwnershipProof> {
+		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
 			None
 		}
 	}
@@ -1090,10 +1090,10 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl babe_primitives::BabeApi<Block> for Runtime {
-		fn configuration() -> babe_primitives::BabeConfiguration {
+	impl sp_consensus_babe::BabeApi<Block> for Runtime {
+		fn configuration() -> sp_consensus_babe::BabeConfiguration {
 			let epoch_config = Babe::epoch_config().unwrap_or(BABE_GENESIS_EPOCH_CONFIG);
-			babe_primitives::BabeConfiguration {
+			sp_consensus_babe::BabeConfiguration {
 				slot_duration: Babe::slot_duration(),
 				epoch_length: EpochDuration::get(),
 				c: epoch_config.c,
@@ -1103,28 +1103,28 @@ sp_api::impl_runtime_apis! {
 			}
 		}
 
-		fn current_epoch_start() -> babe_primitives::Slot {
+		fn current_epoch_start() -> sp_consensus_babe::Slot {
 			Babe::current_epoch_start()
 		}
 
-		fn current_epoch() -> babe_primitives::Epoch {
+		fn current_epoch() -> sp_consensus_babe::Epoch {
 			Babe::current_epoch()
 		}
 
-		fn next_epoch() -> babe_primitives::Epoch {
+		fn next_epoch() -> sp_consensus_babe::Epoch {
 			Babe::next_epoch()
 		}
 
 		fn generate_key_ownership_proof(
-			_slot: babe_primitives::Slot,
-			_authority_id: babe_primitives::AuthorityId,
-		) -> Option<babe_primitives::OpaqueKeyOwnershipProof> {
+			_slot: sp_consensus_babe::Slot,
+			_authority_id: sp_consensus_babe::AuthorityId,
+		) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
 			None
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			_equivocation_proof: babe_primitives::EquivocationProof<<Block as BlockT>::Header>,
-			_key_owner_proof: babe_primitives::OpaqueKeyOwnershipProof,
+			_equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as BlockT>::Header>,
+			_key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			None
 		}

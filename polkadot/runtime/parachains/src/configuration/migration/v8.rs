@@ -23,7 +23,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{
+use polkadot_primitives::{
 	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::Perbill;
@@ -304,7 +304,7 @@ mod tests {
 	];
 
 		let v8 =
-			V8HostConfiguration::<primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
+			V8HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -329,7 +329,7 @@ mod tests {
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		let v7 = V7HostConfiguration::<primitives::BlockNumber> {
+		let v7 = V7HostConfiguration::<polkadot_primitives::BlockNumber> {
 			needed_approvals: 69,
 			thread_availability_period: 55,
 			hrmp_recipient_deposit: 1337,
@@ -403,7 +403,7 @@ mod tests {
 	// pallet's storage.
 	#[test]
 	fn test_migrate_to_v8_no_pending() {
-		let v7 = V7HostConfiguration::<primitives::BlockNumber>::default();
+		let v7 = V7HostConfiguration::<polkadot_primitives::BlockNumber>::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v6 version in the state.

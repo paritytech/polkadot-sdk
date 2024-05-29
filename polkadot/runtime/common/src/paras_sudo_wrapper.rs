@@ -19,9 +19,9 @@
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use parity_scale_codec::Encode;
-use primitives::Id as ParaId;
-use runtime_parachains::{
+use codec::Encode;
+use polkadot_primitives::Id as ParaId;
+use polkadot_runtime_parachains::{
 	configuration, dmp, hrmp,
 	paras::{self, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
@@ -80,7 +80,7 @@ pub mod pallet {
 			genesis: ParaGenesisArgs,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			runtime_parachains::schedule_para_initialize::<T>(id, genesis)
+			polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
 
 			T::AssignCoretime::assign_coretime(id)?;
@@ -93,7 +93,7 @@ pub mod pallet {
 		#[pallet::weight((1_000, DispatchClass::Operational))]
 		pub fn sudo_schedule_para_cleanup(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
 			ensure_root(origin)?;
-			runtime_parachains::schedule_para_cleanup::<T>(id)
+			polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
 				.map_err(|_| Error::<T>::CouldntCleanup)?;
 			Ok(())
 		}
@@ -111,7 +111,7 @@ pub mod pallet {
 				paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parathread),
 				Error::<T>::NotParathread,
 			);
-			runtime_parachains::schedule_parathread_upgrade::<T>(id)
+			polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(id)
 				.map_err(|_| Error::<T>::CannotUpgrade)?;
 			Ok(())
 		}
@@ -129,7 +129,7 @@ pub mod pallet {
 				paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parachain),
 				Error::<T>::NotParachain,
 			);
-			runtime_parachains::schedule_parachain_downgrade::<T>(id)
+			polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
 				.map_err(|_| Error::<T>::CannotDowngrade)?;
 			Ok(())
 		}

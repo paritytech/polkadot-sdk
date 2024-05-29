@@ -112,7 +112,7 @@ use polkadot_primitives::{
 	ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
-use statement_table::{
+use polkadot_statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
 	v2::{
 		SignedStatement as TableSignedStatement, Statement as TableStatement,

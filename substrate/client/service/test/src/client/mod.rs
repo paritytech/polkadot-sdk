@@ -18,7 +18,7 @@
 
 use async_channel::TryRecvError;
 use futures::executor::block_on;
-use parity_scale_codec::{Decode, Encode, Joiner};
+use codec::{Decode, Encode, Joiner};
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{
 	in_mem, BlockBackend, BlockchainEvents, ExecutorProvider, FinalityNotifications, HeaderBackend,

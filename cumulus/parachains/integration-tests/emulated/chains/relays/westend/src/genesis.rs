@@ -14,8 +14,8 @@
 // limitations under the License.
 
 // Substrate
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa::AuthorityId as GrandpaId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::storage::Storage;

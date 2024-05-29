@@ -116,8 +116,8 @@ use crate::{
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
-use primitives::{
+use codec::{Decode, Encode};
+use polkadot_primitives::{
 	ConsensusLog, HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
 	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature, MIN_CODE_SIZE,
 };
@@ -348,9 +348,9 @@ impl Encode for ParaKind {
 }
 
 impl Decode for ParaKind {
-	fn decode<I: parity_scale_codec::Input>(
+	fn decode<I: codec::Input>(
 		input: &mut I,
-	) -> Result<Self, parity_scale_codec::Error> {
+	) -> Result<Self, codec::Error> {
 		match bool::decode(input) {
 			Ok(true) => Ok(ParaKind::Parachain),
 			Ok(false) => Ok(ParaKind::Parathread),
@@ -487,7 +487,7 @@ impl<BlockNumber> PvfCheckActiveVoteState<BlockNumber> {
 
 	/// Returns `None` if the quorum is not reached, or the direction of the decision.
 	fn quorum(&self, n_validators: usize) -> Option<PvfCheckOutcome> {
-		let accept_threshold = primitives::supermajority_threshold(n_validators);
+		let accept_threshold = polkadot_primitives::supermajority_threshold(n_validators);
 		// At this threshold, a supermajority is no longer possible, so we reject.
 		let reject_threshold = n_validators - accept_threshold;
 

@@ -28,7 +28,7 @@ sp-core = { path = "../../../../substrate/primitives/core" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 sp-timestamp = { path = "../../../../substrate/primitives/timestamp" }
 sp-trie = { path = "../../../../substrate/primitives/trie" }
-substrate-prometheus-endpoint = { path = "../../../../substrate/utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../../substrate/utils/prometheus" }
 
 # Polkadot
 polkadot-primitives = { path = "../../../../polkadot/primitives" }

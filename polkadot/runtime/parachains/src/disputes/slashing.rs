@@ -50,7 +50,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 
-use primitives::{
+use polkadot_primitives::{
 	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
 	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
 };
@@ -456,7 +456,7 @@ pub mod pallet {
 
 			let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
 			// check the membership proof to extract the offender's id
-			let key = (primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
+			let key = (polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 			let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof)
 				.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
 
@@ -615,7 +615,7 @@ fn is_known_offence<T: Config>(
 	key_owner_proof: &T::KeyOwnerProof,
 ) -> Result<(), TransactionValidityError> {
 	// check the membership proof to extract the offender's id
-	let key = (primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
+	let key = (polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 
 	let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof.clone())
 		.ok_or(InvalidTransaction::BadProof)?;

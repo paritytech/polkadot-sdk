@@ -23,7 +23,7 @@ use std::{
 };
 
 use finality_grandpa::{voter_set::VoterSet, Error as GrandpaError};
-use parity_scale_codec::{Decode, DecodeAll, Encode};
+use codec::{Decode, DecodeAll, Encode};
 use sp_blockchain::{Error as ClientError, HeaderBackend};
 use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};

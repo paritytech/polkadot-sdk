@@ -21,7 +21,7 @@
 
 use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{SessionIndex, ValidatorId, ValidatorIndex};
+use polkadot_primitives::{SessionIndex, ValidatorId, ValidatorIndex};
 use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},

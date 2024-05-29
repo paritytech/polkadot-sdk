@@ -19,7 +19,7 @@ use crate::{
 	configuration::TestAuthorities,
 };
 use itertools::Itertools;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_primitives::{CandidateIndex, Hash, ValidatorIndex};
 use sc_network_types::PeerId;

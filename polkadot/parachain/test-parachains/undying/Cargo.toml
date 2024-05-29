@@ -12,8 +12,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-parachain = { package = "polkadot-parachain-primitives", path = "../..", default-features = false, features = ["wasm-api"] }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+polkadot-parachain-primitives = { path = "../..", default-features = false, features = ["wasm-api"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 dlmalloc = { version = "0.2.4", features = ["global"] }
@@ -29,8 +29,8 @@ substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 default = ["std"]
 std = [
 	"log/std",
-	"parachain/std",
-	"parity-scale-codec/std",
+	"polkadot-parachain-primitives/std",
+	"codec/std",
 	"sp-io/std",
 	"sp-std/std",
 ]

@@ -27,7 +27,7 @@ use crate::{
 };
 use futures::SinkExt;
 use itertools::Itertools;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_core_approval_voting::{
 	criteria::{compute_assignments, Config},
 	time::tranche_to_tick,

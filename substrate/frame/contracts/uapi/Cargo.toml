@@ -15,7 +15,7 @@ workspace = true
 paste = { version = "1.0", default-features = false }
 bitflags = "1.0"
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"], optional = true }
-scale = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ], optional = true }
@@ -27,5 +27,5 @@ polkavm-derive = { workspace = true }
 default-target = ["wasm32-unknown-unknown"]
 
 [features]
-default = ["scale"]
-scale = ["dep:scale", "scale-info"]
+default = ["codec"]
+codec = ["dep:codec", "scale-info"]

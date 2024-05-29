@@ -16,7 +16,7 @@
 
 use crate::universal_exports::ensure_is_remote;
 use frame_support::traits::Get;
-use parity_scale_codec::{Compact, Decode, Encode};
+use codec::{Compact, Decode, Encode};
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert};
 use sp_std::{marker::PhantomData, prelude::*};
@@ -460,7 +460,7 @@ impl<UniversalLocation, AccountId>
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use primitives::AccountId;
+	use polkadot_primitives::AccountId;
 	pub type ForeignChainAliasAccount<AccountId> =
 		HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
 

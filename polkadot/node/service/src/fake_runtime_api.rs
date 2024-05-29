@@ -19,8 +19,8 @@
 //! These are used to provide a type that implements these runtime APIs without requiring to import
 //! the native runtimes.
 
-use beefy_primitives::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
-use grandpa_primitives::AuthorityId as GrandpaId;
+use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
 	runtime_api, slashing, AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber,
@@ -232,30 +232,30 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
+	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			unimplemented!()
 		}
 
-		fn validator_set() -> Option<beefy_primitives::ValidatorSet<BeefyId>> {
+		fn validator_set() -> Option<sp_consensus_beefy::ValidatorSet<BeefyId>> {
 			unimplemented!()
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			_: beefy_primitives::DoubleVotingProof<
+			_: sp_consensus_beefy::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
 			>,
-			_: beefy_primitives::OpaqueKeyOwnershipProof,
+			_: sp_consensus_beefy::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			unimplemented!()
 		}
 
 		fn generate_key_ownership_proof(
-			_: beefy_primitives::ValidatorSetId,
+			_: sp_consensus_beefy::ValidatorSetId,
 			_: BeefyId,
-		) -> Option<beefy_primitives::OpaqueKeyOwnershipProof> {
+		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
 			unimplemented!()
 		}
 	}
@@ -291,29 +291,29 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl grandpa_primitives::GrandpaApi<Block> for Runtime {
+	impl sp_consensus_grandpa::GrandpaApi<Block> for Runtime {
 		fn grandpa_authorities() -> Vec<(GrandpaId, u64)> {
 			unimplemented!()
 		}
 
-		fn current_set_id() -> grandpa_primitives::SetId {
+		fn current_set_id() -> sp_consensus_grandpa::SetId {
 			unimplemented!()
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			_: grandpa_primitives::EquivocationProof<
+			_: sp_consensus_grandpa::EquivocationProof<
 				<Block as BlockT>::Hash,
 				sp_runtime::traits::NumberFor<Block>,
 			>,
-			_: grandpa_primitives::OpaqueKeyOwnershipProof,
+			_: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			unimplemented!()
 		}
 
 		fn generate_key_ownership_proof(
-			_: grandpa_primitives::SetId,
-			_: grandpa_primitives::AuthorityId,
-		) -> Option<grandpa_primitives::OpaqueKeyOwnershipProof> {
+			_: sp_consensus_grandpa::SetId,
+			_: sp_consensus_grandpa::AuthorityId,
+		) -> Option<sp_consensus_grandpa::OpaqueKeyOwnershipProof> {
 			unimplemented!()
 		}
 	}

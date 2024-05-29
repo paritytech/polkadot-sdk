@@ -12,15 +12,15 @@ workspace = true
 [dependencies]
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "0.4.1"
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive", "serde"] }
 log = { workspace = true, default-features = false }
 serde = { features = ["alloc", "derive"], workspace = true }
 
-application-crypto = { package = "sp-application-crypto", path = "../../substrate/primitives/application-crypto", default-features = false, features = ["serde"] }
-inherents = { package = "sp-inherents", path = "../../substrate/primitives/inherents", default-features = false }
-primitives = { package = "sp-core", path = "../../substrate/primitives/core", default-features = false }
-runtime_primitives = { package = "sp-runtime", path = "../../substrate/primitives/runtime", default-features = false }
+sp-application-crypto = { path = "../../substrate/primitives/application-crypto", default-features = false, features = ["serde"] }
+sp-inherents = { path = "../../substrate/primitives/inherents", default-features = false }
+sp-core = { path = "../../substrate/primitives/core", default-features = false }
+sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false }
 sp-api = { path = "../../substrate/primitives/api", default-features = false }
 sp-arithmetic = { path = "../../substrate/primitives/arithmetic", default-features = false, features = ["serde"] }
 sp-authority-discovery = { path = "../../substrate/primitives/authority-discovery", default-features = false, features = ["serde"] }
@@ -36,15 +36,15 @@ polkadot-parachain-primitives = { path = "../parachain", default-features = fals
 [features]
 default = ["std"]
 std = [
-	"application-crypto/std",
+	"sp-application-crypto/std",
 	"bitvec/std",
-	"inherents/std",
+	"sp-inherents/std",
 	"log/std",
-	"parity-scale-codec/std",
+	"codec/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
-	"primitives/std",
-	"runtime_primitives/std",
+	"sp-core/std",
+	"sp-runtime/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-api/std",
@@ -59,6 +59,6 @@ std = [
 ]
 runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
-	"runtime_primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]

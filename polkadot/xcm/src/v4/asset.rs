@@ -35,7 +35,7 @@ use crate::v3::{
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
 use core::cmp::Ordering;
-use parity_scale_codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.
@@ -274,7 +274,7 @@ enum UncheckedFungibility {
 }
 
 impl Decode for Fungibility {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		match UncheckedFungibility::decode(input)? {
 			UncheckedFungibility::Fungible(a) if a != 0 => Ok(Self::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) => Ok(Self::NonFungible(i)),
@@ -559,7 +559,7 @@ impl MaxEncodedLen for Assets {
 }
 
 impl Decode for Assets {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let bounded_instructions =
 			BoundedVec::<Asset, ConstU32<{ MAX_ITEMS_IN_ASSETS as u32 }>>::decode(input)?;
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())

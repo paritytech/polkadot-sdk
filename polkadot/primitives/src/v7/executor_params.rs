@@ -22,7 +22,7 @@
 //! done in `polkadot-node-core-pvf`.
 
 use crate::{BlakeTwo256, HashT as _, PvfExecKind, PvfPrepKind};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};

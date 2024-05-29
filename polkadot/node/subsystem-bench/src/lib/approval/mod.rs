@@ -45,7 +45,7 @@ use futures::channel::oneshot;
 use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_approval_distribution::ApprovalDistribution;
 use polkadot_node_core_approval_voting::{
 	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},

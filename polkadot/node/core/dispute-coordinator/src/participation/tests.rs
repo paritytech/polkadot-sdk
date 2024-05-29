@@ -22,7 +22,7 @@ use std::{sync::Arc, time::Duration};
 use sp_core::testing::TaskExecutor;
 
 use super::*;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_primitives::{AvailableData, BlockData, InvalidCandidate, PoV};
 use polkadot_node_subsystem::{
 	messages::{

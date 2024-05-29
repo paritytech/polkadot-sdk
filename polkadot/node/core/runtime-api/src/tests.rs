@@ -33,7 +33,7 @@ use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
 	sync::{Arc, Mutex},
 };
-use test_helpers::{dummy_committed_candidate_receipt, dummy_validation_code};
+use polkadot_primitives_test_helpers::{dummy_committed_candidate_receipt, dummy_validation_code};
 
 #[derive(Default)]
 struct MockSubsystemClient {

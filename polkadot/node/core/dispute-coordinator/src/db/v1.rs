@@ -31,7 +31,7 @@ use polkadot_primitives::{
 
 use std::sync::Arc;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use crate::{
 	backend::{Backend, BackendWriteOp, OverlayedBackend},
@@ -258,7 +258,7 @@ pub enum Error {
 	#[error(transparent)]
 	Io(#[from] std::io::Error),
 	#[error(transparent)]
-	Codec(#[from] parity_scale_codec::Error),
+	Codec(#[from] codec::Error),
 }
 
 impl From<Error> for crate::error::Error {

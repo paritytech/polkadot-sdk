@@ -175,7 +175,7 @@ mod benchmarks {
 	use frame_support::traits::EnsureOrigin;
 	use frame_system::RawOrigin;
 	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	use sp_runtime::{
 		traits::{Bounded, Hash, StaticLookup},
 		Saturating,

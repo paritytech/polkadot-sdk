@@ -23,14 +23,14 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
+use polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 
 use super::v6::V6HostConfiguration;
 
-#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, Clone)]
+#[derive(codec::Encode, codec::Decode, Debug, Clone)]
 pub struct V7HostConfiguration<BlockNumber> {
 	pub max_code_size: u32,
 	pub max_head_data_size: u32,
@@ -289,7 +289,7 @@ mod tests {
 		let raw_config = hex_literal::hex!["00003000005000005555150000008000fbff0100000200000a000000c80000006400000000000000000000000000500000c800000a0000000000000000c0220fca950300000000000000000000c0220fca9503000000000000000000e8030000009001000a0000000000000000900100008070000000000000000000000a000000050000000500000001000000010500000001c80000000600000058020000020000002800000000000000020000000100000001020000000f000000"];
 
 		let v6 =
-			V6HostConfiguration::<primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
+			V6HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -312,7 +312,7 @@ mod tests {
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		let v6 = V6HostConfiguration::<primitives::BlockNumber> {
+		let v6 = V6HostConfiguration::<polkadot_primitives::BlockNumber> {
 			needed_approvals: 69,
 			thread_availability_period: 55,
 			hrmp_recipient_deposit: 1337,
@@ -390,7 +390,7 @@ mod tests {
 	// pallet's storage.
 	#[test]
 	fn test_migrate_to_v7_no_pending() {
-		let v6 = V6HostConfiguration::<primitives::BlockNumber>::default();
+		let v6 = V6HostConfiguration::<polkadot_primitives::BlockNumber>::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v6 version in the state.

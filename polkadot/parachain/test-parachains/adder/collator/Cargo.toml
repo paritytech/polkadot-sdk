@@ -15,13 +15,13 @@ name = "adder-collator"
 path = "src/main.rs"
 
 [dependencies]
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 clap = { version = "4.5.3", features = ["derive"] }
 futures = "0.3.30"
 futures-timer = "3.0.2"
 log = { workspace = true, default-features = true }
 
-test-parachain-adder = { path = ".." }
+adder = { package = "test-parachain-adder", path = ".." }
 polkadot-primitives = { path = "../../../../primitives" }
 polkadot-cli = { path = "../../../../cli" }
 polkadot-service = { path = "../../../../node/service", features = ["elastic-scaling-experimental", "rococo-native"] }

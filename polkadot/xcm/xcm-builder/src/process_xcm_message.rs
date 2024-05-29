@@ -17,7 +17,7 @@
 //! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
 use frame_support::traits::{ProcessMessage, ProcessMessageError};
-use parity_scale_codec::{Decode, FullCodec, MaxEncodedLen};
+use codec::{Decode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_std::{fmt::Debug, marker::PhantomData};
 use sp_weights::{Weight, WeightMeter};
@@ -122,7 +122,7 @@ mod tests {
 		assert_err, assert_ok,
 		traits::{ProcessMessageError, ProcessMessageError::*},
 	};
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	use polkadot_test_runtime::*;
 	use xcm::{v3, v4, VersionedXcm};
 

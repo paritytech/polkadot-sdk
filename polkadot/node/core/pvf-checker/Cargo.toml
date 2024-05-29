@@ -28,6 +28,6 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 sc-keystore = { path = "../../../../substrate/client/keystore" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
 futures-timer = "3.0.2"

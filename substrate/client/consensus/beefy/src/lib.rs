@@ -34,7 +34,7 @@ use crate::{
 use futures::{stream::Fuse, FutureExt, StreamExt};
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
-use prometheus::Registry;
+use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
 use sc_consensus::BlockImport;
 use sc_network::{NetworkRequest, NotificationService, ProtocolName};

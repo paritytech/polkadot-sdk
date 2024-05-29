@@ -24,7 +24,7 @@ use super::{
 };
 use crate::{communication::grandpa_protocol_name, environment::SharedVoterSetState};
 use futures::prelude::*;
-use parity_scale_codec::{DecodeAll, Encode};
+use codec::{DecodeAll, Encode};
 use sc_network::{
 	config::{MultiaddrWithPeerId, Role},
 	event::Event as NetworkEvent,

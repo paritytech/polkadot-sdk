@@ -30,7 +30,7 @@ use finality_grandpa::{
 use futures::prelude::*;
 use futures_timer::Delay;
 use log::{debug, warn};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use parking_lot::RwLock;
 use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, U64};
 
@@ -104,12 +104,12 @@ impl<Block: BlockT> Encode for CompletedRounds<Block> {
 	}
 }
 
-impl<Block: BlockT> parity_scale_codec::EncodeLike for CompletedRounds<Block> {}
+impl<Block: BlockT> codec::EncodeLike for CompletedRounds<Block> {}
 
 impl<Block: BlockT> Decode for CompletedRounds<Block> {
-	fn decode<I: parity_scale_codec::Input>(
+	fn decode<I: codec::Input>(
 		value: &mut I,
-	) -> Result<Self, parity_scale_codec::Error> {
+	) -> Result<Self, codec::Error> {
 		<(Vec<CompletedRound<Block>>, SetId, Vec<AuthorityId>)>::decode(value)
 			.map(|(rounds, set_id, voters)| CompletedRounds { rounds, set_id, voters })
 	}

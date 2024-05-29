@@ -86,9 +86,9 @@ sp-inherents = { path = "../../substrate/primitives/inherents" }
 sp-api = { path = "../../substrate/primitives/api" }
 sp-consensus-aura = { path = "../../substrate/primitives/consensus/aura" }
 sc-sysinfo = { path = "../../substrate/client/sysinfo" }
-substrate-prometheus-endpoint = { path = "../../substrate/utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../substrate/utils/prometheus" }
 sc-transaction-pool-api = { path = "../../substrate/client/transaction-pool/api" }
-frame-rpc-system = { package = "substrate-frame-rpc-system", path = "../../substrate/utils/frame/rpc/system" }
+substrate-frame-rpc-system = { path = "../../substrate/utils/frame/rpc/system" }
 pallet-transaction-payment-rpc = { path = "../../substrate/frame/transaction-payment/rpc" }
 substrate-state-trie-migration-rpc = { path = "../../substrate/utils/frame/rpc/state-trie-migration-rpc" }
 

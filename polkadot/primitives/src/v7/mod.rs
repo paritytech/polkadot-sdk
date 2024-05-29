@@ -17,7 +17,7 @@
 //! `V7` Primitives.
 
 use bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::{
 	marker::PhantomData,
@@ -26,13 +26,13 @@ use sp_std::{
 	vec::IntoIter,
 };
 
-use application_crypto::KeyTypeId;
-use inherents::InherentIdentifier;
-use primitives::RuntimeDebug;
-use runtime_primitives::traits::{AppVerify, Header as HeaderT};
+use sp_application_crypto::KeyTypeId;
+use sp_inherents::InherentIdentifier;
+use sp_core::RuntimeDebug;
+use sp_runtime::traits::{AppVerify, Header as HeaderT};
 use sp_arithmetic::traits::{BaseArithmetic, Saturating};
 
-pub use runtime_primitives::traits::{BlakeTwo256, Hash as HashT};
+pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 
 // Export some core primitives.
 pub use polkadot_core_primitives::v2::{
@@ -77,7 +77,7 @@ pub const COLLATOR_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"coll");
 const LOG_TARGET: &str = "runtime::primitives";
 
 mod collator_app {
-	use application_crypto::{app_crypto, sr25519};
+	use sp_application_crypto::{app_crypto, sr25519};
 	app_crypto!(sr25519, super::COLLATOR_KEY_TYPE_ID);
 }
 
@@ -95,7 +95,7 @@ pub type CollatorSignature = collator_app::Signature;
 pub const PARACHAIN_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"para");
 
 mod validator_app {
-	use application_crypto::{app_crypto, sr25519};
+	use sp_application_crypto::{app_crypto, sr25519};
 	app_crypto!(sr25519, super::PARACHAIN_KEY_TYPE_ID);
 }
 
@@ -158,7 +158,7 @@ impl TypeIndex for ValidatorIndex {
 	}
 }
 
-application_crypto::with_pair! {
+sp_application_crypto::with_pair! {
 	/// A Parachain validator keypair.
 	pub type ValidatorPair = validator_app::Pair;
 }
@@ -173,7 +173,7 @@ pub type ValidatorSignature = validator_app::Signature;
 pub mod well_known_keys {
 	use super::{HrmpChannelId, Id, WellKnownKey};
 	use hex_literal::hex;
-	use parity_scale_codec::Encode as _;
+	use codec::Encode as _;
 	use sp_io::hashing::twox_64;
 	use sp_std::prelude::*;
 
@@ -443,7 +443,7 @@ pub const LEGACY_MIN_BACKING_VOTES: u32 = 2;
 // The public key of a keypair used by a validator for determining assignments
 /// to approve included parachain candidates.
 mod assignment_app {
-	use application_crypto::{app_crypto, sr25519};
+	use sp_application_crypto::{app_crypto, sr25519};
 	app_crypto!(sr25519, super::ASSIGNMENT_KEY_TYPE_ID);
 }
 
@@ -451,7 +451,7 @@ mod assignment_app {
 /// to approve included parachain candidates.
 pub type AssignmentId = assignment_app::Public;
 
-application_crypto::with_pair! {
+sp_application_crypto::with_pair! {
 	/// The full keypair used by a validator for determining assignments to approve included
 	/// parachain candidates.
 	pub type AssignmentPair = assignment_app::Pair;
@@ -1361,7 +1361,7 @@ pub enum UpgradeGoAhead {
 }
 
 /// Consensus engine id for polkadot v1 consensus engine.
-pub const POLKADOT_ENGINE_ID: runtime_primitives::ConsensusEngineId = *b"POL1";
+pub const POLKADOT_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"POL1";
 
 /// A consensus log item for polkadot validation. To be used with [`POLKADOT_ENGINE_ID`].
 #[derive(Decode, Encode, Clone, PartialEq, Eq)]
@@ -1391,18 +1391,18 @@ pub enum ConsensusLog {
 impl ConsensusLog {
 	/// Attempt to convert a reference to a generic digest item into a consensus log.
 	pub fn from_digest_item(
-		digest_item: &runtime_primitives::DigestItem,
-	) -> Result<Option<Self>, parity_scale_codec::Error> {
+		digest_item: &sp_runtime::DigestItem,
+	) -> Result<Option<Self>, codec::Error> {
 		match digest_item {
-			runtime_primitives::DigestItem::Consensus(id, encoded) if id == &POLKADOT_ENGINE_ID =>
+			sp_runtime::DigestItem::Consensus(id, encoded) if id == &POLKADOT_ENGINE_ID =>
 				Ok(Some(Self::decode(&mut &encoded[..])?)),
 			_ => Ok(None),
 		}
 	}
 }
 
-impl From<ConsensusLog> for runtime_primitives::DigestItem {
-	fn from(c: ConsensusLog) -> runtime_primitives::DigestItem {
+impl From<ConsensusLog> for sp_runtime::DigestItem {
+	fn from(c: ConsensusLog) -> sp_runtime::DigestItem {
 		Self::Consensus(POLKADOT_ENGINE_ID, c.encode())
 	}
 }
@@ -1752,25 +1752,25 @@ impl From<CompactStatement> for CompactStatementInner {
 	}
 }
 
-impl parity_scale_codec::Encode for CompactStatement {
+impl codec::Encode for CompactStatement {
 	fn size_hint(&self) -> usize {
 		// magic + discriminant + payload
 		4 + 1 + 32
 	}
 
-	fn encode_to<T: parity_scale_codec::Output + ?Sized>(&self, dest: &mut T) {
+	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
 		dest.write(&BACKING_STATEMENT_MAGIC);
 		CompactStatementInner::from(self.clone()).encode_to(dest)
 	}
 }
 
-impl parity_scale_codec::Decode for CompactStatement {
-	fn decode<I: parity_scale_codec::Input>(
+impl codec::Decode for CompactStatement {
+	fn decode<I: codec::Input>(
 		input: &mut I,
-	) -> Result<Self, parity_scale_codec::Error> {
+	) -> Result<Self, codec::Error> {
 		let maybe_magic = <[u8; 4]>::decode(input)?;
 		if maybe_magic != BACKING_STATEMENT_MAGIC {
-			return Err(parity_scale_codec::Error::from("invalid magic string"))
+			return Err(codec::Error::from("invalid magic string"))
 		}
 
 		Ok(match CompactStatementInner::decode(input)? {
@@ -1987,7 +1987,7 @@ impl<T: Decode> WellKnownKey<T> {
 	/// Gets the value or `None` if it does not exist or decoding failed.
 	pub fn get(&self) -> Option<T> {
 		sp_io::storage::get(&self.key)
-			.and_then(|raw| parity_scale_codec::DecodeAll::decode_all(&mut raw.as_ref()).ok())
+			.and_then(|raw| codec::DecodeAll::decode_all(&mut raw.as_ref()).ok())
 	}
 }
 
@@ -2051,7 +2051,7 @@ pub mod node_features {
 mod tests {
 	use super::*;
 	use bitvec::bitvec;
-	use primitives::sr25519;
+	use sp_core::sr25519;
 
 	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
 		let zeros = Hash::zero();

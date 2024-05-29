@@ -18,7 +18,7 @@
 
 use futures::channel::oneshot;
 use futures_timer::Delay;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_primitives::{
 	Collation, CollationResult, CollationSecondedSignal, CollatorFn, MaybeCompressedPoV, PoV,
 	Statement,
@@ -33,7 +33,7 @@ use std::{
 	},
 	time::Duration,
 };
-use test_parachain_adder::{execute, hash_state, BlockData, HeadData};
+use adder::{execute, hash_state, BlockData, HeadData};
 
 /// The amount we add when producing a new block.
 ///
@@ -169,7 +169,7 @@ impl Collator {
 
 	/// Get the validation code of the adder parachain.
 	pub fn validation_code(&self) -> &[u8] {
-		test_parachain_adder::wasm_binary_unwrap()
+		adder::wasm_binary_unwrap()
 	}
 
 	/// Get the collator key.

@@ -30,7 +30,7 @@ use crate::{
 };
 
 use futures::{channel::oneshot, SinkExt};
-use parity_scale_codec::Decode;
+use codec::Decode;
 use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]
 use polkadot_node_network_protocol::request_response::CHUNK_REQUEST_TIMEOUT;
@@ -640,7 +640,7 @@ mod tests {
 		channel::mpsc::{self, UnboundedReceiver},
 		executor, future, Future, FutureExt, StreamExt,
 	};
-	use parity_scale_codec::Error as DecodingError;
+	use codec::Error as DecodingError;
 	use polkadot_erasure_coding::{recovery_threshold, systematic_recovery_threshold};
 	use polkadot_node_network_protocol::request_response::Protocol;
 	use polkadot_node_primitives::{BlockData, PoV};

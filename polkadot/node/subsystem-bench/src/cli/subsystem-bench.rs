@@ -21,7 +21,7 @@ use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
 use polkadot_subsystem_bench::{approval, availability, configuration, statement};
-use pyroscope::PyroscopeAgent;
+use pyro::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
 use std::path::Path;

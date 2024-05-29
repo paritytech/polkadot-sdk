@@ -22,7 +22,7 @@ use assert_matches::assert_matches;
 use futures::{executor, future, Future};
 use futures_timer::Delay;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use sc_network::config::IncomingRequest as RawIncomingRequest;
 use sp_core::crypto::Pair;

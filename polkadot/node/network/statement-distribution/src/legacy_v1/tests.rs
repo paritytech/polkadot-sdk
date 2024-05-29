@@ -22,7 +22,7 @@ use crate::{metrics::Metrics, *};
 use assert_matches::assert_matches;
 use futures::executor;
 use futures_timer::Delay;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	peer_set::ValidationVersion,

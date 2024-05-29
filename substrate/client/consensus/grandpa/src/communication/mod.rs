@@ -45,7 +45,7 @@ use finality_grandpa::{
 	voter_set::VoterSet,
 	Message::{Precommit, Prevote, PrimaryPropose},
 };
-use parity_scale_codec::{Decode, DecodeAll, Encode};
+use codec::{Decode, DecodeAll, Encode};
 use sc_network::{NetworkBlock, NetworkSyncForkRequest, NotificationService, ReputationChange};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};

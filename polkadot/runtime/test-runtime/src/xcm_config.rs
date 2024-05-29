@@ -21,7 +21,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use polkadot_runtime_parachains::FeeTracker;
-use runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
+use polkadot_runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,

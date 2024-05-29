@@ -16,8 +16,8 @@
 
 //! Polkadot chain configurations.
 
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa::AuthorityId as GrandpaId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 #[cfg(feature = "westend-native")]
 use pallet_staking::Forcing;
 use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
@@ -37,7 +37,7 @@ use sp_runtime::traits::IdentifyAccount;
 #[cfg(feature = "westend-native")]
 use sp_runtime::Perbill;
 #[cfg(any(feature = "westend-native", feature = "rococo-native"))]
-use telemetry::TelemetryEndpoints;
+use sc_telemetry::TelemetryEndpoints;
 #[cfg(feature = "westend-native")]
 use westend_runtime as westend;
 #[cfg(feature = "westend-native")]
@@ -70,11 +70,11 @@ pub struct Extensions {
 }
 
 // Generic chain spec, in case when we don't have the native runtime.
-pub type GenericChainSpec = service::GenericChainSpec<Extensions>;
+pub type GenericChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 #[cfg(feature = "westend-native")]
-pub type WestendChainSpec = service::GenericChainSpec<Extensions>;
+pub type WestendChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -83,7 +83,7 @@ pub type WestendChainSpec = GenericChainSpec;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 #[cfg(feature = "rococo-native")]
-pub type RococoChainSpec = service::GenericChainSpec<Extensions>;
+pub type RococoChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -360,7 +360,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			"forceEra": Forcing::ForceNone,
 			"slashRewardFraction": Perbill::from_percent(10),
 		},
-		"babe": {
+		"sc_consensus_babe": {
 			"epochConfig": Some(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
 		"sudo": { "key": Some(endowed_accounts[0].clone()) },
@@ -562,7 +562,7 @@ pub fn westend_testnet_genesis(
 			"forceEra": Forcing::NotForcing,
 			"slashRewardFraction": Perbill::from_percent(10),
 		},
-		"babe": {
+		"sc_consensus_babe": {
 			"epochConfig": Some(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
 		"sudo": { "key": Some(root_key) },

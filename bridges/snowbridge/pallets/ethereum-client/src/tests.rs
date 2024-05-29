@@ -17,7 +17,7 @@ pub use crate::mock::*;
 use crate::config::{EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_EPOCH, SLOTS_PER_HISTORICAL_ROOT};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use hex_literal::hex;
-use primitives::{
+use snowbridge_beacon_primitives::{
 	types::deneb, Fork, ForkVersions, NextSyncCommitteeUpdate, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::inbound::{VerificationError, Verifier};
@@ -171,7 +171,7 @@ pub fn sync_committee_participation_is_supermajority() {
 	let bits =
 		hex!("bffffffff7f1ffdfcfeffeffbfdffffbfffffdffffefefffdffff7f7ffff77fffdf7bff77ffdf7fffafffffff77fefffeff7effffffff5f7fedfffdfb6ddff7b"
 	);
-	let participation = primitives::decompress_sync_committee_bits::<512, 64>(bits);
+	let participation = snowbridge_beacon_primitives::decompress_sync_committee_bits::<512, 64>(bits);
 	assert_ok!(EthereumBeaconClient::sync_committee_participation_is_supermajority(&participation));
 }
 

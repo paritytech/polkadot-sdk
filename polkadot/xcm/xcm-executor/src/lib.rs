@@ -21,7 +21,7 @@ use frame_support::{
 	ensure,
 	traits::{Contains, ContainsPair, Defensive, Get, PalletsInfoAccess},
 };
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
 use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};

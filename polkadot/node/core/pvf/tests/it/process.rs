@@ -20,7 +20,7 @@
 use super::TestHost;
 use adder::{hash_state, BlockData, HeadData};
 use assert_matches::assert_matches;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_core_pvf::{
 	InvalidCandidate, PossiblyInvalidError, PrepareError, ValidationError,
 };

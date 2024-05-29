@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 impl-trait-for-tuples = "0.2.2"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
@@ -21,7 +21,7 @@ serde_derive = { workspace = true }
 static_assertions = "1.1.0"
 
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
-inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
+sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false }
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
@@ -51,9 +51,9 @@ frame-election-provider-support = { path = "../../../substrate/frame/election-pr
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false, optional = true }
 
-primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
+polkadot-primitives = { path = "../../primitives", default-features = false }
 libsecp256k1 = { version = "0.7.0", default-features = false }
-runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
+polkadot-runtime-parachains = { path = "../parachains", default-features = false }
 
 slot-range-helper = { path = "slot_range_helper", default-features = false }
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
@@ -69,7 +69,7 @@ sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 serde_json = { workspace = true, default-features = true }
 libsecp256k1 = "0.7.0"
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 
 [features]
 default = ["std"]
@@ -80,7 +80,7 @@ std = [
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"inherents/std",
+	"sp-inherents/std",
 	"libsecp256k1/std",
 	"log/std",
 	"pallet-asset-rate?/std",
@@ -97,9 +97,9 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"pallet-vesting/std",
-	"parity-scale-codec/std",
-	"primitives/std",
-	"runtime-parachains/std",
+	"codec/std",
+	"polkadot-primitives/std",
+	"polkadot-runtime-parachains/std",
 	"rustc-hex/std",
 	"scale-info/std",
 	"serde/std",
@@ -134,8 +134,8 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
-	"primitives/runtime-benchmarks",
-	"runtime-parachains/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
@@ -160,6 +160,6 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-vesting/try-runtime",
-	"runtime-parachains/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]

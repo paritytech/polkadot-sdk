@@ -114,7 +114,7 @@ pub fn import_queue<Client, Block: BlockT, I, CIDP>(
 	block_import: I,
 	create_inherent_data_providers: CIDP,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
-	registry: Option<&substrate_prometheus_endpoint::Registry>,
+	registry: Option<&prometheus_endpoint::Registry>,
 ) -> ClientResult<BasicQueue<Block>>
 where
 	I: BlockImport<Block, Error = ConsensusError>

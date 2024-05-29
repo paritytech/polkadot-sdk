@@ -45,7 +45,7 @@ use sp_keyring::Sr25519Keyring;
 
 use assert_matches::assert_matches;
 use futures::Future;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use rand::{Rng, SeedableRng};
 use test_helpers::mock::new_leaf;
 

@@ -17,7 +17,7 @@
 //! General PVF host integration tests checking the functionality of the PVF host itself.
 
 use assert_matches::assert_matches;
-use parity_scale_codec::Encode as _;
+use codec::Encode as _;
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 use polkadot_node_core_pvf::SecurityStatus;
 use polkadot_node_core_pvf::{

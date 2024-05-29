@@ -40,7 +40,7 @@ use std::{
 	collections::{BTreeMap, VecDeque},
 	pin::Pin,
 };
-use test_helpers::{
+use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_hash, dummy_head_data, dummy_validator, make_candidate,
 };
 

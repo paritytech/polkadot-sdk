@@ -26,8 +26,8 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
-use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
-use runtime_parachains::{
+use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
+use polkadot_runtime_parachains::{
 	configuration, ensure_parachain,
 	paras::{self, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
@@ -36,8 +36,8 @@ use sp_std::{prelude::*, result};
 
 use crate::traits::{OnSwap, Registrar};
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
-use runtime_parachains::paras::{OnNewHead, ParaKind};
+use codec::{Decode, Encode};
+use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
@@ -425,7 +425,7 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
-			runtime_parachains::schedule_code_upgrade::<T>(
+			polkadot_runtime_parachains::schedule_code_upgrade::<T>(
 				para,
 				new_code,
 				UpgradeStrategy::ApplyAtExpectedBlock,
@@ -445,7 +445,7 @@ pub mod pallet {
 			new_head: HeadData,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
-			runtime_parachains::set_current_head::<T>(para, new_head);
+			polkadot_runtime_parachains::set_current_head::<T>(para, new_head);
 			Ok(())
 		}
 	}
@@ -510,7 +510,7 @@ impl<T: Config> Registrar for Pallet<T> {
 			paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parathread),
 			Error::<T>::NotParathread
 		);
-		runtime_parachains::schedule_parathread_upgrade::<T>(id)
+		polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(id)
 			.map_err(|_| Error::<T>::CannotUpgrade)?;
 
 		Ok(())
@@ -523,7 +523,7 @@ impl<T: Config> Registrar for Pallet<T> {
 			paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parachain),
 			Error::<T>::NotParachain
 		);
-		runtime_parachains::schedule_parachain_downgrade::<T>(id)
+		polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
 			.map_err(|_| Error::<T>::CannotDowngrade)?;
 		Ok(())
 	}
@@ -545,7 +545,7 @@ impl<T: Config> Registrar for Pallet<T> {
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn execute_pending_transitions() {
-		use runtime_parachains::shared;
+		use polkadot_runtime_parachains::shared;
 		shared::Pallet::<T>::set_session_index(shared::Pallet::<T>::scheduled_session());
 		paras::Pallet::<T>::test_on_new_session();
 	}
@@ -634,7 +634,7 @@ impl<T: Config> Pallet<T> {
 
 		Paras::<T>::insert(id, info);
 		// We check above that para has no lifecycle, so this should not fail.
-		let res = runtime_parachains::schedule_para_initialize::<T>(id, genesis);
+		let res = polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis);
 		debug_assert!(res.is_ok());
 		Self::deposit_event(Event::<T>::Registered { para_id: id, manager: who });
 		Ok(())
@@ -647,7 +647,7 @@ impl<T: Config> Pallet<T> {
 			Some(ParaLifecycle::Parathread) | None => {},
 			_ => return Err(Error::<T>::NotParathread.into()),
 		}
-		runtime_parachains::schedule_para_cleanup::<T>(id)
+		polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
 			.map_err(|_| Error::<T>::CannotDeregister)?;
 
 		if let Some(info) = Paras::<T>::take(&id) {
@@ -686,9 +686,9 @@ impl<T: Config> Pallet<T> {
 	/// Swap a lease holding parachain and parathread (on-demand parachain), which involves
 	/// scheduling an appropriate lifecycle update.
 	fn do_thread_and_chain_swap(to_downgrade: ParaId, to_upgrade: ParaId) {
-		let res1 = runtime_parachains::schedule_parachain_downgrade::<T>(to_downgrade);
+		let res1 = polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(to_downgrade);
 		debug_assert!(res1.is_ok());
-		let res2 = runtime_parachains::schedule_parathread_upgrade::<T>(to_upgrade);
+		let res2 = polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(to_upgrade);
 		debug_assert!(res2.is_ok());
 		T::OnSwap::on_swap(to_upgrade, to_downgrade);
 	}
@@ -723,8 +723,8 @@ mod tests {
 	};
 	use frame_system::limits;
 	use pallet_balances::Error as BalancesError;
-	use primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
-	use runtime_parachains::{configuration, origin, shared};
+	use polkadot_primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
+	use polkadot_runtime_parachains::{configuration, origin, shared};
 	use sp_core::H256;
 	use sp_io::TestExternalities;
 	use sp_keyring::Sr25519Keyring;
@@ -941,7 +941,7 @@ mod tests {
 	}
 
 	fn para_origin(id: ParaId) -> RuntimeOrigin {
-		runtime_parachains::Origin::Parachain(id).into()
+		polkadot_runtime_parachains::Origin::Parachain(id).into()
 	}
 
 	fn max_code_size() -> u32 {
@@ -1527,8 +1527,8 @@ mod benchmarking {
 	use crate::traits::Registrar as RegistrarT;
 	use frame_support::assert_ok;
 	use frame_system::RawOrigin;
-	use primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
-	use runtime_parachains::{paras, shared, Origin as ParaOrigin};
+	use polkadot_primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
+	use polkadot_runtime_parachains::{paras, shared, Origin as ParaOrigin};
 	use sp_runtime::traits::Bounded;
 
 	use frame_benchmarking::{account, benchmarks, whitelisted_caller};
@@ -1554,7 +1554,7 @@ mod benchmarking {
 			genesis_head,
 			validation_code.clone()
 		));
-		assert_ok!(runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
+		assert_ok!(polkadot_runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
 			frame_system::Origin::<T>::Root.into(),
 			validation_code,
 		));
@@ -1595,7 +1595,7 @@ mod benchmarking {
 		verify {
 			assert_last_event::<T>(Event::<T>::Registered{ para_id: para, manager: caller }.into());
 			assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Onboarding));
-			assert_ok!(runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
+			assert_ok!(polkadot_runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
 				frame_system::Origin::<T>::Root.into(),
 				validation_code,
 			));
@@ -1613,7 +1613,7 @@ mod benchmarking {
 		verify {
 			assert_last_event::<T>(Event::<T>::Registered { para_id: para, manager }.into());
 			assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Onboarding));
-			assert_ok!(runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
+			assert_ok!(polkadot_runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
 				frame_system::Origin::<T>::Root.into(),
 				validation_code,
 			));

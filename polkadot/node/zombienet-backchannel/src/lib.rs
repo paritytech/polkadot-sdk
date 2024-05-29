@@ -21,7 +21,7 @@
 
 use futures_util::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
-use parity_scale_codec as codec;
+use codec as codec;
 use serde::{Deserialize, Serialize};
 use std::{env, sync::Mutex};
 use tokio::sync::broadcast;

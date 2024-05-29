@@ -14,8 +14,8 @@ codec = { package = "parity-scale-codec", version = "3.6.12", default-features =
 paste = "1.0.14"
 
 # Substrate
-beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../substrate/primitives/consensus/beefy" }
-grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
+sp-consensus-beefy = { path = "../../../../../substrate/primitives/consensus/beefy" }
+sc-consensus-grandpa = { path = "../../../../../substrate/client/consensus/grandpa" }
 sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery" }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime" }
 frame-support = { path = "../../../../../substrate/frame/support" }

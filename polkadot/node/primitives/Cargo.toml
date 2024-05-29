@@ -13,7 +13,7 @@ workspace = true
 bounded-vec = "0.7"
 futures = "0.3.30"
 polkadot-primitives = { path = "../../primitives" }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
 sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }

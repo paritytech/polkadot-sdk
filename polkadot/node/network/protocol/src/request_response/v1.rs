@@ -16,7 +16,7 @@
 
 //! Requests and responses as sent over the wire for the individual protocols.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,

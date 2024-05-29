@@ -27,7 +27,7 @@ use crate::{
 	session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
-use primitives::CoreIndex;
+use polkadot_primitives::CoreIndex;
 
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
@@ -38,8 +38,8 @@ use frame_support::{
 };
 use frame_support_test::TestRandomness;
 use frame_system::limits;
-use parity_scale_codec::Decode;
-use primitives::{
+use codec::Decode;
+use polkadot_primitives::{
 	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
 	ValidationCode, ValidatorIndex,
 };

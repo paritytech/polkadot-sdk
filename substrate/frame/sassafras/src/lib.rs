@@ -48,7 +48,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use log::{debug, error, trace, warn};
-use scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use frame_support::{

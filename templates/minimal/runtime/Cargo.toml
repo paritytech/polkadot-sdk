@@ -10,7 +10,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-parity-scale-codec = { version = "3.6.12", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
@@ -39,7 +39,7 @@ substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optio
 [features]
 default = ["std"]
 std = [
-	"parity-scale-codec/std",
+	"codec/std",
 	"scale-info/std",
 
 	"frame/std",

@@ -16,8 +16,8 @@
 
 //! Chain specifications for the test runtime.
 
-use babe_primitives::AuthorityId as BabeId;
-use grandpa::AuthorityId as GrandpaId;
+use sp_consensus_babe::AuthorityId as BabeId;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use pallet_staking::Forcing;
 use polkadot_primitives::{
 	vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
@@ -155,7 +155,7 @@ fn polkadot_testnet_genesis(
 			"forceEra": Forcing::NotForcing,
 			"slashRewardFraction": Perbill::from_percent(10),
 		},
-		"babe": {
+		"sc_consensus_babe": {
 			"epochConfig": Some(BABE_GENESIS_EPOCH_CONFIG),
 		},
 		"sudo": { "key": Some(root_key) },

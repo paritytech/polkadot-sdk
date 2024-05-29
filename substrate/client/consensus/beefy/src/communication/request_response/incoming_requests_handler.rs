@@ -144,7 +144,7 @@ where
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
-		prometheus_registry: Option<prometheus::Registry>,
+		prometheus_registry: Option<prometheus_endpoint::Registry>,
 	) -> (Self, Network::RequestResponseProtocolConfig) {
 		let (request_receiver, config): (_, Network::RequestResponseProtocolConfig) =
 			on_demand_justifications_protocol_config::<_, _, Network>(genesis_hash, fork_id);

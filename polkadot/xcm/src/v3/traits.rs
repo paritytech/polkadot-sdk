@@ -18,7 +18,7 @@
 
 use crate::v2::Error as OldError;
 use core::result;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;

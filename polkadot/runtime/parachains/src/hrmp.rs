@@ -20,9 +20,9 @@ use crate::{
 };
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
-use primitives::{
+use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
 	SessionIndex,
 };
@@ -1864,7 +1864,7 @@ impl<T: Config> Pallet<T> {
 	/// If the XCM version is unknown, the latest XCM version is used as a best effort.
 	fn wrap_notification(
 		mut notification: impl FnMut() -> xcm::opaque::latest::opaque::Xcm,
-	) -> impl FnOnce(ParaId) -> primitives::DownwardMessage {
+	) -> impl FnOnce(ParaId) -> polkadot_primitives::DownwardMessage {
 		use xcm::{
 			opaque::VersionedXcm,
 			prelude::{Junction, Location},
@@ -1892,7 +1892,7 @@ impl<T: Config> Pallet<T> {
 		log_label: &str,
 		config: &HostConfiguration<BlockNumberFor<T>>,
 		dest: ParaId,
-		notification_bytes_for: impl FnOnce(ParaId) -> primitives::DownwardMessage,
+		notification_bytes_for: impl FnOnce(ParaId) -> polkadot_primitives::DownwardMessage,
 	) {
 		// prepare notification
 		let notification_bytes = notification_bytes_for(dest);

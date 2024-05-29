@@ -19,7 +19,7 @@
 use crate::LOG_TARGET;
 use futures::FutureExt as _;
 use futures_timer::Delay;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use pin_project::pin_project;
 use polkadot_node_core_pvf_common::{SecurityStatus, WorkerHandshake};
 use rand::Rng;

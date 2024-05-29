@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 minimal-template-node = { path = "./node" }
-minimal-template-runtime = { path = "./runtime" }
+runtime = { package = "minimal-template-runtime", path = "./runtime" }
 pallet-minimal-template = { path = "./pallets/template" }
 polkadot-sdk-docs = { path = "../../docs/sdk" }
 

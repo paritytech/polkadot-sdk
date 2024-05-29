@@ -21,9 +21,9 @@ use crate::{
 	shared,
 };
 use assert_matches::assert_matches;
-use keyring::Sr25519Keyring;
-use primitives::Hash;
-use test_helpers::validator_pubkeys;
+use sp_keyring::Sr25519Keyring;
+use polkadot_primitives::Hash;
+use polkadot_primitives_test_helpers::validator_pubkeys;
 
 #[test]
 fn tracker_earliest_block_number() {

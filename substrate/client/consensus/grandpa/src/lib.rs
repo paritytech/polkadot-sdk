@@ -58,7 +58,7 @@
 
 use futures::{prelude::*, StreamExt};
 use log::{debug, error, info};
-use parity_scale_codec::Decode;
+use codec::Decode;
 use parking_lot::RwLock;
 use prometheus_endpoint::{PrometheusError, Registry};
 use sc_client_api::{

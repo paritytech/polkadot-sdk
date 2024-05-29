@@ -19,7 +19,7 @@ use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE
 use futures::future::TryFutureExt;
 use log::info;
 use sc_cli::SubstrateCli;
-use service::{
+use polkadot_service::{
 	self,
 	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
 	BlockId, HeaderBackend, IdentifyVariant,
@@ -85,55 +85,55 @@ impl SubstrateCli for Cli {
 			id
 		};
 		Ok(match id {
-			"kusama" => Box::new(service::chain_spec::kusama_config()?),
+			"kusama" => Box::new(polkadot_service::chain_spec::kusama_config()?),
 			name if name.starts_with("kusama-") && !name.ends_with(".json") =>
 				Err(format!("`{name}` is not supported anymore as the kusama native runtime no longer part of the node."))?,
-			"polkadot" => Box::new(service::chain_spec::polkadot_config()?),
+			"polkadot" => Box::new(polkadot_service::chain_spec::polkadot_config()?),
 			name if name.starts_with("polkadot-") && !name.ends_with(".json") =>
 				Err(format!("`{name}` is not supported anymore as the polkadot native runtime no longer part of the node."))?,
-			"paseo" => Box::new(service::chain_spec::paseo_config()?),
-			"rococo" => Box::new(service::chain_spec::rococo_config()?),
+			"paseo" => Box::new(polkadot_service::chain_spec::paseo_config()?),
+			"rococo" => Box::new(polkadot_service::chain_spec::rococo_config()?),
 			#[cfg(feature = "rococo-native")]
-			"dev" | "rococo-dev" => Box::new(service::chain_spec::rococo_development_config()?),
+			"dev" | "rococo-dev" => Box::new(polkadot_service::chain_spec::rococo_development_config()?),
 			#[cfg(feature = "rococo-native")]
-			"rococo-local" => Box::new(service::chain_spec::rococo_local_testnet_config()?),
+			"rococo-local" => Box::new(polkadot_service::chain_spec::rococo_local_testnet_config()?),
 			#[cfg(feature = "rococo-native")]
-			"rococo-staging" => Box::new(service::chain_spec::rococo_staging_testnet_config()?),
+			"rococo-staging" => Box::new(polkadot_service::chain_spec::rococo_staging_testnet_config()?),
 			#[cfg(not(feature = "rococo-native"))]
 			name if name.starts_with("rococo-") && !name.ends_with(".json") || name == "dev" =>
 				Err(format!("`{}` only supported with `rococo-native` feature enabled.", name))?,
-			"westend" => Box::new(service::chain_spec::westend_config()?),
+			"westend" => Box::new(polkadot_service::chain_spec::westend_config()?),
 			#[cfg(feature = "westend-native")]
-			"westend-dev" => Box::new(service::chain_spec::westend_development_config()?),
+			"westend-dev" => Box::new(polkadot_service::chain_spec::westend_development_config()?),
 			#[cfg(feature = "westend-native")]
-			"westend-local" => Box::new(service::chain_spec::westend_local_testnet_config()?),
+			"westend-local" => Box::new(polkadot_service::chain_spec::westend_local_testnet_config()?),
 			#[cfg(feature = "westend-native")]
-			"westend-staging" => Box::new(service::chain_spec::westend_staging_testnet_config()?),
+			"westend-staging" => Box::new(polkadot_service::chain_spec::westend_staging_testnet_config()?),
 			#[cfg(not(feature = "westend-native"))]
 			name if name.starts_with("westend-") && !name.ends_with(".json") =>
 				Err(format!("`{}` only supported with `westend-native` feature enabled.", name))?,
-			"wococo" => Box::new(service::chain_spec::wococo_config()?),
+			"wococo" => Box::new(polkadot_service::chain_spec::wococo_config()?),
 			#[cfg(feature = "rococo-native")]
-			"wococo-dev" => Box::new(service::chain_spec::wococo_development_config()?),
+			"wococo-dev" => Box::new(polkadot_service::chain_spec::wococo_development_config()?),
 			#[cfg(feature = "rococo-native")]
-			"wococo-local" => Box::new(service::chain_spec::wococo_local_testnet_config()?),
+			"wococo-local" => Box::new(polkadot_service::chain_spec::wococo_local_testnet_config()?),
 			#[cfg(not(feature = "rococo-native"))]
 			name if name.starts_with("wococo-") =>
 				Err(format!("`{}` only supported with `rococo-native` feature enabled.", name))?,
 			#[cfg(feature = "rococo-native")]
-			"versi-dev" => Box::new(service::chain_spec::versi_development_config()?),
+			"versi-dev" => Box::new(polkadot_service::chain_spec::versi_development_config()?),
 			#[cfg(feature = "rococo-native")]
-			"versi-local" => Box::new(service::chain_spec::versi_local_testnet_config()?),
+			"versi-local" => Box::new(polkadot_service::chain_spec::versi_local_testnet_config()?),
 			#[cfg(feature = "rococo-native")]
-			"versi-staging" => Box::new(service::chain_spec::versi_staging_testnet_config()?),
+			"versi-staging" => Box::new(polkadot_service::chain_spec::versi_staging_testnet_config()?),
 			#[cfg(not(feature = "rococo-native"))]
 			name if name.starts_with("versi-") =>
 				Err(format!("`{}` only supported with `rococo-native` feature enabled.", name))?,
 			path => {
 				let path = std::path::PathBuf::from(path);
 
-				let chain_spec = Box::new(service::GenericChainSpec::from_json_file(path.clone())?)
-					as Box<dyn service::ChainSpec>;
+				let chain_spec = Box::new(polkadot_service::GenericChainSpec::from_json_file(path.clone())?)
+					as Box<dyn polkadot_service::ChainSpec>;
 
 				// When `force_*` is given or the file name starts with the name of one of the known
 				// chains, we use the chain spec for the specific chain.
@@ -142,11 +142,11 @@ impl SubstrateCli for Cli {
 					chain_spec.is_wococo() ||
 					chain_spec.is_versi()
 				{
-					Box::new(service::RococoChainSpec::from_json_file(path)?)
+					Box::new(polkadot_service::RococoChainSpec::from_json_file(path)?)
 				} else if self.run.force_kusama || chain_spec.is_kusama() {
-					Box::new(service::GenericChainSpec::from_json_file(path)?)
+					Box::new(polkadot_service::GenericChainSpec::from_json_file(path)?)
 				} else if self.run.force_westend || chain_spec.is_westend() {
-					Box::new(service::WestendChainSpec::from_json_file(path)?)
+					Box::new(polkadot_service::WestendChainSpec::from_json_file(path)?)
 				} else {
 					chain_spec
 				}
@@ -155,7 +155,7 @@ impl SubstrateCli for Cli {
 	}
 }
 
-fn set_default_ss58_version(spec: &Box<dyn service::ChainSpec>) {
+fn set_default_ss58_version(spec: &Box<dyn polkadot_service::ChainSpec>) {
 	let ss58_version = if spec.is_kusama() {
 		Ss58AddressFormatRegistry::KusamaAccount
 	} else if spec.is_westend() {
@@ -176,7 +176,7 @@ fn set_default_ss58_version(spec: &Box<dyn service::ChainSpec>) {
 #[cfg(feature = "malus")]
 pub fn run_node(
 	run: Cli,
-	overseer_gen: impl service::OverseerGen,
+	overseer_gen: impl polkadot_service::OverseerGen,
 	malus_finality_delay: Option<u32>,
 ) -> Result<()> {
 	run_node_inner(run, overseer_gen, malus_finality_delay, |_logger_builder, _config| {})
@@ -184,7 +184,7 @@ pub fn run_node(
 
 fn run_node_inner<F>(
 	cli: Cli,
-	overseer_gen: impl service::OverseerGen,
+	overseer_gen: impl polkadot_service::OverseerGen,
 	maybe_malus_finality_delay: Option<u32>,
 	logger_hook: F,
 ) -> Result<()>
@@ -235,10 +235,10 @@ where
 			.flatten();
 
 		let database_source = config.database.clone();
-		let task_manager = service::build_full(
+		let task_manager = polkadot_service::build_full(
 			config,
-			service::NewFullParams {
-				is_parachain_node: service::IsParachainNode::No,
+			polkadot_service::NewFullParams {
+				is_parachain_node: polkadot_service::IsParachainNode::No,
 				enable_beefy,
 				force_authoring_backoff: cli.run.force_authoring_backoff,
 				jaeger_agent,
@@ -303,7 +303,7 @@ pub fn run() -> Result<()> {
 	match &cli.subcommand {
 		None => run_node_inner(
 			cli,
-			service::ValidatorOverseerGen,
+			polkadot_service::ValidatorOverseerGen,
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),
@@ -319,7 +319,7 @@ pub fn run() -> Result<()> {
 
 			runner.async_run(|mut config| {
 				let (client, _, import_queue, task_manager) =
-					service::new_chain_ops(&mut config, None)?;
+					polkadot_service::new_chain_ops(&mut config, None)?;
 				Ok((cmd.run(client, import_queue).map_err(Error::SubstrateCli), task_manager))
 			})
 		},
@@ -331,7 +331,7 @@ pub fn run() -> Result<()> {
 
 			Ok(runner.async_run(|mut config| {
 				let (client, _, _, task_manager) =
-					service::new_chain_ops(&mut config, None).map_err(Error::PolkadotService)?;
+					polkadot_service::new_chain_ops(&mut config, None).map_err(Error::PolkadotService)?;
 				Ok((cmd.run(client, config.database).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -342,7 +342,7 @@ pub fn run() -> Result<()> {
 			set_default_ss58_version(chain_spec);
 
 			Ok(runner.async_run(|mut config| {
-				let (client, _, _, task_manager) = service::new_chain_ops(&mut config, None)?;
+				let (client, _, _, task_manager) = polkadot_service::new_chain_ops(&mut config, None)?;
 				Ok((cmd.run(client, config.chain_spec).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -354,7 +354,7 @@ pub fn run() -> Result<()> {
 
 			Ok(runner.async_run(|mut config| {
 				let (client, _, import_queue, task_manager) =
-					service::new_chain_ops(&mut config, None)?;
+					polkadot_service::new_chain_ops(&mut config, None)?;
 				Ok((cmd.run(client, import_queue).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -369,11 +369,11 @@ pub fn run() -> Result<()> {
 			set_default_ss58_version(chain_spec);
 
 			Ok(runner.async_run(|mut config| {
-				let (client, backend, _, task_manager) = service::new_chain_ops(&mut config, None)?;
+				let (client, backend, _, task_manager) = polkadot_service::new_chain_ops(&mut config, None)?;
 				let aux_revert = Box::new(|client, backend, blocks| {
-					service::revert_backend(client, backend, blocks, config).map_err(|err| {
+					polkadot_service::revert_backend(client, backend, blocks, config).map_err(|err| {
 						match err {
-							service::Error::Blockchain(err) => err.into(),
+							polkadot_service::Error::Blockchain(err) => err.into(),
 							// Generic application-specific error.
 							err => sc_cli::Error::Application(err.into()),
 						}
@@ -400,21 +400,21 @@ pub fn run() -> Result<()> {
 					.into()),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|mut config| {
-					let (client, backend, _, _) = service::new_chain_ops(&mut config, None)?;
+					let (client, backend, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
 					let db = backend.expose_db();
 					let storage = backend.expose_storage();
 
 					cmd.run(config, client.clone(), db, storage).map_err(Error::SubstrateCli)
 				}),
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|mut config| {
-					let (client, _, _, _) = service::new_chain_ops(&mut config, None)?;
+					let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
 
 					cmd.run(client.clone()).map_err(Error::SubstrateCli)
 				}),
 				// These commands are very similar and can be handled in nearly the same way.
 				BenchmarkCmd::Extrinsic(_) | BenchmarkCmd::Overhead(_) =>
 					runner.sync_run(|mut config| {
-						let (client, _, _, _) = service::new_chain_ops(&mut config, None)?;
+						let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
 						let header = client.header(client.info().genesis_hash).unwrap().unwrap();
 						let inherent_data = benchmark_inherent_data(header)
 							.map_err(|e| format!("generating inherent data: {:?}", e))?;
@@ -454,7 +454,7 @@ pub fn run() -> Result<()> {
 
 					if cfg!(feature = "runtime-benchmarks") {
 						runner.sync_run(|config| {
-							cmd.run_with_spec::<sp_runtime::traits::HashingFor<service::Block>, ()>(
+							cmd.run_with_spec::<sp_runtime::traits::HashingFor<polkadot_service::Block>, ()>(
 								Some(config.chain_spec),
 							)
 							.map_err(|e| Error::SubstrateCli(e))
@@ -481,7 +481,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		Some(Subcommand::ChainInfo(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			Ok(runner.sync_run(|config| cmd.run::<service::Block>(&config))?)
+			Ok(runner.sync_run(|config| cmd.run::<polkadot_service::Block>(&config))?)
 		},
 	}?;
 

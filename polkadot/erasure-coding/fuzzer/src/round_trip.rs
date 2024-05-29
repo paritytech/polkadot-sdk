@@ -17,7 +17,7 @@
 use honggfuzz::fuzz;
 use polkadot_erasure_coding::*;
 use polkadot_primitives::PersistedValidationData;
-use primitives::{AvailableData, BlockData, PoV};
+use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use std::sync::Arc;
 
 fn main() {

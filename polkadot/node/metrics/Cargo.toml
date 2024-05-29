@@ -19,10 +19,10 @@ metered = { package = "prioritized-metered-channel", version = "0.6.1", default-
 sc-service = { path = "../../../substrate/client/service" }
 sc-cli = { path = "../../../substrate/client/cli" }
 
-substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 sc-tracing = { path = "../../../substrate/client/tracing" }
 codec = { package = "parity-scale-codec", version = "3.6.12" }
-primitives = { package = "polkadot-primitives", path = "../../primitives" }
+polkadot-primitives = { path = "../../primitives" }
 bs58 = { version = "0.5.0", features = ["alloc"] }
 log = { workspace = true, default-features = true }
 
@@ -42,6 +42,6 @@ default = []
 runtime-metrics = []
 runtime-benchmarks = [
 	"polkadot-test-service/runtime-benchmarks",
-	"primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 ]

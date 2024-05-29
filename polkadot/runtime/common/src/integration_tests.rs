@@ -33,12 +33,12 @@ use frame_support::{
 use frame_support_test::TestRandomness;
 use frame_system::EnsureRoot;
 use pallet_identity::{self, legacy::IdentityInfo};
-use parity_scale_codec::Encode;
-use primitives::{
+use codec::Encode;
+use polkadot_primitives::{
 	BlockNumber, HeadData, Id as ParaId, SessionIndex, ValidationCode, LOWEST_PUBLIC_ID,
 	MAX_CODE_SIZE,
 };
-use runtime_parachains::{
+use polkadot_runtime_parachains::{
 	configuration, dmp, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
 use sp_core::H256;

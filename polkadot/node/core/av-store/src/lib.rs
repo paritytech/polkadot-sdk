@@ -34,7 +34,7 @@ use futures::{
 	future, select, FutureExt, SinkExt, StreamExt,
 };
 use futures_timer::Delay;
-use parity_scale_codec::{Decode, Encode, Error as CodecError, Input};
+use codec::{Decode, Encode, Error as CodecError, Input};
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use sp_consensus::SyncOracle;
 
@@ -354,7 +354,7 @@ pub enum Error {
 	ChainApi(#[from] ChainApiError),
 
 	#[error(transparent)]
-	Erasure(#[from] erasure::Error),
+	Erasure(#[from] polkadot_erasure_coding::Error),
 
 	#[error(transparent)]
 	Io(#[from] io::Error),
@@ -1321,8 +1321,8 @@ fn store_available_data(
 
 	// Important note: This check below is critical for consensus and the `backing` subsystem relies
 	// on it to ensure candidate validity.
-	let chunks = erasure::obtain_chunks_v1(n_validators, &available_data)?;
-	let branches = erasure::branches(chunks.as_ref());
+	let chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, &available_data)?;
+	let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 	if branches.root() != expected_erasure_root {
 		return Err(Error::InvalidErasureRoot)

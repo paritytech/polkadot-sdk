@@ -33,7 +33,7 @@ pub use frame_support::{
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
 };
-pub use parity_scale_codec::{Decode, Encode};
+pub use codec::{Decode, Encode};
 pub use sp_std::{
 	cell::{Cell, RefCell},
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},

@@ -26,7 +26,7 @@ futures = "0.3.30"
 pyro = { package = "pyroscope", version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
 
-service = { package = "polkadot-service", path = "../node/service", default-features = false, optional = true }
+polkadot-service = { path = "../node/service", default-features = false, optional = true }
 
 sp-core = { path = "../../substrate/primitives/core" }
 sp-io = { path = "../../substrate/primitives/io" }
@@ -48,36 +48,36 @@ substrate-build-script-utils = { path = "../../substrate/utils/build-script-util
 
 [features]
 default = ["cli", "db", "full-node"]
-db = ["service/db"]
+db = ["polkadot-service/db"]
 cli = [
 	"clap",
 	"frame-benchmarking-cli",
 	"sc-cli",
 	"sc-service",
 	"sc-tracing",
-	"service",
+	"polkadot-service",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
-	"service/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-full-node = ["service/full-node"]
+full-node = ["polkadot-service/full-node"]
 try-runtime = [
-	"service/try-runtime",
+	"polkadot-service/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-fast-runtime = ["service/fast-runtime"]
+fast-runtime = ["polkadot-service/fast-runtime"]
 pyroscope = ["pyro", "pyroscope_pprofrs"]
 
 # Configure the native runtimes to use.
-westend-native = ["service/westend-native"]
-rococo-native = ["service/rococo-native"]
+westend-native = ["polkadot-service/westend-native"]
+rococo-native = ["polkadot-service/rococo-native"]
 
-malus = ["full-node", "service/malus"]
+malus = ["full-node", "polkadot-service/malus"]
 runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
-	"service/runtime-metrics",
+	"polkadot-service/runtime-metrics",
 ]

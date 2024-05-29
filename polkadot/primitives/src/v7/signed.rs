@@ -14,17 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 #[cfg(feature = "std")]
-use application_crypto::AppCrypto;
+use sp_application_crypto::AppCrypto;
 #[cfg(feature = "std")]
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use sp_std::prelude::Vec;
 
-use primitives::RuntimeDebug;
-use runtime_primitives::traits::AppVerify;
+use sp_core::RuntimeDebug;
+use sp_runtime::traits::AppVerify;
 
 use super::{SigningContext, ValidatorId, ValidatorIndex, ValidatorSignature};
 
@@ -312,7 +312,7 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> UncheckedSigned<Payloa
 		context: &SigningContext<H>,
 		validator_index: ValidatorIndex,
 	) -> Self {
-		use application_crypto::RuntimeAppPublic;
+		use sp_application_crypto::RuntimeAppPublic;
 		let data = Self::payload_data(&payload, context);
 		let signature = public.sign(&data).unwrap();
 

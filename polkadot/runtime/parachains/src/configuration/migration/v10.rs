@@ -23,7 +23,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{
+use polkadot_primitives::{
 	AsyncBackingParams, Balance, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
@@ -275,7 +275,7 @@ fn migrate_to_v10<T: Config>() -> Weight {
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
-	use primitives::LEGACY_MIN_BACKING_VOTES;
+	use polkadot_primitives::LEGACY_MIN_BACKING_VOTES;
 
 	#[test]
 	fn v10_deserialized_from_actual_data() {
@@ -304,7 +304,7 @@ mod tests {
 	];
 
 		let v10 =
-			V10HostConfiguration::<primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
+			V10HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -333,7 +333,7 @@ mod tests {
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		let v9 = V9HostConfiguration::<primitives::BlockNumber> {
+		let v9 = V9HostConfiguration::<polkadot_primitives::BlockNumber> {
 			needed_approvals: 69,
 			paras_availability_period: 55,
 			hrmp_recipient_deposit: 1337,
@@ -368,7 +368,7 @@ mod tests {
 	// pallet's storage.
 	#[test]
 	fn test_migrate_to_v10_no_pending() {
-		let v9 = V9HostConfiguration::<primitives::BlockNumber>::default();
+		let v9 = V9HostConfiguration::<polkadot_primitives::BlockNumber>::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v9 version in the state.

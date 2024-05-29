@@ -18,7 +18,7 @@
 
 use crate::InspectMessageQueues;
 use frame_support::{ensure, traits::Get};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{validate_export, ExportXcm};

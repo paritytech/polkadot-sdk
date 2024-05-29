@@ -71,7 +71,7 @@ use std::{
 
 use futures::{channel::oneshot, future::BoxFuture, select, Future, FutureExt, StreamExt};
 
-use client::{BlockImportNotification, BlockchainEvents, FinalityNotification};
+use sc_client_api::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 use polkadot_primitives::{Block, BlockNumber, Hash};
 
 use self::messages::{BitfieldSigningMessage, PvfCheckerMessage};

@@ -16,12 +16,12 @@
 
 use super::*;
 use frame_support::{assert_err, assert_ok, assert_storage_noop};
-use keyring::Sr25519Keyring;
-use primitives::{vstaging::SchedulerParams, BlockNumber, PARACHAIN_KEY_TYPE_ID};
+use sp_keyring::Sr25519Keyring;
+use polkadot_primitives::{vstaging::SchedulerParams, BlockNumber, PARACHAIN_KEY_TYPE_ID};
 use sc_keystore::LocalKeystore;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
-use test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
+use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 
 use crate::{
 	configuration::HostConfiguration,
@@ -135,7 +135,7 @@ fn check_code_is_not_stored(validation_code: &ValidationCode) {
 /// An utility for checking that certain events were deposited.
 struct EventValidator {
 	events: Vec<
-		frame_system::EventRecord<<Test as frame_system::Config>::RuntimeEvent, primitives::Hash>,
+		frame_system::EventRecord<<Test as frame_system::Config>::RuntimeEvent, polkadot_primitives::Hash>,
 	>,
 }
 
@@ -1810,7 +1810,7 @@ fn add_trusted_validation_code_enacts_existing_pvf_vote() {
 
 #[test]
 fn verify_upgrade_go_ahead_signal_is_externally_accessible() {
-	use primitives::well_known_keys;
+	use polkadot_primitives::well_known_keys;
 
 	let a = ParaId::from(2020);
 
@@ -1826,7 +1826,7 @@ fn verify_upgrade_go_ahead_signal_is_externally_accessible() {
 
 #[test]
 fn verify_upgrade_restriction_signal_is_externally_accessible() {
-	use primitives::well_known_keys;
+	use polkadot_primitives::well_known_keys;
 
 	let a = ParaId::from(2020);
 
@@ -1842,7 +1842,7 @@ fn verify_upgrade_restriction_signal_is_externally_accessible() {
 
 #[test]
 fn verify_para_head_is_externally_accessible() {
-	use primitives::well_known_keys;
+	use polkadot_primitives::well_known_keys;
 
 	let a = ParaId::from(2020);
 	let expected_head_data = HeadData(vec![0, 1, 2, 3]);

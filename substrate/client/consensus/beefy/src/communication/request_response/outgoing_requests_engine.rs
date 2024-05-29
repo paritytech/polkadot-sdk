@@ -85,7 +85,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 		network: Arc<dyn NetworkRequest + Send + Sync>,
 		protocol_name: ProtocolName,
 		live_peers: Arc<Mutex<KnownPeers<B>>>,
-		prometheus_registry: Option<prometheus::Registry>,
+		prometheus_registry: Option<prometheus_endpoint::Registry>,
 	) -> Self {
 		let metrics = register_metrics(prometheus_registry);
 		Self {
