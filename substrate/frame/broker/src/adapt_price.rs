@@ -47,7 +47,15 @@ pub struct SalePerformance<Balance> {
 pub struct AdaptedPrices<Balance> {
 	/// New minimum price to use.
 	pub end_price: Balance,
-	/// Price we optimize for.
+
+	/// Price the controller is optimizing for.
+	///
+	/// This is the price "expected" by the controller based on the previous sale. We assume that
+	/// sales in this period will be around this price, assuming stable market conditions.
+	///
+	/// Think of it as the expected market price. This can be used for determining what to charge
+	/// for renewals, that don't yet have any price information for example. E.g. for expired
+	/// legacy leases.
 	pub target_price: Balance,
 }
 
