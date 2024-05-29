@@ -450,7 +450,7 @@ benchmarks! {
 
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Staked));
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash.clone()), RewardDestination::Account(new_payee))
+	}: _(RawOrigin::Signed(stash.clone()), RewardDestination::Account(new_payee.clone()))
 	verify {
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(new_payee)));
 	}
