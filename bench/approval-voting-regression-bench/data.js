@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716977188799,
+  "lastUpdate": 1716983224023,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5545,6 +5545,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.698717999579893,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Joshua Cheong",
+            "username": "joshuacheong",
+            "email": "jrc96@cantab.ac.uk"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "aa32faaebf64426becb2feeede347740eb7a3908",
+          "message": "Update README.md (#4623)\n\nMinor edit to a broken link for Rust Docs on the README.md\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-05-29T10:11:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa32faaebf64426becb2feeede347740eb7a3908"
+        },
+        "date": 1716983196665,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63547,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.2157152798201984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.1885301086699815,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.468995513410032,
             "unit": "seconds"
           }
         ]
