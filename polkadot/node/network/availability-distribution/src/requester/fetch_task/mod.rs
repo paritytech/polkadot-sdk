@@ -22,10 +22,12 @@ use futures::{
 	FutureExt, SinkExt,
 };
 
+use parity_scale_codec::Decode;
 use polkadot_erasure_coding::branch_hash;
 use polkadot_node_network_protocol::request_response::{
 	outgoing::{OutgoingRequest, Recipient, RequestError, Requests},
-	v1::{ChunkFetchingRequest, ChunkFetchingResponse},
+	v1::{self, ChunkResponse},
+	v2,
 };
 use polkadot_node_primitives::ErasureChunk;
 use polkadot_node_subsystem::{
@@ -34,9 +36,10 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, GroupIndex, Hash, HashT, OccupiedCore,
-	SessionIndex,
+	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, GroupIndex, Hash, HashT,
+	OccupiedCore, SessionIndex,
 };
+use sc_network::ProtocolName;
 
 use crate::{
 	error::{FatalError, Result},
@@ -111,8 +114,8 @@ struct RunningTask {
 	/// This vector gets drained during execution of the task (it will be empty afterwards).
 	group: Vec<AuthorityDiscoveryId>,
 
-	/// The request to send.
-	request: ChunkFetchingRequest,
+	/// The request to send. We can store it as either v1 or v2, they have the same payload.
+	request: v2::ChunkFetchingRequest,
 
 	/// Root hash, for verifying the chunks validity.
 	erasure_root: Hash,
@@ -128,6 +131,16 @@ struct RunningTask {
 
 	/// Span tracking the fetching of this chunk.
 	span: jaeger::Span,
+
+	/// Expected chunk index. We'll validate that the remote did send us the correct chunk (only
+	/// important for v2 requests).
+	chunk_index: ChunkIndex,
+
+	/// Full protocol name for ChunkFetchingV1.
+	req_v1_protocol_name: ProtocolName,
+
+	/// Full protocol name for ChunkFetchingV2.
+	req_v2_protocol_name: ProtocolName,
 }
 
 impl FetchTaskConfig {
@@ -140,13 +153,17 @@ impl FetchTaskConfig {
 		sender: mpsc::Sender<FromFetchTask>,
 		metrics: Metrics,
 		session_info: &SessionInfo,
+		chunk_index: ChunkIndex,
 		span: jaeger::Span,
+		req_v1_protocol_name: ProtocolName,
+		req_v2_protocol_name: ProtocolName,
 	) -> Self {
 		let span = span
 			.child("fetch-task-config")
 			.with_trace_id(core.candidate_hash)
 			.with_string_tag("leaf", format!("{:?}", leaf))
 			.with_validator_index(session_info.our_index)
+			.with_chunk_index(chunk_index)
 			.with_uint_tag("group-index", core.group_responsible.0 as u64)
 			.with_relay_parent(core.candidate_descriptor.relay_parent)
 			.with_string_tag("pov-hash", format!("{:?}", core.candidate_descriptor.pov_hash))
@@ -165,7 +182,7 @@ impl FetchTaskConfig {
 			group: session_info.validator_groups.get(core.group_responsible.0 as usize)
 				.expect("The responsible group of a candidate should be available in the corresponding session. qed.")
 				.clone(),
-			request: ChunkFetchingRequest {
+			request: v2::ChunkFetchingRequest {
 				candidate_hash: core.candidate_hash,
 				index: session_info.our_index,
 			},
@@ -174,6 +191,9 @@ impl FetchTaskConfig {
 			metrics,
 			sender,
 			span,
+			chunk_index,
+			req_v1_protocol_name,
+			req_v2_protocol_name
 		};
 		FetchTaskConfig { live_in, prepared_running: Some(prepared_running) }
 	}
@@ -271,7 +291,8 @@ impl RunningTask {
 			count += 1;
 			let _chunk_fetch_span = span
 				.child("fetch-chunk-request")
-				.with_chunk_index(self.request.index.0)
+				.with_validator_index(self.request.index)
+				.with_chunk_index(self.chunk_index)
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
 			// Send request:
 			let resp = match self
@@ -296,11 +317,12 @@ impl RunningTask {
 			drop(_chunk_fetch_span);
 			let _chunk_recombine_span = span
 				.child("recombine-chunk")
-				.with_chunk_index(self.request.index.0)
+				.with_validator_index(self.request.index)
+				.with_chunk_index(self.chunk_index)
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
 			let chunk = match resp {
-				ChunkFetchingResponse::Chunk(resp) => resp.recombine_into_chunk(&self.request),
-				ChunkFetchingResponse::NoSuchChunk => {
+				Some(chunk) => chunk,
+				None => {
 					gum::debug!(
 						target: LOG_TARGET,
 						validator = ?validator,
@@ -320,11 +342,12 @@ impl RunningTask {
 			drop(_chunk_recombine_span);
 			let _chunk_validate_and_store_span = span
 				.child("validate-and-store-chunk")
-				.with_chunk_index(self.request.index.0)
+				.with_validator_index(self.request.index)
+				.with_chunk_index(self.chunk_index)
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
 
 			// Data genuine?
-			if !self.validate_chunk(&validator, &chunk) {
+			if !self.validate_chunk(&validator, &chunk, self.chunk_index) {
 				bad_validators.push(validator);
 				continue
 			}
@@ -350,7 +373,7 @@ impl RunningTask {
 		validator: &AuthorityDiscoveryId,
 		network_error_freq: &mut gum::Freq,
 		canceled_freq: &mut gum::Freq,
-	) -> std::result::Result<ChunkFetchingResponse, TaskError> {
+	) -> std::result::Result<Option<ErasureChunk>, TaskError> {
 		gum::trace!(
 			target: LOG_TARGET,
 			origin = ?validator,
@@ -362,9 +385,13 @@ impl RunningTask {
 			"Starting chunk request",
 		);
 
-		let (full_request, response_recv) =
-			OutgoingRequest::new(Recipient::Authority(validator.clone()), self.request);
-		let requests = Requests::ChunkFetchingV1(full_request);
+		let (full_request, response_recv) = OutgoingRequest::new_with_fallback(
+			Recipient::Authority(validator.clone()),
+			self.request,
+			// Fallback to v1, for backwards compatibility.
+			v1::ChunkFetchingRequest::from(self.request),
+		);
+		let requests = Requests::ChunkFetching(full_request);
 
 		self.sender
 			.send(FromFetchTask::Message(
@@ -378,7 +405,58 @@ impl RunningTask {
 			.map_err(|_| TaskError::ShuttingDown)?;
 
 		match response_recv.await {
-			Ok(resp) => Ok(resp),
+			Ok((bytes, protocol)) => match protocol {
+				_ if protocol == self.req_v2_protocol_name =>
+					match v2::ChunkFetchingResponse::decode(&mut &bytes[..]) {
+						Ok(chunk_response) => Ok(Option::<ErasureChunk>::from(chunk_response)),
+						Err(e) => {
+							gum::warn!(
+								target: LOG_TARGET,
+								origin = ?validator,
+								relay_parent = ?self.relay_parent,
+								group_index = ?self.group_index,
+								session_index = ?self.session_index,
+								chunk_index = ?self.request.index,
+								candidate_hash = ?self.request.candidate_hash,
+								err = ?e,
+								"Peer sent us invalid erasure chunk data (v2)"
+							);
+							Err(TaskError::PeerError)
+						},
+					},
+				_ if protocol == self.req_v1_protocol_name =>
+					match v1::ChunkFetchingResponse::decode(&mut &bytes[..]) {
+						Ok(chunk_response) => Ok(Option::<ChunkResponse>::from(chunk_response)
+							.map(|c| c.recombine_into_chunk(&self.request.into()))),
+						Err(e) => {
+							gum::warn!(
+								target: LOG_TARGET,
+								origin = ?validator,
+								relay_parent = ?self.relay_parent,
+								group_index = ?self.group_index,
+								session_index = ?self.session_index,
+								chunk_index = ?self.request.index,
+								candidate_hash = ?self.request.candidate_hash,
+								err = ?e,
+								"Peer sent us invalid erasure chunk data"
+							);
+							Err(TaskError::PeerError)
+						},
+					},
+				_ => {
+					gum::warn!(
+						target: LOG_TARGET,
+						origin = ?validator,
+						relay_parent = ?self.relay_parent,
+						group_index = ?self.group_index,
+						session_index = ?self.session_index,
+						chunk_index = ?self.request.index,
+						candidate_hash = ?self.request.candidate_hash,
+						"Peer sent us invalid erasure chunk data - unknown protocol"
+					);
+					Err(TaskError::PeerError)
+				},
+			},
 			Err(RequestError::InvalidResponse(err)) => {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -427,7 +505,23 @@ impl RunningTask {
 		}
 	}
 
-	fn validate_chunk(&self, validator: &AuthorityDiscoveryId, chunk: &ErasureChunk) -> bool {
+	fn validate_chunk(
+		&self,
+		validator: &AuthorityDiscoveryId,
+		chunk: &ErasureChunk,
+		expected_chunk_index: ChunkIndex,
+	) -> bool {
+		if chunk.index != expected_chunk_index {
+			gum::warn!(
+				target: LOG_TARGET,
+				candidate_hash = ?self.request.candidate_hash,
+				origin = ?validator,
+				chunk_index = ?chunk.index,
+				expected_chunk_index = ?expected_chunk_index,
+				"Validator sent the wrong chunk",
+			);
+			return false
+		}
 		let anticipated_hash =
 			match branch_hash(&self.erasure_root, chunk.proof(), chunk.index.0 as usize) {
 				Ok(hash) => hash,
@@ -459,6 +553,7 @@ impl RunningTask {
 				AvailabilityStoreMessage::StoreChunk {
 					candidate_hash: self.request.candidate_hash,
 					chunk,
+					validator_index: self.request.index,
 					tx,
 				}
 				.into(),

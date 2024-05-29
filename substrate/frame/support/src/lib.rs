@@ -510,7 +510,6 @@ pub use frame_support_procedural::{
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
 };
 
-#[cfg(feature = "experimental")]
 pub use frame_support_procedural::runtime;
 
 #[doc(hidden)]
