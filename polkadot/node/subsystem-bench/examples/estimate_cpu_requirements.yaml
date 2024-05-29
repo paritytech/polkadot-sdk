@@ -9,7 +9,7 @@ TestConfiguration:
     last_considered_tranche: 89
     stop_when_approved: true
     coalesce_tranche_diff: 12
-    num_no_shows_per_candidate: 0
+    num_no_shows_per_candidate: 5
     workdir_prefix: "/tmp/"
   n_validators: 500
   n_cores: 100
