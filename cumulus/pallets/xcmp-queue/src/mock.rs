@@ -321,10 +321,13 @@ impl GetChannelInfo for MockedChannelInfo {
 pub(crate) fn mk_page() -> Vec<u8> {
 	let mut page = Vec::<u8>::new();
 
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
+
 	for i in 0..100 {
 		page.extend(match i % 2 {
-			0 => v2_xcm().encode(),
-			1 => v3_xcm().encode(),
+			0 => versioned_xcm(older_xcm_version).encode(),
+			1 => versioned_xcm(newer_xcm_version).encode(),
 			// We cannot push an undecodable XCM here since it would break the decode stream.
 			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
 			// instead.
@@ -335,12 +338,9 @@ pub(crate) fn mk_page() -> Vec<u8> {
 	page
 }
 
-pub(crate) fn v2_xcm() -> VersionedXcm<()> {
-	let instr = xcm::v2::Instruction::<()>::ClearOrigin;
-	VersionedXcm::V2(xcm::v2::Xcm::<()>(vec![instr; 3]))
-}
-
-pub(crate) fn v3_xcm() -> VersionedXcm<()> {
-	let instr = xcm::v3::Instruction::<()>::Trap(1);
-	VersionedXcm::V3(xcm::v3::Xcm::<()>(vec![instr; 3]))
+pub(crate) fn versioned_xcm(version: XcmVersion) -> VersionedXcm<()> {
+	let instr = Instruction::<()>::Trap(1);
+	VersionedXcm::from(Xcm::<()>(vec![instr; 3]))
+		.into_version(version)
+		.expect("Version conversion should work")
 }
