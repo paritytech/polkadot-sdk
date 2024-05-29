@@ -20,7 +20,7 @@ use frame_system::RawOrigin;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::testing::H256;
 use xcm::prelude::*;
-use xcm_fee_payment_runtime_api::{dry_run::XcmDryRunApi, fees::XcmPaymentApi};
+use xcm_fee_payment_runtime_api::{dry_run::DryRunApi, fees::XcmPaymentApi};
 
 mod mock;
 use mock::{

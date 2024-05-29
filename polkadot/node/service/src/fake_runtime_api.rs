@@ -416,7 +416,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, (), (), ()> for Runtime {
+	impl xcm_fee_payment_runtime_api::dry_run::DryRunApi<Block, (), (), ()> for Runtime {
 		fn dry_run_call(_: (), _: ()) -> Result<xcm_fee_payment_runtime_api::dry_run::CallDryRunEffects<()>, xcm_fee_payment_runtime_api::dry_run::Error> {
 			unimplemented!()
 		}

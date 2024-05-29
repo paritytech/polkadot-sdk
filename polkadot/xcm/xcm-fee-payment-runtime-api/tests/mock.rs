@@ -474,7 +474,7 @@ sp_api::mock_impl_runtime_apis! {
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			let origin_location: Location = origin_location.try_into().map_err(|error| {
 				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					target: "xcm::DryRunApi::dry_run_xcm",
 					"Location version conversion failed with error: {:?}",
 					error,
 				);
@@ -482,7 +482,7 @@ sp_api::mock_impl_runtime_apis! {
 			})?;
 			let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
 				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					target: "xcm::DryRunApi::dry_run_xcm",
 					"Xcm version conversion failed with error {:?}",
 					error,
 				);

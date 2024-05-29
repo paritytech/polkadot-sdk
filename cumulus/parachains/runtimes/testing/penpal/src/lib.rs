@@ -886,7 +886,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
+	impl xcm_fee_payment_runtime_api::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
 		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_builder::InspectMessageQueues;
 			use xcm_executor::RecordXcm;
@@ -910,7 +910,7 @@ impl_runtime_apis! {
 
 			let origin_location: Location = origin_location.try_into().map_err(|error| {
 				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					target: "xcm::DryRunApi::dry_run_xcm",
 					"Location version conversion failed with error: {:?}",
 					error,
 				);
@@ -918,7 +918,7 @@ impl_runtime_apis! {
 			})?;
 			let program: Xcm<RuntimeCall> = program.try_into().map_err(|error| {
 				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					target: "xcm::DryRunApi::dry_run_xcm",
 					"Xcm version conversion failed with error {:?}",
 					error,
 				);

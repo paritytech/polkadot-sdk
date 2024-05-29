@@ -19,13 +19,13 @@ use crate::imports::*;
 
 use frame_system::RawOrigin;
 use xcm_fee_payment_runtime_api::{
-	dry_run::runtime_decl_for_xcm_dry_run_api::XcmDryRunApiV1,
+	dry_run::runtime_decl_for_xcm_dry_run_api::DryRunApiV1,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
 };
 
 /// We are able to dry-run and estimate the fees for a teleport between relay and system para.
 /// Scenario: Alice on Westend relay chain wants to teleport WND to Asset Hub.
-/// We want to know the fees using the `XcmDryRunApi` and `XcmPaymentApi`.
+/// We want to know the fees using the `DryRunApi` and `XcmPaymentApi`.
 #[test]
 fn teleport_relay_system_para_works() {
 	let destination: Location = Parachain(1000).into(); // Asset Hub.
@@ -104,7 +104,7 @@ fn teleport_relay_system_para_works() {
 
 /// We are able to dry-run and estimate the fees for a multi-hop XCM journey.
 /// Scenario: Alice on PenpalA has some WND and wants to send them to PenpalB.
-/// We want to know the fees using the `XcmDryRunApi` and `XcmPaymentApi`.
+/// We want to know the fees using the `DryRunApi` and `XcmPaymentApi`.
 #[test]
 fn multi_hop_works() {
 	let destination = PenpalA::sibling_location_of(PenpalB::para_id());

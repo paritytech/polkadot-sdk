@@ -2478,7 +2478,7 @@ impl<T: Config> Pallet<T> {
 	{
 		let origin_location: Location = origin_location.try_into().map_err(|error| {
 			log::error!(
-				target: "xcm::XcmDryRunApi::dry_run_xcm",
+				target: "xcm::DryRunApi::dry_run_xcm",
 				"Location version conversion failed with error: {:?}",
 				error,
 			);
@@ -2486,7 +2486,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 		let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
 			log::error!(
-				target: "xcm::XcmDryRunApi::dry_run_xcm",
+				target: "xcm::DryRunApi::dry_run_xcm",
 				"Xcm version conversion failed with error {:?}",
 				error,
 			);
