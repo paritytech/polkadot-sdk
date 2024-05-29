@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716924599850,
+  "lastUpdate": 1716959398184,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5404,6 +5404,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.939336311630119,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5f68c93039fce08d7f711025eddc5343b0272111",
+          "message": "Moves runtime macro out of experimental flag (#4249)\n\nStep in https://github.com/paritytech/polkadot-sdk/issues/3688\n\nNow that the `runtime` macro (Construct Runtime V2) has been\nsuccessfully deployed on Westend, this PR moves it out of the\nexperimental feature flag and makes it generally available for runtime\ndevs.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-05-29T03:41:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f68c93039fce08d7f711025eddc5343b0272111"
+        },
+        "date": 1716959370014,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63543.9,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.315381373699834,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.088963145210085,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.010867965479934,
             "unit": "seconds"
           }
         ]
