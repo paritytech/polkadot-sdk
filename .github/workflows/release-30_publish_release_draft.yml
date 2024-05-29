@@ -23,7 +23,7 @@ jobs:
           echo "stable=$RUST_STABLE_VERSION" >> $GITHUB_OUTPUT
 
   build-runtimes:
-    uses: "./.github/workflows/release-srtool.yml"
+    uses: "./.github/workflows/srtool.yml"
     with:
        excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
 
