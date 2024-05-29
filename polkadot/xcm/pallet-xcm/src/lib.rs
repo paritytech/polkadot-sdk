@@ -2439,6 +2439,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Dry-runs `call` with the given `origin`.
+	///
 	/// Returns not only the call result and events, but also the local XCM, if any,
 	/// and any XCMs forwarded to other locations.
 	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
@@ -2471,6 +2472,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Dry-runs `xcm` with the given `origin_location`.
+	///
 	/// Returns execution result, events, and any forwarded XCMs to other locations.
 	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_xcm<Runtime, Router, RuntimeCall, XcmConfig>(
