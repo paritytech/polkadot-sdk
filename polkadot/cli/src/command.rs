@@ -21,7 +21,7 @@ use log::info;
 use polkadot_service::{
 	self,
 	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
-	BlockId, HeaderBackend, IdentifyVariant,
+	HeaderBackend, IdentifyVariant,
 };
 use sc_cli::SubstrateCli;
 use sp_core::crypto::Ss58AddressFormatRegistry;

@@ -36,7 +36,6 @@ use polkadot_node_primitives::approval::{
 use polkadot_node_subsystem::messages::{
 	network_bridge_event, AllMessages, ApprovalCheckError, ReportPeerMessage,
 };
-use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt as _};
 use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, CoreIndex, HashT};
 use polkadot_primitives_test_helpers::dummy_signature;

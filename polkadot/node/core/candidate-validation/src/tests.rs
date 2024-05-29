@@ -19,7 +19,6 @@ use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
 use polkadot_node_subsystem::messages::AllMessages;
-use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_primitives::{HeadData, Id as ParaId, UpwardMessage};
 use polkadot_primitives_test_helpers::{dummy_hash, make_valid_candidate_descriptor};

@@ -25,8 +25,6 @@ use polkadot_node_network_protocol::request_response::{
 use polkadot_primitives::{node_features, Block, CoreState, Hash, NodeFeatures};
 use sp_keystore::KeystorePtr;
 
-use polkadot_node_subsystem_test_helpers as test_helpers;
-
 use super::*;
 
 mod state;
