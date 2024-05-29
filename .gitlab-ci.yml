@@ -384,10 +384,10 @@ cancel-pipeline-test-frame-examples-compile-to-wasm:
   needs:
     - job: test-frame-examples-compile-to-wasm
 
-cancel-pipeline-build-short-benchmark:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: build-short-benchmark
+# cancel-pipeline-build-short-benchmark:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: build-short-benchmark
 
 cancel-pipeline-check-runtime-migration-rococo:
   extends: .cancel-pipeline-template
