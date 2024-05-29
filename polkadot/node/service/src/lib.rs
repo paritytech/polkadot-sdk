@@ -1261,9 +1261,7 @@ pub fn new_full<
 		};
 
 		let babe = sc_consensus_babe::start_babe(babe_config)?;
-		task_manager
-			.spawn_essential_handle()
-			.spawn_blocking("sc_consensus_babe", None, babe);
+		task_manager.spawn_essential_handle().spawn_blocking("babe", None, babe);
 	}
 
 	// if the node isn't actively participating in consensus then it doesn't

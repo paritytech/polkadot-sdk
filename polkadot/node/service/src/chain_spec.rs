@@ -360,7 +360,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			"forceEra": Forcing::ForceNone,
 			"slashRewardFraction": Perbill::from_percent(10),
 		},
-		"sc_consensus_babe": {
+		"babe": {
 			"epochConfig": Some(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
 		"sudo": { "key": Some(endowed_accounts[0].clone()) },
@@ -562,7 +562,7 @@ pub fn westend_testnet_genesis(
 			"forceEra": Forcing::NotForcing,
 			"slashRewardFraction": Perbill::from_percent(10),
 		},
-		"sc_consensus_babe": {
+		"babe": {
 			"epochConfig": Some(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
 		"sudo": { "key": Some(root_key) },
