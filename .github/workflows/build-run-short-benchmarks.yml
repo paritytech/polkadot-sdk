@@ -50,6 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: short-benchmark-artifacts
+          retention-days: 1
           path: ./artifacts
   build-short-benchmark-cumulus:
     runs-on: arc-runners-polkadot-sdk-beefy
@@ -74,6 +75,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: short-benchmark-cumulus-artifacts
+          retention-days: 1
           path: ./artifacts
   short-benchmark-westend:
     runs-on: arc-runners-polkadot-sdk-benchmark
