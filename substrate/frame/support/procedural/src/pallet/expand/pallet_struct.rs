@@ -284,13 +284,15 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
-		// Implement `StaticPartialEq` for `Pallet`
-		impl<#type_impl_gen> #frame_support::traits::StaticPartialEq<[u8]>
+		// Implement `StaticPartialEq<TryStateIdentifier>` for `Pallet`
+		#[cfg(feature = "try-runtime")]
+		impl<#type_impl_gen> #frame_support::traits::StaticPartialEq<frame_support::traits::TryStateIdentifier>
 			for #pallet_ident<#type_use_gen>
 			#config_where_clause
 		{
-			fn eq(other: &[u8]) -> bool {
-				Self::name().as_bytes() == other
+			fn eq(other: &frame_support::traits::TryStateIdentifier) -> bool {
+				use sp_std::ops::Deref;
+				Self::name().as_bytes() == other.deref()
 			}
 		}
 
