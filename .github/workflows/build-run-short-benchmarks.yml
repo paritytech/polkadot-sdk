@@ -61,7 +61,7 @@ jobs:
           path: ./artifacts
   build-short-benchmark-cumulus:
     runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image, changes]
+    needs: [set-image, changes, build-short-benchmark]
     if: ${{ needs.changes.outputs.rust }}
     timeout-minutes: 30
     container:
