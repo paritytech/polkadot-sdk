@@ -188,10 +188,10 @@ impl NetworkMessage {
 	}
 
 	pub fn is_from_node(&self) -> bool {
-		match self {
-			NetworkMessage::MessageFromNode(_, _) | NetworkMessage::RequestFromNode(_, _) => true,
-			_ => false,
-		}
+		matches!(
+			self,
+			NetworkMessage::MessageFromNode(_, _) | NetworkMessage::RequestFromNode(_, _)
+		)
 	}
 }
 
