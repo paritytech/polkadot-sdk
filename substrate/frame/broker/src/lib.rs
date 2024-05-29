@@ -65,7 +65,7 @@ pub mod pallet {
 	use sp_runtime::traits::{Convert, ConvertBack};
 	use sp_std::vec::Vec;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
