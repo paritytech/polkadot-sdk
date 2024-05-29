@@ -67,15 +67,6 @@ async fn activate_leaf(
 		.min()
 		.unwrap_or(&leaf_number);
 
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
-		) if parent == leaf_hash => {
-			tx.send(min_relay_parents).unwrap();
-		}
-	);
-
 	let ancestry_len = leaf_number + 1 - min_min;
 
 	let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
@@ -117,6 +108,18 @@ async fn activate_leaf(
 					tx.send(Ok(Some(header))).unwrap();
 				}
 			);
+
+			if requested_len == 0 {
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::ProspectiveParachains(
+						ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
+					) if parent == leaf_hash => {
+						tx.send(min_relay_parents.clone()).unwrap();
+					}
+				);
+			}
+
 			requested_len += 1;
 		}
 	}
@@ -1432,7 +1435,13 @@ fn concurrent_dependent_candidates() {
 				)) => {
 					tx.send(Ok(test_state.validator_groups.clone())).unwrap();
 				},
-
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::NodeFeatures(sess_idx, tx),
+				)) => {
+					assert_eq!(sess_idx, 1);
+					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_parent,
 					RuntimeApiRequest::AvailabilityCores(tx),

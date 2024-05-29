@@ -139,41 +139,39 @@ pub mod pallet {
 	/// Latest imported checkpoint root
 	#[pallet::storage]
 	#[pallet::getter(fn initial_checkpoint_root)]
-	pub(super) type InitialCheckpointRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
+	pub type InitialCheckpointRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Latest imported finalized block root
 	#[pallet::storage]
 	#[pallet::getter(fn latest_finalized_block_root)]
-	pub(super) type LatestFinalizedBlockRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
+	pub type LatestFinalizedBlockRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Beacon state by finalized block root
 	#[pallet::storage]
 	#[pallet::getter(fn finalized_beacon_state)]
-	pub(super) type FinalizedBeaconState<T: Config> =
+	pub type FinalizedBeaconState<T: Config> =
 		StorageMap<_, Identity, H256, CompactBeaconState, OptionQuery>;
 
 	/// Finalized Headers: Current position in ring buffer
 	#[pallet::storage]
-	pub(crate) type FinalizedBeaconStateIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type FinalizedBeaconStateIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Finalized Headers: Mapping of ring buffer index to a pruning candidate
 	#[pallet::storage]
-	pub(crate) type FinalizedBeaconStateMapping<T: Config> =
+	pub type FinalizedBeaconStateMapping<T: Config> =
 		StorageMap<_, Identity, u32, H256, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn validators_root)]
-	pub(super) type ValidatorsRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
+	pub type ValidatorsRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Sync committee for current period
 	#[pallet::storage]
-	pub(super) type CurrentSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+	pub type CurrentSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
 	/// Sync committee for next period
 	#[pallet::storage]
-	pub(super) type NextSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+	pub type NextSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]

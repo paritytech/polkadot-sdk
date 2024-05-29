@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Args;
-use sc_network::config::{identity::ed25519, NodeKeyConfig};
+use sc_network::config::{ed25519, NodeKeyConfig};
 use sc_service::Role;
 use sp_core::H256;
 use std::{path::PathBuf, str::FromStr};
@@ -148,7 +148,7 @@ fn parse_ed25519_secret(hex: &str) -> error::Result<sc_network::config::Ed25519S
 mod tests {
 	use super::*;
 	use clap::ValueEnum;
-	use libp2p_identity::ed25519;
+	use sc_network::config::ed25519;
 	use std::fs::{self, File};
 	use tempfile::TempDir;
 
@@ -194,11 +194,7 @@ mod tests {
 				.into_keypair()
 				.expect("Creates node key pair");
 
-			if let Ok(pair) = node_key.try_into_ed25519() {
-				if pair.secret().as_ref() != key.as_ref() {
-					panic!("Invalid key")
-				}
-			} else {
+			if node_key.secret().as_ref() != key.as_ref() {
 				panic!("Invalid key")
 			}
 		}

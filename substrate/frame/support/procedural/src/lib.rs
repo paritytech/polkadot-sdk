@@ -1250,7 +1250,6 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 ///
 /// * The macro generates a type alias for each pallet to their `Pallet`. E.g. `type System =
 ///   frame_system::Pallet<Runtime>`
-#[cfg(feature = "experimental")]
 #[proc_macro_attribute]
 pub fn runtime(attr: TokenStream, item: TokenStream) -> TokenStream {
 	runtime::runtime(attr, item)

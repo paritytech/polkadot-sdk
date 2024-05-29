@@ -20,10 +20,18 @@ env:
   FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
 
 jobs:
+
+  changes:
+    permissions:
+      pull-requests: read
+    uses: ./.github/workflows/check-changed-files.yml
+
   set-image:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
+    needs: changes
+    if: ${{ needs.changes.outputs.rust }}      
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -32,10 +40,12 @@ jobs:
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
+  
   test-linux-stable-int:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}  
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
-    needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -50,11 +60,13 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
+  
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}    
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
-    needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:

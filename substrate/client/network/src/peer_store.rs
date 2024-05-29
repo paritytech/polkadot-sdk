@@ -19,8 +19,9 @@
 //! [`PeerStore`] manages peer reputations and provides connection candidates to
 //! [`crate::protocol_controller::ProtocolController`].
 
-use crate::{service::traits::PeerStore as PeerStoreT, PeerId};
+use crate::service::traits::PeerStore as PeerStoreT;
 
+use libp2p::PeerId;
 use log::trace;
 use parking_lot::Mutex;
 use partial_sort::PartialSort;

@@ -100,8 +100,8 @@ pub use sc_executor::NativeExecutionDispatch;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 pub use service::{
 	config::{DatabaseSource, PrometheusConfig},
-	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, RuntimeGenesis,
-	TFullBackend, TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
+	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, TFullBackend,
+	TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
 pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_runtime::{
@@ -750,6 +750,7 @@ pub fn new_full<
 		prepare_workers_hard_max_num,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
+	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	use polkadot_node_network_protocol::request_response::IncomingRequest;
 	use sc_network_sync::WarpSyncParams;
 
@@ -914,7 +915,10 @@ pub fn new_full<
 	let (pov_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (chunk_req_receiver, cfg) =
+	let (chunk_req_v1_receiver, cfg) =
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
+	net_config.add_request_response_protocol(cfg);
+	let (chunk_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
@@ -988,19 +992,26 @@ pub fn new_full<
 			stagnant_check_interval: Default::default(),
 			stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
 		};
+
+		// Kusama + testnets get a higher threshold, we are conservative on Polkadot for now.
+		let fetch_chunks_threshold =
+			if config.chain_spec.is_polkadot() { None } else { Some(FETCH_CHUNKS_THRESHOLD) };
+
 		Some(ExtendedOverseerGenArgs {
 			keystore,
 			parachains_db,
 			candidate_validation_config,
 			availability_config: AVAILABILITY_CONFIG,
 			pov_req_receiver,
-			chunk_req_receiver,
+			chunk_req_v1_receiver,
+			chunk_req_v2_receiver,
 			statement_req_receiver,
 			candidate_req_v2_receiver,
 			approval_voting_config,
 			dispute_req_receiver,
 			dispute_coordinator_config,
 			chain_selection_config,
+			fetch_chunks_threshold,
 		})
 	};
 
