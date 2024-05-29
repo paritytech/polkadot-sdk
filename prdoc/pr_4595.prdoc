@@ -15,8 +15,8 @@ doc:
 
 crates:
   - name: polkadot-collator-protocol
-    bump: minor
+    bump: major
     validate: false
   - name: polkadot-service
-    bump: minor
+    bump: major
     validate: false
