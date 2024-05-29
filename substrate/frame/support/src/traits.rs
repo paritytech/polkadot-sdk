@@ -134,6 +134,6 @@ pub use tasks::Task;
 mod try_runtime;
 #[cfg(feature = "try-runtime")]
 pub use try_runtime::{
-	Select as TryStateSelect, TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState,
-	TryStateIdentifier, UpgradeCheckSelect,
+	IdentifiableTryStateLogic, Select as TryStateSelect, TryDecodeEntireStorage,
+	TryDecodeEntireStorageError, TryState, TryStateLogic, UpgradeCheckSelect,
 };

@@ -140,6 +140,54 @@ impl core::str::FromStr for UpgradeCheckSelect {
 	}
 }
 
+pub trait TryStateLogic<BlockNumber> {
+	fn try_state(_: BlockNumber) -> Result<(), TryRuntimeError>;
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
+impl<BlockNumber> TryStateLogic<BlockNumber> for Tuple
+where
+	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+{
+	fn try_state(n: BlockNumber) -> Result<(), TryRuntimeError> {
+		let mut errors = Vec::<TryRuntimeError>::new();
+
+		for_tuples!(#(
+			if let Err(err) = Tuple::try_state(n.clone()) {
+				errors.push(err);
+			}
+		)*);
+
+		if !errors.is_empty() {
+			return Err("Detected errors while executing `try_state` checks. See logs for more \
+						info."
+				.into());
+		}
+
+		Ok(())
+	}
+}
+
+pub trait IdentifiableTryStateLogic<BlockNumber>: TryStateLogic<BlockNumber> {
+	fn matches_id(_id: &[u8]) -> bool;
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
+impl<BlockNumber> IdentifiableTryStateLogic<BlockNumber> for Tuple
+where
+	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+{
+	for_tuples!( where #( Tuple: TryStateLogic<BlockNumber> )* );
+	fn matches_id(id: &[u8]) -> bool {
+		for_tuples!( #( if Tuple::matches_id(id) { return true; } )* );
+		return false;
+	}
+}
+
 /// Execute some checks to ensure the internal state of a pallet is consistent.
 ///
 /// Usually, these checks should check all of the invariants that are expected to be held on all of
@@ -151,43 +199,26 @@ pub trait TryState<BlockNumber> {
 	fn try_state(_: BlockNumber, _: Select) -> Result<(), TryRuntimeError>;
 }
 
-/// The identifier for a `try-state` check.
-/// It is used by the default `TryState` implementation on tuples for the `Select::Only` test filter.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TryStateIdentifier(Vec<u8>);
-
-impl sp_std::ops::Deref for TryStateIdentifier {
-	type Target = [u8];
-
-	fn deref(&self) -> &Self::Target {
-		&self.0
+impl<BlockNumber> TryState<BlockNumber> for () {
+	fn try_state(_: BlockNumber, _: Select) -> Result<(), TryRuntimeError> {
+		Ok(())
 	}
 }
 
-impl From<Vec<u8>> for TryStateIdentifier {
-	fn from(value: Vec<u8>) -> Self {
-		Self(value)
-	}
-}
-
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
-impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber>
-	for Tuple
+impl<BlockNumber, T> TryState<BlockNumber> for (T,)
+where
+	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+	T: IdentifiableTryStateLogic<BlockNumber>,
 {
-	for_tuples!( where #( Tuple: crate::traits::StaticPartialEq<TryStateIdentifier> )* );
 	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
 		match targets {
 			Select::None => Ok(()),
 			Select::All => {
 				let mut errors = Vec::<TryRuntimeError>::new();
 
-				for_tuples!(#(
-					if let Err(err) = Tuple::try_state(n.clone(), targets.clone()) {
-						errors.push(err);
-					}
-				)*);
+				if let Err(err) = T::try_state(n.clone()) {
+					errors.push(err);
+				}
 
 				if !errors.is_empty() {
 					log::error!(
@@ -213,33 +244,29 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 				Ok(())
 			},
 			Select::RoundRobin(len) => {
-				let functions: &[fn(BlockNumber, Select) -> Result<(), TryRuntimeError>] =
-					&[for_tuples!(#( Tuple::try_state ),*)];
+				let functions: &[fn(BlockNumber) -> Result<(), TryRuntimeError>] = &[T::try_state];
 				let skip = n.clone() % (functions.len() as u32).into();
 				let skip: u32 =
 					skip.try_into().unwrap_or_else(|_| sp_runtime::traits::Bounded::max_value());
 				let mut result = Ok(());
 				for try_state_fn in functions.iter().cycle().skip(skip as usize).take(len as usize)
 				{
-					result = result.and(try_state_fn(n.clone(), targets.clone()));
+					result = result.and(try_state_fn(n.clone()));
 				}
 				result
 			},
 			Select::Only(ref try_state_identifiers) => {
 				let try_state_fns: &[(
-					fn(&TryStateIdentifier) -> bool,
-					fn(BlockNumber, Select) -> Result<(), TryRuntimeError>,
-				)] = &[for_tuples!(
-					#( (Tuple::eq, Tuple::try_state) ),*
-				)];
+					fn(&[u8]) -> bool,
+					fn(BlockNumber) -> Result<(), TryRuntimeError>,
+				)] = &[(T::matches_id, T::try_state)];
 
 				let mut result = Ok(());
 				try_state_identifiers.iter().for_each(|id| {
-					if let Some((_, try_state_fn)) = try_state_fns
-						.iter()
-						.find(|(eq_logic, _)| eq_logic(&TryStateIdentifier::from(id.clone())))
+					if let Some((_, try_state_fn)) =
+						try_state_fns.iter().find(|(eq_logic, _)| eq_logic(id.as_slice()))
 					{
-						result = result.and(try_state_fn(n.clone(), targets.clone()));
+						result = result.and(try_state_fn(n.clone()));
 					} else {
 						log::warn!(
 							"Try-state logic with identifier {:?} not found",
