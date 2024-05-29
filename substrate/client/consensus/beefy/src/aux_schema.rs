@@ -22,7 +22,6 @@ use crate::{error::Error, worker::PersistedState, LOG_TARGET};
 use codec::{Decode, Encode};
 use log::{debug, trace, warn};
 use sc_client_api::{backend::AuxStore, Backend};
-use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus_beefy::AuthorityIdBound;
 use sp_runtime::traits::Block as BlockT;

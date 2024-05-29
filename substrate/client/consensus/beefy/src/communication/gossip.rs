@@ -37,9 +37,7 @@ use crate::{
 	LOG_TARGET,
 };
 use sp_application_crypto::RuntimeAppPublic;
-use sp_consensus_beefy::{
-	ecdsa_crypto::AuthorityId, AuthorityIdBound, ValidatorSet, ValidatorSetId, VoteMessage,
-};
+use sp_consensus_beefy::{AuthorityIdBound, ValidatorSet, ValidatorSetId, VoteMessage};
 
 // Timeout for rebroadcasting messages.
 #[cfg(not(test))]

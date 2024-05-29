@@ -16,8 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::keystore::BeefyKeystore;
-use codec::{DecodeAll, Encode};
+use codec::DecodeAll;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_beefy::{
@@ -60,7 +59,6 @@ pub(crate) fn verify_with_validator_set<'a, Block: BlockT, AuthorityId: Authorit
 	Vec<KnownSignature<&'a AuthorityId, &'a <AuthorityId as RuntimeAppPublic>::Signature>>,
 	(ConsensusError, u32),
 > {
-	let mut signatures_checked = 0u32;
 	match proof {
 		VersionedFinalityProof::V1(signed_commitment) => {
 			let signatories = signed_commitment

@@ -81,6 +81,7 @@ pub trait AuthorityIdBound:
 	+ Display
 	+ BeefyAuthorityId<BeefySignatureHasher, Signature = Self::BoundedSignature>
 {
+	/// Necessary bounds on the Signature associated with the AuthorityId
 	type BoundedSignature: Debug + Eq + PartialEq + Clone + TypeInfo + Codec + Send + Sync;
 }
 

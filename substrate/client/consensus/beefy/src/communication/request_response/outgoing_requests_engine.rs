@@ -27,7 +27,6 @@ use sc_network::{
 	NetworkRequest, ProtocolName,
 };
 use sc_network_types::PeerId;
-use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_beefy::{AuthorityIdBound, ValidatorSet};
 use sp_runtime::traits::{Block, NumberFor};
 use std::{collections::VecDeque, result::Result, sync::Arc};
