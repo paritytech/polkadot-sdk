@@ -160,7 +160,6 @@ fn build_import_queue(
 	)
 }
 
-
 fn start_consensus(
 	client: Arc<ParachainClient>,
 	backend: Arc<ParachainBackend>,
