@@ -205,6 +205,7 @@ impl<BlockNumber> TryState<BlockNumber> for () {
 	}
 }
 
+// Did not find a way to implement a trait on tuple without requiring the tuples to implement the very same trait being implemented.
 impl<BlockNumber, T1, T2> TryState<BlockNumber> for (T1, T2)
 where
 	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
