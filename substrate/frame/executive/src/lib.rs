@@ -194,7 +194,10 @@ use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "try-runtime")]
 use ::{
 	frame_support::{
-		traits::{TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState},
+		traits::{
+			IdentifiableTryStateLogic, TryDecodeEntireStorage, TryDecodeEntireStorageError,
+			TryState,
+		},
 		StorageNoopGuard,
 	},
 	frame_try_runtime::{TryStateSelect, UpgradeCheckSelect},
@@ -304,12 +307,10 @@ impl<
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
 			+ OnPoll<BlockNumberFor<System>>
-			+ TryState<BlockNumberFor<System>>
-			+ TryDecodeEntireStorage
-			+ frame_support::traits::StaticPartialEq<frame_support::traits::TryStateIdentifier>,
+			+ IdentifiableTryStateLogic<BlockNumberFor<System>>
+			+ TryDecodeEntireStorage,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-		CTryState: frame_support::traits::TryState<BlockNumberFor<System>>
-			+ frame_support::traits::StaticPartialEq<frame_support::traits::TryStateIdentifier>,
+		CTryState: IdentifiableTryStateLogic<BlockNumberFor<System>>,
 	>
 	Executive<
 		System,
@@ -415,9 +416,10 @@ impl<
 
 		// run the try-state checks of all pallets, ensuring they don't alter any state.
 		let _guard = frame_support::StorageNoopGuard::default();
-		<(CTryState, AllPalletsWithSystem) as frame_support::traits::TryState<
-			BlockNumberFor<System>,
-		>>::try_state(*header.number(), select.clone())
+		<(CTryState, AllPalletsWithSystem) as TryState<BlockNumberFor<System>>>::try_state(
+			*header.number(),
+			select.clone(),
+		)
 		.map_err(|e| {
 			log::error!(target: LOG_TARGET, "failure: {:?}", e);
 			e
@@ -494,9 +496,10 @@ impl<
 
 		// Check all storage invariants:
 		if checks.try_state() {
-			<(CTryState, AllPalletsWithSystem) as frame_support::traits::TryState<
-				BlockNumberFor<System>,
-			>>::try_state(frame_system::Pallet::<System>::block_number(), TryStateSelect::All)?;
+			<(CTryState, AllPalletsWithSystem) as TryState<BlockNumberFor<System>>>::try_state(
+				frame_system::Pallet::<System>::block_number(),
+				TryStateSelect::All,
+			)?;
 		}
 
 		Ok(before_all_weight.saturating_add(try_on_runtime_upgrade_weight))
