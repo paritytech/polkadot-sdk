@@ -284,15 +284,25 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
-		// Implement `StaticPartialEq<TryStateIdentifier>` for `Pallet`
+		// Implement `TryStateLogic<BlockNumber>` for `Pallet`
 		#[cfg(feature = "try-runtime")]
-		impl<#type_impl_gen> #frame_support::traits::StaticPartialEq<frame_support::traits::TryStateIdentifier>
+		impl<#type_impl_gen> #frame_support::traits::TryStateLogic<BlockNumberFor<T>>
 			for #pallet_ident<#type_use_gen>
 			#config_where_clause
 		{
-			fn eq(other: &frame_support::traits::TryStateIdentifier) -> bool {
-				use sp_std::ops::Deref;
-				Self::name().as_bytes() == other.deref()
+			fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+				<Self as Hooks<BlockNumberFor<T>>>::try_state(n)
+			}
+		}
+
+		// Implement `IdentifiableTryStateLogic<BlockNumber>` for `Pallet`
+		#[cfg(feature = "try-runtime")]
+		impl<#type_impl_gen> #frame_support::traits::IdentifiableTryStateLogic<BlockNumberFor<T>>
+			for #pallet_ident<#type_use_gen>
+			#config_where_clause
+		{
+			fn matches_id(id: &[u8]) -> bool {
+				<Self as PalletInfoAccess>::name().as_bytes() == id
 			}
 		}
 
