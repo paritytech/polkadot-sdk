@@ -65,7 +65,7 @@ use xcm_executor::{
 	AssetsInHolding,
 };
 use xcm_fee_payment_runtime_api::{
-	dry_run::{Error as XcmDryRunApiError, CallDryRunEffects, XcmDryRunEffects},
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
 
@@ -2441,10 +2441,7 @@ impl<T: Config> Pallet<T> {
 	pub fn dry_run_call<Runtime, Router, OriginCaller, RuntimeCall>(
 		origin: OriginCaller,
 		call: RuntimeCall,
-	) -> Result<
-		CallDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>,
-		XcmDryRunApiError,
-	>
+	) -> Result<CallDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
 	where
 		Runtime: crate::Config,
 		Router: InspectMessageQueues,
