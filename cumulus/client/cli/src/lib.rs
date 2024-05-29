@@ -307,6 +307,10 @@ pub struct RunCmd {
 	/// Will use the specified relay chain chainspec.
 	#[arg(long, conflicts_with_all = ["relay_chain_rpc_urls", "collator"])]
 	pub relay_chain_light_client: bool,
+
+	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling. Use with care, this flag is unstable and subject to change.
+	#[arg(long)]
+	pub experimental_use_slot_based: bool,
 }
 
 impl RunCmd {
@@ -329,7 +333,7 @@ impl RunCmd {
 				_ => RelayChainMode::Embedded,
 			};
 
-		CollatorOptions { relay_chain_mode }
+		CollatorOptions { relay_chain_mode, use_slot_based: self.experimental_use_slot_based }
 	}
 }
 
@@ -349,6 +353,8 @@ pub enum RelayChainMode {
 pub struct CollatorOptions {
 	/// How this collator retrieves relay chain information
 	pub relay_chain_mode: RelayChainMode,
+	/// Use slot based collator
+	pub use_slot_based: bool,
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the

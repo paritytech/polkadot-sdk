@@ -46,9 +46,6 @@ pub struct TestCollatorCli {
 	pub use_null_consensus: bool,
 
 	#[arg(long)]
-	pub use_slot_authoring: bool,
-
-	#[arg(long)]
 	pub disable_block_announcements: bool,
 
 	#[arg(long)]
