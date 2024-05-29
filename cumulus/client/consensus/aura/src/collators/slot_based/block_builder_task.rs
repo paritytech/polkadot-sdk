@@ -93,7 +93,7 @@ struct SlotTimer<Block, Client, P> {
 	phantom: std::marker::PhantomData<(P, Block)>,
 }
 
-/// Returns current duration since unix epoch.
+/// Returns current duration since Unix epoch.
 fn duration_now() -> Duration {
 	use std::time::SystemTime;
 	let now = SystemTime::now();
@@ -117,7 +117,6 @@ where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static + UsageProvider<Block>,
 	Client::Api: AuraApi<Block, P::Public>,
-
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
@@ -215,7 +214,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 
 		let Ok(relay_parent) = relay_client.best_block_hash().await else {
 			tracing::warn!("Unable to fetch latest relay chain block hash, skipping slot.");
-			continue;
+			continue
 		};
 
 		let scheduled_cores = cores_scheduled_for_para(relay_parent, para_id, &relay_client).await;
@@ -385,6 +384,6 @@ fn expected_core_count(
 	slot_duration: SlotDuration,
 ) -> Result<u64, ()> {
 	u64::try_from(relay_chain_slot_duration.as_millis() / slot_duration.as_duration().as_millis())
-		.map_err(|e| tracing::error!("Unable to claculate expected parachain core count: {e}"))
+		.map_err(|e| tracing::error!("Unable to calculate expected parachain core count: {e}"))
 		.map(|expected_core_count| expected_core_count.max(1))
 }

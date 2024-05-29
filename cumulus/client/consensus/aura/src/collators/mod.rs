@@ -124,7 +124,7 @@ async fn async_backing_params(
 
 // Return all the cores assigned to the para at the provided relay parent.
 async fn cores_scheduled_for_para(
-	relay_parent: polkadot_primitives::Hash,
+	relay_parent: RHash,
 	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
 ) -> VecDeque<CoreIndex> {
@@ -153,7 +153,7 @@ async fn cores_scheduled_for_para(
 		.filter_map(|(index, core)| {
 			let core_para_id = match core {
 				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
-				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
+				CoreState::Occupied(occupied_core) if max_candidate_depth > 0 => occupied_core
 					.next_up_on_available
 					.as_ref()
 					.map(|scheduled_core| scheduled_core.para_id),
@@ -249,12 +249,5 @@ where
 		None => return None, // also serves as an `is_empty` check.
 		Some(b) => b.hash,
 	};
-	potential_parents.sort_by_key(|a| a.depth);
-
-	let parent = match potential_parents.pop() {
-		None => return None,
-		Some(p) => p,
-	};
-
-	Some((included_block, parent))
+	potential_parents.into_iter().max_by_key(|a| a.depth).map(|parent| (included_block, parent))
 }

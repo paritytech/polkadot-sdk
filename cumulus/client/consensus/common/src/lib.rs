@@ -20,7 +20,7 @@ use polkadot_primitives::{
 };
 
 use cumulus_primitives_core::{
-	relay_chain::{self},
+	relay_chain,
 	AbridgedHostConfiguration,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
