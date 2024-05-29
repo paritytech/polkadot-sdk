@@ -175,7 +175,7 @@ use frame_support::{
 	traits::{
 		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
 		OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents,
-		PostTransactions, PreInherents, StaticPartialEq,
+		PostTransactions, PreInherents,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -306,9 +306,10 @@ impl<
 			+ OnPoll<BlockNumberFor<System>>
 			+ TryState<BlockNumberFor<System>>
 			+ TryDecodeEntireStorage
-			+ StaticPartialEq<[u8]>,
+			+ frame_support::traits::StaticPartialEq<frame_support::traits::TryStateIdentifier>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-		CTryState: frame_support::traits::TryState<BlockNumberFor<System>> + StaticPartialEq<[u8]>,
+		CTryState: frame_support::traits::TryState<BlockNumberFor<System>>
+			+ frame_support::traits::StaticPartialEq<frame_support::traits::TryStateIdentifier>,
 	>
 	Executive<
 		System,
