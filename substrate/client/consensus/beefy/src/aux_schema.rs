@@ -67,14 +67,10 @@ where
 
 	match version {
 		None => (),
-		Some(1) | Some(2) | Some(3) =>
+
+		Some(v) if 1 <= v && v <= 3 =>
 		// versions 1, 2 & 3 are obsolete and should be ignored
-		{
-			warn!(
-				target: LOG_TARGET,
-		    "🥩 backend contains a BEEFY state of an obselete version {}. ignoring...",
-		    version.expect("we already checked that it is some obselete version"))
-		},
+			warn!(target: LOG_TARGET,  "🥩 backend contains a BEEFY state of an obsolete version {v}. ignoring..."),
 		Some(4) =>
 			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY),
 		other =>
