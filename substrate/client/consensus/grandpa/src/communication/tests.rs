@@ -706,25 +706,12 @@ fn peer_with_higher_view_leads_to_catch_up_request() {
 }
 
 fn local_chain_spec() -> Box<dyn sc_chain_spec::ChainSpec> {
-	use sc_chain_spec::{ChainSpec, GenericChainSpec};
-	use serde::{Deserialize, Serialize};
-	use sp_runtime::{BuildStorage, Storage};
-
-	#[derive(Debug, Serialize, Deserialize)]
-	struct Genesis(std::collections::BTreeMap<String, String>);
-	impl BuildStorage for Genesis {
-		fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
-			storage.top.extend(
-				self.0.iter().map(|(a, b)| (a.clone().into_bytes(), b.clone().into_bytes())),
-			);
-			Ok(())
-		}
-	}
-	let chain_spec = GenericChainSpec::<Genesis>::from_json_bytes(
-		&include_bytes!("../../../../chain-spec/res/chain_spec.json")[..],
-	)
-	.unwrap();
-	chain_spec.cloned_box()
+	let chain_spec =
+		sc_chain_spec::GenericChainSpec::<sc_chain_spec::NoExtension, ()>::from_json_bytes(
+			&include_bytes!("../../../../chain-spec/res/chain_spec.json")[..],
+		)
+		.unwrap();
+	sc_chain_spec::ChainSpec::cloned_box(&chain_spec)
 }
 
 #[test]
