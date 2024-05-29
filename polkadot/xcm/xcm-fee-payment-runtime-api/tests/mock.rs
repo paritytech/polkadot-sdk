@@ -29,7 +29,7 @@ use frame_support::{
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
 use sp_runtime::{
-	traits::{Block as BlockT, Get, IdentityLookup, MaybeEquivalence, TryConvert},
+	traits::{Dispatchable, Get, IdentityLookup, MaybeEquivalence, TryConvert},
 	BuildStorage, SaturatedConversion,
 };
 use sp_std::{cell::RefCell, marker::PhantomData};
@@ -45,7 +45,7 @@ use xcm_executor::{
 };
 
 use xcm_fee_payment_runtime_api::{
-	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunApi, XcmDryRunEffects},
+	dry_run::{CallDryRunEffects, DryRunApi, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
 };
 
@@ -58,29 +58,12 @@ construct_runtime! {
 	}
 }
 
-pub type SignedExtra = (
-	// frame_system::CheckEra<TestRuntime>,
-	// frame_system::CheckNonce<TestRuntime>,
-	frame_system::CheckWeight<TestRuntime>,
-);
+pub type SignedExtra = (frame_system::CheckWeight<TestRuntime>,);
 pub type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
 type Block = sp_runtime::testing::Block<TestXt>;
 type Balance = u128;
 type AssetIdForAssetsPallet = u32;
 type AccountId = u64;
-
-pub fn extra() -> SignedExtra {
-	(frame_system::CheckWeight::new(),)
-}
-
-type Executive = frame_executive::Executive<
-	TestRuntime,
-	Block,
-	frame_system::ChainContext<TestRuntime>,
-	TestRuntime,
-	AllPalletsWithSystem,
-	(),
->;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for TestRuntime {
@@ -467,29 +450,21 @@ sp_api::mock_impl_runtime_apis! {
 		}
 	}
 
-	impl XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for RuntimeApi {
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+	impl DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for RuntimeApi {
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_executor::RecordXcm;
-			// We want to record the XCM that's executed, so we can return it.
 			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(true);
-			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
-				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
-					"Applying extrinsic failed with error {:?}",
-					error,
-				);
-				XcmDryRunApiError::InvalidExtrinsic
-			})?;
-			// Nothing gets committed to storage in runtime APIs, so there's no harm in leaving the flag as true.
+			let result = call.dispatch(origin.into());
+			pallet_xcm::Pallet::<TestRuntime>::set_record_xcm(false);
 			let local_xcm = pallet_xcm::Pallet::<TestRuntime>::recorded_xcm();
 			let forwarded_xcms = sent_xcm()
-				.into_iter()
-				.map(|(location, message)| (
-					VersionedLocation::from(location),
-					vec![VersionedXcm::from(message)],
-				)).collect();
-			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
-			Ok(ExtrinsicDryRunEffects {
+							   .into_iter()
+							   .map(|(location, message)| (
+									   VersionedLocation::from(location),
+									   vec![VersionedXcm::from(message)],
+							   )).collect();
+			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
+			Ok(CallDryRunEffects {
 				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 				forwarded_xcms,
 				emitted_events: events,
@@ -500,7 +475,7 @@ sp_api::mock_impl_runtime_apis! {
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			let origin_location: Location = origin_location.try_into().map_err(|error| {
 				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					target: "xcm::DryRunApi::dry_run_xcm",
 					"Location version conversion failed with error: {:?}",
 					error,
 				);
@@ -508,7 +483,7 @@ sp_api::mock_impl_runtime_apis! {
 			})?;
 			let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
 				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					target: "xcm::DryRunApi::dry_run_xcm",
 					"Xcm version conversion failed with error {:?}",
 					error,
 				);
