@@ -641,6 +641,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -713,7 +720,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_start_sales(price: BalanceOf&lt;T&gt;, extra_cores: CoreIndex) -&gt; DispatchResult {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_start_sales(
+		end_price: BalanceOf&lt;T&gt;,
+		extra_cores: CoreIndex,
+	) -&gt; DispatchResult {
 		<span class="kw">let </span>config = Configuration::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::Uninitialized)<span class="question-mark">?</span>;
 
 		<span class="comment">// Determine the core count
@@ -736,7 +746,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>old_sale = SaleInfoRecord {
 			sale_start: now,
 			leadin_length: Zero::zero(),
-			price,
+			end_price,
 			sellout_price: <span class="prelude-val">None</span>,
 			region_begin: commit_timeslice,
 			region_end: commit_timeslice.saturating_add(config.region_length),
@@ -745,7 +755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			cores_offered: <span class="number">0</span>,
 			cores_sold: <span class="number">0</span>,
 		};
-		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::SalesStarted { price, core_count });
+		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::SalesStarted { price: end_price, core_count });
 		<span class="self">Self</span>::rotate_sale(old_sale, <span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>status);
 		Status::&lt;T&gt;::put(<span class="kw-2">&amp;</span>status);
 		<span class="prelude-val">Ok</span>(())
@@ -764,12 +774,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>price = <span class="self">Self</span>::sale_price(<span class="kw-2">&amp;</span>sale, now);
 		<span class="macro">ensure!</span>(price_limit &gt;= price, Error::&lt;T&gt;::Overpriced);
 
-		<span class="self">Self</span>::charge(<span class="kw-2">&amp;</span>who, price)<span class="question-mark">?</span>;
-		<span class="kw">let </span>core = sale.first_core.saturating_add(sale.cores_sold);
-		sale.cores_sold.saturating_inc();
-		<span class="kw">if </span>sale.cores_sold &lt;= sale.ideal_cores_sold || sale.sellout_price.is_none() {
-			sale.sellout_price = <span class="prelude-val">Some</span>(price);
-		}
+		<span class="kw">let </span>core = <span class="self">Self</span>::purchase_core(<span class="kw-2">&amp;</span>who, price, <span class="kw-2">&amp;mut </span>sale)<span class="question-mark">?</span>;
+
 		SaleInfo::&lt;T&gt;::put(<span class="kw-2">&amp;</span>sale);
 		<span class="kw">let </span>id =
 			<span class="self">Self</span>::issue(core, sale.region_begin, sale.region_end, <span class="prelude-val">Some</span>(who.clone()), <span class="prelude-val">Some</span>(price));
@@ -778,7 +784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(id)
 	}
 
-	<span class="doccomment">/// Must be called on a core in `AllowedRenewals` whose value is a timeslice equal to the
+	<span class="doccomment">/// Must be called on a core in `PotentialRenewals` whose value is a timeslice equal to the
 	/// current sale status's `region_end`.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_renew(who: T::AccountId, core: CoreIndex) -&gt; <span class="prelude-ty">Result</span>&lt;CoreIndex, DispatchError&gt; {
 		<span class="kw">let </span>config = Configuration::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::Uninitialized)<span class="question-mark">?</span>;
@@ -786,14 +792,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>sale = SaleInfo::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::NoSales)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::ensure_cores_for_sale(<span class="kw-2">&amp;</span>status, <span class="kw-2">&amp;</span>sale)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>renewal_id = AllowedRenewalId { core, when: sale.region_begin };
-		<span class="kw">let </span>record = AllowedRenewals::&lt;T&gt;::get(renewal_id).ok_or(Error::&lt;T&gt;::NotAllowed)<span class="question-mark">?</span>;
+		<span class="kw">let </span>renewal_id = PotentialRenewalId { core, when: sale.region_begin };
+		<span class="kw">let </span>record = PotentialRenewals::&lt;T&gt;::get(renewal_id).ok_or(Error::&lt;T&gt;::NotAllowed)<span class="question-mark">?</span>;
 		<span class="kw">let </span>workload =
 			record.completion.drain_complete().ok_or(Error::&lt;T&gt;::IncompleteAssignment)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>old_core = core;
-		<span class="kw">let </span>core = sale.first_core.saturating_add(sale.cores_sold);
-		<span class="self">Self</span>::charge(<span class="kw-2">&amp;</span>who, record.price)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>core = <span class="self">Self</span>::purchase_core(<span class="kw-2">&amp;</span>who, record.price, <span class="kw-2">&amp;mut </span>sale)<span class="question-mark">?</span>;
+
 		<span class="self">Self</span>::deposit_event(Event::Renewed {
 			who,
 			old_core,
@@ -804,19 +811,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			workload: workload.clone(),
 		});
 
-		sale.cores_sold.saturating_inc();
-
 		Workplan::&lt;T&gt;::insert((sale.region_begin, core), <span class="kw-2">&amp;</span>workload);
 
 		<span class="kw">let </span>begin = sale.region_end;
 		<span class="kw">let </span>price_cap = record.price + config.renewal_bump * record.price;
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">let </span>price = <span class="self">Self</span>::sale_price(<span class="kw-2">&amp;</span>sale, now).min(price_cap);
-		<span class="kw">let </span>new_record = AllowedRenewalRecord { price, completion: Complete(workload) };
-		AllowedRenewals::&lt;T&gt;::remove(renewal_id);
-		AllowedRenewals::&lt;T&gt;::insert(AllowedRenewalId { core, when: begin }, <span class="kw-2">&amp;</span>new_record);
+		<span class="macro">log::debug!</span>(
+			<span class="string">"Renew with: sale price: {:?}, price cap: {:?}, old price: {:?}"</span>,
+			price,
+			price_cap,
+			record.price
+		);
+		<span class="kw">let </span>new_record = PotentialRenewalRecord { price, completion: Complete(workload) };
+		PotentialRenewals::&lt;T&gt;::remove(renewal_id);
+		PotentialRenewals::&lt;T&gt;::insert(PotentialRenewalId { core, when: begin }, <span class="kw-2">&amp;</span>new_record);
 		SaleInfo::&lt;T&gt;::put(<span class="kw-2">&amp;</span>sale);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(workload) = new_record.completion.drain_complete() {
+			<span class="macro">log::debug!</span>(<span class="string">"Recording renewable price for next run: {:?}"</span>, price);
 			<span class="self">Self</span>::deposit_event(Event::Renewable { core, price, begin, workload });
 		}
 		<span class="prelude-val">Ok</span>(core)
@@ -924,17 +936,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>duration = region.end.saturating_sub(region_id.begin);
 			<span class="kw">if </span>duration == config.region_length &amp;&amp; finality == Finality::Final {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(price) = region.paid {
-					<span class="kw">let </span>renewal_id = AllowedRenewalId { core: region_id.core, when: region.end };
-					<span class="kw">let </span>assigned = <span class="kw">match </span>AllowedRenewals::&lt;T&gt;::get(renewal_id) {
-						<span class="prelude-val">Some</span>(AllowedRenewalRecord { completion: Partial(w), price: p })
+					<span class="kw">let </span>renewal_id = PotentialRenewalId { core: region_id.core, when: region.end };
+					<span class="kw">let </span>assigned = <span class="kw">match </span>PotentialRenewals::&lt;T&gt;::get(renewal_id) {
+						<span class="prelude-val">Some</span>(PotentialRenewalRecord { completion: Partial(w), price: p })
 							<span class="kw">if </span>price == p =&gt;
 							w,
 						<span class="kw">_ </span>=&gt; CoreMask::void(),
 					} | region_id.mask;
 					<span class="kw">let </span>workload =
 						<span class="kw">if </span>assigned.is_complete() { Complete(workplan) } <span class="kw">else </span>{ Partial(assigned) };
-					<span class="kw">let </span>record = AllowedRenewalRecord { price, completion: workload };
-					AllowedRenewals::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>renewal_id, <span class="kw-2">&amp;</span>record);
+					<span class="kw">let </span>record = PotentialRenewalRecord { price, completion: workload };
+					<span class="comment">// Note: This entry alone does not yet actually allow renewals (the completion
+					// status has to be complete for `do_renew` to accept it).
+					</span>PotentialRenewals::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>renewal_id, <span class="kw-2">&amp;</span>record);
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(workload) = record.completion.drain_complete() {
 						<span class="self">Self</span>::deposit_event(Event::Renewable {
 							core: region_id.core,
@@ -1087,10 +1101,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_drop_renewal(core: CoreIndex, when: Timeslice) -&gt; DispatchResult {
 		<span class="kw">let </span>status = Status::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::Uninitialized)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(status.last_committed_timeslice &gt;= when, Error::&lt;T&gt;::StillValid);
-		<span class="kw">let </span>id = AllowedRenewalId { core, when };
-		<span class="macro">ensure!</span>(AllowedRenewals::&lt;T&gt;::contains_key(id), Error::&lt;T&gt;::UnknownRenewal);
-		AllowedRenewals::&lt;T&gt;::remove(id);
-		<span class="self">Self</span>::deposit_event(Event::AllowedRenewalDropped { core, when });
+		<span class="kw">let </span>id = PotentialRenewalId { core, when };
+		<span class="macro">ensure!</span>(PotentialRenewals::&lt;T&gt;::contains_key(id), Error::&lt;T&gt;::UnknownRenewal);
+		PotentialRenewals::&lt;T&gt;::remove(id);
+		<span class="self">Self</span>::deposit_event(Event::PotentialRenewalDropped { core, when });
 		<span class="prelude-val">Ok</span>(())
 	}
 

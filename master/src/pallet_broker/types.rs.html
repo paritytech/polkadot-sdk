@@ -440,6 +440,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -594,25 +601,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// The identity of a possible Core workload renewal.
+<span class="doccomment">/// The identity of a possibly renewable Core workload.
 </span><span class="attr">#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-</span><span class="kw">pub struct </span>AllowedRenewalId {
+</span><span class="kw">pub struct </span>PotentialRenewalId {
 	<span class="doccomment">/// The core whose workload at the sale ending with `when` may be renewed to begin at `when`.
 	</span><span class="kw">pub </span>core: CoreIndex,
 	<span class="doccomment">/// The point in time that the renewable workload on `core` ends and a fresh renewal may begin.
 	</span><span class="kw">pub </span>when: Timeslice,
 }
 
-<span class="doccomment">/// A record of an allowed renewal.
+<span class="doccomment">/// A record of a potential renewal.
+///
+/// The renewal will only actually be allowed if `CompletionStatus` is `Complete` at the time of
+/// renewal.
 </span><span class="attr">#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-</span><span class="kw">pub struct </span>AllowedRenewalRecord&lt;Balance&gt; {
+</span><span class="kw">pub struct </span>PotentialRenewalRecord&lt;Balance&gt; {
 	<span class="doccomment">/// The price for which the next renewal can be made.
 	</span><span class="kw">pub </span>price: Balance,
 	<span class="doccomment">/// The workload which will be scheduled on the Core in the case a renewal is made, or if
 	/// incomplete, then the parts of the core which have been scheduled.
 	</span><span class="kw">pub </span>completion: CompletionStatus,
 }
-<span class="kw">pub type </span>AllowedRenewalRecordOf&lt;T&gt; = AllowedRenewalRecord&lt;BalanceOf&lt;T&gt;&gt;;
+<span class="kw">pub type </span>PotentialRenewalRecordOf&lt;T&gt; = PotentialRenewalRecord&lt;BalanceOf&lt;T&gt;&gt;;
 
 <span class="doccomment">/// General status of the system.
 </span><span class="attr">#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -653,7 +663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The length in blocks of the Leadin Period (where the price is decreasing).
 	</span><span class="kw">pub </span>leadin_length: BlockNumber,
 	<span class="doccomment">/// The price of Bulk Coretime after the Leadin Period.
-	</span><span class="kw">pub </span>price: Balance,
+	</span><span class="kw">pub </span>end_price: Balance,
 	<span class="doccomment">/// The first timeslice of the Regions which are being sold in this sale.
 	</span><span class="kw">pub </span>region_begin: Timeslice,
 	<span class="doccomment">/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e. One
@@ -667,8 +677,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The index of the first core which is for sale. Core of Regions which are sold have
 	/// incrementing indices from this.
 	</span><span class="kw">pub </span>first_core: CoreIndex,
-	<span class="doccomment">/// The latest price at which Bulk Coretime was purchased until surpassing the ideal number of
-	/// cores were sold.
+	<span class="doccomment">/// The price at which cores have been sold out.
+	///
+	/// Will only be `None` if no core was offered for sale.
 	</span><span class="kw">pub </span>sellout_price: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
 	<span class="doccomment">/// Number of cores which have been sold; never more than cores_offered.
 	</span><span class="kw">pub </span>cores_sold: CoreIndex,
@@ -705,8 +716,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>leadin_length: BlockNumber,
 	<span class="doccomment">/// The length in timeslices of Regions which are up for sale in forthcoming sales.
 	</span><span class="kw">pub </span>region_length: Timeslice,
-	<span class="doccomment">/// The proportion of cores available for sale which should be sold in order for the price
-	/// to remain the same in the next sale.
+	<span class="doccomment">/// The proportion of cores available for sale which should be sold.
+	///
+	/// If more cores are sold than this, then further sales will no longer be considered in
+	/// determining the sellout price. In other words the sellout price will be the last price
+	/// paid, without going over this limit.
 	</span><span class="kw">pub </span>ideal_bulk_proportion: Perbill,
 	<span class="doccomment">/// An artificial limit to the number of cores which are allowed to be sold. If `Some` then
 	/// no more cores will be sold than this.

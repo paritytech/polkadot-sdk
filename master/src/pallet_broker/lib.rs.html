@@ -963,6 +963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#812" id="812">812</a>
 <a href="#813" id="813">813</a>
 <a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1030,7 +1031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_runtime::traits::{Convert, ConvertBack};
 	<span class="kw">use </span>sp_std::vec::Vec;
 
-	<span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">1</span>);
+	<span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">2</span>);
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1057,7 +1058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>Coretime: CoretimeInterface;
 
 		<span class="doccomment">/// The algorithm to determine the next price on the basis of market performance.
-		</span><span class="kw">type </span>PriceAdapter: AdaptPrice;
+		</span><span class="kw">type </span>PriceAdapter: AdaptPrice&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
@@ -1101,10 +1102,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>SaleInfo&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, SaleInfoRecordOf&lt;T&gt;, OptionQuery&gt;;
 
-	<span class="doccomment">/// Records of allowed renewals.
+	<span class="doccomment">/// Records of potential renewals.
+	///
+	/// Renewals will only actually be allowed if `CompletionStatus` is actually `Complete`.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>AllowedRenewals&lt;T&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, AllowedRenewalId, AllowedRenewalRecordOf&lt;T&gt;, OptionQuery&gt;;
+	</span><span class="kw">pub type </span>PotentialRenewals&lt;T&gt; =
+		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, PotentialRenewalId, PotentialRenewalRecordOf&lt;T&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// The current (unassigned or provisionally assigend) Regions.
 	</span><span class="attr">#[pallet::storage]
@@ -1255,14 +1258,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="doccomment">/// The price of Bulk Coretime at the beginning of the Leadin Period.
 			</span>start_price: BalanceOf&lt;T&gt;,
 			<span class="doccomment">/// The price of Bulk Coretime after the Leadin Period.
-			</span>regular_price: BalanceOf&lt;T&gt;,
+			</span>end_price: BalanceOf&lt;T&gt;,
 			<span class="doccomment">/// The first timeslice of the Regions which are being sold in this sale.
 			</span>region_begin: Timeslice,
 			<span class="doccomment">/// The timeslice on which the Regions which are being sold in the sale terminate.
 			/// (i.e. One after the last timeslice which the Regions control.)
 			</span>region_end: Timeslice,
-			<span class="doccomment">/// The number of cores we want to sell, ideally. Selling this amount would result in
-			/// no change to the price for the next sale.
+			<span class="doccomment">/// The number of cores we want to sell, ideally.
 			</span>ideal_cores_sold: CoreIndex,
 			<span class="doccomment">/// Number of cores which are/have been offered for sale.
 			</span>cores_offered: CoreIndex,
@@ -1378,7 +1380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>assignment: Vec&lt;(CoreAssignment, PartsOf57600)&gt;,
 		},
 		<span class="doccomment">/// Some historical Instantaneous Core Pool payment record has been dropped.
-		</span>AllowedRenewalDropped {
+		</span>PotentialRenewalDropped {
 			<span class="doccomment">/// The timeslice whose renewal is no longer available.
 			</span>when: Timeslice,
 			<span class="doccomment">/// The core whose workload is no longer available to be renewed for `when`.
@@ -1523,7 +1525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Begin the Bulk Coretime sales rotation.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
-		/// - `initial_price`: The price of Bulk Coretime in the first sale.
+		/// - `end_price`: The price after the leadin period of Bulk Coretime in the first sale.
 		/// - `extra_cores`: Number of extra cores that should be requested on top of the cores
 		///   required for `Reservations` and `Leases`.
 		///
@@ -1535,11 +1537,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		))]
 		</span><span class="kw">pub fn </span>start_sales(
 			origin: OriginFor&lt;T&gt;,
-			initial_price: BalanceOf&lt;T&gt;,
+			end_price: BalanceOf&lt;T&gt;,
 			extra_cores: CoreIndex,
 		) -&gt; DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::do_start_sales(initial_price, extra_cores)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::do_start_sales(end_price, extra_cores)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}
 

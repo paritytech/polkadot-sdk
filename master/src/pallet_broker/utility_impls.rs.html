@@ -270,6 +270,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -335,13 +354,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>sale_price(sale: <span class="kw-2">&amp;</span>SaleInfoRecordOf&lt;T&gt;, now: BlockNumberFor&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
 		<span class="kw">let </span>num = now.saturating_sub(sale.sale_start).min(sale.leadin_length).saturated_into();
 		<span class="kw">let </span>through = FixedU64::from_rational(num, sale.leadin_length.saturated_into());
-		T::PriceAdapter::leadin_factor_at(through).saturating_mul_int(sale.price)
+		T::PriceAdapter::leadin_factor_at(through).saturating_mul_int(sale.end_price)
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>charge(who: <span class="kw-2">&amp;</span>T::AccountId, amount: BalanceOf&lt;T&gt;) -&gt; DispatchResult {
 		<span class="kw">let </span>credit = T::Currency::withdraw(<span class="kw-2">&amp;</span>who, amount, Exact, Expendable, Polite)<span class="question-mark">?</span>;
 		T::OnRevenue::on_unbalanced(credit);
 		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="doccomment">/// Buy a core at the specified price (price is to be determined by the caller).
+	///
+	/// Note: It is the responsibility of the caller to write back the changed `SaleInfoRecordOf` to
+	/// storage.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>purchase_core(
+		who: <span class="kw-2">&amp;</span>T::AccountId,
+		price: BalanceOf&lt;T&gt;,
+		sale: <span class="kw-2">&amp;mut </span>SaleInfoRecordOf&lt;T&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;CoreIndex, DispatchError&gt; {
+		<span class="self">Self</span>::charge(who, price)<span class="question-mark">?</span>;
+		<span class="macro">log::debug!</span>(<span class="string">"Purchased core at: {:?}"</span>, price);
+		<span class="kw">let </span>core = sale.first_core.saturating_add(sale.cores_sold);
+		sale.cores_sold.saturating_inc();
+		<span class="kw">if </span>sale.cores_sold &lt;= sale.ideal_cores_sold || sale.sellout_price.is_none() {
+			sale.sellout_price = <span class="prelude-val">Some</span>(price);
+		}
+		<span class="prelude-val">Ok</span>(core)
 	}
 
 	<span class="kw">pub fn </span>issue(

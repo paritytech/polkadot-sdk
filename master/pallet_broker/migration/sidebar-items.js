@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"type":["MigrateV0ToV1"]};
+window.SIDEBAR_ITEMS = {"type":["MigrateV0ToV1","MigrateV1ToV2"]};

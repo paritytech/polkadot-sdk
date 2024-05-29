@@ -1310,8 +1310,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Event::SaleInitialized {
 				sale_start: <span class="number">2u32</span>.into(),
 				leadin_length: <span class="number">1u32</span>.into(),
-				start_price: <span class="number">20u32</span>.into(),
-				regular_price: <span class="number">10u32</span>.into(),
+				start_price: <span class="number">1000u32</span>.into(),
+				end_price: <span class="number">10u32</span>.into(),
 				region_begin: latest_region_begin + config.region_length,
 				region_end: latest_region_begin + config.region_length * <span class="number">2</span>,
 				ideal_cores_sold: <span class="number">0</span>,
@@ -1384,8 +1384,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller), region.core);
 
-		<span class="kw">let </span>id = AllowedRenewalId { core: region.core, when: region.begin + region_len * <span class="number">2 </span>};
-		<span class="macro">assert!</span>(AllowedRenewals::&lt;T&gt;::get(id).is_some());
+		<span class="kw">let </span>id = PotentialRenewalId { core: region.core, when: region.begin + region_len * <span class="number">2 </span>};
+		<span class="macro">assert!</span>(PotentialRenewals::&lt;T&gt;::get(id).is_some());
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1766,20 +1766,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(T::TimeslicePeriod::get() * (region_len * <span class="number">3</span>).into()).try_into().ok().unwrap(),
 		);
 
-		<span class="kw">let </span>id = AllowedRenewalId { core, when };
-		<span class="kw">let </span>record = AllowedRenewalRecord {
+		<span class="kw">let </span>id = PotentialRenewalId { core, when };
+		<span class="kw">let </span>record = PotentialRenewalRecord {
 			price: <span class="number">1u32</span>.into(),
 			completion: CompletionStatus::Complete(new_schedule()),
 		};
-		AllowedRenewals::&lt;T&gt;::insert(id, record);
+		PotentialRenewals::&lt;T&gt;::insert(id, record);
 
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller), core, when);
 
-		<span class="macro">assert!</span>(AllowedRenewals::&lt;T&gt;::get(id).is_none());
-		assert_last_event::&lt;T&gt;(Event::AllowedRenewalDropped { core, when }.into());
+		<span class="macro">assert!</span>(PotentialRenewals::&lt;T&gt;::get(id).is_none());
+		assert_last_event::&lt;T&gt;(Event::PotentialRenewalDropped { core, when }.into());
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1872,12 +1872,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>config = new_config_record::&lt;T&gt;();
 
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
-		<span class="kw">let </span>price = <span class="number">10u32</span>.into();
+		<span class="kw">let </span>end_price = <span class="number">10u32</span>.into();
 		<span class="kw">let </span>commit_timeslice = Broker::&lt;T&gt;::latest_timeslice_ready_to_commit(<span class="kw-2">&amp;</span>config);
 		<span class="kw">let </span>sale = SaleInfoRecordOf::&lt;T&gt; {
 			sale_start: now,
 			leadin_length: Zero::zero(),
-			price,
+			end_price,
 			sellout_price: <span class="prelude-val">None</span>,
 			region_begin: commit_timeslice,
 			region_end: commit_timeslice.saturating_add(config.region_length),
@@ -1911,8 +1911,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Event::SaleInitialized {
 				sale_start: <span class="number">2u32</span>.into(),
 				leadin_length: <span class="number">1u32</span>.into(),
-				start_price: <span class="number">20u32</span>.into(),
-				regular_price: <span class="number">10u32</span>.into(),
+				start_price: <span class="number">1000u32</span>.into(),
+				end_price: <span class="number">10u32</span>.into(),
 				region_begin: sale.region_begin + config.region_length,
 				region_end: sale.region_end + config.region_length,
 				ideal_cores_sold: <span class="number">0</span>,

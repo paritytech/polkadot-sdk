@@ -471,16 +471,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -500,10 +490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, weights::WeightMeter};
-<span class="kw">use </span>sp_arithmetic::{
-	traits::{One, SaturatedConversion, Saturating, Zero},
-	FixedPointNumber,
-};
+<span class="kw">use </span>sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 <span class="kw">use </span>sp_runtime::traits::ConvertBack;
 <span class="kw">use </span>sp_std::{vec, vec::Vec};
 <span class="kw">use </span>CompletionStatus::Complete;
@@ -646,31 +633,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		InstaPoolIo::&lt;T&gt;::mutate(old_sale.region_end, |r| r.system.saturating_reduce(old_pooled));
 
 		<span class="comment">// Calculate the start price for the upcoming sale.
-		</span><span class="kw">let </span>price = {
-			<span class="kw">let </span>offered = old_sale.cores_offered;
-			<span class="kw">let </span>ideal = old_sale.ideal_cores_sold;
-			<span class="kw">let </span>sold = old_sale.cores_sold;
+		</span><span class="kw">let </span>new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(<span class="kw-2">&amp;</span>old_sale));
 
-			<span class="kw">let </span>maybe_purchase_price = <span class="kw">if </span>offered == <span class="number">0 </span>{
-				<span class="comment">// No cores offered for sale - no purchase price.
-				</span><span class="prelude-val">None
-			</span>} <span class="kw">else if </span>sold &gt;= ideal {
-				<span class="comment">// Sold more than the ideal amount. We should look for the last purchase price
-				// before the sell-out. If there was no purchase at all, then we avoid having a
-				// price here so that we make no alterations to it (since otherwise we would
-				// increase it).
-				</span>old_sale.sellout_price
-			} <span class="kw">else </span>{
-				<span class="comment">// Sold less than the ideal - we fall back to the regular price.
-				</span><span class="prelude-val">Some</span>(old_sale.price)
-			};
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(purchase_price) = maybe_purchase_price {
-				T::PriceAdapter::adapt_price(sold.min(offered), ideal, offered)
-					.saturating_mul_int(purchase_price)
-			} <span class="kw">else </span>{
-				old_sale.price
-			}
-		};
+		<span class="macro">log::debug!</span>(
+			<span class="string">"Rotated sale, new prices: {:?}, {:?}"</span>,
+			new_prices.end_price,
+			new_prices.target_price
+		);
 
 		<span class="comment">// Set workload for the reserved (system, probably) workloads.
 		</span><span class="kw">let </span>region_begin = old_sale.region_end;
@@ -703,12 +672,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>expire = until &lt; region_end;
 			<span class="kw">if </span>expire {
 				<span class="comment">// last time for this one - make it renewable in the next sale.
-				</span><span class="kw">let </span>renewal_id = AllowedRenewalId { core: first_core, when: region_end };
-				<span class="kw">let </span>record = AllowedRenewalRecord { price, completion: Complete(schedule) };
-				AllowedRenewals::&lt;T&gt;::insert(renewal_id, <span class="kw-2">&amp;</span>record);
+				</span><span class="kw">let </span>renewal_id = PotentialRenewalId { core: first_core, when: region_end };
+				<span class="kw">let </span>record = PotentialRenewalRecord {
+					price: new_prices.target_price,
+					completion: Complete(schedule),
+				};
+				PotentialRenewals::&lt;T&gt;::insert(renewal_id, <span class="kw-2">&amp;</span>record);
 				<span class="self">Self</span>::deposit_event(Event::Renewable {
 					core: first_core,
-					price,
+					price: new_prices.target_price,
 					begin: region_end,
 					workload: record.completion.drain_complete().unwrap_or_default(),
 				});
@@ -727,12 +699,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>sale_start = now.saturating_add(config.interlude_length);
 		<span class="kw">let </span>leadin_length = config.leadin_length;
 		<span class="kw">let </span>ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered <span class="kw">as </span>u32) <span class="kw">as </span>u16;
+		<span class="kw">let </span>sellout_price = <span class="kw">if </span>cores_offered &gt; <span class="number">0 </span>{
+			<span class="comment">// No core sold -&gt; price was too high -&gt; we have to adjust downwards.
+			</span><span class="prelude-val">Some</span>(new_prices.end_price)
+		} <span class="kw">else </span>{
+			<span class="prelude-val">None
+		</span>};
+
 		<span class="comment">// Update SaleInfo
 		</span><span class="kw">let </span>new_sale = SaleInfoRecord {
 			sale_start,
 			leadin_length,
-			price,
-			sellout_price: <span class="prelude-val">None</span>,
+			end_price: new_prices.end_price,
+			sellout_price,
 			region_begin,
 			region_end,
 			first_core,
@@ -740,12 +719,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			cores_offered,
 			cores_sold: <span class="number">0</span>,
 		};
+
 		SaleInfo::&lt;T&gt;::put(<span class="kw-2">&amp;</span>new_sale);
 		<span class="self">Self</span>::deposit_event(Event::SaleInitialized {
 			sale_start,
 			leadin_length,
 			start_price: <span class="self">Self</span>::sale_price(<span class="kw-2">&amp;</span>new_sale, now),
-			regular_price: price,
+			end_price: new_prices.end_price,
 			region_begin,
 			region_end,
 			ideal_cores_sold,
