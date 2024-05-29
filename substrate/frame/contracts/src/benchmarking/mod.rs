@@ -1341,6 +1341,7 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
+		assert_eq!(T::Currency::balance(&addr), Pallet::<T>::min_balance() + value);
 		Ok(())
 	}
 

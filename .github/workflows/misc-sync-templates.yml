@@ -148,12 +148,12 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
           add-paths: |
             ./*
-          title: "[Don't merge] Update the ${{ matrix.template }} template"
+          title: "[Don't merge] Update the ${{ matrix.template }} template to ${{ github.event.inputs.crate_release_version }}"
           body: "The template has NOT been successfully built and needs to be inspected."
-          branch: "update-template/${{ github.event_name }}"
+          branch: "update-template/${{ github.event.inputs.crate_release_version }}"
       - name: Push changes
         run: |
           git add -A .
-          git commit --allow-empty -m "Update template triggered by ${{ github.event_name }}"
+          git commit --allow-empty -m "Update to ${{ github.event.inputs.crate_release_version }} triggered by ${{ github.event_name }}"
           git push
         working-directory: "${{ env.template-path }}"
