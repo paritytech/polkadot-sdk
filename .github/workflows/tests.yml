@@ -19,7 +19,6 @@ env:
   FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
 
 jobs:
-
   changes:
     permissions:
       pull-requests: read
@@ -40,7 +39,7 @@ jobs:
 
   quick-benchmarks:
     needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}    
+    if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
     container:
@@ -55,11 +54,11 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: time forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
-  
+
   # cf https://github.com/paritytech/polkadot-sdk/issues/1652
   test-syscalls:
     needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}    
+    if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
     container:
@@ -81,10 +80,10 @@ jobs:
     # - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
     #   printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
     #   fi
-  
+
   cargo-check-all-benches:
     needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}    
+    if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
     container:
