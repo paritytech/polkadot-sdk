@@ -65,7 +65,7 @@ pub mod pallet {
 	use sp_runtime::traits::{Convert, ConvertBack};
 	use sp_std::vec::Vec;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -92,7 +92,7 @@ pub mod pallet {
 		type Coretime: CoretimeInterface;
 
 		/// The algorithm to determine the next price on the basis of market performance.
-		type PriceAdapter: AdaptPrice;
+		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
 
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
@@ -136,10 +136,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
 
-	/// Records of allowed renewals.
+	/// Records of potential renewals.
+	///
+	/// Renewals will only actually be allowed if `CompletionStatus` is actually `Complete`.
 	#[pallet::storage]
-	pub type AllowedRenewals<T> =
-		StorageMap<_, Twox64Concat, AllowedRenewalId, AllowedRenewalRecordOf<T>, OptionQuery>;
+	pub type PotentialRenewals<T> =
+		StorageMap<_, Twox64Concat, PotentialRenewalId, PotentialRenewalRecordOf<T>, OptionQuery>;
 
 	/// The current (unassigned or provisionally assigend) Regions.
 	#[pallet::storage]
@@ -290,14 +292,13 @@ pub mod pallet {
 			/// The price of Bulk Coretime at the beginning of the Leadin Period.
 			start_price: BalanceOf<T>,
 			/// The price of Bulk Coretime after the Leadin Period.
-			regular_price: BalanceOf<T>,
+			end_price: BalanceOf<T>,
 			/// The first timeslice of the Regions which are being sold in this sale.
 			region_begin: Timeslice,
 			/// The timeslice on which the Regions which are being sold in the sale terminate.
 			/// (i.e. One after the last timeslice which the Regions control.)
 			region_end: Timeslice,
-			/// The number of cores we want to sell, ideally. Selling this amount would result in
-			/// no change to the price for the next sale.
+			/// The number of cores we want to sell, ideally.
 			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
@@ -413,7 +414,7 @@ pub mod pallet {
 			assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		},
 		/// Some historical Instantaneous Core Pool payment record has been dropped.
-		AllowedRenewalDropped {
+		PotentialRenewalDropped {
 			/// The timeslice whose renewal is no longer available.
 			when: Timeslice,
 			/// The core whose workload is no longer available to be renewed for `when`.
@@ -558,7 +559,7 @@ pub mod pallet {
 		/// Begin the Bulk Coretime sales rotation.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
-		/// - `initial_price`: The price of Bulk Coretime in the first sale.
+		/// - `end_price`: The price after the leadin period of Bulk Coretime in the first sale.
 		/// - `extra_cores`: Number of extra cores that should be requested on top of the cores
 		///   required for `Reservations` and `Leases`.
 		///
@@ -570,11 +571,11 @@ pub mod pallet {
 		))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
-			initial_price: BalanceOf<T>,
+			end_price: BalanceOf<T>,
 			extra_cores: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_start_sales(initial_price, extra_cores)?;
+			Self::do_start_sales(end_price, extra_cores)?;
 			Ok(Pays::No.into())
 		}
 
