@@ -1,14 +1,14 @@
 [package]
 name = "staging-chain-spec-builder"
-version = "0.1.0"
+version = "1.6.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-publish = false
-description = "staging-chain-spec-builder (polkadot v1.12.0)"
+publish = true
+description = "Utility for building chain-specification files for Substrate-based runtimes based on `sp-genesis-builder`"
 
 [lints]
 workspace = true
