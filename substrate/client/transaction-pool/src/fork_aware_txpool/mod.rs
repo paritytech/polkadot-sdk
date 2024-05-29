@@ -24,4 +24,4 @@ mod import_notification_sink;
 mod multi_view_listener;
 mod view_revalidation;
 
-pub use fork_aware_txpool::{notification_future, ForkAwareTxPool, ImportNotificationTask};
+pub use fork_aware_txpool::{ForkAwareTxPool, ImportNotificationTask};

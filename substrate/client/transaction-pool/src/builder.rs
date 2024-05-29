@@ -1,5 +1,25 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+//! Utitlity for building substrate transaction pool trait object.
+
 use sp_runtime::traits::Block as BlockT;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use crate::{
 	fork_aware_txpool::fork_aware_txpool::FullPool as ForkAwareFullPool, graph::IsValidator,
@@ -61,11 +81,35 @@ impl TransactionPoolOptions {
 
 		TransactionPoolOptions { options, txpool_type }
 	}
+
+	/// Creates predefined options for benchmarking
+	pub fn new_for_benchmarks() -> TransactionPoolOptions {
+		TransactionPoolOptions {
+			options: crate::graph::Options {
+				ready: crate::graph::base_pool::Limit {
+					count: 100_000,
+					total_bytes: 100 * 1024 * 1024,
+				},
+				future: crate::graph::base_pool::Limit {
+					count: 100_000,
+					total_bytes: 100 * 1024 * 1024,
+				},
+				reject_future_transactions: false,
+				ban_time: Duration::from_secs(30 * 60),
+			},
+			txpool_type: TransactionPoolType::SingleState,
+		}
+	}
 }
 
 use crate::{common::api::FullChainApi, graph::ChainApi};
 
-pub trait FullClientTransactionPool<Client, Block>:
+/// `FullClientTransactionPool` is a trait that combines the functionality of
+/// `MaintainedTransactionPool` and `LocalTransactionPool` for a given `Client` and `Block`.
+///
+/// This trait defines the requirements for a full client transaction pool, ensuring
+/// that it can handle transactions submission and maintenance.
+pub trait FullClientTransactionPool<Block, Client>:
 	MaintainedTransactionPool<
 		Block = Block,
 		Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
@@ -91,7 +135,7 @@ where
 {
 }
 
-impl<Client, Block, P> FullClientTransactionPool<Client, Block> for P
+impl<Block, Client, P> FullClientTransactionPool<Block, Client> for P
 where
 	Block: BlockT,
 	Client: sp_api::ProvideRuntimeApi<Block>
@@ -117,15 +161,19 @@ where
 {
 }
 
-pub type TransactionPoolImpl<Client, Block> = dyn FullClientTransactionPool<Client, Block>;
+/// The type alias for a dynamic trait object implementing
+/// `FullClientTransactionPool` with the given `Client` and `Block` types.
+///
+/// This trait object abstracts away the specific implementations of the transaction pool.
+pub type TransactionPoolImpl<Block, Client> = dyn FullClientTransactionPool<Block, Client>;
 
 /// Builder allowing to create specific instance of transaction pool.
-pub struct Builder<Client, Block> {
+pub struct Builder<Block, Client> {
 	options: TransactionPoolOptions,
 	_phantom: PhantomData<(Client, Block)>,
 }
 
-impl<Client, Block> Builder<Client, Block>
+impl<Client, Block> Builder<Block, Client>
 where
 	Block: BlockT,
 	Client: sp_api::ProvideRuntimeApi<Block>
@@ -142,7 +190,7 @@ where
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
 	/// Creates new instance of `Builder`
-	pub fn new() -> Builder<Client, Block> {
+	pub fn new() -> Builder<Block, Client> {
 		Builder { options: Default::default(), _phantom: Default::default() }
 	}
 
@@ -159,7 +207,7 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
-	) -> Arc<TransactionPoolImpl<Client, Block>> {
+	) -> Arc<TransactionPoolImpl<Block, Client>> {
 		match self.options.txpool_type {
 			TransactionPoolType::SingleState => SingleStateFullPool::new_full(
 				self.options.options,

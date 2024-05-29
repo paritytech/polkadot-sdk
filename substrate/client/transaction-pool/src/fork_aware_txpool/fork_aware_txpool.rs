@@ -428,8 +428,7 @@ where
 		self.views
 			.read()
 			.get(&at)
-			.map(|v| v.pool.validated_pool().ready_by_hash(tx_hash))
-			.flatten()
+			.and_then(|v| v.pool.validated_pool().ready_by_hash(tx_hash))
 	}
 }
 
@@ -1708,7 +1707,7 @@ where
 		match event {
 			ChainEvent::NewBestBlock { hash, .. } => {},
 			ChainEvent::Finalized { hash, ref tree_route } => {
-				self.handle_finalized(hash, &*tree_route).await;
+				self.handle_finalized(hash, tree_route).await;
 
 				log::trace!(
 					target: LOG_TARGET,
@@ -1729,22 +1728,4 @@ where
 
 		()
 	}
-}
-
-/// Inform the transaction pool about imported and finalized blocks.
-pub async fn notification_future<Client, Pool, Block>(client: Arc<Client>, txpool: Arc<Pool>)
-where
-	Block: BlockT,
-	Client: sc_client_api::BlockchainEvents<Block>,
-	Pool: MaintainedTransactionPool<Block = Block> + ?Sized,
-{
-	let import_stream = client
-		.import_notification_stream()
-		.filter_map(|n| ready(n.try_into().ok()))
-		.fuse();
-	let finality_stream = client.finality_notification_stream().map(Into::into).fuse();
-
-	futures::stream::select(import_stream, finality_stream)
-		.for_each(|evt| txpool.maintain(evt))
-		.await
 }

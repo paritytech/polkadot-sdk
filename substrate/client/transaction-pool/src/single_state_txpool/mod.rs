@@ -22,4 +22,4 @@ mod revalidation;
 pub(crate) mod single_state_txpool;
 
 pub(crate) use single_state_txpool::prune_known_txs_for_block;
-pub use single_state_txpool::BasicPool;
+pub use single_state_txpool::{notification_future, BasicPool, RevalidationType};

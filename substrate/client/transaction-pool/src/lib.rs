@@ -33,17 +33,8 @@ use std::{future::Future, pin::Pin, sync::Arc};
 
 pub(crate) const LOG_TARGET: &str = "txpool";
 
-/// A transaction pool for a full node.
-//todo: clean up:
-// - feature maybe
-// - or command line
-// - or just get rid of old txpool?
-// pub type FullPool<Block, Client> = BasicPool<FullChainApi<Client, Block>, Block>;
-pub type FullPool<Block, Client> =
-	fork_aware_txpool::ForkAwareTxPool<api::FullChainApi<Client, Block>, Block>;
-
-pub use fork_aware_txpool::notification_future;
-pub use graph::{ChainApi, Options};
+pub use graph::{base_pool::Limit as PoolLimit, ChainApi, Options};
+pub use single_state_txpool::{notification_future, RevalidationType};
 
 //benches:
 pub use graph::Pool;
