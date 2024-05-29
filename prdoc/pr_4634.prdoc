@@ -1,0 +1,32 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Implement XcmPaymentApi and DryRunApi on all system parachains
+
+doc:
+  - audience: Runtime User
+    description: |
+      The new XcmPaymentApi and DryRunApi have been implement on all westend and rococo system parachains.
+      You can test them out.
+  - audience: Runtime Dev
+    description: |
+      The new XcmPaymentApi and DryRunApi have been implement on all westend and rococo system parachains.
+      These can be used to build UIs that estimate XCM execution and sending, using libraries like PAPI or PJS.
+
+crates:
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: contracts-rococo-runtime
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
