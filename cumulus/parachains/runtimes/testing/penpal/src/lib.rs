@@ -893,6 +893,7 @@ impl_runtime_apis! {
 			use xcm::prelude::*;
 			pallet_xcm::Pallet::<Runtime>::set_record_xcm(true);
 			let result = call.dispatch(origin.into());
+			pallet_xcm::Pallet::<Runtime>::set_record_xcm(false);
 			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
 			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();

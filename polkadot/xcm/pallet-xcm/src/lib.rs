@@ -2450,6 +2450,7 @@ impl<T: Config> Pallet<T> {
 	{
 		crate::Pallet::<Runtime>::set_record_xcm(true);
 		let result = call.dispatch(origin.into());
+		crate::Pallet::<Runtime>::set_record_xcm(false);
 		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm();
 		let forwarded_xcms = Router::get_messages();
 		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
