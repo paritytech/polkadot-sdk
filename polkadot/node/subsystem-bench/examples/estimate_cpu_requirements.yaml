@@ -12,7 +12,7 @@ TestConfiguration:
     num_no_shows_per_candidate: 0
     workdir_prefix: "/tmp/"
   n_validators: 1000
-  n_cores: 200
+  n_cores: 100
   min_pov_size: 1120
   max_pov_size: 5120
   peer_bandwidth: 524288000000
