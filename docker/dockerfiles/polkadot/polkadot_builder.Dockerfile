@@ -1,5 +1,5 @@
 # This is the build stage for Polkadot. Here we create the binary in a temporary image.
-FROM docker.io/paritytech/ci-linux:production as builder
+FROM docker.io/paritytech/ci-unified:latest as builder
 
 WORKDIR /polkadot
 COPY . /polkadot
@@ -19,7 +19,8 @@ LABEL description="Multistage Docker image for Polkadot: a platform for web3" \
 
 COPY --from=builder /polkadot/target/release/polkadot /usr/local/bin
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /polkadot polkadot && \
+USER root
+RUN useradd -m -u 1001 -U -s /bin/sh -d /polkadot polkadot && \
 	mkdir -p /data /polkadot/.local/share && \
 	chown -R polkadot:polkadot /data && \
 	ln -s /data /polkadot/.local/share/polkadot && \
