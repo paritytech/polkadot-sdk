@@ -6,7 +6,7 @@ title: Runtime apis to help with delegate-stake based Nomination Pools.
 doc:
   - audience: Runtime User
     description: |
-      Introduces a new set of runtime apis to facilitate dapps and wallets in integrating with delegate-stake
+      Introduces a new set of runtime apis to facilitate dapps and wallets to integrate with delegate-stake
       functionalities of Nomination Pools. These apis support pool and member migration, as well as lazy application of
       pending slashes of the pool members.
 
