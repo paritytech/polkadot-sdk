@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717018241575,
+  "lastUpdate": 1717023240977,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5639,6 +5639,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.4876330171001824,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4ab078d6754147ce731523292dd1882f8a7b5775",
+          "message": "pallet-staking: Put tests behind `cfg(debug_assertions)` (#4620)\n\nOtherwise these tests are failing if you don't run with\n`debug_assertions` enabled, which happens if you run tests locally in\nrelease mode.",
+          "timestamp": "2024-05-29T21:23:27Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ab078d6754147ce731523292dd1882f8a7b5775"
+        },
+        "date": 1717023212223,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63550.409999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.693484378820008,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.171930262580127,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.189827579339986,
             "unit": "seconds"
           }
         ]
