@@ -18,4 +18,10 @@ crates:
   - name: kitchensink-runtime
     bump: minor
   - name: pallet-delegated-staking
+    bump: minor
+  - name: sp-staking
+    bump: minor
+  - name: pallet-nomination-pools-benchmarking
     bump: patch
+  - name: pallet-nomination-pools-runtime-api
+    bump: minor
