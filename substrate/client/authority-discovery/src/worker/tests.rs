@@ -258,10 +258,11 @@ fn build_dht_event<Signer: NetworkSigner>(
 	public_key: AuthorityId,
 	key_store: &MemoryKeystore,
 	network: Option<&Signer>,
-	include_creation_time: bool,
+	creation_time: Option<schema::TimestampInfo>,
 ) -> Vec<(KademliaKey, Vec<u8>)> {
 	let serialized_record =
-		serialize_authority_record(serialize_addresses(addresses.into_iter())).unwrap();
+		serialize_authority_record(serialize_addresses(addresses.into_iter()), creation_time)
+			.unwrap();
 
 	let peer_signature = network.map(|n| sign_record_with_peer_id(&serialized_record, n).unwrap());
 	let kv_pairs = sign_record_with_authority_ids(
@@ -269,7 +270,6 @@ fn build_dht_event<Signer: NetworkSigner>(
 		peer_signature,
 		key_store,
 		vec![public_key.into()],
-		include_creation_time,
 	)
 	.unwrap();
 	// There is always a single item in it, because we signed it with a single key
@@ -534,7 +534,7 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 			remote_public_key.clone(),
 			&remote_key_store,
 			None,
-			true,
+			Some(build_creation_time()),
 		)
 		.into_iter()
 		.map(|(key, value)| PeerRecord {
@@ -658,7 +658,7 @@ fn limit_number_of_addresses_added_to_cache_per_authority() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		None,
-		true,
+		Some(build_creation_time()),
 	);
 
 	let cached_remote_addresses = tester.process_value_found(false, kv_pairs).0;
@@ -674,7 +674,7 @@ fn strict_accept_address_with_peer_signature() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		true,
+		Some(build_creation_time()),
 	);
 
 	let cached_remote_addresses = tester.process_value_found(true, kv_pairs).0;
@@ -695,7 +695,7 @@ fn strict_accept_address_without_creation_time() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		false,
+		None,
 	);
 
 	let cached_remote_addresses = tester.process_value_found(true, kv_pairs).0;
@@ -716,7 +716,7 @@ fn keep_last_received_if_no_creation_time() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		false,
+		None,
 	);
 
 	let (cached_remote_addresses, network) = tester.process_value_found(true, kv_pairs);
@@ -738,7 +738,7 @@ fn keep_last_received_if_no_creation_time() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		false,
+		None,
 	);
 
 	let cached_remote_addresses = tester.process_value_found(true, kv_pairs).0;
@@ -763,7 +763,7 @@ fn records_with_incorrectly_signed_creation_time_are_ignored() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		true,
+		Some(build_creation_time()),
 	);
 
 	let (cached_remote_addresses, network) = tester.process_value_found(true, kv_pairs);
@@ -789,7 +789,7 @@ fn records_with_incorrectly_signed_creation_time_are_ignored() {
 		alternative_key.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		true,
+		Some(build_creation_time()),
 	);
 	let kademlia_key = hash_authority_id(tester.remote_authority_public.as_slice());
 	for key in kv_pairs.iter_mut() {
@@ -817,7 +817,7 @@ fn newer_records_overwrite_older_ones() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		true,
+		Some(build_creation_time()),
 	);
 
 	let (cached_remote_addresses, network) = tester.process_value_found(true, kv_pairs);
@@ -840,7 +840,7 @@ fn newer_records_overwrite_older_ones() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		true,
+		Some(build_creation_time()),
 	);
 
 	let cached_remote_addresses = tester.process_value_found(true, kv_pairs).0;
@@ -868,7 +868,7 @@ fn older_records_dont_affect_newer_ones() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		true,
+		Some(build_creation_time()),
 	);
 
 	let new_record = tester.multiaddr_with_peer_id(2);
@@ -877,7 +877,7 @@ fn older_records_dont_affect_newer_ones() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		true,
+		Some(build_creation_time()),
 	);
 
 	let (cached_remote_addresses, network) = tester.process_value_found(true, kv_pairs);
@@ -919,7 +919,7 @@ fn reject_address_with_rogue_peer_signature() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &rogue_remote_node_key }),
-		true,
+		Some(build_creation_time()),
 	);
 
 	let cached_remote_addresses = tester.process_value_found(false, kv_pairs).0;
@@ -938,7 +938,7 @@ fn reject_address_with_invalid_peer_signature() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
-		true,
+		Some(build_creation_time()),
 	);
 	// tamper with the signature
 	let mut record = schema::SignedAuthorityRecord::decode(kv_pairs[0].1.as_slice()).unwrap();
@@ -961,7 +961,7 @@ fn reject_address_without_peer_signature() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		None,
-		true,
+		Some(build_creation_time()),
 	);
 
 	let cached_remote_addresses = tester.process_value_found(true, kv_pairs).0;
@@ -980,7 +980,7 @@ fn do_not_cache_addresses_without_peer_id() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		None,
-		true,
+		Some(build_creation_time()),
 	);
 
 	let cached_remote_addresses = tester.process_value_found(false, kv_pairs).0;
@@ -1129,7 +1129,7 @@ fn lookup_throttling() {
 				remote_key,
 				&remote_key_store,
 				None,
-				true,
+				Some(build_creation_time()),
 			)
 			.into_iter()
 			.map(|(key, value)| PeerRecord {

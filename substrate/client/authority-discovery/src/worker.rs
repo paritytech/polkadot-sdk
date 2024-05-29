@@ -460,7 +460,7 @@ where
 				.set(addresses.len().try_into().unwrap_or(std::u64::MAX));
 		}
 
-		let serialized_record = serialize_authority_record(addresses)?;
+		let serialized_record = serialize_authority_record(addresses, Some(build_creation_time()))?;
 		let peer_signature = sign_record_with_peer_id(&serialized_record, &self.network)?;
 
 		let keys_vec = keys.iter().cloned().collect::<Vec<_>>();
@@ -470,7 +470,6 @@ where
 			Some(peer_signature),
 			key_store.as_ref(),
 			keys_vec,
-			true,
 		)?;
 
 		self.latest_published_kad_keys = kv_pairs.iter().map(|(k, _)| k.clone()).collect();
@@ -622,13 +621,9 @@ where
 
 		let local_peer_id = self.network.local_peer_id();
 
-		let schema::SignedAuthorityRecord {
-			record,
-			auth_signature,
-			peer_signature,
-			creation_time: creation_time_info,
-		} = schema::SignedAuthorityRecord::decode(peer_record.record.value.as_slice())
-			.map_err(Error::DecodingProto)?;
+		let schema::SignedAuthorityRecord { record, auth_signature, peer_signature } =
+			schema::SignedAuthorityRecord::decode(peer_record.record.value.as_slice())
+				.map_err(Error::DecodingProto)?;
 
 		let auth_signature = AuthoritySignature::decode(&mut &auth_signature[..])
 			.map_err(Error::EncodingDecodingScale)?;
@@ -637,27 +632,18 @@ where
 			return Err(Error::VerifyingDhtPayload)
 		}
 
-		if let Some(creation_time_info) = creation_time_info.as_ref() {
-			let creation_time_signature =
-				AuthoritySignature::decode(&mut &creation_time_info.signature[..])
-					.map_err(Error::EncodingDecodingScale)?;
-			if !AuthorityPair::verify(
-				&creation_time_signature,
-				&creation_time_info.timestamp,
-				&authority_id,
-			) {
-				return Err(Error::VerifyingDhtPayloadCreationTime)
-			}
-		}
+		let authority_record = schema::AuthorityRecord::decode(record.as_slice());
 
-		let records_creation_time: u128 = creation_time_info
+		let records_creation_time: u128 = authority_record
 			.as_ref()
+			.ok()
+			.and_then(|a| a.creation_time.as_ref())
 			.map(|creation_time| {
 				u128::decode(&mut &creation_time.timestamp[..]).unwrap_or_default()
 			})
 			.unwrap_or_default(); // 0 is a sane default for records that do not have creation time present.
 
-		let addresses: Vec<Multiaddr> = schema::AuthorityRecord::decode(record.as_slice())
+		let addresses: Vec<Multiaddr> = authority_record
 			.map(|a| a.addresses)
 			.map_err(Error::DecodingProto)?
 			.into_iter()
@@ -854,9 +840,21 @@ fn serialize_addresses(addresses: impl Iterator<Item = Multiaddr>) -> Vec<Vec<u8
 	addresses.map(|a| a.to_vec()).collect()
 }
 
-fn serialize_authority_record(addresses: Vec<Vec<u8>>) -> Result<Vec<u8>> {
+fn build_creation_time() -> schema::TimestampInfo {
+	let creation_time = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.map(|time| time.as_nanos())
+		.unwrap_or_default();
+	schema::TimestampInfo { timestamp: creation_time.encode() }
+}
+
+fn serialize_authority_record(
+	addresses: Vec<Vec<u8>>,
+	creation_time: Option<schema::TimestampInfo>,
+) -> Result<Vec<u8>> {
 	let mut serialized_record = vec![];
-	schema::AuthorityRecord { addresses }
+
+	schema::AuthorityRecord { addresses, creation_time }
 		.encode(&mut serialized_record)
 		.map_err(Error::EncodingProto)?;
 	Ok(serialized_record)
@@ -879,7 +877,6 @@ fn sign_record_with_authority_ids(
 	peer_signature: Option<schema::PeerSignature>,
 	key_store: &dyn Keystore,
 	keys: Vec<AuthorityId>,
-	include_creation_time: bool,
 ) -> Result<Vec<(KademliaKey, Vec<u8>)>> {
 	let mut result = Vec::with_capacity(keys.len());
 
@@ -893,33 +890,10 @@ fn sign_record_with_authority_ids(
 
 		// Scale encode
 		let auth_signature = auth_signature.encode();
-		let creation_time = if include_creation_time {
-			let creation_time = SystemTime::now()
-				.duration_since(UNIX_EPOCH)
-				.map(|time| time.as_nanos())
-				.unwrap_or_default();
-			debug!(target: LOG_TARGET, "Publish address with creation time {:?}", creation_time);
-			let creation_time = creation_time.encode();
-			let creation_time_signature = key_store
-				.sr25519_sign(key_types::AUTHORITY_DISCOVERY, key.as_ref(), &creation_time)
-				.map_err(|e| Error::CannotSign(format!("{}. Key: {:?}", e, key)))?
-				.ok_or_else(|| {
-					Error::CannotSign(format!("Could not find key in keystore. Key: {:?}", key))
-				})?;
-
-			let creation_time = schema::TimestampInfo {
-				timestamp: creation_time,
-				signature: creation_time_signature.encode(),
-			};
-			Some(creation_time)
-		} else {
-			None
-		};
 		let signed_record = schema::SignedAuthorityRecord {
 			record: serialized_record.clone(),
 			auth_signature,
 			peer_signature: peer_signature.clone(),
-			creation_time,
 		}
 		.encode_to_vec();
 

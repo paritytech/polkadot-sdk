@@ -6,6 +6,8 @@ package authority_discovery_v3;
 message AuthorityRecord {
 	// Possibly multiple `MultiAddress`es through which the node can be reached.
 	repeated bytes addresses = 1;
+	// Information about the creation time of the record
+	TimestampInfo creation_time = 2;
 }
 
 message PeerSignature {
@@ -17,8 +19,6 @@ message PeerSignature {
 message TimestampInfo {
 	// Time since UNIX_EPOCH in nanoseconds, scale encoded
 	bytes timestamp = 1;
-	// A signature of the creation time.
-	bytes signature = 2;
 }
 
 // Then we need to serialize the authority record and signature to send them over the wire.
@@ -28,6 +28,4 @@ message SignedAuthorityRecord {
 	// Even if there are multiple `record.addresses`, all of them have the same peer id.
 	// Old versions are missing this field. It is optional in order to provide compatibility both ways.
 	PeerSignature peer_signature = 3;
-	// Information regarding the creation data of this record.
-	TimestampInfo creation_time = 4;
 }

@@ -20,7 +20,12 @@ mod schema_v1 {
 	include!(concat!(env!("OUT_DIR"), "/authority_discovery_v1.rs"));
 }
 
+mod schema_v2 {
+	include!(concat!(env!("OUT_DIR"), "/authority_discovery_v2.rs"));
+}
+
 use super::*;
+use codec::Encode;
 use libp2p::identity::Keypair;
 use prost::Message;
 use sc_network::{Multiaddr, PeerId};
@@ -65,7 +70,7 @@ fn v1_decodes_v2() {
 	let vec_auth_signature = b"Totally valid signature, I promise!".to_vec();
 	let vec_peer_signature = b"Surprisingly hard to crack crypto".to_vec();
 
-	let record_v2 = AuthorityRecord { addresses: vec_addresses.clone() };
+	let record_v2 = schema_v2::AuthorityRecord { addresses: vec_addresses.clone() };
 	let mut vec_record_v2 = vec![];
 	record_v2.encode(&mut vec_record_v2).unwrap();
 	let vec_peer_public = peer_public.encode_protobuf();
@@ -75,7 +80,6 @@ fn v1_decodes_v2() {
 		record: vec_record_v2.clone(),
 		auth_signature: vec_auth_signature.clone(),
 		peer_signature: Some(peer_signature_v2.clone()),
-		creation_time: None,
 	};
 	let mut vec_signed_record_v2 = vec![];
 	signed_record_v2.encode(&mut vec_signed_record_v2).unwrap();
@@ -86,6 +90,82 @@ fn v1_decodes_v2() {
 	assert_eq!(&signed_addresses_v1_decoded.addresses, &vec_record_v2);
 	assert_eq!(&signed_addresses_v1_decoded.signature, &vec_auth_signature);
 
-	let addresses_v2_decoded = AuthorityRecord::decode(vec_record_v2.as_slice()).unwrap();
+	let addresses_v2_decoded =
+		schema_v2::AuthorityRecord::decode(vec_record_v2.as_slice()).unwrap();
 	assert_eq!(&addresses_v2_decoded.addresses, &vec_addresses);
+}
+
+#[test]
+fn v1_decodes_v3() {
+	let peer_secret = Keypair::generate_ed25519();
+	let peer_public = peer_secret.public();
+	let peer_id = peer_public.to_peer_id();
+	let multiaddress: Multiaddr =
+		format!("/ip4/127.0.0.1/tcp/3003/p2p/{}", peer_id).parse().unwrap();
+	let vec_addresses = vec![multiaddress.to_vec()];
+	let vec_auth_signature = b"Totally valid signature, I promise!".to_vec();
+	let vec_peer_signature = b"Surprisingly hard to crack crypto".to_vec();
+
+	let record_v3 = AuthorityRecord {
+		addresses: vec_addresses.clone(),
+		creation_time: Some(TimestampInfo { timestamp: Encode::encode(&55) }),
+	};
+	let mut vec_record_v3 = vec![];
+	record_v3.encode(&mut vec_record_v3).unwrap();
+	let vec_peer_public = peer_public.encode_protobuf();
+	let peer_signature_v3 =
+		PeerSignature { public_key: vec_peer_public, signature: vec_peer_signature };
+	let signed_record_v3 = SignedAuthorityRecord {
+		record: vec_record_v3.clone(),
+		auth_signature: vec_auth_signature.clone(),
+		peer_signature: Some(peer_signature_v3.clone()),
+	};
+	let mut vec_signed_record_v3 = vec![];
+	signed_record_v3.encode(&mut vec_signed_record_v3).unwrap();
+
+	let signed_addresses_v1_decoded =
+		schema_v1::SignedAuthorityAddresses::decode(vec_signed_record_v3.as_slice()).unwrap();
+
+	assert_eq!(&signed_addresses_v1_decoded.addresses, &vec_record_v3);
+	assert_eq!(&signed_addresses_v1_decoded.signature, &vec_auth_signature);
+
+	let addresses_v2_decoded =
+		schema_v2::AuthorityRecord::decode(vec_record_v3.as_slice()).unwrap();
+	assert_eq!(&addresses_v2_decoded.addresses, &vec_addresses);
+}
+
+#[test]
+fn v3_decodes_v2() {
+	let peer_secret = Keypair::generate_ed25519();
+	let peer_public = peer_secret.public();
+	let peer_id = peer_public.to_peer_id();
+	let multiaddress: Multiaddr =
+		format!("/ip4/127.0.0.1/tcp/3003/p2p/{}", peer_id).parse().unwrap();
+	let vec_addresses = vec![multiaddress.to_vec()];
+	let vec_auth_signature = b"Totally valid signature, I promise!".to_vec();
+	let vec_peer_signature = b"Surprisingly hard to crack crypto".to_vec();
+
+	let record_v2 = schema_v2::AuthorityRecord { addresses: vec_addresses.clone() };
+	let mut vec_record_v2 = vec![];
+	record_v2.encode(&mut vec_record_v2).unwrap();
+	let vec_peer_public = peer_public.encode_protobuf();
+	let peer_signature_v2 =
+		schema_v2::PeerSignature { public_key: vec_peer_public, signature: vec_peer_signature };
+	let signed_record_v2 = schema_v2::SignedAuthorityRecord {
+		record: vec_record_v2.clone(),
+		auth_signature: vec_auth_signature.clone(),
+		peer_signature: Some(peer_signature_v2.clone()),
+	};
+	let mut vec_signed_record_v2 = vec![];
+	signed_record_v2.encode(&mut vec_signed_record_v2).unwrap();
+
+	let signed_addresses_v3_decoded =
+		SignedAuthorityRecord::decode(vec_signed_record_v2.as_slice()).unwrap();
+
+	assert_eq!(&signed_addresses_v3_decoded.record, &vec_record_v2);
+	assert_eq!(&signed_addresses_v3_decoded.auth_signature, &vec_auth_signature);
+
+	let addresses_v3_decoded = AuthorityRecord::decode(vec_record_v2.as_slice()).unwrap();
+	assert_eq!(&addresses_v3_decoded.addresses, &vec_addresses);
+	assert_eq!(&addresses_v3_decoded.creation_time, &None);
 }
