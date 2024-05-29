@@ -30,7 +30,7 @@ use crate::{
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
-use pallet_balances::{Error as BalancesError, NegativeImbalance};
+use pallet_balances::Error as BalancesError;
 use primitives::{BlockNumber, SessionIndex, ValidationCode, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
 use sp_std::{
 	cmp::{Ord, Ordering},
@@ -742,11 +742,17 @@ fn revenue_information_fetching_works() {
 		let revenue = OnDemandAssigner::get_revenue();
 		let amt = OnDemandAssigner::revenue_until(11);
 
-		// Revenue for a single order should be recorded.
+		// Revenue until the current block is still zero as "until" is non-inclusive
+		assert_eq!(amt, 0);
+
+		let amt = OnDemandAssigner::revenue_until(12);
+
+		// Revenue for a single order should be recorded and shouldn't have been pruned by the 
+		// previous call
 		assert_eq!(amt, revenue[0]);
 
 		run_to_block(12, |n| if n == 12 { Some(Default::default()) } else { None });
-		let revenue = OnDemandAssigner::revenue_until(12);
+		let revenue = OnDemandAssigner::revenue_until(13);
 
 		// No revenue should be recorded.
 		assert_eq!(revenue, 0);
