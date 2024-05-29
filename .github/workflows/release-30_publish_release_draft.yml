@@ -27,9 +27,40 @@ jobs:
     with:
        excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
 
+  build-binaries:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        binary: [ frame-omni-bencher, chain-spec-builder ]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+
+      - name: Install protobuf-compiler
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+
+      - name: Build ${{ matrix.binary }} binary
+        run: |
+          if [[ ${{ matrix.binary }} =~ chain-spec-builder ]]; then
+            cargo build --locked --profile=production -p staging-${{ matrix.binary }} --bin ${{ matrix.binary }}
+            target/production/${{ matrix.binary }} -h
+          else
+            cargo build --locked --profile=production -p ${{ matrix.binary }}
+            target/production/${{ matrix.binary }} --version
+          fi
+
+      - name: Upload ${{ matrix.binary }} binary
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: ${{ matrix.binary }}
+          path: target/production/${{ matrix.binary }}
+
+
   publish-release-draft:
     runs-on: ubuntu-latest
-    needs: [get-rust-versions, build-runtimes]
+    needs: [ get-rust-versions, build-runtimes ]
     outputs:
       release_url: ${{ steps.create-release.outputs.html_url }}
       asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
@@ -37,14 +68,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
 
+      - name: Download artifacts
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+
       - name: Prepare tooling
         run: |
           URL=https://github.com/chevdor/tera-cli/releases/download/v0.2.4/tera-cli_linux_amd64.deb
           wget $URL -O tera.deb
           sudo dpkg -i tera.deb
-
-      - name: Download artifacts
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
 
       - name: Prepare draft
         id: draft
@@ -128,6 +159,30 @@ jobs:
           asset_path: ${{ env.ASSET }}
           asset_name: ${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm
           asset_content_type: application/wasm
+
+  publish-binaries:
+    needs: [ publish-release-draft, build-binaries ]
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        binary: [frame-omni-bencher, chain-spec-builder]
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        with:
+          name: ${{ matrix.binary }}
+
+      - name: Upload ${{ matrix.binary }} binary
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 #v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
+          asset_path:  ${{ github.workspace}}/${{ matrix.binary }}
+          asset_name:  ${{ matrix.binary }}
+          asset_content_type: application/octet-stream
 
   post_to_matrix:
     runs-on: ubuntu-latest
