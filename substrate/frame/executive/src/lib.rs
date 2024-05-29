@@ -179,12 +179,10 @@ use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "try-runtime")]
 use ::{
 	frame_support::{
-		traits::{
-			TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState, UpgradeCheckSelect,
-		},
+		traits::{TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState},
 		StorageNoopGuard,
 	},
-	frame_try_runtime::TryStateSelect,
+	frame_try_runtime::{TryStateSelect, UpgradeCheckSelect},
 	log,
 	sp_runtime::TryRuntimeError,
 };
@@ -433,12 +431,12 @@ where
 	/// [`frame_system::LastRuntimeUpgrade`] is set to the current runtime version after
 	/// migrations execute. This is important for idempotency checks, because some migrations use
 	/// this value to determine whether or not they should execute.
-	pub fn try_runtime_upgrade(opts: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
+	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
 		let try_on_runtime_upgrade_weight =
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
-				opts.pre_and_post,
+				checks.pre_and_post(),
 			)?;
 
 		frame_system::LastRuntimeUpgrade::<System>::put(
@@ -451,13 +449,13 @@ where
 		let _guard = StorageNoopGuard::default();
 
 		// The state must be decodable:
-		if opts.decode_entire_state {
+		if checks.any() {
 			let res = AllPalletsWithSystem::try_decode_entire_state();
 			Self::log_decode_result(res)?;
 		}
 
 		// Check all storage invariants:
-		if opts.try_state {
+		if checks.try_state() {
 			AllPalletsWithSystem::try_state(
 				frame_system::Pallet::<System>::block_number(),
 				TryStateSelect::All,

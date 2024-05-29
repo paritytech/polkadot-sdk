@@ -2337,28 +2337,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "builder-pattern"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d85376b93d8efe18dd819f56505e33e7a9c0f93fb02bd761f8690026178ed6e5"
-dependencies = [
- "builder-pattern-macro",
- "futures",
-]
-
-[[package]]
-name = "builder-pattern-macro"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47d624ef88b39588d113f807ffb38ee968aafc388ca57dd7a9a7b82d3de1f5f4"
-dependencies = [
- "bitflags 1.3.2",
- "proc-macro2 1.0.82",
- "quote 1.0.35",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5865,7 +5843,6 @@ dependencies = [
  "array-bytes",
  "assert_matches",
  "bitflags 1.3.2",
- "builder-pattern",
  "docify",
  "environmental",
  "frame-metadata",

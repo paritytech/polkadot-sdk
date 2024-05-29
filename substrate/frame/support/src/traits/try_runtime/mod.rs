@@ -94,19 +94,49 @@ impl sp_std::str::FromStr for Select {
 	}
 }
 
-/// Allows selectively deciding which runtime upgrade checks to execute.
-#[derive(
-	codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo, builder_pattern::Builder,
-)]
-pub struct UpgradeCheckSelect {
-	#[default(false)]
-	pub pre_and_post: bool,
-	#[default(false)]
-	pub try_state: bool,
-	#[default(false)]
-	pub decode_entire_state: bool,
-	#[default(false)]
-	pub mbms: bool,
+/// Select which checks should be run when trying a runtime upgrade upgrade.
+#[derive(codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo)]
+pub enum UpgradeCheckSelect {
+	/// Run no checks.
+	None,
+	/// Run the `try_state`, `pre_upgrade` and `post_upgrade` checks.
+	All,
+	/// Run the `pre_upgrade` and `post_upgrade` checks.
+	PreAndPost,
+	/// Run the `try_state` checks.
+	TryState,
+}
+
+impl UpgradeCheckSelect {
+	/// Whether the pre- and post-upgrade checks are selected.
+	pub fn pre_and_post(&self) -> bool {
+		matches!(self, Self::All | Self::PreAndPost)
+	}
+
+	/// Whether the try-state checks are selected.
+	pub fn try_state(&self) -> bool {
+		matches!(self, Self::All | Self::TryState)
+	}
+
+	/// Whether to run any checks at all.
+	pub fn any(&self) -> bool {
+		!matches!(self, Self::None)
+	}
+}
+
+#[cfg(feature = "std")]
+impl core::str::FromStr for UpgradeCheckSelect {
+	type Err = &'static str;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s.to_lowercase().as_str() {
+			"none" => Ok(Self::None),
+			"all" => Ok(Self::All),
+			"pre-and-post" => Ok(Self::PreAndPost),
+			"try-state" => Ok(Self::TryState),
+			_ => Err("Invalid CheckSelector"),
+		}
+	}
 }
 
 /// Execute some checks to ensure the internal state of a pallet is consistent.

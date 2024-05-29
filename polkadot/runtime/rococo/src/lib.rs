@@ -2613,8 +2613,6 @@ mod remote_tests {
 			.build()
 			.await
 			.unwrap();
-		ext.execute_with(|| {
-			Runtime::on_runtime_upgrade(UpgradeCheckSelect::new().pre_and_post(true).build())
-		});
+		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
 	}
 }

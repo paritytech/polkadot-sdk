@@ -2390,8 +2390,7 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 
 		// The version isn't changed, we should detect it.
 		assert!(
-			Executive::try_runtime_upgrade(UpgradeCheckSelect::new().pre_and_post(true).build())
-				.unwrap_err() ==
+			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err() ==
 				"On chain and in-code storage version do not match. Missing runtime upgrade?"
 					.into()
 		);
@@ -2402,18 +2401,14 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		Example::on_genesis();
 		// We set the new storage version in the pallet and that should be detected.
 		UpdateStorageVersion::set(&true);
-		Executive::try_runtime_upgrade(UpgradeCheckSelect::new().pre_and_post(true).build())
-			.unwrap();
+		Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap();
 	});
 
 	TestExternalities::default().execute_with(|| {
 		// Call `on_genesis` to put the storage version of `Example` into the storage.
 		Example::on_genesis();
 		// We set the new storage version in the custom upgrade and that should be detected.
-		ExecutiveWithUpgrade::try_runtime_upgrade(
-			UpgradeCheckSelect::new().pre_and_post(true).build(),
-		)
-		.unwrap();
+		ExecutiveWithUpgrade::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap();
 	});
 
 	TestExternalities::default().execute_with(|| {
@@ -2425,10 +2420,8 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		// `CustomUpgradePallet4` will set a storage version for `Example4` while this doesn't has
 		// any storage version "enabled".
 		assert!(
-			ExecutiveWithUpgradePallet4::try_runtime_upgrade(
-				UpgradeCheckSelect::new().pre_and_post(true).build()
-			)
-			.unwrap_err() == "On chain storage version set, while the pallet \
+			ExecutiveWithUpgradePallet4::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost)
+				.unwrap_err() == "On chain storage version set, while the pallet \
 				doesn't have the `#[pallet::storage_version(VERSION)]` attribute."
 				.into()
 		);
