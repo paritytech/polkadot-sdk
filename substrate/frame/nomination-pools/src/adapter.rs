@@ -35,9 +35,8 @@ pub enum StakeStrategyType {
 /// Wrapper type for pool account. Maps to [`AgentAccount`].
 #[derive(Clone, Debug)]
 pub struct PoolAccount<AccountID>(pub AccountID);
-
-impl<A> Into<AgentAccount<A>> for PoolAccount<A> {
-	fn into(self) -> AgentAccount<A> {
+impl<T> Into<AgentAccount<T>> for PoolAccount<T> {
+	fn into(self) -> AgentAccount<T> {
 		AgentAccount(self.0)
 	}
 }
@@ -45,8 +44,8 @@ impl<A> Into<AgentAccount<A>> for PoolAccount<A> {
 /// Wrapper type for Member account. Maps to [`DelegatorAccount`].
 #[derive(Clone, Debug)]
 pub struct MemberAccount<AccountID>(pub AccountID);
-impl<A> Into<DelegatorAccount<A>> for MemberAccount<A> {
-	fn into(self) -> DelegatorAccount<A> {
+impl<T> Into<DelegatorAccount<T>> for MemberAccount<T> {
+	fn into(self) -> DelegatorAccount<T> {
 		DelegatorAccount(self.0)
 	}
 }
