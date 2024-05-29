@@ -3841,6 +3841,9 @@ impl<T: Config> Pallet<T> {
 		T::StakeAdapter::pending_slash(PoolAccount(Self::generate_bonded_account(pool_id)))
 	}
 
+	/// Returns the unapplied slash of a member.
+	///
+	/// Pending slash is only applicable with [`adapter::DelegateStake`] strategy.
 	pub fn api_member_pending_slash(who: T::AccountId) -> BalanceOf<T> {
 		PoolMembers::<T>::get(who.clone())
 			.map(|pool_member| {
