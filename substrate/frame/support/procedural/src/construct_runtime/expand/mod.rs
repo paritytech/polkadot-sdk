@@ -28,6 +28,7 @@ mod outer_enums;
 mod slash_reason;
 mod task;
 mod unsigned;
+mod query;
 
 pub use call::expand_outer_dispatch;
 pub use config::expand_outer_config;
@@ -41,3 +42,4 @@ pub use outer_enums::{expand_outer_enum, OuterEnumType};
 pub use slash_reason::expand_outer_slash_reason;
 pub use task::expand_outer_task;
 pub use unsigned::expand_outer_validate_unsigned;
+pub use query::expand_outer_query;

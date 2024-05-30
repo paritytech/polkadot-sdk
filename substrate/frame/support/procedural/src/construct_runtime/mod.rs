@@ -400,6 +400,7 @@ fn construct_runtime_final_expansion(
 
 	let dispatch = expand::expand_outer_dispatch(&name, system_pallet, &pallets, &scrate);
 	let tasks = expand::expand_outer_task(&name, &pallets, &scrate);
+	let query = expand::expand_outer_query(&name, &pallets, &scrate);
 	let metadata = expand::expand_runtime_metadata(
 		&name,
 		&pallets,
@@ -490,6 +491,8 @@ fn construct_runtime_final_expansion(
 		#dispatch
 
 		#tasks
+
+		#query
 
 		#metadata
 
