@@ -3470,8 +3470,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let member = PoolMembers::<T>::get(member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
-		let pending_slash =
-			Self::member_pending_slash(member_account, member.clone());
+		let pending_slash = Self::member_pending_slash(member_account, member.clone());
 
 		// if nothing to slash, return error.
 		ensure!(!pending_slash.is_zero(), Error::<T>::NothingToSlash);
@@ -3493,8 +3492,7 @@ impl<T: Config> Pallet<T> {
 	) -> BalanceOf<T> {
 		// only executed in tests: ensure the member account is correct.
 		debug_assert!(
-			PoolMembers::<T>::get(member_account).expect("member must exist") ==
-				pool_member
+			PoolMembers::<T>::get(member_account).expect("member must exist") == pool_member
 		);
 
 		let pool_account = Pallet::<T>::generate_bonded_account(pool_member.pool_id);
@@ -3855,8 +3853,7 @@ impl<T: Config> Pallet<T> {
 
 		let pool_account = Self::generate_bonded_account(pool_id);
 		// true if pool is still not migrated to `DelegateStake`.
-		T::StakeAdapter::pool_strategy(&pool_account) !=
-			adapter::StakeStrategyType::Delegate
+		T::StakeAdapter::pool_strategy(&pool_account) != adapter::StakeStrategyType::Delegate
 	}
 
 	/// Checks whether member delegation needs to be migrated to
@@ -3878,8 +3875,7 @@ impl<T: Config> Pallet<T> {
 				}
 
 				let member_balance = pool_member.total_balance();
-				let delegated_balance =
-					T::StakeAdapter::member_delegation_balance(&who);
+				let delegated_balance = T::StakeAdapter::member_delegation_balance(&who);
 
 				// if the member has no delegation but has some balance in the pool, then it needs
 				// to be migrated.
