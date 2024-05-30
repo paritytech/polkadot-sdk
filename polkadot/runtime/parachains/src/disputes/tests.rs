@@ -93,10 +93,10 @@ pub(crate) fn make_dispute_concluding_against(
 	validators: &[(ValidatorIndex, Sr25519Keyring)],
 ) -> DisputeStatementSet {
 	let mut statements = Vec::new();
-	for (i, key) in validators.iter() {
+	for (j, (i, key)) in validators.iter().enumerate() {
 		// make the first statement backing
 		// and the rest against it
-		let statement = if i.0 == 0 {
+		let statement = if j == 0 {
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(candidate_hash.0))
 		} else {
 			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit)

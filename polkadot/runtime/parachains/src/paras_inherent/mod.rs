@@ -402,12 +402,14 @@ impl<T: Config> Pallet<T> {
 
 		// Limit the disputes first, since the following statements depend on the votes include
 		// here.
+		log::debug!(target: LOG_TARGET, "Disputes before sanitization: {}", disputes.len());
 		let (checked_disputes_sets, checked_disputes_sets_consumed_weight) =
 			limit_and_sanitize_disputes::<T, _>(
 				disputes,
 				dispute_statement_set_valid,
 				max_block_weight,
 			);
+		log::debug!(target: LOG_TARGET, "Disputes after sanitization: {}", checked_disputes_sets.len());
 
 		let all_weight_after = if context == ProcessInherentDataContext::ProvideInherent {
 			// Assure the maximum block weight is adhered, by limiting bitfields and backed
@@ -456,13 +458,11 @@ impl<T: Config> Pallet<T> {
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
 		// dispute; so the input here must be reasonably bounded,
 		// which is guaranteed by the checks and weight limitation above.
-		// We don't care about fresh or not disputes
-		// this writes them to storage, so let's query it via those means
-		// if this fails for whatever reason, that's ok.
 		if let Err(e) =
 			T::DisputesHandler::process_checked_multi_dispute_data(&checked_disputes_sets)
 		{
 			log::warn!(target: LOG_TARGET, "MultiDisputesData failed to update: {:?}", e);
+			// return Err(e.into())
 		};
 		METRICS.on_disputes_imported(checked_disputes_sets.len() as u64);
 
@@ -490,26 +490,15 @@ impl<T: Config> Pallet<T> {
 		// Contains the disputes that are concluded in the current session only,
 		// since these are the only ones that are relevant for the occupied cores
 		// and lightens the load on `free_disputed` significantly.
-		// Cores can't be occupied with candidates of the previous sessions, and only
-		// things with new votes can have just concluded. We only need to collect
-		// cores with disputes that conclude just now, because disputes that
-		// concluded longer ago have already had any corresponding cores cleaned up.
-		let current_concluded_invalid_disputes = checked_disputes_sets
-			.iter()
-			.map(AsRef::as_ref)
-			.filter(|dss| dss.session == current_session)
-			.map(|dss| (dss.session, dss.candidate_hash))
-			.filter(|(session, candidate)| {
-				<T>::DisputesHandler::concluded_invalid(*session, *candidate)
-			})
-			.map(|(_session, candidate)| candidate)
-			.collect::<BTreeSet<CandidateHash>>();
+		let mut current_concluded_invalid_disputes =
+			<T>::DisputesHandler::disputes_concluded_invalid(current_session);
 
 		// Get the cores freed as a result of concluded invalid candidates.
 		let (freed_disputed, concluded_invalid_hashes): (Vec<CoreIndex>, BTreeSet<CandidateHash>) =
 			inclusion::Pallet::<T>::free_disputed(&current_concluded_invalid_disputes)
 				.into_iter()
 				.unzip();
+		current_concluded_invalid_disputes.extend(concluded_invalid_hashes);
 
 		// Create a bit index from the set of core indices where each index corresponds to
 		// a core index that was freed due to a dispute.
@@ -582,7 +571,7 @@ impl<T: Config> Pallet<T> {
 		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 			backed_candidates,
 			&allowed_relay_parents,
-			concluded_invalid_hashes,
+			current_concluded_invalid_disputes,
 			scheduled,
 			core_index_enabled,
 		);
@@ -1079,8 +1068,11 @@ fn limit_and_sanitize_disputes<
 			if max_consumable_weight.all_gte(updated) {
 				// Always apply the weight. Invalid data cost processing time too:
 				weight_acc = updated;
+				let candidate_hash = dss.candidate_hash;
 				if let Some(checked) = dispute_statement_set_valid(dss) {
 					checked_acc.push(checked);
+				} else {
+					log::debug!(target: LOG_TARGET, "Filtered dispute: {:?}", candidate_hash);
 				}
 			}
 		});
