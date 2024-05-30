@@ -153,13 +153,13 @@ pub type ParachainPalletXcm = pallet_xcm::Pallet<parachain::Runtime>;
 // We check XCM messages recursively for blocklisted messages
 fn recursively_matches_blocklisted_messages(message: &Instruction<()>) -> bool {
 	match message {
-		DepositReserveAsset { xcm, .. }
-		| ExportMessage { xcm, .. }
-		| InitiateReserveWithdraw { xcm, .. }
-		| InitiateTeleport { xcm, .. }
-		| TransferReserveAsset { xcm, .. }
-		| SetErrorHandler(xcm)
-		| SetAppendix(xcm) => xcm.iter().any(recursively_matches_blocklisted_messages),
+		DepositReserveAsset { xcm, .. } |
+		ExportMessage { xcm, .. } |
+		InitiateReserveWithdraw { xcm, .. } |
+		InitiateTeleport { xcm, .. } |
+		TransferReserveAsset { xcm, .. } |
+		SetErrorHandler(xcm) |
+		SetAppendix(xcm) => xcm.iter().any(recursively_matches_blocklisted_messages),
 		// The blocklisted message is the Transact instruction.
 		m => matches!(m, Transact { .. }),
 	}
