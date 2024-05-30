@@ -16,9 +16,7 @@
 
 //! On-demand Substrate -> Substrate header finality relay.
 
-use crate::{
-	finality::SubmitFinalityProofCallBuilder, finality_base::engine::MaxExpectedCallSizeCheck,
-};
+use crate::finality::SubmitFinalityProofCallBuilder;
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
@@ -165,22 +163,21 @@ impl<
 
 			// now we have the header and its proof, but we want to minimize our losses, so let's
 			// check if we'll get the full refund for submitting this header
-			let check_result = P::FinalityEngine::check_max_expected_call_size(&header, &proof);
-			if let MaxExpectedCallSizeCheck::Exceeds { call_size, max_call_size } = check_result {
+			let check_result = P::FinalityEngine::check_max_expected_call_limits(&header, &proof);
+			if check_result.is_weight_limit_exceeded || check_result.extra_size != 0 {
 				iterations += 1;
 				current_required_header = header_id.number().saturating_add(One::one());
 				if iterations < MAX_ITERATIONS {
 					log::debug!(
 						target: "bridge",
-						"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?}. But it is too large: {} vs {}. \
+						"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?}. But it exceeds limits: {:?}. \
 						Going to select next header",
 						self.relay_task_name,
 						P::SourceChain::NAME,
 						required_header,
 						P::SourceChain::NAME,
 						header_id,
-						call_size,
-						max_call_size,
+						check_result,
 					);
 
 					continue;

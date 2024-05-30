@@ -17,7 +17,7 @@
 //! Substrate node RPC errors.
 
 use crate::{BlockNumberOf, Chain, HashOf, SimpleRuntimeVersion};
-
+use bp_header_chain::SubmitFinalityProofCallExtras;
 use bp_polkadot_core::parachains::ParaId;
 use jsonrpsee::core::ClientError as RpcError;
 use relay_utils::MaybeConnectionError;
@@ -229,6 +229,12 @@ pub enum Error {
 		expected: SimpleRuntimeVersion,
 		/// Actual runtime version.
 		actual: SimpleRuntimeVersion,
+	},
+	/// Finality proof submission exceeds size and/or weight limits.
+	#[error("Finality proof submission exceeds limits: {extras:?}")]
+	FinalityProofWeightLimitExceeded {
+		/// Finality proof submission extras.
+		extras: SubmitFinalityProofCallExtras,
 	},
 	/// Custom logic error.
 	#[error("{0}")]

@@ -267,7 +267,7 @@ where
 			source_client,
 			params.lane_id,
 			relayer_id_at_source,
-			params.target_transaction_params,
+			Some(params.target_transaction_params),
 			params.source_to_target_headers_relay,
 		),
 		{
@@ -312,12 +312,50 @@ where
 			source_client,
 			lane_id,
 			relayer_id_at_source,
-			target_transaction_params,
+			Some(target_transaction_params),
 			None,
 		),
 		at_source_block,
 		range,
 		outbound_state_proof_required,
+	)
+	.await
+	.map_err(|_| anyhow::format_err!("The command has failed"))
+}
+
+/// Relay messages delivery confirmation of Substrate-to-Substrate messages.
+/// No checks are made to ensure that transaction will succeed.
+pub async fn relay_messages_delivery_confirmation<P: SubstrateMessageLane>(
+	source_client: impl Client<P::SourceChain>,
+	target_client: impl Client<P::TargetChain>,
+	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
+	at_target_block: HeaderIdOf<P::TargetChain>,
+	lane_id: LaneId,
+) -> anyhow::Result<()>
+where
+	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
+	BalanceOf<P::SourceChain>: TryFrom<BalanceOf<P::TargetChain>>,
+{
+	let relayer_id_at_source: AccountIdOf<P::SourceChain> =
+		source_transaction_params.signer.public().into();
+	messages_relay::relay_messages_delivery_confirmation(
+		SubstrateMessagesSource::<P, _, _>::new(
+			source_client.clone(),
+			target_client.clone(),
+			lane_id,
+			source_transaction_params,
+			None,
+		),
+		SubstrateMessagesTarget::<P, _, _>::new(
+			target_client,
+			source_client,
+			lane_id,
+			relayer_id_at_source,
+			None,
+			None,
+		),
+		at_target_block,
 	)
 	.await
 	.map_err(|_| anyhow::format_err!("The command has failed"))

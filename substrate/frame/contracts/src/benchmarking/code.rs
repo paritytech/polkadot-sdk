@@ -288,17 +288,15 @@ impl<T: Config> WasmModule<T> {
 		module.into()
 	}
 
-	/// Creates a wasm module that calls the imported function named `getter_name` `repeat`
-	/// times. The imported function is expected to have the "getter signature" of
-	/// (out_ptr: u32, len_ptr: u32) -> ().
-	pub fn getter(module_name: &'static str, getter_name: &'static str, repeat: u32) -> Self {
+	/// Creates a wasm module that calls the imported function `noop` `repeat` times.
+	pub fn noop(repeat: u32) -> Self {
 		let pages = max_pages::<T>();
 		ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
-				module: module_name,
-				name: getter_name,
-				params: vec![ValueType::I32, ValueType::I32],
+				module: "seal0",
+				name: "noop",
+				params: vec![],
 				return_type: None,
 			}],
 			// Write the output buffer size. The output size will be overwritten by the
@@ -312,35 +310,7 @@ impl<T: Config> WasmModule<T> {
 			call_body: Some(body::repeated(
 				repeat,
 				&[
-					Instruction::I32Const(4), // ptr where to store output
-					Instruction::I32Const(0), // ptr to length
-					Instruction::Call(0),     // call the imported function
-				],
-			)),
-			..Default::default()
-		}
-		.into()
-	}
-
-	/// Creates a wasm module that calls the imported hash function named `name` `repeat` times
-	/// with an input of size `data_size`. Hash functions have the signature
-	/// (input_ptr: u32, input_len: u32, output_ptr: u32) -> ()
-	pub fn hasher(name: &'static str, repeat: u32, data_size: u32) -> Self {
-		ModuleDefinition {
-			memory: Some(ImportedMemory::max::<T>()),
-			imported_functions: vec![ImportedFunction {
-				module: "seal0",
-				name,
-				params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
-				return_type: None,
-			}],
-			call_body: Some(body::repeated(
-				repeat,
-				&[
-					Instruction::I32Const(0),                // input_ptr
-					Instruction::I32Const(data_size as i32), // input_len
-					Instruction::I32Const(0),                // output_ptr
-					Instruction::Call(0),
+					Instruction::Call(0), // call the imported function
 				],
 			)),
 			..Default::default()
@@ -352,21 +322,6 @@ impl<T: Config> WasmModule<T> {
 /// Mechanisms to generate a function body that can be used inside a `ModuleDefinition`.
 pub mod body {
 	use super::*;
-
-	/// When generating contract code by repeating a Wasm sequence, it's sometimes necessary
-	/// to change those instructions on each repetition. The variants of this enum describe
-	/// various ways in which this can happen.
-	pub enum DynInstr {
-		/// Insert the associated instruction.
-		Regular(Instruction),
-		/// Insert a I32Const with incrementing value for each insertion.
-		/// (start_at, increment_by)
-		Counter(u32, u32),
-	}
-
-	pub fn plain(instructions: Vec<Instruction>) -> FuncBody {
-		FuncBody::new(Vec::new(), Instructions::new(instructions))
-	}
 
 	pub fn repeated(repetitions: u32, instructions: &[Instruction]) -> FuncBody {
 		repeated_with_locals(&[], repetitions, instructions)
@@ -400,24 +355,6 @@ pub mod body {
 		}
 		instructions.push(Instruction::End);
 		FuncBody::new(locals.to_vec(), Instructions::new(instructions))
-	}
-
-	pub fn repeated_dyn(repetitions: u32, mut instructions: Vec<DynInstr>) -> FuncBody {
-		// We need to iterate over indices because we cannot cycle over mutable references
-		let body = (0..instructions.len())
-			.cycle()
-			.take(instructions.len() * usize::try_from(repetitions).unwrap())
-			.flat_map(|idx| match &mut instructions[idx] {
-				DynInstr::Regular(instruction) => vec![instruction.clone()],
-				DynInstr::Counter(offset, increment_by) => {
-					let current = *offset;
-					*offset += *increment_by;
-					vec![Instruction::I32Const(current as i32)]
-				},
-			})
-			.chain(sp_std::iter::once(Instruction::End))
-			.collect();
-		FuncBody::new(Vec::new(), Instructions::new(body))
 	}
 }
 

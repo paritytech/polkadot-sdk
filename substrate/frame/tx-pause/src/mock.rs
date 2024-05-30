@@ -33,9 +33,6 @@ use sp_runtime::{
 	BuildStorage,
 };
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = InsideBoth<Everything, TxPause>;
@@ -50,7 +47,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
 	type Block = Block;
-	type BlockHashCount = BlockHashCount;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;

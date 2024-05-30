@@ -42,8 +42,8 @@ use messages_relay::{
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
 };
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, Client, Error as SubstrateError, HashOf,
-	TransactionEra, TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, Chain, Client, Error as SubstrateError,
+	HashOf, TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
@@ -59,7 +59,7 @@ pub struct SubstrateMessagesTarget<P: SubstrateMessageLane, SourceClnt, TargetCl
 	source_client: SourceClnt,
 	lane_id: LaneId,
 	relayer_id_at_source: AccountIdOf<P::SourceChain>,
-	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
+	transaction_params: Option<TransactionParams<AccountKeyPairOf<P::TargetChain>>>,
 	source_to_target_headers_relay: Option<Arc<dyn OnDemandRelay<P::SourceChain, P::TargetChain>>>,
 }
 
@@ -74,7 +74,7 @@ where
 		source_client: SourceClnt,
 		lane_id: LaneId,
 		relayer_id_at_source: AccountIdOf<P::SourceChain>,
-		transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
+		transaction_params: Option<TransactionParams<AccountKeyPairOf<P::TargetChain>>>,
 		source_to_target_headers_relay: Option<
 			Arc<dyn OnDemandRelay<P::SourceChain, P::TargetChain>>,
 		>,
@@ -267,11 +267,18 @@ where
 			None => messages_proof_call,
 		};
 
-		let transaction_params = self.transaction_params.clone();
+		let transaction_params = self.transaction_params.clone().map(Ok).unwrap_or_else(|| {
+			// this error shall never happen in practice, so it not deserves
+			// a separate error variant
+			Err(SubstrateError::Custom(format!(
+				"Cannot sign transaction of {} chain",
+				P::TargetChain::NAME,
+			)))
+		})?;
 		let tx_tracker = self
 			.target_client
 			.submit_and_watch_signed_extrinsic(
-				&self.transaction_params.signer,
+				&transaction_params.signer,
 				move |best_block_id, transaction_nonce| {
 					Ok(UnsignedTransaction::new(final_call.into(), transaction_nonce)
 						.era(TransactionEra::new(best_block_id, transaction_params.mortality)))

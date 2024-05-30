@@ -31,6 +31,9 @@ pub use {
 	tests::MockExt,
 };
 
+#[cfg(feature = "runtime-benchmarks")]
+pub use crate::wasm::runtime::{BenchEnv, ReturnData, TrapReason};
+
 pub use crate::wasm::{
 	prepare::{LoadedModule, LoadingMode},
 	runtime::{
@@ -801,6 +804,9 @@ mod tests {
 		) -> Result<(), DispatchError> {
 			self.delegate_dependencies.borrow_mut().remove(code);
 			Ok(())
+		}
+		fn locked_delegate_dependencies_count(&mut self) -> usize {
+			self.delegate_dependencies.borrow().len()
 		}
 	}
 

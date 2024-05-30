@@ -206,9 +206,14 @@ struct NamedPresetCmd {
 ///
 /// The code field of the chain spec will be updated with the runtime provided in the
 /// command line. This operation supports both plain and raw formats.
+///
+/// This command does not update chain-spec file in-place. The result of this command will be stored
+/// in a file given as `-c/--chain-spec-path` command line argument.
 #[derive(Parser, Debug, Clone)]
 pub struct UpdateCodeCmd {
 	/// Chain spec to be updated.
+	///
+	/// Please note that the file will not be updated in-place.
 	pub input_chain_spec: PathBuf,
 	/// The path to new runtime wasm blob to be stored into chain-spec.
 	pub runtime_wasm_path: PathBuf,
