@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: [Identity] Remove double encoding username signature payload
+title: "[Identity] Remove double encoding username signature payload"
 
 doc:
   - audience: Runtime Dev
