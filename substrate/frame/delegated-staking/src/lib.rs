@@ -533,7 +533,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Bond `amount` to `agent_acc` in [`Config::CoreStaking`].
 	fn do_bond(agent_acc: AgentAccount<T::AccountId>, amount: BalanceOf<T>) -> DispatchResult {
-		let agent = Agent::<T>::get(&agent_acc.0)?;
+		let agent = AgentLedgerOuter::<T>::get(&agent_acc.0)?;
 
 		let available_to_bond = agent.available_to_bond();
 		defensive_assert!(amount == available_to_bond, "not expected value to bond");
@@ -587,7 +587,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
-		let mut agent = Agent::<T>::get(&who.0)?;
+		let mut agent = AgentLedgerOuter::<T>::get(&who.0)?;
 		let mut delegation = Delegation::<T>::get(&delegator.0).ok_or(Error::<T>::NotDelegator)?;
 
 		// make sure delegation to be released is sound.
@@ -724,7 +724,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
-		let agent = Agent::<T>::get(&agent_acc.0)?;
+		let agent = AgentLedgerOuter::<T>::get(&agent_acc.0)?;
 		// ensure there is something to slash
 		ensure!(agent.ledger.pending_slash > Zero::zero(), Error::<T>::NothingToSlash);
 
@@ -771,7 +771,7 @@ impl<T: Config> Pallet<T> {
 	/// Total balance that is available for stake. Includes already staked amount.
 	#[cfg(test)]
 	pub(crate) fn stakeable_balance(who: AgentAccount<T::AccountId>) -> BalanceOf<T> {
-		Agent::<T>::get(&who.0)
+		AgentLedgerOuter::<T>::get(&who.0)
 			.map(|agent| agent.ledger.stakeable_balance())
 			.unwrap_or_default()
 	}

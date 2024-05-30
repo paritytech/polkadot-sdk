@@ -1233,7 +1233,7 @@ mod pool_integration {
 		}
 	}
 
-	fn get_pool_agent(pool_id: u32) -> Agent<T> {
+	fn get_pool_agent(pool_id: u32) -> AgentLedgerOuter<T> {
 		get_agent(&Pools::generate_bonded_account(pool_id))
 	}
 }

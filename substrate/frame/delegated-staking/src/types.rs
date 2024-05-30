@@ -143,18 +143,18 @@ impl<T: Config> AgentLedger<T> {
 
 /// Wrapper around `AgentLedger` to provide some helper functions to mutate the ledger.
 #[derive(Clone)]
-pub struct Agent<T: Config> {
+pub struct AgentLedgerOuter<T: Config> {
 	/// storage key
 	pub key: T::AccountId,
 	/// storage value
 	pub ledger: AgentLedger<T>,
 }
 
-impl<T: Config> Agent<T> {
+impl<T: Config> AgentLedgerOuter<T> {
 	/// Get `Agent` from storage if it exists or return an error.
-	pub(crate) fn get(agent: &T::AccountId) -> Result<Agent<T>, DispatchError> {
+	pub(crate) fn get(agent: &T::AccountId) -> Result<AgentLedgerOuter<T>, DispatchError> {
 		let ledger = AgentLedger::<T>::get(agent).ok_or(Error::<T>::NotAgent)?;
-		Ok(Agent { key: agent.clone(), ledger })
+		Ok(AgentLedgerOuter { key: agent.clone(), ledger })
 	}
 
 	/// Remove funds that are withdrawn from [Config::CoreStaking] but not claimed by a delegator.
@@ -176,7 +176,7 @@ impl<T: Config> Agent<T> {
 			.checked_sub(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
-		Ok(Agent {
+		Ok(AgentLedgerOuter {
 			ledger: AgentLedger {
 				total_delegated: new_total_delegated,
 				unclaimed_withdrawals: new_unclaimed_withdrawals,
@@ -197,7 +197,7 @@ impl<T: Config> Agent<T> {
 			.checked_add(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
-		Ok(Agent {
+		Ok(AgentLedgerOuter {
 			ledger: AgentLedger { unclaimed_withdrawals: new_unclaimed_withdrawals, ..self.ledger },
 			..self
 		})
@@ -224,7 +224,7 @@ impl<T: Config> Agent<T> {
 		let pending_slash = self.ledger.pending_slash.defensive_saturating_sub(amount);
 		let total_delegated = self.ledger.total_delegated.defensive_saturating_sub(amount);
 
-		Agent { ledger: AgentLedger { pending_slash, total_delegated, ..self.ledger }, ..self }
+		AgentLedgerOuter { ledger: AgentLedger { pending_slash, total_delegated, ..self.ledger }, ..self }
 	}
 
 	/// Get the total stake of agent bonded in [`Config::CoreStaking`].
@@ -270,7 +270,7 @@ impl<T: Config> Agent<T> {
 	}
 
 	/// Reloads self from storage.
-	pub(crate) fn refresh(self) -> Result<Agent<T>, DispatchError> {
+	pub(crate) fn refresh(self) -> Result<AgentLedgerOuter<T>, DispatchError> {
 		Self::get(&self.key)
 	}
 
