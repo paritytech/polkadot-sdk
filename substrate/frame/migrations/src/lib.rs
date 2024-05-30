@@ -70,21 +70,26 @@
 //! points to the currently active migration and stores its inner cursor. The inner cursor can then
 //! be used by the migration to store its inner state and advance. Each time when the migration
 //! returns `Some(cursor)`, it signals the pallet that it is not done yet.
+//!
 //! The cursor is reset on each runtime upgrade. This ensures that it starts to execute at the
 //! first migration in the vector. The pallets cursor is only ever incremented or set to `Stuck`
 //! once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
 //! it is fixed through manual governance intervention.
+//!
 //! As soon as the cursor of the pallet becomes `Some(_)`; [`MultiStepMigrator::ongoing`] returns
 //! `true` (Goal 2). This can be used by upstream code to possibly pause transactions.
 //! In `on_initialize` the pallet will load the current migration and check whether it was already
 //! executed in the past by checking for membership of its ID in the [`Historic`] set. Historic
 //! migrations are skipped without causing an error. Each successfully executed migration is added
 //! to this set (Goal 5).
+//!
 //! This proceeds until no more migrations remain. At that point, the event `UpgradeCompleted` is
 //! emitted (Goal 1).
+//!
 //! The execution of each migration happens by calling [`SteppedMigration::transactional_step`].
 //! This function wraps the inner `step` function into a transactional layer to allow rollback in
 //! the error case (Goal 6).
+//!
 //! Weight limits must be checked by the migration itself. The pallet provides a [`WeightMeter`] for
 //! that purpose. The pallet may return [`SteppedMigrationError::InsufficientWeight`] at any point.
 //! In that scenario, one of two things will happen: if that migration was exclusively executed
