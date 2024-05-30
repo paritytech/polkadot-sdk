@@ -47,10 +47,9 @@ docker run --rm polkadot-sdk-minimal-template --dev
 
 Development chains:
 
-- Maintain state in a `tmp` folder while the node is running - it is not persistent.
-- Are preconfigured with a genesis state (see [`chain_spec.rs`](./node/src/chain_spec.rs)) that
-  includes several prefunded development accounts.
-- Development accounts are used as default validator authorities and a `sudo` account.
+- 🧹 Do not persist the state.
+- 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
+- 🧑‍⚖️ Development accounts are used as default validator authorities and a `sudo` account.
 
 ### Multi-Node Local Testnet
 
