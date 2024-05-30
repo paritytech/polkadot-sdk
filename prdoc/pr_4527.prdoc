@@ -20,7 +20,7 @@ doc:
 
 crates:
   - name: pallet-assets
-    bump: major
+    bump: minor
   - name: asset-hub-rococo-runtime
     bump: minor
   - name: asset-hub-westend-runtime
