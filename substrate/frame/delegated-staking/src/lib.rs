@@ -415,11 +415,7 @@ pub mod pallet {
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
 			// add to delegation.
-			Self::do_delegate(
-				Delegator::from(delegator),
-				Agent::from(agent.clone()),
-				amount,
-			)?;
+			Self::do_delegate(Delegator::from(delegator), Agent::from(agent.clone()), amount)?;
 
 			// bond the newly delegated amount to `CoreStaking`.
 			Self::do_bond(Agent::from(agent), amount)
@@ -603,7 +599,7 @@ impl<T: Config> Pallet<T> {
 			let killed = T::CoreStaking::withdraw_unbonded(agent.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
 			// reload agent from storage since withdrawal might have changed the state.
-			agent_ledger = agent_ledger.refresh()?;
+			agent_ledger = agent_ledger.reload()?;
 			Some(killed)
 		} else {
 			None

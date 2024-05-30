@@ -273,7 +273,7 @@ impl<T: Config> AgentLedgerOuter<T> {
 	}
 
 	/// Reloads self from storage.
-	pub(crate) fn refresh(self) -> Result<AgentLedgerOuter<T>, DispatchError> {
+	pub(crate) fn reload(self) -> Result<AgentLedgerOuter<T>, DispatchError> {
 		Self::get(&self.key)
 	}
 

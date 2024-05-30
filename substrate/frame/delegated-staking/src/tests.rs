@@ -281,13 +281,13 @@ fn apply_pending_slash() {
 		);
 
 		// ensure bookkept pending slash is correct.
-		assert_eq!(get_agent(&agent).ledger.pending_slash, total_staked / 2);
+		assert_eq!(get_agent_ledger(&agent).ledger.pending_slash, total_staked / 2);
 		let mut old_reporter_balance = Balances::free_balance(reporter);
 
 		// lets apply the pending slash on delegators.
 		for i in delegators {
 			// balance before slash
-			let initial_pending_slash = get_agent(&agent).ledger.pending_slash;
+			let initial_pending_slash = get_agent_ledger(&agent).ledger.pending_slash;
 			assert!(initial_pending_slash > 0);
 			let unslashed_balance = DelegatedStaking::held_balance_of(Delegator::from(i));
 			let slash = unslashed_balance / 2;
@@ -305,7 +305,10 @@ fn apply_pending_slash() {
 				unslashed_balance - slash
 			);
 			// pending slash is reduced by the amount slashed.
-			assert_eq!(get_agent(&agent).ledger.pending_slash, initial_pending_slash - slash);
+			assert_eq!(
+				get_agent_ledger(&agent).ledger.pending_slash,
+				initial_pending_slash - slash
+			);
 			// reporter get 10% of the slash amount.
 			assert_eq!(
 				Balances::free_balance(reporter) - old_reporter_balance,
@@ -316,7 +319,7 @@ fn apply_pending_slash() {
 		}
 
 		// nothing to slash anymore
-		assert_eq!(get_agent(&agent).ledger.pending_slash, 0);
+		assert_eq!(get_agent_ledger(&agent).ledger.pending_slash, 0);
 
 		// cannot slash anymore
 		assert_noop!(
@@ -372,7 +375,7 @@ mod staking_integration {
 					100
 				);
 
-				let agent_obj = get_agent(&agent);
+				let agent_obj = get_agent_ledger(&agent);
 				assert_eq!(agent_obj.ledger.stakeable_balance(), delegated_balance);
 				assert_eq!(agent_obj.available_to_bond(), 0);
 				assert_eq!(agent_obj.bonded_stake(), delegated_balance);
@@ -424,9 +427,9 @@ mod staking_integration {
 				Error::<T>::NotEnoughFunds
 			);
 
-			assert_eq!(get_agent(&agent).available_to_bond(), 0);
+			assert_eq!(get_agent_ledger(&agent).available_to_bond(), 0);
 			// full amount is still delegated
-			assert_eq!(get_agent(&agent).ledger.effective_balance(), total_staked);
+			assert_eq!(get_agent_ledger(&agent).ledger.effective_balance(), total_staked);
 
 			start_era(5);
 			// at era 5, 50 tokens are withdrawable, cannot withdraw more.
@@ -512,7 +515,7 @@ mod staking_integration {
 				start_era(i);
 				assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
 				// no withdrawals from core staking yet.
-				assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 0);
+				assert_eq!(get_agent_ledger(&agent).ledger.unclaimed_withdrawals, 0);
 			}
 
 			// another unbond would trigger withdrawal
@@ -521,7 +524,7 @@ mod staking_integration {
 
 			// 8 previous unbonds would be withdrawn as they were already unlocked. Unlocking period
 			// is 3 eras.
-			assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 8 * 10);
+			assert_eq!(get_agent_ledger(&agent).ledger.unclaimed_withdrawals, 8 * 10);
 
 			// release some delegation now.
 			assert_ok!(DelegatedStaking::release_delegation(
@@ -530,7 +533,7 @@ mod staking_integration {
 				40,
 				0
 			));
-			assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 80 - 40);
+			assert_eq!(get_agent_ledger(&agent).ledger.unclaimed_withdrawals, 80 - 40);
 
 			// cannot release more than available
 			assert_noop!(
@@ -582,8 +585,8 @@ mod staking_integration {
 
 			// amount is staked correctly
 			assert!(eq_stake(200, 100, 100));
-			assert_eq!(get_agent(&200).available_to_bond(), 0);
-			assert_eq!(get_agent(&200).ledger.effective_balance(), 100);
+			assert_eq!(get_agent_ledger(&200).available_to_bond(), 0);
+			assert_eq!(get_agent_ledger(&200).ledger.effective_balance(), 100);
 
 			// free balance of delegate is untouched
 			assert_eq!(Balances::free_balance(200), balance_200);
@@ -659,9 +662,12 @@ mod staking_integration {
 			// stake amount is transferred from delegate to proxy delegator account.
 			assert_eq!(Balances::free_balance(200), 0);
 			assert_eq!(Staking::stake(&200).unwrap(), init_stake);
-			assert_eq!(get_agent(&200).ledger.effective_balance(), agent_amount);
-			assert_eq!(get_agent(&200).available_to_bond(), 0);
-			assert_eq!(get_agent(&200).ledger.unclaimed_withdrawals, agent_amount - staked_amount);
+			assert_eq!(get_agent_ledger(&200).ledger.effective_balance(), agent_amount);
+			assert_eq!(get_agent_ledger(&200).available_to_bond(), 0);
+			assert_eq!(
+				get_agent_ledger(&200).ledger.unclaimed_withdrawals,
+				agent_amount - staked_amount
+			);
 
 			// now lets migrate the delegators
 			let delegator_share = agent_amount / 4;
@@ -690,10 +696,10 @@ mod staking_integration {
 
 				// delegate stake is unchanged.
 				assert_eq!(Staking::stake(&200).unwrap(), init_stake);
-				assert_eq!(get_agent(&200).ledger.effective_balance(), agent_amount);
-				assert_eq!(get_agent(&200).available_to_bond(), 0);
+				assert_eq!(get_agent_ledger(&200).ledger.effective_balance(), agent_amount);
+				assert_eq!(get_agent_ledger(&200).available_to_bond(), 0);
 				assert_eq!(
-					get_agent(&200).ledger.unclaimed_withdrawals,
+					get_agent_ledger(&200).ledger.unclaimed_withdrawals,
 					agent_amount - staked_amount
 				);
 			}
@@ -737,7 +743,7 @@ mod pool_integration {
 			);
 
 			let pool_account = Pools::generate_bonded_account(1);
-			let agent = get_agent(&pool_account);
+			let agent = get_agent_ledger(&pool_account);
 
 			// verify state
 			assert_eq!(agent.ledger.effective_balance(), delegate_amount);
@@ -770,7 +776,7 @@ mod pool_integration {
 			// delegator is not actively exposed to core staking.
 			assert_eq!(Staking::status(&delegator), Err(StakingError::<T>::NotStash.into()));
 
-			let pool_agent = get_agent(&Pools::generate_bonded_account(1));
+			let pool_agent = get_agent_ledger(&Pools::generate_bonded_account(1));
 			// verify state
 			assert_eq!(pool_agent.ledger.effective_balance(), staked_amount);
 			assert_eq!(pool_agent.bonded_stake(), staked_amount);
@@ -791,7 +797,7 @@ mod pool_integration {
 				assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(i)), 100 + i);
 			}
 
-			let pool_agent = pool_agent.refresh().unwrap();
+			let pool_agent = pool_agent.reload().unwrap();
 			assert_eq!(pool_agent.ledger.effective_balance(), staked_amount);
 			assert_eq!(pool_agent.bonded_stake(), staked_amount);
 			assert_eq!(pool_agent.available_to_bond(), 0);
@@ -1232,6 +1238,6 @@ mod pool_integration {
 	}
 
 	fn get_pool_agent(pool_id: u32) -> AgentLedgerOuter<T> {
-		get_agent(&Pools::generate_bonded_account(pool_id))
+		get_agent_ledger(&Pools::generate_bonded_account(pool_id))
 	}
 }

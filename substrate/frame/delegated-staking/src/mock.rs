@@ -322,10 +322,10 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
 	Staking::stake(&who).unwrap() == Stake { total, active } &&
-		get_agent(&who).ledger.stakeable_balance() == total
+		get_agent_ledger(&who).ledger.stakeable_balance() == total
 }
 
-pub(crate) fn get_agent(agent: &AccountId) -> AgentLedgerOuter<T> {
+pub(crate) fn get_agent_ledger(agent: &AccountId) -> AgentLedgerOuter<T> {
 	AgentLedgerOuter::<T>::get(agent).expect("delegate should exist")
 }
 

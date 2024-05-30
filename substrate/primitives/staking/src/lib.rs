@@ -505,10 +505,6 @@ impl<T> Delegator<T> {
 }
 
 /// Trait to provide delegation functionality for stakers.
-///
-/// Introduces two new roles to the vanilla [`StakingInterface`]:
-/// - `Delegator`: See [`Delegator`].
-/// - `Agent`: See [`Agent`].
 pub trait DelegationInterface {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
