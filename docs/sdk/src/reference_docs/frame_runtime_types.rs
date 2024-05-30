@@ -102,7 +102,7 @@
 //! bounds, such as being [`frame::traits::IsSubType`]:
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
 //!
-//! > Once Rust's "_Associated Type Bounds RFC_" is usable, This syntax can be used to
+//! > Once Rust's "_Associated Type Bounds RFC_" is usable, this syntax can be used to
 //! > simplify the above scenario. See [this](https://github.com/paritytech/polkadot-sdk/issues/3743)
 //! > issue for more information.
 //!
