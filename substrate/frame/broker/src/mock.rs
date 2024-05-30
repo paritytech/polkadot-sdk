@@ -27,11 +27,11 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::{EnsureRoot, EnsureSignedBy, RawOrigin};
+use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
-	traits::{BadOrigin, BlockNumberProvider, Identity},
+	traits::{BlockNumberProvider, Identity, MaybeConvert},
 	BuildStorage, Saturating,
 };
 use sp_std::collections::btree_map::BTreeMap;
@@ -187,21 +187,10 @@ ord_parameter_types! {
 }
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
-pub struct TaskSovereignAccount;
 // Dummy implementation which converts `TaskId` to `AccountId`.
-impl TaskAccountInterface for TaskSovereignAccount {
-	type AccountId = u64;
-	type OuterOrigin = RuntimeOrigin;
-	type TaskOrigin = RawOrigin<u64>;
-
-	fn ensure_task_sovereign_account(o: RuntimeOrigin) -> Result<TaskId, BadOrigin> {
-		match o.into() {
-			Ok(RawOrigin::Signed(account)) => Ok(account as TaskId),
-			_ => Err(BadOrigin),
-		}
-	}
-
-	fn sovereign_account(task: TaskId) -> Option<u64> {
+pub struct SovereignAccountOf;
+impl MaybeConvert<TaskId, u64> for SovereignAccountOf {
+	fn maybe_convert(task: TaskId) -> Option<u64> {
 		Some(task.into())
 	}
 }
@@ -218,7 +207,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
-	type SovereignAccountOf = TaskSovereignAccount;
+	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<5>;
 	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 }

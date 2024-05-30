@@ -62,7 +62,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{Convert, ConvertBack};
+	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 	use sp_std::vec::Vec;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
@@ -101,10 +101,7 @@ pub mod pallet {
 
 		/// Type used for getting the associated account of a task. This account is controlled by
 		/// the task itself.
-		type SovereignAccountOf: TaskAccountInterface<
-			AccountId = Self::AccountId,
-			OuterOrigin = Self::RuntimeOrigin,
-		>;
+		type SovereignAccountOf: MaybeConvert<TaskId, Self::AccountId>;
 
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
@@ -865,6 +862,7 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be the sovereign account of the task
 		/// - `core`: The core for which we want to enable auto renewal.
+		/// - `task`: The task for which we want to enable auto renewal.
 		/// - `workload_end_hint` parameter should be used when enabling auto-renewal for
 		/// the core which holds a legacy lease, as it would be inefficient to look it up otherwise.
 		#[pallet::call_index(20)]
@@ -872,11 +870,17 @@ pub mod pallet {
 		pub fn enable_auto_renew(
 			origin: OriginFor<T>,
 			core: CoreIndex,
+			task: TaskId,
 			workload_end_hint: Option<Timeslice>,
 		) -> DispatchResult {
-			// Only the sovereign account of the task can enable auto-renewal.
-			let task = T::SovereignAccountOf::ensure_task_sovereign_account(origin)?;
-			Self::do_enable_auto_renew(task, core, workload_end_hint)?;
+			let who = ensure_signed(origin)?;
+
+			let sovereign_account = T::SovereignAccountOf::maybe_convert(task)
+				.ok_or(Error::<T>::SovereignAccountNotFound)?;
+			// Only the sovereign account of a task can enable auto renewal for its own core.
+			ensure!(who == sovereign_account, Error::<T>::NoPermission);
+
+			Self::do_enable_auto_renew(sovereign_account, core, task, workload_end_hint)?;
 			Ok(())
 		}
 
@@ -885,13 +889,23 @@ pub mod pallet {
 		/// Callable by the sovereign account of the task on the specified core.
 		///
 		/// - `origin`: Must be the sovereign account of the task.
-		/// - `core`: The core for which we want to enable auto renewal.
+		/// - `core`: The core for which we want to disable auto renewal.
+		/// - `task`: The task for which we want to disable auto renewal.
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::notify_core_count())]
-		pub fn disable_auto_renew(origin: OriginFor<T>, core: CoreIndex) -> DispatchResult {
+		pub fn disable_auto_renew(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			task: TaskId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let sovereign_account = T::SovereignAccountOf::maybe_convert(task)
+				.ok_or(Error::<T>::SovereignAccountNotFound)?;
 			// Only the sovereign account of the task can disable auto-renewal.
-			let task = T::SovereignAccountOf::ensure_task_sovereign_account(origin)?;
-			Self::do_disable_auto_renew(task, core)?;
+			ensure!(who == sovereign_account, Error::<T>::NoPermission);
+
+			Self::do_disable_auto_renew(core, task)?;
 			Ok(())
 		}
 

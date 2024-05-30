@@ -75,7 +75,7 @@ use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
-use pallet_broker::{TaskAccountInterface, TaskId};
+use pallet_broker::TaskId;
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
@@ -94,8 +94,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		self, AccountIdConversion, BadOrigin, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
-		NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
+		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
+		MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
@@ -2134,27 +2134,10 @@ impl CoretimeInterface for CoretimeProvider {
 	}
 }
 
-pub struct TaskSovereignAccount;
+pub struct SovereignAccountOf;
 // Dummy implementation which converts `TaskId` to `AccountId`.
-impl TaskAccountInterface for TaskSovereignAccount {
-	type AccountId = AccountId;
-	type OuterOrigin = RuntimeOrigin;
-	type TaskOrigin = frame_system::RawOrigin<AccountId>;
-
-	fn ensure_task_sovereign_account(o: RuntimeOrigin) -> Result<TaskId, BadOrigin> {
-		match o.into() {
-			Ok(frame_system::RawOrigin::Signed(account)) => {
-				let account_arr: [u8; 32] = account.try_into().map_err(|_| BadOrigin)?;
-				let encoded: [u8; 4] = account_arr[0..4].try_into().map_err(|_| BadOrigin)?;
-
-				let task = u32::from_le_bytes(encoded);
-				Ok(task)
-			},
-			_ => Err(BadOrigin),
-		}
-	}
-
-	fn sovereign_account(task: TaskId) -> Option<AccountId> {
+impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
+	fn maybe_convert(task: TaskId) -> Option<AccountId> {
 		let mut account: [u8; 32] = [0; 32];
 		account[..4].copy_from_slice(&task.to_le_bytes());
 		Some(account.into())
@@ -2172,7 +2155,7 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type SovereignAccountOf = TaskSovereignAccount;
+	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<5>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }

@@ -477,16 +477,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_enable_auto_renew(
-		task: TaskId,
+		sovereign_account: T::AccountId,
 		core: CoreIndex,
+		task: TaskId,
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-		let Some(sovereign_account) = T::SovereignAccountOf::sovereign_account(task) else {
-			return Err(Error::<T>::SovereignAccountNotFound.into());
-		};
 
-		let record = if let Some(workload_end) = workload_end_hint {
+		let _renewal_record = if let Some(workload_end) = workload_end_hint {
 			PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
 				.ok_or(Error::<T>::NotAllowed)?
 		} else {
@@ -506,23 +504,6 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		let workload =
-			record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
-
-		// Given that only non-interlaced cores can be renewed, there should be only one
-		// assignment in the core's workload.
-		ensure!(workload.len() == 1, Error::<T>::IncompleteAssignment);
-		let Some(schedule_item) = workload.get(0) else {
-			return Err(Error::<T>::NotAllowed.into())
-		};
-
-		if let CoreAssignment::Task(core_task) = schedule_item.assignment {
-			// Sovereign account of a task can only enable auto renewal for its own core.
-			ensure!(task == core_task, Error::<T>::NoPermission);
-		} else {
-			return Err(Error::<T>::NonTaskAutoRenewal.into())
-		};
-
 		let renewal_begin = workload_end_hint.unwrap_or(sale.region_end);
 		// We are keeping the auto-renewals sorted by `CoreIndex`.
 		AutoRenewals::<T>::try_mutate(|renewals| {
@@ -537,7 +518,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_disable_auto_renew(task: TaskId, core: CoreIndex) -> DispatchResult {
+	pub(crate) fn do_disable_auto_renew(core: CoreIndex, task: TaskId) -> DispatchResult {
 		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
 			let pos = renewals
 				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))

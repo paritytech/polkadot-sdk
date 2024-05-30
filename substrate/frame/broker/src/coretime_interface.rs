@@ -22,7 +22,7 @@ use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
-use sp_runtime::traits::{BadOrigin, BlockNumberProvider};
+use sp_runtime::traits::BlockNumberProvider;
 use sp_std::vec::Vec;
 
 /// Index of a Polkadot Core.
@@ -145,26 +145,4 @@ impl CoretimeInterface for () {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_notify_revenue_info(_when: RCBlockNumberOf<Self>, _revenue: Self::Balance) {}
-}
-
-/// Trait for getting the associated account and origin of a task.
-///
-/// For parachains, this is the sovereign account, which is controlled by the parachain
-/// itself.
-pub trait TaskAccountInterface {
-	/// The type for representing accounts.
-	type AccountId;
-
-	/// The overarching origin type.
-	type OuterOrigin: Into<Result<Self::TaskOrigin, Self::OuterOrigin>>;
-
-	/// The custom task origin. Given that all tasks on Polkadot are parachains this will most
-	/// likely be the `Parachain` origin.
-	type TaskOrigin;
-
-	/// Ensures that the origin is a task origin and returns the associated `TaskId`.
-	fn ensure_task_sovereign_account(o: Self::OuterOrigin) -> Result<TaskId, BadOrigin>;
-
-	/// Returns the associated account of a task.
-	fn sovereign_account(task: TaskId) -> Option<Self::AccountId>;
 }

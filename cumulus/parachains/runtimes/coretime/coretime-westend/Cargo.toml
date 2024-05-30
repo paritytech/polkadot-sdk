@@ -57,7 +57,6 @@ pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
-polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains", default-features = false }
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }

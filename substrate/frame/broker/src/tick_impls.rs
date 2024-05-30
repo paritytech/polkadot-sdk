@@ -18,7 +18,7 @@
 use super::*;
 use frame_support::{pallet_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
-use sp_runtime::traits::ConvertBack;
+use sp_runtime::traits::{ConvertBack, MaybeConvert};
 use sp_std::{vec, vec::Vec};
 use CompletionStatus::Complete;
 
@@ -335,7 +335,7 @@ impl<T: Config> Pallet<T> {
 					return Some(record)
 				}
 
-				let Some(payer) = T::SovereignAccountOf::sovereign_account(record.task) else {
+				let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
 					Self::deposit_event(Event::<T>::AutoRenewalFailed {
 						core: record.core,
 						payer: None,
