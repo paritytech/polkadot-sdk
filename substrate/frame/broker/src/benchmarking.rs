@@ -113,10 +113,6 @@ mod benches {
 	use super::*;
 	use crate::Finality::*;
 
-	fn new_revenue<T: Config>() -> OnDemandRevenueRecordOf<T> {
-		OnDemandRevenueRecord { until: 2u32.into(), amount: 10u32.into() }
-	}
-
 	#[benchmark]
 	fn configure() -> Result<(), BenchmarkError> {
 		let config = new_config_record::<T>();
@@ -743,7 +739,10 @@ mod benches {
 		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
 		let multiplicator = 5;
 
-		RevenueInbox::<T>::put(new_revenue::<T>());
+		RevenueInbox::<T>::put(OnDemandRevenueRecord {
+			until: (timeslice_period * multiplicator).into(),
+			amount: 10u32.into(),
+		});
 
 		let timeslice = multiplicator - 1;
 		InstaPoolHistory::<T>::insert(
