@@ -19,7 +19,7 @@ use futures::{
 };
 use futures_timer::Delay;
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	future::Future,
 	time::{Duration, Instant},
 };
@@ -53,7 +53,7 @@ use polkadot_node_subsystem_util::{
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
 };
 use polkadot_primitives::{
-	CandidateHash, CollatorId, CoreState, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
+	CandidateHash, CollatorId, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
 	PersistedValidationData,
 };
 
@@ -362,8 +362,25 @@ impl PeerData {
 
 #[derive(Debug)]
 struct GroupAssignments {
-	/// Current assignment.
-	current: Option<ParaId>,
+	/// Current assignments.
+	/// todo: comments
+	current: Option<HashMap<ParaId, usize>>,
+}
+
+// todo: why this exists?
+impl From<Option<VecDeque<ParaId>>> for GroupAssignments {
+	fn from(assignments: Option<VecDeque<ParaId>>) -> Self {
+		if let Some(assignments) = assignments {
+			let mut current = HashMap::<ParaId, usize>::new();
+			for a in assignments {
+				*current.entry(a).or_default() += 1;
+			}
+
+			Self { current: Some(current) }
+		} else {
+			Self { current: None }
+		}
+	}
 }
 
 struct PerRelayParent {
@@ -491,17 +508,20 @@ where
 		.await
 		.map_err(Error::CancelledAvailabilityCores)??;
 
-	let para_now = match polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
+	let claim_queue = polkadot_node_subsystem_util::request_claim_queue(relay_parent, sender)
+		.await
+		.await
+		.map_err(Error::CancelledClaimQueue)??;
+
+	let paras_now = match polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
 		.and_then(|(_, index)| polkadot_node_subsystem_util::find_validator_group(&groups, index))
 	{
 		Some(group) => {
 			let core_now = rotation_info.core_for_group(group, cores.len());
 
-			cores.get(core_now.0 as usize).and_then(|c| match c {
-				CoreState::Occupied(core) if relay_parent_mode.is_enabled() => Some(core.para_id()),
-				CoreState::Scheduled(core) => Some(core.para_id),
-				CoreState::Occupied(_) | CoreState::Free => None,
-			})
+			// todo: `if relay_parent_mode.is_enabled()` ???
+			// is clone necessary?
+			claim_queue.get(&core_now).map(|paras| paras.clone())
 		},
 		None => {
 			gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
@@ -509,6 +529,14 @@ where
 			return Ok(())
 		},
 	};
+
+	gum::debug!(
+		target: LOG_TARGET,
+		?cores,
+		?claim_queue,
+		?paras_now,
+		"[assign_incoming] inputs"
+	);
 
 	// This code won't work well, if at all for on-demand parachains. For on-demand we'll
 	// have to be aware of which core the on-demand claim is going to be multiplexed
@@ -518,20 +546,31 @@ where
 	//
 	// However, this'll work fine for parachains, as each parachain gets a dedicated
 	// core.
-	if let Some(para_id) = para_now.as_ref() {
-		let entry = current_assignments.entry(*para_id).or_default();
-		*entry += 1;
-		if *entry == 1 {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				para_id = ?para_id,
-				"Assigned to a parachain",
-			);
+	//todo: update comment!
+	if let Some(paras) = paras_now.as_ref() {
+		for para_id in paras {
+			let entry = current_assignments.entry(*para_id).or_default();
+			*entry += 1;
+			if *entry == 1 {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					para_id = ?para_id,
+					"Assigned to a parachain",
+				);
+			}
 		}
 	}
 
-	*group_assignment = GroupAssignments { current: para_now };
+	*group_assignment = paras_now.into();
+
+	gum::debug!(
+		target: LOG_TARGET,
+		?relay_parent,
+		?group_assignment,
+		?claim_queue,
+		"[assign_incoming] Updated group_assignment",
+	);
 
 	Ok(())
 }
@@ -542,19 +581,34 @@ fn remove_outgoing(
 ) {
 	let GroupAssignments { current, .. } = per_relay_parent.assignment;
 
+	gum::debug!(
+		target: LOG_TARGET,
+		?current_assignments,
+		?current,
+		"[remove_outgoing] inputs"
+	);
+
 	if let Some(cur) = current {
-		if let Entry::Occupied(mut occupied) = current_assignments.entry(cur) {
-			*occupied.get_mut() -= 1;
-			if *occupied.get() == 0 {
-				occupied.remove_entry();
-				gum::debug!(
-					target: LOG_TARGET,
-					para_id = ?cur,
-					"Unassigned from a parachain",
-				);
+		for (para_id, ref_count) in cur {
+			if let Entry::Occupied(mut occupied) = current_assignments.entry(para_id) {
+				*occupied.get_mut() -= ref_count;
+				if *occupied.get() == 0 {
+					occupied.remove_entry();
+					gum::debug!(
+						target: LOG_TARGET,
+						?para_id,
+						"Unassigned from a parachain",
+					);
+				}
 			}
 		}
 	}
+
+	gum::debug!(
+		target: LOG_TARGET,
+		?current_assignments,
+		"[remove_outgoing] Updated current_assignments",
+	);
 }
 
 // O(n) search for collator ID by iterating through the peers map. This should be fast enough
@@ -857,6 +911,7 @@ async fn process_incoming_peer_message<Context>(
 					peer_id = ?origin,
 					?collator_id,
 					?para_id,
+					?state.current_assignments,
 					"Declared as collator for unneeded para",
 				);
 
@@ -1089,7 +1144,11 @@ where
 		peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
 
 	// Check if this is assigned to us.
-	if assignment.current.map_or(true, |id| id != collator_para_id) {
+	if assignment
+		.current
+		.as_ref()
+		.map_or(true, |id| !id.contains_key(&collator_para_id))
+	{
 		return Err(AdvertisementError::InvalidAssignment)
 	}
 

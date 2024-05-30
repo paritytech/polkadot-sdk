@@ -61,6 +61,9 @@ pub enum Error {
 	#[error("Response receiver for availability cores request cancelled")]
 	CancelledAvailabilityCores(oneshot::Canceled),
 
+	#[error("Response receiver for claim queue request cancelled")]
+	CancelledClaimQueue(oneshot::Canceled),
+
 	#[error("CollationSeconded contained statement with invalid signature")]
 	InvalidStatementSignature(UncheckedSignedFullStatement),
 }
