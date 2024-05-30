@@ -79,9 +79,6 @@
 //!   be removed onced all the voters stop nominating the unbonded account (i.e. the target's score
 //!   drops to 0).
 //!
-//! For further details on the target list invariante, refer to [`Self`::do_try_state_approvals`]
-//! and [`Self::do_try_state_target_sorting`].
-//!
 //! ## Event emitter ordering and staking ledger state updates
 //!
 //! It is important to ensure that the events are emitted from staking (i.e. the calls into

@@ -50,16 +50,38 @@ impl Default for Processing {
 
 /// V13 Multi-block migration to introduce the stake-tracker pallet.
 ///
-/// A step of the migration consists of processing one nominator in the [`Nominators`] list. All
-/// nominatior's target nominations are processed per step (bound by upper bound of the max
-/// nominations).
+/// A step of the migration consists of processing one nominator in the [`Nominators`] list or one
+/// validators in the [`Validators`] list, depending on the cursor's state.
+///
+/// The migration has two phases:
+/// * [`Processing::Nominators`]: iterates over the nominators list and updates the approvals stake
+/// of the nominated targets associated with each of the nominators.
+/// * [`Processing::Validators`]: iterates over the validators list and, if the validator does not
+/// exist in the target list, add it with self-stake as score.
+///
+/// First, the migration processes all the nominators and then the validators. When a validator is
+/// added to the target list during the [`Processing::Validators`], it indicates that the validator
+/// has no nominations.
 ///
 /// The goals of the migration are:
-/// - Insert all the nominated targets into the [`SortedListProvider`] target list.
-/// - Ensure the target score (total stake) is the sum of the self stake and all its nominations
+/// * Insert all the nominated targets into the [`SortedListProvider`] target list.
+/// * Ensure the target score (total stake) is the sum of the self stake and all its nominations
 /// stake.
-/// - Ensure the new targets in the list are sorted per total stake (as per the underlying
+/// * Ensure the new targets in the list are sorted per total stake (as per the underlying
 ///   [`SortedListProvider`]).
+/// * Ensure that there is no duplicate nominations per nominator.
+///
+/// ## Potential changes to nominations state during the migration.
+///
+/// When migrating a nominator, we need to ensure that the nominator is not nominating duplicate
+/// targets. In addition, this migration also "cleans" the nominations by dropping all nominations
+/// of targets that are not active validators. This logic is implemented by
+/// [`MigrationV13::clean_nominations`]. In sum, the followinf invariants hold true after
+/// processing each nominator:
+///
+/// 1. A nominator has no duplicate nominations;
+/// 2. A nominators is nominating only active validators;
+/// 3. A nominator has at least one nomination, otherwise it is chilled.
 pub struct MigrationV13<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
 impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> {
 	// nominator cursor and validator cursor.

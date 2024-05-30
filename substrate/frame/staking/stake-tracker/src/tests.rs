@@ -60,11 +60,10 @@ fn update_target_score_works() {
 
 		let current_score = TargetBagsList::get_score(&10).unwrap();
 		crate::Pallet::<Test>::update_target_score(&10, StakeImbalance::Negative(current_score));
-		assert_eq!(TargetBagsList::get_score(&10), Ok(0));
 
-		// disables the try runtime checks since the score of 10 was updated manually, so the target
-		// list was not updated accordingly.
-		DisableTryRuntimeChecks::set(true);
+		// score dropped to 0, node is removed.
+		assert!(!TargetBagsList::contains(&10));
+		assert!(TargetBagsList::get_score(&10).is_err());
 	})
 }
 
@@ -446,13 +445,7 @@ mod staking_integration {
 
 			chill_staker(2);
 			assert_eq!(StakingMock::status(&2), Ok(StakerStatus::Idle));
-			// a chilled validator is kepts in the target list.
-			assert!(TargetBagsList::contains(&2));
-			assert!(!VoterBagsList::contains(&2));
-
-			remove_staker(2);
-			assert!(StakingMock::status(&2).is_err());
-			// a chilled validator is kepts in the target list if its score is 0.
+			// a chilled validator is dropped from the target list if its score is 0.
 			assert!(!TargetBagsList::contains(&2));
 			assert!(!VoterBagsList::contains(&2));
 		})

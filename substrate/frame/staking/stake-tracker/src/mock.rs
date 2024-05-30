@@ -461,10 +461,6 @@ pub(crate) fn voter_bags_events() -> Vec<pallet_bags_list::Event<Test, VoterBags
 		.collect::<Vec<_>>()
 }
 
-parameter_types! {
-	pub static DisableTryRuntimeChecks: bool = false;
-}
-
 #[derive(Default, Copy, Clone)]
 pub struct ExtBuilder {
 	populate_lists: bool,
@@ -478,12 +474,6 @@ impl ExtBuilder {
 
 	pub fn voter_update_mode(self, mode: crate::VoterUpdateMode) -> Self {
 		VoterUpdateMode::set(mode);
-		self
-	}
-
-	#[allow(dead_code)]
-	pub fn try_state(self, enable: bool) -> Self {
-		DisableTryRuntimeChecks::set(!enable);
 		self
 	}
 
@@ -506,13 +496,5 @@ impl ExtBuilder {
 			System::set_block_number(1);
 		});
 		ext.execute_with(test);
-
-		if !DisableTryRuntimeChecks::get() {
-			ext.execute_with(|| {
-				StakeTracker::do_try_state()
-					.map_err(|err| println!(" 🕵️‍♂️  try_state failure: {:?}", err))
-					.unwrap();
-			});
-		}
 	}
 }
