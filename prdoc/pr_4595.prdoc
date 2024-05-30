@@ -20,3 +20,6 @@ crates:
   - name: polkadot-service
     bump: major
     validate: false
+  - name: polkadot-parachain-bin
+    bump: minor
+    validate: false
