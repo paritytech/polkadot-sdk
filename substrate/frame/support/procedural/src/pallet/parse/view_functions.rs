@@ -109,8 +109,10 @@ impl ViewFunctionDef {
 		)
 	}
 
-	pub fn query_id_suffix_bytes_lits(&self) -> [syn::LitInt; 16] {
+	pub fn query_id_suffix_bytes(&self) -> [u8; 16] {
 		let mut output = [0u8; 16];
+
+		// concatenate the signature string
 		let arg_types = self
 			.args_names_types()
 			.1
@@ -119,13 +121,16 @@ impl ViewFunctionDef {
 			.collect::<Vec<_>>()
 			.join(",");
 		let return_type = &self.return_type;
-		let view_fn_signature =
-			format!("{}({}) -> {}", self.name, arg_types, quote::quote!(#return_type),);
+		let view_fn_signature = format!(
+			"{query_name}({arg_types}) -> {return_type}",
+			query_name = &self.name,
+			return_type = quote::quote!(#return_type),
+		);
+
+		// hash the signature string
 		let hash = sp_crypto_hashing::twox_128(view_fn_signature.as_bytes());
 		output.copy_from_slice(&hash[..]);
-		output.map(|byte| {
-			syn::LitInt::new(&format!("0x{:X}_u8", byte), proc_macro2::Span::call_site())
-		})
+		output
 	}
 
 	pub fn args_names_types(&self) -> (Vec<syn::Ident>, Vec<syn::Type>) {

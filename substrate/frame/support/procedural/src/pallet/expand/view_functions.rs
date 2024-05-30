@@ -60,7 +60,9 @@ fn expand_view_function(
 	let return_type = &view_fn.return_type;
 	let docs = &view_fn.docs;
 
-	let query_id_suffix_bytes = view_fn.query_id_suffix_bytes_lits();
+	let query_id_suffix_bytes = view_fn
+		.query_id_suffix_bytes()
+		.map(|byte| syn::LitInt::new(&format!("0x{:X}_u8", byte), proc_macro2::Span::call_site()));
 
 	quote::quote! {
 		#( #[doc = #docs] )*
