@@ -2438,6 +2438,11 @@ impl<T: Config> Pallet<T> {
 		AccountIdConversion::<T::AccountId>::into_account_truncating(&ID)
 	}
 
+	/// Dry-runs `call` with the given `origin`.
+	///
+	/// Returns not only the call result and events, but also the local XCM, if any,
+	/// and any XCMs forwarded to other locations.
+	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_call<Runtime, Router, OriginCaller, RuntimeCall>(
 		origin: OriginCaller,
 		call: RuntimeCall,
@@ -2449,6 +2454,7 @@ impl<T: Config> Pallet<T> {
 		<RuntimeCall as Dispatchable>::RuntimeOrigin: From<OriginCaller>,
 	{
 		crate::Pallet::<Runtime>::set_record_xcm(true);
+		frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
 		let result = call.dispatch(origin.into());
 		crate::Pallet::<Runtime>::set_record_xcm(false);
 		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm();
@@ -2465,6 +2471,10 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Dry-runs `xcm` with the given `origin_location`.
+	///
+	/// Returns execution result, events, and any forwarded XCMs to other locations.
+	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_xcm<Runtime, Router, RuntimeCall, XcmConfig>(
 		origin_location: VersionedLocation,
 		xcm: VersionedXcm<RuntimeCall>,
@@ -2491,6 +2501,7 @@ impl<T: Config> Pallet<T> {
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
 		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
 		let result = xcm_executor::XcmExecutor::<XcmConfig>::prepare_and_execute(
 			origin_location,
 			xcm,
