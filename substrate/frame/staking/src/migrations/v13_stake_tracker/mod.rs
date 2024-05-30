@@ -27,7 +27,7 @@ use frame_election_provider_support::{SortedListProvider, VoteWeight};
 use frame_support::{
 	ensure,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	traits::Defensive,
+	traits::{Defensive, DefensiveSaturating},
 };
 use scale_info::TypeInfo;
 use sp_staking::StakingInterface;
@@ -61,9 +61,7 @@ impl Default for Processing {
 /// - Ensure the new targets in the list are sorted per total stake (as per the underlying
 ///   [`SortedListProvider`]).
 pub struct MigrationV13<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
-impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
-	for MigrationV13<T, W>
-{
+impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> {
 	// nominator cursor and validator cursor.
 	type Cursor = (Option<T::AccountId>, Processing);
 	type Identifier = MigrationId<18>;
@@ -142,7 +140,7 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 	}
 }
 
-impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> MigrationV13<T, W> {
+impl<T: Config, W: weights::WeightInfo> MigrationV13<T, W> {
 	fn process_nominator(
 		nominator: &T::AccountId,
 		nominations: Nominations<T>,
@@ -185,12 +183,8 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> MigrationV13<T, 
 		let init_stake = match <Pallet<T> as StakingInterface>::status(&who) {
 			Ok(StakerStatus::Validator) => {
 				let self_stake = Pallet::<T>::weight_of(&who);
-				if let Some(total_stake) = self_stake.checked_add(nomination_stake) {
-					total_stake
-				} else {
-					log!(error, "target stake overflow. exit.");
-					return Err(SteppedMigrationError::Failed)
-				}
+				let total_stake = self_stake.defensive_saturating_add(nomination_stake);
+				total_stake
 			},
 			_ => nomination_stake,
 		};
@@ -215,15 +209,13 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> MigrationV13<T, 
 		let current_stake =
 			<T as Config>::TargetList::get_score(&who).expect("node is in the list");
 
-		if let Some(total_stake) = current_stake.checked_add(nomination_stake.into()) {
-			let _ = <T as Config>::TargetList::on_update(&who, total_stake)
-				.map_err(|e| log!(error, "updating TL score of {:?}: {:?}", who, e))
-				.defensive();
-			Ok(())
-		} else {
-			log!(error, "target stake overflow. exit.");
-			Err(SteppedMigrationError::Failed)
-		}
+		let total_stake = current_stake.defensive_saturating_add(nomination_stake.into());
+		let _ = <T as Config>::TargetList::on_update(&who, total_stake.into()).map_err(|e| {
+			log!(error, "updating TL score of {:?}: {:?}", who, e);
+			SteppedMigrationError::Failed
+		})?;
+
+		Ok(())
 	}
 
 	/// Cleans up the nominations of `who`.
