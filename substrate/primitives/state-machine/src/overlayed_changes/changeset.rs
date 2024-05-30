@@ -25,8 +25,10 @@ use alloc::collections::btree_set::BTreeSet as Set;
 use std::collections::HashSet as Set;
 
 use crate::{ext::StorageAppend, warn};
-use crate::warn;
-use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 use core::hash::Hash;
 use smallvec::SmallVec;
 
@@ -784,8 +786,7 @@ impl OverlayedChangeSet {
 					if merge_appends {
 						*overlayed.value_mut() = committed_tx.value;
 					} else {
-						let removed =
-							sp_std::mem::replace(overlayed.value_mut(), committed_tx.value);
+						let removed = core::mem::replace(overlayed.value_mut(), committed_tx.value);
 						debug_assert!(!matches!(
 							removed,
 							StorageEntry::Append { data: AppendData::MovedSize(_), .. }
