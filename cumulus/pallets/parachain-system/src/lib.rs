@@ -743,14 +743,14 @@ pub mod pallet {
 	/// The segment length is limited by the capacity returned from the [`ConsensusHook`] configured
 	/// in the pallet.
 	#[pallet::storage]
-	pub(super) type UnincludedSegment<T: Config> =
+	pub type UnincludedSegment<T: Config> =
 		StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
 
 	/// Storage field that keeps track of bandwidth used by the unincluded segment along with the
 	/// latest HRMP watermark. Used for limiting the acceptance of new blocks with
 	/// respect to relay chain constraints.
 	#[pallet::storage]
-	pub(super) type AggregatedUnincludedSegment<T: Config> =
+	pub type AggregatedUnincludedSegment<T: Config> =
 		StorageValue<_, SegmentTracker<T::Hash>, OptionQuery>;
 
 	/// In case of a scheduled upgrade, this storage field contains the validation code to be
@@ -760,7 +760,7 @@ pub mod pallet {
 	/// [`:code`][sp_core::storage::well_known_keys::CODE] which will result the next block process
 	/// with the new validation code. This concludes the upgrade process.
 	#[pallet::storage]
-	pub(super) type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
+	pub type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
 
 	/// Validation code that is set by the parachain and is to be communicated to collator and
 	/// consequently the relay-chain.
@@ -768,23 +768,23 @@ pub mod pallet {
 	/// This will be cleared in `on_initialize` of each new block if no other pallet already set
 	/// the value.
 	#[pallet::storage]
-	pub(super) type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+	pub type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	/// The [`PersistedValidationData`] set for this block.
 	/// This value is expected to be set only once per block and it's never stored
 	/// in the trie.
 	#[pallet::storage]
-	pub(super) type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
+	pub type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
 
 	/// Were the validation data set to notify the relay chain?
 	#[pallet::storage]
-	pub(super) type DidSetValidationCode<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type DidSetValidationCode<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The relay chain block number associated with the last parachain block.
 	///
 	/// This is updated in `on_finalize`.
 	#[pallet::storage]
-	pub(super) type LastRelayChainBlockNumber<T: Config> =
+	pub type LastRelayChainBlockNumber<T: Config> =
 		StorageValue<_, RelayChainBlockNumber, ValueQuery>;
 
 	/// An option which indicates if the relay-chain restricts signalling a validation code upgrade.
@@ -795,7 +795,7 @@ pub mod pallet {
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	#[pallet::storage]
-	pub(super) type UpgradeRestrictionSignal<T: Config> =
+	pub type UpgradeRestrictionSignal<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeRestriction>, ValueQuery>;
 
 	/// Optional upgrade go-ahead signal from the relay-chain.
@@ -804,7 +804,7 @@ pub mod pallet {
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	#[pallet::storage]
-	pub(super) type UpgradeGoAhead<T: Config> =
+	pub type UpgradeGoAhead<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeGoAhead>, ValueQuery>;
 
 	/// The state proof for the last relay parent block.
@@ -814,7 +814,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
-	pub(super) type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
+	pub type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
 
 	/// The snapshot of some state related to messaging relevant to the current parachain as per
 	/// the relay parent.
@@ -824,7 +824,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
-	pub(super) type RelevantMessagingState<T: Config> = StorageValue<_, MessagingStateSnapshot>;
+	pub type RelevantMessagingState<T: Config> = StorageValue<_, MessagingStateSnapshot>;
 
 	/// The parachain host configuration that was obtained from the relay parent.
 	///
@@ -834,52 +834,52 @@ pub mod pallet {
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
 	#[pallet::disable_try_decode_storage]
-	pub(super) type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
+	pub type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
 
 	/// The last downward message queue chain head we have observed.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	#[pallet::storage]
-	pub(super) type LastDmqMqcHead<T: Config> = StorageValue<_, MessageQueueChain, ValueQuery>;
+	pub type LastDmqMqcHead<T: Config> = StorageValue<_, MessageQueueChain, ValueQuery>;
 
 	/// The message queue chain heads we have observed per each channel incoming channel.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	#[pallet::storage]
-	pub(super) type LastHrmpMqcHeads<T: Config> =
+	pub type LastHrmpMqcHeads<T: Config> =
 		StorageValue<_, BTreeMap<ParaId, MessageQueueChain>, ValueQuery>;
 
 	/// Number of downward messages processed in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// HRMP watermark that was set in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type HrmpWatermark<T: Config> =
+	pub type HrmpWatermark<T: Config> =
 		StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
 
 	/// HRMP messages that were sent in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type HrmpOutboundMessages<T: Config> =
+	pub type HrmpOutboundMessages<T: Config> =
 		StorageValue<_, Vec<OutboundHrmpMessage>, ValueQuery>;
 
 	/// Upward messages that were sent in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+	pub type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// Upward messages that are still pending and not yet send to the relay chain.
 	#[pallet::storage]
-	pub(super) type PendingUpwardMessages<T: Config> =
+	pub type PendingUpwardMessages<T: Config> =
 		StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// Initialization value for the delivery fee factor for UMP.
@@ -890,29 +890,29 @@ pub mod pallet {
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
-	pub(super) type UpwardDeliveryFeeFactor<T: Config> =
+	pub type UpwardDeliveryFeeFactor<T: Config> =
 		StorageValue<_, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor>;
 
 	/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
 	#[pallet::storage]
-	pub(super) type AnnouncedHrmpMessagesPerCandidate<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type AnnouncedHrmpMessagesPerCandidate<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// The weight we reserve at the beginning of the block for processing XCMP messages. This
 	/// overrides the amount set in the Config trait.
 	#[pallet::storage]
-	pub(super) type ReservedXcmpWeightOverride<T: Config> = StorageValue<_, Weight>;
+	pub type ReservedXcmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
 	/// The weight we reserve at the beginning of the block for processing DMP messages. This
 	/// overrides the amount set in the Config trait.
 	#[pallet::storage]
-	pub(super) type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
+	pub type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
 	/// A custom head data that should be returned as result of `validate_block`.
 	///
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
-	pub(super) type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
