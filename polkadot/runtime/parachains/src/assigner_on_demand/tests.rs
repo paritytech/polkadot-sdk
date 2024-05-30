@@ -747,7 +747,7 @@ fn revenue_information_fetching_works() {
 
 		let amt = OnDemandAssigner::revenue_until(12);
 
-		// Revenue for a single order should be recorded and shouldn't have been pruned by the 
+		// Revenue for a single order should be recorded and shouldn't have been pruned by the
 		// previous call
 		assert_eq!(amt, revenue[0]);
 

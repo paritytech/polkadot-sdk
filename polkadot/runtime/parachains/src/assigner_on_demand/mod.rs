@@ -202,7 +202,7 @@ pub mod pallet {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// Update revenue information storage.
 			Revenue::<T>::mutate(|revenue| {
-				let _ = revenue.force_insert_keep_left(0, 0u32.into()).defensive_proof("Inserting a revenue value does not fail");
+				revenue.force_insert_keep_left(0, 0u32.into()).defensive_ok();
 			});
 
 			let config = configuration::ActiveConfig::<T>::get();
