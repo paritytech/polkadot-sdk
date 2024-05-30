@@ -336,7 +336,7 @@ try-runtime = [
 # Enable the metadata hash generation in the wasm builder.
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
 
-# When enabled, the runtime API will not be built.
+# If enabled, the runtime apis will not be exposed by the runtime.
 disable-runtime-api = []
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
