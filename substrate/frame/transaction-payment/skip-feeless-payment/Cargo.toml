@@ -19,7 +19,7 @@ sp-runtime = { path = "../../../primitives/runtime", default-features = false, v
 sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
 
 frame-support = { path = "../../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "34.0.1" }
 
 # Other dependencies
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }

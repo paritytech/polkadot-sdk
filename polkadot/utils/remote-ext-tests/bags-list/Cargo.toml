@@ -15,7 +15,7 @@ westend-runtime = { version = "13.0.0", path = "../../../runtime/westend" }
 westend-runtime-constants = { version = "13.0.0", path = "../../../runtime/westend/constants" }
 pallet-bags-list-remote-tests = { version = "0.1.0", path = "../../../../substrate/frame/bags-list/remote-tests" }
 sp-tracing = { version = "17.0.0", path = "../../../../substrate/primitives/tracing" }
-frame-system = { version = "34.0.0", path = "../../../../substrate/frame/system" }
+frame-system = { version = "34.0.1", path = "../../../../substrate/frame/system" }
 sp-core = { version = "33.0.1", path = "../../../../substrate/primitives/core" }
 
 clap = { version = "4.5.3", features = ["derive"] }

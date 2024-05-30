@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 pallet-staking = { version = "34.0.0", path = "../../staking" }
 pallet-bags-list = { path = "..", features = ["fuzz"], version = "33.0.0" }
 frame-election-provider-support = { version = "34.0.0", path = "../../election-provider-support" }
-frame-system = { version = "34.0.0", path = "../../system" }
+frame-system = { version = "34.0.1", path = "../../system" }
 frame-support = { version = "34.0.0", path = "../../support" }
 sp-storage = { version = "21.0.0", path = "../../../primitives/storage" }
 sp-core = { version = "33.0.1", path = "../../../primitives/core" }

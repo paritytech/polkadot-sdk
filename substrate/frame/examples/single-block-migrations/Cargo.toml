@@ -19,7 +19,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-support = { path = "../../support", default-features = false, version = "34.0.0" }
 frame-executive = { path = "../../executive", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "34.0.1" }
 frame-try-runtime = { path = "../../try-runtime", default-features = false, optional = true, version = "0.40.0" }
 pallet-balances = { path = "../../balances", default-features = false, version = "35.0.0" }
 sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }

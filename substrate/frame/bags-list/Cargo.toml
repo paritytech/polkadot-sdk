@@ -29,7 +29,7 @@ sp-std = { path = "../../primitives/std", default-features = false, version = "1
 
 # FRAME
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false, version = "34.0.0" }
 
 # third party

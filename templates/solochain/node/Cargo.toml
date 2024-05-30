@@ -47,7 +47,7 @@ sp-keyring = { version = "37.0.0", path = "../../../substrate/primitives/keyring
 sp-api = { version = "32.0.0", path = "../../../substrate/primitives/api" }
 sp-blockchain = { version = "34.0.0", path = "../../../substrate/primitives/blockchain" }
 sp-block-builder = { version = "32.0.0", path = "../../../substrate/primitives/block-builder" }
-frame-system = { version = "34.0.0", path = "../../../substrate/frame/system" }
+frame-system = { version = "34.0.1", path = "../../../substrate/frame/system" }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "34.0.0" }
 pallet-transaction-payment-rpc = { version = "36.0.0", path = "../../../substrate/frame/transaction-payment/rpc" }
 substrate-frame-rpc-system = { version = "34.0.0", path = "../../../substrate/utils/frame/rpc/system" }

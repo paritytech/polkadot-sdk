@@ -29,7 +29,7 @@ sp-blockchain = { version = "34.0.0", path = "../../../substrate/primitives/bloc
 sp-inherents = { version = "32.0.0", path = "../../../substrate/primitives/inherents" }
 sp-io = { version = "36.0.0", path = "../../../substrate/primitives/io" }
 sp-timestamp = { version = "32.0.0", path = "../../../substrate/primitives/timestamp" }
-frame-system = { version = "34.0.0", path = "../../../substrate/frame/system" }
+frame-system = { version = "34.0.1", path = "../../../substrate/frame/system" }
 pallet-transaction-payment = { version = "34.0.0", path = "../../../substrate/frame/transaction-payment" }
 pallet-balances = { version = "35.0.0", path = "../../../substrate/frame/balances" }
 polkadot-primitives = { version = "13.0.0", path = "../../../polkadot/primitives" }

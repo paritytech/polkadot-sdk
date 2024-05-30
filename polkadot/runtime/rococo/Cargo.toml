@@ -82,7 +82,7 @@ pallet-society = { path = "../../../substrate/frame/society", default-features =
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false, version = "34.0.0" }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["tuples-96"], version = "34.0.0" }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "32.0.0" }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false, version = "33.0.0" }
 pallet-tips = { path = "../../../substrate/frame/tips", default-features = false, version = "33.0.0" }

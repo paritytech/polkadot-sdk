@@ -42,7 +42,7 @@ rand_pcg = { version = "0.3", optional = true }
 environmental = { version = "1.1.4", default-features = false }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 pallet-balances = { path = "../balances", default-features = false, optional = true, version = "35.0.0" }
 pallet-contracts-uapi = { version = "10.0.1", path = "uapi" }
 pallet-contracts-proc-macro = { version = "21.0.0", path = "proc-macro" }

@@ -21,7 +21,7 @@ log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "37.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
 

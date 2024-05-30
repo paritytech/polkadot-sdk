@@ -28,7 +28,7 @@ smallvec = "1.11.0"
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false, version = "34.0.0" }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "32.0.0" }
 frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true, version = "0.40.0" }

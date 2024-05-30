@@ -22,7 +22,7 @@ serde = { features = ["alloc", "derive"], workspace = true }
 # Substrate Dependencies
 
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false, version = "36.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"], version = "37.0.0" }

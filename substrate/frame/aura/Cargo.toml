@@ -20,7 +20,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 pallet-timestamp = { path = "../timestamp", default-features = false, version = "33.0.0" }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, version = "36.0.0" }
 sp-consensus-aura = { path = "../../primitives/consensus/aura", default-features = false, version = "0.38.0" }

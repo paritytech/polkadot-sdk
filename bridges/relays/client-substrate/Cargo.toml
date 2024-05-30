@@ -31,7 +31,7 @@ pallet-bridge-messages = { version = "0.13.0", path = "../../modules/messages" }
 finality-relay = { version = "0.1.0", path = "../finality" }
 relay-utils = { version = "0.1.0", path = "../utils" }
 frame-support = { version = "34.0.0", path = "../../../substrate/frame/support" }
-frame-system = { version = "34.0.0", path = "../../../substrate/frame/system" }
+frame-system = { version = "34.0.1", path = "../../../substrate/frame/system" }
 pallet-balances = { version = "35.0.0", path = "../../../substrate/frame/balances" }
 pallet-transaction-payment = { version = "34.0.0", path = "../../../substrate/frame/transaction-payment" }
 pallet-transaction-payment-rpc-runtime-api = { version = "34.0.0", path = "../../../substrate/frame/transaction-payment/rpc/runtime-api" }

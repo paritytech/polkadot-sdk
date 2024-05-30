@@ -25,7 +25,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false, vers
 # Needed for type-safe access to storage DB.
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "34.0.0" }
 sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.1" }
 

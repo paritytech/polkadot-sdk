@@ -15,7 +15,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 honggfuzz = "0.5.55"
 arbitrary = "1.3.2"
 scale-info = { version = "2.11.1", features = ["derive"] }
-frame-system = { version = "34.0.0", path = "../../../../substrate/frame/system" }
+frame-system = { version = "34.0.1", path = "../../../../substrate/frame/system" }
 frame-support = { version = "34.0.0", path = "../../../../substrate/frame/support" }
 frame-executive = { version = "34.0.0", path = "../../../../substrate/frame/executive" }
 frame-try-runtime = { version = "0.40.0", path = "../../../../substrate/frame/try-runtime" }

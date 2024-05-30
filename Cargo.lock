@@ -5847,7 +5847,7 @@ dependencies = [
 
 [[package]]
 name = "frame-system"
-version = "34.0.0"
+version = "34.0.1"
 dependencies = [
  "cfg-if",
  "criterion",

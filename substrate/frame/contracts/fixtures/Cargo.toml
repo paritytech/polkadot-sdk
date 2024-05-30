@@ -11,7 +11,7 @@ description = "Fixtures for testing contracts pallet. (polkadot v1.12.0)"
 workspace = true
 
 [dependencies]
-frame-system = { version = "34.0.0", path = "../../system" }
+frame-system = { version = "34.0.1", path = "../../system" }
 sp-runtime = { version = "37.0.0", path = "../../../primitives/runtime" }
 anyhow = "1.0.81"
 

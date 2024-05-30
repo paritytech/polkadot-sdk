@@ -15,7 +15,7 @@ workspace = true
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 
 frame-support = { path = "../../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "34.0.1" }
 pallet-assets = { version = "35.0.0", path = "../../assets" }
 pallet-balances = { version = "35.0.0", path = "../../balances" }
 pallet-contracts = { version = "33.0.0", path = ".." }

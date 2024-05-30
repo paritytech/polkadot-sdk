@@ -19,7 +19,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 
 frame-benchmarking = { default-features = false, optional = true, path = "../benchmarking", version = "34.0.0" }
 frame-support = { default-features = false, path = "../support", version = "34.0.0" }
-frame-system = { default-features = false, path = "../system", version = "34.0.0" }
+frame-system = { default-features = false, path = "../system", version = "34.0.1" }
 sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.1" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "37.0.0" }

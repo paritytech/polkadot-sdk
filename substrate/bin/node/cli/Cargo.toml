@@ -93,7 +93,7 @@ sc-sysinfo = { version = "33.0.0", path = "../../../client/sysinfo" }
 sc-storage-monitor = { version = "0.21.0", path = "../../../client/storage-monitor" }
 sc-offchain = { version = "35.0.0", path = "../../../client/offchain" }
 frame-benchmarking = { version = "34.0.0", path = "../../../frame/benchmarking" }
-frame-system = { version = "34.0.0", path = "../../../frame/system" }
+frame-system = { version = "34.0.1", path = "../../../frame/system" }
 frame-system-rpc-runtime-api = { version = "32.0.0", path = "../../../frame/system/rpc/runtime-api" }
 pallet-assets = { version = "35.0.0", path = "../../../frame/assets" }
 pallet-asset-conversion-tx-payment = { version = "16.0.0", path = "../../../frame/transaction-payment/asset-conversion-tx-payment" }

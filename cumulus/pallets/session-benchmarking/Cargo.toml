@@ -20,7 +20,7 @@ parity-scale-codec = { version = "3.6.4", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "34.0.0" }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "34.0.0" }
 

@@ -35,7 +35,7 @@ thiserror = { workspace = true }
 thousands = "0.2.0"
 frame-benchmarking = { version = "34.0.0", path = "../../../frame/benchmarking" }
 frame-support = { version = "34.0.0", path = "../../../frame/support" }
-frame-system = { version = "34.0.0", path = "../../../frame/system" }
+frame-system = { version = "34.0.1", path = "../../../frame/system" }
 sc-block-builder = { version = "0.39.0", path = "../../../client/block-builder" }
 sc-chain-spec = { path = "../../../client/chain-spec", default-features = false, version = "33.0.0" }
 sc-cli = { path = "../../../client/cli", default-features = false, version = "0.42.0" }

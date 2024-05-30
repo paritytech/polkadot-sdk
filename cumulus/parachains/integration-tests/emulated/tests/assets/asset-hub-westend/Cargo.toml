@@ -19,7 +19,7 @@ sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", defau
 sp-keyring = { path = "../../../../../../../substrate/primitives/keyring", default-features = false, version = "37.0.0" }
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../../../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../../../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false, version = "35.0.0" }
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false, version = "35.0.0" }
 pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false, version = "16.0.0" }

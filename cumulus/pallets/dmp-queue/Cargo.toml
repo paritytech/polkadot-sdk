@@ -20,7 +20,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false, version = "36.0.0" }

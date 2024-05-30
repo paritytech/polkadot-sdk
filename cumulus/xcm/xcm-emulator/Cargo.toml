@@ -16,7 +16,7 @@ log = { workspace = true }
 lazy_static = "1.4.0"
 impl-trait-for-tuples = "0.2.2"
 frame-support = { version = "34.0.0", path = "../../../substrate/frame/support" }
-frame-system = { version = "34.0.0", path = "../../../substrate/frame/system" }
+frame-system = { version = "34.0.1", path = "../../../substrate/frame/system" }
 sp-io = { version = "36.0.0", path = "../../../substrate/primitives/io" }
 sp-core = { version = "33.0.1", path = "../../../substrate/primitives/core" }
 sp-crypto-hashing = { version = "0.1.0", path = "../../../substrate/primitives/crypto/hashing" }

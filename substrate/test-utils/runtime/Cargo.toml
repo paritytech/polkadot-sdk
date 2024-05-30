@@ -38,7 +38,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false, feat
 pallet-babe = { path = "../../frame/babe", default-features = false, version = "34.0.0" }
 pallet-balances = { path = "../../frame/balances", default-features = false, version = "35.0.0" }
 frame-executive = { path = "../../frame/executive", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../frame/system", default-features = false, version = "34.0.1" }
 frame-system-rpc-runtime-api = { path = "../../frame/system/rpc/runtime-api", default-features = false, version = "32.0.0" }
 pallet-timestamp = { path = "../../frame/timestamp", default-features = false, version = "33.0.0" }
 sp-consensus-grandpa = { path = "../../primitives/consensus/grandpa", default-features = false, features = ["serde"], version = "19.0.0" }

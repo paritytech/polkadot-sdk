@@ -31,7 +31,7 @@ node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli"
 kitchensink-runtime = { version = "0.1.0", path = "../../substrate/bin/node/runtime" }
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder", version = "0.1.0" }
 subkey = { version = "15.0.0", path = "../../substrate/bin/utils/subkey" }
-frame-system = { path = "../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../substrate/frame/system", default-features = false, version = "34.0.1" }
 frame-support = { path = "../../substrate/frame/support", default-features = false, version = "34.0.0" }
 frame-executive = { path = "../../substrate/frame/executive", default-features = false, version = "34.0.0" }
 pallet-example-single-block-migrations = { version = "0.1.0", path = "../../substrate/frame/examples/single-block-migrations" }

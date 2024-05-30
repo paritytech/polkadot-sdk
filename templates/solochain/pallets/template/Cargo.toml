@@ -26,7 +26,7 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 # frame deps
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 
 [dev-dependencies]
 sp-core = { path = "../../../../substrate/primitives/core" }

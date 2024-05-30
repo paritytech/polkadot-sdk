@@ -13,7 +13,7 @@ workspace = true
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 scale-info = { version = "2.11.1", features = ["derive"] }
 log = { workspace = true }
-frame-system = { version = "34.0.0", path = "../../../../substrate/frame/system" }
+frame-system = { version = "34.0.1", path = "../../../../substrate/frame/system" }
 frame-support = { version = "34.0.0", path = "../../../../substrate/frame/support" }
 pallet-balances = { version = "35.0.0", path = "../../../../substrate/frame/balances" }
 pallet-message-queue = { version = "37.0.0", path = "../../../../substrate/frame/message-queue" }

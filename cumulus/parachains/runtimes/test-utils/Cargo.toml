@@ -14,7 +14,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 
 # Substrate
 frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false, version = "35.0.0" }
 pallet-session = { path = "../../../../substrate/frame/session", default-features = false, version = "34.0.0" }
 pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-features = false, version = "33.0.0" }

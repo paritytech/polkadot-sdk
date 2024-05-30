@@ -34,7 +34,7 @@ sp-arithmetic = { default-features = false, path = "../primitives/arithmetic", v
 
 # frame deps, for developing FRAME pallets.
 frame-support = { default-features = false, path = "support", version = "34.0.0" }
-frame-system = { default-features = false, path = "system", version = "34.0.0" }
+frame-system = { default-features = false, path = "system", version = "34.0.1" }
 
 # primitive types used for developing FRAME runtimes.
 sp-version = { default-features = false, path = "../primitives/version", optional = true, version = "35.0.0" }

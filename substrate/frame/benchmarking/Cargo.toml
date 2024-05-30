@@ -24,7 +24,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 serde = { optional = true, workspace = true, default-features = true }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
 frame-support-procedural = { path = "../support/procedural", default-features = false, version = "29.0.1" }
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 sp-api = { path = "../../primitives/api", default-features = false, version = "32.0.0" }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, version = "36.0.0" }
 sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.1" }

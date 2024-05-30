@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.5", default-features = false }
 pallet-migrations = { path = "../../migrations", default-features = false, version = "4.0.0" }
 frame-support = { path = "../../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "34.0.1" }
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true, version = "34.0.0" }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false }

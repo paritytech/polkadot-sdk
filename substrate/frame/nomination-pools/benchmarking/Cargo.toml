@@ -24,7 +24,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 frame-benchmarking = { path = "../../benchmarking", default-features = false, version = "34.0.0" }
 frame-election-provider-support = { path = "../../election-provider-support", default-features = false, version = "34.0.0" }
 frame-support = { path = "../../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "34.0.1" }
 pallet-bags-list = { path = "../../bags-list", default-features = false, version = "33.0.0" }
 pallet-staking = { path = "../../staking", default-features = false, version = "34.0.0" }
 pallet-nomination-pools = { path = "..", default-features = false, version = "31.0.0" }

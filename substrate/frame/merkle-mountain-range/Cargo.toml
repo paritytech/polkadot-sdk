@@ -20,7 +20,7 @@ log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 sp-core = { path = "../../primitives/core", default-features = false, version = "33.0.1" }
 sp-io = { path = "../../primitives/io", default-features = false, version = "36.0.0" }
 sp-mmr-primitives = { path = "../../primitives/merkle-mountain-range", default-features = false, version = "32.0.1" }

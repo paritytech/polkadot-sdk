@@ -26,7 +26,7 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 
 # frame
 frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["experimental"], version = "34.0.0" }
-frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true, version = "0.40.0" }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false, version = "34.0.0" }
 

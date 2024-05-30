@@ -20,7 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 honggfuzz = "0.5.54"
 
 pallet-nomination-pools = { path = "..", features = ["fuzzing"], version = "31.0.0" }
-frame-system = { version = "34.0.0", path = "../../system" }
+frame-system = { version = "34.0.1", path = "../../system" }
 frame-support = { version = "34.0.0", path = "../../support" }
 sp-runtime = { version = "37.0.0", path = "../../../primitives/runtime" }
 sp-io = { version = "36.0.0", path = "../../../primitives/io" }

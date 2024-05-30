@@ -21,7 +21,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 frame-benchmarking = { path = "../../benchmarking", default-features = false, version = "34.0.0" }
 frame-election-provider-support = { path = "../../election-provider-support", default-features = false, version = "34.0.0" }
 frame-support = { path = "../../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "34.0.1" }
 pallet-babe = { path = "../../babe", default-features = false, version = "34.0.0" }
 pallet-balances = { path = "../../balances", default-features = false, version = "35.0.0" }
 pallet-grandpa = { path = "../../grandpa", default-features = false, version = "34.0.0" }

@@ -39,7 +39,7 @@ pallet-session = { path = "../../../substrate/frame/session", default-features =
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "34.0.0" }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false, version = "34.0.0" }
 pallet-staking-reward-fn = { path = "../../../substrate/frame/staking/reward-fn", default-features = false, version = "22.0.0" }
-frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false, version = "33.0.0" }
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false, version = "34.0.0" }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "34.0.0" }

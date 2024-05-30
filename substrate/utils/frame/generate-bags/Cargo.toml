@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 frame-support = { version = "34.0.0", path = "../../../frame/support" }
 frame-election-provider-support = { version = "34.0.0", path = "../../../frame/election-provider-support" }
-frame-system = { version = "34.0.0", path = "../../../frame/system" }
+frame-system = { version = "34.0.1", path = "../../../frame/system" }
 pallet-staking = { version = "34.0.0", path = "../../../frame/staking" }
 sp-staking = { version = "32.0.0", path = "../../../primitives/staking" }
 

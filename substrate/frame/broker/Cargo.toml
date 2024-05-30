@@ -26,7 +26,7 @@ sp-core = { path = "../../primitives/core", default-features = false, version = 
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "37.0.0" }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 
 [dev-dependencies]
 sp-io = { path = "../../primitives/io" }

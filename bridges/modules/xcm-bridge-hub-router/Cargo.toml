@@ -23,7 +23,7 @@ bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", de
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "33.0.1" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "37.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }

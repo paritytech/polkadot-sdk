@@ -34,7 +34,7 @@ sc-authority-discovery = { version = "0.40.0", path = "../../../../substrate/cli
 babe = { package = "sc-consensus-babe", path = "../../../../substrate/client/consensus/babe", version = "0.40.0" }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../../substrate/primitives/consensus/babe", version = "0.38.0" }
 consensus_common = { package = "sp-consensus", path = "../../../../substrate/primitives/consensus/common", version = "0.38.0" }
-frame-system = { version = "34.0.0", path = "../../../../substrate/frame/system" }
+frame-system = { version = "34.0.1", path = "../../../../substrate/frame/system" }
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../substrate/client/consensus/grandpa", version = "0.25.0" }
 grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../../substrate/primitives/consensus/grandpa", version = "19.0.0" }
 inherents = { package = "sp-inherents", path = "../../../../substrate/primitives/inherents", version = "32.0.0" }

@@ -17,7 +17,7 @@ log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
 serde = { optional = true, workspace = true, default-features = true }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 pallet-authorship = { path = "../authorship", default-features = false, version = "34.0.0" }
 pallet-session = { path = "../session", default-features = false, version = "34.0.0" }
 sp-consensus-beefy = { path = "../../primitives/consensus/beefy", default-features = false, features = ["serde"], version = "19.0.0" }

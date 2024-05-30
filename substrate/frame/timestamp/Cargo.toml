@@ -22,7 +22,7 @@ log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "34.0.0" }
 frame-support = { path = "../support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../system", default-features = false, version = "34.0.1" }
 sp-inherents = { path = "../../primitives/inherents", default-features = false, version = "32.0.0" }
 sp-io = { path = "../../primitives/io", default-features = false, optional = true, version = "36.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "37.0.0" }

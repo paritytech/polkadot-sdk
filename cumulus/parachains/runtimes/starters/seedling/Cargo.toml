@@ -16,7 +16,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 # Substrate
 frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false, version = "34.0.0" }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "34.0.0" }
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "34.0.0" }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "34.0.1" }
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false, version = "33.0.0" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "35.0.0" }
 pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false, version = "34.0.0" }
