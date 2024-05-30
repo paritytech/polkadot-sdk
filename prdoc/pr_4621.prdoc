@@ -1,0 +1,43 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Change XcmDryRunApi::dry_run_extrinsic to take a call instead
+
+doc:
+  - audience: Runtime User
+    description: |
+      The XcmDryRunApi now dry-run calls instead of extrinsics.
+      This means it's possible to dry-run an extrinsic before signing it,
+      allowing for seamless dry-running in dapps.
+      Additionally, calls can now be dry-run for different accounts.
+  - audience: Runtime Dev
+    description: |
+      The XcmDryRunApi::dry_run_extrinsic function was replaced by
+      XcmDryRunApi::dry_run_call.
+      This new function takes an origin (OriginCaller, the encodable inner variant)
+      and a call instead of an extrinsic.
+      This was needed to not require the user signing twice, once for the dry-run and
+      a second time to actually submit the extrinsic.
+      Additionally, calls can now be dry-run for different accounts.
+      The implementation for this runtime API is now simpler, being `call.dispatch(origin.into())`
+      instead of using the `Executive`.
+
+crates:
+  - name: xcm-fee-payment-runtime-api
+    bump: major
+  - name: penpal-runtime
+    bump: major
+  - name: xcm-emulator
+    bump: minor
+  - name: polkadot-service
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: pallet-xcm
+    bump: minor
