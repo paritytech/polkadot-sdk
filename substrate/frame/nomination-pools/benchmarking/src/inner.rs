@@ -116,7 +116,7 @@ fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
 	}
 	let pool_acc = Pools::<T>::generate_bonded_account(pool_id);
 	// drop the agent and its associated delegators .
-	T::StakeAdapter::remove_as_agent(Pool(pool_acc.clone()));
+	T::StakeAdapter::remove_as_agent(Pool::from(pool_acc.clone()));
 
 	// tranfer funds from all members to the pool account.
 	PoolMembers::<T>::iter()
@@ -186,7 +186,7 @@ impl<T: Config> ListScenario<T> {
 			create_pool_account::<T>(USER_SEED + 1, origin_weight, Some(Perbill::from_percent(50)));
 
 		T::StakeAdapter::nominate(
-			Pool(pool_origin1.clone()),
+			Pool::from(pool_origin1.clone()),
 			// NOTE: these don't really need to be validators.
 			vec![account("random_validator", 0, USER_SEED)],
 		)?;
@@ -195,7 +195,7 @@ impl<T: Config> ListScenario<T> {
 			create_pool_account::<T>(USER_SEED + 2, origin_weight, Some(Perbill::from_percent(50)));
 
 		T::StakeAdapter::nominate(
-			Pool(pool_origin2.clone()),
+			Pool::from(pool_origin2.clone()),
 			vec![account("random_validator", 0, USER_SEED)].clone(),
 		)?;
 
@@ -213,7 +213,7 @@ impl<T: Config> ListScenario<T> {
 			create_pool_account::<T>(USER_SEED + 3, dest_weight, Some(Perbill::from_percent(50)));
 
 		T::StakeAdapter::nominate(
-			Pool(pool_dest1.clone()),
+			Pool::from(pool_dest1.clone()),
 			vec![account("random_validator", 0, USER_SEED)],
 		)?;
 
@@ -241,11 +241,11 @@ impl<T: Config> ListScenario<T> {
 		self.origin1_member = Some(joiner.clone());
 		CurrencyOf::<T>::set_balance(&joiner, amount * 2u32.into());
 
-		let original_bonded = T::StakeAdapter::active_stake(Pool(self.origin1.clone()));
+		let original_bonded = T::StakeAdapter::active_stake(Pool::from(self.origin1.clone()));
 
 		// Unbond `amount` from the underlying pool account so when the member joins
 		// we will maintain `current_bonded`.
-		T::StakeAdapter::unbond(Pool(self.origin1.clone()), amount)
+		T::StakeAdapter::unbond(Pool::from(self.origin1.clone()), amount)
 			.expect("the pool was created in `Self::new`.");
 
 		// Account pool points for the unbonded balance.
@@ -282,7 +282,7 @@ frame_benchmarking::benchmarks! {
 		// setup the worst case list scenario.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(scenario.origin1.clone())),
+			T::StakeAdapter::active_stake(Pool::from(scenario.origin1.clone())),
 			origin_weight
 		);
 
@@ -297,7 +297,7 @@ frame_benchmarking::benchmarks! {
 	verify {
 		assert_eq!(CurrencyOf::<T>::balance(&joiner), joiner_free - max_additional);
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(scenario.origin1)),
+			T::StakeAdapter::active_stake(Pool::from(scenario.origin1)),
 			scenario.dest_weight
 		);
 	}
@@ -312,7 +312,7 @@ frame_benchmarking::benchmarks! {
 	}: bond_extra(RuntimeOrigin::Signed(scenario.creator1.clone()), BondExtra::FreeBalance(extra))
 	verify {
 		assert!(
-			T::StakeAdapter::active_stake(Pool(scenario.origin1)) >=
+			T::StakeAdapter::active_stake(Pool::from(scenario.origin1)) >=
 			scenario.dest_weight
 		);
 	}
@@ -336,7 +336,7 @@ frame_benchmarking::benchmarks! {
 	verify {
 		 // commission of 50% deducted here.
 		assert!(
-			T::StakeAdapter::active_stake(Pool(scenario.origin1)) >=
+			T::StakeAdapter::active_stake(Pool::from(scenario.origin1)) >=
 			scenario.dest_weight / 2u32.into()
 		);
 	}
@@ -390,7 +390,7 @@ frame_benchmarking::benchmarks! {
 		whitelist_account!(member_id);
 	}: _(RuntimeOrigin::Signed(member_id.clone()), member_id_lookup, all_points)
 	verify {
-		let bonded_after = T::StakeAdapter::active_stake(Pool(scenario.origin1));
+		let bonded_after = T::StakeAdapter::active_stake(Pool::from(scenario.origin1));
 		// We at least went down to the destination bag
 		assert!(bonded_after <= scenario.dest_weight);
 		let member = PoolMembers::<T>::get(
@@ -421,7 +421,7 @@ frame_benchmarking::benchmarks! {
 
 		// Sanity check join worked
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(pool_account.clone())),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond + min_join_bond
 		);
 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
@@ -431,7 +431,7 @@ frame_benchmarking::benchmarks! {
 
 		// Sanity check that unbond worked
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(pool_account.clone())),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond
 		);
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
@@ -464,7 +464,7 @@ frame_benchmarking::benchmarks! {
 
 		// Sanity check join worked
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(pool_account.clone())),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond + min_join_bond
 		);
 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
@@ -475,7 +475,7 @@ frame_benchmarking::benchmarks! {
 
 		// Sanity check that unbond worked
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(pool_account.clone())),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond
 		);
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
@@ -521,11 +521,11 @@ frame_benchmarking::benchmarks! {
 
 		// Sanity check that unbond worked
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(pool_account.clone())),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			Zero::zero()
 		);
 		assert_eq!(
-			T::StakeAdapter::total_balance(Pool(pool_account.clone())),
+			T::StakeAdapter::total_balance(Pool::from(pool_account.clone())),
 			Some(min_create_bond)
 		);
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
@@ -601,7 +601,7 @@ frame_benchmarking::benchmarks! {
 			}
 		);
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(Pools::<T>::generate_bonded_account(1))),
+			T::StakeAdapter::active_stake(Pool::from(Pools::<T>::generate_bonded_account(1))),
 			min_create_bond
 		);
 	}
@@ -641,7 +641,7 @@ frame_benchmarking::benchmarks! {
 			}
 		);
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(Pools::<T>::generate_bonded_account(1))),
+			T::StakeAdapter::active_stake(Pool::from(Pools::<T>::generate_bonded_account(1))),
 			min_create_bond
 		);
 	}
@@ -726,13 +726,13 @@ frame_benchmarking::benchmarks! {
 			.map(|i| account("stash", USER_SEED, i))
 			.collect();
 
-		assert_ok!(T::StakeAdapter::nominate(Pool(pool_account.clone()), validators));
-		assert!(T::StakeAdapter::nominations(Pool(pool_account.clone())).is_some());
+		assert_ok!(T::StakeAdapter::nominate(Pool::from(pool_account.clone()), validators));
+		assert!(T::StakeAdapter::nominations(Pool::from(pool_account.clone())).is_some());
 
 		whitelist_account!(depositor);
 	}:_(RuntimeOrigin::Signed(depositor.clone()), 1)
 	verify {
-		assert!(T::StakeAdapter::nominations(Pool(pool_account.clone())).is_none());
+		assert!(T::StakeAdapter::nominations(Pool::from(pool_account.clone())).is_none());
 	}
 
 	set_commission {
@@ -831,7 +831,7 @@ frame_benchmarking::benchmarks! {
 
 		// Sanity check join worked
 		assert_eq!(
-			T::StakeAdapter::active_stake(Pool(pool_account.clone())),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond + min_join_bond
 		);
 	}:_(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::Permissioned)
@@ -895,7 +895,7 @@ frame_benchmarking::benchmarks! {
 		// verify user balance in the pool.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 		// verify delegated balance.
-		assert_if_delegate::<T>(T::StakeAdapter::member_delegation_balance(Member(depositor.clone())) == Some(deposit_amount));
+		assert_if_delegate::<T>(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) == Some(deposit_amount));
 
 		// ugly type conversion between balances of pallet staking and pools (which really are same
 		// type). Maybe there is a better way?
@@ -913,7 +913,7 @@ frame_benchmarking::benchmarks! {
 		// verify user balance is slashed in the pool.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount/2u32.into());
 		// verify delegated balance are not yet slashed.
-		assert_if_delegate::<T>(T::StakeAdapter::member_delegation_balance(Member(depositor.clone())) == Some(deposit_amount));
+		assert_if_delegate::<T>(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) == Some(deposit_amount));
 
 		// Fill member's sub pools for the worst case.
 		for i in 1..(T::MaxUnbonding::get() + 1) {
@@ -932,7 +932,7 @@ frame_benchmarking::benchmarks! {
 	verify {
 		// verify balances are correct and slash applied.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount/2u32.into());
-		assert_if_delegate::<T>(T::StakeAdapter::member_delegation_balance(Member(depositor.clone())) == Some(deposit_amount/2u32.into()));
+		assert_if_delegate::<T>(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) == Some(deposit_amount/2u32.into()));
 	}
 
 	apply_slash_fail {
@@ -988,7 +988,7 @@ frame_benchmarking::benchmarks! {
 	}
 	verify {
 		// this queries agent balance if `DelegateStake` strategy.
-		assert!(T::StakeAdapter::total_balance(Pool(pool_account.clone())) == Some(deposit_amount));
+		assert!(T::StakeAdapter::total_balance(Pool::from(pool_account.clone())) == Some(deposit_amount));
 	}
 
 	migrate_delegation {
@@ -1004,7 +1004,7 @@ frame_benchmarking::benchmarks! {
 		assert_if_delegate::<T>(Pools::<T>::migrate_pool_to_delegate_stake(RuntimeOrigin::Signed(depositor.clone()).into(), 1u32.into()).is_ok());
 
 		// delegation does not exist.
-		assert!(T::StakeAdapter::member_delegation_balance(Member(depositor.clone())).is_none());
+		assert!(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())).is_none());
 		// contribution exists in the pool.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 
@@ -1014,7 +1014,7 @@ frame_benchmarking::benchmarks! {
 	}
 	verify {
 		// verify balances once more.
-		assert_if_delegate::<T>(T::StakeAdapter::member_delegation_balance(Member(depositor.clone())) == Some(deposit_amount));
+		assert_if_delegate::<T>(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) == Some(deposit_amount));
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 	}
 

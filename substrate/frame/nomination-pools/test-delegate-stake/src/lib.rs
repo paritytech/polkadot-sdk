@@ -1017,13 +1017,14 @@ fn pool_migration_e2e() {
 		);
 
 		// unclaimed delegations to the pool are stored in this account.
-		let proxy_delegator_1 = DelegatedStaking::generate_proxy_delegator(Agent(POOL1_BONDED));
+		let proxy_delegator_1 =
+			DelegatedStaking::generate_proxy_delegator(Agent::from(POOL1_BONDED)).get();
 
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
 			vec![DelegatedStakingEvent::Delegated {
 				agent: POOL1_BONDED,
-				delegator: proxy_delegator_1.0,
+				delegator: proxy_delegator_1,
 				amount: 50 + 10 * 3
 			}]
 		);

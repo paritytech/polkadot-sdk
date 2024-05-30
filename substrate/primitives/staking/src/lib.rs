@@ -473,7 +473,7 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 /// The `Agent` is also responsible for managing rewards and slashing for all the `Delegators` that
 /// have delegated funds to it.
 #[derive(Clone, Debug)]
-pub struct Agent<T>(pub T);
+pub struct Agent<T>(T);
 impl<T> From<T> for Agent<T> {
 	fn from(acc: T) -> Self {
 		Agent(acc)
@@ -491,7 +491,7 @@ impl<T> Agent<T> {
 /// `Delegator` is someone that delegates funds to an `Agent`, allowing them to pool funds
 /// along with other delegators and participate in the staking system.
 #[derive(Clone, Debug)]
-pub struct Delegator<T>(pub T);
+pub struct Delegator<T>(T);
 impl<T> From<T> for Delegator<T> {
 	fn from(acc: T) -> Self {
 		Delegator(acc)

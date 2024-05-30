@@ -36,10 +36,10 @@ pub enum StakeStrategyType {
 ///
 /// Maps directly [`Agent`] account.
 #[derive(Clone, Debug)]
-pub struct Pool<T>(pub T);
+pub struct Pool<T>(T);
 impl<AccountID> Into<Agent<AccountID>> for Pool<AccountID> {
 	fn into(self) -> Agent<AccountID> {
-		Agent(self.0)
+		Agent::from(self.0)
 	}
 }
 impl<T> From<T> for Pool<T> {
@@ -58,10 +58,10 @@ impl<T> Pool<T> {
 ///
 /// Maps directly [`Delegator`] account.
 #[derive(Clone, Debug)]
-pub struct Member<T>(pub T);
+pub struct Member<T>(T);
 impl<AccountID> Into<Delegator<AccountID>> for Member<AccountID> {
 	fn into(self) -> Delegator<AccountID> {
-		Delegator(self.0)
+		Delegator::from(self.0)
 	}
 }
 impl<T> From<T> for Member<T> {

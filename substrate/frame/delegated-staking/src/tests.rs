@@ -48,12 +48,12 @@ fn create_an_agent_with_first_delegator() {
 
 		// verify
 		assert!(DelegatedStaking::is_agent(&agent));
-		assert_eq!(DelegatedStaking::stakeable_balance(Agent(agent)), 100);
+		assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), 100);
 		assert_eq!(
 			Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
 			100
 		);
-		assert_eq!(DelegatedStaking::held_balance_of(Delegator(delegator)), 100);
+		assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(delegator)), 100);
 	});
 }
 
@@ -102,7 +102,7 @@ fn create_multiple_delegators() {
 		// stakeable balance is 0 for non agent
 		fund(&agent, 1000);
 		assert!(!DelegatedStaking::is_agent(&agent));
-		assert_eq!(DelegatedStaking::stakeable_balance(Agent(agent)), 0);
+		assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), 0);
 
 		// set intention to accept delegation.
 		assert_ok!(DelegatedStaking::register_agent(
@@ -124,7 +124,7 @@ fn create_multiple_delegators() {
 
 		// verify
 		assert!(DelegatedStaking::is_agent(&agent));
-		assert_eq!(DelegatedStaking::stakeable_balance(Agent(agent)), 100 * 100);
+		assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), 100 * 100);
 	});
 }
 
@@ -240,17 +240,17 @@ fn agent_restrictions() {
 fn apply_pending_slash() {
 	ExtBuilder::default().build_and_execute(|| {
 		start_era(1);
-		let agent = Agent(200);
+		let agent: AccountId = 200;
 		let reward_acc: AccountId = 201;
 		let delegators: Vec<AccountId> = (301..=350).collect();
 		let reporter: AccountId = 400;
 
-		let total_staked = setup_delegation_stake(agent.0, reward_acc, delegators.clone(), 10, 10);
+		let total_staked = setup_delegation_stake(agent, reward_acc, delegators.clone(), 10, 10);
 
 		start_era(4);
 		// slash half of the stake
 		pallet_staking::slashing::do_slash::<T>(
-			&agent.0,
+			&agent,
 			total_staked / 2,
 			&mut Default::default(),
 			&mut Default::default(),
@@ -261,8 +261,8 @@ fn apply_pending_slash() {
 		setup_delegation_stake(210, 211, (351..=352).collect(), 100, 0);
 		assert_noop!(
 			<DelegatedStaking as DelegationInterface>::delegator_slash(
-				agent.clone(),
-				Delegator(351),
+				Agent::from(agent),
+				Delegator::from(351),
 				1,
 				Some(400)
 			),
@@ -272,8 +272,8 @@ fn apply_pending_slash() {
 		fund(&353, 100);
 		assert_noop!(
 			<DelegatedStaking as DelegationInterface>::delegator_slash(
-				agent.clone(),
-				Delegator(353),
+				Agent::from(agent),
+				Delegator::from(353),
 				1,
 				Some(400)
 			),
@@ -281,28 +281,31 @@ fn apply_pending_slash() {
 		);
 
 		// ensure bookkept pending slash is correct.
-		assert_eq!(get_agent(&agent.0).ledger.pending_slash, total_staked / 2);
+		assert_eq!(get_agent(&agent).ledger.pending_slash, total_staked / 2);
 		let mut old_reporter_balance = Balances::free_balance(reporter);
 
 		// lets apply the pending slash on delegators.
 		for i in delegators {
 			// balance before slash
-			let initial_pending_slash = get_agent(&agent.0).ledger.pending_slash;
+			let initial_pending_slash = get_agent(&agent).ledger.pending_slash;
 			assert!(initial_pending_slash > 0);
-			let unslashed_balance = DelegatedStaking::held_balance_of(Delegator(i));
+			let unslashed_balance = DelegatedStaking::held_balance_of(Delegator::from(i));
 			let slash = unslashed_balance / 2;
 			// slash half of delegator's delegation.
 			assert_ok!(<DelegatedStaking as DelegationInterface>::delegator_slash(
-				agent.clone(),
-				Delegator(i),
+				Agent::from(agent),
+				Delegator::from(i),
 				slash,
 				Some(400)
 			));
 
 			// balance after slash.
-			assert_eq!(DelegatedStaking::held_balance_of(Delegator(i)), unslashed_balance - slash);
+			assert_eq!(
+				DelegatedStaking::held_balance_of(Delegator::from(i)),
+				unslashed_balance - slash
+			);
 			// pending slash is reduced by the amount slashed.
-			assert_eq!(get_agent(&agent.0).ledger.pending_slash, initial_pending_slash - slash);
+			assert_eq!(get_agent(&agent).ledger.pending_slash, initial_pending_slash - slash);
 			// reporter get 10% of the slash amount.
 			assert_eq!(
 				Balances::free_balance(reporter) - old_reporter_balance,
@@ -313,13 +316,13 @@ fn apply_pending_slash() {
 		}
 
 		// nothing to slash anymore
-		assert_eq!(get_agent(&agent.0).ledger.pending_slash, 0);
+		assert_eq!(get_agent(&agent).ledger.pending_slash, 0);
 
 		// cannot slash anymore
 		assert_noop!(
 			<DelegatedStaking as DelegationInterface>::delegator_slash(
-				agent,
-				Delegator(350),
+				Agent::from(agent),
+				Delegator::from(350),
 				1,
 				None
 			),
@@ -347,7 +350,7 @@ mod staking_integration {
 				RawOrigin::Signed(agent).into(),
 				reward_acc
 			));
-			assert_eq!(DelegatedStaking::stakeable_balance(Agent(agent)), 0);
+			assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), 0);
 
 			let mut delegated_balance: Balance = 0;
 
@@ -364,7 +367,10 @@ mod staking_integration {
 					Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
 					100
 				);
-				assert_eq!(DelegatedStaking::delegator_balance(Delegator(delegator)).unwrap(), 100);
+				assert_eq!(
+					DelegatedStaking::delegator_balance(Delegator::from(delegator)).unwrap(),
+					100
+				);
 
 				let agent_obj = get_agent(&agent);
 				assert_eq!(agent_obj.ledger.stakeable_balance(), delegated_balance);
@@ -538,7 +544,7 @@ mod staking_integration {
 				0
 			));
 
-			assert_eq!(DelegatedStaking::held_balance_of(Delegator(300)), 100 - 80);
+			assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(300)), 100 - 80);
 		});
 	}
 
@@ -639,17 +645,15 @@ mod staking_integration {
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded
 			// with at least ED.
-			let proxy_delegator = DelegatedStaking::generate_proxy_delegator(Agent(200));
+			let proxy_delegator =
+				DelegatedStaking::generate_proxy_delegator(Agent::from(200)).get();
 
 			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(200).into(), 201));
 
 			// verify all went well
 			let mut expected_proxy_delegated_amount = agent_amount;
 			assert_eq!(
-				Balances::balance_on_hold(
-					&HoldReason::StakingDelegation.into(),
-					&proxy_delegator.0
-				),
+				Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &proxy_delegator),
 				expected_proxy_delegated_amount
 			);
 			// stake amount is transferred from delegate to proxy delegator account.
@@ -679,7 +683,7 @@ mod staking_integration {
 				assert_eq!(
 					Balances::balance_on_hold(
 						&HoldReason::StakingDelegation.into(),
-						&proxy_delegator.0
+						&proxy_delegator
 					),
 					expected_proxy_delegated_amount
 				);
@@ -715,7 +719,7 @@ mod pool_integration {
 			let delegate_amount = 200;
 
 			// nothing held initially
-			assert_eq!(DelegatedStaking::held_balance_of(Delegator(creator)), 0);
+			assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(creator)), 0);
 
 			// create pool
 			assert_ok!(Pools::create(
@@ -727,7 +731,10 @@ mod pool_integration {
 			));
 
 			// correct amount is locked in depositor's account.
-			assert_eq!(DelegatedStaking::held_balance_of(Delegator(creator)), delegate_amount);
+			assert_eq!(
+				DelegatedStaking::held_balance_of(Delegator::from(creator)),
+				delegate_amount
+			);
 
 			let pool_account = Pools::generate_bonded_account(1);
 			let agent = get_agent(&pool_account);
@@ -751,14 +758,14 @@ mod pool_integration {
 			let delegator: AccountId = 300;
 			fund(&delegator, 500);
 			// nothing held initially
-			assert_eq!(DelegatedStaking::held_balance_of(Delegator(delegator)), 0);
+			assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(delegator)), 0);
 
 			// delegator joins pool
 			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 100, pool_id));
 			staked_amount += 100;
 
 			// correct amount is locked in depositor's account.
-			assert_eq!(DelegatedStaking::held_balance_of(Delegator(delegator)), 100);
+			assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(delegator)), 100);
 
 			// delegator is not actively exposed to core staking.
 			assert_eq!(Staking::status(&delegator), Err(StakingError::<T>::NotStash.into()));
@@ -781,7 +788,7 @@ mod pool_integration {
 				fund(&i, 500);
 				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), 100 + i, pool_id));
 				staked_amount += 100 + i;
-				assert_eq!(DelegatedStaking::held_balance_of(Delegator(i)), 100 + i);
+				assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(i)), 100 + i);
 			}
 
 			let pool_agent = pool_agent.refresh().unwrap();
@@ -830,7 +837,8 @@ mod pool_integration {
 			// claim rewards
 			for i in 300..320 {
 				let pre_balance = Balances::free_balance(i);
-				let delegator_staked_balance = DelegatedStaking::held_balance_of(Delegator(i));
+				let delegator_staked_balance =
+					DelegatedStaking::held_balance_of(Delegator::from(i));
 				// payout reward
 				assert_ok!(Pools::claim_payout(RawOrigin::Signed(i).into()));
 
@@ -898,7 +906,7 @@ mod pool_integration {
 			// at era 5, 301 can withdraw.
 
 			System::reset_events();
-			let held_301 = DelegatedStaking::held_balance_of(Delegator(301));
+			let held_301 = DelegatedStaking::held_balance_of(Delegator::from(301));
 			let free_301 = Balances::free_balance(301);
 
 			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 0));
@@ -910,7 +918,7 @@ mod pool_integration {
 				pool_events_since_last_call(),
 				vec![PoolsEvent::Withdrawn { member: 301, pool_id, balance: 50, points: 50 }]
 			);
-			assert_eq!(DelegatedStaking::held_balance_of(Delegator(301)), held_301 - 50);
+			assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(301)), held_301 - 50);
 			assert_eq!(Balances::free_balance(301), free_301 + 50);
 
 			start_era(7);
@@ -1117,9 +1125,9 @@ mod pool_integration {
 			);
 
 			// slash is lazy and balance is still locked in user's accounts.
-			assert_eq!(DelegatedStaking::held_balance_of(Delegator(creator)), creator_stake);
+			assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(creator)), creator_stake);
 			for i in 300..306 {
-				assert_eq!(DelegatedStaking::held_balance_of(Delegator(i)), delegator_stake);
+				assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(i)), delegator_stake);
 			}
 			assert_eq!(
 				get_pool_agent(pool_id).ledger.effective_balance(),
@@ -1154,7 +1162,7 @@ mod pool_integration {
 					]
 				);
 				assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, pre_pending_slash - 50);
-				assert_eq!(DelegatedStaking::held_balance_of(Delegator(i)), 0);
+				assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(i)), 0);
 				assert_eq!(Balances::free_balance(i) - pre_balance, 50);
 			}
 
@@ -1179,7 +1187,7 @@ mod pool_integration {
 				// pool api returns correctly as well.
 				assert_eq!(Pools::api_pool_pending_slash(pool_id), pre_pending_slash - 50);
 				// left with 50.
-				assert_eq!(DelegatedStaking::held_balance_of(Delegator(i)), 50);
+				assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(i)), 50);
 			}
 
 			// pool has still pending slash of creator.

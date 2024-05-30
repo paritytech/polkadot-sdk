@@ -26,14 +26,14 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	/// Effective balance of the `Agent` account.
-	fn agent_balance(who: Agent<Self::AccountId>) -> Option<Self::Balance> {
-		AgentLedgerOuter::<T>::get(&who.0)
-			.map(|agent| agent.ledger.effective_balance())
+	fn agent_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		AgentLedgerOuter::<T>::get(&agent.get())
+			.map(|a| a.ledger.effective_balance())
 			.ok()
 	}
 
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance> {
-		Delegation::<T>::get(&delegator.0).map(|d| d.amount)
+		Delegation::<T>::get(&delegator.get()).map(|d| d.amount)
 	}
 
 	/// Delegate funds to an `Agent`.
@@ -44,12 +44,12 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		amount: Self::Balance,
 	) -> DispatchResult {
 		Pallet::<T>::register_agent(
-			RawOrigin::Signed(agent.0.clone()).into(),
+			RawOrigin::Signed(agent.clone().get()).into(),
 			reward_account.clone(),
 		)?;
 
 		// Delegate the funds from who to the `Agent` account.
-		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.0).into(), agent.0, amount)
+		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.get()).into(), agent.get(), amount)
 	}
 
 	/// Add more delegation to the `Agent` account.
@@ -58,7 +58,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.0).into(), agent.0, amount)
+		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.get()).into(), agent.get(), amount)
 	}
 
 	/// Withdraw delegation of `delegator` to `Agent`.
@@ -72,8 +72,8 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		num_slashing_spans: u32,
 	) -> DispatchResult {
 		Pallet::<T>::release_delegation(
-			RawOrigin::Signed(agent.0).into(),
-			delegator.0,
+			RawOrigin::Signed(agent.get()).into(),
+			delegator.get(),
 			amount,
 			num_slashing_spans,
 		)
@@ -81,7 +81,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 	/// Returns pending slash of the `agent`.
 	fn pending_slash(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
-		AgentLedgerOuter::<T>::get(&agent.0).map(|d| d.ledger.pending_slash).ok()
+		AgentLedgerOuter::<T>::get(&agent.get()).map(|d| d.ledger.pending_slash).ok()
 	}
 
 	fn delegator_slash(
@@ -102,22 +102,26 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
-		Pallet::<T>::migrate_to_agent(RawOrigin::Signed(agent.0).into(), reward_account.clone())
+		Pallet::<T>::migrate_to_agent(RawOrigin::Signed(agent.get()).into(), reward_account.clone())
 	}
 	fn migrate_delegation(
 		agent: Agent<Self::AccountId>,
 		delegator: Delegator<Self::AccountId>,
 		value: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::migrate_delegation(RawOrigin::Signed(agent.0).into(), delegator.0, value)
+		Pallet::<T>::migrate_delegation(
+			RawOrigin::Signed(agent.get()).into(),
+			delegator.get(),
+			value,
+		)
 	}
 
 	/// Only used for testing.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn drop_agent(agent: Agent<Self::AccountId>) {
-		<Agents<T>>::remove(agent.0.clone());
+		<Agents<T>>::remove(agent.clone().get());
 		<Delegators<T>>::iter()
-			.filter(|(_, delegation)| delegation.agent == agent.0)
+			.filter(|(_, delegation)| delegation.agent == agent.clone().get())
 			.for_each(|(delegator, _)| {
 				let _ = T::Currency::release_all(
 					&HoldReason::StakingDelegation.into(),
@@ -127,7 +131,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 				<Delegators<T>>::remove(&delegator);
 			});
 
-		T::CoreStaking::migrate_to_direct_staker(&agent.0);
+		T::CoreStaking::migrate_to_direct_staker(&agent.get());
 	}
 }
 
