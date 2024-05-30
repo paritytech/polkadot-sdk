@@ -242,10 +242,6 @@ pub fn new_config() -> ConfigRecordOf<Test> {
 	}
 }
 
-pub fn new_revenue() -> OnDemandRevenueRecordOf<Test> {
-	OnDemandRevenueRecord { until: 2, amount: 10 }
-}
-
 pub struct TestExt(ConfigRecordOf<Test>);
 #[allow(dead_code)]
 impl TestExt {
