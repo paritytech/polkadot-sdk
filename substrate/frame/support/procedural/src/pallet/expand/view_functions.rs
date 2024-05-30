@@ -68,8 +68,11 @@ fn expand_view_function(
 		})
 		.unzip();
 	let return_type = &view_fn.return_type;
+	let docs = &view_fn.docs;
 
 	quote::quote! {
+		#( #[doc = #docs] )*
+		#[allow(missing_docs)]
 		#[derive(
 			#frame_support::RuntimeDebugNoBound,
 			#frame_support::CloneNoBound,
@@ -83,11 +86,14 @@ fn expand_view_function(
 		#[codec(decode_bound())]
 		#[scale_info(skip_type_params(#type_use_gen), capture_docs = #capture_docs)]
 		pub struct #query_struct_ident<#type_decl_bounded_gen> #where_clause {
-			#( pub #arg_names: #arg_types, )*
+			#(
+				pub #arg_names: #arg_types,
+			)*
 			_marker: ::core::marker::PhantomData<(#type_use_gen,)>,
 		}
 
 		impl<#type_impl_gen> #query_struct_ident<#type_use_gen> #where_clause {
+			/// Create a new [`#query_struct_ident`] instance.
 			pub fn new(#( #arg_names: #arg_types, )*) -> Self {
 				Self {
 					#( #arg_names, )*

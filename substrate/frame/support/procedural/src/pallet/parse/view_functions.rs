@@ -17,6 +17,7 @@
 
 use inflector::Inflector;
 use syn::spanned::Spanned;
+use frame_support_procedural_tools::get_doc_literals;
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
 pub struct ViewFunctionsImplDef {
@@ -76,6 +77,7 @@ impl ViewFunctionsImplDef {
 
 pub struct ViewFunctionDef {
 	pub name: syn::Ident,
+	pub docs: Vec<syn::Expr>,
 	pub args: Vec<syn::FnArg>,
 	pub return_type: syn::Type,
 }
@@ -92,6 +94,7 @@ impl TryFrom<syn::ImplItemFn> for ViewFunctionDef {
 
 		Ok(Self {
 			name: method.sig.ident.clone(),
+			docs: get_doc_literals(&method.attrs),
 			args: method.sig.inputs.iter().cloned().collect::<Vec<_>>(),
 			return_type: *type_.clone(),
 		})
