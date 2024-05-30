@@ -104,7 +104,7 @@ hosted version of the [Polkadot/Substrate
 Portal](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944)
 front-end by connecting to the local node endpoint. A hosted version is also
 available on [IPFS](https://dotapps.io/). You can
-also find the source code and instructions for hosting your own instance on the
+also find the source code and instructions for hosting your own instance in the
 [`polkadot-js/apps`](https://github.com/polkadot-js/apps) repository.
 
 ### Multi-Node Local Testnet
