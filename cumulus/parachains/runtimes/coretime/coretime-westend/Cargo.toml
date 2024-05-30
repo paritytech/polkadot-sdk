@@ -1,6 +1,6 @@
 [package]
 name = "coretime-westend-runtime"
-version = "0.7.0"
+version = "0.7.1"
 authors.workspace = true
 edition.workspace = true
 description = "Westend's Coretime parachain runtime (polkadot v1.12.0)"
@@ -31,7 +31,7 @@ pallet-aura = { path = "../../../../../substrate/frame/aura", default-features =
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false, version = "34.0.0" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "35.0.0" }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false, version = "37.0.0" }
-pallet-broker = { path = "../../../../../substrate/frame/broker", default-features = false, version = "0.12.0" }
+pallet-broker = { path = "../../../../../substrate/frame/broker", default-features = false, version = "0.13.0" }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false, version = "34.0.0" }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false, version = "34.0.0" }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false, version = "33.0.0" }

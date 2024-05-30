@@ -32,8 +32,8 @@ asset-hub-westend-runtime = { version = "0.21.0", path = "../parachains/runtimes
 collectives-westend-runtime = { version = "9.0.0", path = "../parachains/runtimes/collectives/collectives-westend" }
 contracts-rococo-runtime = { version = "0.14.0", path = "../parachains/runtimes/contracts/contracts-rococo" }
 bridge-hub-rococo-runtime = { version = "0.11.0", path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
-coretime-rococo-runtime = { version = "0.7.0", path = "../parachains/runtimes/coretime/coretime-rococo" }
-coretime-westend-runtime = { version = "0.7.0", path = "../parachains/runtimes/coretime/coretime-westend" }
+coretime-rococo-runtime = { version = "0.7.1", path = "../parachains/runtimes/coretime/coretime-rococo" }
+coretime-westend-runtime = { version = "0.7.1", path = "../parachains/runtimes/coretime/coretime-westend" }
 bridge-hub-westend-runtime = { version = "0.8.0", path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { version = "0.20.0", path = "../parachains/runtimes/testing/penpal" }
 jsonrpsee = { version = "0.22", features = ["server"] }

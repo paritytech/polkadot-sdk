@@ -37,7 +37,7 @@ pallet-authority-discovery = { path = "../../../substrate/frame/authority-discov
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false, version = "34.0.0" }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, version = "35.0.0" }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false, version = "34.0.0" }
-pallet-broker = { path = "../../../substrate/frame/broker", default-features = false, version = "0.12.0" }
+pallet-broker = { path = "../../../substrate/frame/broker", default-features = false, version = "0.13.0" }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false, version = "37.0.0" }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "34.0.0" }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false, version = "34.0.0" }

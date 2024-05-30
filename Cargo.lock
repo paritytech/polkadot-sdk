@@ -3074,7 +3074,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3139,7 +3139,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -9734,7 +9734,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-broker"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -9749,8 +9749,8 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0",
- "sp-tracing 16.0.0",
+ "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]
