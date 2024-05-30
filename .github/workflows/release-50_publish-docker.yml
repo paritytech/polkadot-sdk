@@ -98,7 +98,7 @@ jobs:
 
       - name: Fetch rc artifacts or release artifacts from s3 based on version
         #this step runs only if the workflow is triggered manually
-        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' }}
+        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary != 'chain-spec-builder'}}
         run: |
           . ./.github/scripts/common/lib.sh
 
