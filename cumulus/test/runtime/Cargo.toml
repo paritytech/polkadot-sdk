@@ -42,7 +42,7 @@ cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", def
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false, version = "0.8.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true, version = "18.0.0" }
+substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true, version = "18.0.1" }
 
 [features]
 default = ["std"]

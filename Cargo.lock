@@ -5153,20 +5153,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ded41244b729663b1e574f1b4fb731469f69f79c17667b5d776b16cda0479449"
 dependencies = [
  "rand_core 0.6.4",
- "subtle 2.4.1",
-]
-
-[[package]]
-name = "fflonk"
-version = "0.1.0"
-source = "git+https://github.com/w3f/fflonk#1e854f35e9a65d08b11a86291405cdc95baa0a35"
-dependencies = [
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "merlin 3.0.0",
+ "subtle 2.5.0",
 ]
 
 [[package]]
@@ -5520,7 +5507,7 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-runtime",
- "sp-tracing 16.0.0",
+ "sp-tracing",
  "sp-transaction-pool",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
@@ -10552,26 +10539,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0",
-]
-
-[[package]]
-name = "pallet-sassafras"
-version = "0.3.5-dev"
-dependencies = [
- "array-bytes 6.2.3",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-consensus-sassafras",
- "sp-core",
- "sp-crypto-hashing",
- "sp-io",
- "sp-runtime",
- "sp-std 14.0.0",
+ "sp-std",
 ]
 
 [[package]]
@@ -14616,23 +14584,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
 dependencies = [
  "hmac 0.12.1",
- "subtle 2.4.1",
-]
-
-[[package]]
-name = "ring"
-version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof#b273d33f9981e2bb3375ab45faeb537f7ee35224"
-dependencies = [
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "blake2 0.10.6",
- "common",
- "fflonk",
- "merlin 3.0.0",
+ "subtle 2.5.0",
 ]
 
 [[package]]
@@ -14953,7 +14905,7 @@ dependencies = [
  "regex",
  "relative-path",
  "rustc_version 0.4.0",
- "syn 2.0.48",
+ "syn 2.0.50",
  "unicode-ident",
 ]
 
@@ -18220,7 +18172,6 @@ name = "sp-core"
 version = "29.0.0"
 dependencies = [
  "array-bytes 6.2.3",
- "bandersnatch_vrfs",
  "bip39",
  "bitflags 1.3.2",
  "blake2 0.10.6",
@@ -18337,16 +18288,6 @@ version = "10.0.0"
 dependencies = [
  "kvdb",
  "parking_lot 0.12.1",
-]
-
-[[package]]
-name = "sp-debug-derive"
-version = "8.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.50",
 ]
 
 [[package]]
@@ -18589,18 +18530,6 @@ dependencies = [
  "sp-wasm-interface",
  "static_assertions",
  "trybuild",
-]
-
-[[package]]
-name = "sp-runtime-interface-proc-macro"
-version = "11.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "Inflector",
- "proc-macro-crate 1.3.1",
- "proc-macro2",
- "quote",
- "syn 2.0.50",
 ]
 
 [[package]]
@@ -18854,20 +18783,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sp-version",
- "syn 2.0.48",
-]
-
-[[package]]
-name = "sp-wasm-interface"
-version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "anyhow",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "sp-std 8.0.0",
- "wasmtime",
+ "syn 2.0.50",
 ]
 
 [[package]]
@@ -19561,7 +19477,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-wasm-builder"
-version = "18.0.0"
+version = "18.0.1"
 dependencies = [
  "array-bytes 6.2.3",
  "build-helper",
@@ -19576,7 +19492,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-maybe-compressed-blob",
- "sp-tracing 16.0.0",
+ "sp-tracing",
  "sp-version",
  "strum 0.24.1",
  "tempfile",

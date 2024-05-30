@@ -48,7 +48,7 @@ pallet-authorship = { path = "../../../substrate/frame/authorship", default-feat
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 
 [build-dependencies]
-substrate-wasm-builder = { version = "18.0.0", path = "../../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { version = "18.0.1", path = "../../../substrate/utils/wasm-builder" }
 
 [features]
 default = ["std"]

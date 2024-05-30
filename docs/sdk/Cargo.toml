@@ -41,7 +41,7 @@ sc-consensus-grandpa = { version = "0.20.0", path = "../../substrate/client/cons
 sc-consensus-beefy = { version = "14.0.0", path = "../../substrate/client/consensus/beefy" }
 sc-consensus-manual-seal = { version = "0.36.0", path = "../../substrate/client/consensus/manual-seal" }
 sc-consensus-pow = { version = "0.34.0", path = "../../substrate/client/consensus/pow" }
-substrate-wasm-builder = { version = "18.0.0", path = "../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { version = "18.0.1", path = "../../substrate/utils/wasm-builder" }
 cumulus-pallet-aura-ext = { version = "0.8.0", path = "../../cumulus/pallets/aura-ext" }
 cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-system", features = ["parameterized-consensus-hook"], version = "0.8.1" }
 parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info", version = "0.8.0" }

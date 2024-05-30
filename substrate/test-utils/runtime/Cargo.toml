@@ -39,7 +39,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false, feat
 pallet-babe = { path = "../../frame/babe", default-features = false, version = "29.0.0" }
 pallet-balances = { path = "../../frame/balances", default-features = false, version = "29.0.2" }
 frame-executive = { path = "../../frame/executive", default-features = false, version = "29.0.0" }
-frame-metadata-hash-extension = { path = "../../frame/metadata-hash-extension", default-features = false }
+frame-metadata-hash-extension = { path = "../../frame/metadata-hash-extension", default-features = false, version = "0.1.0" }
 frame-system = { path = "../../frame/system", default-features = false, version = "29.0.0" }
 frame-system-rpc-runtime-api = { path = "../../frame/system/rpc/runtime-api", default-features = false, version = "27.0.0" }
 pallet-timestamp = { path = "../../frame/timestamp", default-features = false, version = "28.0.0" }
@@ -68,7 +68,7 @@ serde = { version = "1.0.195", features = ["alloc", "derive"], default-features 
 serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true, version = "18.0.0", features = ["metadata-hash"] }
+substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true, version = "18.0.1", features = ["metadata-hash"] }
 
 [features]
 default = ["std"]

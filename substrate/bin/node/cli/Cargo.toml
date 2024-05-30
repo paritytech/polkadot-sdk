@@ -92,7 +92,7 @@ sc-sysinfo = { version = "28.0.0", path = "../../../client/sysinfo" }
 sc-storage-monitor = { version = "0.17.0", path = "../../../client/storage-monitor" }
 sc-offchain = { version = "30.0.0", path = "../../../client/offchain" }
 frame-benchmarking = { version = "29.0.0", path = "../../../frame/benchmarking" }
-frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension" }
+frame-metadata-hash-extension = { version = "0.1.0", path = "../../../frame/metadata-hash-extension" }
 frame-system = { version = "29.0.0", path = "../../../frame/system" }
 frame-system-rpc-runtime-api = { version = "27.0.0", path = "../../../frame/system/rpc/runtime-api" }
 pallet-assets = { version = "30.0.0", path = "../../../frame/assets" }

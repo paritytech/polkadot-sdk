@@ -43,7 +43,7 @@ polkadot-parachain-primitives = { path = "../../../../polkadot/parachain", defau
 hex-literal = "0.4.1"
 
 [build-dependencies]
-substrate-wasm-builder = { version = "18.0.0", path = "../../../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { version = "18.0.1", path = "../../../../substrate/utils/wasm-builder" }
 
 [features]
 default = ["std"]

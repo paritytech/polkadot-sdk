@@ -18,7 +18,7 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
 frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false, version = "29.0.0" }
-frame-metadata-hash-extension = { path = "../../../../../substrate/frame/metadata-hash-extension", default-features = false }
+frame-metadata-hash-extension = { path = "../../../../../substrate/frame/metadata-hash-extension", default-features = false, version = "0.1.0" }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true, version = "29.0.0" }
@@ -97,7 +97,7 @@ snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/parac
 asset-test-utils = { path = "../test-utils" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true, version = "18.0.0" }
+substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true, version = "18.0.1" }
 
 [features]
 default = ["std"]

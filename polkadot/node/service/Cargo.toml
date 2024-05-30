@@ -63,7 +63,7 @@ pallet-babe = { version = "29.0.0", path = "../../../substrate/frame/babe" }
 pallet-im-online = { version = "28.0.0", path = "../../../substrate/frame/im-online" }
 pallet-staking = { version = "29.0.3", path = "../../../substrate/frame/staking" }
 pallet-transaction-payment-rpc-runtime-api = { version = "29.0.0", path = "../../../substrate/frame/transaction-payment/rpc/runtime-api" }
-frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", optional = true }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", optional = true, version = "0.1.0" }
 frame-system = { version = "29.0.0", path = "../../../substrate/frame/system" }
 frame-system-rpc-runtime-api = { version = "27.0.0", path = "../../../substrate/frame/system/rpc/runtime-api" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus", version = "0.17.0" }

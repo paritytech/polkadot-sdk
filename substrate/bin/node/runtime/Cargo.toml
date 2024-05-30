@@ -58,7 +58,7 @@ sp-io = { path = "../../../primitives/io", default-features = false, version = "
 frame-executive = { path = "../../../frame/executive", default-features = false, version = "29.0.0" }
 frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false, version = "29.0.0" }
 frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false, version = "19.0.0" }
-frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension", default-features = false }
+frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension", default-features = false, version = "0.1.0" }
 frame-support = { path = "../../../frame/support", default-features = false, features = ["tuples-96"], version = "29.0.2" }
 frame-system = { path = "../../../frame/system", default-features = false, version = "29.0.0" }
 frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true, version = "29.0.0" }
@@ -145,7 +145,7 @@ pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false, 
 pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false, version = "10.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "18.0.0" }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "18.0.1" }
 
 [features]
 default = ["std"]

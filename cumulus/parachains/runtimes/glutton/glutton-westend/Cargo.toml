@@ -57,7 +57,7 @@ parachains-common = { path = "../../../common", default-features = false, versio
 testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["westend"], version = "1.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { version = "18.0.0", path = "../../../../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { version = "18.0.1", path = "../../../../../substrate/utils/wasm-builder" }
 
 [features]
 default = ["std"]

@@ -48,7 +48,7 @@ parachain-info = { package = "staging-parachain-info", path = "../../../pallets/
 parachains-common = { path = "../../../common", default-features = false, version = "8.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true, version = "18.0.0" }
+substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true, version = "18.0.1" }
 
 [features]
 default = ["std"]

@@ -24,7 +24,7 @@ sp-runtime-interface = { path = "..", default-features = false, version = "25.0.
 sp-std = { path = "../../std", default-features = false, version = "14.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "18.0.0" }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "18.0.1" }
 
 [features]
 default = ["std"]

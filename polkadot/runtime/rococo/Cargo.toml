@@ -92,7 +92,7 @@ pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-feat
 pallet-root-testing = { path = "../../../substrate/frame/root-testing", default-features = false, version = "5.0.0" }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
-frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false, version = "0.1.0" }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true, version = "0.35.0" }
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true, version = "29.0.0" }
 hex-literal = { version = "0.4.1" }
@@ -117,7 +117,7 @@ sp-tracing = { path = "../../../substrate/primitives/tracing", default-features 
 tokio = { version = "1.24.2", features = ["macros"] }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true, version = "18.0.0" }
+substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true, version = "18.0.1" }
 
 [features]
 default = ["std"]

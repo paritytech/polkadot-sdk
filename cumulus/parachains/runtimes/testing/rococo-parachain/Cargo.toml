@@ -62,7 +62,7 @@ testnet-parachains-constants = { path = "../../constants", default-features = fa
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.8.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true, version = "18.0.0" }
+substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true, version = "18.0.1" }
 
 [features]
 default = ["std"]

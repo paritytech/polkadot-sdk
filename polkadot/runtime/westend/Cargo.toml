@@ -45,7 +45,7 @@ sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", def
 
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false, version = "29.0.0" }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false, version = "29.0.0" }
-frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false, version = "0.1.0" }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["tuples-96"], version = "29.0.2" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "27.0.0" }
@@ -126,7 +126,7 @@ tokio = { version = "1.24.2", features = ["macros"] }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 
 [build-dependencies]
-substrate-wasm-builder = { version = "18.0.0", path = "../../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { version = "18.0.1", path = "../../../substrate/utils/wasm-builder" }
 
 [features]
 default = ["std"]
