@@ -180,7 +180,7 @@ jobs:
         id: fetch_release_refs
         run: |
           chmod a+rx $BINARY
-          [[ $BINARY != 'chain-speck-builder' ]] && VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+          [[ $BINARY != 'chain-spec-builder' ]] && VERSION=$(./$BINARY --version | awk '{ print $2 }' )
 
           release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
