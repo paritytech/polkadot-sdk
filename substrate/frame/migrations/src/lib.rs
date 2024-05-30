@@ -153,11 +153,16 @@ use core::ops::ControlFlow;
 use frame_support::{
 	defensive, defensive_assert,
 	migrations::*,
+	pallet_prelude::*,
+	storage_alias,
 	traits::Get,
 	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
+use frame_system::{
+	pallet_prelude::{BlockNumberFor, *},
+	Pallet as System,
+};
 use sp_runtime::Saturating;
 use sp_std::vec::Vec;
 
@@ -280,11 +285,17 @@ impl MaxEncodedLen for PreUpgradeBytesWrapper {
 	}
 }
 
+/// Data stored by the pre-upgrade hook of the MBMs. Only used for `try-runtime` testing.
+///
+/// Define this outside of the pallet so it is not confused with actual storage.
+#[cfg(feature = "try-runtime")]
+#[storage_alias]
+type PreUpgradeBytes<T: Config> =
+	StorageMap<Pallet<T>, Twox64Concat, IdentifierOf<T>, PreUpgradeBytesWrapper, ValueQuery>;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -390,12 +401,6 @@ pub mod pallet {
 	/// codebase yet. Governance can regularly clear this out via `clear_historic`.
 	#[pallet::storage]
 	pub type Historic<T: Config> = StorageMap<_, Twox64Concat, IdentifierOf<T>, (), OptionQuery>;
-
-	/// Data stored by the pre-upgrade hook of the MBM.
-	#[cfg(feature = "try-runtime")]
-	#[pallet::storage]
-	pub type PreUpgradeBytes<T: Config> =
-		StorageMap<_, Twox64Concat, IdentifierOf<T>, PreUpgradeBytesWrapper, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
