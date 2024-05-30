@@ -186,8 +186,8 @@ impl<T: Config> ListScenario<T> {
 			create_pool_account::<T>(USER_SEED + 1, origin_weight, Some(Perbill::from_percent(50)));
 
 		T::StakeAdapter::nominate(
-            Pool(pool_origin1.clone()),
-            // NOTE: these don't really need to be validators.
+			Pool(pool_origin1.clone()),
+			// NOTE: these don't really need to be validators.
 			vec![account("random_validator", 0, USER_SEED)],
 		)?;
 
@@ -195,8 +195,8 @@ impl<T: Config> ListScenario<T> {
 			create_pool_account::<T>(USER_SEED + 2, origin_weight, Some(Perbill::from_percent(50)));
 
 		T::StakeAdapter::nominate(
-            Pool(pool_origin2.clone()),
-            vec![account("random_validator", 0, USER_SEED)].clone(),
+			Pool(pool_origin2.clone()),
+			vec![account("random_validator", 0, USER_SEED)].clone(),
 		)?;
 
 		// Find a destination weight that will trigger the worst case scenario
@@ -213,8 +213,8 @@ impl<T: Config> ListScenario<T> {
 			create_pool_account::<T>(USER_SEED + 3, dest_weight, Some(Perbill::from_percent(50)));
 
 		T::StakeAdapter::nominate(
-            Pool(pool_dest1.clone()),
-            vec![account("random_validator", 0, USER_SEED)],
+			Pool(pool_dest1.clone()),
+			vec![account("random_validator", 0, USER_SEED)],
 		)?;
 
 		let weight_of = pallet_staking::Pallet::<T>::weight_of_fn();

@@ -300,10 +300,7 @@ fn apply_pending_slash() {
 			));
 
 			// balance after slash.
-			assert_eq!(
-				DelegatedStaking::held_balance_of(Delegator(i)),
-				unslashed_balance - slash
-			);
+			assert_eq!(DelegatedStaking::held_balance_of(Delegator(i)), unslashed_balance - slash);
 			// pending slash is reduced by the amount slashed.
 			assert_eq!(get_agent(&agent.0).ledger.pending_slash, initial_pending_slash - slash);
 			// reporter get 10% of the slash amount.
@@ -367,10 +364,7 @@ mod staking_integration {
 					Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
 					100
 				);
-				assert_eq!(
-					DelegatedStaking::delegator_balance(Delegator(delegator)).unwrap(),
-					100
-				);
+				assert_eq!(DelegatedStaking::delegator_balance(Delegator(delegator)).unwrap(), 100);
 
 				let agent_obj = get_agent(&agent);
 				assert_eq!(agent_obj.ledger.stakeable_balance(), delegated_balance);
@@ -733,10 +727,7 @@ mod pool_integration {
 			));
 
 			// correct amount is locked in depositor's account.
-			assert_eq!(
-				DelegatedStaking::held_balance_of(Delegator(creator)),
-				delegate_amount
-			);
+			assert_eq!(DelegatedStaking::held_balance_of(Delegator(creator)), delegate_amount);
 
 			let pool_account = Pools::generate_bonded_account(1);
 			let agent = get_agent(&pool_account);
@@ -839,8 +830,7 @@ mod pool_integration {
 			// claim rewards
 			for i in 300..320 {
 				let pre_balance = Balances::free_balance(i);
-				let delegator_staked_balance =
-					DelegatedStaking::held_balance_of(Delegator(i));
+				let delegator_staked_balance = DelegatedStaking::held_balance_of(Delegator(i));
 				// payout reward
 				assert_ok!(Pools::claim_payout(RawOrigin::Signed(i).into()));
 

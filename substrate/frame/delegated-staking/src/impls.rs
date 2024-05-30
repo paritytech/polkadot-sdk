@@ -19,9 +19,7 @@
 //! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
 use super::*;
-use sp_staking::{
-	Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate,
-};
+use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate};
 
 impl<T: Config> DelegationInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
@@ -29,7 +27,9 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 	/// Effective balance of the `Agent` account.
 	fn agent_balance(who: Agent<Self::AccountId>) -> Option<Self::Balance> {
-		AgentLedgerOuter::<T>::get(&who.0).map(|agent| agent.ledger.effective_balance()).ok()
+		AgentLedgerOuter::<T>::get(&who.0)
+			.map(|agent| agent.ledger.effective_balance())
+			.ok()
 	}
 
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance> {

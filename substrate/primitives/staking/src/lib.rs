@@ -504,7 +504,6 @@ impl<T> Delegator<T> {
 	}
 }
 
-
 /// Trait to provide delegation functionality for stakers.
 ///
 /// Introduces two new roles to the vanilla [`StakingInterface`]:

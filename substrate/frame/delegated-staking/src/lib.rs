@@ -345,12 +345,7 @@ pub mod pallet {
 			num_slashing_spans: u32,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_release(
-				Agent(who),
-				Delegator(delegator),
-				amount,
-				num_slashing_spans,
-			)
+			Self::do_release(Agent(who), Delegator(delegator), amount, num_slashing_spans)
 		}
 
 		/// Migrate delegated funds that are held in `proxy_delegator` to the claiming `delegator`'s
@@ -415,11 +410,7 @@ pub mod pallet {
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
 			// add to delegation.
-			Self::do_delegate(
-				Delegator(delegator.clone()),
-				Agent(agent.clone()),
-				amount,
-			)?;
+			Self::do_delegate(Delegator(delegator.clone()), Agent(agent.clone()), amount)?;
 
 			// bond the newly delegated amount to `CoreStaking`.
 			Self::do_bond(Agent(agent), amount)
@@ -438,9 +429,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	/// Derive an account from the migrating agent account where the unclaimed delegation funds
 	/// are held.
-	pub fn generate_proxy_delegator(
-		agent: Agent<T::AccountId>,
-	) -> Delegator<T::AccountId> {
+	pub fn generate_proxy_delegator(agent: Agent<T::AccountId>) -> Delegator<T::AccountId> {
 		Delegator(Self::sub_account(AccountType::ProxyDelegator, agent.0))
 	}
 

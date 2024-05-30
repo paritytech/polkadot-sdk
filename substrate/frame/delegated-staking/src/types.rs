@@ -224,7 +224,10 @@ impl<T: Config> AgentLedgerOuter<T> {
 		let pending_slash = self.ledger.pending_slash.defensive_saturating_sub(amount);
 		let total_delegated = self.ledger.total_delegated.defensive_saturating_sub(amount);
 
-		AgentLedgerOuter { ledger: AgentLedger { pending_slash, total_delegated, ..self.ledger }, ..self }
+		AgentLedgerOuter {
+			ledger: AgentLedger { pending_slash, total_delegated, ..self.ledger },
+			..self
+		}
 	}
 
 	/// Get the total stake of agent bonded in [`Config::CoreStaking`].

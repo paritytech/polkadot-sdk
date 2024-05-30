@@ -37,8 +37,7 @@ pub enum StakeStrategyType {
 /// Maps directly [`Agent`] account.
 #[derive(Clone, Debug)]
 pub struct Pool<T>(pub T);
-impl<AccountID> Into<Agent<AccountID>> for Pool<AccountID>
-{
+impl<AccountID> Into<Agent<AccountID>> for Pool<AccountID> {
 	fn into(self) -> Agent<AccountID> {
 		Agent(self.0)
 	}
@@ -115,9 +114,7 @@ pub trait StakeStrategy {
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<Self::Balance>;
 
 	/// Amount of tokens delegated by the member.
-	fn member_delegation_balance(
-		member_account: Member<Self::AccountId>,
-	) -> Option<Self::Balance>;
+	fn member_delegation_balance(member_account: Member<Self::AccountId>) -> Option<Self::Balance>;
 
 	/// See [`StakingInterface::active_stake`].
 	fn active_stake(pool_account: Pool<Self::AccountId>) -> Self::Balance {
@@ -374,9 +371,7 @@ impl<
 		Delegation::agent_balance(pool_account.into())
 	}
 
-	fn member_delegation_balance(
-		member_account: Member<T::AccountId>,
-	) -> Option<BalanceOf<T>> {
+	fn member_delegation_balance(member_account: Member<T::AccountId>) -> Option<BalanceOf<T>> {
 		Delegation::delegator_balance(member_account.into())
 	}
 

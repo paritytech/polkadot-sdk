@@ -181,10 +181,9 @@ pub mod unversioned {
 				let pool_account = Pallet::<T>::generate_bonded_account(id);
 
 				// we ensure migration is idempotent.
-				let pool_balance =
-					T::StakeAdapter::total_balance(Pool(pool_account.clone()))
-						// we check actual account balance if pool has not migrated yet.
-						.unwrap_or(T::Currency::total_balance(&pool_account));
+				let pool_balance = T::StakeAdapter::total_balance(Pool(pool_account.clone()))
+					// we check actual account balance if pool has not migrated yet.
+					.unwrap_or(T::Currency::total_balance(&pool_account));
 
 				pool_balances.push(pool_balance);
 			});
@@ -207,9 +206,8 @@ pub mod unversioned {
 					return Err(TryRuntimeError::Other("Pool failed to migrate"));
 				}
 
-				let actual_balance =
-					T::StakeAdapter::total_balance(Pool(pool_account.clone()))
-						.expect("after migration, this should return a value");
+				let actual_balance = T::StakeAdapter::total_balance(Pool(pool_account.clone()))
+					.expect("after migration, this should return a value");
 				let expected_balance = expected_pool_balances.get(index).unwrap();
 
 				if actual_balance != *expected_balance {
@@ -1155,9 +1153,7 @@ mod helpers {
 
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
 		BondedPools::<T>::iter_keys()
-			.map(|id| {
-				T::StakeAdapter::total_stake(Pool(Pallet::<T>::generate_bonded_account(id)))
-			})
+			.map(|id| T::StakeAdapter::total_stake(Pool(Pallet::<T>::generate_bonded_account(id))))
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()
 	}

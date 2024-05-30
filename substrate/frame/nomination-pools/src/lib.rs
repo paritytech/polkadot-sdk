@@ -2209,10 +2209,7 @@ pub mod pallet {
 			// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
 			// is destroying then `withdraw_unbonded` can be used.
 			ensure!(pool.state != PoolState::Destroying, Error::<T>::NotDestroying);
-			T::StakeAdapter::withdraw_unbonded(
-				Pool(pool.bonded_account()),
-				num_slashing_spans,
-			)?;
+			T::StakeAdapter::withdraw_unbonded(Pool(pool.bonded_account()), num_slashing_spans)?;
 
 			Ok(())
 		}
@@ -2335,9 +2332,7 @@ pub mod pallet {
 				// don't exist. This check is also defensive in cases where the unbond pool does not
 				// update its balance (e.g. a bug in the slashing hook.) We gracefully proceed in
 				// order to ensure members can leave the pool and it can be destroyed.
-				.min(T::StakeAdapter::transferable_balance(Pool(
-					bonded_pool.bonded_account(),
-				)));
+				.min(T::StakeAdapter::transferable_balance(Pool(bonded_pool.bonded_account())));
 
 			// this can fail if the pool uses `DelegateStake` strategy and the member delegation
 			// is not claimed yet. See `Call::migrate_delegation()`.
@@ -2921,9 +2916,8 @@ pub mod pallet {
 
 			// ensure pool is migrated.
 			ensure!(
-				T::StakeAdapter::pool_strategy(Pool(Self::generate_bonded_account(
-					member.pool_id
-				))) == adapter::StakeStrategyType::Delegate,
+				T::StakeAdapter::pool_strategy(Pool(Self::generate_bonded_account(member.pool_id))) ==
+					adapter::StakeStrategyType::Delegate,
 				Error::<T>::NotMigrated
 			);
 
@@ -3072,8 +3066,7 @@ impl<T: Config> Pallet<T> {
 			"could not transfer all amount to depositor while dissolving pool"
 		);
 		defensive_assert!(
-			T::StakeAdapter::total_balance(Pool(bonded_pool.bonded_account()))
-				.unwrap_or_default() ==
+			T::StakeAdapter::total_balance(Pool(bonded_pool.bonded_account())).unwrap_or_default() ==
 				Zero::zero(),
 			"dissolving pool should not have any balance"
 		);
@@ -3864,8 +3857,7 @@ impl<T: Config> Pallet<T> {
 
 		let pool_account = Self::generate_bonded_account(pool_id);
 		// true if pool is still not migrated to `DelegateStake`.
-		T::StakeAdapter::pool_strategy(Pool(pool_account)) !=
-			adapter::StakeStrategyType::Delegate
+		T::StakeAdapter::pool_strategy(Pool(pool_account)) != adapter::StakeStrategyType::Delegate
 	}
 
 	/// Checks whether member delegation needs to be migrated to
