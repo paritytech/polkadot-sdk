@@ -96,9 +96,8 @@ use sp_core::{ConstU128, ConstU8, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto,
-		Extrinsic as ExtrinsicT, IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion,
-		Verify,
+		BlakeTwo256, Block as BlockT, ConstU32, ConvertInto, Extrinsic as ExtrinsicT,
+		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill, RuntimeDebug,
@@ -901,19 +900,19 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
-					| RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
+					RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions { .. }
-					| RuntimeCall::Crowdloan { .. }
-					| RuntimeCall::Registrar { .. }
-					| RuntimeCall::Multisig(..)
-					| RuntimeCall::Slots { .. }
+				RuntimeCall::Auctions { .. } |
+					RuntimeCall::Crowdloan { .. } |
+					RuntimeCall::Registrar { .. } |
+					RuntimeCall::Multisig(..) |
+					RuntimeCall::Slots { .. }
 			),
 			ProxyType::Society => matches!(c, RuntimeCall::Society(..)),
 			ProxyType::OnDemandOrdering => matches!(c, RuntimeCall::OnDemandAssignmentProvider(..)),
