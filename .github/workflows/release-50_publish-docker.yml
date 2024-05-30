@@ -27,6 +27,7 @@ on:
         options:
           - polkadot
           - polkadot-parachain
+          - chain-spec-builder
 
       release_id:
         description: |
@@ -106,6 +107,14 @@ jobs:
 
           fetch_release_artifacts_from_s3
 
+      - name: Fetch chain-spec-builder rc artifacts or release artifacts based on release id
+        #this step runs only if the workflow is triggered manually and only for chain-spec-builder
+        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary == 'chain-spec-builder' }}
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          fetch_release_artifacts
+
       - name: Cache the artifacts
         uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         with:
@@ -114,7 +123,7 @@ jobs:
             ./release-artifacts/${{ env.BINARY }}/**/*
 
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
-    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
     needs: fetch-artifacts
     environment: release
@@ -132,6 +141,7 @@ jobs:
             ./release-artifacts/${{ env.BINARY }}/**/*
 
       - name: Check sha256 ${{ env.BINARY }}
+        if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
         working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
           . ../../.github/scripts/common/lib.sh
@@ -140,6 +150,7 @@ jobs:
           check_sha256 $BINARY && echo "OK" || echo "ERR"
 
       - name: Check GPG ${{ env.BINARY }}
+        if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
         working-directory: ./release-artifacts/${{ env.BINARY }}
         run: |
           . ../../.github/scripts/common/lib.sh
@@ -169,13 +180,17 @@ jobs:
         id: fetch_release_refs
         run: |
           chmod a+rx $BINARY
-          VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+          if [[ $BINARY == 'chain-speck-builder' ]]; then
+            VERSION=${{ env.VERSION }}
+          else
+            VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+          fi
           release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
 
-      - name: Build Injected Container image for polkadot rc
-        if: ${{ env.BINARY == 'polkadot' }}
+      - name: Build Injected Container image for polkadot rc or chain-spec-builder
+        if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'chain-spec-builder' }}
         env:
           ARTIFACTS_FOLDER: ./release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
