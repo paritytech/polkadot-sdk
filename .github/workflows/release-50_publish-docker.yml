@@ -180,11 +180,8 @@ jobs:
         id: fetch_release_refs
         run: |
           chmod a+rx $BINARY
-          if [[ $BINARY == 'chain-speck-builder' ]]; then
-            VERSION=${{ env.VERSION }}
-          else
-            VERSION=$(./$BINARY --version | awk '{ print $2 }' )
-          fi
+          [[ $BINARY != 'chain-speck-builder' ]] && VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+
           release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
@@ -234,7 +231,11 @@ jobs:
           RELEASE_TAG: ${{ steps.fetch_rc_refs.outputs.release || steps.fetch_release_refs.outputs.release  }}
         run: |
           echo "Checking tag ${RELEASE_TAG} for image ${REGISTRY}/${DOCKER_OWNER}/${BINARY}"
-          $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG} --version
+          if [[ ${BINARY} == 'chain-spec-builder' ]]; then
+            $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG}
+          else
+            $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG} --version
+          fi
 
   fetch-latest-debian-package-version: # this job will be triggered for polkadot release build
     if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
