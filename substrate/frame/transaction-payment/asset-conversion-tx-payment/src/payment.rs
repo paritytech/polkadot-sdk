@@ -218,7 +218,7 @@ where
 				// No refund given.
 				(initial_asset_consumed, fee_paid)
 			} else {
-				let (refund, fee_paid) = fee_paid.split(refund_amount);
+				let (refund, adjusted_paid) = fee_paid.split(refund_amount);
 				match S::swap_exact_tokens_for_tokens(
 					vec![A::get(), asset_id],
 					refund,
@@ -236,7 +236,7 @@ where
 						};
 						(
 							initial_asset_consumed.saturating_sub(refund_asset_amount.into()),
-							fee_paid,
+							adjusted_paid,
 						)
 					},
 					// The error should not occur since swap was quoted before.
@@ -250,12 +250,12 @@ where
 								return Err(InvalidTransaction::Payment.into())
 							},
 						};
-						let fee_paid = fee_paid.merge(refund).map_err(|_| {
-							// The error should never occur since `fee_paid` and `refund` are
+						let adjusted_paid = adjusted_paid.merge(refund).map_err(|_| {
+							// The error should never occur since `adjusted_paid` and `refund` are
 							// credits of the same asset.
 							InvalidTransaction::Payment
 						})?;
-						(initial_asset_consumed, fee_paid)
+						(initial_asset_consumed, adjusted_paid)
 					},
 				}
 			}
