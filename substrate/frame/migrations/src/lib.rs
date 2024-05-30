@@ -159,7 +159,6 @@ use frame_support::{
 	defensive, defensive_assert,
 	migrations::*,
 	pallet_prelude::*,
-	storage_alias,
 	traits::Get,
 	weights::{Weight, WeightMeter},
 	BoundedVec,
@@ -280,8 +279,10 @@ pub trait MockedMigrations: SteppedMigrations {
 
 #[cfg(feature = "try-runtime")]
 /// Wrapper for pre-upgrade bytes, allowing us to impl MEL on it.
+///
+/// For `try-runtime` testing only.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, Default)]
-pub struct PreUpgradeBytesWrapper(pub Vec<u8>);
+struct PreUpgradeBytesWrapper(pub Vec<u8>);
 
 #[cfg(feature = "try-runtime")]
 impl MaxEncodedLen for PreUpgradeBytesWrapper {
@@ -294,7 +295,7 @@ impl MaxEncodedLen for PreUpgradeBytesWrapper {
 ///
 /// Define this outside of the pallet so it is not confused with actual storage.
 #[cfg(feature = "try-runtime")]
-#[storage_alias]
+#[frame_support::storage_alias]
 type PreUpgradeBytes<T: Config> =
 	StorageMap<Pallet<T>, Twox64Concat, IdentifierOf<T>, PreUpgradeBytesWrapper, ValueQuery>;
 
