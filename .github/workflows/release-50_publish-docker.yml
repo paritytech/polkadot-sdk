@@ -112,7 +112,7 @@ jobs:
         if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary == 'chain-spec-builder' }}
         run: |
           . ./.github/scripts/common/lib.sh
-
+          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
           fetch_release_artifacts
 
       - name: Cache the artifacts
