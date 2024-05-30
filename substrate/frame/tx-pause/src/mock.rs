@@ -27,7 +27,6 @@ use frame_support::{
 	traits::{ConstU64, Everything, InsideBoth, InstanceFilter},
 };
 use frame_system::EnsureSignedBy;
-use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,

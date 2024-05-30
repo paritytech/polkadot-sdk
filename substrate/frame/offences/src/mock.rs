@@ -27,9 +27,8 @@ use frame_support::{
 	traits::ConstU32,
 	weights::{constants::RocksDbWeight, Weight},
 };
-use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{IdentityLookup},
 	BuildStorage, Perbill,
 };
 use sp_staking::{

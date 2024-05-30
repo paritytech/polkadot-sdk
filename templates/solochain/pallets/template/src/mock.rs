@@ -1,8 +1,7 @@
 use crate as pallet_template;
-use frame_support::{derive_impl, traits::ConstU16};
-use sp_core::H256;
+use frame_support::{derive_impl};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{IdentityLookup},
 	BuildStorage,
 };
 

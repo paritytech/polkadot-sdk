@@ -18,14 +18,13 @@
 use super::*;
 use crate as pallet_transaction_payment;
 
-use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
+use sp_runtime::traits::{IdentityLookup};
 
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{fungible, ConstU32, ConstU64, Imbalance, OnUnbalanced},
+	traits::{fungible, ConstU64, Imbalance, OnUnbalanced},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use frame_system as system;

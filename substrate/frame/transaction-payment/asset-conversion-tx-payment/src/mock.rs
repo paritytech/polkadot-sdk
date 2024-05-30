@@ -31,16 +31,15 @@ use frame_support::{
 		},
 		AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced,
 	},
-	weights::{constants::RocksDbWeight, Weight, WeightToFee as WeightToFeeT},
+	weights::{Weight, WeightToFee as WeightToFeeT},
 	PalletId,
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
 use pallet_transaction_payment::FungibleAdapter;
-use sp_core::H256;
 use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, SaturatedConversion},
+	traits::{AccountIdConversion, IdentityLookup, SaturatedConversion},
 	Permill,
 };
 
