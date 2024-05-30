@@ -213,6 +213,7 @@ fetch_release_artifacts() {
     https://api.github.com/repos/${REPO}/releases/${RELEASE_ID} > release.json
 
   echo "Extract asset ids..."
+  cat release.json
   ids=($(jq -r '.assets[].id' < release.json ))
   echo "Extract asset count..."
   count=$(jq '.assets|length' < release.json )
