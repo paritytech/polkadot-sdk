@@ -869,7 +869,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	) -> Result<u32, TrapReason> {
 		let charged = self.charge_gas(RuntimeCosts::ContainsStorage(self.ext.max_value_size()))?;
 		let key = self.decode_key(memory, key_type, key_ptr)?;
-		let outcome = self.ext.get_storage_size(&key);
+		let outcome = self.ext.get_transient_storage_size(&key);
 
 		self.adjust_gas(charged, RuntimeCosts::ClearStorage(outcome.unwrap_or(0)));
 		Ok(outcome.unwrap_or(SENTINEL))
@@ -1155,6 +1155,78 @@ pub mod env {
 		);
 		let key = ctx.read_sandbox_memory(memory, key_ptr, key_len)?;
 		if let crate::storage::WriteOutcome::Taken(value) = ctx.ext.set_storage(
+			&Key::<E::T>::try_from_var(key).map_err(|_| Error::<E::T>::DecodingFailed)?,
+			None,
+			true,
+		)? {
+			ctx.adjust_gas(charged, RuntimeCosts::TakeStorage(value.len() as u32));
+			ctx.write_sandbox_output(memory, out_ptr, out_len_ptr, &value, false, already_charged)?;
+			Ok(ReturnErrorCode::Success)
+		} else {
+			ctx.adjust_gas(charged, RuntimeCosts::TakeStorage(0));
+			Ok(ReturnErrorCode::KeyNotFound)
+		}
+	}
+
+ 	/// Set the value at the given key in the contract transient storage.
+	#[prefixed_alias]
+	#[unstable]
+	fn set_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		key_len: u32,
+		value_ptr: u32,
+		value_len: u32,
+	) -> Result<u32, TrapReason> {
+		ctx.set_transient_storage(memory, KeyType::Var(key_len), key_ptr, value_ptr, value_len)
+	}
+
+	/// Clear the value at the given key in the contract storage.
+	#[prefixed_alias]
+	#[unstable]
+	fn clear_transient_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
+		ctx.clear_transient_storage(memory, KeyType::Var(key_len), key_ptr)
+	}
+
+	/// Retrieve the value under the given key from transient storage.
+	#[prefixed_alias]
+	#[unstable]
+	fn get_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		ctx.get_transient_storage(memory, KeyType::Fix, key_ptr, out_ptr, out_len_ptr)
+	}
+
+	/// Checks whether there is a value stored under the given key in transient storage.
+	#[prefixed_alias]
+	#[unstable]
+	fn contains_transient_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
+		ctx.contains_transient_storage(memory, KeyType::Var(key_len), key_ptr)
+	}
+
+	/// Retrieve and remove the value under the given key from transient storage.
+	#[prefixed_alias]
+	#[unstable]
+	fn take_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		key_len: u32,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let charged = ctx.charge_gas(RuntimeCosts::TakeStorage(ctx.ext.max_value_size()))?;
+		ensure!(
+			key_len <= <<E as Ext>::T as Config>::MaxStorageKeyLen::get(),
+			Error::<E::T>::DecodingFailed
+		);
+		let key = ctx.read_sandbox_memory(memory, key_ptr, key_len)?;
+		if let crate::storage::WriteOutcome::Taken(value) = ctx.ext.set_transient_storage(
 			&Key::<E::T>::try_from_var(key).map_err(|_| Error::<E::T>::DecodingFailed)?,
 			None,
 			true,

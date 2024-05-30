@@ -27,76 +27,58 @@ use crate::{
 use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
+type MeterEntries = Vec<MeterEntry>;
 type Value = Vec<u8>;
 type StorageKey = Vec<u8>;
-type State<T> = BTreeMap<AccountIdOf<T>, Storage<T>>;
-type MeterEntries = Vec<MeterEntry>;
+type State<T> = BTreeMap<AccountIdOf<T>, Storage>;
+type Checkpoints = Vec<usize>;
+type Storage = BTreeMap<StorageKey, Value>;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct MeterEntry {
-	// Allocation commited by subsequent frames.
-	nested: Diff,
-	// Current allocation made by frame.
-	current: Diff,
+	// Allocation commited from subsequent frames.
+	pub nested: u32,
+	// Allocation made in current frame.
+	pub current: u32,
 }
 
-// impl MeterEntry {
-// 	fn saturating_add(&self, rhs: &Self) -> Self {
-// 		Self {
-// 			bytes_added: self.bytes_added.saturating_add(rhs.bytes_added),
-// 			bytes_removed: self.bytes_removed.saturating_add(rhs.bytes_removed),
-// 		}
-// 	}
-// }
+impl MeterEntry {
+	pub fn sum(&self) -> u32 {
+		self.current.saturating_add(self.nested)
+	}
 
-
-/// This type is used to describe a storage change when charging from the meter.
-#[derive(Default)]
-pub struct Diff {
-	/// How many bytes were added to storage.
-	pub bytes_added: u32,
-	/// How many bytes were removed from storage.
-	pub bytes_removed: u32,
-}
-
-impl Diff {
-	fn saturating_add(&self, rhs: &Self) -> Self {
-		Self {
-			bytes_added: self.bytes_added.saturating_add(rhs.bytes_added),
-			bytes_removed: self.bytes_removed.saturating_add(rhs.bytes_removed),
-		}
+	pub fn absorb(&mut self, rhs: Self) {
+		self.nested = self.nested.saturating_add(rhs.sum())
 	}
 }
 
-/// Storage meter enforces the limit for each frame and total limit for transaction.
+/// Storage meter enforces the limit for each transaction and total limit for transaction.
 /// It tracks journal and storage allocation.
 struct StorageMeter<T: Config> {
 	limit: u32,
 	frame_limit: u32,
 	nested: MeterEntries,
-	_phantom: PhantomData<T>
+	_phantom: PhantomData<T>,
 }
 
-impl <T: Config> StorageMeter<T> {
-
-	pub fn new(limit: u32) -> Self {
-		Self {
-			limit,
-			frame_limit: 256,
-			nested: vec![Default::default()],
-			_phantom: Default::default()
-		}
+impl<T: Config> StorageMeter<T> {
+	pub fn new(limit: u32, frame_limit: u32) -> Self {
+		Self { limit, frame_limit, nested: Default::default(), _phantom: Default::default() }
 	}
 
-	fn charge(&mut self, amount: Diff) -> DispatchResult {
-		let total: usize = self.nested.iter().sum();
-		if let Some(nested_meter) = self.nested.last_mut() {
-			let current = nested_meter.saturating_add(amount);
-			if current > self.frame_limit as _ || total > self.limit as _ {
-				return Err(Error::<T>::OutOfStorage.into());
-			}
-			*nested_meter = current;
+	pub fn charge(&mut self, amount: u32) -> DispatchResult {
+		let total: u32 = self
+			.nested
+			.iter()
+			.map(|e: &MeterEntry| e.sum())
+			.fold(0, |acc, e| acc.saturating_add(e));
+		let nested_meter = self.nested.last_mut().expect("Metering is not started.");
+		let current = nested_meter.current.saturating_add(amount);
+		if current > self.frame_limit || total.saturating_add(amount) > self.limit {
+			return Err(Error::<T>::OutOfStorage.into());
 		}
+		nested_meter.current = current;
+
 		Ok(())
 	}
 
@@ -104,17 +86,14 @@ impl <T: Config> StorageMeter<T> {
 		self.nested.pop();
 	}
 
-	fn start(&mut self) {
+	pub fn start(&mut self) {
 		self.nested.push(Default::default());
 	}
 
-	fn commit(&mut self) {
-		if let Some(amount) = self.nested.pop()
-		{
-			if let Some(nested_meter) = self.nested.last_mut() {
-
-			let total: usize = self.nested.iter().sum();
-			}
+	pub fn commit(&mut self) {
+		let last_meter = self.nested.pop().expect("There is no meter that can be committed.");
+		if let Some(prev_meter) = self.nested.last_mut() {
+			prev_meter.absorb(last_meter);
 		}
 	}
 }
@@ -125,13 +104,9 @@ struct JournalEntry<T: Config> {
 	prev_value: Option<Value>,
 }
 
-impl <T: Config> JournalEntry<T> {
+impl<T: Config> JournalEntry<T> {
 	pub fn new(account: AccountIdOf<T>, key: StorageKey, prev_value: Option<Value>) -> Self {
-		Self{
-			account,
-			key,
-			prev_value,
-		}
+		Self { account, key, prev_value }
 	}
 
 	pub fn revert(self, storage: &mut State<T>) {
@@ -145,9 +120,9 @@ impl <T: Config> JournalEntry<T> {
 	}
 }
 
-struct Journal<T: Config> (Vec<JournalEntry<T>>);
+struct Journal<T: Config>(Vec<JournalEntry<T>>);
 
-impl <T: Config> Journal<T> {
+impl<T: Config> Journal<T> {
 	pub fn new() -> Self {
 		Self(Default::default())
 	}
@@ -161,50 +136,7 @@ impl <T: Config> Journal<T> {
 	}
 
 	pub fn rollback(&mut self, storage: &mut State<T>, checkpoint: usize) {
-		self.0
-        .drain(checkpoint..)
-        .rev()
-        .for_each(|entry| entry.revert(storage));
-	}
-}
-
-type Checkpoints = Vec<usize>;
-struct Storage<T: Config> {
-	data: BTreeMap<StorageKey, Value>,
-	_phantom: PhantomData<T>,
-}
-
-impl<T: Config> Storage<T> {
-	pub fn new(max_size: usize) -> Self {
-		Self { data: Default::default(), _phantom: Default::default() }
-	}
-
-	pub fn get(&self, key: &StorageKey) -> Option<&Value> {
-		self.data.get(key)
-	}
-
-	pub fn try_insert(
-		&mut self,
-		key: StorageKey,
-		value: Value,
-		meter: &mut StorageMeter<T>,
-	) -> DispatchResult {
-		let new_value_size = value.len();
-		meter.charge(new_value_size)?;
-		self.data.insert(key, value);
-		Ok(())
-	}
-
-	pub fn insert(
-		&mut self,
-		key: StorageKey,
-		value: Value,
-	) {
-		self.data.insert(key, value);
-	}
-
-	pub fn remove(&mut self, key: &StorageKey) {
-		self.data.remove(key);
+		self.0.drain(checkpoint..).rev().for_each(|entry| entry.revert(storage));
 	}
 }
 
@@ -217,19 +149,19 @@ pub struct TransientStorage<T: Config> {
 }
 
 impl<T: Config> TransientStorage<T> {
-	pub fn new(max_size: u32) -> Self {
+	pub fn new(limit: u32, frame_limit: u32) -> Self {
 		TransientStorage {
 			current: Default::default(),
 			journal: Journal::new(),
 			checkpoints: vec![],
-			meter: StorageMeter::new(max_size)
+			meter: StorageMeter::new(limit, frame_limit),
 		}
 	}
 
 	pub fn read(&self, account: &AccountIdOf<T>, key: &Key<T>) -> Option<Value> {
 		self.current
 			.get(account)
-			.and_then(|contract| contract.data.get(&key.hash()))
+			.and_then(|contract| contract.get(&key.hash()))
 			.cloned()
 	}
 
@@ -244,28 +176,7 @@ impl<T: Config> TransientStorage<T> {
 		// Skip if the same value is being set.
 		if old_value != value {
 			let key: Vec<u8> = key.hash();
-			// Update the current state.
-			if let Some(value) = value {
-				// Insert storage value.
-				self.current
-					.entry(account.clone())
-					.or_insert_with(|| Storage::new(256))
-					.try_insert(key.clone(), value, &mut self.meter)?;
-			} else {
-				// Remove storage entry.
-				self.current.entry(account.clone()).and_modify(|contract| {
-					{
-						contract.remove(&key);
-					};
-				});
-			}
-
-			// Update the journal.
-			self.journal.push(JournalEntry::new(
-				account.clone(),
-				key,
-				old_value.clone()
-			));
+			self.write_internal(account, key, value)?;
 		}
 
 		Ok(match (take, old_value) {
@@ -273,6 +184,18 @@ impl<T: Config> TransientStorage<T> {
 			(false, Some(old_value)) => WriteOutcome::Overwritten(old_value.len() as _),
 			(true, Some(old_value)) => WriteOutcome::Taken(old_value),
 		})
+	}
+
+	pub fn terminate(&mut self, account: &AccountIdOf<T>)-> DispatchResult {
+		// Remove all account entries.
+		if let Some(contract) = self.current.get(account) {
+			let keys: Vec<_> = contract.keys().cloned().collect();
+			// Delete each key using the write function
+			for key in keys {
+				self.write_internal(account, key, None)?;
+			}
+		}
+		Ok(())
 	}
 
 	pub fn commit_transaction(&mut self) {
@@ -283,8 +206,8 @@ impl<T: Config> TransientStorage<T> {
 	}
 
 	pub fn start_transaction(&mut self) {
+		self.meter.start();
 		self.checkpoints.push(self.journal.len());
-		self.meter.start()
 	}
 
 	pub fn rollback_transaction(&mut self) {
@@ -294,11 +217,44 @@ impl<T: Config> TransientStorage<T> {
 			.expect("No open transient storage transaction that can be rolled back.");
 		self.meter.revert();
 		self.journal.rollback(&mut self.current, checkpoint);
-
 	}
 
-	pub fn terminate(&mut self, account: &AccountIdOf<T>) {
+	fn write_internal(
+		&mut self,
+		account: &AccountIdOf<T>,
+		key: StorageKey,
+		value: Option<Value>,
+	) -> DispatchResult {
+		// Update the current state.
+		let mut old_value = None;
+		if let Some(value) = value {
+			// Insert storage entry.
+			self.meter.charge(value.len() as _)?;
+			old_value = self.current
+				.entry(account.clone())
+				.or_default()
+				.insert(key.clone(), value);
+		} else {
+			// Remove storage entry.
+			let mut remove_account = false;
+			self.current.entry(account.clone()).and_modify(|contract| {
+				{
+					old_value = contract.remove(&key);
+					if contract.is_empty() {
+						// If the contract is empty, remove the account entry from the current state
+						remove_account = true;
+					}
+				};
+			});
+			// All entries for the account have been removed, so remove the account
+			if remove_account {
+				self.current.remove(&account);
+			}
+		}
 
+		// Update the journal.
+		self.journal.push(JournalEntry::new(account.clone(), key, old_value.clone()));
+		Ok(())
 	}
 }
 
@@ -309,7 +265,7 @@ mod tests {
 
 	#[test]
 	fn rollback_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(256);
+		let mut storage = TransientStorage::<Test>::new(256, 256);
 		storage.start_transaction();
 		storage.rollback_transaction();
 
@@ -324,7 +280,7 @@ mod tests {
 
 	#[test]
 	fn commit_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(256);
+		let mut storage = TransientStorage::<Test>::new(256, 256);
 		storage.start_transaction();
 		storage.commit_transaction();
 
@@ -339,7 +295,7 @@ mod tests {
 
 	#[test]
 	fn overwrite_and_commmit_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(256);
+		let mut storage = TransientStorage::<Test>::new(256, 256);
 		storage.start_transaction();
 		storage.commit_transaction();
 
@@ -360,7 +316,7 @@ mod tests {
 
 	#[test]
 	fn rollback_in_nested_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(256);
+		let mut storage = TransientStorage::<Test>::new(256, 256);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
@@ -379,7 +335,7 @@ mod tests {
 
 	#[test]
 	fn commit_in_nested_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(2);
+		let mut storage = TransientStorage::<Test>::new(256, 256);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
@@ -401,6 +357,5 @@ mod tests {
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]));
 		assert_eq!(storage.read(&BOB, &Key::Fix([1; 32])), Some(vec![2]));
 		assert_eq!(storage.read(&CHARLIE, &Key::Fix([1; 32])), Some(vec![3]));
-
 	}
 }

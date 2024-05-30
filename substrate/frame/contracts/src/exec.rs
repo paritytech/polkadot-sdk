@@ -819,7 +819,10 @@ where
 			frames: Default::default(),
 			debug_message,
 			determinism,
-			transient_storage: TransientStorage::new(T::Schedule::get().limits.transient_storage),
+			//transient_storage: TransientStorage::new(T::Schedule::get().limits.transient_storage,
+			// 256),
+			transient_storage: TransientStorage::new(728, 256),
+
 			_phantom: Default::default(),
 		};
 
@@ -1349,24 +1352,27 @@ where
 			return Err(Error::<T>::TerminatedWhileReentrant.into())
 		}
 		let frame = self.top_frame_mut();
+		let account_id = frame.account_id.clone();
 		let info = frame.terminate();
 		frame.nested_storage.terminate(&info, beneficiary.clone());
 
 		info.queue_trie_for_deletion();
-		ContractInfoOf::<T>::remove(&frame.account_id);
+		ContractInfoOf::<T>::remove(&account_id);
 		Self::decrement_refcount(info.code_hash);
 
 		for (code_hash, deposit) in info.delegate_dependencies() {
 			Self::decrement_refcount(*code_hash);
 			frame
 				.nested_storage
-				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
+				.charge_deposit(account_id.clone(), StorageDeposit::Refund(*deposit));
 		}
 
+		self.transient_storage.terminate(&account_id)?;
 		Contracts::<T>::deposit_event(Event::Terminated {
-			contract: frame.account_id.clone(),
+			contract: account_id,
 			beneficiary: beneficiary.clone(),
 		});
+
 		Ok(())
 	}
 
