@@ -193,7 +193,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
-	type PriceAdapter = Linear;
+	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 }
 
 pub fn advance_to(b: u64) {
@@ -247,6 +247,10 @@ pub struct TestExt(ConfigRecordOf<Test>);
 impl TestExt {
 	pub fn new() -> Self {
 		Self(new_config())
+	}
+
+	pub fn new_with_config(config: ConfigRecordOf<Test>) -> Self {
+		Self(config)
 	}
 
 	pub fn advance_notice(mut self, advance_notice: Timeslice) -> Self {
