@@ -29,17 +29,20 @@ mod benchmarks {
 	use assigner_coretime::PartsOf57600;
 
 	#[benchmark]
-	fn request_revenue_info_at() {
-		//TODO: write actual benchmark
-		// Setup
+	fn request_revenue_at() {
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
+		let mhr = <T as assigner_on_demand::Config>::MaxHistoricalRevenue::get();
+		frame_system::Pallet::<T>::set_block_number((mhr + 2).into());
+		let rev: BoundedVec<
+			<<T as assigner_on_demand::Config>::Currency as frame_support::traits::Currency<
+				T::AccountId,
+			>>::Balance,
+			T::MaxHistoricalRevenue,
+		> = BoundedVec::try_from((1..=mhr).map(|v| v.into()).collect::<Vec<_>>()).unwrap();
+		assigner_on_demand::Revenue::<T>::put(rev);
 
 		#[extrinsic_call]
-		_(
-			root_origin as <T as frame_system::Config>::RuntimeOrigin,
-			// TODO: Better when param
-			100u32,
-		)
+		_(root_origin as <T as frame_system::Config>::RuntimeOrigin, mhr + 1)
 	}
 
 	#[benchmark]

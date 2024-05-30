@@ -284,10 +284,10 @@ impl<T: Config> Pallet<T> {
 		ensure!(when_bnf <= now, Error::<T>::RequestedFutureRevenue);
 
 		let revenue = <assigner_on_demand::Pallet<T>>::revenue_until(when_bnf);
-		log::info!(target: LOG_TARGET, "Revenue info requested: {:?}", revenue);
+		log::debug!(target: LOG_TARGET, "Revenue info requested: {:?}", revenue);
 		match TryInto::<Balance>::try_into(revenue) {
 			Ok(raw_revenue) => {
-				log::info!(target: LOG_TARGET, "Revenue into balance success: {:?}", raw_revenue);
+				log::trace!(target: LOG_TARGET, "Revenue into balance success: {:?}", raw_revenue);
 				let message = Xcm(vec![
 					Instruction::UnpaidExecution {
 						weight_limit: WeightLimit::Unlimited,
@@ -299,8 +299,7 @@ impl<T: Config> Pallet<T> {
 					Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
 					message,
 				) {
-					log::error!(target: LOG_TARGET, "Sending `NotifyRevenue` to coretime chain failed: {:?}",
-		 err);
+					log::error!(target: LOG_TARGET, "Sending `NotifyRevenue` to coretime chain failed: {:?}", err);
 				}
 			},
 			Err(_err) => {
