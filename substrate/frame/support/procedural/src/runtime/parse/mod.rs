@@ -155,8 +155,6 @@ impl Def {
 			let mut pallet_item = None;
 			let mut pallet_index = None;
 
-			let mut is_item_runtime_struct = false;
-
 			let mut disable_call = false;
 			let mut disable_unsigned = false;
 
@@ -167,7 +165,6 @@ impl Def {
 					RuntimeAttr::Runtime(span) if runtime_struct.is_none() => {
 						let p = runtime_struct::RuntimeStructDef::try_from(span, item)?;
 						runtime_struct = Some(p);
-						is_item_runtime_struct = true;
 					},
 					RuntimeAttr::Derive(_, types) if runtime_types.is_none() => {
 						runtime_types = Some(types);
@@ -190,9 +187,11 @@ impl Def {
 				}
 			}
 
-			if !is_item_runtime_struct && pallet_index.is_none() {
-				let msg = "Missing pallet index for pallet declaration. Please add `#[runtime::pallet_index(...)]`";
-				return Err(syn::Error::new(item.span(), &msg))
+			if pallet_index.is_none() {
+				if let syn::Item::Type(item) = item {
+					let msg = "Missing pallet index for pallet declaration. Please add `#[runtime::pallet_index(...)]`";
+					return Err(syn::Error::new(item.span(), &msg))
+				}
 			}
 
 			if let Some(pallet_item) = pallet_item {
