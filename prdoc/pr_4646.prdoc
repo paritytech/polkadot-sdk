@@ -17,4 +17,4 @@ doc:
 
 crates:
   - name: pallet-identity
-    bump: minor
+    bump: major
