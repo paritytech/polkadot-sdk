@@ -87,8 +87,8 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 		// do as much progress as possible per step.
 		while meter.try_consume(required).is_ok() {
 			let new_cursor = match cursor {
-				None | Some((None, Processing::Nominators)) => {
-					// start processing nominators, start from the first.
+				None => {
+					// start processing first nominator.
 					if let Some((nominator, nominations)) = Nominators::<T>::iter().next() {
 						Self::process_nominator(&nominator, nominations)?;
 						Some((Some(nominator), Processing::Nominators))
@@ -96,30 +96,30 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 						Some((None, Processing::Validators))
 					}
 				},
-				Some((Some(ref last_nom), Processing::Nominators)) => {
-					// proceed with nominators.
-					let mut iter =
-						Nominators::<T>::iter_from(Nominators::<T>::hashed_key_for(last_nom));
+				Some((maybe_nominator, Processing::Nominators)) => {
+					let mut iter = if let Some(last_nominator) = maybe_nominator {
+						Nominators::<T>::iter_from(Nominators::<T>::hashed_key_for(last_nominator))
+					} else {
+						Nominators::<T>::iter()
+					};
 
 					if let Some((nominator, nominations)) = iter.next() {
 						Self::process_nominator(&nominator, nominations)?;
 						Some((Some(nominator), Processing::Nominators))
 					} else {
+						// no more nominators to process, go to next phase.
 						Some((None, Processing::Validators))
 					}
 				},
-				Some((None, Processing::Validators)) => {
-					// nominators have been all processed, start processing validators.
-					if let Some((validator, _)) = Validators::<T>::iter().next() {
-						Self::process_validator(&validator);
-						Some((Some(validator), Processing::Validators))
+				Some((maybe_validator, Processing::Validators)) => {
+					// process validator.
+					let mut iter = if let Some(last_validator) = maybe_validator {
+						Validators::<T>::iter_from(Validators::<T>::hashed_key_for(last_validator))
 					} else {
-						Some((None, Processing::Done))
-					}
-				},
-				Some((Some(ref last_val), Processing::Validators)) => {
-					let mut iter =
-						Validators::<T>::iter_from(Validators::<T>::hashed_key_for(last_val));
+						Validators::<T>::iter()
+					};
+
+					// nominators have been all processed, start processing validators.
 					if let Some((validator, _)) = iter.next() {
 						Self::process_validator(&validator);
 						Some((Some(validator), Processing::Validators))
