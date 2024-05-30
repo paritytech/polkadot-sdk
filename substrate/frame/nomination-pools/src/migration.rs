@@ -135,7 +135,7 @@ pub mod unversioned {
 				let pool_acc = Pallet::<T>::generate_bonded_account(id);
 
 				// only migrate if the pool is in Transfer Strategy.
-				if T::StakeAdapter::pool_strategy(PoolAccount(pool_acc)) ==
+				if T::StakeAdapter::pool_strategy(Pool(pool_acc)) ==
 					adapter::StakeStrategyType::Transfer
 				{
 					let _ = Pallet::<T>::migrate_to_delegate_stake(id).map_err(|err| {
@@ -182,7 +182,7 @@ pub mod unversioned {
 
 				// we ensure migration is idempotent.
 				let pool_balance =
-					T::StakeAdapter::total_balance(PoolAccount(pool_account.clone()))
+					T::StakeAdapter::total_balance(Pool(pool_account.clone()))
 						// we check actual account balance if pool has not migrated yet.
 						.unwrap_or(T::Currency::total_balance(&pool_account));
 
@@ -200,7 +200,7 @@ pub mod unversioned {
 				BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).enumerate()
 			{
 				let pool_account = Pallet::<T>::generate_bonded_account(id);
-				if T::StakeAdapter::pool_strategy(PoolAccount(pool_account.clone())) ==
+				if T::StakeAdapter::pool_strategy(Pool(pool_account.clone())) ==
 					adapter::StakeStrategyType::Transfer
 				{
 					log!(error, "Pool {} failed to migrate", id,);
@@ -208,7 +208,7 @@ pub mod unversioned {
 				}
 
 				let actual_balance =
-					T::StakeAdapter::total_balance(PoolAccount(pool_account.clone()))
+					T::StakeAdapter::total_balance(Pool(pool_account.clone()))
 						.expect("after migration, this should return a value");
 				let expected_balance = expected_pool_balances.get(index).unwrap();
 
@@ -1156,7 +1156,7 @@ mod helpers {
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
 		BondedPools::<T>::iter_keys()
 			.map(|id| {
-				T::StakeAdapter::total_stake(PoolAccount(Pallet::<T>::generate_bonded_account(id)))
+				T::StakeAdapter::total_stake(Pool(Pallet::<T>::generate_bonded_account(id)))
 			})
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()

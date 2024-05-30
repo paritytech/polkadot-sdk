@@ -463,7 +463,9 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
-/// `Agent` newtype for accounts that receives delegated funds from [`Delegator`] accounts. It can
+/// A type that belongs only in the context of an `Agent`.
+///
+/// `Agent` is someone that manages delegated funds from [`Delegator`] accounts. It can
 /// then use these funds to participate in the staking system. It can never use its own funds to
 /// stake. They instead (virtually bond)[`StakingUnchecked::virtual_bond`] into the staking system
 /// and are also called `Virtual Stakers`.
@@ -471,24 +473,32 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 /// The `Agent` is also responsible for managing rewards and slashing for all the `Delegators` that
 /// have delegated funds to it.
 #[derive(Clone, Debug)]
-pub struct Agent<AccountId>(pub AccountId);
-impl<T> Agent<T> {
-	pub fn from(acc: T) -> Self {
+pub struct Agent<T>(pub T);
+impl<T> From<T> for Agent<T> {
+	fn from(acc: T) -> Self {
 		Agent(acc)
 	}
+}
+
+impl<T> Agent<T> {
 	pub fn get(self) -> T {
 		self.0
 	}
 }
 
-/// `Delegator` newtype for accounts that delegates funds to an `Agent`, allowing them to pool funds
+/// A type that belongs only in the context of a `Delegator`.
+///
+/// `Delegator` is someone that delegates funds to an `Agent`, allowing them to pool funds
 /// along with other delegators and participate in the staking system.
 #[derive(Clone, Debug)]
-pub struct Delegator<AccountId>(pub AccountId);
-impl<T> Delegator<T> {
-	pub fn from(acc: T) -> Self {
+pub struct Delegator<T>(pub T);
+impl<T> From<T> for Delegator<T> {
+	fn from(acc: T) -> Self {
 		Delegator(acc)
 	}
+}
+
+impl<T> Delegator<T> {
 	pub fn get(self) -> T {
 		self.0
 	}
