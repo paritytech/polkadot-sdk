@@ -54,10 +54,6 @@ fn new_config_record<T: Config>() -> ConfigRecordOf<T> {
 	}
 }
 
-fn new_revenue<T: Config>() -> OnDemandRevenueRecordOf<T> {
-	OnDemandRevenueRecord { until: 2u32.into(), amount: 10u32.into() }
-}
-
 fn new_schedule() -> Schedule {
 	// Max items for worst case
 	let mut items = Vec::new();
@@ -116,6 +112,10 @@ fn setup_and_start_sale<T: Config>() -> Result<u16, BenchmarkError> {
 mod benches {
 	use super::*;
 	use crate::Finality::*;
+
+	fn new_revenue<T: Config>() -> OnDemandRevenueRecordOf<T> {
+		OnDemandRevenueRecord { until: 2u32.into(), amount: 10u32.into() }
+	}
 
 	#[benchmark]
 	fn configure() -> Result<(), BenchmarkError> {
