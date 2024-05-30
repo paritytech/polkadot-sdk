@@ -623,17 +623,17 @@ mod benchmarks {
 
 		let username = bench_username();
 		let bounded_username = bounded_username::<T>(username.clone(), suffix.clone());
-		let encoded_username = Encode::encode(&bounded_username.to_vec());
 
 		let public = sr25519_generate(0.into(), None);
 		let who_account: T::AccountId = MultiSigner::Sr25519(public).into_account().into();
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
 
-		let signature =
-			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &encoded_username).unwrap());
+		let signature = MultiSignature::Sr25519(
+			sr25519_sign(0.into(), &public, &bounded_username[..]).unwrap(),
+		);
 
 		// Verify signature here to avoid surprise errors at runtime
-		assert!(signature.verify(&encoded_username[..], &public.into()));
+		assert!(signature.verify(&bounded_username[..], &public.into()));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(authority.clone()), who_lookup, username, Some(signature.into()));
