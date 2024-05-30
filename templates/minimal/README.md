@@ -58,10 +58,9 @@ network](https://docs.substrate.io/tutorials/build-a-blockchain/simulate-network
 
 ### Connect with the Polkadot-JS Apps Front-End
 
-🌐 After you start the node template locally, you can interact with it using the
+🌐 You can interact with your local node using the
 hosted version of the [Polkadot/Substrate
-Portal](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944)
-front-end by connecting to the local node endpoint.
+Portal](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944).
 
 🪐 A hosted version is also
 available on [IPFS](https://dotapps.io/).
