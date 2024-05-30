@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717023834076,
+  "lastUpdate": 1717068211380,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -9827,6 +9827,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.23331318046666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jeeyong Um",
+            "username": "conr2d",
+            "email": "conr2d@proton.me"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d539778c3cc4e0376769472fdad37856f4051dc5",
+          "message": "Fix broken windows build (#4636)\n\nFixes #4625.\n\nSpecifically, the `cfg` attribute `windows` refers to the compile target\nand not the build environment, and in the case of cross-compilation, the\nbuild environment and target can differ. However, the line modified is\nrelated to documentation generation, so there should be no critical\nissue with this change.",
+          "timestamp": "2024-05-30T10:44:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d539778c3cc4e0376769472fdad37856f4051dc5"
+        },
+        "date": 1717068183537,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.96428641893333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19988337846666665,
             "unit": "seconds"
           }
         ]
