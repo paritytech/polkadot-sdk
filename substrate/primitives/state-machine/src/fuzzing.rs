@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! state machine fuzzing implementation, behind `fuzzing` feature.
+//! State machine fuzzing implementation, behind `fuzzing` feature.
+
 use super::{ext::Ext, *};
 use crate::ext::StorageAppend;
 use arbitrary::Arbitrary;
