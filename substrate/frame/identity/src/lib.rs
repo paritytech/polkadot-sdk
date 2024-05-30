@@ -1271,7 +1271,7 @@ impl<T: Config> Pallet<T> {
 		signer: &T::AccountId,
 	) -> DispatchResult {
 		// Happy path, user has signed the raw data.
-		if signature.verify(&data[..], &signer) {
+		if signature.verify(data, &signer) {
 			return Ok(())
 		}
 		// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into
